@@ -1,0 +1,51 @@
+﻿<Application x:Class="Configuration_Management.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Configuration_Management"
+             xmlns:conv="clr-namespace:Configuration_Management.Converters"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/LightTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <conv:ClientTypeToIconConverter x:Key="ClientTypeToIconConverter"/>
+            <conv:ConnectionTypeToIconConverter x:Key="ConnectionTypeToIconConverter"/>
+            <conv:NullToBoolConverter x:Key="NullToBoolConverter"/>
+            <conv:GroupTextColorConverter x:Key="GroupTextColorConverter"/>
+
+            <!-- ===================== Иконка приложения ===================== -->
+            <DrawingImage x:Key="AppIcon">
+                <DrawingImage.Drawing>
+                    <DrawingGroup>
+                        <!-- Фон: скруглённый квадрат -->
+                        <GeometryDrawing Brush="#2563EB">
+                            <GeometryDrawing.Geometry>
+                                <RectangleGeometry Rect="0,0,32,32" RadiusX="6" RadiusY="6"/>
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                        <!-- База данных (цилиндр) -->
+                        <GeometryDrawing Brush="#FFFFFF">
+                            <GeometryDrawing.Geometry>
+                                <GeometryGroup>
+                                    <EllipseGeometry Center="16,9" RadiusX="8" RadiusY="3"/>
+                                    <RectangleGeometry Rect="8,9,16,10"/>
+                                    <PathGeometry Figures="M 8 9 A 8 3 0 0 0 24 9 L 24 19 A 8 3 0 0 1 8 19 Z"/>
+                                </GeometryGroup>
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                        <!-- Шестерёнка поверх базы -->
+                        <GeometryDrawing Brush="#FBBF24">
+                            <GeometryDrawing.Geometry>
+                                <GeometryGroup>
+                                    <EllipseGeometry Center="16,16" RadiusX="5" RadiusY="5"/>
+                                    <EllipseGeometry Center="16,16" RadiusX="2.2" RadiusY="2.2"/>
+                                </GeometryGroup>
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                    </DrawingGroup>
+                </DrawingImage.Drawing>
+            </DrawingImage>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

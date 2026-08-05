@@ -1,0 +1,19 @@
+namespace Configuration_Management.Models;
+
+/// <summary>
+/// Настройки интерфейса приложения, сохраняемые между запусками.
+/// </summary>
+public class AppSettings
+{
+    /// <summary>Показывать только избранные базы.</summary>
+    public bool ShowFavoritesOnly { get; set; }
+
+    /// <summary>Группировать базы по группам.</summary>
+    public bool GroupByGroup { get; set; } = true;
+
+    /// <summary>Название выбранной темы оформления.</summary>
+    public string Theme { get; set; } = string.Empty;
+
+    /// <summary>Имена групп, свёрнутых в списке баз.</summary>
+    public List<string> CollapsedGroups { get; set; } = new();
+}
