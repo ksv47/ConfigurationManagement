@@ -52,7 +52,10 @@ public class MainViewModel : ViewModelBase
 
         InfobasesView = CollectionViewSource.GetDefaultView(Infobases);
         InfobasesView.Filter = FilterInfobase;
-        InfobasesView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Infobase.GroupDisplay)));
+        if (_groupByGroup)
+        {
+            InfobasesView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Infobase.GroupDisplay)));
+        }
 
         SelectInfobaseCommand = new RelayCommand(SelectInfobase);
         RefreshCommand = new RelayCommand(Refresh);
@@ -459,10 +462,6 @@ public class MainViewModel : ViewModelBase
     private bool FilterInfobase(object item)
     {
         if (item is not Infobase infobase)
-            return false;
-
-        // Если группировка выключена — показываем только базы без группы.
-        if (!_groupByGroup && !string.IsNullOrWhiteSpace(infobase.Group))
             return false;
 
         // Фильтр по избранным.
