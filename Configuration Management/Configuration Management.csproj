@@ -7,8 +7,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <AssemblyTitle>1С Управление Конфигурациями</AssemblyTitle>
-    <Product>1С Управление Конфигурациями</Product>
+    <AssemblyTitle>Управление Конфигурациями</AssemblyTitle>
+    <Product>Управление Конфигурациями</Product>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
