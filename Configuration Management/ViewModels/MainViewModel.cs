@@ -13,7 +13,7 @@ using MessageBox = System.Windows.MessageBox;
 namespace Configuration_Management.ViewModels;
 
 /// <summary>
-/// Главная ViewModel приложения «Управление Конфигурациями».
+/// Главная ViewModel приложения «Управление конфигурациями 1С».
 /// </summary>
 public class MainViewModel : ViewModelBase
 {
