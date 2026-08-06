@@ -88,7 +88,10 @@ public class MainViewModel : ViewModelBase
         ClearSearchCommand = new RelayCommand(ClearSearch);
         CollapseAllGroupsCommand = new RelayCommand(CollapseAllGroups);
         ExpandAllGroupsCommand = new RelayCommand(ExpandAllGroups);
+<<<<<<< HEAD
         OpenSettingsCommand = new RelayCommand(OpenSettings);
+=======
+>>>>>>> fcf5ea5a749ff33bf9e405255387f83201d69486
 
         // Если список баз пуст — предлагаем загрузить базы из файла ibases.v8i.
         if (Infobases.Count == 0)
@@ -635,6 +638,7 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+<<<<<<< HEAD
     /// Открывает окно настроек приложения (установленные версии платформы 1С).
     /// </summary>
     private void OpenSettings(object? parameter)
@@ -651,6 +655,8 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+=======
+>>>>>>> fcf5ea5a749ff33bf9e405255387f83201d69486
     /// Показывает окно с предложением загрузить базы из файла ibases.v8i,
     /// если список информационных баз пуст. При согласии выполняет импорт.
     /// </summary>
