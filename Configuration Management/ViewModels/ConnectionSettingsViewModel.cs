@@ -35,6 +35,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
     public ConnectionSettingsViewModel(IEnumerable<Group>? groups = null)
     {
         Groups = new ObservableCollection<Group>(groups ?? new List<Group>());
+        InstalledPlatformVersions = new ObservableCollection<string>();
         PropertyChanged += OnPropertyChanged;
     }
 
@@ -104,6 +105,21 @@ public class ConnectionSettingsViewModel : ViewModelBase
     {
         get => _platformVersion;
         set => SetProperty(ref _platformVersion, value);
+    }
+
+    /// <summary>Список установленных версий платформы 1С для выбора.</summary>
+    public ObservableCollection<string> InstalledPlatformVersions { get; }
+
+    /// <summary>
+    /// Устанавливает список установленных версий платформы 1С.
+    /// </summary>
+    public void SetInstalledPlatformVersions(IEnumerable<string> versions)
+    {
+        InstalledPlatformVersions.Clear();
+        foreach (var version in versions)
+        {
+            InstalledPlatformVersions.Add(version);
+        }
     }
 
     /// <summary>Режим запуска (строка: Автоматический, Тонкий клиент, Толстый клиент, Веб-клиент).</summary>

@@ -24,6 +24,7 @@ public class MainViewModel : ViewModelBase
     private bool _groupByGroup = true;
     private string _savedTheme = string.Empty;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
+    private List<string> _installedPlatformVersions = new();
 
     public MainViewModel()
     {
@@ -34,6 +35,7 @@ public class MainViewModel : ViewModelBase
         _showFavoritesOnly = settings.ShowFavoritesOnly;
         _groupByGroup = settings.GroupByGroup;
         _savedTheme = settings.Theme;
+        _installedPlatformVersions = new List<string>(settings.InstalledPlatformVersions);
         foreach (var groupName in settings.CollapsedGroups)
         {
             _collapsedGroups.Add(groupName);
@@ -86,6 +88,13 @@ public class MainViewModel : ViewModelBase
         ClearSearchCommand = new RelayCommand(ClearSearch);
         CollapseAllGroupsCommand = new RelayCommand(CollapseAllGroups);
         ExpandAllGroupsCommand = new RelayCommand(ExpandAllGroups);
+        OpenSettingsCommand = new RelayCommand(OpenSettings);
+
+        // Если список баз пуст — предлагаем загрузить базы из файла ibases.v8i.
+        if (Infobases.Count == 0)
+        {
+            PromptImportFromIbasesV8i();
+        }
     }
 
     /// <summary>Список информационных баз.</summary>
@@ -213,6 +222,9 @@ public class MainViewModel : ViewModelBase
     /// <summary>Команда разворачивания всех групп.</summary>
     public ICommand ExpandAllGroupsCommand { get; }
 
+    /// <summary>Команда открытия окна настроек приложения.</summary>
+    public ICommand OpenSettingsCommand { get; }
+
     /// <summary>Команда выбора информационной базы.</summary>
     public ICommand SelectInfobaseCommand { get; }
 
@@ -273,7 +285,7 @@ public class MainViewModel : ViewModelBase
 
     private void AddInfobase(object? parameter)
     {
-        var dialog = new ConnectionSettingsWindow(null, Groups)
+        var dialog = new ConnectionSettingsWindow(null, Groups, _installedPlatformVersions)
         {
             Owner = Application.Current.MainWindow
         };
@@ -290,7 +302,7 @@ public class MainViewModel : ViewModelBase
         if (SelectedInfobase is null)
             return;
 
-        var dialog = new ConnectionSettingsWindow(SelectedInfobase, Groups)
+        var dialog = new ConnectionSettingsWindow(SelectedInfobase, Groups, _installedPlatformVersions)
         {
             Owner = Application.Current.MainWindow
         };
@@ -497,7 +509,8 @@ public class MainViewModel : ViewModelBase
             ShowFavoritesOnly = _showFavoritesOnly,
             GroupByGroup = _groupByGroup,
             Theme = _savedTheme,
-            CollapsedGroups = _collapsedGroups.ToList()
+            CollapsedGroups = _collapsedGroups.ToList(),
+            InstalledPlatformVersions = _installedPlatformVersions
         });
     }
 
@@ -618,6 +631,86 @@ public class MainViewModel : ViewModelBase
             }
             SaveGroups();
             InfobasesView.Refresh();
+        }
+    }
+
+    /// <summary>
+    /// Открывает окно настроек приложения (установленные версии платформы 1С).
+    /// </summary>
+    private void OpenSettings(object? parameter)
+    {
+        var dialog = new SettingsWindow(_installedPlatformVersions)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            _installedPlatformVersions = new List<string>(dialog.Result);
+            SaveSettings();
+        }
+    }
+
+    /// <summary>
+    /// Показывает окно с предложением загрузить базы из файла ibases.v8i,
+    /// если список информационных баз пуст. При согласии выполняет импорт.
+    /// </summary>
+    private void PromptImportFromIbasesV8i()
+    {
+        var result = MessageBox.Show(
+            "Список информационных баз пуст.\n\n" +
+            "Хотите загрузить базы из стандартного файла 1С (ibases.v8i)?",
+            "Загрузка баз",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        // Сначала пытаемся найти файл ibases.v8i автоматически в стандартном месте.
+        var filePath = IbasesV8iImporter.FindDefaultPath();
+
+        // Если файл не найден — предлагаем выбрать его вручную.
+        if (filePath is null)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Выберите файл списка баз 1С (ibases.v8i)",
+                Filter = "Файл списка баз 1С (*.v8i)|*.v8i|Все файлы (*.*)|*.*",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            filePath = dialog.FileName;
+        }
+
+        try
+        {
+            var importResult = IbasesV8iImporter.Import(filePath, Infobases, Groups);
+
+            InfobasesView.Refresh();
+            Save();
+            SaveGroups();
+
+            MessageBox.Show(
+                $"Импорт завершён.\n\n" +
+                $"Добавлено новых баз: {importResult.Added}\n" +
+                $"Обновлено баз: {importResult.Updated}\n" +
+                $"Пропущено (отключено): {importResult.Skipped}\n" +
+                $"Создано новых групп: {importResult.GroupsCreated}",
+                "Импорт из ibases.v8i",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Не удалось выполнить импорт.\n{ex.Message}",
+                "Ошибка импорта",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -870,6 +963,9 @@ public class MainViewModel : ViewModelBase
 
         Infobases.Clear();
         Groups.Clear();
+        // Очищаем коллекцию закреплённых баз, иначе она сохранит ссылки на удалённые базы,
+        // так как UpdatePinnedInfobases() синхронизирует её только по текущему списку Infobases.
+        PinnedInfobases.Clear();
         UpdatePinnedInfobases();
         SelectedInfobase = null;
         InfobasesView.Refresh();

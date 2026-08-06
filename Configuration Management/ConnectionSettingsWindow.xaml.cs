@@ -17,10 +17,13 @@ namespace Configuration_Management
         /// </summary>
         /// <param name="infobase">База для редактирования. Если null — создаётся новая база.</param>
         /// <param name="groups">Список доступных групп для выбора.</param>
-        public ConnectionSettingsWindow(Infobase? infobase = null, IEnumerable<Group>? groups = null)
+        /// <param name="installedPlatformVersions">Список установленных версий платформы 1С.</param>
+        public ConnectionSettingsWindow(Infobase? infobase = null, IEnumerable<Group>? groups = null,
+            IEnumerable<string>? installedPlatformVersions = null)
         {
             InitializeComponent();
             _viewModel = new ConnectionSettingsViewModel(groups);
+            _viewModel.SetInstalledPlatformVersions(installedPlatformVersions ?? new List<string>());
             if (infobase != null)
             {
                 _viewModel.LoadFrom(infobase);
@@ -81,6 +84,21 @@ namespace Configuration_Management
             if (dialog.ShowDialog() == true)
             {
                 _viewModel.LaunchParameters = dialog.Result;
+            }
+        }
+
+        /// <summary>
+        /// Открывает окно выбора версии платформы 1С со сгруппированными версиями.
+        /// </summary>
+        private void OnPlatformSettings_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new PlatformVersionPickerWindow(_viewModel.InstalledPlatformVersions, _viewModel.PlatformVersion)
+            {
+                Owner = this
+            };
+            if (dialog.ShowDialog() == true)
+            {
+                _viewModel.PlatformVersion = dialog.Result;
             }
         }
     }
