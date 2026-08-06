@@ -283,6 +283,9 @@ public static class IbasesV8iImporter
                 case "App":
                     current.App = value;
                     break;
+                case "DefaultApp":
+                    current.DefaultApp = value;
+                    break;
                 case "Version":
                     current.Version = value;
                     break;
@@ -294,9 +297,6 @@ public static class IbasesV8iImporter
                     break;
                 case "ClientConnectionSpeed":
                     current.ClientConnectionSpeed = value;
-                    break;
-                case "WA":
-                    current.WebClient = ParseBool(value);
                     break;
                 case "AdditionalParameters":
                     current.AdditionalParameters = value;
@@ -339,6 +339,9 @@ public static class IbasesV8iImporter
         /// <summary>Режим запуска из файла ibases.v8i (Auto, ThinClient, ThickClient, WebClient).</summary>
         public string App { get; set; } = string.Empty;
 
+        /// <summary>Режим запуска по умолчанию из файла ibases.v8i (DefaultApp).</summary>
+        public string DefaultApp { get; set; } = string.Empty;
+
         /// <summary>Версия платформы 1С.</summary>
         public string Version { get; set; } = string.Empty;
 
@@ -350,9 +353,6 @@ public static class IbasesV8iImporter
 
         /// <summary>Скорость соединения клиента (Normal, Fast, Slow).</summary>
         public string ClientConnectionSpeed { get; set; } = string.Empty;
-
-        /// <summary>Признак веб-клиента (WA=1).</summary>
-        public bool WebClient { get; set; }
 
         /// <summary>Дополнительные параметры подключения (AdditionalParameters).</summary>
         public string AdditionalParameters { get; set; } = string.Empty;
@@ -376,7 +376,7 @@ public static class IbasesV8iImporter
                 Group = NormalizeGroupName(Group),
                 Connection = connection,
                 PlatformVersion = Version,
-                LaunchMode = MapLaunchMode(App, WebClient),
+                LaunchMode = MapLaunchMode(App, DefaultApp),
                 LaunchParameters = AdditionalParameters,
                 Description = string.Empty,
                 Id = Id
@@ -384,21 +384,39 @@ public static class IbasesV8iImporter
         }
 
         /// <summary>
-        /// Преобразует значение ключа App из ibases.v8i в режим запуска приложения.
-        /// Учитывает признак веб-клиента (WA=1).
+        /// Преобразует значения ключей App и DefaultApp из ibases.v8i в режим запуска приложения.
+        /// Приоритет отдаётся явно заданному значению App. Если App не задан или равен Auto,
+        /// используется режим запуска по умолчанию (DefaultApp). Признак WA (доступность
+        /// веб-клиента) не влияет на режим запуска.
         /// </summary>
-        private static string MapLaunchMode(string app, bool webClient)
+        private static string MapLaunchMode(string app, string defaultApp)
         {
-            if (webClient)
-                return "Веб-клиент";
+            var normalizedApp = app.Trim().ToLowerInvariant();
 
-            return app.Trim().ToLowerInvariant() switch
+            // Явно заданный режим запуска имеет приоритет.
+            switch (normalizedApp)
             {
-                "thinclient" => "Тонкий клиент",
-                "thickclient" => "Толстый клиент",
-                "webclient" => "Веб-клиент",
-                _ => "Автоматический"
-            };
+                case "thinclient":
+                    return "Тонкий клиент";
+                case "thickclient":
+                    return "Толстый клиент";
+                case "webclient":
+                    return "Веб-клиент";
+            }
+
+            // App не задан или равен Auto — используем режим запуска по умолчанию (DefaultApp).
+            var normalizedDefault = defaultApp.Trim().ToLowerInvariant();
+            switch (normalizedDefault)
+            {
+                case "thinclient":
+                    return "Тонкий клиент";
+                case "thickclient":
+                    return "Толстый клиент";
+                case "webclient":
+                    return "Веб-клиент";
+            }
+
+            return "Автоматический";
         }
 
         /// <summary>

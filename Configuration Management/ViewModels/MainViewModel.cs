@@ -86,6 +86,12 @@ public class MainViewModel : ViewModelBase
         ClearSearchCommand = new RelayCommand(ClearSearch);
         CollapseAllGroupsCommand = new RelayCommand(CollapseAllGroups);
         ExpandAllGroupsCommand = new RelayCommand(ExpandAllGroups);
+
+        // Если список баз пуст — предлагаем загрузить базы из файла ibases.v8i.
+        if (Infobases.Count == 0)
+        {
+            PromptImportFromIbasesV8i();
+        }
     }
 
     /// <summary>Список информационных баз.</summary>
@@ -621,6 +627,70 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Показывает окно с предложением загрузить базы из файла ibases.v8i,
+    /// если список информационных баз пуст. При согласии выполняет импорт.
+    /// </summary>
+    private void PromptImportFromIbasesV8i()
+    {
+        var result = MessageBox.Show(
+            "Список информационных баз пуст.\n\n" +
+            "Хотите загрузить базы из стандартного файла 1С (ibases.v8i)?",
+            "Загрузка баз",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        // Сначала пытаемся найти файл ibases.v8i автоматически в стандартном месте.
+        var filePath = IbasesV8iImporter.FindDefaultPath();
+
+        // Если файл не найден — предлагаем выбрать его вручную.
+        if (filePath is null)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Выберите файл списка баз 1С (ibases.v8i)",
+                Filter = "Файл списка баз 1С (*.v8i)|*.v8i|Все файлы (*.*)|*.*",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            filePath = dialog.FileName;
+        }
+
+        try
+        {
+            var importResult = IbasesV8iImporter.Import(filePath, Infobases, Groups);
+
+            InfobasesView.Refresh();
+            Save();
+            SaveGroups();
+
+            MessageBox.Show(
+                $"Импорт завершён.\n\n" +
+                $"Добавлено новых баз: {importResult.Added}\n" +
+                $"Обновлено баз: {importResult.Updated}\n" +
+                $"Пропущено (отключено): {importResult.Skipped}\n" +
+                $"Создано новых групп: {importResult.GroupsCreated}",
+                "Импорт из ibases.v8i",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Не удалось выполнить импорт.\n{ex.Message}",
+                "Ошибка импорта",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
     private void ImportFromIbasesV8i(object? parameter)
     {
         // Сначала пытаемся найти файл ibases.v8i автоматически в стандартном месте.
@@ -870,6 +940,9 @@ public class MainViewModel : ViewModelBase
 
         Infobases.Clear();
         Groups.Clear();
+        // Очищаем коллекцию закреплённых баз, иначе она сохранит ссылки на удалённые базы,
+        // так как UpdatePinnedInfobases() синхронизирует её только по текущему списку Infobases.
+        PinnedInfobases.Clear();
         UpdatePinnedInfobases();
         SelectedInfobase = null;
         InfobasesView.Refresh();
