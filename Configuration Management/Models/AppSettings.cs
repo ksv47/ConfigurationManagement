@@ -16,4 +16,7 @@ public class AppSettings
 
     /// <summary>Имена групп, свёрнутых в списке баз.</summary>
     public List<string> CollapsedGroups { get; set; } = new();
+
+    /// <summary>Список установленных версий платформы 1С.</summary>
+    public List<string> InstalledPlatformVersions { get; set; } = new();
 }

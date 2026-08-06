@@ -71,7 +71,20 @@
                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"/>
 
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Версия платформы:" VerticalAlignment="Center" Margin="0,4"/>
-                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding PlatformVersion, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"/>
+                <Grid Grid.Row="3" Grid.Column="1" Margin="0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ComboBox Grid.Column="0" IsEditable="True"
+                              ItemsSource="{Binding InstalledPlatformVersions}"
+                              Text="{Binding PlatformVersion, UpdateSourceTrigger=PropertyChanged}"
+                              Padding="4,3"
+                              ToolTip="Выберите установленную версию платформы или введите вручную"/>
+                    <Button Grid.Column="1" Content="📋" Margin="6,0,0,0" Padding="8,3"
+                            Style="{DynamicResource SecondaryButton}" Click="OnPlatformSettings_Click"
+                            ToolTip="Выбрать версию платформы из установленных"/>
+                </Grid>
 
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Режим запуска:" VerticalAlignment="Top" Margin="0,6"/>
                 <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,2">

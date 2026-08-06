@@ -69,6 +69,13 @@
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
+                    <Button Command="{Binding OpenSettingsCommand}" Style="{DynamicResource SecondaryButton}"
+                            Margin="0,0,8,0" ToolTip="Настройки приложения">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚙" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Настройки" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                     <Button x:Name="ThemeToggleButton" Content="🌙 Тёмная" Click="OnToggleTheme_Click"
                             Style="{DynamicResource SecondaryButton}" ToolTip="Переключить тему"/>
                 </StackPanel>
