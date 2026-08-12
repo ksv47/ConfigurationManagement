@@ -9,7 +9,6 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
-using MessageBox = System.Windows.MessageBox;
 
 namespace Configuration_Management.ViewModels;
 
@@ -18,7 +17,11 @@ namespace Configuration_Management.ViewModels;
 /// </summary>
 public class MainViewModel : ViewModelBase
 {
-    private readonly InfobaseRepository _repository;
+    private readonly IInfobaseRepository _repository;
+    private readonly IDialogService _dialogs;
+    private readonly IAppLogger _logger;
+    private readonly IOneCLauncher _launcher;
+    private readonly IIbasesSyncService _ibasesSync;
     private Infobase? _selectedInfobase;
     private string _searchText = string.Empty;
     private bool _showFavoritesOnly;
@@ -59,9 +62,19 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     private List<GroupNodeViewModel> _groupNodes = new();
 
-    public MainViewModel()
+    public MainViewModel(
+        IInfobaseRepository? repository = null,
+        IDialogService? dialogs = null,
+        IAppLogger? logger = null,
+        IOneCLauncher? launcher = null,
+        IIbasesSyncService? ibasesSync = null)
     {
-        _repository = new InfobaseRepository();
+        _repository = repository ?? new InfobaseRepository();
+        _dialogs = dialogs ?? new WpfDialogService();
+        _logger = logger ?? new FileAppLogger();
+        _launcher = launcher ?? new OneCLauncherService();
+        _ibasesSync = ibasesSync ?? new IbasesSyncService();
+        _logger.Info("MainViewModel инициализирован");
 
         // Загружаем настройки интерфейса (состояние кнопок «Избранные» и «Группировать»).
         var settings = _repository.LoadSettings();
@@ -123,12 +136,14 @@ public class MainViewModel : ViewModelBase
             _ => SelectedInfobase != null || SelectedGroupNode?.Group != null);
         ToggleFavoriteCommand = new RelayCommand(ToggleFavorite, _ => SelectedInfobase != null);
         ToggleFavoriteForCommand = new RelayCommand(ToggleFavoriteFor);
-        LaunchEnterpriseCommand = new RelayCommand(LaunchEnterprise, _ => SelectedInfobase != null);
-        LaunchConfiguratorCommand = new RelayCommand(LaunchConfigurator, _ => SelectedInfobase != null);
-        LaunchEnterpriseThinCommand = new RelayCommand(LaunchEnterpriseThin, _ => SelectedInfobase != null);
-        LaunchEnterpriseThickCommand = new RelayCommand(LaunchEnterpriseThick, _ => SelectedInfobase != null);
-        LaunchEnterpriseThin64Command = new RelayCommand(LaunchEnterpriseThin64, _ => SelectedInfobase != null);
-        LaunchEnterpriseThick64Command = new RelayCommand(LaunchEnterpriseThick64, _ => SelectedInfobase != null);
+        LaunchCommand = new RelayCommand(Launch, _ => SelectedInfobase != null);
+        // Обратная совместимость с XAML: отдельные команды делегируют в единую LaunchCommand.
+        LaunchEnterpriseCommand = new RelayCommand(_ => Launch(LaunchKind.Enterprise), _ => SelectedInfobase != null);
+        LaunchConfiguratorCommand = new RelayCommand(_ => Launch(LaunchKind.Configurator), _ => SelectedInfobase != null);
+        LaunchEnterpriseThinCommand = new RelayCommand(_ => Launch(LaunchKind.Thin32), _ => SelectedInfobase != null);
+        LaunchEnterpriseThickCommand = new RelayCommand(_ => Launch(LaunchKind.Thick32), _ => SelectedInfobase != null);
+        LaunchEnterpriseThin64Command = new RelayCommand(_ => Launch(LaunchKind.Thin64), _ => SelectedInfobase != null);
+        LaunchEnterpriseThick64Command = new RelayCommand(_ => Launch(LaunchKind.Thick64), _ => SelectedInfobase != null);
         ImportFromIbasesV8iCommand = new RelayCommand(ImportFromIbasesV8i);
         ExportInfobasesCommand = new RelayCommand(ExportInfobases);
         ImportInfobasesCommand = new RelayCommand(ImportInfobases);
@@ -146,6 +161,17 @@ public class MainViewModel : ViewModelBase
         ExpandAllGroupsCommand = new RelayCommand(ExpandAllGroups);
         ToggleGroupExpandedCommand = new RelayCommand(ToggleGroupExpanded);
         OpenSettingsCommand = new RelayCommand(OpenSettings);
+
+        // Композиция: выделенный VM запуска (чат 1 / 3).
+        LaunchVm = new LaunchViewModel(
+            () => SelectedInfobase,
+            _launcher,
+            _logger,
+            onLaunched: () =>
+            {
+                InfobasesView.Refresh();
+                Save();
+            });
 
         // Если список баз пуст — предлагаем загрузить базы из файла ibases.v8i.
         if (Infobases.Count == 0)
@@ -333,17 +359,18 @@ public class MainViewModel : ViewModelBase
         {
             try
             {
-                var result = IbasesV8iImporter.Import(filePath, Infobases, Groups);
+                var result = _ibasesSync.Import(filePath, Infobases, Groups);
                 InfobasesView.Refresh();
                 Save();
                 SaveGroups();
                 RebuildGroupTree();
                 message = BuildSyncMessage("Загружено из файла", result);
             }
-            catch
+            catch (Exception ex)
             {
-                // Игнорируем ошибки импорта при автоматической синхронизации,
-                // чтобы не прерывать работу пользователя.
+                // Не прерываем работу пользователя при авто-синхронизации, но фиксируем ошибку в статусе.
+                System.Diagnostics.Debug.WriteLine($"Авто-импорт ibases.v8i: {ex}");
+                SyncMessage = $"Ошибка импорта: {ex.Message}";
             }
         }
 
@@ -351,7 +378,7 @@ public class MainViewModel : ViewModelBase
         {
             try
             {
-                var result = IbasesV8iExporter.Export(filePath, Infobases, Groups);
+                var result = _ibasesSync.Export(filePath, Infobases, Groups);
                 var exportText = BuildSyncMessage("Выгружено в файл", result);
                 if (!string.IsNullOrEmpty(exportText))
                 {
@@ -360,9 +387,11 @@ public class MainViewModel : ViewModelBase
                         : message + "; " + exportText;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Игнорируем ошибки экспорта при автоматической синхронизации.
+                System.Diagnostics.Debug.WriteLine($"Авто-экспорт ibases.v8i: {ex}");
+                var err = $"Ошибка экспорта: {ex.Message}";
+                SyncMessage = string.IsNullOrEmpty(SyncMessage) ? err : SyncMessage + "; " + err;
             }
         }
 
@@ -547,7 +576,7 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            IbasesV8iExporter.Export(filePath, Infobases, Groups);
+            _ibasesSync.Export(filePath, Infobases, Groups);
             return true;
         }
         catch
@@ -568,7 +597,7 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            IbasesV8iImporter.Import(filePath, Infobases, Groups);
+            _ibasesSync.Import(filePath, Infobases, Groups);
             InfobasesView.Refresh();
             Save();
             SaveGroups();
@@ -832,6 +861,12 @@ public class MainViewModel : ViewModelBase
     public ICommand ToggleFavoriteForCommand { get; }
 
     /// <summary>Команда запуска 1С:Предприятие.</summary>
+    /// <summary>Под-VM запуска баз (композиция MainViewModel).</summary>
+    public LaunchViewModel LaunchVm { get; }
+
+    /// <summary>Единая команда запуска (параметр: LaunchKind или строка имени enum).</summary>
+    public ICommand LaunchCommand { get; }
+
     public ICommand LaunchEnterpriseCommand { get; }
 
     /// <summary>Команда запуска Конфигуратора.</summary>
@@ -1010,13 +1045,9 @@ public class MainViewModel : ViewModelBase
         if (SelectedInfobase is null)
             return;
 
-        var result = MessageBox.Show(
+        if (_dialogs.Confirm(
             $"Удалить информационную базу «{SelectedInfobase.Name}»?",
-            "Подтверждение удаления",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (result == MessageBoxResult.Yes)
+            "Подтверждение удаления"))
         {
             Infobases.Remove(SelectedInfobase);
             SelectedInfobase = null;
@@ -1052,24 +1083,18 @@ public class MainViewModel : ViewModelBase
             if (infobaseCount > 0)
                 reasons.Add($"информационных баз: {infobaseCount}");
 
-            MessageBox.Show(
+            _dialogs.ShowWarning(
                 $"Невозможно удалить группу «{group.Name}».\n\n" +
                 "Внутри группы (включая вложенные подгруппы) находится:\n" +
                 string.Join("\n", reasons.Select(r => $"• {r}")) + ".\n\n" +
                 "Сначала удалите или переместите содержимое группы, затем удалите её.",
-                "Удаление невозможно",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+                "Удаление невозможно");
             return;
         }
 
-        var result = MessageBox.Show(
+        if (!_dialogs.Confirm(
             $"Удалить группу «{group.Name}»?",
-            "Подтверждение удаления",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (result != MessageBoxResult.Yes)
+            "Подтверждение удаления"))
             return;
 
         Groups.Remove(group);
@@ -1175,50 +1200,56 @@ public class MainViewModel : ViewModelBase
         RebuildGroupTree();
     }
 
-    private void LaunchEnterprise(object? parameter)
+    /// <summary>
+    /// Единая точка запуска 1С. parameter — LaunchKind, строка имени enum или null (Enterprise).
+    /// </summary>
+    private void Launch(object? parameter)
     {
         if (SelectedInfobase is null)
             return;
-        if (OneCLauncher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise))
+
+        var kind = ResolveLaunchKind(parameter);
+        bool ok;
+        switch (kind)
+        {
+            case LaunchKind.Configurator:
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Configurator);
+                break;
+            case LaunchKind.Thin32:
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thin, OneCArchitecture.x86);
+                break;
+            case LaunchKind.Thick32:
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x86);
+                break;
+            case LaunchKind.Thin64:
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thin, OneCArchitecture.x64);
+                break;
+            case LaunchKind.Thick64:
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x64);
+                break;
+            default:
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise);
+                break;
+        }
+
+        if (ok)
         {
             InfobasesView.Refresh();
             Save();
+            _logger.Info($"Запущена база «{SelectedInfobase.Name}» ({kind})");
+        }
+        else
+        {
+            _logger.Warn($"Не удалось запустить базу «{SelectedInfobase.Name}» ({kind})");
         }
     }
 
-    private void LaunchConfigurator(object? parameter)
+    private static LaunchKind ResolveLaunchKind(object? parameter) => parameter switch
     {
-        if (SelectedInfobase is null)
-            return;
-        if (OneCLauncher.Launch(SelectedInfobase, OneCLaunchMode.Configurator))
-        {
-            InfobasesView.Refresh();
-            Save();
-        }
-    }
-
-    private void LaunchEnterpriseThin(object? parameter)
-        => LaunchEnterpriseWith(OneCClientType.Thin, OneCArchitecture.x86);
-
-    private void LaunchEnterpriseThick(object? parameter)
-        => LaunchEnterpriseWith(OneCClientType.Thick, OneCArchitecture.x86);
-
-    private void LaunchEnterpriseThin64(object? parameter)
-        => LaunchEnterpriseWith(OneCClientType.Thin, OneCArchitecture.x64);
-
-    private void LaunchEnterpriseThick64(object? parameter)
-        => LaunchEnterpriseWith(OneCClientType.Thick, OneCArchitecture.x64);
-
-    private void LaunchEnterpriseWith(OneCClientType clientType, OneCArchitecture architecture)
-    {
-        if (SelectedInfobase is null)
-            return;
-        if (OneCLauncher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, clientType, architecture))
-        {
-            InfobasesView.Refresh();
-            Save();
-        }
-    }
+        LaunchKind k => k,
+        string s when Enum.TryParse<LaunchKind>(s, true, out var parsed) => parsed,
+        _ => LaunchKind.Enterprise
+    };
 
     private bool FilterInfobase(object item)
     {
@@ -1243,12 +1274,53 @@ public class MainViewModel : ViewModelBase
 
     private void Save()
     {
-        _repository.Save(Infobases.ToList());
+        try
+        {
+            _repository.Save(Infobases.ToList());
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка сохранения баз", ex);
+            throw;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await _repository.SaveAsync(Infobases.ToList()).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка асинхронного сохранения баз", ex);
+            _dialogs.ShowError($"Не удалось сохранить список баз.\n{ex.Message}", "Ошибка сохранения");
+        }
     }
 
     private void SaveGroups()
     {
-        _repository.SaveGroups(Groups.ToList());
+        try
+        {
+            _repository.SaveGroups(Groups.ToList());
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка сохранения групп", ex);
+            throw;
+        }
+    }
+
+    private async Task SaveGroupsAsync()
+    {
+        try
+        {
+            await _repository.SaveGroupsAsync(Groups.ToList()).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка асинхронного сохранения групп", ex);
+        }
     }
 
     private void SaveSettings()
@@ -1627,14 +1699,9 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     private void PromptImportFromIbasesV8i()
     {
-        var result = MessageBox.Show(
-            "Список информационных баз пуст.\n\n" +
+        if (!_dialogs.Confirm("Список информационных баз пуст.\n\n" +
             "Хотите загрузить базы из стандартного файла 1С (ibases.v8i)?",
-            "Загрузка баз",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (result != MessageBoxResult.Yes)
+            "Загрузка баз"))
             return;
 
         // Сначала пытаемся найти файл ibases.v8i автоматически в стандартном месте.
@@ -1659,30 +1726,24 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            var importResult = IbasesV8iImporter.Import(filePath, Infobases, Groups);
+            var importResult = _ibasesSync.Import(filePath, Infobases, Groups);
 
             InfobasesView.Refresh();
             Save();
             SaveGroups();
             RebuildGroupTree();
 
-            MessageBox.Show(
-                $"Импорт завершён.\n\n" +
+            _dialogs.ShowInfo($"Импорт завершён.\n\n" +
                 $"Добавлено новых баз: {importResult.Added}\n" +
                 $"Обновлено баз: {importResult.Updated}\n" +
                 $"Пропущено (отключено): {importResult.Skipped}\n" +
                 $"Создано новых групп: {importResult.GroupsCreated}",
-                "Импорт из ibases.v8i",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "Импорт из ibases.v8i");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"Не удалось выполнить импорт.\n{ex.Message}",
-                "Ошибка импорта",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            _dialogs.ShowError($"Не удалось выполнить импорт.\n{ex.Message}",
+                "Ошибка импорта");
         }
     }
 
@@ -1710,30 +1771,24 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            var result = IbasesV8iImporter.Import(filePath, Infobases, Groups);
+            var result = _ibasesSync.Import(filePath, Infobases, Groups);
 
             InfobasesView.Refresh();
             Save();
             SaveGroups();
             RebuildGroupTree();
 
-            MessageBox.Show(
-                $"Импорт завершён.\n\n" +
+            _dialogs.ShowInfo($"Импорт завершён.\n\n" +
                 $"Добавлено новых баз: {result.Added}\n" +
                 $"Обновлено баз: {result.Updated}\n" +
                 $"Пропущено (отключено): {result.Skipped}\n" +
                 $"Создано новых групп: {result.GroupsCreated}",
-                "Импорт из ibases.v8i",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "Импорт из ibases.v8i");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"Не удалось выполнить импорт.\n{ex.Message}",
-                "Ошибка импорта",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            _dialogs.ShowError($"Не удалось выполнить импорт.\n{ex.Message}",
+                "Ошибка импорта");
         }
     }
 
@@ -1744,11 +1799,8 @@ public class MainViewModel : ViewModelBase
     {
         if (Infobases.Count == 0)
         {
-            MessageBox.Show(
-                "Список информационных баз пуст. Экспортировать нечего.",
-                "Экспорт списка баз",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            _dialogs.ShowInfo("Список информационных баз пуст. Экспортировать нечего.",
+                "Экспорт списка баз");
             return;
         }
 
@@ -1779,22 +1831,16 @@ public class MainViewModel : ViewModelBase
             });
             File.WriteAllText(dialog.FileName, json);
 
-            MessageBox.Show(
-                $"Список информационных баз успешно экспортирован.\n\n" +
+            _dialogs.ShowInfo($"Список информационных баз успешно экспортирован.\n\n" +
                 $"Количество баз: {Infobases.Count}\n" +
                 $"Количество групп: {Groups.Count}\n" +
                 $"Файл: {dialog.FileName}",
-                "Экспорт списка баз",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "Экспорт списка баз");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"Не удалось выполнить экспорт.\n{ex.Message}",
-                "Ошибка экспорта",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            _dialogs.ShowError($"Не удалось выполнить экспорт.\n{ex.Message}",
+                "Ошибка экспорта");
         }
     }
 
@@ -1853,22 +1899,14 @@ public class MainViewModel : ViewModelBase
 
             if (loaded.Count == 0)
             {
-                MessageBox.Show(
-                    "В выбранном файле не найдено ни одной информационной базы.",
-                    "Загрузка списка баз",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                _dialogs.ShowWarning("В выбранном файле не найдено ни одной информационной базы.",
+                    "Загрузка списка баз");
                 return;
             }
 
-            var result = MessageBox.Show(
-                $"Загрузить {loaded.Count} информационных баз и {loadedGroups.Count} групп из файла?\n\n" +
+            if (!_dialogs.Confirm($"Загрузить {loaded.Count} информационных баз и {loadedGroups.Count} групп из файла?\n\n" +
                 "Текущий список баз и групп будет заменён.",
-                "Загрузка списка баз",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            if (result != MessageBoxResult.Yes)
+                "Загрузка списка баз"))
                 return;
 
             Infobases.Clear();
@@ -1889,21 +1927,15 @@ public class MainViewModel : ViewModelBase
             SaveGroups();
             RebuildGroupTree();
 
-            MessageBox.Show(
-                $"Список информационных баз успешно загружен.\n\n" +
+            _dialogs.ShowInfo($"Список информационных баз успешно загружен.\n\n" +
                 $"Количество баз: {loaded.Count}\n" +
                 $"Количество групп: {loadedGroups.Count}",
-                "Загрузка списка баз",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "Загрузка списка баз");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"Не удалось выполнить загрузку.\n{ex.Message}",
-                "Ошибка загрузки",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            _dialogs.ShowError($"Не удалось выполнить загрузку.\n{ex.Message}",
+                "Ошибка загрузки");
         }
     }
 
@@ -1914,24 +1946,16 @@ public class MainViewModel : ViewModelBase
     {
         if (Infobases.Count == 0 && Groups.Count == 0)
         {
-            MessageBox.Show(
-                "Список информационных баз уже пуст.",
-                "Очистка списка баз",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            _dialogs.ShowInfo("Список информационных баз уже пуст.",
+                "Очистка списка баз");
             return;
         }
 
-        var result = MessageBox.Show(
-            $"Очистить весь список информационных баз?\n\n" +
+        if (!_dialogs.Confirm($"Очистить весь список информационных баз?\n\n" +
             $"Будет удалено баз: {Infobases.Count}\n" +
             $"Будет удалено групп: {Groups.Count}\n\n" +
             "Это действие необратимо.",
-            "Очистка списка баз",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-
-        if (result != MessageBoxResult.Yes)
+            "Очистка списка баз"))
             return;
 
         Infobases.Clear();
@@ -1942,11 +1966,8 @@ public class MainViewModel : ViewModelBase
         SaveGroups();
         RebuildGroupTree();
 
-        MessageBox.Show(
-            "Список информационных баз очищен.",
-            "Очистка списка баз",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        _dialogs.ShowInfo("Список информационных баз очищен.",
+            "Очистка списка баз");
     }
 
     private void CopyConnectionString(object? parameter)
@@ -1962,11 +1983,8 @@ public class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"Не удалось скопировать строку подключения.\n{ex.Message}",
-                "Ошибка копирования",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            _dialogs.ShowError($"Не удалось скопировать строку подключения.\n{ex.Message}",
+                "Ошибка копирования");
         }
     }
 
@@ -1978,15 +1996,10 @@ public class MainViewModel : ViewModelBase
         if (SelectedInfobase is null)
             return;
 
-        var result = MessageBox.Show(
-            $"Очистить локальный кеш 1С для базы «{SelectedInfobase.Name}»?\n\n" +
+        if (!_dialogs.Confirm($"Очистить локальный кеш 1С для базы «{SelectedInfobase.Name}»?\n\n" +
             "Кеш будет удалён из каталогов %LOCALAPPDATA%\\1C\\1cv8 и %APPDATA%\\1C\\1cv8.\n" +
             "Рекомендуется закрыть все сеансы 1С для этой базы перед очисткой.",
-            "Очистка кеша 1С",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (result != MessageBoxResult.Yes)
+            "Очистка кеша 1С"))
             return;
 
         try
@@ -1995,28 +2008,19 @@ public class MainViewModel : ViewModelBase
 
             if (removed > 0)
             {
-                MessageBox.Show(
-                    $"Кеш базы «{SelectedInfobase.Name}» очищен.\nУдалено каталогов: {removed}.",
-                    "Очистка кеша 1С",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                _dialogs.ShowInfo($"Кеш базы «{SelectedInfobase.Name}» очищен.\nУдалено каталогов: {removed}.",
+                    "Очистка кеша 1С");
             }
             else
             {
-                MessageBox.Show(
-                    $"Каталоги кеша для базы «{SelectedInfobase.Name}» не найдены.",
-                    "Очистка кеша 1С",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                _dialogs.ShowInfo($"Каталоги кеша для базы «{SelectedInfobase.Name}» не найдены.",
+                    "Очистка кеша 1С");
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"Не удалось очистить кеш.\n{ex.Message}",
-                "Ошибка очистки кеша",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            _dialogs.ShowError($"Не удалось очистить кеш.\n{ex.Message}",
+                "Ошибка очистки кеша");
         }
     }
 

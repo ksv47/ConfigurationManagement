@@ -1,6 +1,7 @@
 <Window x:Class="Configuration_Management.ConnectionSettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="clr-namespace:Configuration_Management.Models"
@@ -32,6 +33,15 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style TargetType="Label">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
     </Window.Resources>
@@ -95,9 +105,11 @@
                     <TextBox Grid.Column="0" Text="{Binding PlatformVersion, UpdateSourceTrigger=PropertyChanged}"
                              Padding="4,3" VerticalContentAlignment="Center"
                              ToolTip="Введите версию платформы вручную (например, 8.3.24.1774)"/>
-                    <Button Grid.Column="1" Content="📋" Margin="6,0,0,0" Padding="8,3"
+                    <Button Grid.Column="1" Margin="6,0,0,0" Padding="8,3"
                             Style="{DynamicResource SecondaryButton}" Click="OnPlatformSettings_Click"
-                            ToolTip="Выбрать версию платформы из установленных"/>
+                            ToolTip="Выбрать версию платформы из установленных">
+                        <materialDesign:PackIcon Kind="ContentCopy" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Button>
                 </Grid>
 
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Режим запуска:" VerticalAlignment="Top" Margin="0,6"/>
@@ -123,8 +135,13 @@
                     <TextBox Grid.Column="0" Text="{Binding LaunchParameters, UpdateSourceTrigger=PropertyChanged}"
                              Padding="4,3" VerticalContentAlignment="Center"
                              ToolTip="Дополнительные параметры командной строки 1С (например, /UC, /DisableStartupMessages)"/>
-                    <Button Grid.Column="1" Content="⚙ Конфигуратор" Margin="6,0,0,0" Padding="8,3"
-                            Style="{DynamicResource SecondaryButton}" Click="OnLaunchParameters_Click"/>
+                    <Button Grid.Column="1" Margin="6,0,0,0" Padding="8,3"
+                            Style="{DynamicResource SecondaryButton}" Click="OnLaunchParameters_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Cog" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Конфигуратор" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </Grid>
 
                 <TextBlock Grid.Row="7" Grid.Column="0" Text="ID базы:" VerticalAlignment="Center" Margin="0,4"/>
@@ -135,9 +152,11 @@
                     </Grid.ColumnDefinitions>
                     <TextBox Grid.Column="0" Text="{Binding Id}" Padding="4,3"
                              IsReadOnly="True" ToolTip="Уникальный идентификатор базы данных"/>
-                    <Button Grid.Column="1" Content="📋" Margin="6,0,0,0" Padding="8,3"
+                    <Button Grid.Column="1" Margin="6,0,0,0" Padding="8,3"
                             Style="{DynamicResource SecondaryButton}" Click="OnCopyId_Click"
-                            ToolTip="Скопировать ID базы в буфер обмена"/>
+                            ToolTip="Скопировать ID базы в буфер обмена">
+                        <materialDesign:PackIcon Kind="ContentCopy" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </Button>
                 </Grid>
             </Grid>
         </GroupBox>

@@ -5,6 +5,99 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 а версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [2.0.0] — 2026-08-12
+
+### Обзор
+Стабильный **мажорный** релиз 2.0.0, закрепивший рефакторинг серии 1.10.x как основу архитектуры приложения. Версия отражает завершение перехода на полноценный MVVM с Dependency Injection, асинхронную запись данных, логирование и модульное тестирование, а также полный редизайн интерфейса на Material Design.
+
+### Добавлено
+- **DI-контейнер** (`AppServices` + `Microsoft.Extensions.DependencyInjection`) — централизованная регистрация сервисов (репозиторий, лаунчер, диалоги, логгер, sync-сервис) и резолв главного окна из контейнера.
+- **Сервисный слой с интерфейсами** — `IInfobaseRepository`, `IOneCLauncher`, `IPlatformVersionService`, `IIbasesSyncService`, `IDialogService`, `IAppLogger` для заменяемости и тестируемости компонентов.
+- **Файловое логирование** — `FileAppLogger`: журнал в `%AppData%/ConfigurationManagement/logs/` с ротацией (14 дней / 5 МБ).
+- **Модульные тесты (xUnit)** — проект `ConfigurationManagement.Tests`: проверка иерархии групп (`GroupHierarchyHelper`) и round-trip репозитория.
+- **Асинхронная атомарная запись** JSON (`SaveAsync` / `SaveGroupsAsync` / `SaveSettingsAsync`) через временный файл и `File.Replace` — защита данных от повреждения при сбое.
+- **UserControl-компоненты** `Controls/GroupTreeView` и `Controls/InfobaseListView` — заготовки для декомпозиции главного окна.
+- Полный набор векторных иконок в `Themes/Icons.xaml` и подключение **Material Design Icons** (`PackIcon`, пакет `MaterialDesignThemes` 5.2.1, `BundledTheme` Amber/Lime).
+
+### Изменено
+- **Разделение `MainViewModel`** — логика запуска вынесена в `LaunchViewModel` (композиция), команды делегируют в единый `LaunchCommand` с `LaunchKind`; `MainViewModel` остаётся фасадом для XAML-привязок.
+- **Отказ от `MessageBox` в ViewModel** — все подтверждения и сообщения выведены через `IDialogService`.
+- **Интерфейс на Material Design** — все эмодзи и кастомные Path заменены на цветные `PackIcon`; обновлены иконки команд, диалогов и вкладок настроек; современные chevron для сворачивания групп и сплошные разделители колонок заменены на тонкие линии.
+- **Виртуализация дерева групп** — `IsVirtualizing=True`, `VirtualizationMode=Recycling`, `ScrollUnit=Pixel`.
+- **Новая иконка приложения** — обновлён `AppIcon` и сгенерирован многоразмерный `app.ico`.
+- Версия программы увеличена до **2.0.0**.
+
+## [1.10.4] — 2026-08-12
+
+### Исправлено
+- **Время последнего запуска** не обновлялось сразу после запуска базы: свойство `Infobase.LastLaunchDate` сделано с уведомлением `INotifyPropertyChanged` и дополнительно поднимает `LastLaunchDisplay`.
+
+### Изменено
+- **Настройки → Группы**: кнопки управления (Добавить, Подгруппу, Изменить, Удалить, Свернуть/Развернуть все) переведены с эмодзи на цветные `PackIcon`; expander дерева групп — современные chevron вместо «+/−».
+- **Настройки → все вкладки**: эмодзи на кнопках (Обновить платформы, импорт/экспорт, очистка, Сохранить/Отмена) заменены на цветные Material Design иконки.
+- **Разделители заголовков колонок** в списке баз: сплошные полосы заменены на тонкие современные линии (1px, полупрозрачные) с широкой зоной захвата; под заголовками добавлена нижняя граница.
+
+## [1.10.3] — 2026-08-12
+
+### Исправлено
+- **Тёмная тема / вкладки настроек**: надписи на вкладках (Платформы, Отображение, Группы и т.д.) теперь корректно отображаются — в шаблоне `SettingsTabItem` добавлен `TextElement.Foreground="{TemplateBinding Foreground}"`.
+
+### Изменено
+- **Иконка приложения**: полностью обновлён `AppIcon` (DrawingImage) — градиентный фон, современный цилиндр БД + шестерёнка; сгенерирован новый многоразмерный `app.ico`.
+- **Свернуть/развернуть все группы**: заменены устаревшие Path на цветные плитки `IconCollapseAllColored` / `IconExpandAllColored` (индиго/фиолетовый).
+- **Свернуть/развернуть отдельную группу**: вместо текста «+/−» используются современные chevron-иконки (`IconChevronRight` / `IconChevronDown`) с hover-эффектом (акцент + белый цвет).
+- **Цветные иконки команд**: Settings, Тема, Конфигуратор, Изменить, Избранное, Закрепить, контекстное меню (Play, Cog, Star, Pin, Broom, ContentCopy, Pencil, Delete) получили выразительные цвета (синий, золотой, фиолетовый, бирюзовый, красный).
+- В `Icons.xaml` добавлены геометрии: `IconCollapseAll`, `IconExpandAll`, `IconChevronRight`, `IconChevronDown` и цветные DrawingImage для collapse/expand/sync/import/export.
+
+## [1.10.2] — 2026-08-12
+
+### Добавлено
+- **Material Design Icons** через пакет `MaterialDesignThemes` 5.2.1 (`PackIcon`).
+- Подключены `BundledTheme` (Amber/Lime) и MaterialDesign3.Defaults.
+
+### Изменено
+- Все иконки интерфейса переведены с кастомных Path на `materialDesign:PackIcon` (Kind: Play, Cog, Star, Pin, Delete, Pencil, Plus, Close, ContentCopy, ChevronDown, WeatherNight и др.).
+- Версия **1.10.2**.
+
+## [1.10.1] — 2026-08-12
+
+### Добавлено
+- **Icons.xaml** — полный набор векторных иконок (Path Geometry) в стиле Fluent/Windows 11.
+- Цветные DrawingImage-плитки для основных действий и статусов.
+
+### Изменено
+- Все эмодзи в `MainWindow.xaml` и `ConnectionSettingsWindow.xaml` заменены на векторные Path-иконки.
+- Контекстное меню, кнопки запуска, избранное, закрепление, удаление и т.д. используют иконки из `Themes/Icons.xaml`.
+- `App.xaml` подключает словарь иконок.
+
+## [1.10.0] — 2026-08-12
+
+### Добавлено
+- **DI** (`AppServices` + Microsoft.Extensions.DependencyInjection): репозиторий, лаунчер, диалоги, логгер, sync-сервис.
+- **IDialogService** — все подтверждения/ошибки из MainViewModel без MessageBox.
+- **Единая LaunchCommand** + `LaunchKind` + `LaunchViewModel` (композиция).
+- **IAppLogger / FileAppLogger** — лог в `%AppData%/ConfigurationManagement/logs/`.
+- **Async Save** (`SaveAsync` / `SaveGroupsAsync` / `SaveSettingsAsync`) и атомарная запись JSON.
+- **UserControl-заготовки** `Controls/GroupTreeView`, `Controls/InfobaseListView`.
+- **Unit-тесты** (xUnit): `GroupHierarchyHelper`, round-trip репозитория.
+- Интерфейсы: `IInfobaseRepository`, `IOneCLauncher`, `IPlatformVersionService`, `IIbasesSyncService`.
+
+### Изменено
+- Виртуализация TreeView: `IsVirtualizing=True`, `VirtualizationMode=Recycling`, `ScrollUnit=Pixel`.
+- Версия **1.10.0**.
+
+## [1.9.1] — 2026-08-12
+
+### Улучшено
+- **Атомарное сохранение JSON** (`infobases.json`, `groups.json`, `settings.json`) — запись через временный файл снижает риск повреждения данных при сбое.
+- **Обработка ошибок авто-синхронизации** — вместо пустых `catch` ошибка пишется в статусную строку и в Debug-лог.
+- **RelayCommand** — конструктор без параметра, `RaiseCanExecuteChanged`, добавлен `AsyncRelayCommand` для неблокирующих операций.
+- **ViewModelBase** — уведомление связанных свойств одним вызовом `SetProperty`.
+- **IDialogService / WpfDialogService** — задел под полноценный MVVM без MessageBox в ViewModel.
+
+### Изменено
+- Версия программы увеличена до **1.9.1**.
+
 ## [1.9.0] — 2026-08-12
 
 ### Исправлено

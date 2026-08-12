@@ -5,13 +5,14 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="clr-namespace:Configuration_Management.Models"
         xmlns:vm="clr-namespace:Configuration_Management.ViewModels"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="Настройки"
         Icon="{StaticResource AppIcon}"
-        Width="700"
-        MinWidth="620"
-        MinHeight="520"
-        Height="560"
+        Width="820"
+        MinWidth="720"
+        MinHeight="640"
+        Height="640"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI"
@@ -32,8 +33,52 @@
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,3"/>
             <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0" Grid.RowSpan="2"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"/>
+                            <Border Grid.Row="0" Background="{TemplateBinding Background}"
+                                    Padding="12,8,12,0" Margin="8,0,0,0" HorizontalAlignment="Left">
+                                <ContentPresenter ContentSource="Header"
+                                                  RecognizesAccessKey="True"
+                                                  TextElement.Foreground="{DynamicResource TextPrimaryBrush}"
+                                                  TextElement.FontWeight="SemiBold"
+                                                  TextElement.FontSize="13"/>
+                            </Border>
+                            <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"
+                                              TextElement.Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="Label">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
 
         <!-- ===================== Стиль вкладок (слева, вертикальная панель) ===================== -->
@@ -47,8 +92,9 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Padding" Value="14,10"/>
             <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
@@ -57,11 +103,13 @@
                                 BorderBrush="Transparent"
                                 BorderThickness="0,0,3,0"
                                 CornerRadius="6,0,0,6"
-                                MinWidth="180"
+                                MinWidth="140" MaxWidth="200"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter ContentSource="Header"
                                               HorizontalAlignment="Left"
-                                              VerticalAlignment="Center"/>
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
@@ -71,6 +119,9 @@
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -95,7 +146,7 @@
             </TabControl.ItemsPanel>
 
             <!-- ============ Вкладка «Платформы» ============ -->
-            <TabItem Header="🖥 Платформы" Style="{StaticResource SettingsTabItem}">
+            <TabItem Header="Платформы" Style="{StaticResource SettingsTabItem}">
                 <Grid Margin="4,12,4,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -132,11 +183,16 @@
                                 </HierarchicalDataTemplate>
                             </TreeView.ItemTemplate>
                         </TreeView>
-                        <Button Grid.Column="1" Content="🔄 Обновить список" Margin="6,0,0,0" Padding="10,3"
+                        <Button Grid.Column="1" Margin="6,0,0,0" Padding="10,6"
                                 VerticalAlignment="Top"
                                 Style="{DynamicResource SecondaryButton}"
                                 Click="OnRefreshPlatforms_Click"
-                                ToolTip="Обновить список установленных версий платформы"/>
+                                ToolTip="Обновить список установленных версий платформы">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Обновить список" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                     </Grid>
 
                     <TextBlock x:Name="StatusText" Grid.Row="2"
@@ -146,7 +202,7 @@
             </TabItem>
 
             <!-- ============ Вкладка «Отображение» ============ -->
-            <TabItem Header="👁 Отображение" Style="{StaticResource SettingsTabItem}">
+            <TabItem Header="Отображение" Style="{StaticResource SettingsTabItem}">
                 <Grid Margin="4,12,4,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -174,8 +230,8 @@
                     <!-- Кнопки и метки -->
                     <GroupBox Grid.Row="2" Header="Кнопки и метки" Padding="10,8" Margin="0,0,0,12">
                         <StackPanel>
-                            <CheckBox x:Name="ShowFavoritesButtonCheck" Content="Кнопка «Избранное» (★)"/>
-                            <CheckBox x:Name="ShowPinnedButtonCheck" Content="Кнопка «Закрепить» (📌)"/>
+                            <CheckBox x:Name="ShowFavoritesButtonCheck" Content="Кнопка «Избранное»"/>
+                            <CheckBox x:Name="ShowPinnedButtonCheck" Content="Кнопка «Закрепить»"/>
                             <CheckBox x:Name="ShowTagsCheck" Content="Показывать теги баз"/>
                         </StackPanel>
                     </GroupBox>
@@ -191,7 +247,7 @@
             </TabItem>
 
             <!-- ============ Вкладка «Группы» ============ -->
-            <TabItem Header="📁 Группы" Style="{StaticResource SettingsTabItem}">
+            <TabItem Header="Группы" Style="{StaticResource SettingsTabItem}">
                 <Grid Margin="4,12,4,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -245,7 +301,7 @@
                                                             <ColumnDefinition Width="30"/>
                                                             <ColumnDefinition Width="*"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <!-- Кнопка +/− сворачивания/разворачивания группы -->
+                                                        <!-- Современная кнопка свернуть/развернуть (chevron) -->
                                                         <ToggleButton x:Name="Expander"
                                                                       HorizontalAlignment="Left" VerticalAlignment="Center"
                                                                       IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
@@ -260,23 +316,26 @@
                                                                             Background="{DynamicResource ItemHoverBrush}"
                                                                             BorderBrush="{DynamicResource BorderBrushColor}"
                                                                             BorderThickness="1"
-                                                                            CornerRadius="12">
-                                                                        <TextBlock x:Name="ExpanderSymbol"
-                                                                                   Text="+"
-                                                                                   FontSize="18"
-                                                                                   FontWeight="Bold"
-                                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                                            CornerRadius="6">
+                                                                        <Path x:Name="ExpanderIcon"
+                                                                              Width="12" Height="12"
+                                                                              Stretch="Uniform"
+                                                                              Fill="{DynamicResource TextPrimaryBrush}"
+                                                                              HorizontalAlignment="Center"
+                                                                              VerticalAlignment="Center"
+                                                                              Data="{StaticResource IconChevronRight}"/>
                                                                     </Border>
                                                                     <ControlTemplate.Triggers>
                                                                         <Trigger Property="IsChecked" Value="True">
-                                                                            <Setter TargetName="ExpanderSymbol" Property="Text" Value="−"/>
+                                                                            <Setter TargetName="ExpanderIcon" Property="Data" Value="{StaticResource IconChevronDown}"/>
                                                                         </Trigger>
                                                                         <Trigger Property="IsMouseOver" Value="True">
                                                                             <Setter TargetName="ExpanderBorder" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                                                            <Setter TargetName="ExpanderIcon" Property="Fill" Value="White"/>
                                                                         </Trigger>
                                                                         <Trigger Property="IsPressed" Value="True">
                                                                             <Setter TargetName="ExpanderBorder" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+                                                                            <Setter TargetName="ExpanderIcon" Property="Fill" Value="White"/>
                                                                         </Trigger>
                                                                     </ControlTemplate.Triggers>
                                                                 </ControlTemplate>
@@ -313,31 +372,31 @@
 
                     <!-- ============ Кнопки управления группами ============ -->
                     <StackPanel Grid.Column="1" VerticalAlignment="Top">
-                        <Button Style="{DynamicResource ModernButton}" Width="120"
+                        <Button Style="{DynamicResource ModernButton}" Width="140"
                                 Margin="0,0,0,8" Click="OnAddRoot_Click">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="➕" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Добавить" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
-                        <Button Style="{DynamicResource SecondaryButton}" Width="120"
+                        <Button Style="{DynamicResource SecondaryButton}" Width="140"
                                 Margin="0,0,0,8" Click="OnAddSubgroup_Click">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="➕" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <materialDesign:PackIcon Kind="FolderPlus" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Подгруппу" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
-                        <Button Style="{DynamicResource SecondaryButton}" Width="120"
+                        <Button Style="{DynamicResource SecondaryButton}" Width="140"
                                 Margin="0,0,0,8" Click="OnEditGroup_Click">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="✎" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Изменить" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
-                        <Button Style="{DynamicResource SecondaryButton}" Width="120"
+                        <Button Style="{DynamicResource SecondaryButton}" Width="140"
                                 Margin="0,0,0,8" Click="OnDeleteGroup_Click">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="🗑" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Удалить" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -346,7 +405,7 @@
                                 Margin="0,0,0,8" Click="OnCollapseAll_Click"
                                 ToolTip="Свернуть все группы">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="—" Margin="0,0,6,0" VerticalAlignment="Center" FontWeight="Bold"/>
+                                <materialDesign:PackIcon Kind="UnfoldLessHorizontal" Width="16" Height="16" Foreground="#6366F1" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Свернуть все" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -354,7 +413,7 @@
                                 Click="OnExpandAll_Click"
                                 ToolTip="Развернуть все группы">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="+" Margin="0,0,6,0" VerticalAlignment="Center" FontWeight="Bold"/>
+                                <materialDesign:PackIcon Kind="UnfoldMoreHorizontal" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Развернуть все" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -363,7 +422,7 @@
             </TabItem>
 
             <!-- ============ Вкладка «ibases.v8i» ============ -->
-            <TabItem Header="📄 ibases.v8i" Style="{StaticResource SettingsTabItem}">
+            <TabItem Header="ibases.v8i" Style="{StaticResource SettingsTabItem}">
                 <Grid Margin="4,12,4,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -384,6 +443,7 @@
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <ComboBox x:Name="SyncModeComboBox" Width="260" Margin="10,0,0,0"
                                           VerticalAlignment="Center"
+                                          Style="{StaticResource ModernComboBox}"
                                           SelectionChanged="OnSyncMode_SelectionChanged"/>
                             </StackPanel>
 
@@ -404,6 +464,7 @@
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <ComboBox x:Name="SyncTriggerComboBox" Width="260" Margin="10,0,0,0"
                                           VerticalAlignment="Center"
+                                          Style="{StaticResource ModernComboBox}"
                                           SelectionChanged="OnSyncTrigger_SelectionChanged"/>
                             </StackPanel>
 
@@ -432,7 +493,7 @@
                                         Click="OnSyncImport_Click"
                                         ToolTip="Загрузить новые базы из файла ibases.v8i в приложение">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="📥" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <materialDesign:PackIcon Kind="Download" Width="16" Height="16" Foreground="#F97316" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="Загрузить из файла" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
@@ -441,7 +502,7 @@
                                         Click="OnSyncExport_Click"
                                         ToolTip="Выгрузить базы приложения в файл ibases.v8i">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="📤" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <materialDesign:PackIcon Kind="Upload" Width="16" Height="16" Foreground="#A855F7" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="Выгрузить в файл" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
@@ -453,7 +514,7 @@
             </TabItem>
 
             <!-- ============ Вкладка «Дополнительные функции» ============ -->
-            <TabItem Header="⚙ Дополнительные функции" Style="{StaticResource SettingsTabItem}">
+            <TabItem Header="Дополнительно" Style="{StaticResource SettingsTabItem}">
                 <Grid Margin="4,12,4,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -474,7 +535,7 @@
                                     Click="OnExportInfobases_Click"
                                     ToolTip="Сохранить текущий список баз и групп в JSON-файл">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="📤" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <materialDesign:PackIcon Kind="Export" Width="16" Height="16" Foreground="White" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Экспорт списка баз в файл" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -483,7 +544,7 @@
                                     Click="OnImportInfobases_Click"
                                     ToolTip="Загрузить список баз и групп из JSON-файла (заменяет текущий)">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="📥" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <materialDesign:PackIcon Kind="Import" Width="16" Height="16" Foreground="#F97316" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Загрузка списка баз из файла" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -492,7 +553,7 @@
                                     Click="OnImportIbasesV8i_Click"
                                     ToolTip="Считать список баз из файла ibases.v8i и добавить/обновить базы">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="📥" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <materialDesign:PackIcon Kind="FileDownload" Width="16" Height="16" Foreground="#14B8A6" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Импорт из ibases.v8i" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -510,7 +571,7 @@
                                     Click="OnClearAllInfobases_Click"
                                     ToolTip="Удалить все базы и группы">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🗑" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Очистить весь список баз" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -522,16 +583,16 @@
 
         <!-- ============ Кнопки ============ -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Width="120" Height="34" Style="{DynamicResource ModernButton}"
+            <Button Width="130" Height="34" Style="{DynamicResource ModernButton}"
                     Margin="0,0,10,0" IsDefault="True" Click="OnSave_Click">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="💾" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="Сохранить" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
             <Button Width="120" Height="34" Style="{DynamicResource SecondaryButton}" IsCancel="True">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✖" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="Отмена" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>

@@ -7,6 +7,7 @@
         xmlns:vm="clr-namespace:Configuration_Management.ViewModels"
         xmlns:models="clr-namespace:Configuration_Management.Models"
         xmlns:conv="clr-namespace:Configuration_Management.Converters"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="Управление конфигурациями 1С"
         Icon="{StaticResource AppIcon}"
@@ -94,7 +95,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="⚙" FontSize="20" Foreground="{DynamicResource AccentBrush}" Margin="0,0,10,0"/>
+                    <materialDesign:PackIcon Kind="Cog" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
                     <TextBlock Text="Управление конфигурациями 1С" FontSize="18" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextOnAccentBrush}"/>
                 </StackPanel>
@@ -102,12 +103,17 @@
                     <Button Command="{Binding OpenSettingsCommand}" Style="{DynamicResource SecondaryButton}"
                             Margin="0,0,8,0" ToolTip="Настройки приложения">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⚙" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <materialDesign:PackIcon Kind="Cog" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Настройки" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="ThemeToggleButton" Content="🌙 Тёмная" Click="OnToggleTheme_Click"
-                            Style="{DynamicResource SecondaryButton}" ToolTip="Переключить тему"/>
+                    <Button x:Name="ThemeToggleButton" Click="OnToggleTheme_Click"
+                            Style="{DynamicResource SecondaryButton}" ToolTip="Переключить тему">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="WeatherNight" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Тёмная" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -136,9 +142,14 @@
 
                     <!-- Фильтры -->
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="4,0,0,8">
-                        <ToggleButton Content="★ Избранные" IsChecked="{Binding ShowFavoritesOnly}"
+                        <ToggleButton IsChecked="{Binding ShowFavoritesOnly}"
                                       Style="{DynamicResource FilterToggleButton}" Margin="0,0,8,0"
-                                      ToolTip="Показать только избранные базы"/>
+                                      ToolTip="Показать только избранные базы">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Star" Width="14" Height="14" Foreground="#FBBF24" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Избранные" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </ToggleButton>
                         <ToggleButton IsChecked="{Binding GroupByGroup}"
                                       Click="OnGroupByToggle_Click"
                                       Style="{DynamicResource FilterToggleButton}"
@@ -155,20 +166,14 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
                             <Button Command="{Binding CollapseAllGroupsCommand}"
-                                    Style="{DynamicResource SecondaryButton}" Padding="10,7"
+                                    Style="{DynamicResource SecondaryButton}" Padding="8,6"
                                     Margin="0,0,6,0" ToolTip="Свернуть все группы">
-                                <Path Width="26" Height="26" Stretch="Uniform"
-                                      Fill="{DynamicResource TextPrimaryBrush}"
-                                      Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2.5"
-                                      Data="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41ZM7.41,8.41L12,3.83L16.59,8.41L18,7L12,1L6,7L7.41,8.41Z"/>
+                                <Image Source="{StaticResource IconCollapseAllColored}" Width="22" Height="22" Stretch="Uniform"/>
                             </Button>
                             <Button Command="{Binding ExpandAllGroupsCommand}"
-                                    Style="{DynamicResource SecondaryButton}" Padding="10,7"
+                                    Style="{DynamicResource SecondaryButton}" Padding="8,6"
                                     ToolTip="Развернуть все группы">
-                                <Path Width="26" Height="26" Stretch="Uniform"
-                                      Fill="{DynamicResource TextPrimaryBrush}"
-                                      Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2.5"
-                                      Data="M7.41,8.59L12,13.17L16.59,8.59L18,10L12,16L6,10L7.41,8.59ZM7.41,15.59L12,20.17L16.59,15.59L18,17L12,23L6,17L7.41,15.59Z"/>
+                                <Image Source="{StaticResource IconExpandAllColored}" Width="22" Height="22" Stretch="Uniform"/>
                             </Button>
                         </StackPanel>
                         <Grid Grid.Column="1">
@@ -176,11 +181,12 @@
                                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                      ToolTip="Поиск по наименованию, описанию, группе или версии платформы"/>
                             <Button Command="{Binding ClearSearchCommand}"
-                                    Content="✕" Background="Transparent" BorderThickness="0"
+                                    Background="Transparent" BorderThickness="0"
                                     Padding="6,0" Cursor="Hand" ToolTip="Очистить поиск"
-                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                     HorizontalAlignment="Right" VerticalAlignment="Center"
-                                    Margin="0,0,4,0"/>
+                                    Margin="0,0,4,0">
+                                <materialDesign:PackIcon Kind="Close" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
                         </Grid>
                     </Grid>
 
@@ -205,12 +211,9 @@
                                       PreviewMouseWheel="OnDbHeader_PreviewMouseWheel">
                             <!-- Правый отступ компенсирует ширину вертикальной полосы прокрутки списка,
                                  чтобы правый край колонки (*) заголовка совпадал с данными. -->
+                            <Border BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1"
+                                    Padding="0,2,0,2" Opacity="0.95">
                             <Grid x:Name="HeaderGrid" MinWidth="{Binding ViewportWidth, ElementName=DbListScroll}">
-                                <Grid.Margin>
-                                    <Thickness Left="0" Top="0"
-                                               Right="{x:Static SystemParameters.VerticalScrollBarWidth}"
-                                               Bottom="0"/>
-                                </Grid.Margin>
                                 <Grid.ColumnDefinitions>
                                     <!-- Первая колонка компенсирует сдвиг строк данных внутри TreeView,
                                          чтобы заголовки колонок и границы разделителей совпадали с данными.
@@ -272,39 +275,56 @@
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
 
-                                <!-- Разделители для изменения ширины колонок -->
-                                <Rectangle x:Name="VersionSplitter" Grid.Column="4"
-                                           HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="6"
-                                           Panel.ZIndex="1" Fill="{DynamicResource BorderBrushColor}"
-                                           Cursor="SizeWE" ToolTip="Изменить ширину колонки"
-                                           MouseLeftButtonDown="OnColumnResize_MouseDown"
-                                           MouseMove="OnColumnResize_MouseMove"
-                                           MouseLeftButtonUp="OnColumnResize_MouseUp"/>
-                                <Rectangle x:Name="LaunchModeSplitter" Grid.Column="5"
-                                           HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="6"
-                                           Panel.ZIndex="1" Fill="{DynamicResource BorderBrushColor}"
-                                           Cursor="SizeWE" ToolTip="Изменить ширину колонки"
-                                           Visibility="{Binding DataContext.ShowVersionColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
-                                           MouseLeftButtonDown="OnColumnResize_MouseDown"
-                                           MouseMove="OnColumnResize_MouseMove"
-                                           MouseLeftButtonUp="OnColumnResize_MouseUp"/>
-                                <Rectangle x:Name="ServerSplitter" Grid.Column="6"
-                                           HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="6"
-                                           Panel.ZIndex="1" Fill="{DynamicResource BorderBrushColor}"
-                                           Cursor="SizeWE" ToolTip="Изменить ширину колонки"
-                                           Visibility="{Binding DataContext.ShowLaunchModeColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
-                                           MouseLeftButtonDown="OnColumnResize_MouseDown"
-                                           MouseMove="OnColumnResize_MouseMove"
-                                           MouseLeftButtonUp="OnColumnResize_MouseUp"/>
-                                <Rectangle x:Name="LastLaunchSplitter" Grid.Column="7"
-                                           HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="6"
-                                           Panel.ZIndex="1" Fill="{DynamicResource BorderBrushColor}"
-                                           Cursor="SizeWE" ToolTip="Изменить ширину колонки"
-                                           Visibility="{Binding DataContext.ShowServerColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
-                                           MouseLeftButtonDown="OnColumnResize_MouseDown"
-                                           MouseMove="OnColumnResize_MouseMove"
-                                           MouseLeftButtonUp="OnColumnResize_MouseUp"/>
+                                <!-- Современные разделители колонок: тонкая линия + широкая зона захвата -->
+                                <Border x:Name="VersionSplitter" Grid.Column="4"
+                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="8"
+                                        Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
+                                        ToolTip="Изменить ширину колонки"
+                                        MouseLeftButtonDown="OnColumnResize_MouseDown"
+                                        MouseMove="OnColumnResize_MouseMove"
+                                        MouseLeftButtonUp="OnColumnResize_MouseUp">
+                                    <Border Width="1" HorizontalAlignment="Center"
+                                            Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
+                                            Margin="0,2,0,4"/>
+                                </Border>
+                                <Border x:Name="LaunchModeSplitter" Grid.Column="5"
+                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="8"
+                                        Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
+                                        ToolTip="Изменить ширину колонки"
+                                        Visibility="{Binding DataContext.ShowVersionColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                        MouseLeftButtonDown="OnColumnResize_MouseDown"
+                                        MouseMove="OnColumnResize_MouseMove"
+                                        MouseLeftButtonUp="OnColumnResize_MouseUp">
+                                    <Border Width="1" HorizontalAlignment="Center"
+                                            Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
+                                            Margin="0,2,0,4"/>
+                                </Border>
+                                <Border x:Name="ServerSplitter" Grid.Column="6"
+                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="8"
+                                        Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
+                                        ToolTip="Изменить ширину колонки"
+                                        Visibility="{Binding DataContext.ShowLaunchModeColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                        MouseLeftButtonDown="OnColumnResize_MouseDown"
+                                        MouseMove="OnColumnResize_MouseMove"
+                                        MouseLeftButtonUp="OnColumnResize_MouseUp">
+                                    <Border Width="1" HorizontalAlignment="Center"
+                                            Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
+                                            Margin="0,2,0,4"/>
+                                </Border>
+                                <Border x:Name="LastLaunchSplitter" Grid.Column="7"
+                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="8"
+                                        Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
+                                        ToolTip="Изменить ширину колонки"
+                                        Visibility="{Binding DataContext.ShowServerColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                        MouseLeftButtonDown="OnColumnResize_MouseDown"
+                                        MouseMove="OnColumnResize_MouseMove"
+                                        MouseLeftButtonUp="OnColumnResize_MouseUp">
+                                    <Border Width="1" HorizontalAlignment="Center"
+                                            Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
+                                            Margin="0,2,0,4"/>
+                                </Border>
                             </Grid>
+                            </Border>
                         </ScrollViewer>
 
                     <!-- Прокручиваемая область списка баз. Прокручивается только по вертикали,
@@ -326,7 +346,7 @@
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                               ScrollViewer.VerticalScrollBarVisibility="Disabled"
                               ScrollViewer.CanContentScroll="False"
-                              VirtualizingStackPanel.IsVirtualizing="False"
+                              VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" VirtualizingStackPanel.ScrollUnit="Pixel"
                               SelectedItemChanged="OnMainTree_SelectedItemChanged"
                               PreviewMouseDoubleClick="OnInfobaseTree_PreviewMouseDoubleClick"
                               PreviewMouseRightButtonDown="OnInfobaseTree_PreviewMouseRightButtonDown"
@@ -374,7 +394,7 @@
                                                     </Setter>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding DisplayName}" Value="Закреплённые">
-                                                            <Setter Property="Text" Value="📌"/>
+                                                            <Setter Property="Text" Value=""/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -477,9 +497,9 @@
                                                 MinWidth="0" MinHeight="0"
                                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                 ToolTip="Добавить/убрать из избранного">
-                                            <TextBlock Text="★" FontSize="14">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
+                                            <materialDesign:PackIcon Kind="Star" Width="14" Height="14">
+                                                <materialDesign:PackIcon.Style>
+                                                    <Style TargetType="materialDesign:PackIcon">
                                                         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsFavorite}" Value="True">
@@ -487,8 +507,8 @@
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
+                                                </materialDesign:PackIcon.Style>
+                                            </materialDesign:PackIcon>
                                         </Button>
 
                                         <Button Grid.Column="2"
@@ -499,9 +519,9 @@
                                                 MinWidth="0" MinHeight="0"
                                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                 ToolTip="Закрепить/открепить базу вверху списка">
-                                            <TextBlock Text="📌" FontSize="14">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
+                                            <materialDesign:PackIcon Kind="Pin" Width="14" Height="14">
+                                                <materialDesign:PackIcon.Style>
+                                                    <Style TargetType="materialDesign:PackIcon">
                                                         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsPinned}" Value="True">
@@ -509,8 +529,8 @@
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
+                                                </materialDesign:PackIcon.Style>
+                                            </materialDesign:PackIcon>
                                         </Button>
 
                                         <TextBlock Grid.Column="3" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
@@ -558,7 +578,7 @@
                                                                 <Button Click="OnRemoveTag_Click"
                                                                         Background="Transparent" BorderThickness="0" Padding="2,0"
                                                                         Margin="4,0,0,0" Cursor="Hand" ToolTip="Удалить тег">
-                                                                    <TextBlock Text="✕" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10"/>
+                                                                    <materialDesign:PackIcon Kind="Close" Width="10" Height="10" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                                 </Button>
                                                             </StackPanel>
                                                         </Border>
@@ -621,28 +641,34 @@
                                                                         Background="{DynamicResource ItemHoverBrush}"
                                                                         BorderBrush="{DynamicResource BorderBrushColor}"
                                                                         BorderThickness="1"
-                                                                        CornerRadius="11">
-                                                                    <TextBlock FontSize="15" FontWeight="Bold"
-                                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                               Foreground="{DynamicResource TextPrimaryBrush}">
-                                                                        <TextBlock.Style>
-                                                                            <Style TargetType="TextBlock">
-                                                                                <Setter Property="Text" Value="−"/>
+                                                                        CornerRadius="6">
+                                                                    <Path x:Name="ExpanderIcon"
+                                                                          Width="12" Height="12"
+                                                                          Stretch="Uniform"
+                                                                          Fill="{DynamicResource TextPrimaryBrush}"
+                                                                          HorizontalAlignment="Center"
+                                                                          VerticalAlignment="Center"
+                                                                          Data="{StaticResource IconChevronDown}">
+                                                                        <Path.Style>
+                                                                            <Style TargetType="Path">
+                                                                                <Setter Property="Data" Value="{StaticResource IconChevronDown}"/>
                                                                                 <Style.Triggers>
                                                                                     <DataTrigger Binding="{Binding IsExpanded}" Value="False">
-                                                                                        <Setter Property="Text" Value="+"/>
+                                                                                        <Setter Property="Data" Value="{StaticResource IconChevronRight}"/>
                                                                                     </DataTrigger>
                                                                                 </Style.Triggers>
                                                                             </Style>
-                                                                        </TextBlock.Style>
-                                                                    </TextBlock>
+                                                                        </Path.Style>
+                                                                    </Path>
                                                                 </Border>
                                                                 <ControlTemplate.Triggers>
                                                                     <Trigger Property="IsMouseOver" Value="True">
                                                                         <Setter TargetName="ExpanderBorder" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                                                        <Setter TargetName="ExpanderIcon" Property="Fill" Value="White"/>
                                                                     </Trigger>
                                                                     <Trigger Property="IsPressed" Value="True">
                                                                         <Setter TargetName="ExpanderBorder" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+                                                                        <Setter TargetName="ExpanderIcon" Property="Fill" Value="White"/>
                                                                     </Trigger>
                                                                 </ControlTemplate.Triggers>
                                                             </ControlTemplate>
@@ -692,16 +718,32 @@
                         <!-- Контекстное меню по правой кнопке мыши для выбранной базы -->
                         <TreeView.ContextMenu>
                             <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                                <MenuItem Header="▶ Запустить 1С:Предприятие" Command="{Binding LaunchEnterpriseCommand}" Style="{DynamicResource ModernMenuItem}"/>
-                                <MenuItem Header="⚙ Запустить Конфигуратор" Command="{Binding LaunchConfiguratorCommand}" Style="{DynamicResource ModernMenuItem}"/>
+                                <MenuItem Header="Запустить 1С:Предприятие" Command="{Binding LaunchEnterpriseCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Play" Width="16" Height="16" Foreground="#22C55E"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Запустить Конфигуратор" Command="{Binding LaunchConfiguratorCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Cog" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
+                                </MenuItem>
                                 <Separator/>
-                                <MenuItem Header="★ Избранное" Command="{Binding ToggleFavoriteCommand}" Style="{DynamicResource ModernMenuItem}"/>
-                                <MenuItem Header="📌 Закрепить" Command="{Binding TogglePinCommand}" Style="{DynamicResource ModernMenuItem}"/>
-                                <MenuItem Header="🧹 Очистить кеш базы" Command="{Binding ClearCacheCommand}" Style="{DynamicResource ModernMenuItem}"/>
-                                <MenuItem Header="📋 Копировать строку подключения" Command="{Binding CopyConnectionStringCommand}" Style="{DynamicResource ModernMenuItem}"/>
+                                <MenuItem Header="Избранное" Command="{Binding ToggleFavoriteCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Star" Width="16" Height="16" Foreground="#FBBF24"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Закрепить" Command="{Binding TogglePinCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Pin" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Очистить кеш базы" Command="{Binding ClearCacheCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Копировать строку подключения" Command="{Binding CopyConnectionStringCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" Foreground="#06B6D4"/></MenuItem.Icon>
+                                </MenuItem>
                                 <Separator/>
-                                <MenuItem Header="✎ Изменить настройки" Command="{Binding EditInfobaseCommand}" Style="{DynamicResource ModernMenuItem}"/>
-                                <MenuItem Header="🗑 Удалить базу" Command="{Binding DeleteInfobaseCommand}" Style="{DynamicResource ModernMenuItem}"/>
+                                <MenuItem Header="Изменить настройки" Command="{Binding EditInfobaseCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Удалить базу" Command="{Binding DeleteInfobaseCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444"/></MenuItem.Icon>
+                                </MenuItem>
                             </ContextMenu>
                         </TreeView.ContextMenu>
                         </TreeView>
@@ -723,28 +765,39 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Content="▶ 1С:Предприятие" Command="{Binding LaunchEnterpriseCommand}"
+                        <Button Grid.Column="0" Command="{Binding LaunchEnterpriseCommand}"
                                 Style="{DynamicResource ModernButton}" Padding="10,8"
-                                ToolTip="Запустить 1С:Предприятие (тонкий клиент)"/>
-                        <Button Grid.Column="1" x:Name="LaunchSplitButton" Content="▼"
+                                ToolTip="Запустить 1С:Предприятие (тонкий клиент)">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Play" Width="14" Height="14" Foreground="White" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="1С:Предприятие" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="1" x:Name="LaunchSplitButton"
                                 Style="{DynamicResource ModernButton}" Padding="8,8"
                                 ToolTip="Выбрать тип клиента для запуска"
                                 IsEnabled="{Binding SelectedInfobase, Converter={StaticResource NullToBoolConverter}}"
                                 Click="OnLaunchSplitButton_Click">
+                            <materialDesign:PackIcon Kind="ChevronDown" Width="12" Height="12" Foreground="White"/>
                             <Button.ContextMenu>
                                 <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                                    <MenuItem Header="📱 Тонкий клиент (32 бит)" Command="{Binding LaunchEnterpriseThinCommand}" Style="{DynamicResource ModernMenuItem}"/>
-                                    <MenuItem Header="💻 Толстый клиент (32 бит)" Command="{Binding LaunchEnterpriseThickCommand}" Style="{DynamicResource ModernMenuItem}"/>
+                                    <MenuItem Header="Тонкий клиент (32 бит)" Command="{Binding LaunchEnterpriseThinCommand}" Style="{DynamicResource ModernMenuItem}"/>
+                                    <MenuItem Header="Толстый клиент (32 бит)" Command="{Binding LaunchEnterpriseThickCommand}" Style="{DynamicResource ModernMenuItem}"/>
                                     <Separator/>
-                                    <MenuItem Header="📱 Тонкий клиент (64 бит)" Command="{Binding LaunchEnterpriseThin64Command}" Style="{DynamicResource ModernMenuItem}"/>
-                                    <MenuItem Header="💻 Толстый клиент (64 бит)" Command="{Binding LaunchEnterpriseThick64Command}" Style="{DynamicResource ModernMenuItem}"/>
+                                    <MenuItem Header="Тонкий клиент (64 бит)" Command="{Binding LaunchEnterpriseThin64Command}" Style="{DynamicResource ModernMenuItem}"/>
+                                    <MenuItem Header="Толстый клиент (64 бит)" Command="{Binding LaunchEnterpriseThick64Command}" Style="{DynamicResource ModernMenuItem}"/>
                                 </ContextMenu>
                             </Button.ContextMenu>
                         </Button>
                     </Grid>
-                    <Button Content="⚙ Конфигуратор" Command="{Binding LaunchConfiguratorCommand}"
+                    <Button Command="{Binding LaunchConfiguratorCommand}"
                             Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
-                            ToolTip="Запустить Конфигуратор"/>
+                            ToolTip="Запустить Конфигуратор">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Cog" Width="14" Height="14" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Конфигуратор" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
 
                     <!-- Разделитель между группами команд -->
                     <Border Height="1" Background="{DynamicResource BorderBrushColor}" Margin="0,4,0,12"/>
@@ -752,21 +805,46 @@
                     <!-- ===== Секция «Управление» ===== -->
                     <TextBlock Text="Управление" FontWeight="SemiBold" FontSize="12"
                                Foreground="{DynamicResource TextSecondaryBrush}" Margin="4,0,0,6"/>
-                    <Button Content="➕ Добавить" Command="{Binding AddInfobaseCommand}"
+                    <Button Command="{Binding AddInfobaseCommand}"
                             Style="{DynamicResource ModernButton}" Margin="0,0,0,8" Padding="10,8"
-                            ToolTip="Добавить информационную базу или группу"/>
-                    <Button Content="✎ Изменить" Command="{Binding EditInfobaseCommand}"
+                            ToolTip="Добавить информационную базу или группу">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Plus" Width="14" Height="14" Foreground="White" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Добавить" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding EditInfobaseCommand}"
                             Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
-                            ToolTip="Изменить выбранную базу или группу"/>
-                    <Button Content="★ Избранное" Command="{Binding ToggleFavoriteCommand}"
+                            ToolTip="Изменить выбранную базу или группу">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Pencil" Width="14" Height="14" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Изменить" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding ToggleFavoriteCommand}"
                             Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
-                            ToolTip="Добавить/убрать базу из избранного"/>
-                    <Button Content="📌 Закрепить" Command="{Binding TogglePinCommand}"
+                            ToolTip="Добавить/убрать базу из избранного">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Star" Width="14" Height="14" Foreground="#FBBF24" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Избранное" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding TogglePinCommand}"
                             Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
-                            ToolTip="Закрепить базу вверху списка"/>
-                    <Button Content="🗑 Удалить" Command="{Binding DeleteInfobaseCommand}"
+                            ToolTip="Закрепить базу вверху списка">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Pin" Width="14" Height="14" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Закрепить" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding DeleteInfobaseCommand}"
                             Style="{DynamicResource SecondaryButton}" Padding="10,8"
-                            ToolTip="Удалить выбранную базу или группу"/>
+                            ToolTip="Удалить выбранную базу или группу">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Delete" Width="14" Height="14" Foreground="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Удалить" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Border>
 
@@ -785,9 +863,13 @@
                            ToolTip="Строка подключения выбранной базы">
                     <TextBlock.ContextMenu>
                         <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                            <MenuItem Header="📋 Копировать путь"
+                            <MenuItem Header="Копировать путь"
                                       Command="{Binding CopyConnectionStringCommand}"
-                                      Style="{DynamicResource ModernMenuItem}"/>
+                                      Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                         </ContextMenu>
                     </TextBlock.ContextMenu>
                 </TextBlock>

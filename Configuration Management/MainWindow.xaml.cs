@@ -17,10 +17,10 @@ namespace Configuration_Management
     {
         private readonly MainViewModel _viewModel;
 
-        public MainWindow()
+        public MainWindow(ViewModels.MainViewModel? viewModel = null)
         {
             InitializeComponent();
-            _viewModel = new MainViewModel();
+            _viewModel = viewModel ?? new ViewModels.MainViewModel();
             DataContext = _viewModel;
 
             // Применяем сохранённую тему оформления при запуске.
@@ -156,6 +156,25 @@ namespace Configuration_Management
             var dataX = nameCell.TranslatePoint(new Point(0, 0), MainTree).X;
             var offset = Math.Max(0, dataX - 52);
             HeaderOffsetColumn.Width = new GridLength(offset);
+
+            SyncHeaderWidthWithList();
+        }
+
+        /// <summary>
+        /// Выравнивает ширину сетки заголовка с контентом списка, чтобы горизонтальная
+        /// прокрутка «до конца» не разъезжала колонки заголовка и строк.
+        /// </summary>
+        private void SyncHeaderWidthWithList()
+        {
+            if (HeaderGrid is null || DbListScroll is null)
+                return;
+
+            double sbw = DbListScroll.ComputedVerticalScrollBarVisibility == Visibility.Visible
+                ? SystemParameters.VerticalScrollBarWidth
+                : 0;
+            double target = Math.Max(DbListScroll.ExtentWidth + sbw, DbListScroll.ViewportWidth + sbw);
+            if (target > 0)
+                HeaderGrid.Width = target;
         }
 
         /// <summary>
@@ -629,6 +648,7 @@ namespace Configuration_Management
                     LaunchModeColumn?.ActualWidth ?? 0,
                     ServerColumn?.ActualWidth ?? 0,
                     LastLaunchColumn?.ActualWidth ?? 0);
+                SyncHeaderWidthWithList();
             }
 
             _resizeColumn = null;
@@ -640,9 +660,16 @@ namespace Configuration_Management
             if (ThemeToggleButton is null)
                 return;
 
-            ThemeToggleButton.Content = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName
-                ? "☀️ Светлая"
-                : "🌙 Тёмная";
+            if (ThemeToggleButton.Content is System.Windows.Controls.StackPanel sp
+                && sp.Children.Count > 1
+                && sp.Children[1] is System.Windows.Controls.TextBlock tb)
+            {
+                tb.Text = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName ? "Светлая" : "Тёмная";
+            }
+            else
+            {
+                ThemeToggleButton.Content = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName ? "Светлая" : "Тёмная";
+            }
         }
 
         /// <summary>
@@ -676,11 +703,24 @@ namespace Configuration_Management
         /// </summary>
         private void OnDbList_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            if (DbHeaderScroll is null)
+            if (DbHeaderScroll is null || DbListScroll is null)
                 return;
 
-            // Применяем то же горизонтальное смещение, что и у списка баз.
-            DbHeaderScroll.ScrollToHorizontalOffset(e.HorizontalOffset);
+            // Ширина заголовка = ширина контента списка + ширина вертикального скроллбара (если он виден).
+            // Так ScrollableWidth заголовка и списка совпадают, и при прокрутке «до конца»
+            // колонки не разъезжаются.
+            if (HeaderGrid is not null && (e.ExtentWidthChange != 0 || e.ViewportWidthChange != 0 || e.ExtentHeightChange != 0))
+            {
+                double sbw = DbListScroll.ComputedVerticalScrollBarVisibility == Visibility.Visible
+                    ? SystemParameters.VerticalScrollBarWidth
+                    : 0;
+                double target = Math.Max(DbListScroll.ExtentWidth + sbw, DbListScroll.ViewportWidth + sbw);
+                if (target > 0 && Math.Abs(HeaderGrid.Width - target) > 0.5)
+                    HeaderGrid.Width = target;
+            }
+
+            if (Math.Abs(DbHeaderScroll.HorizontalOffset - e.HorizontalOffset) > 0.01)
+                DbHeaderScroll.ScrollToHorizontalOffset(e.HorizontalOffset);
         }
 
         /// <summary>

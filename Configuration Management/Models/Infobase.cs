@@ -62,8 +62,18 @@ public class Infobase : INotifyPropertyChanged
         set => SetProperty(ref _isSelected, value);
     }
 
+    private DateTime? _lastLaunchDate;
+
     /// <summary>Дата и время последнего запуска базы.</summary>
-    public DateTime? LastLaunchDate { get; set; }
+    public DateTime? LastLaunchDate
+    {
+        get => _lastLaunchDate;
+        set
+        {
+            if (SetProperty(ref _lastLaunchDate, value))
+                OnPropertyChanged(nameof(LastLaunchDisplay));
+        }
+    }
 
     private ConnectionSettings _connection = new();
 
