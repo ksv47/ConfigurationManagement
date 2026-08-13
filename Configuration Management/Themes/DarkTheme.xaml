@@ -12,21 +12,21 @@
     <Color x:Key="CardBackgroundColor">#1E293B</Color>
     <Color x:Key="BorderColor">#334155</Color>
     <Color x:Key="TextPrimaryColor">#F1F5F9</Color>
-    <Color x:Key="TextSecondaryColor">#94A3B8</Color>
+    <Color x:Key="TextSecondaryColor">#CBD5E1</Color>
     <Color x:Key="TextOnAccentColor">#FFFFFF</Color>
     <Color x:Key="ButtonTextColor">#000000</Color>
     <Color x:Key="FavoriteColor">#FFC107</Color>
 
     <!-- Дополнительные цвета для выразительных списков -->
-    <Color x:Key="ItemHoverColor">#3A3A1E</Color>
-    <Color x:Key="ItemSelectedColor">#4A4A20</Color>
-    <Color x:Key="AvatarBackgroundColor">#4A4A20</Color>
+    <Color x:Key="ItemHoverColor">#334155</Color>
+    <Color x:Key="ItemSelectedColor">#1E3A5F</Color>
+    <Color x:Key="AvatarBackgroundColor">#1E3A5F</Color>
     <Color x:Key="AvatarTextColor">#FFB300</Color>
     <Color x:Key="SecondaryButtonBackgroundColor">#FFB300</Color>
     <Color x:Key="SecondaryButtonHoverColor">#FFCA28</Color>
     <Color x:Key="SecondaryButtonPressedColor">#FF8F00</Color>
-    <Color x:Key="TreeHoverColor">#3A3A1E</Color>
-    <Color x:Key="TreeSelectedColor">#FFB300</Color>
+    <Color x:Key="TreeHoverColor">#334155</Color>
+    <Color x:Key="TreeSelectedColor">#B45309</Color>
 
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHoverColor}"/>
@@ -778,7 +778,7 @@
                         <Track x:Name="PART_Track" IsDirectionReversed="True"
                                Minimum="{TemplateBinding Minimum}"
                                Maximum="{TemplateBinding Maximum}"
-                               Value="{TemplateBinding Value}"
+                               Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                ViewportSize="{TemplateBinding ViewportSize}"
                                Orientation="{TemplateBinding Orientation}"
                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
@@ -824,6 +824,68 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+
+    <!-- ===================== Implicit-стили для читаемости в тёмной теме ===================== -->
+    <Style TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style TargetType="Label">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style TargetType="PasswordBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1.5"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="ToolTip">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style TargetType="Separator">
+        <Setter Property="Background" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="Margin" Value="4,2"/>
+        <Setter Property="Height" Value="1"/>
     </Style>
 
 </ResourceDictionary>

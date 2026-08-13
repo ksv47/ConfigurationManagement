@@ -28,15 +28,20 @@
         <conv:GroupTextColorConverter x:Key="GroupTextColorConverter"/>
         <conv:BooleanToGridLengthConverter x:Key="BoolToGridLen"/>
         <conv:ColumnVisibilityConverter x:Key="ColumnVis"/>
+        <conv:IconKeyToGeometryConverter x:Key="IconKeyToGeometryConverter"/>
 
-        <!-- Шаблон ScrollViewer списка баз: уголок между скроллбарами окрашен в цвет карточки,
-             чтобы не оставался белый квадратик при появлении горизонтальной прокрутки -->
+        <!-- ScrollViewer списка баз: корректные PART_* и привязки полос прокрутки.
+             Виртуализация TreeView отключена — иначе высота контента = viewport и ScrollableHeight=0. -->
         <Style x:Key="CardScrollViewer" TargetType="ScrollViewer">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="CanContentScroll" Value="False"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="PanningMode" Value="Both"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ScrollViewer">
-                        <Grid Background="{TemplateBinding Background}">
+                        <Grid Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -47,32 +52,31 @@
                             </Grid.RowDefinitions>
                             <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
                                                     Grid.Row="0" Grid.Column="0"
+                                                    Margin="{TemplateBinding Padding}"
                                                     CanContentScroll="{TemplateBinding CanContentScroll}"
-                                                    CanHorizontallyScroll="False"
-                                                    CanVerticallyScroll="False"
                                                     Content="{TemplateBinding Content}"
                                                     ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                    Margin="{TemplateBinding Padding}"/>
+                                                    ContentStringFormat="{TemplateBinding ContentStringFormat}"/>
                             <ScrollBar x:Name="PART_VerticalScrollBar"
-                                       Orientation="Vertical"
                                        Grid.Row="0" Grid.Column="1"
+                                       Orientation="Vertical"
+                                       Cursor="Arrow"
                                        Minimum="0"
                                        Maximum="{TemplateBinding ScrollableHeight}"
                                        ViewportSize="{TemplateBinding ViewportHeight}"
-                                       Value="{TemplateBinding VerticalOffset}"
-                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
-                                       Cursor="Arrow"/>
+                                       Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
                             <ScrollBar x:Name="PART_HorizontalScrollBar"
-                                       Orientation="Horizontal"
                                        Grid.Row="1" Grid.Column="0"
+                                       Orientation="Horizontal"
+                                       Cursor="Arrow"
                                        Minimum="0"
                                        Maximum="{TemplateBinding ScrollableWidth}"
                                        ViewportSize="{TemplateBinding ViewportWidth}"
-                                       Value="{TemplateBinding HorizontalOffset}"
-                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"
-                                       Cursor="Arrow"/>
-                            <Rectangle Grid.Row="1" Grid.Column="1"
-                                       Fill="{TemplateBinding Background}"/>
+                                       Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"/>
+                            <Border Grid.Row="1" Grid.Column="1"
+                                    Background="{DynamicResource CardBackgroundBrush}"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -130,6 +134,9 @@
                     BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,1,0">
                 <Grid Margin="12" Grid.IsSharedSizeScope="True">
                     <Grid.RowDefinitions>
+                        <!-- 0: заголовок, 1: фильтры, 2: поиск, 3: теги, 4: список (*) — обязателен *,
+                             иначе TreeView меряется по полной высоте контента, ScrollableHeight=0
+                             и полосы/колесо не появляются (в т.ч. при сжатии окна). -->
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -165,16 +172,19 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
-                            <Button Command="{Binding CollapseAllGroupsCommand}"
-                                    Style="{DynamicResource SecondaryButton}" Padding="8,6"
-                                    Margin="0,0,6,0" ToolTip="Свернуть все группы">
-                                <Image Source="{StaticResource IconCollapseAllColored}" Width="22" Height="22" Stretch="Uniform"/>
-                            </Button>
-                            <Button Command="{Binding ExpandAllGroupsCommand}"
-                                    Style="{DynamicResource SecondaryButton}" Padding="8,6"
-                                    ToolTip="Развернуть все группы">
-                                <Image Source="{StaticResource IconExpandAllColored}" Width="22" Height="22" Stretch="Uniform"/>
-                            </Button>
+                            <StackPanel Orientation="Horizontal"
+                                        Visibility="{Binding ShowExpandCollapseButtons, Converter={StaticResource BoolToVis}}">
+                                <Button Command="{Binding CollapseAllGroupsCommand}"
+                                        Style="{DynamicResource SecondaryButton}" Padding="8,6"
+                                        Margin="0,0,6,0" ToolTip="Свернуть все группы">
+                                    <Image Source="{StaticResource IconCollapseAllColored}" Width="22" Height="22" Stretch="Uniform"/>
+                                </Button>
+                                <Button Command="{Binding ExpandAllGroupsCommand}"
+                                        Style="{DynamicResource SecondaryButton}" Padding="8,6"
+                                        ToolTip="Развернуть все группы">
+                                    <Image Source="{StaticResource IconExpandAllColored}" Width="22" Height="22" Stretch="Uniform"/>
+                                </Button>
+                            </StackPanel>
                         </StackPanel>
                         <Grid Grid.Column="1">
                             <TextBox Style="{DynamicResource SearchTextBox}"
@@ -190,6 +200,54 @@
                         </Grid>
                     </Grid>
 
+                    <!-- Панель быстрого отбора по тегам -->
+                    <Border Grid.Row="3" Margin="4,0,4,8" Padding="8,6"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrushColor}"
+                            BorderThickness="1" CornerRadius="8"
+                            Visibility="{Binding ShowTagFilterPanel, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,4">
+                                <TextBlock Text="Теги" FontWeight="SemiBold" FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Button DockPanel.Dock="Right" Padding="6,2" Margin="8,0,0,0"
+                                        Style="{DynamicResource SecondaryButton}"
+                                        Command="{Binding ClearSearchCommand}"
+                                        Visibility="{Binding HasActiveTagFilter, Converter={StaticResource BoolToVis}}"
+                                        ToolTip="Сбросить фильтр по тегу">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Close" Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center"
+                                                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="Сбросить" FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding AvailableTags}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Margin="0,0,6,4" Padding="8,3" Cursor="Hand"
+                                                Style="{DynamicResource SecondaryButton}"
+                                                Command="{Binding DataContext.SearchByTagCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="{Binding StringFormat=Отбор по тегу: {0}}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Tag" Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center"
+                                                                         Foreground="#F97316"/>
+                                                <TextBlock Text="{Binding}" FontSize="12" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Область списка: общий горизонтальный ScrollViewer, чтобы заголовки колонок
                          прокручивались синхронно с содержимым дерева -->
                     <!-- Внешний ScrollViewer управляет прокруткой по обеим осям. Прокрутка дерева
@@ -197,7 +255,7 @@
                          циклической привязки высоты, из-за которой полоса прокрутки пропадала при
                          сжатии окна. Контент (заголовки + дерево) прокручивается синхронно
                          по горизонтали и вертикали. -->
-                    <Grid Grid.Row="3" Grid.RowSpan="2" Margin="4,0,4,0">
+                    <Grid Grid.Row="4" Margin="4,0,4,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
@@ -213,7 +271,7 @@
                                  чтобы правый край колонки (*) заголовка совпадал с данными. -->
                             <Border BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1"
                                     Padding="0,2,0,2" Opacity="0.95">
-                            <Grid x:Name="HeaderGrid" MinWidth="{Binding ViewportWidth, ElementName=DbListScroll}">
+                            <Grid x:Name="HeaderGrid" MinWidth="{Binding ActualWidth, ElementName=MainTree}">
                                 <Grid.ColumnDefinitions>
                                     <!-- Первая колонка компенсирует сдвиг строк данных внутри TreeView,
                                          чтобы заголовки колонок и границы разделителей совпадали с данными.
@@ -329,28 +387,39 @@
 
                     <!-- Прокручиваемая область списка баз. Прокручивается только по вертикали,
                          заголовок таблицы выше остаётся на месте. -->
-                    <ScrollViewer x:Name="DbListScroll" Grid.Row="1"
-                                  Style="{DynamicResource CardScrollViewer}"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto"
-                                  ScrollChanged="OnDbList_ScrollChanged"
-                                  PreviewMouseWheel="OnDbList_PreviewMouseWheel">
                     <!-- Список баз в виде дерева «группа в группе» -->
                     <TreeView x:Name="MainTree"
-                              Grid.Row="0" Grid.Column="0"
-                              MinWidth="{Binding ViewportWidth, ElementName=DbListScroll}"
+                              Grid.Row="1"
+                              AllowDrop="True"
+                              PreviewMouseMove="OnMainTree_PreviewMouseMove"
+                              PreviewMouseWheel="OnMainTree_PreviewMouseWheel"
+                              DragOver="OnMainTree_DragOver"
+                              Drop="OnMainTree_Drop"
+                              GiveFeedback="OnMainTree_GiveFeedback"
                               ItemsSource="{Binding GroupNodes}"
                               Background="Transparent"
                               BorderThickness="0"
                               Padding="0"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                              ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
                               ScrollViewer.CanContentScroll="False"
-                              VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" VirtualizingStackPanel.ScrollUnit="Pixel"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              VirtualizingPanel.ScrollUnit="Pixel"
                               SelectedItemChanged="OnMainTree_SelectedItemChanged"
+                              RequestBringIntoView="OnMainTree_RequestBringIntoView"
                               PreviewMouseDoubleClick="OnInfobaseTree_PreviewMouseDoubleClick"
                               PreviewMouseRightButtonDown="OnInfobaseTree_PreviewMouseRightButtonDown"
                               PreviewMouseLeftButtonDown="OnInfobaseTree_PreviewMouseLeftButtonDown">
+
+                        <!-- Виртуализация панели: при большом числе баз создаются только видимые строки. -->
+                        <TreeView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel/>
+                            </ItemsPanelTemplate>
+                        </TreeView.ItemsPanel>
 
                         <TreeView.Resources>
                             <!-- Узел группы: заголовок + вложенные подгруппы и базы -->
@@ -379,27 +448,16 @@
                                         </Style>
                                     </Border.Style>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock FontSize="17" Margin="0,0,8,0"
-                                                   VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="📁"/>
-                                                    <Setter Property="Foreground">
-                                                        <Setter.Value>
-                                                            <MultiBinding Converter="{StaticResource GroupTextColorConverter}">
-                                                                <Binding Path="FullPath"/>
-                                                                <Binding Path="DataContext.Groups" RelativeSource="{RelativeSource AncestorType=Window}"/>
-                                                            </MultiBinding>
-                                                        </Setter.Value>
-                                                    </Setter>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding DisplayName}" Value="Закреплённые">
-                                                            <Setter Property="Text" Value=""/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
+                                        <Path Width="18" Height="18" Stretch="Uniform" Margin="0,0,8,0"
+                                              VerticalAlignment="Center"
+                                              Data="{Binding Icon, Converter={StaticResource IconKeyToGeometryConverter}}">
+                                            <Path.Fill>
+                                                <MultiBinding Converter="{StaticResource GroupTextColorConverter}">
+                                                    <Binding Path="FullPath"/>
+                                                    <Binding Path="DataContext.Groups" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                </MultiBinding>
+                                            </Path.Fill>
+                                        </Path>
                                         <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="15"
                                                    VerticalAlignment="Center">
                                             <TextBlock.Foreground>
@@ -624,51 +682,71 @@
                                                         <ColumnDefinition Width="30"/>
                                                         <ColumnDefinition Width="*"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <!-- Кнопка свернуть/развернуть группы (слева, отдельно от панели группы).
-                                                         Видна только для узлов с дочерними элементами (группы).
-                                                         Символ «−» когда развёрнута, «+» — когда свёрнута. -->
+                                                    <!-- Кнопка свернуть/развернуть: «+» = группа свёрнута, «−» = развёрнута.
+                                                         Видна только у узлов с дочерними элементами (группы). -->
                                                     <Button x:Name="Expander" Grid.Column="0"
                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
                                                             Command="{Binding DataContext.ToggleGroupExpandedCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                             CommandParameter="{Binding}"
-                                                            Width="24" Height="24"
+                                                            Width="26" Height="26"
                                                             Background="Transparent" BorderThickness="0"
-                                                            ToolTip="Свернуть/развернуть группу">
+                                                            Cursor="Hand"
+                                                            ToolTip="Свернуть / развернуть группу">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="ToolTip" Value="Свернуть группу"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsExpanded}" Value="False">
+                                                                        <Setter Property="ToolTip" Value="Развернуть группу"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
                                                         <Button.Template>
                                                             <ControlTemplate TargetType="Button">
                                                                 <Border x:Name="ExpanderBorder"
                                                                         Width="22" Height="22"
-                                                                        Background="{DynamicResource ItemHoverBrush}"
-                                                                        BorderBrush="{DynamicResource BorderBrushColor}"
-                                                                        BorderThickness="1"
-                                                                        CornerRadius="6">
-                                                                    <Path x:Name="ExpanderIcon"
-                                                                          Width="12" Height="12"
-                                                                          Stretch="Uniform"
-                                                                          Fill="{DynamicResource TextPrimaryBrush}"
-                                                                          HorizontalAlignment="Center"
-                                                                          VerticalAlignment="Center"
-                                                                          Data="{StaticResource IconChevronDown}">
-                                                                        <Path.Style>
-                                                                            <Style TargetType="Path">
-                                                                                <Setter Property="Data" Value="{StaticResource IconChevronDown}"/>
-                                                                                <Style.Triggers>
-                                                                                    <DataTrigger Binding="{Binding IsExpanded}" Value="False">
-                                                                                        <Setter Property="Data" Value="{StaticResource IconChevronRight}"/>
-                                                                                    </DataTrigger>
-                                                                                </Style.Triggers>
-                                                                            </Style>
-                                                                        </Path.Style>
-                                                                    </Path>
+                                                                        Background="{DynamicResource CardBackgroundBrush}"
+                                                                        BorderBrush="{DynamicResource AccentBrush}"
+                                                                        BorderThickness="1.5"
+                                                                        CornerRadius="5"
+                                                                        SnapsToDevicePixels="True">
+                                                                    <Grid>
+                                                                        <!-- «−» : группа развёрнута -->
+                                                                        <Path x:Name="IconExpanded"
+                                                                              Width="12" Height="12"
+                                                                              Stretch="Uniform"
+                                                                              Fill="{DynamicResource AccentBrush}"
+                                                                              HorizontalAlignment="Center"
+                                                                              VerticalAlignment="Center"
+                                                                              Data="{StaticResource IconMinus}"
+                                                                              Visibility="Visible"/>
+                                                                        <!-- «+» : группа свёрнута -->
+                                                                        <Path x:Name="IconCollapsed"
+                                                                              Width="12" Height="12"
+                                                                              Stretch="Uniform"
+                                                                              Fill="{DynamicResource AccentBrush}"
+                                                                              HorizontalAlignment="Center"
+                                                                              VerticalAlignment="Center"
+                                                                              Data="{StaticResource IconPlus}"
+                                                                              Visibility="Collapsed"/>
+                                                                    </Grid>
                                                                 </Border>
                                                                 <ControlTemplate.Triggers>
+                                                                    <!-- Состояние по DataContext узла (GroupNodeViewModel.IsExpanded) -->
+                                                                    <DataTrigger Binding="{Binding IsExpanded}" Value="False">
+                                                                        <Setter TargetName="IconExpanded" Property="Visibility" Value="Collapsed"/>
+                                                                        <Setter TargetName="IconCollapsed" Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
                                                                     <Trigger Property="IsMouseOver" Value="True">
                                                                         <Setter TargetName="ExpanderBorder" Property="Background" Value="{DynamicResource AccentBrush}"/>
-                                                                        <Setter TargetName="ExpanderIcon" Property="Fill" Value="White"/>
+                                                                        <Setter TargetName="IconExpanded" Property="Fill" Value="White"/>
+                                                                        <Setter TargetName="IconCollapsed" Property="Fill" Value="White"/>
                                                                     </Trigger>
                                                                     <Trigger Property="IsPressed" Value="True">
                                                                         <Setter TargetName="ExpanderBorder" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
-                                                                        <Setter TargetName="ExpanderIcon" Property="Fill" Value="White"/>
+                                                                        <Setter TargetName="IconExpanded" Property="Fill" Value="White"/>
+                                                                        <Setter TargetName="IconCollapsed" Property="Fill" Value="White"/>
                                                                     </Trigger>
                                                                 </ControlTemplate.Triggers>
                                                             </ControlTemplate>
@@ -741,13 +819,17 @@
                                 <MenuItem Header="Изменить настройки" Command="{Binding EditInfobaseCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Удалить базу" Command="{Binding DeleteInfobaseCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="Добавить..." Command="{Binding AddInfobaseCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Plus" Width="16" Height="16" Foreground="#22C55E"/></MenuItem.Icon>
+                                </MenuItem>
+                                <Separator/>
+                                <MenuItem Header="Удалить" Command="{Binding DeleteInfobaseCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444"/></MenuItem.Icon>
                                 </MenuItem>
                             </ContextMenu>
                         </TreeView.ContextMenu>
                         </TreeView>
-                    </ScrollViewer>
+
                 </Grid>
                 </Grid>
             </Border>
@@ -837,6 +919,8 @@
                             <TextBlock Text="Закрепить" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+                    <!-- Удаление отделено от остальных действий -->
+                    <Separator Margin="0,12,0,12" Background="{DynamicResource BorderBrushColor}" Height="1"/>
                     <Button Command="{Binding DeleteInfobaseCommand}"
                             Style="{DynamicResource SecondaryButton}" Padding="10,8"
                             ToolTip="Удалить выбранную базу или группу">

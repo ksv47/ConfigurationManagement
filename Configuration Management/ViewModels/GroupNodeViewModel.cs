@@ -28,6 +28,8 @@ public class GroupNodeViewModel : ViewModelBase
         Children = new ObservableCollection<GroupNodeViewModel>();
         Infobases = new ObservableCollection<Infobase>();
         Items = new ObservableCollection<object>();
+        Infobases.CollectionChanged += (_, _) => NotifyCountChanged();
+        Children.CollectionChanged += (_, _) => NotifyCountChanged();
     }
 
     /// <summary>Модель группы. Null для специальных узлов («Закреплённые», «Без группы»).</summary>
@@ -60,6 +62,30 @@ public class GroupNodeViewModel : ViewModelBase
     /// <summary>Цвет группы.</summary>
     public string Color => Group?.Color ?? "#2D6CDF";
 
+    /// <summary>
+    /// Ключ иконки группы (имя Geometry из Icons.xaml).
+    /// Для специальных узлов («Закреплённые», «Все базы», «Без группы») — фиксированные значения.
+    /// Для обычных групп берётся из Group.Icon; пустое значение → папка по умолчанию.
+    /// </summary>
+    public string Icon
+    {
+        get
+        {
+            if (Group is null)
+            {
+                return DisplayName switch
+                {
+                    "Закреплённые" => "IconPin",
+                    "Все базы" => "IconDatabase",
+                    "Без группы" => "IconFolder",
+                    _ => "IconFolder"
+                };
+            }
+
+            return string.IsNullOrWhiteSpace(Group.Icon) ? "IconFolder" : Group.Icon;
+        }
+    }
+
     /// <summary>Подгруппы текущего узла.</summary>
     public ObservableCollection<GroupNodeViewModel> Children { get; }
 
@@ -81,8 +107,22 @@ public class GroupNodeViewModel : ViewModelBase
     /// <summary>Признак наличия баз в группе или её подгруппах.</summary>
     public bool ContainsInfobases => Infobases.Count > 0 || Children.Any(c => c.ContainsInfobases);
 
-    /// <summary>Общее количество баз в группе и всех её подгруппах.</summary>
+    /// <summary>
+    /// Общее количество баз в группе и всех её подгруппах.
+    /// Уведомление UI — через <see cref="NotifyCountChanged"/>.
+    /// </summary>
     public int TotalInfobaseCount => Infobases.Count + Children.Sum(c => c.TotalInfobaseCount);
+
+    /// <summary>
+    /// Сообщает привязкам об изменении счётчика (и поднимает уведомление по родителям).
+    /// </summary>
+    public void NotifyCountChanged()
+    {
+        OnPropertyChanged(nameof(TotalInfobaseCount));
+        OnPropertyChanged(nameof(HasInfobases));
+        OnPropertyChanged(nameof(ContainsInfobases));
+        Parent?.NotifyCountChanged();
+    }
 
     /// <summary>Состояние развёрнутости узла в дереве.</summary>
     public bool IsExpanded
@@ -121,6 +161,8 @@ public class GroupNodeViewModel : ViewModelBase
         {
             Items.Add(infobase);
         }
+
+        NotifyCountChanged();
     }
 
     /// <summary>

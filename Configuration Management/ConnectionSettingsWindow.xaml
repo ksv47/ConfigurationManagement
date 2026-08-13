@@ -9,8 +9,8 @@
         mc:Ignorable="d"
         Title="Настройки подключения"
         Icon="{StaticResource AppIcon}"
-        Width="520"
-        MinHeight="560" MinWidth="480"
+        Width="540"
+        MinHeight="580" MinWidth="500"
         SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
@@ -23,7 +23,6 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <conv:GroupFullPathConverter x:Key="GroupFullPathConverter"/>
 
-        <!-- Implicit-стили для корректного отображения в тёмной теме -->
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
@@ -38,8 +37,36 @@
         <Style TargetType="GroupBox">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0" Grid.RowSpan="2"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"/>
+                            <Border Grid.Row="0" Background="{TemplateBinding Background}"
+                                    Padding="12,8,12,0" Margin="8,0,0,0" HorizontalAlignment="Left">
+                                <ContentPresenter ContentSource="Header"
+                                                  RecognizesAccessKey="True"
+                                                  TextElement.Foreground="{DynamicResource TextPrimaryBrush}"
+                                                  TextElement.FontWeight="SemiBold"
+                                                  TextElement.FontSize="13"/>
+                            </Border>
+                            <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"
+                                              TextElement.Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="Label">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -51,13 +78,15 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- ============ Основные параметры -->
-        <GroupBox Grid.Row="0" Header="Основные параметры" Padding="8" Margin="0,0,0,12">
+        <!-- ============ 1. Параметры подключения (вверху, как в классическом 1С) ============ -->
+        <GroupBox Grid.Row="0" Header="Параметры подключения">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="150"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
@@ -69,35 +98,136 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Наименование:" VerticalAlignment="Center" Margin="0,4"/>
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"/>
 
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Группа:" VerticalAlignment="Center" Margin="0,4"/>
-                <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,4" Padding="4,3"
-                          ItemsSource="{Binding Groups}"
-                          SelectedItem="{Binding SelectedGroup, UpdateSourceTrigger=PropertyChanged}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock>
-                                <TextBlock.Text>
-                                    <MultiBinding Converter="{StaticResource GroupFullPathConverter}">
-                                        <Binding Path="."/>
-                                        <Binding Path="DataContext.Groups"
-                                                 RelativeSource="{RelativeSource AncestorType=Window}"/>
-                                    </MultiBinding>
-                                </TextBlock.Text>
-                            </TextBlock>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+                <Grid Grid.Row="1" Grid.Column="1" Margin="0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" IsReadOnly="True"
+                             Text="{Binding GroupDisplayPath, Mode=OneWay}"
+                             Padding="4,3" VerticalContentAlignment="Center"
+                             ToolTip="Группа информационной базы"/>
+                    <Button Grid.Column="1" Margin="6,0,0,0" Padding="10,4"
+                            Style="{DynamicResource SecondaryButton}"
+                            Click="OnSelectGroup_Click" ToolTip="Выбрать группу в дереве">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📁" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Выбрать…" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
 
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Описание:" VerticalAlignment="Center" Margin="0,4"/>
                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Версия платформы:" VerticalAlignment="Center" Margin="0,4"/>
-                <Grid Grid.Row="3" Grid.Column="1" Margin="0,4">
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Тип подключения:" VerticalAlignment="Top" Margin="0,6"/>
+                <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,2">
+                    <RadioButton Content="На сервере 1С:Предприятия" Margin="0,2"
+                                 IsChecked="{Binding IsClientServer, UpdateSourceTrigger=PropertyChanged}"/>
+                    <RadioButton Content="В файловой информационной базе" Margin="0,2"
+                                 IsChecked="{Binding IsFile, UpdateSourceTrigger=PropertyChanged}"/>
+                    <RadioButton Content="На веб-сервере" Margin="0,2"
+                                 IsChecked="{Binding IsWebServer, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+
+                <!-- Клиент-серверные поля -->
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Сервер:" VerticalAlignment="Center" Margin="0,4"
+                           Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Server, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
+                         Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Имя базы:" VerticalAlignment="Center" Margin="0,4"
+                           Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding DatabaseName, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
+                         Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Порт сервера:" VerticalAlignment="Center" Margin="0,4"
+                           Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
+                         Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+
+                <!-- Файловые поля -->
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Путь к файлу:" VerticalAlignment="Center" Margin="0,4"
+                           Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
+                         Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}"/>
+
+                <!-- Веб-сервер -->
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="URL публикации:" VerticalAlignment="Center" Margin="0,4"
+                           Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding WebUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
+                         Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"
+                         ToolTip="Адрес веб-публикации, например http://server/base"/>
+
+                <!-- Аутентификация (как в стандартном лаунчере 1С) -->
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="Аутентификация:" VerticalAlignment="Top" Margin="0,6"/>
+                <StackPanel Grid.Row="7" Grid.Column="1" Margin="0,2">
+                    <RadioButton Content="Запрашивать имя и пароль" Margin="0,2"
+                                 IsChecked="{Binding IsAuthPrompt, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="При запуске платформа запросит имя пользователя и пароль"/>
+                    <RadioButton Content="Выполнять вход в систему автоматически" Margin="0,2"
+                                 IsChecked="{Binding IsAuthCredentials, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Вход по сохранённым логину и паролю без запроса"/>
+                    <RadioButton Content="Аутентификация операционной системы" Margin="0,2"
+                                 IsChecked="{Binding IsAuthWindows, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Вход под учётной записью Windows (аутентификация ОС)"/>
+                </StackPanel>
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="Пользователь:" VerticalAlignment="Center" Margin="0,4"
+                           Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding User, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
+                         Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"
+                         ToolTip="Имя пользователя 1С для автоматического входа"/>
+
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="Пароль:" VerticalAlignment="Center" Margin="0,4"
+                           Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
+                         Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"
+                         ToolTip="Пароль пользователя 1С для автоматического входа"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- ============ 2. Режим запуска ============ -->
+        <GroupBox Grid.Row="1" Header="Режим запуска">
+            <StackPanel>
+                <RadioButton Content="Автоматический" IsChecked="{Binding IsAutoMode, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                <RadioButton Content="Тонкий клиент" IsChecked="{Binding IsThinClient, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                <RadioButton Content="Толстый клиент" IsChecked="{Binding IsThickClient, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                <RadioButton Content="Веб-клиент" IsChecked="{Binding IsWebClient, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding IsWebClientAllowed}" Margin="0,2"
+                             ToolTip="Доступен только при подключении через веб-сервер или клиент-сервер"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- ============ 3. Разрядность и версия платформы ============ -->
+        <GroupBox Grid.Row="2" Header="Разрядность и версия платформы">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Разрядность:" VerticalAlignment="Top" Margin="0,6"/>
+                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,2">
+                    <RadioButton Content="32-битная" IsChecked="{Binding IsArchitecture32, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                    <RadioButton Content="64-битная" IsChecked="{Binding IsArchitecture64, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                </StackPanel>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Версия платформы:" VerticalAlignment="Center" Margin="0,4"/>
+                <Grid Grid.Row="1" Grid.Column="1" Margin="0,4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
@@ -112,22 +242,8 @@
                     </Button>
                 </Grid>
 
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Режим запуска:" VerticalAlignment="Top" Margin="0,6"/>
-                <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,2">
-                    <RadioButton Content="Автоматический" IsChecked="{Binding IsAutoMode, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                    <RadioButton Content="Тонкий клиент" IsChecked="{Binding IsThinClient, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                    <RadioButton Content="Толстый клиент" IsChecked="{Binding IsThickClient, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                    <RadioButton Content="Веб-клиент" IsChecked="{Binding IsWebClient, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                </StackPanel>
-
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Разрядность платформы:" VerticalAlignment="Top" Margin="0,6"/>
-                <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,2">
-                    <RadioButton Content="32-битная (1cv8.exe)" IsChecked="{Binding IsArchitecture32, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                    <RadioButton Content="64-битная (1cv8x64.exe)" IsChecked="{Binding IsArchitecture64, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                </StackPanel>
-
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="Параметры запуска:" VerticalAlignment="Center" Margin="0,4"/>
-                <Grid Grid.Row="6" Grid.Column="1" Margin="0,4">
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Параметры запуска:" VerticalAlignment="Center" Margin="0,4"/>
+                <Grid Grid.Row="2" Grid.Column="1" Margin="0,4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
@@ -143,100 +259,43 @@
                         </StackPanel>
                     </Button>
                 </Grid>
-
-                <TextBlock Grid.Row="7" Grid.Column="0" Text="ID базы:" VerticalAlignment="Center" Margin="0,4"/>
-                <Grid Grid.Row="7" Grid.Column="1" Margin="0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox Grid.Column="0" Text="{Binding Id}" Padding="4,3"
-                             IsReadOnly="True" ToolTip="Уникальный идентификатор базы данных"/>
-                    <Button Grid.Column="1" Margin="6,0,0,0" Padding="8,3"
-                            Style="{DynamicResource SecondaryButton}" Click="OnCopyId_Click"
-                            ToolTip="Скопировать ID базы в буфер обмена">
-                        <materialDesign:PackIcon Kind="ContentCopy" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </Button>
-                </Grid>
             </Grid>
         </GroupBox>
 
-        <!-- ============ Параметры подключения -->
-        <GroupBox Grid.Row="1" Header="Параметры подключения" Padding="8">
+        <!-- ============ ID базы ============ -->
+        <GroupBox Grid.Row="3" Header="Идентификатор">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="150"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Тип подключения:" VerticalAlignment="Top" Margin="0,6"/>
-                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,2">
-                    <RadioButton Content="На сервере 1С:Предприятия" Margin="0,2"
-                                 IsChecked="{Binding IsClientServer, UpdateSourceTrigger=PropertyChanged}"/>
-                    <RadioButton Content="В файловой информационной базе" Margin="0,2"
-                                 IsChecked="{Binding IsFile, UpdateSourceTrigger=PropertyChanged}"/>
-                </StackPanel>
-
-                <!-- Клиент-серверные поля -->
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Сервер:" VerticalAlignment="Center" Margin="0,4"
-                           Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Server, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
-                         Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Имя базы:" VerticalAlignment="Center" Margin="0,4"
-                           Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DatabaseName, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
-                         Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Порт сервера:" VerticalAlignment="Center" Margin="0,4"
-                           Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
-                         Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-
-                <!-- Файловые поля -->
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Путь к файлу:" VerticalAlignment="Center" Margin="0,4"
-                           Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}"/>
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
-                         Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}"/>
-
-                <!-- Аутентификация -->
-                <CheckBox Grid.Row="4" Grid.Column="1" Content="Использовать аутентификацию ОС" Margin="0,4"
-                         IsChecked="{Binding UseOsAuthentication, UpdateSourceTrigger=PropertyChanged}"/>
-
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Пользователь:" VerticalAlignment="Center" Margin="0,4"
-                           Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding User, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
-                         Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="Пароль:" VerticalAlignment="Center" Margin="0,4"
-                           Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}" Margin="0,4" Padding="4,3"
-                         Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Column="0" Text="ID базы:" VerticalAlignment="Center" Margin="0,4"/>
+                <TextBox Grid.Column="1" Text="{Binding Id}" Padding="4,3" Margin="0,4"
+                         IsReadOnly="True" ToolTip="Уникальный идентификатор базы данных"/>
+                <Button Grid.Column="2" Margin="6,0,0,0" Padding="8,3"
+                        Style="{DynamicResource SecondaryButton}" Click="OnCopyId_Click"
+                        ToolTip="Скопировать ID базы в буфер обмена">
+                    <materialDesign:PackIcon Kind="ContentCopy" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </Button>
             </Grid>
         </GroupBox>
 
-        <!-- ============ Кнопки -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Width="120" Height="34" Style="{DynamicResource ModernButton}"
+        <!-- ============ Кнопки ============ -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+            <Button Width="130" Height="36" Style="{DynamicResource ModernButton}"
                     Margin="0,0,10,0" IsDefault="True" Click="OnSave_Click"
                     IsEnabled="{Binding HasChanges}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="💾" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <Path Data="{StaticResource IconSave}" Fill="White" Width="16" Height="16"
+                          Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
                     <TextBlock Text="Сохранить" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
-            <Button Width="120" Height="34" Style="{DynamicResource SecondaryButton}" IsCancel="True">
+            <Button Width="120" Height="36" Style="{DynamicResource SecondaryButton}" IsCancel="True">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✖" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <Path Data="{StaticResource IconClear}" Fill="{DynamicResource TextPrimaryBrush}" Width="14" Height="14"
+                          Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
                     <TextBlock Text="Отмена" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>

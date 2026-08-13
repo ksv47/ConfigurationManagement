@@ -16,6 +16,10 @@ namespace Configuration_Management
     public partial class MainWindow : Window
     {
         private readonly MainViewModel _viewModel;
+        private Point _dragStartPoint;
+        private object? _draggedData;
+        private bool _isDragging;
+        private bool _treeScrollAttached;
 
         public MainWindow(ViewModels.MainViewModel? viewModel = null)
         {
@@ -114,6 +118,12 @@ namespace Configuration_Management
         /// </summary>
         private void OnWindowLoaded(object sender, RoutedEventArgs e)
         {
+            AttachTreeScrollHandler();
+            if (MainTree is not null)
+            {
+                MainTree.Loaded += (_, __) => AttachTreeScrollHandler();
+            }
+
             AlignHeaderToData();
             // Повторное выравнивание после завершения первичной компоновки,
             // когда уже известны реальные размеры контейнеров дерева.
@@ -166,13 +176,23 @@ namespace Configuration_Management
         /// </summary>
         private void SyncHeaderWidthWithList()
         {
-            if (HeaderGrid is null || DbListScroll is null)
+            if (HeaderGrid is null || MainTree is null)
                 return;
 
-            double sbw = DbListScroll.ComputedVerticalScrollBarVisibility == Visibility.Visible
-                ? SystemParameters.VerticalScrollBarWidth
-                : 0;
-            double target = Math.Max(DbListScroll.ExtentWidth + sbw, DbListScroll.ViewportWidth + sbw);
+            var treeScroll = GetTreeScrollViewer();
+            double sbw = 0;
+            double extent = MainTree.ActualWidth;
+            double viewport = MainTree.ActualWidth;
+            if (treeScroll is not null)
+            {
+                sbw = treeScroll.ComputedVerticalScrollBarVisibility == Visibility.Visible
+                    ? SystemParameters.VerticalScrollBarWidth
+                    : 0;
+                extent = Math.Max(treeScroll.ExtentWidth, treeScroll.ViewportWidth);
+                viewport = treeScroll.ViewportWidth;
+            }
+
+            double target = Math.Max(extent + sbw, viewport + sbw);
             if (target > 0)
                 HeaderGrid.Width = target;
         }
@@ -323,6 +343,10 @@ namespace Configuration_Management
         /// </summary>
         private void OnInfobaseTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            // Payload DnD фиксируем здесь (не в MouseMove): иначе при сдвиге курсора
+            // на дочернюю базу TreeViewItem под курсором меняется и «уезжает» не группа, а базы.
+            CaptureDragStart(e);
+
             var treeView = sender as TreeView;
             if (treeView is null)
             {
@@ -336,10 +360,11 @@ namespace Configuration_Management
             }
 
             // Если клик пришёлся по интерактивному элементу (кнопка, поле ввода),
-            // не вмешиваемся, чтобы они продолжали работать.
+            // не вмешиваемся и не начинаем drag.
             if (FindAncestor<Button>(source) is not null ||
                 FindAncestor<TextBox>(source) is not null)
             {
+                _draggedData = null;
                 return;
             }
 
@@ -352,12 +377,15 @@ namespace Configuration_Management
             switch (treeViewItem.DataContext)
             {
                 case Infobase infobase:
+                    _draggedData = infobase;
                     ApplySelection(treeViewItem, infobase);
                     break;
                 case GroupNodeViewModel groupNode when groupNode.Group is not null:
+                    _draggedData = groupNode;
                     ApplyGroupSelection(treeViewItem, groupNode);
                     break;
                 default:
+                    _draggedData = null;
                     return;
             }
 
@@ -366,13 +394,22 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Блокирует автоматическую прокрутку TreeView к выделенному элементу
+        /// (по умолчанию WPF вызывает BringIntoView при IsSelected/Focus — список «прыгает» вверх).
+        /// </summary>
+        private void OnMainTree_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
+        {
+            e.Handled = true;
+        }
+
+        /// <summary>
         /// Устанавливает выделение указанного узла группы и синхронизирует
         /// выбранную группу в модели представления (снимая выбор базы).
+        /// Без Focus()/BringIntoView — позиция прокрутки списка не меняется.
         /// </summary>
         private void ApplyGroupSelection(TreeViewItem item, GroupNodeViewModel groupNode)
         {
             item.IsSelected = true;
-            item.Focus();
             _viewModel.SelectedInfobase = null;
             _viewModel.SelectedGroupNode = groupNode;
 
@@ -385,18 +422,18 @@ namespace Configuration_Management
         /// <summary>
         /// Устанавливает выделение указанного элемента дерева и синхронизирует
         /// выбранную базу в модели представления.
+        /// Без Focus()/BringIntoView — позиция прокрутки списка не меняется.
         /// </summary>
         private void ApplySelection(TreeViewItem item, Infobase infobase)
         {
             item.IsSelected = true;
-            item.Focus();
             _viewModel.SelectedInfobase = infobase;
         }
 
         /// <summary>
         /// Ищет предка заданного типа в визуальном дереве.
         /// </summary>
-        private static T? FindAncestor<T>(DependencyObject current) where T : DependencyObject
+        private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
         {
             while (current is not null)
             {
@@ -673,70 +710,275 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Прокручивает список баз колесом мыши.
-        /// Внутренний ScrollViewer дерева выключен, поэтому колесо мыши нужно
-        /// обрабатывать на внешнем контейнере, иначе событие перехватывается
-        /// вложенными элементами и прокрутка не срабатывает.
+        /// Внутренний ScrollViewer шаблона TreeView (отвечает за вертикальную и горизонтальную прокрутку).
         /// </summary>
-        private void OnDbList_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        private ScrollViewer? GetTreeScrollViewer()
         {
-            var scrollViewer = sender as ScrollViewer;
-            if (scrollViewer is null)
-                return;
-
-            // Если содержимое не превышает размер контейнера — прокручивать нечего.
-            if (scrollViewer.ScrollableHeight <= 0)
-                return;
-
-            var delta = e.Delta > 0 ? -1 : 1;
-            // Умножаем, чтобы прокрутка была плавной (значение сравнимой с обычной прокруткой).
-            scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset + delta * 48);
-
-            // Не даём вложенным ScrollViewer (например, внутри TreeView) перехватить событие.
-            e.Handled = true;
+            if (MainTree is null)
+                return null;
+            // Шаблон может быть ещё не применён.
+            MainTree.ApplyTemplate();
+            return FindVisualChild<ScrollViewer>(MainTree);
         }
 
         /// <summary>
-        /// Синхронизирует горизонтальную прокрутку фиксированного заголовка таблицы
-        /// с горизонтальной прокруткой списка баз. Срабатывает при любом изменении
-        /// смещения (прокрутка колесом, перетаскивание полосы, изменение ширины колонок).
+        /// Подписывается на ScrollChanged внутреннего ScrollViewer дерева (синхронизация заголовка).
         /// </summary>
-        private void OnDbList_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        private void AttachTreeScrollHandler()
         {
-            if (DbHeaderScroll is null || DbListScroll is null)
+            var treeScroll = GetTreeScrollViewer();
+            if (treeScroll is null)
                 return;
+            treeScroll.ScrollChanged -= OnTreeScroll_ScrollChanged;
+            treeScroll.ScrollChanged += OnTreeScroll_ScrollChanged;
+            _treeScrollAttached = true;
+        }
 
-            // Ширина заголовка = ширина контента списка + ширина вертикального скроллбара (если он виден).
-            // Так ScrollableWidth заголовка и списка совпадают, и при прокрутке «до конца»
-            // колонки не разъезжаются.
-            if (HeaderGrid is not null && (e.ExtentWidthChange != 0 || e.ViewportWidthChange != 0 || e.ExtentHeightChange != 0))
-            {
-                double sbw = DbListScroll.ComputedVerticalScrollBarVisibility == Visibility.Visible
-                    ? SystemParameters.VerticalScrollBarWidth
-                    : 0;
-                double target = Math.Max(DbListScroll.ExtentWidth + sbw, DbListScroll.ViewportWidth + sbw);
-                if (target > 0 && Math.Abs(HeaderGrid.Width - target) > 0.5)
-                    HeaderGrid.Width = target;
-            }
+        private void OnTreeScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (DbHeaderScroll is null)
+                return;
 
             if (Math.Abs(DbHeaderScroll.HorizontalOffset - e.HorizontalOffset) > 0.01)
                 DbHeaderScroll.ScrollToHorizontalOffset(e.HorizontalOffset);
+
+            if (e.ExtentWidthChange != 0 || e.ViewportWidthChange != 0 || e.ViewportHeightChange != 0)
+                SyncHeaderWidthWithList();
+        }
+
+        private void OnMainTree_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            ScrollListByWheel(e);
+        }
+
+        private void OnDbHeader_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            ScrollListByWheel(e);
         }
 
         /// <summary>
-        /// Прокрутка колесом мыши над фиксированным заголовком таблицы.
-        /// Сам заголовок не прокручивается, а событие перенаправляется на список баз,
-        /// чтобы колесо работало и над областью заголовков.
+        /// Прокрутка списка: колесо — вертикаль, Shift+колесо — горизонталь.
+        /// Всегда помечает событие обработанным, чтобы вложенные элементы не «съедали» колесо.
         /// </summary>
-        private void OnDbHeader_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        private void ScrollListByWheel(MouseWheelEventArgs e)
         {
-            if (DbListScroll is null || DbListScroll.ScrollableHeight <= 0)
+            var treeScroll = GetTreeScrollViewer();
+            if (treeScroll is null)
+            {
+                // Повторная попытка после загрузки шаблона.
+                AttachTreeScrollHandler();
+                treeScroll = GetTreeScrollViewer();
+            }
+
+            if (treeScroll is null)
                 return;
 
-            var delta = e.Delta > 0 ? -1 : 1;
-            DbListScroll.ScrollToVerticalOffset(DbListScroll.VerticalOffset + delta * 48);
+            // e.Delta обычно ±120; делим для плавности.
+            var offset = -e.Delta / 3.0;
+
+            if (Keyboard.Modifiers == ModifierKeys.Shift)
+            {
+                treeScroll.ScrollToHorizontalOffset(treeScroll.HorizontalOffset + offset);
+            }
+            else
+            {
+                treeScroll.ScrollToVerticalOffset(treeScroll.VerticalOffset + offset);
+            }
 
             e.Handled = true;
+        }
+
+        // ===================== Drag & Drop баз и групп =====================
+        //
+        // Модель WPF DnD (кратко):
+        // 1) Источник: после порога смещения мыши вызывается DragDrop.DoDragDrop — синхронный
+        //    цикл до Drop/Cancel. Пока он идёт, приходят DragOver/Drop на цели.
+        // 2) Цель: AllowDrop=True; в DragOver обязательно задать e.Effects и e.Handled=true,
+        //    иначе курсор «запрещено» и Drop не придёт.
+        // 3) Данные: лучше свой payload с MouseDown (не с MouseMove) — иначе под курсором
+        //    уже другой TreeViewItem (дочерняя база вместо группы).
+        // 4) DoDragDrop возвращается после Drop → finally очищает _draggedData; во время Drop
+        //    поле ещё валидно. Дополнительно кладём объект в DataObject по имени формата.
+
+        private const string DragFormatInfobase = "Configuration_Management.Infobase";
+        private const string DragFormatGroup = "Configuration_Management.GroupNode";
+
+        private void OnMainTree_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || _isDragging || _draggedData is null)
+                return;
+
+            var pos = e.GetPosition(null);
+            if (Math.Abs(pos.X - _dragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance
+                && Math.Abs(pos.Y - _dragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+                return;
+
+            // Не переопределяем payload по позиции — он зафиксирован в MouseDown.
+            var data = new DataObject();
+            if (_draggedData is Infobase ib)
+                data.SetData(DragFormatInfobase, ib);
+            else if (_draggedData is GroupNodeViewModel gn)
+                data.SetData(DragFormatGroup, gn);
+            else
+                return;
+
+            // Дублируем по Type — совместимость с GetData(typeof(...)).
+            data.SetData(_draggedData.GetType(), _draggedData);
+
+            _isDragging = true;
+            try
+            {
+                DragDrop.DoDragDrop(MainTree, data, DragDropEffects.Move);
+            }
+            finally
+            {
+                _isDragging = false;
+                _draggedData = null;
+            }
+        }
+
+        private void OnMainTree_GiveFeedback(object sender, GiveFeedbackEventArgs e)
+        {
+            e.UseDefaultCursors = true;
+            e.Handled = true;
+        }
+
+        private void OnMainTree_DragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = DragDropEffects.None;
+
+            var payload = ResolveDragPayload(e);
+            ResolveDropTarget(e.OriginalSource as DependencyObject, out var targetGroup, out _);
+            if (payload is null || targetGroup is null)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (payload is Infobase)
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+            else if (payload is GroupNodeViewModel sourceNode && sourceNode.Group is not null)
+            {
+                var targetId = targetGroup.Group?.Id ?? string.Empty;
+                if (!string.Equals(sourceNode.Group.Id, targetId, StringComparison.OrdinalIgnoreCase)
+                    && (string.IsNullOrEmpty(targetId)
+                        || !GroupHierarchyHelper.IsAncestorOrSelf(targetId, sourceNode.Group.Id, _viewModel.Groups)))
+                {
+                    e.Effects = DragDropEffects.Move;
+                }
+            }
+
+            e.Handled = true;
+        }
+
+        private void OnMainTree_Drop(object sender, DragEventArgs e)
+        {
+            var payload = ResolveDragPayload(e);
+            if (payload is null)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            ResolveDropTarget(e.OriginalSource as DependencyObject,
+                out var targetGroup, out var insertBefore);
+
+            if (payload is GroupNodeViewModel sourceGroupNode
+                && sourceGroupNode.Group is not null
+                && targetGroup is not null)
+            {
+                var newParentId = targetGroup.Group?.Id ?? string.Empty;
+                if (!string.Equals(sourceGroupNode.Group.Id, newParentId, StringComparison.OrdinalIgnoreCase))
+                    _viewModel.MoveGroupUnder(sourceGroupNode.Group, newParentId);
+
+                e.Handled = true;
+                return;
+            }
+
+            if (payload is Infobase infobase && targetGroup is not null)
+            {
+                if (targetGroup.DisplayName == "Закреплённые")
+                {
+                    _viewModel.MoveInfobaseToGroup(infobase, infobase.Group ?? string.Empty, insertBefore);
+                }
+                else
+                {
+                    var path = targetGroup.Group is null
+                        ? string.Empty
+                        : GroupHierarchyHelper.GetFullPath(targetGroup.Group, _viewModel.Groups);
+                    if (insertBefore is not null && ReferenceEquals(insertBefore, infobase))
+                        insertBefore = null;
+                    _viewModel.MoveInfobaseToGroup(infobase, path, insertBefore);
+                }
+            }
+
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// Полезная нагрузка DnD: сначала поле (валидно во время DoDragDrop), затем DataObject.
+        /// </summary>
+        private object? ResolveDragPayload(DragEventArgs e)
+        {
+            if (_draggedData is Infobase or GroupNodeViewModel)
+                return _draggedData;
+
+            if (e.Data.GetDataPresent(DragFormatGroup))
+                return e.Data.GetData(DragFormatGroup);
+            if (e.Data.GetDataPresent(DragFormatInfobase))
+                return e.Data.GetData(DragFormatInfobase);
+            if (e.Data.GetDataPresent(typeof(GroupNodeViewModel)))
+                return e.Data.GetData(typeof(GroupNodeViewModel));
+            if (e.Data.GetDataPresent(typeof(Infobase)))
+                return e.Data.GetData(typeof(Infobase));
+            return null;
+        }
+
+        /// <summary>
+        /// Запоминает точку начала потенциального перетаскивания (из обработчика LButtonDown).
+        /// </summary>
+        private void CaptureDragStart(MouseButtonEventArgs e)
+        {
+            _dragStartPoint = e.GetPosition(null);
+        }
+
+        /// <summary>
+        /// Цель drop: группа + база, перед которой вставить (если курсор над строкой базы).
+        /// </summary>
+        private static void ResolveDropTarget(
+            DependencyObject? source,
+            out GroupNodeViewModel? group,
+            out Infobase? insertBefore)
+        {
+            group = null;
+            insertBefore = null;
+            if (source is null)
+                return;
+
+            var item = FindAncestor<TreeViewItem>(source);
+            if (item is null)
+                return;
+
+            if (item.DataContext is Infobase ib)
+            {
+                insertBefore = ib;
+                var parentItem = FindAncestor<TreeViewItem>(VisualTreeHelper.GetParent(item));
+                while (parentItem is not null)
+                {
+                    if (parentItem.DataContext is GroupNodeViewModel gn)
+                    {
+                        group = gn;
+                        return;
+                    }
+                    parentItem = FindAncestor<TreeViewItem>(VisualTreeHelper.GetParent(parentItem));
+                }
+                return;
+            }
+
+            if (item.DataContext is GroupNodeViewModel g)
+                group = g;
         }
     }
 }

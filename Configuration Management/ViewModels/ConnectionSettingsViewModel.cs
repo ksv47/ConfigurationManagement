@@ -24,9 +24,10 @@ public class ConnectionSettingsViewModel : ViewModelBase
     private string _server = string.Empty;
     private string _databaseName = string.Empty;
     private string _filePath = string.Empty;
+    private string _webUrl = string.Empty;
     private string _user = string.Empty;
     private string _password = string.Empty;
-    private bool _useOsAuthentication = true;
+    private AuthenticationMode _authenticationMode = AuthenticationMode.Prompt;
     private int _port = 1541;
     private Group? _selectedGroup;
 
@@ -87,6 +88,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
                 Group = value is null
                     ? string.Empty
                     : GroupHierarchyHelper.GetFullPath(value, Groups);
+                OnPropertyChanged(nameof(GroupDisplayPath));
             }
         }
     }
@@ -95,8 +97,16 @@ public class ConnectionSettingsViewModel : ViewModelBase
     public string Group
     {
         get => _group;
-        set => SetProperty(ref _group, value);
+        set
+        {
+            if (SetProperty(ref _group, value))
+                OnPropertyChanged(nameof(GroupDisplayPath));
+        }
     }
+
+    /// <summary>Текст для поля группы: путь или «Без группы».</summary>
+    public string GroupDisplayPath =>
+        string.IsNullOrWhiteSpace(_group) ? "— Без группы —" : _group;
 
     /// <summary>
     /// Находит группу по полному пути (например, «Учёт / Бухгалтерия»).
@@ -220,6 +230,11 @@ public class ConnectionSettingsViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(IsClientServer));
                 OnPropertyChanged(nameof(IsFile));
+                OnPropertyChanged(nameof(IsWebServer));
+                OnPropertyChanged(nameof(IsWebClientAllowed));
+                // Если веб-клиент выбран, а тип подключения больше не позволяет его — сбрасываем
+                if (!IsWebClientAllowed && IsWebClient)
+                    LaunchMode = "Автоматический";
             }
         }
     }
@@ -237,6 +252,20 @@ public class ConnectionSettingsViewModel : ViewModelBase
         get => ConnectionType == ConnectionType.File;
         set { if (value) ConnectionType = ConnectionType.File; }
     }
+
+    /// <summary>Признак подключения через веб-сервер.</summary>
+    public bool IsWebServer
+    {
+        get => ConnectionType == ConnectionType.WebServer;
+        set { if (value) ConnectionType = ConnectionType.WebServer; }
+    }
+
+    /// <summary>
+    /// Веб-клиент доступен только при подключении через веб-сервер
+    /// или клиент-серверном подключении (с публикацией).
+    /// </summary>
+    public bool IsWebClientAllowed =>
+        ConnectionType == ConnectionType.WebServer || ConnectionType == ConnectionType.ClientServer;
 
     /// <summary>Имя сервера.</summary>
     public string Server
@@ -259,6 +288,13 @@ public class ConnectionSettingsViewModel : ViewModelBase
         set => SetProperty(ref _filePath, value);
     }
 
+    /// <summary>URL веб-публикации.</summary>
+    public string WebUrl
+    {
+        get => _webUrl;
+        set => SetProperty(ref _webUrl, value);
+    }
+
     /// <summary>Пользователь.</summary>
     public string User
     {
@@ -273,21 +309,58 @@ public class ConnectionSettingsViewModel : ViewModelBase
         set => SetProperty(ref _password, value);
     }
 
-    /// <summary>Использовать аутентификацию ОС.</summary>
-    public bool UseOsAuthentication
+    /// <summary>Режим аутентификации.</summary>
+    public AuthenticationMode AuthenticationMode
     {
-        get => _useOsAuthentication;
+        get => _authenticationMode;
         set
         {
-            if (SetProperty(ref _useOsAuthentication, value))
+            if (SetProperty(ref _authenticationMode, value))
             {
+                OnPropertyChanged(nameof(IsAuthPrompt));
+                OnPropertyChanged(nameof(IsAuthCredentials));
+                OnPropertyChanged(nameof(IsAuthWindows));
                 OnPropertyChanged(nameof(IsCredentialsVisible));
             }
         }
     }
 
-    /// <summary>Видимость полей логина/пароля.</summary>
-    public bool IsCredentialsVisible => !UseOsAuthentication;
+    /// <summary>Запрашивать имя и пароль.</summary>
+    public bool IsAuthPrompt
+    {
+        get => AuthenticationMode == AuthenticationMode.Prompt;
+        set { if (value) AuthenticationMode = AuthenticationMode.Prompt; }
+    }
+
+    /// <summary>Выполнять вход автоматически.</summary>
+    public bool IsAuthCredentials
+    {
+        get => AuthenticationMode == AuthenticationMode.Credentials;
+        set { if (value) AuthenticationMode = AuthenticationMode.Credentials; }
+    }
+
+    /// <summary>Аутентификация операционной системы.</summary>
+    public bool IsAuthWindows
+    {
+        get => AuthenticationMode == AuthenticationMode.Windows;
+        set { if (value) AuthenticationMode = AuthenticationMode.Windows; }
+    }
+
+    /// <summary>Видимость полей логина/пароля (только при автоматическом входе).</summary>
+    public bool IsCredentialsVisible => AuthenticationMode == AuthenticationMode.Credentials;
+
+    /// <summary>Совместимость: признак аутентификации ОС.</summary>
+    public bool UseOsAuthentication
+    {
+        get => AuthenticationMode == AuthenticationMode.Windows;
+        set
+        {
+            if (value)
+                AuthenticationMode = AuthenticationMode.Windows;
+            else if (AuthenticationMode == AuthenticationMode.Windows)
+                AuthenticationMode = AuthenticationMode.Prompt;
+        }
+    }
 
     /// <summary>Порт сервера.</summary>
     public int Port
@@ -319,9 +392,27 @@ public class ConnectionSettingsViewModel : ViewModelBase
             Server = conn.Server;
             DatabaseName = conn.DatabaseName;
             FilePath = conn.FilePath;
+            WebUrl = conn.WebUrl;
             User = conn.User;
             Password = conn.Password;
-            UseOsAuthentication = conn.UseOsAuthentication;
+            // Восстанавливаем режим аутентификации (с учётом старых сохранений).
+            if (conn.AuthenticationMode != AuthenticationMode.Prompt
+                || !string.IsNullOrWhiteSpace(conn.User)
+                || conn.UseOsAuthentication)
+            {
+                AuthenticationMode = conn.AuthenticationMode;
+                // Старые файлы: если был только флаг ОС или логин без режима.
+                if (conn.UseOsAuthentication && conn.AuthenticationMode == AuthenticationMode.Prompt
+                    && string.IsNullOrWhiteSpace(conn.User))
+                    AuthenticationMode = AuthenticationMode.Windows;
+                else if (!string.IsNullOrWhiteSpace(conn.User) && conn.AuthenticationMode == AuthenticationMode.Prompt
+                         && !conn.UseOsAuthentication)
+                    AuthenticationMode = AuthenticationMode.Credentials;
+            }
+            else
+            {
+                AuthenticationMode = AuthenticationMode.Prompt;
+            }
             Port = conn.Port;
         }
         finally
@@ -353,11 +444,10 @@ public class ConnectionSettingsViewModel : ViewModelBase
         conn.Server = Server;
         conn.DatabaseName = DatabaseName;
         conn.FilePath = FilePath;
+        conn.WebUrl = WebUrl;
         conn.User = User;
         conn.Password = Password;
-        // Если указан логин — используем аутентификацию по логину/паролю,
-        // иначе — аутентификацию ОС.
-        conn.UseOsAuthentication = string.IsNullOrWhiteSpace(User);
+        conn.AuthenticationMode = AuthenticationMode;
         conn.Port = Port;
     }
 }

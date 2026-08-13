@@ -15,6 +15,7 @@
             <conv:ConnectionTypeToIconConverter x:Key="ConnectionTypeToIconConverter"/>
             <conv:NullToBoolConverter x:Key="NullToBoolConverter"/>
             <conv:GroupTextColorConverter x:Key="GroupTextColorConverter"/>
+            <conv:IconKeyToGeometryConverter x:Key="IconKeyToGeometryConverter"/>
 
             <!-- ===================== Иконка приложения (современный стиль) ===================== -->
             <DrawingImage x:Key="AppIcon">

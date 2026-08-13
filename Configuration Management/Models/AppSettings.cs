@@ -35,6 +35,16 @@ public class AppSettings
     /// <summary>Время автоматической синхронизации по расписанию в формате "HH:mm" (для режима Schedule).</summary>
     public string IbasesSyncScheduleTime { get; set; } = "09:00";
 
+    /// <summary>
+    /// Создавать резервную копию файла ibases.v8i перед синхронизацией (экспортом/записью).
+    /// </summary>
+    public bool IbasesBackupEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Сколько последних резервных копий ibases.v8i хранить (старые удаляются).
+    /// </summary>
+    public int IbasesBackupKeepCount { get; set; } = 5;
+
     /// <summary>Ширина колонки «Название» в списке баз (0 — по умолчанию).</summary>
     public double NameColumnWidth { get; set; }
 
@@ -58,6 +68,15 @@ public class AppSettings
 
     /// <summary>Показывать теги баз в списке.</summary>
     public bool ShowTags { get; set; } = true;
+
+    /// <summary>Показывать панель быстрого отбора по тегам над списком баз.</summary>
+    public bool ShowTagFilterPanel { get; set; } = true;
+
+    /// <summary>
+    /// Разрешить запуск нескольких экземпляров приложения.
+    /// false — при повторном запуске активируется уже открытое окно.
+    /// </summary>
+    public bool AllowMultipleInstances { get; set; }
 
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn { get; set; } = true;

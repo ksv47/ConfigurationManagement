@@ -11,8 +11,10 @@ public class InfobaseRepository : IInfobaseRepository
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true
+        // Без отступов — заметно быстрее сериализация/запись при большом списке баз.
+        WriteIndented = false,
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };
 
     private readonly string _filePath;

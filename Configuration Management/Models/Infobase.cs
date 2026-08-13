@@ -35,6 +35,12 @@ public class Infobase : INotifyPropertyChanged
     /// <summary>Группа, к которой относится база.</summary>
     public string Group { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Порядок отображения базы внутри группы (меньше — выше в списке).
+    /// Используется при перетаскивании между базами.
+    /// </summary>
+    public int SortOrder { get; set; }
+
     private bool _isFavorite;
 
     /// <summary>Признак избранной базы.</summary>
@@ -151,6 +157,7 @@ public class Infobase : INotifyPropertyChanged
     public string ConnectionTypeDisplay => Connection.Type switch
     {
         ConnectionType.File => "Файловая",
+        ConnectionType.WebServer => "Веб-сервер",
         _ => "Клиент-серверная"
     };
 

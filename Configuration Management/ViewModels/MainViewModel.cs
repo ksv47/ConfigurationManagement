@@ -36,6 +36,9 @@ public class MainViewModel : ViewModelBase
     private double _lastLaunchColumnWidth;
     private bool _showFavoritesButton = true;
     private bool _showPinnedButton = true;
+    private bool _showTagFilterPanel;
+    private bool _allowMultipleInstances;
+    private string _activeTagFilter = string.Empty;
     private bool _showTags = true;
     private bool _showVersionColumn = true;
     private bool _showLaunchModeColumn = true;
@@ -45,12 +48,17 @@ public class MainViewModel : ViewModelBase
     private double _windowHeight;
     private double _windowLeft;
     private double _windowTop;
+    /// <summary>Отмена предыдущего отложенного сохранения (debounce).</summary>
+    private CancellationTokenSource? _saveDebounceCts;
+    private const int SaveDebounceMs = 400;
     private string _windowState = string.Empty;
     private IbasesSyncMode _ibasesSyncMode = IbasesSyncMode.None;
     private string _ibasesSyncFilePath = string.Empty;
     private IbasesSyncTrigger _ibasesSyncTrigger = IbasesSyncTrigger.OnStartup;
     private int _ibasesSyncIntervalMinutes = 30;
     private string _ibasesSyncScheduleTime = "09:00";
+    private bool _ibasesBackupEnabled = true;
+    private int _ibasesBackupKeepCount = 5;
     private string _syncMessage = string.Empty;
     private DispatcherTimer? _syncTimer;
     private DateTime? _nextScheduleRun;
@@ -90,6 +98,8 @@ public class MainViewModel : ViewModelBase
         _showFavoritesButton = settings.ShowFavoritesButton;
         _showPinnedButton = settings.ShowPinnedButton;
         _showTags = settings.ShowTags;
+        _showTagFilterPanel = settings.ShowTagFilterPanel;
+        _allowMultipleInstances = settings.AllowMultipleInstances;
         _showVersionColumn = settings.ShowVersionColumn;
         _showLaunchModeColumn = settings.ShowLaunchModeColumn;
         _showServerColumn = settings.ShowServerColumn;
@@ -104,6 +114,8 @@ public class MainViewModel : ViewModelBase
         _ibasesSyncTrigger = settings.IbasesSyncTrigger;
         _ibasesSyncIntervalMinutes = settings.IbasesSyncIntervalMinutes;
         _ibasesSyncScheduleTime = settings.IbasesSyncScheduleTime;
+        _ibasesBackupEnabled = settings.IbasesBackupEnabled;
+        _ibasesBackupKeepCount = settings.IbasesBackupKeepCount > 0 ? settings.IbasesBackupKeepCount : 5;
         foreach (var groupName in settings.CollapsedGroups)
         {
             _collapsedGroups.Add(groupName);
@@ -132,7 +144,7 @@ public class MainViewModel : ViewModelBase
         AddInfobaseCommand = new RelayCommand(AddInfobase);
         EditInfobaseCommand = new RelayCommand(EditInfobase,
             _ => SelectedInfobase != null || SelectedGroupNode?.Group != null);
-        DeleteInfobaseCommand = new RelayCommand(DeleteInfobase,
+        DeleteInfobaseCommand = new RelayCommand(DeleteSelected,
             _ => SelectedInfobase != null || SelectedGroupNode?.Group != null);
         ToggleFavoriteCommand = new RelayCommand(ToggleFavorite, _ => SelectedInfobase != null);
         ToggleFavoriteForCommand = new RelayCommand(ToggleFavoriteFor);
@@ -247,9 +259,10 @@ public class MainViewModel : ViewModelBase
         {
             if (SetProperty(ref _showFavoritesOnly, value))
             {
-                InfobasesView.Refresh();
+                // Без InfobasesView.Refresh — дерево строится по EnumerateFilteredInfobases,
+                // лишний Refresh на тысячи элементов сильно тормозит UI.
                 RebuildGroupTree();
-                SaveSettings();
+                ScheduleSaveSettings();
             }
         }
     }
@@ -262,9 +275,8 @@ public class MainViewModel : ViewModelBase
         {
             if (SetProperty(ref _groupByGroup, value))
             {
-                InfobasesView.Refresh();
                 RebuildGroupTree();
-                SaveSettings();
+                ScheduleSaveSettings();
                 OnPropertyChanged(nameof(GroupByGroupText));
             }
         }
@@ -306,6 +318,12 @@ public class MainViewModel : ViewModelBase
     /// <summary>Время автоматической синхронизации по расписанию (HH:mm).</summary>
     public string IbasesSyncScheduleTime => _ibasesSyncScheduleTime;
 
+    /// <summary>Создавать резервные копии ibases.v8i перед записью.</summary>
+    public bool IbasesBackupEnabled => _ibasesBackupEnabled;
+
+    /// <summary>Число хранимых резервных копий ibases.v8i.</summary>
+    public int IbasesBackupKeepCount => _ibasesBackupKeepCount;
+
     /// <summary>
     /// Текст сообщения о последней выполненной синхронизации с файлом ibases.v8i
     /// (что было обновлено и в какое время). Выводится в строку состояния главного окна.
@@ -323,13 +341,16 @@ public class MainViewModel : ViewModelBase
     /// Применяет настройки синхронизации с файлом ibases.v8i, заданные в окне настроек.
     /// </summary>
     public void ApplyIbasesSyncSettings(IbasesSyncMode mode, string filePath,
-        IbasesSyncTrigger trigger, int intervalMinutes, string scheduleTime)
+        IbasesSyncTrigger trigger, int intervalMinutes, string scheduleTime,
+        bool backupEnabled = true, int backupKeepCount = 5)
     {
         _ibasesSyncMode = mode;
         _ibasesSyncFilePath = filePath ?? string.Empty;
         _ibasesSyncTrigger = trigger;
         _ibasesSyncIntervalMinutes = intervalMinutes;
         _ibasesSyncScheduleTime = scheduleTime ?? string.Empty;
+        _ibasesBackupEnabled = backupEnabled;
+        _ibasesBackupKeepCount = backupKeepCount > 0 ? backupKeepCount : 5;
         SaveSettings();
         RestartAutoSync();
     }
@@ -378,6 +399,21 @@ public class MainViewModel : ViewModelBase
         {
             try
             {
+                // Резервная копия перед записью в ibases.v8i.
+                if (_ibasesBackupEnabled && File.Exists(filePath))
+                {
+                    try
+                    {
+                        var bak = IbasesBackupService.CreateBackup(filePath, _ibasesBackupKeepCount);
+                        if (bak is not null)
+                            _logger.Info($"Создана резервная копия ibases.v8i: {bak}");
+                    }
+                    catch (Exception bakEx)
+                    {
+                        _logger.Error("Не удалось создать резервную копию ibases.v8i", bakEx);
+                    }
+                }
+
                 var result = _ibasesSync.Export(filePath, Infobases, Groups);
                 var exportText = BuildSyncMessage("Выгружено в файл", result);
                 if (!string.IsNullOrEmpty(exportText))
@@ -576,6 +612,11 @@ public class MainViewModel : ViewModelBase
 
         try
         {
+            if (_ibasesBackupEnabled && File.Exists(filePath))
+            {
+                try { IbasesBackupService.CreateBackup(filePath, _ibasesBackupKeepCount); }
+                catch { /* не блокируем экспорт */ }
+            }
             _ibasesSync.Export(filePath, Infobases, Groups);
             return true;
         }
@@ -716,6 +757,43 @@ public class MainViewModel : ViewModelBase
     /// <summary>Показывать теги баз в списке.</summary>
     public bool ShowTags => _showTags;
 
+    /// <summary>Показывать панель быстрого отбора по тегам.</summary>
+    public bool ShowTagFilterPanel => _showTagFilterPanel;
+
+    /// <summary>Разрешить несколько экземпляров приложения.</summary>
+    public bool AllowMultipleInstances => _allowMultipleInstances;
+
+    /// <summary>Активный тег-фильтр (пусто — без фильтра по тегу).</summary>
+    public string ActiveTagFilter
+    {
+        get => _activeTagFilter;
+        set
+        {
+            if (SetProperty(ref _activeTagFilter, value ?? string.Empty))
+            {
+                InfobasesView.Refresh();
+                RebuildGroupTree();
+                OnPropertyChanged(nameof(HasActiveTagFilter));
+            }
+        }
+    }
+
+    /// <summary>Есть ли активный фильтр по тегу.</summary>
+    public bool HasActiveTagFilter => !string.IsNullOrWhiteSpace(_activeTagFilter);
+
+    /// <summary>
+    /// Уникальные теги всех баз для панели быстрого отбора.
+    /// </summary>
+    public IEnumerable<string> AvailableTags =>
+        Infobases
+            .SelectMany(i => i.Tags)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(t => t, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Показывать кнопки свернуть/развернуть все (только при группировке).</summary>
+    public bool ShowExpandCollapseButtons => _groupByGroup;
+
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn => _showVersionColumn;
 
@@ -854,6 +932,7 @@ public class MainViewModel : ViewModelBase
     /// <summary>Команда удаления выбранной базы.</summary>
     public ICommand DeleteInfobaseCommand { get; }
 
+
     /// <summary>Команда добавления/удаления из избранного.</summary>
     public ICommand ToggleFavoriteCommand { get; }
 
@@ -923,7 +1002,12 @@ public class MainViewModel : ViewModelBase
         }
         else
         {
-            var dialog = new ConnectionSettingsWindow(null, Groups, _installedPlatformVersions)
+            // Группа под курсором: если выбрана база — её группа, если узел группы — эта группа.
+            var defaultGroupPath = SelectedGroupNode?.Group is not null
+                ? SelectedGroupNode.FullPath
+                : (SelectedInfobase?.Group ?? string.Empty);
+
+            var dialog = new ConnectionSettingsWindow(null, Groups, _installedPlatformVersions, defaultGroupPath)
             {
                 Owner = Application.Current.MainWindow
             };
@@ -940,11 +1024,14 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>
     /// Открывает диалог создания новой группы. Если выбрана группа — создаётся подгруппа внутри неё.
+    /// Если выбрана база — родитель = группа этой базы.
     /// </summary>
     private void AddGroup()
     {
-        // Новая группа создаётся внутри выбранной группы, либо как корневая, если группа не выбрана.
-        var parent = SelectedGroupNode?.Group;
+        Group? parent = SelectedGroupNode?.Group;
+        if (parent is null && !string.IsNullOrWhiteSpace(SelectedInfobase?.Group))
+            parent = GroupHierarchyHelper.FindByFullPath(SelectedInfobase!.Group, Groups);
+
         var dialog = new GroupEditWindow(Groups, parent)
         {
             Owner = Application.Current.MainWindow
@@ -1017,13 +1104,13 @@ public class MainViewModel : ViewModelBase
         };
         if (dialog.ShowDialog() == true)
         {
-            // Обновляем группу в коллекции, сохраняя ссылку на объект,
-            // чтобы не потерять ParentId у дочерних групп.
-            var index = Groups.IndexOf(group);
-            if (index >= 0)
-            {
-                Groups[index] = dialog.Result;
-            }
+            // Обновляем поля существующего объекта группы (сохраняем ссылку),
+            // чтобы иерархия по ParentId и все привязки остались валидными.
+            group.Name = dialog.Result.Name;
+            group.Description = dialog.Result.Description;
+            group.Color = dialog.Result.Color;
+            group.Icon = dialog.Result.Icon ?? string.Empty;
+            group.ParentId = dialog.Result.ParentId;
 
             SaveGroups();
             RebuildGroupTree();
@@ -1033,9 +1120,9 @@ public class MainViewModel : ViewModelBase
     /// <summary>
     /// Удаляет выбранный элемент: базу или группу (с учётом потомков).
     /// </summary>
-    private void DeleteInfobase(object? parameter)
+    private void DeleteSelected(object? parameter)
     {
-        // Если выбран узел группы — удаляем группу и её подгруппы.
+        // Удаление группы (если выбран узел группы).
         if (SelectedGroupNode?.Group is Group group)
         {
             DeleteGroup(group);
@@ -1045,16 +1132,16 @@ public class MainViewModel : ViewModelBase
         if (SelectedInfobase is null)
             return;
 
-        if (_dialogs.Confirm(
-            $"Удалить информационную базу «{SelectedInfobase.Name}»?",
+        if (!_dialogs.Confirm(
+            $"Удалить информационную базу «{SelectedInfobase.Name}»?\n\nЭто действие нельзя отменить.",
             "Подтверждение удаления"))
-        {
-            Infobases.Remove(SelectedInfobase);
-            SelectedInfobase = null;
-            Save();
-            RebuildGroupTree();
-            SynchronizeWithIbases();
-        }
+            return;
+
+        Infobases.Remove(SelectedInfobase);
+        SelectedInfobase = null;
+        Save();
+        RebuildGroupTree();
+        SynchronizeWithIbases();
     }
 
     /// <summary>
@@ -1093,7 +1180,7 @@ public class MainViewModel : ViewModelBase
         }
 
         if (!_dialogs.Confirm(
-            $"Удалить группу «{group.Name}»?",
+            $"Удалить группу «{group.Name}»?\n\nЭто действие нельзя отменить.",
             "Подтверждение удаления"))
             return;
 
@@ -1146,58 +1233,161 @@ public class MainViewModel : ViewModelBase
     {
         if (SelectedInfobase is null)
             return;
-
-        SelectedInfobase.IsFavorite = !SelectedInfobase.IsFavorite;
-        // Полный Refresh нужен только тогда, когда активен фильтр «Только избранные»
-        // или поиск по тегу — иначе база должна исчезнуть из списка.
-        if (ShowFavoritesOnly || !string.IsNullOrWhiteSpace(SearchText))
-        {
-            InfobasesView.Refresh();
-        }
-        // Перестраиваем дерево групп, чтобы пустые группы скрывались/показывались
-        // в зависимости от состояния избранного.
-        RebuildGroupTree();
-        Save();
+        ApplyFavoriteToggle(SelectedInfobase);
     }
 
     private void ToggleFavoriteFor(object? parameter)
     {
         if (parameter is not Infobase infobase)
             return;
+        ApplyFavoriteToggle(infobase);
+    }
 
+    /// <summary>
+    /// Переключает избранное без полной перестройки дерева, если фильтр не скрывает базу.
+    /// Иконка обновляется через INotifyPropertyChanged; сохранение — отложенное.
+    /// </summary>
+    private void ApplyFavoriteToggle(Infobase infobase)
+    {
         infobase.IsFavorite = !infobase.IsFavorite;
-        // Полный Refresh нужен только тогда, когда активен фильтр «Только избранные»
-        // или поиск по тегу — иначе база должна исчезнуть из списка.
-        if (ShowFavoritesOnly || !string.IsNullOrWhiteSpace(SearchText))
+
+        // Перестройка нужна только если список/дерево должны изменить состав
+        // (фильтр «Только избранные», поиск, отбор по тегу).
+        if (ShowFavoritesOnly
+            || !string.IsNullOrWhiteSpace(SearchText)
+            || !string.IsNullOrWhiteSpace(ActiveTagFilter))
         {
             InfobasesView.Refresh();
+            RebuildGroupTree();
         }
-        // Перестраиваем дерево групп, чтобы пустые группы скрывались/показывались
-        // в зависимости от состояния избранного.
-        RebuildGroupTree();
-        Save();
+
+        ScheduleSave();
     }
 
     private void TogglePin(object? parameter)
     {
         if (SelectedInfobase is null)
             return;
-
-        SelectedInfobase.IsPinned = !SelectedInfobase.IsPinned;
-        InfobasesView.Refresh();
-        Save();
-        RebuildGroupTree();
+        ApplyPinToggle(SelectedInfobase);
     }
 
     private void TogglePinFor(object? parameter)
     {
         if (parameter is not Infobase infobase)
             return;
+        ApplyPinToggle(infobase);
+    }
 
+    /// <summary>
+    /// Переключает закрепление: обновляет блок «Закреплённые» точечно, без полной
+    /// перестройки дерева групп. Сохранение на диск — отложенное (не блокирует UI).
+    /// </summary>
+    private void ApplyPinToggle(Infobase infobase)
+    {
         infobase.IsPinned = !infobase.IsPinned;
-        InfobasesView.Refresh();
-        Save();
-        RebuildGroupTree();
+        UpdatePinnedSection(infobase);
+        ScheduleSave();
+    }
+
+    /// <summary>
+    /// Добавляет или убирает базу в узле «Закреплённые» без RebuildGroupTree.
+    /// </summary>
+    private void UpdatePinnedSection(Infobase infobase)
+    {
+        // При отключённой группировке закрепление влияет только на данные.
+        if (!_groupByGroup)
+        {
+            return;
+        }
+
+        const string pinnedName = "Закреплённые";
+        var pinned = GroupNodes.FirstOrDefault(n => n.Group is null && n.DisplayName == pinnedName);
+
+        if (infobase.IsPinned)
+        {
+            if (pinned is null)
+            {
+                pinned = new GroupNodeViewModel(null, displayName: pinnedName) { IsExpanded = true };
+                pinned.Infobases.Add(infobase);
+                pinned.PopulateItems(); // NotifyCountChanged внутри
+                GroupNodes.Insert(0, pinned);
+                _groupNodes.Insert(0, pinned);
+                return;
+            }
+
+            if (!pinned.Infobases.Contains(infobase))
+            {
+                pinned.Infobases.Add(infobase);
+                pinned.PopulateItems();
+            }
+            else
+            {
+                pinned.NotifyCountChanged();
+            }
+        }
+        else if (pinned is not null)
+        {
+            pinned.Infobases.Remove(infobase);
+            if (pinned.Infobases.Count == 0)
+            {
+                GroupNodes.Remove(pinned);
+                _groupNodes.Remove(pinned);
+            }
+            else
+            {
+                pinned.PopulateItems();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Откладывает сохранение списка баз (debounce), чтобы серия быстрых кликов
+    /// по звёздочке/закреплению не писала JSON на каждый клик и не блокировала UI.
+    /// </summary>
+    private void ScheduleSave()
+    {
+        _saveDebounceCts?.Cancel();
+        _saveDebounceCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _saveDebounceCts = cts;
+        var token = cts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(SaveDebounceMs, token).ConfigureAwait(false);
+                if (token.IsCancellationRequested)
+                    return;
+
+                // Снимок коллекции на UI-потоке, запись файла — в фоне.
+                List<Infobase> snapshot = Application.Current?.Dispatcher is { } dispatcher
+                    ? await dispatcher.InvokeAsync(() => Infobases.ToList())
+                    : Infobases.ToList();
+
+                if (token.IsCancellationRequested)
+                    return;
+
+                await _repository.SaveAsync(snapshot, token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Новый клик отменил предыдущее сохранение — нормально.
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Ошибка отложенного сохранения баз", ex);
+                try
+                {
+                    Application.Current?.Dispatcher.Invoke(() =>
+                        _dialogs.ShowError($"Не удалось сохранить список баз.\n{ex.Message}", "Ошибка сохранения"));
+                }
+                catch
+                {
+                    // ignore secondary UI failures
+                }
+            }
+        }, token);
     }
 
     /// <summary>
@@ -1258,6 +1448,11 @@ public class MainViewModel : ViewModelBase
 
         // Фильтр по избранным.
         if (ShowFavoritesOnly && !infobase.IsFavorite)
+            return false;
+
+        // Фильтр по выбранному тегу (панель быстрого отбора).
+        if (!string.IsNullOrWhiteSpace(_activeTagFilter)
+            && !infobase.Tags.Any(t => string.Equals(t, _activeTagFilter, StringComparison.OrdinalIgnoreCase)))
             return false;
 
         // Фильтр по тексту поиска.
@@ -1340,6 +1535,8 @@ public class MainViewModel : ViewModelBase
             ShowFavoritesButton = _showFavoritesButton,
             ShowPinnedButton = _showPinnedButton,
             ShowTags = _showTags,
+            ShowTagFilterPanel = _showTagFilterPanel,
+            AllowMultipleInstances = _allowMultipleInstances,
             ShowVersionColumn = _showVersionColumn,
             ShowLaunchModeColumn = _showLaunchModeColumn,
             ShowServerColumn = _showServerColumn,
@@ -1353,7 +1550,9 @@ public class MainViewModel : ViewModelBase
             IbasesSyncFilePath = _ibasesSyncFilePath,
             IbasesSyncTrigger = _ibasesSyncTrigger,
             IbasesSyncIntervalMinutes = _ibasesSyncIntervalMinutes,
-            IbasesSyncScheduleTime = _ibasesSyncScheduleTime
+            IbasesSyncScheduleTime = _ibasesSyncScheduleTime,
+            IbasesBackupEnabled = _ibasesBackupEnabled,
+            IbasesBackupKeepCount = _ibasesBackupKeepCount
         });
     }
 
@@ -1485,6 +1684,39 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Перебирает базы с учётом фильтров (избранное, поиск, тег) без ICollectionView.Refresh.
+    /// </summary>
+    private IEnumerable<Infobase> EnumerateFilteredInfobases()
+    {
+        var search = SearchText?.Trim() ?? string.Empty;
+        var hasSearch = search.Length > 0;
+        var hasTag = !string.IsNullOrWhiteSpace(_activeTagFilter);
+        var favOnly = ShowFavoritesOnly;
+
+        foreach (var infobase in Infobases)
+        {
+            if (favOnly && !infobase.IsFavorite)
+                continue;
+
+            if (hasTag
+                && !infobase.Tags.Any(t => string.Equals(t, _activeTagFilter, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            if (hasSearch)
+            {
+                if (!(infobase.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                      || infobase.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
+                      || infobase.Group.Contains(search, StringComparison.OrdinalIgnoreCase)
+                      || infobase.PlatformVersion.Contains(search, StringComparison.OrdinalIgnoreCase)
+                      || infobase.Tags.Any(t => t.Contains(search, StringComparison.OrdinalIgnoreCase))))
+                    continue;
+            }
+
+            yield return infobase;
+        }
+    }
+
+    /// <summary>
     /// Перестраивает дерево групп на основе текущего списка групп и баз.
     /// Закреплённые базы попадают в корневой узел «Закреплённые», базы без группы — в «Без группы».
     /// Группы и подгруппы, не содержащие баз (в том числе при активном фильтре «Только избранные»),
@@ -1492,19 +1724,24 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public void RebuildGroupTree()
     {
+        // Один проход по базам без CollectionView.Refresh (он дорогой на больших списках).
+        // SortOrder — позиция внутри группы (DnD между базами); Name — запасной порядок.
+        var visible = EnumerateFilteredInfobases()
+            .OrderBy(i => i.GroupSortOrder)
+            .ThenBy(i => i.SortOrder)
+            .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         // Когда группировка отключена — показываем плоский список всех баз в одном узле.
         if (!_groupByGroup)
         {
             var flatNode = new GroupNodeViewModel(null, displayName: "Все базы");
-            foreach (var infobase in InfobasesView.Cast<Infobase>())
-            {
+            foreach (var infobase in visible)
                 flatNode.Infobases.Add(infobase);
-            }
 
             flatNode.PopulateItems();
             _groupNodes = new List<GroupNodeViewModel> { flatNode };
-            GroupNodes.Clear();
-            GroupNodes.Add(flatNode);
+            ReplaceGroupNodes(_groupNodes);
             ApplyExpandedState(_groupNodes);
             OnPropertyChanged(nameof(GroupNodes));
             return;
@@ -1512,95 +1749,114 @@ public class MainViewModel : ViewModelBase
 
         var roots = GroupNodeViewModel.BuildTree(Groups);
 
-        // Корневой узел «Закреплённые» для закреплённых баз.
         var pinnedNode = new GroupNodeViewModel(null, displayName: "Закреплённые");
-
-        // Корневой узел «Без группы» для баз, не входящих ни в одну группу.
         var noGroupNode = new GroupNodeViewModel(null, displayName: "Без группы");
 
-        // Определяем, какая группа реально соответствует каждой базе (по полному пути).
+        // Индексация по каноническому пути (GetFullPath) и по FullPath узла —
+        // после DnD группы пути в памяти и в UI должны совпасть сразу, без перезапуска.
         var pathToNode = new Dictionary<string, GroupNodeViewModel>(StringComparer.OrdinalIgnoreCase);
         void IndexNode(GroupNodeViewModel node)
         {
             if (node.Group is not null)
             {
-                pathToNode[GroupHierarchyHelper.GetFullPath(node.Group, Groups)] = node;
+                var path = GroupHierarchyHelper.GetFullPath(node.Group, Groups);
+                if (!string.IsNullOrEmpty(path))
+                    pathToNode[path] = node;
+                var vmPath = node.FullPath;
+                if (!string.IsNullOrEmpty(vmPath))
+                    pathToNode[vmPath] = node;
+                var normalized = NormalizeGroupPath(path);
+                if (!string.IsNullOrEmpty(normalized))
+                    pathToNode[normalized] = node;
             }
             foreach (var child in node.Children)
-            {
                 IndexNode(child);
-            }
         }
         foreach (var root in roots)
-        {
             IndexNode(root);
-        }
 
-        // Распределяем базы по узлам и в «Закреплённые».
-        // Используем уже отфильтрованное представление (по избранным и тексту поиска).
-        foreach (var infobase in InfobasesView.Cast<Infobase>())
+        foreach (var infobase in visible)
         {
-            // Закреплённая база попадает в узел «Закреплённые»,
-            // но при этом не пропадает из своей группы (или «Без группы»).
             if (infobase.IsPinned)
-            {
                 pinnedNode.Infobases.Add(infobase);
-            }
 
             var groupPath = infobase.Group?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(groupPath))
             {
-                // База без группы — добавляем в отдельный узел «Без группы».
                 noGroupNode.Infobases.Add(infobase);
                 continue;
             }
 
-            if (pathToNode.TryGetValue(groupPath, out var node))
+            GroupNodeViewModel? node = null;
+            if (pathToNode.TryGetValue(groupPath, out node)
+                || pathToNode.TryGetValue(NormalizeGroupPath(groupPath), out node))
             {
+                // Подтягиваем канонический путь, если в JSON был другой разделитель.
+                var canonical = node.Group is not null
+                    ? GroupHierarchyHelper.GetFullPath(node.Group, Groups)
+                    : groupPath;
+                if (!string.Equals(infobase.Group, canonical, StringComparison.OrdinalIgnoreCase))
+                    infobase.Group = canonical;
                 node.Infobases.Add(infobase);
+                continue;
             }
+
+            noGroupNode.Infobases.Add(infobase);
         }
 
-        // Заполняем единые коллекции Items (подгруппы + базы) для вложенного отображения.
         foreach (var root in roots)
-        {
             root.PopulateItems();
-        }
         pinnedNode.PopulateItems();
         noGroupNode.PopulateItems();
 
-        // Формируем общий список отображаемых узлов (используется и для перестроения,
-        // и для операций «свернуть/развернуть все», чтобы они затрагивали в т.ч.
-        // служебные узлы «Закреплённые» и «Без группы»).
-        _groupNodes = new List<GroupNodeViewModel>();
-        GroupNodes.Clear();
-
-        // Блок «Закреплённые» показываем в начале дерева, только если в нём есть базы.
+        var next = new List<GroupNodeViewModel>();
         if (pinnedNode.ContainsInfobases)
-        {
-            GroupNodes.Add(pinnedNode);
-            _groupNodes.Add(pinnedNode);
-        }
+            next.Add(pinnedNode);
         if (noGroupNode.ContainsInfobases)
-        {
-            GroupNodes.Add(noGroupNode);
-            _groupNodes.Add(noGroupNode);
-        }
+            next.Add(noGroupNode);
         foreach (var root in roots)
         {
-            // Пустые группы (не содержащие баз в текущем фильтре, например при активном
-            // режиме «Только избранные») в дерево не добавляются.
             if (root.ContainsInfobases)
-            {
-                GroupNodes.Add(root);
-                _groupNodes.Add(root);
-            }
+                next.Add(root);
         }
 
-        // Применяем сохранённое состояние развёрнутости.
+        _groupNodes = next;
+        ReplaceGroupNodes(next);
         ApplyExpandedState(_groupNodes);
-
+        OnPropertyChanged(nameof(AvailableTags));
         OnPropertyChanged(nameof(GroupNodes));
+    }
+
+    /// <summary>
+    /// Заменяет содержимое GroupNodes с минимумом лишних уведомлений UI.
+    /// </summary>
+    private void ReplaceGroupNodes(List<GroupNodeViewModel> next)
+    {
+        // Clear + Add по-прежнему нужны для ObservableCollection, но без промежуточных
+        // операций между Clear и полным набором узлов.
+        GroupNodes.Clear();
+        foreach (var node in next)
+            GroupNodes.Add(node);
+    }
+
+    /// <summary>
+    /// Отложенное сохранение настроек (фильтр избранного, группировка и т.п.) без блокировки UI.
+    /// </summary>
+    private void ScheduleSaveSettings()
+    {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                // Небольшой debounce, если пользователь быстро щёлкает фильтры.
+                Thread.Sleep(150);
+                Application.Current?.Dispatcher.Invoke(SaveSettings);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Ошибка отложенного сохранения настроек", ex);
+            }
+        });
     }
 
     /// <summary>
@@ -2101,15 +2357,220 @@ public class MainViewModel : ViewModelBase
         if (parameter is not string tag)
             return;
 
-        SearchText = tag;
+        // Повторный клик по тому же тегу снимает фильтр.
+        if (string.Equals(ActiveTagFilter, tag, StringComparison.OrdinalIgnoreCase))
+            ActiveTagFilter = string.Empty;
+        else
+            ActiveTagFilter = tag;
+
+        OnPropertyChanged(nameof(AvailableTags));
     }
 
     /// <summary>
-    /// Очищает поле поиска.
+    /// Очищает поле поиска и фильтр по тегу.
     /// </summary>
     private void ClearSearch(object? parameter)
     {
         SearchText = string.Empty;
+        ActiveTagFilter = string.Empty;
+    }
+
+    /// <summary>
+    /// Нормализует путь группы: единый разделитель « / », обрезка пробелов.
+    /// </summary>
+    private static string NormalizeGroupPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+        var parts = path
+            .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0);
+        return string.Join(GroupHierarchyHelper.PathSeparator, parts);
+    }
+
+    /// <summary>
+    /// Перемещает базу в указанную группу (полный путь).
+    /// <paramref name="insertBefore"/> — база, перед которой вставить (null = в конец группы).
+    /// </summary>
+    public void MoveInfobaseToGroup(Infobase infobase, string groupFullPath, Infobase? insertBefore = null)
+    {
+        var targetPath = groupFullPath ?? string.Empty;
+        var targetNorm = NormalizeGroupPath(targetPath);
+        infobase.Group = string.IsNullOrEmpty(targetNorm) ? targetPath : targetNorm;
+
+        // Соседи в целевой группе (кроме переносимой).
+        var siblings = Infobases
+            .Where(i => !ReferenceEquals(i, infobase)
+                        && string.Equals(NormalizeGroupPath(i.Group), targetNorm,
+                            StringComparison.OrdinalIgnoreCase))
+            .OrderBy(i => i.SortOrder)
+            .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (insertBefore is not null
+            && siblings.Any(s => ReferenceEquals(s, insertBefore)
+                                 || string.Equals(s.Id, insertBefore.Id, StringComparison.OrdinalIgnoreCase)
+                                    && !string.IsNullOrEmpty(insertBefore.Id)))
+        {
+            var index = siblings.FindIndex(s =>
+                ReferenceEquals(s, insertBefore)
+                || (string.Equals(s.Id, insertBefore.Id, StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(insertBefore.Id)));
+            siblings.Insert(Math.Max(0, index), infobase);
+        }
+        else
+        {
+            siblings.Add(infobase);
+        }
+
+        for (var i = 0; i < siblings.Count; i++)
+            siblings[i].SortOrder = (i + 1) * 10;
+
+        Save();
+        RebuildGroupTree();
+        OnPropertyChanged(nameof(AvailableTags));
+    }
+
+    /// <summary>
+    /// Перемещает группу под другую группу (или в корень при пустом newParentId)
+    /// вместе со всеми вложенными подгруппами и информационными базами.
+    /// Обновляет ParentId и полные пути Infobase.Group у всей подветки.
+    /// </summary>
+    public void MoveGroupUnder(Group group, string newParentId)
+    {
+        newParentId ??= string.Empty;
+        if (string.Equals(group.Id, newParentId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Нельзя сделать родителем потомка этой группы (иначе цикл в иерархии).
+        if (!string.IsNullOrEmpty(newParentId)
+            && GroupHierarchyHelper.IsAncestorOrSelf(newParentId, group.Id, Groups))
+            return;
+
+        // Старые полные пути: сама группа + все потомки (до смены ParentId).
+        var oldPathsById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var subtreeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { group.Id };
+        CollectGroupDescendants(group.Id, subtreeIds);
+        foreach (var id in subtreeIds)
+        {
+            var g = Groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is not null)
+                oldPathsById[id] = GroupHierarchyHelper.GetFullPath(g, Groups);
+        }
+
+        var oldRootPath = oldPathsById.TryGetValue(group.Id, out var orp) ? orp : string.Empty;
+        var oldRootNorm = NormalizeGroupPath(oldRootPath);
+
+        // Меняем родителя только у перемещаемой группы; вложенные группы
+        // остаются её потомками через свои ParentId и переезжают вместе с ней.
+        group.ParentId = newParentId;
+
+        // pathRemap: старый путь (и нормализованный) → новый канонический.
+        var pathRemap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in subtreeIds)
+        {
+            var g = Groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is null || !oldPathsById.TryGetValue(id, out var oldPath))
+                continue;
+            var newPath = GroupHierarchyHelper.GetFullPath(g, Groups);
+            if (string.IsNullOrEmpty(oldPath) || string.IsNullOrEmpty(newPath))
+                continue;
+            pathRemap[oldPath] = newPath;
+            pathRemap[NormalizeGroupPath(oldPath)] = newPath;
+        }
+
+        // Обновляем Infobase.Group у всех баз подветки.
+        if (pathRemap.Count > 0)
+        {
+            // Длинные пути первыми — чтобы «A / B» не переписывался как префикс «A».
+            var remapByLength = pathRemap
+                .OrderByDescending(kv => kv.Key.Length)
+                .ToList();
+
+            foreach (var ib in Infobases)
+            {
+                var current = ib.Group?.Trim() ?? string.Empty;
+                if (string.IsNullOrEmpty(current))
+                    continue;
+
+                var currentNorm = NormalizeGroupPath(current);
+                string? mapped = null;
+
+                if (pathRemap.TryGetValue(current, out mapped)
+                    || pathRemap.TryGetValue(currentNorm, out mapped))
+                {
+                    ib.Group = mapped;
+                    continue;
+                }
+
+                // Префикс: база во вложенном пути, которого не было в pathRemap.
+                foreach (var (oldKey, newKey) in remapByLength)
+                {
+                    if (current.StartsWith(oldKey + GroupHierarchyHelper.PathSeparator,
+                            StringComparison.OrdinalIgnoreCase)
+                        || currentNorm.StartsWith(NormalizeGroupPath(oldKey) + GroupHierarchyHelper.PathSeparator,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        var suffix = current.Length > oldKey.Length
+                            ? current.Substring(oldKey.Length)
+                            : currentNorm.Substring(NormalizeGroupPath(oldKey).Length);
+                        ib.Group = newKey + suffix;
+                        break;
+                    }
+                }
+            }
+
+            if (_collapsedGroups is { Count: > 0 })
+            {
+                var updated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var key in _collapsedGroups)
+                {
+                    if (pathRemap.TryGetValue(key, out var mapped)
+                        || pathRemap.TryGetValue(NormalizeGroupPath(key), out mapped))
+                        updated.Add(mapped);
+                    else if (!string.IsNullOrEmpty(oldRootPath)
+                             && (key.StartsWith(oldRootPath + GroupHierarchyHelper.PathSeparator,
+                                     StringComparison.OrdinalIgnoreCase)
+                                 || NormalizeGroupPath(key).StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                                     StringComparison.OrdinalIgnoreCase))
+                             && pathRemap.TryGetValue(oldRootPath, out var newRoot))
+                        updated.Add(newRoot + key.Substring(Math.Min(key.Length, oldRootPath.Length)));
+                    else
+                        updated.Add(key);
+                }
+                _collapsedGroups.Clear();
+                foreach (var k in updated)
+                    _collapsedGroups.Add(k);
+            }
+        }
+
+        // Всегда сохраняем базы и группы, затем UI — как после перезапуска.
+        Save();
+        SaveGroups();
+        RebuildGroupTree();
+    }
+
+    /// <summary>
+    /// Применяет настройки приложения (экземпляры, панель тегов).
+    /// </summary>
+    public void ApplyAppBehaviorSettings(bool allowMultipleInstances, bool showTagFilterPanel)
+    {
+        _allowMultipleInstances = allowMultipleInstances;
+        _showTagFilterPanel = showTagFilterPanel;
+        OnPropertyChanged(nameof(AllowMultipleInstances));
+        OnPropertyChanged(nameof(ShowTagFilterPanel));
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Уведомляет UI об изменении списка доступных тегов.
+    /// </summary>
+    public void RefreshAvailableTags()
+    {
+        OnPropertyChanged(nameof(AvailableTags));
     }
 
 }

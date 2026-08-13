@@ -19,7 +19,7 @@ namespace Configuration_Management
         /// <param name="groups">Список доступных групп для выбора.</param>
         /// <param name="installedPlatformVersions">Список установленных версий платформы 1С.</param>
         public ConnectionSettingsWindow(Infobase? infobase = null, IEnumerable<Group>? groups = null,
-            IEnumerable<string>? installedPlatformVersions = null)
+            IEnumerable<string>? installedPlatformVersions = null, string? defaultGroupPath = null)
         {
             InitializeComponent();
             _viewModel = new ConnectionSettingsViewModel(groups);
@@ -36,7 +36,34 @@ namespace Configuration_Management
                 Result.LastLaunchDate = infobase.LastLaunchDate;
                 Result.MetadataRoot = infobase.MetadataRoot;
             }
+            else if (!string.IsNullOrWhiteSpace(defaultGroupPath))
+            {
+                // Новая база: подставляем группу, в которой сейчас находится курсор.
+                _viewModel.Group = defaultGroupPath;
+                _viewModel.SelectedGroup = GroupHierarchyHelper.FindByFullPath(defaultGroupPath, _viewModel.Groups);
+            }
             DataContext = _viewModel;
+        }
+
+        /// <summary>
+        /// Открывает дерево групп для выбора.
+        /// </summary>
+        private void OnSelectGroup_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new GroupPickerWindow(
+                _viewModel.Groups,
+                currentGroupId: _viewModel.SelectedGroup?.Id,
+                allowNone: true,
+                noneLabel: "— Без группы —")
+            {
+                Owner = this
+            };
+            if (dialog.ShowDialog() == true)
+            {
+                _viewModel.SelectedGroup = dialog.ResultGroup;
+                if (dialog.ResultGroup is null)
+                    _viewModel.Group = string.Empty;
+            }
         }
 
         /// <summary>
