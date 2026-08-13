@@ -114,15 +114,33 @@ public static class IbasesV8iImporter
 
             if (entry.IsGroup)
             {
-                // Полный путь группы-секции: вложенность задаётся ключом Folder
-                // (путь «Родитель\Дочерняя»), имя секции — одиночное имя.
-                var groupPath = NormalizeGroupPath(entry.Group);
-                var groupName = NormalizeGroupName(entry.Name);
-                if (!string.IsNullOrWhiteSpace(groupName))
+                // Секция-группа: Name — имя (или полный путь), Folder — путь родителя (\ или /).
+                // Примеры 1С: Name=«Бухгалтерия», Folder=«Учёт»
+                //            Name=«Учёт\Бухгалтерия», Folder пустой
+                var folderPath = NormalizeGroupPath(entry.Group);
+                var namePath = NormalizeGroupPath(entry.Name);
+                string groupPath;
+                if (string.IsNullOrWhiteSpace(folderPath))
                 {
-                    groupPath = string.IsNullOrWhiteSpace(groupPath)
-                        ? groupName
-                        : groupPath + GroupHierarchyHelper.PathSeparator + groupName;
+                    groupPath = namePath;
+                }
+                else if (string.IsNullOrWhiteSpace(namePath))
+                {
+                    groupPath = folderPath;
+                }
+                else if (namePath.StartsWith(folderPath + GroupHierarchyHelper.PathSeparator, StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(namePath, folderPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Name уже содержит путь родителя — не дублируем.
+                    groupPath = namePath;
+                }
+                else
+                {
+                    // Folder + листовое имя (или относительный путь Name).
+                    var leaf = NormalizeGroupName(entry.Name);
+                    groupPath = string.IsNullOrWhiteSpace(leaf)
+                        ? folderPath
+                        : folderPath + GroupHierarchyHelper.PathSeparator + leaf;
                 }
                 if (!string.IsNullOrWhiteSpace(groupPath))
                     groupPaths.Add(groupPath);
@@ -158,32 +176,75 @@ public static class IbasesV8iImporter
             return;
 
         string? parentId = null;
-        foreach (var segment in segments)
+        for (var i = 0; i < segments.Count; i++)
         {
+            var segment = segments[i];
+            var pathSoFar = string.Join(GroupHierarchyHelper.PathSeparator, segments.Take(i + 1));
+
             var existing = groups.FirstOrDefault(g =>
                 string.Equals(g.Name, segment, StringComparison.OrdinalIgnoreCase)
                 && IsParent(g, parentId));
 
             if (existing is null)
             {
-                // Ищем ID группы-секции из файла, соответствующей текущему сегменту.
-                var groupEntry = groupEntries.FirstOrDefault(e =>
-                    string.Equals(NormalizeGroupName(e.Name), segment, StringComparison.OrdinalIgnoreCase));
-
+                var id = ResolveGroupIdFromFile(groupEntries, pathSoFar, segment) ?? Guid.NewGuid().ToString();
                 existing = new Group
                 {
                     Name = segment,
-                    // ID группы-секции из файла, либо новый GUID. Учитываем и null, и пустую строку:
-                    // при пустом Id связь родитель-потомок по ParentId теряется, иерархия групп ломается.
-                    Id = !string.IsNullOrWhiteSpace(groupEntry?.Id) ? groupEntry.Id : Guid.NewGuid().ToString(),
+                    Id = id,
                     ParentId = parentId ?? string.Empty
                 };
                 groups.Add(existing);
                 result.GroupsCreated++;
             }
+            else if (string.IsNullOrWhiteSpace(existing.ParentId) && !string.IsNullOrEmpty(parentId))
+            {
+                // Восстанавливаем родителя, если группа уже была создана без иерархии.
+                existing.ParentId = parentId;
+            }
 
             parentId = existing.Id;
         }
+    }
+
+    /// <summary>
+    /// Ищет ID группы-секции в файле ibases.v8i по полному пути или имени.
+    /// </summary>
+    private static string? ResolveGroupIdFromFile(List<IbaseEntry> groupEntries, string fullPath, string leafName)
+    {
+        foreach (var e in groupEntries)
+        {
+            if (string.IsNullOrWhiteSpace(e.Id))
+                continue;
+
+            var eFull = BuildGroupEntryPath(e);
+            if (string.Equals(eFull, fullPath, StringComparison.OrdinalIgnoreCase))
+                return e.Id;
+        }
+
+        // Запасной вариант: единственная секция с таким именем.
+        var byName = groupEntries
+            .Where(e => string.Equals(NormalizeGroupName(e.Name), leafName, StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrWhiteSpace(e.Id))
+            .ToList();
+        return byName.Count == 1 ? byName[0].Id : null;
+    }
+
+    /// <summary>
+    /// Строит полный путь группы-секции из Name и Folder.
+    /// </summary>
+    private static string BuildGroupEntryPath(IbaseEntry entry)
+    {
+        var folderPath = NormalizeGroupPath(entry.Group);
+        var namePath = NormalizeGroupPath(entry.Name);
+        if (string.IsNullOrWhiteSpace(folderPath))
+            return namePath;
+        if (string.IsNullOrWhiteSpace(namePath))
+            return folderPath;
+        if (namePath.StartsWith(folderPath + GroupHierarchyHelper.PathSeparator, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(namePath, folderPath, StringComparison.OrdinalIgnoreCase))
+            return namePath;
+        return folderPath + GroupHierarchyHelper.PathSeparator + NormalizeGroupName(entry.Name);
     }
 
     /// <summary>

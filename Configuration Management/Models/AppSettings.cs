@@ -35,6 +35,16 @@ public class AppSettings
     /// <summary>Время автоматической синхронизации по расписанию в формате "HH:mm" (для режима Schedule).</summary>
     public string IbasesSyncScheduleTime { get; set; } = "09:00";
 
+    /// <summary>
+    /// Создавать резервную копию файла ibases.v8i перед синхронизацией (экспортом/записью).
+    /// </summary>
+    public bool IbasesBackupEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Сколько последних резервных копий ibases.v8i хранить (старые удаляются).
+    /// </summary>
+    public int IbasesBackupKeepCount { get; set; } = 5;
+
     /// <summary>Ширина колонки «Название» в списке баз (0 — по умолчанию).</summary>
     public double NameColumnWidth { get; set; }
 
@@ -58,6 +68,15 @@ public class AppSettings
 
     /// <summary>Показывать теги баз в списке.</summary>
     public bool ShowTags { get; set; } = true;
+
+    /// <summary>Показывать панель быстрого отбора по тегам над списком баз.</summary>
+    public bool ShowTagFilterPanel { get; set; } = true;
+
+    /// <summary>
+    /// Разрешить запуск нескольких экземпляров приложения.
+    /// false — при повторном запуске активируется уже открытое окно.
+    /// </summary>
+    public bool AllowMultipleInstances { get; set; }
 
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn { get; set; } = true;
@@ -85,4 +104,32 @@ public class AppSettings
 
     /// <summary>Состояние окна приложения (Normal, Maximized, Minimized).</summary>
     public string WindowState { get; set; } = string.Empty;
+
+    /// <summary>
+    /// При закрытии окна сворачивать приложение в системный трей вместо выхода.
+    /// </summary>
+    public bool CloseToTray { get; set; }
+
+    /// <summary>Показывать значок приложения в системном трее.</summary>
+    public bool ShowTrayIcon { get; set; } = true;
+
+    /// <summary>Горячая клавиша запуска «1С:Предприятие» (например F3).</summary>
+    public string HotkeyEnterprise { get; set; } = "F3";
+
+    /// <summary>Горячая клавиша запуска «Конфигуратор» (например F4).</summary>
+    public string HotkeyConfigurator { get; set; } = "F4";
+
+    /// <summary>
+    /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.
+    /// </summary>
+    public string SortField { get; set; } = "Name";
+
+    /// <summary>Направление сортировки: true — по возрастанию, false — по убыванию.</summary>
+    public bool SortAscending { get; set; } = true;
+
+    /// <summary>
+    /// Упорядоченный список идентификаторов избранных баз для горячих клавиш Alt+1…Alt+9.
+    /// Индекс 0 → Alt+1, индекс 1 → Alt+2 и т.д. (максимум 9).
+    /// </summary>
+    public List<string> FavoriteHotkeyIds { get; set; } = new();
 }

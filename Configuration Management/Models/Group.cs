@@ -26,6 +26,12 @@ public class Group
     public string Color { get; set; } = "#2D6CDF";
 
     /// <summary>
+    /// Ключ иконки группы (имя Geometry из Icons.xaml, например IconFolder, IconDatabase).
+    /// Пустая строка — иконка по умолчанию.
+    /// </summary>
+    public string Icon { get; set; } = string.Empty;
+
+    /// <summary>
     /// Возвращает строковое представление группы.
     /// </summary>
     public override string ToString() => Name;

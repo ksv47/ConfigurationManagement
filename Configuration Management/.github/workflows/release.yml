@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Версия релиза (например 2.1.0)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          if ("${{ github.event.inputs.version }}" -ne "") {
+            $v = "${{ github.event.inputs.version }}".TrimStart('v')
+          } elseif ("${{ github.ref_type }}" -eq "tag") {
+            $v = "${{ github.ref_name }}".TrimStart('v')
+          } else {
+            # Берём Version из csproj
+            [xml]$csproj = Get-Content "Configuration Management.csproj"
+            $v = $csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+            if (-not $v) { $v = "0.0.0-ci" }
+          }
+          echo "version=$v" >> $env:GITHUB_OUTPUT
+          echo "Resolved version: $v"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            9.0.x
+            8.0.x
+
+      - name: Publish win-x64 (self-contained single-file)
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          dotnet publish "Configuration Management.csproj" `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:Version=$v `
+            -p:AssemblyVersion=$v.0 `
+            -p:FileVersion=$v.0 `
+            -o "${{ github.workspace }}/publish/win-x64"
+
+      - name: Pack ZIP
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $zipName = "ConfigurationManagement-v$v-win-x64.zip"
+          Compress-Archive -Path "${{ github.workspace }}/publish/win-x64/*" -DestinationPath "${{ github.workspace }}/$zipName" -Force
+          echo "zip=$zipName" >> $env:GITHUB_OUTPUT
+          Get-Item $zipName | Format-List Name, Length
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ConfigurationManagement-v${{ steps.ver.outputs.version }}-win-x64
+          path: ConfigurationManagement-v${{ steps.ver.outputs.version }}-win-x64.zip
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: Версия ${{ steps.ver.outputs.version }}
+          body: |
+            Автоматическая сборка **Управление конфигурациями 1С** v${{ steps.ver.outputs.version }}
+
+            ### Состав
+            - Самодостаточный single-file exe для **Windows x64**
+            - Не требует установленного .NET Runtime
+
+            См. [CHANGELOG.md](CHANGELOG.md) для списка изменений.
+          files: ConfigurationManagement-v${{ steps.ver.outputs.version }}-win-x64.zip
+          draft: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

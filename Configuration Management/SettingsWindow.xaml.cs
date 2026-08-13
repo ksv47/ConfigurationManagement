@@ -10,12 +10,12 @@ namespace Configuration_Management
 {
     /// <summary>
     /// Диалог настроек приложения с горизонтальными вкладками:
-    /// «Платформы», «Группы» и «Дополнительные функции».
+    /// «Платформы», «Отображение», «ibases.v8i» и «Дополнительные функции».
+    /// Управление группами — в основном окне (добавление/редактирование через список баз).
     /// </summary>
     public partial class SettingsWindow : Window
     {
         private readonly MainViewModel _viewModel;
-        private readonly ObservableCollection<Group> _groups;
         private List<string> _installedPlatformVersions;
         private IbasesSyncMode _syncMode;
         private string _syncFilePath = string.Empty;
@@ -29,6 +29,7 @@ namespace Configuration_Management
         private bool _showLaunchModeColumn = true;
         private bool _showServerColumn = true;
         private bool _showLastLaunchColumn = true;
+        private readonly ObservableCollection<FavoriteHotkeyItem> _favoriteHotkeyItems = new();
 
         /// <summary>
         /// Создаёт диалог настроек приложения.
@@ -39,11 +40,70 @@ namespace Configuration_Management
             InitializeComponent();
             _viewModel = viewModel;
             _installedPlatformVersions = new List<string>(viewModel.InstalledPlatformVersions);
-            _groups = new ObservableCollection<Group>(viewModel.Groups);
-            RebuildTree();
             UpdatePlatformsDisplay();
             InitializeSyncSettings();
             InitializeDisplaySettings();
+            InitializeFavoriteHotkeys();
+        }
+
+        private void InitializeFavoriteHotkeys()
+        {
+            _favoriteHotkeyItems.Clear();
+            int n = 1;
+            foreach (var key in _viewModel.FavoriteHotkeyIds)
+            {
+                var ib = _viewModel.FindByFavoriteKey(key);
+                _favoriteHotkeyItems.Add(new FavoriteHotkeyItem
+                {
+                    Key = key,
+                    Number = n,
+                    Name = ib?.Name ?? key
+                });
+                n++;
+            }
+            if (FavoriteHotkeysList != null)
+                FavoriteHotkeysList.ItemsSource = _favoriteHotkeyItems;
+        }
+
+        private void RefreshFavoriteHotkeyNumbers()
+        {
+            var snapshot = _favoriteHotkeyItems.ToList();
+            _favoriteHotkeyItems.Clear();
+            for (int i = 0; i < snapshot.Count; i++)
+            {
+                snapshot[i].Number = i + 1;
+                _favoriteHotkeyItems.Add(snapshot[i]);
+            }
+        }
+
+        private void OnFavoriteHotkeyUp_Click(object sender, RoutedEventArgs e)
+        {
+            var idx = FavoriteHotkeysList.SelectedIndex;
+            if (idx <= 0) return;
+            var item = _favoriteHotkeyItems[idx];
+            _favoriteHotkeyItems.RemoveAt(idx);
+            _favoriteHotkeyItems.Insert(idx - 1, item);
+            RefreshFavoriteHotkeyNumbers();
+            FavoriteHotkeysList.SelectedIndex = idx - 1;
+        }
+
+        private void OnFavoriteHotkeyDown_Click(object sender, RoutedEventArgs e)
+        {
+            var idx = FavoriteHotkeysList.SelectedIndex;
+            if (idx < 0 || idx >= _favoriteHotkeyItems.Count - 1) return;
+            var item = _favoriteHotkeyItems[idx];
+            _favoriteHotkeyItems.RemoveAt(idx);
+            _favoriteHotkeyItems.Insert(idx + 1, item);
+            RefreshFavoriteHotkeyNumbers();
+            FavoriteHotkeysList.SelectedIndex = idx + 1;
+        }
+
+        private sealed class FavoriteHotkeyItem
+        {
+            public string Key { get; set; } = string.Empty;
+            public int Number { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public string Display => $"Alt+{Number}: {Name}";
         }
 
         /// <summary>
@@ -69,9 +129,37 @@ namespace Configuration_Management
             ShowFavoritesButtonCheck.IsChecked = _showFavoritesButton;
             ShowPinnedButtonCheck.IsChecked = _showPinnedButton;
             ShowTagsCheck.IsChecked = _showTags;
+            if (ShowTagFilterPanelCheck != null)
+                ShowTagFilterPanelCheck.IsChecked = _viewModel.ShowTagFilterPanel;
+            if (AllowMultipleInstancesCheck != null)
+                AllowMultipleInstancesCheck.IsChecked = _viewModel.AllowMultipleInstances;
+            if (ShowTrayIconCheck != null)
+                ShowTrayIconCheck.IsChecked = _viewModel.ShowTrayIcon;
+            if (CloseToTrayCheck != null)
+                CloseToTrayCheck.IsChecked = _viewModel.CloseToTray;
 
             GroupByGroupCheck.IsChecked = _viewModel.GroupByGroup;
             ShowFavoritesOnlyCheck.IsChecked = _viewModel.ShowFavoritesOnly;
+
+            InitHotkeyCombos();
+        }
+
+        private static readonly string[] FunctionKeys =
+            { "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12" };
+
+        private void InitHotkeyCombos()
+        {
+            if (HotkeyEnterpriseCombo == null || HotkeyConfiguratorCombo == null)
+                return;
+            HotkeyEnterpriseCombo.ItemsSource = null;
+            HotkeyConfiguratorCombo.ItemsSource = null;
+            HotkeyEnterpriseCombo.ItemsSource = FunctionKeys;
+            HotkeyConfiguratorCombo.ItemsSource = FunctionKeys;
+
+            var ent = FunctionKeys.Contains(_viewModel.HotkeyEnterprise) ? _viewModel.HotkeyEnterprise : "F3";
+            var cfg = FunctionKeys.Contains(_viewModel.HotkeyConfigurator) ? _viewModel.HotkeyConfigurator : "F4";
+            HotkeyEnterpriseCombo.SelectedIndex = Array.IndexOf(FunctionKeys, ent);
+            HotkeyConfiguratorCombo.SelectedIndex = Array.IndexOf(FunctionKeys, cfg);
         }
 
         /// <summary>
@@ -100,6 +188,8 @@ namespace Configuration_Management
             SyncFilePathTextBox.Text = _syncFilePath;
             SyncIntervalTextBox.Text = _syncIntervalMinutes.ToString();
             SyncScheduleTimePicker.Text = _syncScheduleTime;
+            IbasesBackupEnabledCheck.IsChecked = _viewModel.IbasesBackupEnabled;
+            IbasesBackupKeepCountBox.Text = _viewModel.IbasesBackupKeepCount.ToString();
 
             UpdateSyncControls();
         }
@@ -342,213 +432,6 @@ namespace Configuration_Management
                 : version;
         }
 
-        /// <summary>
-        /// Перестраивает дерево групп из плоского списка.
-        /// </summary>
-        private void RebuildTree()
-        {
-            GroupsTree.ItemsSource = GroupNodeViewModel.BuildTree(_groups);
-        }
-
-        /// <summary>
-        /// Возвращает выбранный узел дерева групп.
-        /// </summary>
-        private GroupNodeViewModel? SelectedNode =>
-            GroupsTree.SelectedItem as GroupNodeViewModel;
-
-        private void OnAddRoot_Click(object sender, RoutedEventArgs e)
-        {
-            // Новая корневая группа.
-            var dialog = new GroupEditWindow(_groups, parent: null)
-            {
-                Owner = this
-            };
-            if (dialog.ShowDialog() == true)
-            {
-                _groups.Add(dialog.Result);
-                RebuildTree();
-                SelectGroup(dialog.Result);
-            }
-        }
-
-        private void OnAddSubgroup_Click(object sender, RoutedEventArgs e)
-        {
-            // Новая подгруппа внутри выбранной группы.
-            var parent = SelectedNode?.Group;
-            if (parent is null)
-            {
-                MessageBox.Show(
-                    "Выберите группу, внутри которой нужно создать подгруппу.",
-                    "Внимание",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
-
-            var dialog = new GroupEditWindow(_groups, parent)
-            {
-                Owner = this
-            };
-            if (dialog.ShowDialog() == true)
-            {
-                _groups.Add(dialog.Result);
-                RebuildTree();
-                SelectGroup(dialog.Result);
-            }
-        }
-
-        private void OnEditGroup_Click(object sender, RoutedEventArgs e)
-        {
-            if (SelectedNode?.Group is not Group group)
-                return;
-
-            var dialog = new GroupEditWindow(_groups, group.ParentId, group)
-            {
-                Owner = this
-            };
-            if (dialog.ShowDialog() == true)
-            {
-                // Обновляем группу в коллекции, сохраняя ссылку на объект,
-                // чтобы не потерять ParentId у дочерних групп.
-                var index = _groups.IndexOf(group);
-                if (index >= 0)
-                {
-                    _groups[index] = dialog.Result;
-                }
-
-                RebuildTree();
-                SelectGroup(dialog.Result);
-            }
-        }
-
-        private void OnDeleteGroup_Click(object sender, RoutedEventArgs e)
-        {
-            if (SelectedNode?.Group is not Group group)
-                return;
-
-            var subgroupCount = _groups.Count(g =>
-                string.Equals(g.ParentId, group.Id, StringComparison.OrdinalIgnoreCase));
-
-            var message = $"Удалить группу «{group.Name}»?";
-            if (subgroupCount > 0)
-            {
-                message += $"\n\nВнутри группы находится подгрупп: {subgroupCount}.\n" +
-                           "Они также будут удалены.";
-            }
-
-            var result = MessageBox.Show(
-                message,
-                "Подтверждение удаления",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            if (result != MessageBoxResult.Yes)
-                return;
-
-            // Собираем все удаляемые группы (саму группу и всех потомков).
-            var toRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { group.Id };
-            CollectDescendants(group.Id, toRemove);
-
-            for (var i = _groups.Count - 1; i >= 0; i--)
-            {
-                if (toRemove.Contains(_groups[i].Id))
-                {
-                    _groups.RemoveAt(i);
-                }
-            }
-            RebuildTree();
-        }
-
-        /// <summary>
-        /// Собирает идентификаторы всех групп-потомков указанной группы.
-        /// </summary>
-        private void CollectDescendants(string parentId, ISet<string> result)
-        {
-            var children = _groups
-                .Where(g => string.Equals(g.ParentId, parentId, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            foreach (var child in children)
-            {
-                if (result.Add(child.Id))
-                {
-                    CollectDescendants(child.Id, result);
-                }
-            }
-        }
-
-        private void OnCollapseAll_Click(object sender, RoutedEventArgs e)
-        {
-            SetAllExpanded(collapse: true);
-        }
-
-        private void OnExpandAll_Click(object sender, RoutedEventArgs e)
-        {
-            SetAllExpanded(collapse: false);
-        }
-
-        /// <summary>
-        /// Сворачивает или разворачивает все узлы дерева групп.
-        /// </summary>
-        private void SetAllExpanded(bool collapse)
-        {
-            SetExpandedRecursive(GroupsTree.Items.OfType<GroupNodeViewModel>(), collapse);
-        }
-
-        private static void SetExpandedRecursive(IEnumerable<GroupNodeViewModel> nodes, bool collapse)
-        {
-            foreach (var node in nodes)
-            {
-                node.IsExpanded = !collapse;
-                SetExpandedRecursive(node.Children, collapse);
-            }
-        }
-
-        /// <summary>
-        /// Выбирает узел с указанной группой в дереве (разворачивая предков).
-        /// </summary>
-        private void SelectGroup(Group group)
-        {
-            foreach (var root in GroupsTree.Items.OfType<GroupNodeViewModel>())
-            {
-                if (SelectInContainer(GroupsTree, root, group))
-                    return;
-            }
-        }
-
-        /// <summary>
-        /// Рекурсивно находит и выбирает узел с указанной группой.
-        /// </summary>
-        private static bool SelectInContainer(ItemsControl container, GroupNodeViewModel node, Group target)
-        {
-            // Разворачиваем узел, чтобы его потомки стали доступны.
-            node.IsExpanded = true;
-
-            if (node.Group is not null &&
-                string.Equals(node.Group.Id, target.Id, StringComparison.OrdinalIgnoreCase))
-            {
-                var item = container.ItemContainerGenerator.ContainerFromItem(node) as TreeViewItem;
-                if (item is not null)
-                {
-                    item.IsSelected = true;
-                    item.BringIntoView();
-                }
-                return true;
-            }
-
-            foreach (var child in node.Children)
-            {
-                // Получаем контейнер текущего узла для доступа к его ItemsControl.
-                var childContainer = container.ItemContainerGenerator.ContainerFromItem(node) as ItemsControl;
-                if (childContainer is not null && SelectInContainer(childContainer, child, target))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private void OnExportInfobases_Click(object sender, RoutedEventArgs e)
         {
             _viewModel.ExportInfobasesCommand.Execute(null);
@@ -576,20 +459,59 @@ namespace Configuration_Management
         /// Обновляет локальную копию списка групп после изменения данных
         /// командами дополнительных функций.
         /// </summary>
+        /// <summary>
+        /// После импорта/очистки данные уже в MainViewModel; локальный список групп в настройках не ведётся.
+        /// </summary>
         private void RefreshGroupsAfterDataChange()
         {
-            _groups.Clear();
-            foreach (var group in _viewModel.Groups)
+            // Группы управляются из главного окна.
+        }
+        private void OnRestoreIbasesBackup_Click(object sender, RoutedEventArgs e)
+        {
+            var filePath = SyncFilePathTextBox.Text?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(filePath))
+                filePath = Services.IbasesV8iImporter.FindDefaultPath() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(filePath))
             {
-                _groups.Add(group);
+                MessageBox.Show("Не указан путь к файлу ibases.v8i.", "Восстановление", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
-            RebuildTree();
+
+            var backups = Services.IbasesBackupService.ListBackups(filePath);
+            if (backups.Count == 0)
+            {
+                MessageBox.Show("Резервные копии не найдены рядом с файлом:\n" + filePath,
+                    "Восстановление", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var latest = backups[0];
+            var result = MessageBox.Show(
+                $"Восстановить файл ibases.v8i из копии?\n\n{System.IO.Path.GetFileName(latest)}\n\nТекущий файл будет перезаписан.",
+                "Восстановление из резервной копии",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                Services.IbasesBackupService.RestoreBackup(latest, filePath);
+                MessageBox.Show("Файл ibases.v8i успешно восстановлен из резервной копии.",
+                    "Восстановление", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Не удалось восстановить файл.\n{ex.Message}",
+                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void OnSave_Click(object sender, RoutedEventArgs e)
         {
-            // Сохраняем изменения групп и версий платформы в модели представления.
-            _viewModel.ApplyGroupChanges(_groups);
+            // Сохраняем версии платформы в модели представления (группы правятся из главного окна).
             _viewModel.SetInstalledPlatformVersions(_installedPlatformVersions);
 
             // Сохраняем настройки синхронизации с файлом ibases.v8i.
@@ -599,7 +521,9 @@ namespace Configuration_Management
                 interval = 30;
             }
             var scheduleTime = SyncScheduleTimePicker.Text?.Trim() ?? string.Empty;
-            _viewModel.ApplyIbasesSyncSettings(_syncMode, filePath, _syncTrigger, interval, scheduleTime);
+            _viewModel.ApplyIbasesSyncSettings(_syncMode, filePath, _syncTrigger, interval, scheduleTime,
+                IbasesBackupEnabledCheck.IsChecked ?? true,
+                int.TryParse(IbasesBackupKeepCountBox.Text, out var keep) && keep > 0 ? keep : 5);
 
             // Сохраняем настройки отображения списка баз.
             _viewModel.ApplyDisplaySettings(
@@ -612,8 +536,23 @@ namespace Configuration_Management
                 ShowLastLaunchColumnCheck.IsChecked ?? false,
                 GroupByGroupCheck.IsChecked ?? true,
                 ShowFavoritesOnlyCheck.IsChecked ?? false);
+            _viewModel.ApplyAppBehaviorSettings(
+                AllowMultipleInstancesCheck.IsChecked ?? false,
+                ShowTagFilterPanelCheck.IsChecked ?? true,
+                CloseToTrayCheck.IsChecked ?? false,
+                ShowTrayIconCheck.IsChecked ?? true,
+                HotkeyEnterpriseCombo.SelectedItem as string ?? "F3",
+                HotkeyConfiguratorCombo.SelectedItem as string ?? "F4");
+
+            // Порядок горячих клавиш избранного.
+            _viewModel.SetFavoriteHotkeyOrder(_favoriteHotkeyItems.Select(i => i.Key));
 
             DialogResult = true;
+        }
+
+        private void OnCancel_Click(object sender, RoutedEventArgs e)
+        {
+            DialogResult = false;
         }
 
         /// <summary>

@@ -35,6 +35,12 @@ public class Infobase : INotifyPropertyChanged
     /// <summary>Группа, к которой относится база.</summary>
     public string Group { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Порядок отображения базы внутри группы (меньше — выше в списке).
+    /// Используется при перетаскивании между базами.
+    /// </summary>
+    public int SortOrder { get; set; }
+
     private bool _isFavorite;
 
     /// <summary>Признак избранной базы.</summary>
@@ -43,6 +49,28 @@ public class Infobase : INotifyPropertyChanged
         get => _isFavorite;
         set => SetProperty(ref _isFavorite, value);
     }
+
+    private int _favoriteHotkeyNumber;
+
+    /// <summary>
+    /// Номер горячей клавиши избранного (1–9 → Alt+N), 0 — не назначен.
+    /// Отображается рядом со звездой в списке.
+    /// </summary>
+    public int FavoriteHotkeyNumber
+    {
+        get => _favoriteHotkeyNumber;
+        set
+        {
+            if (SetProperty(ref _favoriteHotkeyNumber, value))
+                OnPropertyChanged(nameof(FavoriteHotkeyDisplay));
+        }
+    }
+
+    /// <summary>Текст номера для UI («1»…«9» или пусто).</summary>
+    public string FavoriteHotkeyDisplay =>
+        _favoriteHotkeyNumber >= 1 && _favoriteHotkeyNumber <= 9
+            ? _favoriteHotkeyNumber.ToString()
+            : string.Empty;
 
     private bool _isPinned;
 
@@ -62,8 +90,18 @@ public class Infobase : INotifyPropertyChanged
         set => SetProperty(ref _isSelected, value);
     }
 
+    private DateTime? _lastLaunchDate;
+
     /// <summary>Дата и время последнего запуска базы.</summary>
-    public DateTime? LastLaunchDate { get; set; }
+    public DateTime? LastLaunchDate
+    {
+        get => _lastLaunchDate;
+        set
+        {
+            if (SetProperty(ref _lastLaunchDate, value))
+                OnPropertyChanged(nameof(LastLaunchDisplay));
+        }
+    }
 
     private ConnectionSettings _connection = new();
 
@@ -99,7 +137,27 @@ public class Infobase : INotifyPropertyChanged
     public string Description { get; set; } = string.Empty;
 
     /// <summary>Теги базы данных.</summary>
-    public List<string> Tags { get; set; } = new();
+    private List<string> _tags = new();
+
+    public List<string> Tags
+    {
+        get => _tags;
+        set
+        {
+            _tags = value ?? new List<string>();
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// Сообщает UI об изменении набора тегов.
+    /// Подменяет список новым экземпляром — иначе ItemsControl не обновляется.
+    /// </summary>
+    public void NotifyTagsChanged()
+    {
+        _tags = new List<string>(_tags);
+        OnPropertyChanged(nameof(Tags));
+    }
 
     /// <summary>Дерево метаданных конфигурации.</summary>
     public MetadataNode? MetadataRoot { get; set; }
@@ -141,6 +199,7 @@ public class Infobase : INotifyPropertyChanged
     public string ConnectionTypeDisplay => Connection.Type switch
     {
         ConnectionType.File => "Файловая",
+        ConnectionType.WebServer => "Веб-сервер",
         _ => "Клиент-серверная"
     };
 

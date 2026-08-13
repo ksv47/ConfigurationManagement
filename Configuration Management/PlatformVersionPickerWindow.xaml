@@ -6,9 +6,8 @@
         mc:Ignorable="d"
         Title="Выбор версии платформы"
         Icon="{StaticResource AppIcon}"
-        Width="420"
-        MinHeight="400" MinWidth="360"
-        SizeToContent="Height"
+        Width="520" Height="560"
+        MinHeight="420" MinWidth="400"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI"
@@ -23,12 +22,13 @@
         </Style>
         <Style TargetType="TreeViewItem" BasedOn="{StaticResource ModernTreeViewItem}">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="IsExpanded" Value="True"/>
         </Style>
     </Window.Resources>
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -36,14 +36,14 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Text="Выберите версию платформы 1С. Версии сгруппированы по мажорной версии."
+                <TextBlock Grid.Row="0" Text="Выберите версию платформы 1С. Версии сгруппированы по мажорной линии (8.3.x). Двойной щелчок — выбор."
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
                            TextWrapping="Wrap"/>
 
-                <TreeView x:Name="PlatformsTree" Grid.Row="1" MinHeight="200" MaxHeight="320"
+                <TreeView x:Name="PlatformsTree" Grid.Row="1"
                           Background="{DynamicResource CardBackgroundBrush}"
                           BorderBrush="{DynamicResource BorderBrushColor}"
                           BorderThickness="1"
@@ -54,7 +54,7 @@
         </GroupBox>
 
         <!-- ============ Кнопки ============ -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
             <Button x:Name="SelectButton" Width="120" Height="34" Style="{DynamicResource ModernButton}"
                     Margin="0,0,10,0" IsDefault="True" Click="OnSelect_Click" IsEnabled="False">
                 <StackPanel Orientation="Horizontal">

@@ -1,0 +1,73 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            9.0.x
+            8.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore "Configuration Management.csproj"
+
+      - name: Build (Debug)
+        run: >
+          dotnet build "Configuration Management.csproj"
+          -c Debug
+          --no-restore
+          -p:RuntimeIdentifier=
+          -p:SelfContained=false
+          -p:PublishSingleFile=false
+
+      - name: Build (Release)
+        run: >
+          dotnet build "Configuration Management.csproj"
+          -c Release
+          --no-restore
+          -p:RuntimeIdentifier=
+          -p:SelfContained=false
+          -p:PublishSingleFile=false
+
+      - name: Publish (win-x64, self-contained)
+        run: >
+          dotnet publish "Configuration Management.csproj"
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o "${{ github.workspace }}/publish/win-x64"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ConfigurationManagement-win-x64
+          path: publish/win-x64/
+          if-no-files-found: error
+          retention-days: 14

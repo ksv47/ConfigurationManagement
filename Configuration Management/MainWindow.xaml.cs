@@ -7,6 +7,9 @@ using System.Windows.Media;
 using Configuration_Management.Models;
 using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
+using Drawing = System.Drawing;
+using Forms = System.Windows.Forms;
+using Point = System.Windows.Point;
 
 namespace Configuration_Management
 {
@@ -16,11 +19,16 @@ namespace Configuration_Management
     public partial class MainWindow : Window
     {
         private readonly MainViewModel _viewModel;
+        private Point _dragStartPoint;
+        private object? _draggedData;
+        private bool _isDragging;
+        private Forms.NotifyIcon? _trayIcon;
+        private bool _forceClose;
 
-        public MainWindow()
+        public MainWindow(ViewModels.MainViewModel? viewModel = null)
         {
             InitializeComponent();
-            _viewModel = new MainViewModel();
+            _viewModel = viewModel ?? new ViewModels.MainViewModel();
             DataContext = _viewModel;
 
             // Применяем сохранённую тему оформления при запуске.
@@ -36,6 +44,42 @@ namespace Configuration_Management
 
             // Применяем сохранённые размер, позицию и состояние окна.
             ApplySavedWindowLayout();
+
+            // Трей и хоткеи — после загрузки окна (STA/иконка безопаснее на Loaded).
+            Loaded += (_, _) =>
+            {
+                try
+                {
+                    InitializeTrayIcon();
+                    RegisterLaunchHotkeys();
+                    RegisterFavoriteHotkeys();
+                }
+                catch
+                {
+                    // не блокируем запуск из‑за трея/хоткеев
+                }
+            };
+            _viewModel.FavoriteHotkeysChanged += (_, _) =>
+            {
+                try { RegisterFavoriteHotkeys(); }
+                catch { /* ignore */ }
+            };
+            _viewModel.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is nameof(MainViewModel.HotkeyEnterprise)
+                    or nameof(MainViewModel.HotkeyConfigurator)
+                    or nameof(MainViewModel.ShowTrayIcon))
+                {
+                    try
+                    {
+                        if (e.PropertyName == nameof(MainViewModel.ShowTrayIcon))
+                            UpdateTrayVisibility();
+                        else
+                            RegisterLaunchHotkeys();
+                    }
+                    catch { /* ignore */ }
+                }
+            };
         }
 
         /// <summary>
@@ -80,6 +124,7 @@ namespace Configuration_Management
 
         /// <summary>
         /// Сохраняет размер, позицию и состояние окна приложения при закрытии.
+        /// При включённой опции «Закрывать в трей» скрывает окно вместо выхода.
         /// </summary>
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
@@ -93,10 +138,206 @@ namespace Configuration_Management
                 _viewModel.SaveWindowLayout(RestoreBounds.Width, RestoreBounds.Height, RestoreBounds.Left, RestoreBounds.Top, WindowState.ToString());
             }
 
+            if (!_forceClose && _viewModel.CloseToTray)
+            {
+                e.Cancel = true;
+                Hide();
+                if (_trayIcon != null)
+                    _trayIcon.Visible = true;
+                return;
+            }
+
             // Останавливаем автоматическую синхронизацию при закрытии окна.
             _viewModel.StopAutoSync();
+            DisposeTrayIcon();
 
             base.OnClosing(e);
+        }
+
+        private void InitializeTrayIcon()
+        {
+            try
+            {
+                _trayIcon = new Forms.NotifyIcon
+                {
+                    Text = "Управление конфигурациями 1С",
+                    Visible = _viewModel.ShowTrayIcon
+                };
+
+                // Иконка из ресурса приложения или стандартная.
+                try
+                {
+                    var iconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                    if (System.IO.File.Exists(iconPath))
+                        _trayIcon.Icon = new Drawing.Icon(iconPath);
+                    else
+                        _trayIcon.Icon = Drawing.SystemIcons.Application;
+                }
+                catch
+                {
+                    _trayIcon.Icon = Drawing.SystemIcons.Application;
+                }
+
+                var menu = new Forms.ContextMenuStrip();
+                menu.Items.Add("Открыть", null, (_, _) => RestoreFromTray());
+                menu.Items.Add("Запустить выбранную (Предприятие)", null, (_, _) =>
+                {
+                    RestoreFromTray();
+                    if (_viewModel.LaunchEnterpriseCommand.CanExecute(null))
+                        _viewModel.LaunchEnterpriseCommand.Execute(null);
+                });
+                menu.Items.Add("Запустить выбранную (Конфигуратор)", null, (_, _) =>
+                {
+                    RestoreFromTray();
+                    if (_viewModel.LaunchConfiguratorCommand.CanExecute(null))
+                        _viewModel.LaunchConfiguratorCommand.Execute(null);
+                });
+                menu.Items.Add(new Forms.ToolStripSeparator());
+                menu.Items.Add("Загрузить из ibases.v8i", null, (_, _) =>
+                {
+                    RestoreFromTray();
+                    if (_viewModel.ImportFromIbasesV8iCommand.CanExecute(null))
+                        _viewModel.ImportFromIbasesV8iCommand.Execute(null);
+                });
+                menu.Items.Add("Настройки", null, (_, _) =>
+                {
+                    RestoreFromTray();
+                    if (_viewModel.OpenSettingsCommand.CanExecute(null))
+                        _viewModel.OpenSettingsCommand.Execute(null);
+                });
+                menu.Items.Add(new Forms.ToolStripSeparator());
+                menu.Items.Add("Выход", null, (_, _) =>
+                {
+                    _forceClose = true;
+                    Close();
+                });
+                _trayIcon.ContextMenuStrip = menu;
+                _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+            }
+            catch
+            {
+                _trayIcon = null;
+            }
+        }
+
+        private void RestoreFromTray()
+        {
+            Show();
+            WindowState = WindowState.Normal;
+            Activate();
+            if (_trayIcon != null)
+                _trayIcon.Visible = false;
+        }
+
+        private void DisposeTrayIcon()
+        {
+            if (_trayIcon != null)
+            {
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+                _trayIcon = null;
+            }
+        }
+
+        private void UpdateTrayVisibility()
+        {
+            if (_trayIcon != null)
+                _trayIcon.Visible = _viewModel.ShowTrayIcon;
+        }
+
+        /// <summary>
+        /// Регистрирует настраиваемые горячие клавиши запуска Предприятие / Конфигуратор.
+        /// </summary>
+        private void RegisterLaunchHotkeys()
+        {
+            // Удаляем старые биндинги F2–F12 без модификаторов
+            var toRemove = InputBindings
+                .OfType<KeyBinding>()
+                .Where(kb => kb.Modifiers == ModifierKeys.None &&
+                             kb.Key >= Key.F2 && kb.Key <= Key.F12)
+                .ToList();
+            foreach (var kb in toRemove)
+                InputBindings.Remove(kb);
+
+            if (TryParseFunctionKey(_viewModel.HotkeyEnterprise, out var keyEnt))
+            {
+                InputBindings.Add(new KeyBinding(_viewModel.LaunchEnterpriseCommand, keyEnt, ModifierKeys.None));
+            }
+            if (TryParseFunctionKey(_viewModel.HotkeyConfigurator, out var keyCfg))
+            {
+                InputBindings.Add(new KeyBinding(_viewModel.LaunchConfiguratorCommand, keyCfg, ModifierKeys.None));
+            }
+        }
+
+        private static bool TryParseFunctionKey(string? text, out Key key)
+        {
+            key = Key.None;
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+            if (Enum.TryParse<Key>(text.Trim(), true, out var parsed) &&
+                parsed >= Key.F2 && parsed <= Key.F12)
+            {
+                key = parsed;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Регистрирует KeyBinding Alt+1…Alt+9 для быстрого запуска избранных баз.
+        /// </summary>
+        private void RegisterFavoriteHotkeys()
+        {
+            // Удаляем предыдущие биндинги Alt+1…9
+            var toRemove = InputBindings
+                .OfType<KeyBinding>()
+                .Where(kb => kb.Modifiers == ModifierKeys.Alt &&
+                             kb.Key >= Key.D1 && kb.Key <= Key.D9)
+                .ToList();
+            foreach (var kb in toRemove)
+                InputBindings.Remove(kb);
+
+            for (int i = 1; i <= 9; i++)
+            {
+                int index = i;
+                var binding = new KeyBinding(
+                    new ViewModels.RelayCommand(_ => _viewModel.LaunchFavoriteByHotkey(index)),
+                    (Key)((int)Key.D0 + i),
+                    ModifierKeys.Alt);
+                InputBindings.Add(binding);
+            }
+        }
+
+        /// <summary>
+        /// Надёжный обработчик Alt+1…9 (KeyBinding с Alt иногда перехватывается системой).
+        /// </summary>
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (Keyboard.Modifiers != ModifierKeys.Alt)
+                return;
+
+            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+            if (key >= Key.D1 && key <= Key.D9)
+            {
+                _viewModel.LaunchFavoriteByHotkey(key - Key.D0);
+                e.Handled = true;
+            }
+            else if (key >= Key.NumPad1 && key <= Key.NumPad9)
+            {
+                _viewModel.LaunchFavoriteByHotkey(key - Key.NumPad0);
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// Обработчик клика по заголовку колонки для смены сортировки.
+        /// </summary>
+        private void OnColumnHeader_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not FrameworkElement fe || fe.Tag is not string field)
+                return;
+            _viewModel.SetSortField(field);
+            e.Handled = true;
         }
 
         private void OnToggleTheme_Click(object sender, RoutedEventArgs e)
@@ -114,6 +355,12 @@ namespace Configuration_Management
         /// </summary>
         private void OnWindowLoaded(object sender, RoutedEventArgs e)
         {
+            AttachTreeScrollHandler();
+            if (MainTree is not null)
+            {
+                MainTree.Loaded += (_, __) => AttachTreeScrollHandler();
+            }
+
             AlignHeaderToData();
             // Повторное выравнивание после завершения первичной компоновки,
             // когда уже известны реальные размеры контейнеров дерева.
@@ -156,6 +403,35 @@ namespace Configuration_Management
             var dataX = nameCell.TranslatePoint(new Point(0, 0), MainTree).X;
             var offset = Math.Max(0, dataX - 52);
             HeaderOffsetColumn.Width = new GridLength(offset);
+
+            SyncHeaderWidthWithList();
+        }
+
+        /// <summary>
+        /// Выравнивает ширину сетки заголовка с контентом списка, чтобы горизонтальная
+        /// прокрутка «до конца» не разъезжала колонки заголовка и строк.
+        /// </summary>
+        private void SyncHeaderWidthWithList()
+        {
+            if (HeaderGrid is null || MainTree is null)
+                return;
+
+            var treeScroll = GetTreeScrollViewer();
+            double sbw = 0;
+            double extent = MainTree.ActualWidth;
+            double viewport = MainTree.ActualWidth;
+            if (treeScroll is not null)
+            {
+                sbw = treeScroll.ComputedVerticalScrollBarVisibility == Visibility.Visible
+                    ? SystemParameters.VerticalScrollBarWidth
+                    : 0;
+                extent = Math.Max(treeScroll.ExtentWidth, treeScroll.ViewportWidth);
+                viewport = treeScroll.ViewportWidth;
+            }
+
+            double target = Math.Max(extent + sbw, viewport + sbw);
+            if (target > 0)
+                HeaderGrid.Width = target;
         }
 
         /// <summary>
@@ -304,6 +580,10 @@ namespace Configuration_Management
         /// </summary>
         private void OnInfobaseTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            // Payload DnD фиксируем здесь (не в MouseMove): иначе при сдвиге курсора
+            // на дочернюю базу TreeViewItem под курсором меняется и «уезжает» не группа, а базы.
+            CaptureDragStart(e);
+
             var treeView = sender as TreeView;
             if (treeView is null)
             {
@@ -317,10 +597,11 @@ namespace Configuration_Management
             }
 
             // Если клик пришёлся по интерактивному элементу (кнопка, поле ввода),
-            // не вмешиваемся, чтобы они продолжали работать.
+            // не вмешиваемся и не начинаем drag.
             if (FindAncestor<Button>(source) is not null ||
                 FindAncestor<TextBox>(source) is not null)
             {
+                _draggedData = null;
                 return;
             }
 
@@ -333,12 +614,15 @@ namespace Configuration_Management
             switch (treeViewItem.DataContext)
             {
                 case Infobase infobase:
+                    _draggedData = infobase;
                     ApplySelection(treeViewItem, infobase);
                     break;
                 case GroupNodeViewModel groupNode when groupNode.Group is not null:
+                    _draggedData = groupNode;
                     ApplyGroupSelection(treeViewItem, groupNode);
                     break;
                 default:
+                    _draggedData = null;
                     return;
             }
 
@@ -347,13 +631,22 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Блокирует автоматическую прокрутку TreeView к выделенному элементу
+        /// (по умолчанию WPF вызывает BringIntoView при IsSelected/Focus — список «прыгает» вверх).
+        /// </summary>
+        private void OnMainTree_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
+        {
+            e.Handled = true;
+        }
+
+        /// <summary>
         /// Устанавливает выделение указанного узла группы и синхронизирует
         /// выбранную группу в модели представления (снимая выбор базы).
+        /// Без Focus()/BringIntoView — позиция прокрутки списка не меняется.
         /// </summary>
         private void ApplyGroupSelection(TreeViewItem item, GroupNodeViewModel groupNode)
         {
             item.IsSelected = true;
-            item.Focus();
             _viewModel.SelectedInfobase = null;
             _viewModel.SelectedGroupNode = groupNode;
 
@@ -366,18 +659,18 @@ namespace Configuration_Management
         /// <summary>
         /// Устанавливает выделение указанного элемента дерева и синхронизирует
         /// выбранную базу в модели представления.
+        /// Без Focus()/BringIntoView — позиция прокрутки списка не меняется.
         /// </summary>
         private void ApplySelection(TreeViewItem item, Infobase infobase)
         {
             item.IsSelected = true;
-            item.Focus();
             _viewModel.SelectedInfobase = infobase;
         }
 
         /// <summary>
         /// Ищет предка заданного типа в визуальном дереве.
         /// </summary>
-        private static T? FindAncestor<T>(DependencyObject current) where T : DependencyObject
+        private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
         {
             while (current is not null)
             {
@@ -629,6 +922,7 @@ namespace Configuration_Management
                     LaunchModeColumn?.ActualWidth ?? 0,
                     ServerColumn?.ActualWidth ?? 0,
                     LastLaunchColumn?.ActualWidth ?? 0);
+                SyncHeaderWidthWithList();
             }
 
             _resizeColumn = null;
@@ -640,63 +934,287 @@ namespace Configuration_Management
             if (ThemeToggleButton is null)
                 return;
 
-            ThemeToggleButton.Content = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName
-                ? "☀️ Светлая"
-                : "🌙 Тёмная";
+            if (ThemeToggleButton.Content is System.Windows.Controls.StackPanel sp
+                && sp.Children.Count > 1
+                && sp.Children[1] is System.Windows.Controls.TextBlock tb)
+            {
+                tb.Text = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName ? "Светлая" : "Тёмная";
+            }
+            else
+            {
+                ThemeToggleButton.Content = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName ? "Светлая" : "Тёмная";
+            }
         }
 
         /// <summary>
-        /// Прокручивает список баз колесом мыши.
-        /// Внутренний ScrollViewer дерева выключен, поэтому колесо мыши нужно
-        /// обрабатывать на внешнем контейнере, иначе событие перехватывается
-        /// вложенными элементами и прокрутка не срабатывает.
+        /// Внутренний ScrollViewer шаблона TreeView (отвечает за вертикальную и горизонтальную прокрутку).
         /// </summary>
-        private void OnDbList_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        private ScrollViewer? GetTreeScrollViewer()
         {
-            var scrollViewer = sender as ScrollViewer;
-            if (scrollViewer is null)
-                return;
-
-            // Если содержимое не превышает размер контейнера — прокручивать нечего.
-            if (scrollViewer.ScrollableHeight <= 0)
-                return;
-
-            var delta = e.Delta > 0 ? -1 : 1;
-            // Умножаем, чтобы прокрутка была плавной (значение сравнимой с обычной прокруткой).
-            scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset + delta * 48);
-
-            // Не даём вложенным ScrollViewer (например, внутри TreeView) перехватить событие.
-            e.Handled = true;
+            if (MainTree is null)
+                return null;
+            // Шаблон может быть ещё не применён.
+            MainTree.ApplyTemplate();
+            return FindVisualChild<ScrollViewer>(MainTree);
         }
 
         /// <summary>
-        /// Синхронизирует горизонтальную прокрутку фиксированного заголовка таблицы
-        /// с горизонтальной прокруткой списка баз. Срабатывает при любом изменении
-        /// смещения (прокрутка колесом, перетаскивание полосы, изменение ширины колонок).
+        /// Подписывается на ScrollChanged внутреннего ScrollViewer дерева (синхронизация заголовка).
         /// </summary>
-        private void OnDbList_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        private void AttachTreeScrollHandler()
+        {
+            var treeScroll = GetTreeScrollViewer();
+            if (treeScroll is null)
+                return;
+            treeScroll.ScrollChanged -= OnTreeScroll_ScrollChanged;
+            treeScroll.ScrollChanged += OnTreeScroll_ScrollChanged;
+        }
+
+        private void OnTreeScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (DbHeaderScroll is null)
                 return;
 
-            // Применяем то же горизонтальное смещение, что и у списка баз.
-            DbHeaderScroll.ScrollToHorizontalOffset(e.HorizontalOffset);
+            if (Math.Abs(DbHeaderScroll.HorizontalOffset - e.HorizontalOffset) > 0.01)
+                DbHeaderScroll.ScrollToHorizontalOffset(e.HorizontalOffset);
+
+            if (e.ExtentWidthChange != 0 || e.ViewportWidthChange != 0 || e.ViewportHeightChange != 0)
+                SyncHeaderWidthWithList();
+        }
+
+        private void OnMainTree_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            ScrollListByWheel(e);
+        }
+
+        private void OnDbHeader_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            ScrollListByWheel(e);
         }
 
         /// <summary>
-        /// Прокрутка колесом мыши над фиксированным заголовком таблицы.
-        /// Сам заголовок не прокручивается, а событие перенаправляется на список баз,
-        /// чтобы колесо работало и над областью заголовков.
+        /// Прокрутка списка: колесо — вертикаль, Shift+колесо — горизонталь.
+        /// Всегда помечает событие обработанным, чтобы вложенные элементы не «съедали» колесо.
         /// </summary>
-        private void OnDbHeader_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        private void ScrollListByWheel(MouseWheelEventArgs e)
         {
-            if (DbListScroll is null || DbListScroll.ScrollableHeight <= 0)
+            var treeScroll = GetTreeScrollViewer();
+            if (treeScroll is null)
+            {
+                // Повторная попытка после загрузки шаблона.
+                AttachTreeScrollHandler();
+                treeScroll = GetTreeScrollViewer();
+            }
+
+            if (treeScroll is null)
                 return;
 
-            var delta = e.Delta > 0 ? -1 : 1;
-            DbListScroll.ScrollToVerticalOffset(DbListScroll.VerticalOffset + delta * 48);
+            // e.Delta обычно ±120; делим для плавности.
+            var offset = -e.Delta / 3.0;
+
+            if (Keyboard.Modifiers == ModifierKeys.Shift)
+            {
+                treeScroll.ScrollToHorizontalOffset(treeScroll.HorizontalOffset + offset);
+            }
+            else
+            {
+                treeScroll.ScrollToVerticalOffset(treeScroll.VerticalOffset + offset);
+            }
 
             e.Handled = true;
+        }
+
+        // ===================== Drag & Drop баз и групп =====================
+        //
+        // Модель WPF DnD (кратко):
+        // 1) Источник: после порога смещения мыши вызывается DragDrop.DoDragDrop — синхронный
+        //    цикл до Drop/Cancel. Пока он идёт, приходят DragOver/Drop на цели.
+        // 2) Цель: AllowDrop=True; в DragOver обязательно задать e.Effects и e.Handled=true,
+        //    иначе курсор «запрещено» и Drop не придёт.
+        // 3) Данные: лучше свой payload с MouseDown (не с MouseMove) — иначе под курсором
+        //    уже другой TreeViewItem (дочерняя база вместо группы).
+        // 4) DoDragDrop возвращается после Drop → finally очищает _draggedData; во время Drop
+        //    поле ещё валидно. Дополнительно кладём объект в DataObject по имени формата.
+
+        private const string DragFormatInfobase = "Configuration_Management.Infobase";
+        private const string DragFormatGroup = "Configuration_Management.GroupNode";
+
+        private void OnMainTree_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || _isDragging || _draggedData is null)
+                return;
+
+            var pos = e.GetPosition(null);
+            if (Math.Abs(pos.X - _dragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance
+                && Math.Abs(pos.Y - _dragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+                return;
+
+            // Не переопределяем payload по позиции — он зафиксирован в MouseDown.
+            var data = new DataObject();
+            if (_draggedData is Infobase ib)
+                data.SetData(DragFormatInfobase, ib);
+            else if (_draggedData is GroupNodeViewModel gn)
+                data.SetData(DragFormatGroup, gn);
+            else
+                return;
+
+            // Дублируем по Type — совместимость с GetData(typeof(...)).
+            data.SetData(_draggedData.GetType(), _draggedData);
+
+            _isDragging = true;
+            try
+            {
+                DragDrop.DoDragDrop(MainTree, data, DragDropEffects.Move);
+            }
+            finally
+            {
+                _isDragging = false;
+                _draggedData = null;
+            }
+        }
+
+        private void OnMainTree_GiveFeedback(object sender, GiveFeedbackEventArgs e)
+        {
+            e.UseDefaultCursors = true;
+            e.Handled = true;
+        }
+
+        private void OnMainTree_DragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = DragDropEffects.None;
+
+            var payload = ResolveDragPayload(e);
+            ResolveDropTarget(e.OriginalSource as DependencyObject, out var targetGroup, out _);
+            if (payload is null || targetGroup is null)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (payload is Infobase)
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+            else if (payload is GroupNodeViewModel sourceNode && sourceNode.Group is not null)
+            {
+                var targetId = targetGroup.Group?.Id ?? string.Empty;
+                if (!string.Equals(sourceNode.Group.Id, targetId, StringComparison.OrdinalIgnoreCase)
+                    && (string.IsNullOrEmpty(targetId)
+                        || !GroupHierarchyHelper.IsAncestorOrSelf(targetId, sourceNode.Group.Id, _viewModel.Groups)))
+                {
+                    e.Effects = DragDropEffects.Move;
+                }
+            }
+
+            e.Handled = true;
+        }
+
+        private void OnMainTree_Drop(object sender, DragEventArgs e)
+        {
+            var payload = ResolveDragPayload(e);
+            if (payload is null)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            ResolveDropTarget(e.OriginalSource as DependencyObject,
+                out var targetGroup, out var insertBefore);
+
+            if (payload is GroupNodeViewModel sourceGroupNode
+                && sourceGroupNode.Group is not null
+                && targetGroup is not null)
+            {
+                var newParentId = targetGroup.Group?.Id ?? string.Empty;
+                if (!string.Equals(sourceGroupNode.Group.Id, newParentId, StringComparison.OrdinalIgnoreCase))
+                    _viewModel.MoveGroupUnder(sourceGroupNode.Group, newParentId);
+
+                e.Handled = true;
+                return;
+            }
+
+            if (payload is Infobase infobase && targetGroup is not null)
+            {
+                if (targetGroup.DisplayName == "Закреплённые")
+                {
+                    _viewModel.MoveInfobaseToGroup(infobase, infobase.Group ?? string.Empty, insertBefore);
+                }
+                else
+                {
+                    var path = targetGroup.Group is null
+                        ? string.Empty
+                        : GroupHierarchyHelper.GetFullPath(targetGroup.Group, _viewModel.Groups);
+                    if (insertBefore is not null && ReferenceEquals(insertBefore, infobase))
+                        insertBefore = null;
+                    _viewModel.MoveInfobaseToGroup(infobase, path, insertBefore);
+                }
+            }
+
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// Полезная нагрузка DnD: сначала поле (валидно во время DoDragDrop), затем DataObject.
+        /// </summary>
+        private object? ResolveDragPayload(DragEventArgs e)
+        {
+            if (_draggedData is Infobase or GroupNodeViewModel)
+                return _draggedData;
+
+            if (e.Data.GetDataPresent(DragFormatGroup))
+                return e.Data.GetData(DragFormatGroup);
+            if (e.Data.GetDataPresent(DragFormatInfobase))
+                return e.Data.GetData(DragFormatInfobase);
+            if (e.Data.GetDataPresent(typeof(GroupNodeViewModel)))
+                return e.Data.GetData(typeof(GroupNodeViewModel));
+            if (e.Data.GetDataPresent(typeof(Infobase)))
+                return e.Data.GetData(typeof(Infobase));
+            return null;
+        }
+
+        /// <summary>
+        /// Запоминает точку начала потенциального перетаскивания (из обработчика LButtonDown).
+        /// </summary>
+        private void CaptureDragStart(MouseButtonEventArgs e)
+        {
+            _dragStartPoint = e.GetPosition(null);
+        }
+
+        /// <summary>
+        /// Цель drop: группа + база, перед которой вставить (если курсор над строкой базы).
+        /// </summary>
+        private static void ResolveDropTarget(
+            DependencyObject? source,
+            out GroupNodeViewModel? group,
+            out Infobase? insertBefore)
+        {
+            group = null;
+            insertBefore = null;
+            if (source is null)
+                return;
+
+            var item = FindAncestor<TreeViewItem>(source);
+            if (item is null)
+                return;
+
+            if (item.DataContext is Infobase ib)
+            {
+                insertBefore = ib;
+                var parentItem = FindAncestor<TreeViewItem>(VisualTreeHelper.GetParent(item));
+                while (parentItem is not null)
+                {
+                    if (parentItem.DataContext is GroupNodeViewModel gn)
+                    {
+                        group = gn;
+                        return;
+                    }
+                    parentItem = FindAncestor<TreeViewItem>(VisualTreeHelper.GetParent(parentItem));
+                }
+                return;
+            }
+
+            if (item.DataContext is GroupNodeViewModel g)
+                group = g;
         }
     }
 }

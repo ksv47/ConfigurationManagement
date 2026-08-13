@@ -23,22 +23,46 @@ public class ConnectionSettings
     /// <summary>Пароль для подключения.</summary>
     public string Password { get; set; } = string.Empty;
 
-    /// <summary>Использовать аутентификацию ОС.</summary>
-    public bool UseOsAuthentication { get; set; } = true;
+    /// <summary>
+    /// Режим аутентификации (как в стандартном списке баз 1С):
+    /// Prompt — запрашивать имя и пароль;
+    /// Credentials — выполнять вход автоматически (логин/пароль);
+    /// Windows — аутентификация операционной системы.
+    /// </summary>
+    public AuthenticationMode AuthenticationMode { get; set; } = AuthenticationMode.Prompt;
+
+    /// <summary>Использовать аутентификацию ОС (совместимость со старыми настройками).</summary>
+    public bool UseOsAuthentication
+    {
+        get => AuthenticationMode == AuthenticationMode.Windows;
+        set
+        {
+            if (value)
+                AuthenticationMode = AuthenticationMode.Windows;
+            else if (AuthenticationMode == AuthenticationMode.Windows)
+                AuthenticationMode = AuthenticationMode.Prompt;
+        }
+    }
 
     /// <summary>Порт сервера (для клиент-серверного режима).</summary>
     public int Port { get; set; } = 1541;
 
     /// <summary>
+    /// URL веб-публикации (для подключения через веб-сервер).
+    /// Например: http://server/base или https://server/base.
+    /// </summary>
+    public string WebUrl { get; set; } = string.Empty;
+
+    /// <summary>
     /// Возвращает строку соединения для отображения без параметров запуска,
-    /// логина и пароля: только путь к файловой базе или сервер и имя базы.
-    /// Значения сервера и имени базы заключаются в кавычки.
+    /// логина и пароля: только путь к файловой базе, сервер и имя базы или URL веб-публикации.
     /// </summary>
     public string ToConnectionString()
     {
         return Type switch
         {
             ConnectionType.File => $"File=\"{FilePath}\"",
+            ConnectionType.WebServer => string.IsNullOrWhiteSpace(WebUrl) ? "WS=\"\"" : $"WS=\"{WebUrl}\"",
             _ => $"Srvr=\"{Server}\";Ref=\"{DatabaseName}\""
         };
     }
@@ -53,5 +77,23 @@ public enum ConnectionType
     File,
 
     /// <summary>Клиент-серверный режим (сервер 1С + СУБД).</summary>
-    ClientServer
+    ClientServer,
+
+    /// <summary>Подключение через веб-сервер (веб-публикация).</summary>
+    WebServer
+}
+
+/// <summary>
+/// Режим аутентификации при запуске информационной базы (аналог настроек стандартного лаунчера 1С).
+/// </summary>
+public enum AuthenticationMode
+{
+    /// <summary>Запрашивать имя и пароль при каждом запуске.</summary>
+    Prompt,
+
+    /// <summary>Выполнять вход автоматически по сохранённым логину и паролю.</summary>
+    Credentials,
+
+    /// <summary>Аутентификация операционной системы (Windows).</summary>
+    Windows
 }
