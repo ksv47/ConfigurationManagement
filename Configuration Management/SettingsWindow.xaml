@@ -231,6 +231,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0"
@@ -268,13 +269,45 @@
                     </GroupBox>
 
                     <!-- Запуск приложения -->
-                    <GroupBox Grid.Row="4" Header="Запуск приложения" Padding="10,8">
+                    <GroupBox Grid.Row="4" Header="Запуск приложения" Padding="10,8" Margin="0,0,0,12">
                         <StackPanel>
                             <CheckBox x:Name="AllowMultipleInstancesCheck"
                                       Content="Разрешить несколько экземпляров программы"/>
                             <TextBlock Text="Если выключено, повторный запуск активирует уже открытое окно."
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        FontSize="12" TextWrapping="Wrap" Margin="24,4,0,0"/>
+                            <CheckBox x:Name="CloseToTrayCheck"
+                                      Content="Закрывать в системный трей"
+                                      Margin="0,12,0,0"/>
+                            <TextBlock Text="При закрытии окна приложение сворачивается в трей. Двойной клик по иконке — восстановить, «Выход» в меню — полностью закрыть."
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" TextWrapping="Wrap" Margin="24,4,0,0"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Порядок горячих клавиш избранного -->
+                    <GroupBox Grid.Row="5" Header="Горячие клавиши избранного (Alt+1…Alt+9)" Padding="10,8">
+                        <StackPanel>
+                            <TextBlock Text="Порядок слотов: первый в списке — Alt+1, второй — Alt+2 и т.д. Используйте кнопки «Вверх» / «Вниз» для смены порядка."
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ListBox x:Name="FavoriteHotkeysList"
+                                         Grid.Column="0"
+                                         Height="160"
+                                         DisplayMemberPath="Display"
+                                         SelectionMode="Single"/>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
+                                    <Button x:Name="FavoriteHotkeyUpBtn" Content="↑ Вверх" Padding="12,6" Margin="0,0,0,6"
+                                            Click="OnFavoriteHotkeyUp_Click"/>
+                                    <Button x:Name="FavoriteHotkeyDownBtn" Content="↓ Вниз" Padding="12,6"
+                                            Click="OnFavoriteHotkeyDown_Click"/>
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
                     </GroupBox>
                 </Grid>

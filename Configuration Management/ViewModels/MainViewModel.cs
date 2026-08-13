@@ -63,6 +63,13 @@ public class MainViewModel : ViewModelBase
     private DispatcherTimer? _syncTimer;
     private DateTime? _nextScheduleRun;
     private bool _syncTimerRunning;
+    private bool _closeToTray;
+    private string _sortField = "Name";
+    private bool _sortAscending = true;
+    private readonly List<string> _favoriteHotkeyIds = new();
+
+    /// <summary>Событие: изменился список избранных с горячими клавишами (нужно перерегистрировать биндинги).</summary>
+    public event EventHandler? FavoriteHotkeysChanged;
 
     /// <summary>
     /// Внутренний набор узлов дерева групп, перестраиваемый при изменении данных.
@@ -116,6 +123,17 @@ public class MainViewModel : ViewModelBase
         _ibasesSyncScheduleTime = settings.IbasesSyncScheduleTime;
         _ibasesBackupEnabled = settings.IbasesBackupEnabled;
         _ibasesBackupKeepCount = settings.IbasesBackupKeepCount > 0 ? settings.IbasesBackupKeepCount : 5;
+        _closeToTray = settings.CloseToTray;
+        _sortField = string.IsNullOrWhiteSpace(settings.SortField) ? "Name" : settings.SortField;
+        _sortAscending = settings.SortAscending;
+        if (settings.FavoriteHotkeyIds != null)
+        {
+            foreach (var id in settings.FavoriteHotkeyIds.Take(9))
+            {
+                if (!string.IsNullOrEmpty(id))
+                    _favoriteHotkeyIds.Add(id);
+            }
+        }
         foreach (var groupName in settings.CollapsedGroups)
         {
             _collapsedGroups.Add(groupName);
@@ -131,9 +149,10 @@ public class MainViewModel : ViewModelBase
 
         InfobasesView = CollectionViewSource.GetDefaultView(Infobases);
         InfobasesView.Filter = FilterInfobase;
-        // Сортировка: закреплённые базы идут первыми, затем по названию базы.
-        InfobasesView.SortDescriptions.Add(new SortDescription(nameof(Infobase.GroupSortOrder), ListSortDirection.Ascending));
-        InfobasesView.SortDescriptions.Add(new SortDescription(nameof(Infobase.Name), ListSortDirection.Ascending));
+        ApplySortDescriptions();
+
+        // Назначаем слоты Alt+1…9 уже существующим избранным и проставляем номера в UI.
+        SyncFavoriteHotkeys();
 
         // Дерево групп (отображается в виде «группа в группе»).
         GroupNodes = new ObservableCollection<GroupNodeViewModel>();
@@ -1246,10 +1265,24 @@ public class MainViewModel : ViewModelBase
     /// <summary>
     /// Переключает избранное без полной перестройки дерева, если фильтр не скрывает базу.
     /// Иконка обновляется через INotifyPropertyChanged; сохранение — отложенное.
+    /// При добавлении в избранное назначается свободный слот Alt+1…9.
     /// </summary>
     private void ApplyFavoriteToggle(Infobase infobase)
     {
         infobase.IsFavorite = !infobase.IsFavorite;
+
+        var key = FavoriteKey(infobase);
+        if (infobase.IsFavorite)
+        {
+            if (!_favoriteHotkeyIds.Contains(key) && _favoriteHotkeyIds.Count < 9)
+                _favoriteHotkeyIds.Add(key);
+        }
+        else
+        {
+            _favoriteHotkeyIds.Remove(key);
+        }
+
+        SyncFavoriteHotkeys();
 
         // Перестройка нужна только если список/дерево должны изменить состав
         // (фильтр «Только избранные», поиск, отбор по тегу).
@@ -1262,7 +1295,176 @@ public class MainViewModel : ViewModelBase
         }
 
         ScheduleSave();
+        ScheduleSaveSettings();
     }
+
+    /// <summary>Запускает избранную базу по номеру горячей клавиши (1–9 → Alt+N).</summary>
+    public void LaunchFavoriteByHotkey(int number)
+    {
+        if (number < 1 || number > 9 || number > _favoriteHotkeyIds.Count)
+            return;
+        var key = _favoriteHotkeyIds[number - 1];
+        var ib = FindByFavoriteKey(key);
+        if (ib is null)
+            return;
+
+        SelectedInfobase = ib;
+        // Запуск напрямую через лаунчер — не зависит от CanExecute команд UI.
+        var ok = _launcher.Launch(ib, OneCLaunchMode.Enterprise);
+        if (ok)
+        {
+            ib.LastLaunchDate = DateTime.Now;
+            ScheduleSave();
+            _logger.Info($"Запущена избранная база «{ib.Name}» по Alt+{number}");
+        }
+        else
+        {
+            _logger.Warn($"Не удалось запустить избранную базу «{ib.Name}» по Alt+{number}");
+        }
+    }
+
+    /// <summary>Возвращает номер горячей клавиши (1–9) для базы или 0, если не назначен.</summary>
+    public int GetFavoriteHotkeyNumber(Infobase infobase)
+    {
+        var key = FavoriteKey(infobase);
+        var idx = _favoriteHotkeyIds.IndexOf(key);
+        return idx >= 0 ? idx + 1 : 0;
+    }
+
+    /// <summary>
+    /// Устанавливает поле сортировки. Повторный клик по тому же полю меняет направление.
+    /// </summary>
+    public void SetSortField(string field)
+    {
+        if (string.Equals(_sortField, field, StringComparison.OrdinalIgnoreCase))
+            _sortAscending = !_sortAscending;
+        else
+        {
+            _sortField = field;
+            _sortAscending = field != "LastLaunchDate"; // дату удобнее сначала по убыванию
+        }
+        ApplySortDescriptions();
+        InfobasesView.Refresh();
+        RebuildGroupTree();
+        OnPropertyChanged(nameof(SortField));
+        OnPropertyChanged(nameof(SortAscending));
+        ScheduleSaveSettings();
+    }
+
+    private void ApplySortDescriptions()
+    {
+        InfobasesView.SortDescriptions.Clear();
+        // Закреплённые всегда сверху.
+        InfobasesView.SortDescriptions.Add(new SortDescription(nameof(Infobase.GroupSortOrder), ListSortDirection.Ascending));
+        var dir = _sortAscending ? ListSortDirection.Ascending : ListSortDirection.Descending;
+        switch (_sortField)
+        {
+            case "LastLaunchDate":
+                InfobasesView.SortDescriptions.Add(new SortDescription(nameof(Infobase.LastLaunchDate), dir));
+                InfobasesView.SortDescriptions.Add(new SortDescription(nameof(Infobase.Name), ListSortDirection.Ascending));
+                break;
+            case "SortOrder":
+                InfobasesView.SortDescriptions.Add(new SortDescription(nameof(Infobase.SortOrder), dir));
+                InfobasesView.SortDescriptions.Add(new SortDescription(nameof(Infobase.Name), ListSortDirection.Ascending));
+                break;
+            default:
+                InfobasesView.SortDescriptions.Add(new SortDescription(nameof(Infobase.Name), dir));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Сортирует базы согласно текущему полю (_sortField) и направлению.
+    /// Закреплённые (GroupSortOrder) всегда идут первыми.
+    /// </summary>
+    private IEnumerable<Infobase> ApplyCurrentSort(IEnumerable<Infobase> source)
+    {
+        var query = source.OrderBy(i => i.GroupSortOrder);
+        query = _sortField switch
+        {
+            "LastLaunchDate" when _sortAscending =>
+                query.ThenBy(i => i.LastLaunchDate ?? DateTime.MinValue)
+                     .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase),
+            "LastLaunchDate" =>
+                query.ThenByDescending(i => i.LastLaunchDate ?? DateTime.MinValue)
+                     .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase),
+            "SortOrder" when _sortAscending =>
+                query.ThenBy(i => i.SortOrder)
+                     .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase),
+            "SortOrder" =>
+                query.ThenByDescending(i => i.SortOrder)
+                     .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase),
+            _ when _sortAscending =>
+                query.ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase),
+            _ =>
+                query.ThenByDescending(i => i.Name, StringComparer.OrdinalIgnoreCase)
+        };
+        return query;
+    }
+
+    /// <summary>Стабильный ключ базы для слотов горячих клавиш.</summary>
+    private static string FavoriteKey(Infobase ib) =>
+        !string.IsNullOrEmpty(ib.Id) ? ib.Id : "name:" + ib.Name;
+
+    /// <summary>
+    /// Назначает слоты Alt+1…9 существующим избранным и обновляет номера на карточках.
+    /// </summary>
+    private void SyncFavoriteHotkeys()
+    {
+        // Удаляем ключи, которых больше нет в списке баз.
+        _favoriteHotkeyIds.RemoveAll(key =>
+            !Infobases.Any(ib => FavoriteKey(ib) == key));
+
+        // Добавляем избранные без слота (в порядке имени).
+        foreach (var ib in Infobases.Where(i => i.IsFavorite).OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var key = FavoriteKey(ib);
+            if (!_favoriteHotkeyIds.Contains(key) && _favoriteHotkeyIds.Count < 9)
+                _favoriteHotkeyIds.Add(key);
+        }
+
+        // Проставляем номера на объектах Infobase для UI.
+        foreach (var ib in Infobases)
+        {
+            var key = FavoriteKey(ib);
+            var idx = _favoriteHotkeyIds.IndexOf(key);
+            ib.FavoriteHotkeyNumber = idx >= 0 ? idx + 1 : 0;
+        }
+
+        FavoriteHotkeysChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Публичный доступ к упорядоченному списку ключей избранного (для настроек).</summary>
+    public IReadOnlyList<string> FavoriteHotkeyIds => _favoriteHotkeyIds;
+
+    /// <summary>Возвращает базу по ключу слота избранного.</summary>
+    public Infobase? FindByFavoriteKey(string key) =>
+        Infobases.FirstOrDefault(ib => FavoriteKey(ib) == key);
+
+    /// <summary>
+    /// Заменяет порядок слотов горячих клавиш (из окна настроек).
+    /// </summary>
+    public void SetFavoriteHotkeyOrder(IEnumerable<string> orderedKeys)
+    {
+        _favoriteHotkeyIds.Clear();
+        foreach (var key in orderedKeys.Where(k => !string.IsNullOrEmpty(k)).Take(9))
+            _favoriteHotkeyIds.Add(key);
+        SyncFavoriteHotkeys();
+        ScheduleSaveSettings();
+    }
+
+    public bool CloseToTray
+    {
+        get => _closeToTray;
+        set
+        {
+            if (SetProperty(ref _closeToTray, value))
+                ScheduleSaveSettings();
+        }
+    }
+
+    public string SortField => _sortField;
+    public bool SortAscending => _sortAscending;
 
     private void TogglePin(object? parameter)
     {
@@ -1552,7 +1754,11 @@ public class MainViewModel : ViewModelBase
             IbasesSyncIntervalMinutes = _ibasesSyncIntervalMinutes,
             IbasesSyncScheduleTime = _ibasesSyncScheduleTime,
             IbasesBackupEnabled = _ibasesBackupEnabled,
-            IbasesBackupKeepCount = _ibasesBackupKeepCount
+            IbasesBackupKeepCount = _ibasesBackupKeepCount,
+            CloseToTray = _closeToTray,
+            SortField = _sortField,
+            SortAscending = _sortAscending,
+            FavoriteHotkeyIds = _favoriteHotkeyIds.ToList()
         });
     }
 
@@ -1725,12 +1931,8 @@ public class MainViewModel : ViewModelBase
     public void RebuildGroupTree()
     {
         // Один проход по базам без CollectionView.Refresh (он дорогой на больших списках).
-        // SortOrder — позиция внутри группы (DnD между базами); Name — запасной порядок.
-        var visible = EnumerateFilteredInfobases()
-            .OrderBy(i => i.GroupSortOrder)
-            .ThenBy(i => i.SortOrder)
-            .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        // Учитываем выбранное поле сортировки (_sortField / _sortAscending).
+        var visible = ApplyCurrentSort(EnumerateFilteredInfobases()).ToList();
 
         // Когда группировка отключена — показываем плоский список всех баз в одном узле.
         if (!_groupByGroup)
@@ -2556,12 +2758,14 @@ public class MainViewModel : ViewModelBase
     /// <summary>
     /// Применяет настройки приложения (экземпляры, панель тегов).
     /// </summary>
-    public void ApplyAppBehaviorSettings(bool allowMultipleInstances, bool showTagFilterPanel)
+    public void ApplyAppBehaviorSettings(bool allowMultipleInstances, bool showTagFilterPanel, bool closeToTray = false)
     {
         _allowMultipleInstances = allowMultipleInstances;
         _showTagFilterPanel = showTagFilterPanel;
+        _closeToTray = closeToTray;
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(ShowTagFilterPanel));
+        OnPropertyChanged(nameof(CloseToTray));
         SaveSettings();
     }
 

@@ -104,4 +104,23 @@ public class AppSettings
 
     /// <summary>Состояние окна приложения (Normal, Maximized, Minimized).</summary>
     public string WindowState { get; set; } = string.Empty;
+
+    /// <summary>
+    /// При закрытии окна сворачивать приложение в системный трей вместо выхода.
+    /// </summary>
+    public bool CloseToTray { get; set; }
+
+    /// <summary>
+    /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.
+    /// </summary>
+    public string SortField { get; set; } = "Name";
+
+    /// <summary>Направление сортировки: true — по возрастанию, false — по убыванию.</summary>
+    public bool SortAscending { get; set; } = true;
+
+    /// <summary>
+    /// Упорядоченный список идентификаторов избранных баз для горячих клавиш Alt+1…Alt+9.
+    /// Индекс 0 → Alt+1, индекс 1 → Alt+2 и т.д. (максимум 9).
+    /// </summary>
+    public List<string> FavoriteHotkeyIds { get; set; } = new();
 }

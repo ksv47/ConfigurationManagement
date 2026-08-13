@@ -29,6 +29,7 @@ namespace Configuration_Management
         private bool _showLaunchModeColumn = true;
         private bool _showServerColumn = true;
         private bool _showLastLaunchColumn = true;
+        private readonly ObservableCollection<FavoriteHotkeyItem> _favoriteHotkeyItems = new();
 
         /// <summary>
         /// Создаёт диалог настроек приложения.
@@ -42,6 +43,67 @@ namespace Configuration_Management
             UpdatePlatformsDisplay();
             InitializeSyncSettings();
             InitializeDisplaySettings();
+            InitializeFavoriteHotkeys();
+        }
+
+        private void InitializeFavoriteHotkeys()
+        {
+            _favoriteHotkeyItems.Clear();
+            int n = 1;
+            foreach (var key in _viewModel.FavoriteHotkeyIds)
+            {
+                var ib = _viewModel.FindByFavoriteKey(key);
+                _favoriteHotkeyItems.Add(new FavoriteHotkeyItem
+                {
+                    Key = key,
+                    Number = n,
+                    Name = ib?.Name ?? key
+                });
+                n++;
+            }
+            if (FavoriteHotkeysList != null)
+                FavoriteHotkeysList.ItemsSource = _favoriteHotkeyItems;
+        }
+
+        private void RefreshFavoriteHotkeyNumbers()
+        {
+            var snapshot = _favoriteHotkeyItems.ToList();
+            _favoriteHotkeyItems.Clear();
+            for (int i = 0; i < snapshot.Count; i++)
+            {
+                snapshot[i].Number = i + 1;
+                _favoriteHotkeyItems.Add(snapshot[i]);
+            }
+        }
+
+        private void OnFavoriteHotkeyUp_Click(object sender, RoutedEventArgs e)
+        {
+            var idx = FavoriteHotkeysList.SelectedIndex;
+            if (idx <= 0) return;
+            var item = _favoriteHotkeyItems[idx];
+            _favoriteHotkeyItems.RemoveAt(idx);
+            _favoriteHotkeyItems.Insert(idx - 1, item);
+            RefreshFavoriteHotkeyNumbers();
+            FavoriteHotkeysList.SelectedIndex = idx - 1;
+        }
+
+        private void OnFavoriteHotkeyDown_Click(object sender, RoutedEventArgs e)
+        {
+            var idx = FavoriteHotkeysList.SelectedIndex;
+            if (idx < 0 || idx >= _favoriteHotkeyItems.Count - 1) return;
+            var item = _favoriteHotkeyItems[idx];
+            _favoriteHotkeyItems.RemoveAt(idx);
+            _favoriteHotkeyItems.Insert(idx + 1, item);
+            RefreshFavoriteHotkeyNumbers();
+            FavoriteHotkeysList.SelectedIndex = idx + 1;
+        }
+
+        private sealed class FavoriteHotkeyItem
+        {
+            public string Key { get; set; } = string.Empty;
+            public int Number { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public string Display => $"Alt+{Number}: {Name}";
         }
 
         /// <summary>
@@ -71,6 +133,8 @@ namespace Configuration_Management
                 ShowTagFilterPanelCheck.IsChecked = _viewModel.ShowTagFilterPanel;
             if (AllowMultipleInstancesCheck != null)
                 AllowMultipleInstancesCheck.IsChecked = _viewModel.AllowMultipleInstances;
+            if (CloseToTrayCheck != null)
+                CloseToTrayCheck.IsChecked = _viewModel.CloseToTray;
 
             GroupByGroupCheck.IsChecked = _viewModel.GroupByGroup;
             ShowFavoritesOnlyCheck.IsChecked = _viewModel.ShowFavoritesOnly;
@@ -452,7 +516,11 @@ namespace Configuration_Management
                 ShowFavoritesOnlyCheck.IsChecked ?? false);
             _viewModel.ApplyAppBehaviorSettings(
                 AllowMultipleInstancesCheck.IsChecked ?? false,
-                ShowTagFilterPanelCheck.IsChecked ?? true);
+                ShowTagFilterPanelCheck.IsChecked ?? true,
+                CloseToTrayCheck.IsChecked ?? false);
+
+            // Порядок горячих клавиш избранного.
+            _viewModel.SetFavoriteHotkeyOrder(_favoriteHotkeyItems.Select(i => i.Key));
 
             DialogResult = true;
         }

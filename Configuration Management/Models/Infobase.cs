@@ -50,6 +50,28 @@ public class Infobase : INotifyPropertyChanged
         set => SetProperty(ref _isFavorite, value);
     }
 
+    private int _favoriteHotkeyNumber;
+
+    /// <summary>
+    /// Номер горячей клавиши избранного (1–9 → Alt+N), 0 — не назначен.
+    /// Отображается рядом со звездой в списке.
+    /// </summary>
+    public int FavoriteHotkeyNumber
+    {
+        get => _favoriteHotkeyNumber;
+        set
+        {
+            if (SetProperty(ref _favoriteHotkeyNumber, value))
+                OnPropertyChanged(nameof(FavoriteHotkeyDisplay));
+        }
+    }
+
+    /// <summary>Текст номера для UI («1»…«9» или пусто).</summary>
+    public string FavoriteHotkeyDisplay =>
+        _favoriteHotkeyNumber >= 1 && _favoriteHotkeyNumber <= 9
+            ? _favoriteHotkeyNumber.ToString()
+            : string.Empty;
+
     private bool _isPinned;
 
     /// <summary>Признак закреплённой базы (отображается вверху списка без группы).</summary>

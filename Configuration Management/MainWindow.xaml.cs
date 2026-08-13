@@ -7,6 +7,9 @@ using System.Windows.Media;
 using Configuration_Management.Models;
 using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
+using Drawing = System.Drawing;
+using Forms = System.Windows.Forms;
+using Point = System.Windows.Point;
 
 namespace Configuration_Management
 {
@@ -20,6 +23,8 @@ namespace Configuration_Management
         private object? _draggedData;
         private bool _isDragging;
         private bool _treeScrollAttached;
+        private Forms.NotifyIcon? _trayIcon;
+        private bool _forceClose;
 
         public MainWindow(ViewModels.MainViewModel? viewModel = null)
         {
@@ -40,6 +45,13 @@ namespace Configuration_Management
 
             // Применяем сохранённые размер, позицию и состояние окна.
             ApplySavedWindowLayout();
+
+            // Инициализация иконки в системном трее (если включено закрытие в трей).
+            InitializeTrayIcon();
+
+            // Регистрируем горячие клавиши избранного (Alt+1…Alt+9).
+            RegisterFavoriteHotkeys();
+            _viewModel.FavoriteHotkeysChanged += (_, _) => RegisterFavoriteHotkeys();
         }
 
         /// <summary>
@@ -84,6 +96,7 @@ namespace Configuration_Management
 
         /// <summary>
         /// Сохраняет размер, позицию и состояние окна приложения при закрытии.
+        /// При включённой опции «Закрывать в трей» скрывает окно вместо выхода.
         /// </summary>
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
@@ -97,10 +110,136 @@ namespace Configuration_Management
                 _viewModel.SaveWindowLayout(RestoreBounds.Width, RestoreBounds.Height, RestoreBounds.Left, RestoreBounds.Top, WindowState.ToString());
             }
 
+            if (!_forceClose && _viewModel.CloseToTray)
+            {
+                e.Cancel = true;
+                Hide();
+                if (_trayIcon != null)
+                    _trayIcon.Visible = true;
+                return;
+            }
+
             // Останавливаем автоматическую синхронизацию при закрытии окна.
             _viewModel.StopAutoSync();
+            DisposeTrayIcon();
 
             base.OnClosing(e);
+        }
+
+        private void InitializeTrayIcon()
+        {
+            try
+            {
+                _trayIcon = new Forms.NotifyIcon
+                {
+                    Text = "Управление конфигурациями 1С",
+                    Visible = false
+                };
+
+                // Иконка из ресурса приложения или стандартная.
+                try
+                {
+                    var iconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                    if (System.IO.File.Exists(iconPath))
+                        _trayIcon.Icon = new Drawing.Icon(iconPath);
+                    else
+                        _trayIcon.Icon = Drawing.SystemIcons.Application;
+                }
+                catch
+                {
+                    _trayIcon.Icon = Drawing.SystemIcons.Application;
+                }
+
+                var menu = new Forms.ContextMenuStrip();
+                menu.Items.Add("Открыть", null, (_, _) => RestoreFromTray());
+                menu.Items.Add("Выход", null, (_, _) =>
+                {
+                    _forceClose = true;
+                    Close();
+                });
+                _trayIcon.ContextMenuStrip = menu;
+                _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+            }
+            catch
+            {
+                _trayIcon = null;
+            }
+        }
+
+        private void RestoreFromTray()
+        {
+            Show();
+            WindowState = WindowState.Normal;
+            Activate();
+            if (_trayIcon != null)
+                _trayIcon.Visible = false;
+        }
+
+        private void DisposeTrayIcon()
+        {
+            if (_trayIcon != null)
+            {
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+                _trayIcon = null;
+            }
+        }
+
+        /// <summary>
+        /// Регистрирует KeyBinding Alt+1…Alt+9 для быстрого запуска избранных баз.
+        /// </summary>
+        private void RegisterFavoriteHotkeys()
+        {
+            // Удаляем предыдущие биндинги Alt+1…9
+            var toRemove = InputBindings
+                .OfType<KeyBinding>()
+                .Where(kb => kb.Modifiers == ModifierKeys.Alt &&
+                             kb.Key >= Key.D1 && kb.Key <= Key.D9)
+                .ToList();
+            foreach (var kb in toRemove)
+                InputBindings.Remove(kb);
+
+            for (int i = 1; i <= 9; i++)
+            {
+                int index = i;
+                var binding = new KeyBinding(
+                    new ViewModels.RelayCommand(_ => _viewModel.LaunchFavoriteByHotkey(index)),
+                    (Key)((int)Key.D0 + i),
+                    ModifierKeys.Alt);
+                InputBindings.Add(binding);
+            }
+        }
+
+        /// <summary>
+        /// Надёжный обработчик Alt+1…9 (KeyBinding с Alt иногда перехватывается системой).
+        /// </summary>
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (Keyboard.Modifiers != ModifierKeys.Alt)
+                return;
+
+            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+            if (key >= Key.D1 && key <= Key.D9)
+            {
+                _viewModel.LaunchFavoriteByHotkey(key - Key.D0);
+                e.Handled = true;
+            }
+            else if (key >= Key.NumPad1 && key <= Key.NumPad9)
+            {
+                _viewModel.LaunchFavoriteByHotkey(key - Key.NumPad0);
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// Обработчик клика по заголовку колонки для смены сортировки.
+        /// </summary>
+        private void OnColumnHeader_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not FrameworkElement fe || fe.Tag is not string field)
+                return;
+            _viewModel.SetSortField(field);
+            e.Handled = true;
         }
 
         private void OnToggleTheme_Click(object sender, RoutedEventArgs e)

@@ -15,9 +15,15 @@
         MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         Loaded="OnWindowLoaded"
+        PreviewKeyDown="Window_PreviewKeyDown"
         FontFamily="Segoe UI"
         FontSize="13"
         Background="{DynamicResource ContentBackgroundBrush}">
+
+    <Window.InputBindings>
+        <KeyBinding Key="F3" Command="{Binding LaunchEnterpriseCommand}"/>
+        <KeyBinding Key="F4" Command="{Binding LaunchConfiguratorCommand}"/>
+    </Window.InputBindings>
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
@@ -319,7 +325,9 @@
 
                                 <TextBlock Grid.Column="3" Text="Название" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="0,0,8,4"/>
+                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="0,0,8,4"
+                                           Cursor="Hand" Tag="Name" ToolTip="Сортировка по наименованию (клик)"
+                                           MouseLeftButtonUp="OnColumnHeader_Click"/>
                                 <TextBlock Grid.Column="4" Text="Версия платформы" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
@@ -331,7 +339,9 @@
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
                                 <TextBlock Grid.Column="7" Text="Последний запуск" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
+                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
+                                           Cursor="Hand" Tag="LastLaunchDate" ToolTip="Сортировка по дате последнего запуска (клик)"
+                                           MouseLeftButtonUp="OnColumnHeader_Click"/>
 
                                 <!-- Современные разделители колонок: тонкая линия + широкая зона захвата -->
                                 <Border x:Name="VersionSplitter" Grid.Column="4"
@@ -554,19 +564,39 @@
                                                 Cursor="Hand" Padding="0"
                                                 MinWidth="0" MinHeight="0"
                                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                ToolTip="Добавить/убрать из избранного">
-                                            <materialDesign:PackIcon Kind="Star" Width="14" Height="14">
-                                                <materialDesign:PackIcon.Style>
-                                                    <Style TargetType="materialDesign:PackIcon">
-                                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                                <Setter Property="Foreground" Value="{DynamicResource FavoriteBrush}"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </materialDesign:PackIcon.Style>
-                                            </materialDesign:PackIcon>
+                                                ToolTip="Добавить/убрать из избранного (Alt+N — быстрый запуск)">
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                <materialDesign:PackIcon Kind="Star" Width="14" Height="14" VerticalAlignment="Center">
+                                                    <materialDesign:PackIcon.Style>
+                                                        <Style TargetType="materialDesign:PackIcon">
+                                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource FavoriteBrush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </materialDesign:PackIcon.Style>
+                                                </materialDesign:PackIcon>
+                                                <TextBlock Text="{Binding FavoriteHotkeyDisplay}"
+                                                           FontSize="10" FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" Margin="1,0,0,0"
+                                                           Foreground="{DynamicResource FavoriteBrush}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding FavoriteHotkeyNumber}" Value="0">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
                                         </Button>
 
                                         <Button Grid.Column="2"
@@ -796,11 +826,14 @@
                         <!-- Контекстное меню по правой кнопке мыши для выбранной базы -->
                         <TreeView.ContextMenu>
                             <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                                <MenuItem Header="Запустить 1С:Предприятие" Command="{Binding LaunchEnterpriseCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="Запустить 1С:Предприятие" Command="{Binding LaunchEnterpriseCommand}" InputGestureText="F3" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Play" Width="16" Height="16" Foreground="#22C55E"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Запустить Конфигуратор" Command="{Binding LaunchConfiguratorCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="Запустить Конфигуратор" Command="{Binding LaunchConfiguratorCommand}" InputGestureText="F4" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Cog" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Изменить настройки" Command="{Binding EditInfobaseCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
                                 </MenuItem>
                                 <Separator/>
                                 <MenuItem Header="Избранное" Command="{Binding ToggleFavoriteCommand}" Style="{DynamicResource ModernMenuItem}">
@@ -815,10 +848,6 @@
                                 <MenuItem Header="Копировать строку подключения" Command="{Binding CopyConnectionStringCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" Foreground="#06B6D4"/></MenuItem.Icon>
                                 </MenuItem>
-                                <Separator/>
-                                <MenuItem Header="Изменить настройки" Command="{Binding EditInfobaseCommand}" Style="{DynamicResource ModernMenuItem}">
-                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
-                                </MenuItem>
                                 <MenuItem Header="Добавить..." Command="{Binding AddInfobaseCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Plus" Width="16" Height="16" Foreground="#22C55E"/></MenuItem.Icon>
                                 </MenuItem>
@@ -829,7 +858,7 @@
                             </ContextMenu>
                         </TreeView.ContextMenu>
                         </TreeView>
-
+                    
                 </Grid>
                 </Grid>
             </Border>
