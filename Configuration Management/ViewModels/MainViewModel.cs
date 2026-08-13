@@ -38,9 +38,7 @@ public class MainViewModel : ViewModelBase
     private bool _showPinnedButton = true;
     private bool _showTagFilterPanel;
     private bool _allowMultipleInstances;
-    private readonly ObservableCollection<string> _activeTagFilters = new();
-    private ListViewMode _listViewMode = ListViewMode.All;
-
+    private string _activeTagFilter = string.Empty;
     private bool _showTags = true;
     private bool _showVersionColumn = true;
     private bool _showLaunchModeColumn = true;
@@ -66,14 +64,9 @@ public class MainViewModel : ViewModelBase
     private DateTime? _nextScheduleRun;
     private bool _syncTimerRunning;
     private bool _closeToTray;
-    private bool _showTrayIcon = true;
-    private string _hotkeyEnterprise = "F3";
-    private string _hotkeyConfigurator = "F4";
     private string _sortField = "Name";
     private bool _sortAscending = true;
     private readonly List<string> _favoriteHotkeyIds = new();
-    private CancellationTokenSource? _searchDebounceCts;
-    private HashSet<string> _activeTagFilterSet = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Событие: изменился список избранных с горячими клавишами (нужно перерегистрировать биндинги).</summary>
     public event EventHandler? FavoriteHotkeysChanged;
@@ -131,9 +124,6 @@ public class MainViewModel : ViewModelBase
         _ibasesBackupEnabled = settings.IbasesBackupEnabled;
         _ibasesBackupKeepCount = settings.IbasesBackupKeepCount > 0 ? settings.IbasesBackupKeepCount : 5;
         _closeToTray = settings.CloseToTray;
-        _showTrayIcon = settings.ShowTrayIcon;
-        _hotkeyEnterprise = string.IsNullOrWhiteSpace(settings.HotkeyEnterprise) ? "F3" : settings.HotkeyEnterprise;
-        _hotkeyConfigurator = string.IsNullOrWhiteSpace(settings.HotkeyConfigurator) ? "F4" : settings.HotkeyConfigurator;
         _sortField = string.IsNullOrWhiteSpace(settings.SortField) ? "Name" : settings.SortField;
         _sortAscending = settings.SortAscending;
         if (settings.FavoriteHotkeyIds != null)
@@ -203,6 +193,17 @@ public class MainViewModel : ViewModelBase
         ExpandAllGroupsCommand = new RelayCommand(ExpandAllGroups);
         ToggleGroupExpandedCommand = new RelayCommand(ToggleGroupExpanded);
         OpenSettingsCommand = new RelayCommand(OpenSettings);
+
+        // Композиция: выделенный VM запуска (чат 1 / 3).
+        LaunchVm = new LaunchViewModel(
+            () => SelectedInfobase,
+            _launcher,
+            _logger,
+            onLaunched: () =>
+            {
+                InfobasesView.Refresh();
+                Save();
+            });
 
         // Если список баз пуст — предлагаем загрузить базы из файла ibases.v8i.
         if (Infobases.Count == 0)
@@ -779,52 +780,23 @@ public class MainViewModel : ViewModelBase
     /// <summary>Разрешить несколько экземпляров приложения.</summary>
     public bool AllowMultipleInstances => _allowMultipleInstances;
 
-    /// <summary>Выбранные теги для фильтра (можно несколько одновременно).</summary>
-    public ObservableCollection<string> ActiveTagFilters => _activeTagFilters;
-
-    /// <summary>Есть ли активный фильтр по тегам.</summary>
-    public bool HasActiveTagFilter => _activeTagFilters.Count > 0;
-
-    /// <summary>Режим списка: Все / Избранное / Недавние.</summary>
-    public ListViewMode ListViewMode
+    /// <summary>Активный тег-фильтр (пусто — без фильтра по тегу).</summary>
+    public string ActiveTagFilter
     {
-        get => _listViewMode;
+        get => _activeTagFilter;
         set
         {
-            if (SetProperty(ref _listViewMode, value))
+            if (SetProperty(ref _activeTagFilter, value ?? string.Empty))
             {
-                // Совместимость с прежним флагом избранного.
-                _showFavoritesOnly = value == ListViewMode.Favorites;
-                OnPropertyChanged(nameof(ShowFavoritesOnly));
-                OnPropertyChanged(nameof(IsListModeAll));
-                OnPropertyChanged(nameof(IsListModeFavorites));
-                OnPropertyChanged(nameof(IsListModeRecent));
+                InfobasesView.Refresh();
                 RebuildGroupTree();
+                OnPropertyChanged(nameof(HasActiveTagFilter));
             }
         }
     }
 
-    public bool IsListModeAll
-    {
-        get => _listViewMode == ListViewMode.All;
-        set { if (value) ListViewMode = ListViewMode.All; }
-    }
-
-    public bool IsListModeFavorites
-    {
-        get => _listViewMode == ListViewMode.Favorites;
-        set { if (value) ListViewMode = ListViewMode.Favorites; }
-    }
-
-    public bool IsListModeRecent
-    {
-        get => _listViewMode == ListViewMode.Recent;
-        set { if (value) ListViewMode = ListViewMode.Recent; }
-    }
-
-    /// <summary>Проверяет, выбран ли тег в фильтре.</summary>
-    public bool IsTagSelected(string tag) =>
-        !string.IsNullOrEmpty(tag) && _activeTagFilters.Any(t => string.Equals(t, tag, StringComparison.OrdinalIgnoreCase));
+    /// <summary>Есть ли активный фильтр по тегу.</summary>
+    public bool HasActiveTagFilter => !string.IsNullOrWhiteSpace(_activeTagFilter);
 
     /// <summary>
     /// Уникальные теги всех баз для панели быстрого отбора.
@@ -835,80 +807,6 @@ public class MainViewModel : ViewModelBase
             .Where(t => !string.IsNullOrWhiteSpace(t))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(t => t, StringComparer.OrdinalIgnoreCase);
-
-    private readonly ObservableCollection<TagFilterItem> _tagFilterItems = new();
-
-    /// <summary>Теги с признаком выбора для панели фильтров.</summary>
-    public ObservableCollection<TagFilterItem> TagFilterItems => _tagFilterItems;
-
-    /// <summary>Пересобирает облако тегов (панель фильтров).</summary>
-    public void RefreshTagFilterItems()
-    {
-        var selected = new HashSet<string>(_activeTagFilters, StringComparer.OrdinalIgnoreCase);
-        var tags = Infobases
-            .SelectMany(i => i.Tags)
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        // Не трогаем UI, если набор тегов и выделение не изменились.
-        if (_tagFilterItems.Count == tags.Count)
-        {
-            var same = true;
-            for (var i = 0; i < tags.Count; i++)
-            {
-                if (!string.Equals(_tagFilterItems[i].Name, tags[i], StringComparison.OrdinalIgnoreCase)
-                    || _tagFilterItems[i].IsSelected != selected.Contains(tags[i]))
-                {
-                    same = false;
-                    break;
-                }
-            }
-            if (same)
-                return;
-        }
-
-        _tagFilterItems.Clear();
-        foreach (var t in tags)
-            _tagFilterItems.Add(new TagFilterItem(t, selected.Contains(t)));
-        OnPropertyChanged(nameof(HasActiveTagFilter));
-    }
-
-    private void SyncActiveTagFilterSet()
-    {
-        _activeTagFilterSet = new HashSet<string>(_activeTagFilters, StringComparer.OrdinalIgnoreCase);
-    }
-
-    /// <summary>Отложенная перестройка дерева (поиск по мере ввода).</summary>
-    private void ScheduleRebuildGroupTree()
-    {
-        _searchDebounceCts?.Cancel();
-        _searchDebounceCts?.Dispose();
-        var cts = new CancellationTokenSource();
-        _searchDebounceCts = cts;
-        var token = cts.Token;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(180, token).ConfigureAwait(false);
-                if (token.IsCancellationRequested) return;
-                var dispatcher = Application.Current?.Dispatcher;
-                if (dispatcher is null) return;
-                await dispatcher.InvokeAsync(() =>
-                {
-                    if (!token.IsCancellationRequested)
-                        RebuildGroupTree();
-                });
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                _logger.Error("Ошибка отложенной перестройки дерева", ex);
-            }
-        });
-    }
 
     /// <summary>Показывать кнопки свернуть/развернуть все (только при группировке).</summary>
     public bool ShowExpandCollapseButtons => _groupByGroup;
@@ -1061,6 +959,8 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Команда запуска 1С:Предприятие.</summary>
     /// <summary>Под-VM запуска баз (композиция MainViewModel).</summary>
+    public LaunchViewModel LaunchVm { get; }
+
     /// <summary>Единая команда запуска (параметр: LaunchKind или строка имени enum).</summary>
     public ICommand LaunchCommand { get; }
 
@@ -1387,7 +1287,7 @@ public class MainViewModel : ViewModelBase
         // (фильтр «Только избранные», поиск, отбор по тегу).
         if (ShowFavoritesOnly
             || !string.IsNullOrWhiteSpace(SearchText)
-            || HasActiveTagFilter)
+            || !string.IsNullOrWhiteSpace(ActiveTagFilter))
         {
             InfobasesView.Refresh();
             RebuildGroupTree();
@@ -1510,37 +1410,27 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     private void SyncFavoriteHotkeys()
     {
-        try
+        // Удаляем ключи, которых больше нет в списке баз.
+        _favoriteHotkeyIds.RemoveAll(key =>
+            !Infobases.Any(ib => FavoriteKey(ib) == key));
+
+        // Добавляем избранные без слота (в порядке имени).
+        foreach (var ib in Infobases.Where(i => i.IsFavorite).OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase))
         {
-            if (Infobases is null)
-                return;
-
-            // Удаляем ключи, которых больше нет в списке баз.
-            _favoriteHotkeyIds.RemoveAll(key =>
-                !Infobases.Any(ib => FavoriteKey(ib) == key));
-
-            // Добавляем избранные без слота (в порядке имени).
-            foreach (var ib in Infobases.Where(i => i.IsFavorite).OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase))
-            {
-                var key = FavoriteKey(ib);
-                if (!_favoriteHotkeyIds.Contains(key) && _favoriteHotkeyIds.Count < 9)
-                    _favoriteHotkeyIds.Add(key);
-            }
-
-            // Проставляем номера на объектах Infobase для UI.
-            foreach (var ib in Infobases)
-            {
-                var key = FavoriteKey(ib);
-                var idx = _favoriteHotkeyIds.IndexOf(key);
-                ib.FavoriteHotkeyNumber = idx >= 0 ? idx + 1 : 0;
-            }
-
-            FavoriteHotkeysChanged?.Invoke(this, EventArgs.Empty);
+            var key = FavoriteKey(ib);
+            if (!_favoriteHotkeyIds.Contains(key) && _favoriteHotkeyIds.Count < 9)
+                _favoriteHotkeyIds.Add(key);
         }
-        catch
+
+        // Проставляем номера на объектах Infobase для UI.
+        foreach (var ib in Infobases)
         {
-            // не роняем приложение из‑за избранного
+            var key = FavoriteKey(ib);
+            var idx = _favoriteHotkeyIds.IndexOf(key);
+            ib.FavoriteHotkeyNumber = idx >= 0 ? idx + 1 : 0;
         }
+
+        FavoriteHotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Публичный доступ к упорядоченному списку ключей избранного (для настроек).</summary>
@@ -1568,36 +1458,6 @@ public class MainViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _closeToTray, value))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public bool ShowTrayIcon
-    {
-        get => _showTrayIcon;
-        set
-        {
-            if (SetProperty(ref _showTrayIcon, value))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public string HotkeyEnterprise
-    {
-        get => _hotkeyEnterprise;
-        set
-        {
-            if (SetProperty(ref _hotkeyEnterprise, string.IsNullOrWhiteSpace(value) ? "F3" : value.Trim()))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public string HotkeyConfigurator
-    {
-        get => _hotkeyConfigurator;
-        set
-        {
-            if (SetProperty(ref _hotkeyConfigurator, string.IsNullOrWhiteSpace(value) ? "F4" : value.Trim()))
                 ScheduleSaveSettings();
         }
     }
@@ -1796,6 +1656,12 @@ public class MainViewModel : ViewModelBase
             && !infobase.Tags.Any(t => _activeTagFilterSet.Contains(t)))
             return false;
 
+        // Фильтр по выбранному тегу (панель быстрого отбора).
+        if (!string.IsNullOrWhiteSpace(_activeTagFilter)
+            && !infobase.Tags.Any(t => string.Equals(t, _activeTagFilter, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        // Фильтр по тексту поиска.
         var filter = SearchText?.Trim() ?? string.Empty;
         if (string.IsNullOrEmpty(filter))
             return true;
@@ -1894,9 +1760,6 @@ public class MainViewModel : ViewModelBase
             IbasesBackupEnabled = _ibasesBackupEnabled,
             IbasesBackupKeepCount = _ibasesBackupKeepCount,
             CloseToTray = _closeToTray,
-            ShowTrayIcon = _showTrayIcon,
-            HotkeyEnterprise = _hotkeyEnterprise,
-            HotkeyConfigurator = _hotkeyConfigurator,
             SortField = _sortField,
             SortAscending = _sortAscending,
             FavoriteHotkeyIds = _favoriteHotkeyIds.ToList()
@@ -2037,30 +1900,24 @@ public class MainViewModel : ViewModelBase
     {
         var search = SearchText?.Trim() ?? string.Empty;
         var hasSearch = search.Length > 0;
-        var hasTags = _activeTagFilterSet.Count > 0;
-        var mode = _listViewMode;
+        var hasTag = !string.IsNullOrWhiteSpace(_activeTagFilter);
+        var favOnly = ShowFavoritesOnly;
 
-        IEnumerable<Infobase> source = Infobases;
-        if (mode == ListViewMode.Favorites)
-            source = source.Where(i => i.IsFavorite);
-        else if (mode == ListViewMode.Recent)
-            source = source.Where(i => i.LastLaunchDate.HasValue)
-                           .OrderByDescending(i => i.LastLaunchDate);
-
-        foreach (var infobase in source)
+        foreach (var infobase in Infobases)
         {
-            // Несколько тегов: база подходит, если есть хотя бы один из выбранных (OR).
-            if (hasTags
-                && !infobase.Tags.Any(t => _activeTagFilterSet.Contains(t)))
+            if (favOnly && !infobase.IsFavorite)
                 continue;
 
-            // Поиск по имени/описанию работает вместе с тегами (AND).
+            if (hasTag
+                && !infobase.Tags.Any(t => string.Equals(t, _activeTagFilter, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
             if (hasSearch)
             {
                 if (!(infobase.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
-                      || (infobase.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
-                      || (infobase.Group?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
-                      || (infobase.PlatformVersion?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                      || infobase.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
+                      || infobase.Group.Contains(search, StringComparison.OrdinalIgnoreCase)
+                      || infobase.PlatformVersion.Contains(search, StringComparison.OrdinalIgnoreCase)
                       || infobase.Tags.Any(t => t.Contains(search, StringComparison.OrdinalIgnoreCase))))
                     continue;
             }
@@ -2079,11 +1936,7 @@ public class MainViewModel : ViewModelBase
     {
         // Один проход по базам без CollectionView.Refresh (он дорогой на больших списках).
         // Учитываем выбранное поле сортировки (_sortField / _sortAscending).
-        var filtered = EnumerateFilteredInfobases();
-        // В режиме «Недавние» порядок уже по LastLaunchDate; иначе — выбранная сортировка.
-        var visible = (_listViewMode == ListViewMode.Recent
-            ? filtered
-            : ApplyCurrentSort(filtered)).ToList();
+        var visible = ApplyCurrentSort(EnumerateFilteredInfobases()).ToList();
 
         // Когда группировка отключена — показываем плоский список всех баз в одном узле.
         if (!_groupByGroup)
@@ -2096,6 +1949,7 @@ public class MainViewModel : ViewModelBase
             flatNode.IsExpanded = true;
             _groupNodes = new List<GroupNodeViewModel> { flatNode };
             ReplaceGroupNodes(_groupNodes);
+            ApplyExpandedState(_groupNodes);
             OnPropertyChanged(nameof(GroupNodes));
             return;
         }
@@ -2144,6 +1998,12 @@ public class MainViewModel : ViewModelBase
             if (pathToNode.TryGetValue(groupPath, out node)
                 || pathToNode.TryGetValue(NormalizeGroupPath(groupPath), out node))
             {
+                // Подтягиваем канонический путь, если в JSON был другой разделитель.
+                var canonical = node.Group is not null
+                    ? GroupHierarchyHelper.GetFullPath(node.Group, Groups)
+                    : groupPath;
+                if (!string.Equals(infobase.Group, canonical, StringComparison.OrdinalIgnoreCase))
+                    infobase.Group = canonical;
                 node.Infobases.Add(infobase);
                 continue;
             }
@@ -2170,25 +2030,8 @@ public class MainViewModel : ViewModelBase
         _groupNodes = next;
         ReplaceGroupNodes(next);
         ApplyExpandedState(_groupNodes);
-        // При поиске или фильтре по тегу — разворачиваем все группы, где есть видимые базы.
-        if (!string.IsNullOrWhiteSpace(SearchText) || HasActiveTagFilter)
-            ExpandAllNodesWithContent(_groupNodes);
-        RefreshTagFilterItems();
+        OnPropertyChanged(nameof(AvailableTags));
         OnPropertyChanged(nameof(GroupNodes));
-    }
-
-    /// <summary>
-    /// Разворачивает узлы дерева, в которых есть базы (или вложенные с базами).
-    /// Используется при поиске и фильтре по тегу.
-    /// </summary>
-    private static void ExpandAllNodesWithContent(IEnumerable<GroupNodeViewModel> nodes)
-    {
-        foreach (var node in nodes)
-        {
-            if (node.ContainsInfobases)
-                node.IsExpanded = true;
-            ExpandAllNodesWithContent(node.Children);
-        }
     }
 
     /// <summary>
@@ -2736,18 +2579,229 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Очищает поле поиска и все выбранные теги.
+    /// Копирует тег в поле поиска и выполняет отбор баз с этим тегом.
+    /// </summary>
+    private void SearchByTag(object? parameter)
+    {
+        if (parameter is not string tag)
+            return;
+
+        // Повторный клик по тому же тегу снимает фильтр.
+        if (string.Equals(ActiveTagFilter, tag, StringComparison.OrdinalIgnoreCase))
+            ActiveTagFilter = string.Empty;
+        else
+            ActiveTagFilter = tag;
+
+        OnPropertyChanged(nameof(AvailableTags));
+    }
+
+    /// <summary>
+    /// Очищает поле поиска и фильтр по тегу.
     /// </summary>
     private void ClearSearch(object? parameter)
     {
         SearchText = string.Empty;
-        if (_activeTagFilters.Count > 0)
+        ActiveTagFilter = string.Empty;
+    }
+
+    /// <summary>
+    /// Нормализует путь группы: единый разделитель « / », обрезка пробелов.
+    /// </summary>
+    private static string NormalizeGroupPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+        var parts = path
+            .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0);
+        return string.Join(GroupHierarchyHelper.PathSeparator, parts);
+    }
+
+    /// <summary>
+    /// Перемещает базу в указанную группу (полный путь).
+    /// <paramref name="insertBefore"/> — база, перед которой вставить (null = в конец группы).
+    /// </summary>
+    public void MoveInfobaseToGroup(Infobase infobase, string groupFullPath, Infobase? insertBefore = null)
+    {
+        var targetPath = groupFullPath ?? string.Empty;
+        var targetNorm = NormalizeGroupPath(targetPath);
+        infobase.Group = string.IsNullOrEmpty(targetNorm) ? targetPath : targetNorm;
+
+        // Соседи в целевой группе (кроме переносимой).
+        var siblings = Infobases
+            .Where(i => !ReferenceEquals(i, infobase)
+                        && string.Equals(NormalizeGroupPath(i.Group), targetNorm,
+                            StringComparison.OrdinalIgnoreCase))
+            .OrderBy(i => i.SortOrder)
+            .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (insertBefore is not null
+            && siblings.Any(s => ReferenceEquals(s, insertBefore)
+                                 || string.Equals(s.Id, insertBefore.Id, StringComparison.OrdinalIgnoreCase)
+                                    && !string.IsNullOrEmpty(insertBefore.Id)))
         {
-            _activeTagFilters.Clear();
-            SyncActiveTagFilterSet();
-            OnPropertyChanged(nameof(HasActiveTagFilter));
+            var index = siblings.FindIndex(s =>
+                ReferenceEquals(s, insertBefore)
+                || (string.Equals(s.Id, insertBefore.Id, StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(insertBefore.Id)));
+            siblings.Insert(Math.Max(0, index), infobase);
         }
+        else
+        {
+            siblings.Add(infobase);
+        }
+
+        for (var i = 0; i < siblings.Count; i++)
+            siblings[i].SortOrder = (i + 1) * 10;
+
+        Save();
         RebuildGroupTree();
+        OnPropertyChanged(nameof(AvailableTags));
+    }
+
+    /// <summary>
+    /// Перемещает группу под другую группу (или в корень при пустом newParentId)
+    /// вместе со всеми вложенными подгруппами и информационными базами.
+    /// Обновляет ParentId и полные пути Infobase.Group у всей подветки.
+    /// </summary>
+    public void MoveGroupUnder(Group group, string newParentId)
+    {
+        newParentId ??= string.Empty;
+        if (string.Equals(group.Id, newParentId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Нельзя сделать родителем потомка этой группы (иначе цикл в иерархии).
+        if (!string.IsNullOrEmpty(newParentId)
+            && GroupHierarchyHelper.IsAncestorOrSelf(newParentId, group.Id, Groups))
+            return;
+
+        // Старые полные пути: сама группа + все потомки (до смены ParentId).
+        var oldPathsById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var subtreeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { group.Id };
+        CollectGroupDescendants(group.Id, subtreeIds);
+        foreach (var id in subtreeIds)
+        {
+            var g = Groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is not null)
+                oldPathsById[id] = GroupHierarchyHelper.GetFullPath(g, Groups);
+        }
+
+        var oldRootPath = oldPathsById.TryGetValue(group.Id, out var orp) ? orp : string.Empty;
+        var oldRootNorm = NormalizeGroupPath(oldRootPath);
+
+        // Меняем родителя только у перемещаемой группы; вложенные группы
+        // остаются её потомками через свои ParentId и переезжают вместе с ней.
+        group.ParentId = newParentId;
+
+        // pathRemap: старый путь (и нормализованный) → новый канонический.
+        var pathRemap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in subtreeIds)
+        {
+            var g = Groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is null || !oldPathsById.TryGetValue(id, out var oldPath))
+                continue;
+            var newPath = GroupHierarchyHelper.GetFullPath(g, Groups);
+            if (string.IsNullOrEmpty(oldPath) || string.IsNullOrEmpty(newPath))
+                continue;
+            pathRemap[oldPath] = newPath;
+            pathRemap[NormalizeGroupPath(oldPath)] = newPath;
+        }
+
+        // Обновляем Infobase.Group у всех баз подветки.
+        if (pathRemap.Count > 0)
+        {
+            // Длинные пути первыми — чтобы «A / B» не переписывался как префикс «A».
+            var remapByLength = pathRemap
+                .OrderByDescending(kv => kv.Key.Length)
+                .ToList();
+
+            foreach (var ib in Infobases)
+            {
+                var current = ib.Group?.Trim() ?? string.Empty;
+                if (string.IsNullOrEmpty(current))
+                    continue;
+
+                var currentNorm = NormalizeGroupPath(current);
+                string? mapped = null;
+
+                if (pathRemap.TryGetValue(current, out mapped)
+                    || pathRemap.TryGetValue(currentNorm, out mapped))
+                {
+                    ib.Group = mapped;
+                    continue;
+                }
+
+                // Префикс: база во вложенном пути, которого не было в pathRemap.
+                foreach (var (oldKey, newKey) in remapByLength)
+                {
+                    if (current.StartsWith(oldKey + GroupHierarchyHelper.PathSeparator,
+                            StringComparison.OrdinalIgnoreCase)
+                        || currentNorm.StartsWith(NormalizeGroupPath(oldKey) + GroupHierarchyHelper.PathSeparator,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        var suffix = current.Length > oldKey.Length
+                            ? current.Substring(oldKey.Length)
+                            : currentNorm.Substring(NormalizeGroupPath(oldKey).Length);
+                        ib.Group = newKey + suffix;
+                        break;
+                    }
+                }
+            }
+
+            if (_collapsedGroups is { Count: > 0 })
+            {
+                var updated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var key in _collapsedGroups)
+                {
+                    if (pathRemap.TryGetValue(key, out var mapped)
+                        || pathRemap.TryGetValue(NormalizeGroupPath(key), out mapped))
+                        updated.Add(mapped);
+                    else if (!string.IsNullOrEmpty(oldRootPath)
+                             && (key.StartsWith(oldRootPath + GroupHierarchyHelper.PathSeparator,
+                                     StringComparison.OrdinalIgnoreCase)
+                                 || NormalizeGroupPath(key).StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                                     StringComparison.OrdinalIgnoreCase))
+                             && pathRemap.TryGetValue(oldRootPath, out var newRoot))
+                        updated.Add(newRoot + key.Substring(Math.Min(key.Length, oldRootPath.Length)));
+                    else
+                        updated.Add(key);
+                }
+                _collapsedGroups.Clear();
+                foreach (var k in updated)
+                    _collapsedGroups.Add(k);
+            }
+        }
+
+        // Всегда сохраняем базы и группы, затем UI — как после перезапуска.
+        Save();
+        SaveGroups();
+        RebuildGroupTree();
+    }
+
+    /// <summary>
+    /// Применяет настройки приложения (экземпляры, панель тегов).
+    /// </summary>
+    public void ApplyAppBehaviorSettings(bool allowMultipleInstances, bool showTagFilterPanel, bool closeToTray = false)
+    {
+        _allowMultipleInstances = allowMultipleInstances;
+        _showTagFilterPanel = showTagFilterPanel;
+        _closeToTray = closeToTray;
+        OnPropertyChanged(nameof(AllowMultipleInstances));
+        OnPropertyChanged(nameof(ShowTagFilterPanel));
+        OnPropertyChanged(nameof(CloseToTray));
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Уведомляет UI об изменении списка доступных тегов.
+    /// </summary>
+    public void RefreshAvailableTags()
+    {
+        OnPropertyChanged(nameof(AvailableTags));
     }
 
     /// <summary>

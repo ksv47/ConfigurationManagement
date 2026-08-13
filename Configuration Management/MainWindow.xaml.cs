@@ -22,6 +22,7 @@ namespace Configuration_Management
         private Point _dragStartPoint;
         private object? _draggedData;
         private bool _isDragging;
+        private bool _treeScrollAttached;
         private Forms.NotifyIcon? _trayIcon;
         private bool _forceClose;
 
@@ -45,41 +46,12 @@ namespace Configuration_Management
             // Применяем сохранённые размер, позицию и состояние окна.
             ApplySavedWindowLayout();
 
-            // Трей и хоткеи — после загрузки окна (STA/иконка безопаснее на Loaded).
-            Loaded += (_, _) =>
-            {
-                try
-                {
-                    InitializeTrayIcon();
-                    RegisterLaunchHotkeys();
-                    RegisterFavoriteHotkeys();
-                }
-                catch
-                {
-                    // не блокируем запуск из‑за трея/хоткеев
-                }
-            };
-            _viewModel.FavoriteHotkeysChanged += (_, _) =>
-            {
-                try { RegisterFavoriteHotkeys(); }
-                catch { /* ignore */ }
-            };
-            _viewModel.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName is nameof(MainViewModel.HotkeyEnterprise)
-                    or nameof(MainViewModel.HotkeyConfigurator)
-                    or nameof(MainViewModel.ShowTrayIcon))
-                {
-                    try
-                    {
-                        if (e.PropertyName == nameof(MainViewModel.ShowTrayIcon))
-                            UpdateTrayVisibility();
-                        else
-                            RegisterLaunchHotkeys();
-                    }
-                    catch { /* ignore */ }
-                }
-            };
+            // Инициализация иконки в системном трее (если включено закрытие в трей).
+            InitializeTrayIcon();
+
+            // Регистрируем горячие клавиши избранного (Alt+1…Alt+9).
+            RegisterFavoriteHotkeys();
+            _viewModel.FavoriteHotkeysChanged += (_, _) => RegisterFavoriteHotkeys();
         }
 
         /// <summary>
@@ -161,7 +133,7 @@ namespace Configuration_Management
                 _trayIcon = new Forms.NotifyIcon
                 {
                     Text = "Управление конфигурациями 1С",
-                    Visible = _viewModel.ShowTrayIcon
+                    Visible = false
                 };
 
                 // Иконка из ресурса приложения или стандартная.
@@ -180,32 +152,6 @@ namespace Configuration_Management
 
                 var menu = new Forms.ContextMenuStrip();
                 menu.Items.Add("Открыть", null, (_, _) => RestoreFromTray());
-                menu.Items.Add("Запустить выбранную (Предприятие)", null, (_, _) =>
-                {
-                    RestoreFromTray();
-                    if (_viewModel.LaunchEnterpriseCommand.CanExecute(null))
-                        _viewModel.LaunchEnterpriseCommand.Execute(null);
-                });
-                menu.Items.Add("Запустить выбранную (Конфигуратор)", null, (_, _) =>
-                {
-                    RestoreFromTray();
-                    if (_viewModel.LaunchConfiguratorCommand.CanExecute(null))
-                        _viewModel.LaunchConfiguratorCommand.Execute(null);
-                });
-                menu.Items.Add(new Forms.ToolStripSeparator());
-                menu.Items.Add("Загрузить из ibases.v8i", null, (_, _) =>
-                {
-                    RestoreFromTray();
-                    if (_viewModel.ImportFromIbasesV8iCommand.CanExecute(null))
-                        _viewModel.ImportFromIbasesV8iCommand.Execute(null);
-                });
-                menu.Items.Add("Настройки", null, (_, _) =>
-                {
-                    RestoreFromTray();
-                    if (_viewModel.OpenSettingsCommand.CanExecute(null))
-                        _viewModel.OpenSettingsCommand.Execute(null);
-                });
-                menu.Items.Add(new Forms.ToolStripSeparator());
                 menu.Items.Add("Выход", null, (_, _) =>
                 {
                     _forceClose = true;
@@ -237,50 +183,6 @@ namespace Configuration_Management
                 _trayIcon.Dispose();
                 _trayIcon = null;
             }
-        }
-
-        private void UpdateTrayVisibility()
-        {
-            if (_trayIcon != null)
-                _trayIcon.Visible = _viewModel.ShowTrayIcon;
-        }
-
-        /// <summary>
-        /// Регистрирует настраиваемые горячие клавиши запуска Предприятие / Конфигуратор.
-        /// </summary>
-        private void RegisterLaunchHotkeys()
-        {
-            // Удаляем старые биндинги F2–F12 без модификаторов
-            var toRemove = InputBindings
-                .OfType<KeyBinding>()
-                .Where(kb => kb.Modifiers == ModifierKeys.None &&
-                             kb.Key >= Key.F2 && kb.Key <= Key.F12)
-                .ToList();
-            foreach (var kb in toRemove)
-                InputBindings.Remove(kb);
-
-            if (TryParseFunctionKey(_viewModel.HotkeyEnterprise, out var keyEnt))
-            {
-                InputBindings.Add(new KeyBinding(_viewModel.LaunchEnterpriseCommand, keyEnt, ModifierKeys.None));
-            }
-            if (TryParseFunctionKey(_viewModel.HotkeyConfigurator, out var keyCfg))
-            {
-                InputBindings.Add(new KeyBinding(_viewModel.LaunchConfiguratorCommand, keyCfg, ModifierKeys.None));
-            }
-        }
-
-        private static bool TryParseFunctionKey(string? text, out Key key)
-        {
-            key = Key.None;
-            if (string.IsNullOrWhiteSpace(text))
-                return false;
-            if (Enum.TryParse<Key>(text.Trim(), true, out var parsed) &&
-                parsed >= Key.F2 && parsed <= Key.F12)
-            {
-                key = parsed;
-                return true;
-            }
-            return false;
         }
 
         /// <summary>
@@ -968,6 +870,7 @@ namespace Configuration_Management
                 return;
             treeScroll.ScrollChanged -= OnTreeScroll_ScrollChanged;
             treeScroll.ScrollChanged += OnTreeScroll_ScrollChanged;
+            _treeScrollAttached = true;
         }
 
         private void OnTreeScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)

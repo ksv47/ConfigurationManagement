@@ -278,6 +278,7 @@
                     <!-- Кнопки и метки -->
                     <GroupBox Grid.Row="2" Header="Кнопки и метки" Padding="10,8" Margin="0,0,0,12">
                         <StackPanel>
+<<<<<<< HEAD
                             <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowFavoritesButtonCheck" Margin="0,0,0,6">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="Star" Width="16" Height="16" Foreground="#FBBF24" Margin="0,0,8,0" VerticalAlignment="Center"/>
@@ -302,6 +303,12 @@
                                     <TextBlock Text="Панель быстрого отбора по тегам" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </ToggleButton>
+=======
+                            <CheckBox x:Name="ShowFavoritesButtonCheck" Content="Кнопка «Избранное»"/>
+                            <CheckBox x:Name="ShowPinnedButtonCheck" Content="Кнопка «Закрепить»"/>
+                            <CheckBox x:Name="ShowTagsCheck" Content="Показывать теги в строках списка"/>
+                            <CheckBox x:Name="ShowTagFilterPanelCheck" Content="Панель быстрого отбора по тегам"/>
+>>>>>>> 426c7d0394cccb864289b53c417894ad9f09daa8
                         </StackPanel>
                     </GroupBox>
 
@@ -416,6 +423,52 @@
                             </Grid>
                         </StackPanel>
                     </GroupBox>
+<<<<<<< HEAD
+=======
+
+                    <!-- Запуск приложения -->
+                    <GroupBox Grid.Row="4" Header="Запуск приложения" Padding="10,8" Margin="0,0,0,12">
+                        <StackPanel>
+                            <CheckBox x:Name="AllowMultipleInstancesCheck"
+                                      Content="Разрешить несколько экземпляров программы"/>
+                            <TextBlock Text="Если выключено, повторный запуск активирует уже открытое окно."
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" TextWrapping="Wrap" Margin="24,4,0,0"/>
+                            <CheckBox x:Name="CloseToTrayCheck"
+                                      Content="Закрывать в системный трей"
+                                      Margin="0,12,0,0"/>
+                            <TextBlock Text="При закрытии окна приложение сворачивается в трей. Двойной клик по иконке — восстановить, «Выход» в меню — полностью закрыть."
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" TextWrapping="Wrap" Margin="24,4,0,0"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- Порядок горячих клавиш избранного -->
+                    <GroupBox Grid.Row="5" Header="Горячие клавиши избранного (Alt+1…Alt+9)" Padding="10,8">
+                        <StackPanel>
+                            <TextBlock Text="Порядок слотов: первый в списке — Alt+1, второй — Alt+2 и т.д. Используйте кнопки «Вверх» / «Вниз» для смены порядка."
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ListBox x:Name="FavoriteHotkeysList"
+                                         Grid.Column="0"
+                                         Height="160"
+                                         DisplayMemberPath="Display"
+                                         SelectionMode="Single"/>
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
+                                    <Button x:Name="FavoriteHotkeyUpBtn" Content="↑ Вверх" Padding="12,6" Margin="0,0,0,6"
+                                            Click="OnFavoriteHotkeyUp_Click"/>
+                                    <Button x:Name="FavoriteHotkeyDownBtn" Content="↓ Вниз" Padding="12,6"
+                                            Click="OnFavoriteHotkeyDown_Click"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+>>>>>>> 426c7d0394cccb864289b53c417894ad9f09daa8
                 </Grid>
                 </ScrollViewer>
             </TabItem>
@@ -619,6 +672,7 @@
 
         <!-- ============ Кнопки ============ -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+<<<<<<< HEAD
             <Button Width="140" Height="36" Margin="0,0,10,0" IsDefault="True" Click="OnSave_Click"
                     Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">
                 <Button.Template>
@@ -639,6 +693,13 @@
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="Сохранить" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+=======
+            <Button Width="130" Height="34" Style="{DynamicResource ModernButton}"
+                    Margin="0,0,10,0" IsDefault="True" Click="OnSave_Click">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Сохранить" VerticalAlignment="Center"/>
+>>>>>>> 426c7d0394cccb864289b53c417894ad9f09daa8
                 </StackPanel>
             </Button>
             <Button Width="140" Height="36" IsCancel="True" Click="OnCancel_Click"
@@ -660,8 +721,13 @@
                     </ControlTemplate>
                 </Button.Template>
                 <StackPanel Orientation="Horizontal">
+<<<<<<< HEAD
                     <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+=======
+                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Отмена" VerticalAlignment="Center"/>
+>>>>>>> 426c7d0394cccb864289b53c417894ad9f09daa8
                 </StackPanel>
             </Button>
         </StackPanel>

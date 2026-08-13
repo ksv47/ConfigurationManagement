@@ -133,8 +133,6 @@ namespace Configuration_Management
                 ShowTagFilterPanelCheck.IsChecked = _viewModel.ShowTagFilterPanel;
             if (AllowMultipleInstancesCheck != null)
                 AllowMultipleInstancesCheck.IsChecked = _viewModel.AllowMultipleInstances;
-            if (ShowTrayIconCheck != null)
-                ShowTrayIconCheck.IsChecked = _viewModel.ShowTrayIcon;
             if (CloseToTrayCheck != null)
                 CloseToTrayCheck.IsChecked = _viewModel.CloseToTray;
 
@@ -539,10 +537,7 @@ namespace Configuration_Management
             _viewModel.ApplyAppBehaviorSettings(
                 AllowMultipleInstancesCheck.IsChecked ?? false,
                 ShowTagFilterPanelCheck.IsChecked ?? true,
-                CloseToTrayCheck.IsChecked ?? false,
-                ShowTrayIconCheck.IsChecked ?? true,
-                HotkeyEnterpriseCombo.SelectedItem as string ?? "F3",
-                HotkeyConfiguratorCombo.SelectedItem as string ?? "F4");
+                CloseToTrayCheck.IsChecked ?? false);
 
             // Порядок горячих клавиш избранного.
             _viewModel.SetFavoriteHotkeyOrder(_favoriteHotkeyItems.Select(i => i.Key));
