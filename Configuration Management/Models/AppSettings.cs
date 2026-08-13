@@ -110,15 +110,6 @@ public class AppSettings
     /// </summary>
     public bool CloseToTray { get; set; }
 
-    /// <summary>Показывать значок приложения в системном трее.</summary>
-    public bool ShowTrayIcon { get; set; } = true;
-
-    /// <summary>Горячая клавиша запуска «1С:Предприятие» (например F3).</summary>
-    public string HotkeyEnterprise { get; set; } = "F3";
-
-    /// <summary>Горячая клавиша запуска «Конфигуратор» (например F4).</summary>
-    public string HotkeyConfigurator { get; set; } = "F4";
-
     /// <summary>
     /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.
     /// </summary>

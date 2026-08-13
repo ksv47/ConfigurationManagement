@@ -128,6 +128,51 @@ namespace Configuration_Management
             {
                 // ignore
             }
+            // Загружаем настройки до показа окна, чтобы проверить запрет второго экземпляра.
+            AppServices.Configure();
+
+            var repository = AppServices.GetRequiredService<IInfobaseRepository>();
+            AppSettings settings;
+            try
+            {
+                settings = repository.LoadSettings();
+            }
+            catch
+            {
+                settings = new AppSettings();
+            }
+
+            if (!settings.AllowMultipleInstances)
+            {
+                _instanceMutex = new Mutex(true, MutexName, out var createdNew);
+                if (!createdNew)
+                {
+                    // Уже запущен другой экземпляр — активируем его окно и выходим.
+                    ActivateExistingInstance();
+                    Shutdown();
+                    return;
+                }
+            }
+
+            base.OnStartup(e);
+
+            // Синхронизируем тему.
+            var theme = string.IsNullOrWhiteSpace(settings.Theme)
+                ? ThemeManager.LightThemeName
+                : settings.Theme;
+            ThemeManager.ApplyTheme(theme);
+
+            var mainWindow = AppServices.GetRequiredService<MainWindow>();
+            MainWindow = mainWindow;
+
+            // Версия в заголовке.
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            var versionText = version is null
+                ? ""
+                : $" v{version.Major}.{version.Minor}.{version.Build}";
+            mainWindow.Title = $"Управление конфигурациями 1С{versionText}";
+
+            mainWindow.Show();
         }
 
         protected override void OnExit(ExitEventArgs e)
