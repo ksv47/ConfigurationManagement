@@ -83,6 +83,77 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Вставляет строку подключения 1С из буфера обмена с разбивкой по полям.
+        /// Заполняет тип подключения, сервер, имя базы, путь/URL, логин и пароль.
+        /// Если поле «Наименование» пустое — подставляет имя базы (Ref) или имя файла.
+        /// </summary>
+        private void OnPasteConnectionString_Click(object sender, RoutedEventArgs e)
+        {
+            string text;
+            try
+            {
+                text = Clipboard.ContainsText() ? Clipboard.GetText().Trim() : string.Empty;
+            }
+            catch
+            {
+                MessageBox.Show("Не удалось прочитать буфер обмена.",
+                    "Вставка строки подключения", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                MessageBox.Show("Буфер обмена пуст или не содержит текста.",
+                    "Вставка строки подключения", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var parsed = ConnectionSettings.ParseConnectionString(text);
+
+            // Применяем разобранные значения к полям ViewModel.
+            _viewModel.ConnectionType = parsed.Type;
+            _viewModel.Server = parsed.Server;
+            _viewModel.DatabaseName = parsed.DatabaseName;
+            _viewModel.FilePath = parsed.FilePath;
+            _viewModel.WebUrl = parsed.WebUrl;
+            _viewModel.User = parsed.User;
+            _viewModel.Password = parsed.Password;
+            _viewModel.AuthenticationMode = parsed.AuthenticationMode;
+            _viewModel.Port = parsed.Port;
+
+            // Если наименование не задано — предлагаем имя базы (Ref) или имя файла.
+            if (string.IsNullOrWhiteSpace(_viewModel.Name))
+            {
+                var suggestedName = parsed.Type switch
+                {
+                    ConnectionType.File => SuggestNameFromPath(parsed.FilePath),
+                    ConnectionType.WebServer => parsed.WebUrl,
+                    _ => parsed.DatabaseName
+                };
+                if (!string.IsNullOrWhiteSpace(suggestedName))
+                {
+                    _viewModel.Name = suggestedName;
+                }
+            }
+
+            MessageBox.Show("Строка подключения успешно разобрана и заполнена по полям.",
+                "Вставка строки подключения", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        /// <summary>
+        /// Формирует имя базы из пути к файловой базе (имя последнего каталога).
+        /// </summary>
+        private static string SuggestNameFromPath(string filePath)
+        {
+            var path = (filePath ?? string.Empty).Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(path))
+                return string.Empty;
+
+            var name = System.IO.Path.GetFileName(path.TrimEnd('\\', '/'));
+            return string.IsNullOrWhiteSpace(name) ? path : name;
+        }
+
+        /// <summary>
         /// Генерирует новый идентификатор базы в формате, совместимом с ibases.v8i (GUID без скобок).
         /// </summary>
         private void OnGenerateId_Click(object sender, RoutedEventArgs e)

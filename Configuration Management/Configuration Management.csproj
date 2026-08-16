@@ -10,9 +10,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyTitle>Управление конфигурациями 1С</AssemblyTitle>
     <Product>Управление конфигурациями 1С</Product>
-    <Version>0.2.5.92</Version>
-    <AssemblyVersion>0.2.5.92</AssemblyVersion>
-    <FileVersion>0.2.5.92</FileVersion>
+    <Version>0.2.5.96</Version>
+    <AssemblyVersion>0.2.5.96</AssemblyVersion>
+    <FileVersion>0.2.5.96</FileVersion>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
@@ -28,9 +28,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- WPF pack URI + файл рядом с exe + embedded для single-file трея -->
+    <!-- WPF pack URI + embedded для single-file трея (без копирования рядом с exe,
+         чтобы в результате публикации был только один файл) -->
     <Resource Include="app.ico" />
-    <Content Include="app.ico" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
   </ItemGroup>
 

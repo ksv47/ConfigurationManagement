@@ -942,19 +942,14 @@ public class MainViewModel : ViewModelBase
     /// <summary>Показывать колонку-кнопку «Закрепить» (📌) в списке баз.</summary>
     public bool ShowPinnedButton => _showPinnedButton;
 
-    /// <summary>Показывать теги баз в списке.</summary>
+    /// <summary>Показывать теги баз в списке (кнопка тегов в заголовке списка баз).</summary>
     public bool ShowTags
     {
         get => _showTags;
         set
         {
             if (SetProperty(ref _showTags, value))
-            {
-                // Вместе с тегами в строках — панель быстрого отбора.
-                _showTagFilterPanel = value;
-                OnPropertyChanged(nameof(ShowTagFilterPanel));
                 ScheduleSaveSettings();
-            }
         }
     }
 

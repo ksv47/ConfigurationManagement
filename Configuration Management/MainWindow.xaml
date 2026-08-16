@@ -119,11 +119,12 @@
                               Data="{StaticResource IconFolder}"
                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>
-                    <!-- Показывать теги: только иконка -->
-                    <ToggleButton IsChecked="{Binding ShowTags}"
+                    <!-- Показывать теги: включает теги и вверху (панель отбора), и в списке -->
+                    <ToggleButton IsChecked="{Binding ShowTagFilterPanel, Mode=TwoWay}"
+                                  Click="OnTopTagsToggle_Click"
                                   Style="{DynamicResource ToolbarToggleButton}"
                                   Margin="0,0,2,0"
-                                  ToolTip="Показывать / скрывать теги">
+                                  ToolTip="Показывать / скрывать теги (и панель тегов сверху, и теги в списке баз)">
                         <Path Width="18" Height="18" Stretch="Uniform"
                               Data="{StaticResource IconTag}"
                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
@@ -436,7 +437,7 @@
                                               Style="{DynamicResource ToolbarToggleButton}"
                                               VerticalAlignment="Center" HorizontalAlignment="Center"
                                               Margin="0,0,0,4"
-                                              ToolTip="Показывать / скрывать теги в списке баз">
+                                              ToolTip="Показывать / скрывать теги в списке баз (не влияет на панель тегов сверху)">
                                     <Path Width="14" Height="14" Stretch="Uniform"
                                           Data="{StaticResource IconTag}"
                                           Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>

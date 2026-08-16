@@ -138,6 +138,109 @@ public class ConnectionSettings
             _ => $"Srvr=\"{GetServerWithPort()}\";Ref=\"{DatabaseName}\""
         };
     }
+
+    /// <summary>
+    /// Разбирает строку подключения 1С на отдельные поля настроек.
+    /// Поддерживаются форматы:
+    /// File="C:\path"  |  WS="http://server/base"  |  Srvr="host";Ref="base";Usr="user";Pwd="pass"
+    /// Порт сервера (Srvr="host:port") выносится в отдельное свойство <see cref="Port"/>.
+    /// Возвращает новые настройки подключения, заполненные из разобранной строки.
+    /// </summary>
+    /// <param name="connectionString">Строка подключения 1С.</param>
+    public static ConnectionSettings ParseConnectionString(string? connectionString)
+    {
+        var settings = new ConnectionSettings();
+        var connect = (connectionString ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(connect))
+            return settings;
+
+        // Файловый режим: File="C:\path".
+        var filePath = ExtractQuoted(connect, "File");
+        if (filePath != null)
+        {
+            settings.Type = ConnectionType.File;
+            settings.FilePath = filePath;
+            return settings;
+        }
+
+        // Веб-публикация: WS="http://server/base".
+        var wsUrl = ExtractQuoted(connect, "WS");
+        if (wsUrl != null)
+        {
+            settings.Type = ConnectionType.WebServer;
+            settings.WebUrl = wsUrl;
+            return settings;
+        }
+
+        // Клиент-серверный режим: Srvr="host";Ref="base";Usr="user";Pwd="pass".
+        settings.Type = ConnectionType.ClientServer;
+        ParseServerAndPort(ExtractQuoted(connect, "Srvr"), settings);
+        settings.DatabaseName = ExtractQuoted(connect, "Ref") ?? string.Empty;
+        settings.User = ExtractQuoted(connect, "Usr") ?? string.Empty;
+        settings.Password = ExtractQuoted(connect, "Pwd") ?? string.Empty;
+
+        // Если указан логин — вход автоматический; иначе — запрос имени и пароля.
+        settings.AuthenticationMode = !string.IsNullOrWhiteSpace(settings.User)
+            ? AuthenticationMode.Credentials
+            : AuthenticationMode.Prompt;
+
+        return settings;
+    }
+
+    /// <summary>
+    /// Извлекает значение параметра из строки подключения 1С.
+    /// Например, для «Srvr="server"» вернёт «server».
+    /// Поддерживает пробелы вокруг знака «=» и значения без кавычек.
+    /// </summary>
+    private static string? ExtractQuoted(string source, string key)
+    {
+        var marker = key + "=";
+        var idx = source.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+        {
+            // Вариант с пробелом перед «=» (например, «Srvr = "server"»).
+            var spacedMarker = key + " =";
+            idx = source.IndexOf(spacedMarker, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+                return null;
+            idx += spacedMarker.Length - 1; // указываем на «=»
+        }
+        else
+        {
+            idx += marker.Length - 1; // указываем на «=»
+        }
+
+        var start = idx + 1; // сразу после «=»
+        if (start >= source.Length)
+            return null;
+
+        // Пропускаем пробелы.
+        while (start < source.Length && source[start] == ' ')
+            start++;
+
+        if (start >= source.Length)
+            return null;
+
+        // Значение в кавычках.
+        if (source[start] == '"')
+        {
+            var end = start + 1;
+            while (end < source.Length && source[end] != '"')
+                end++;
+
+            if (end >= source.Length)
+                return null;
+
+            return source.Substring(start + 1, end - start - 1);
+        }
+
+        // Значение без кавычек — до точки с запятой или конца строки.
+        var valueEnd = source.IndexOf(';', start);
+        if (valueEnd < 0)
+            valueEnd = source.Length;
+
+        return source.Substring(start, valueEnd - start).Trim();
+    }
 }
 
 /// <summary>

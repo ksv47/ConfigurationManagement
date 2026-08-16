@@ -241,6 +241,15 @@
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ServerNetwork" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                             <TextBlock Text="Тип и параметры подключения" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button Margin="16,0,0,0" Padding="8,2" FontSize="11"
+                                    Style="{DynamicResource SecondaryButton}"
+                                    Click="OnPasteConnectionString_Click"
+                                    ToolTip="Вставить строку подключения из буфера обмена с разбивкой по полям">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ContentPaste" Width="13" Height="13" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Вставить строку подключения" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
                     </GroupBox.Header>
                     <Grid>

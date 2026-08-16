@@ -1151,6 +1151,16 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Верхняя кнопка «теги»: помимо переключения панели быстрого отбора тегов
+        /// (привязка ShowTagFilterPanel) синхронно включает/выключает и теги в списке баз.
+        /// </summary>
+        private void OnTopTagsToggle_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is ToggleButton toggle && DataContext is MainViewModel vm)
+                vm.ShowTags = toggle.IsChecked == true;
+        }
+
+        /// <summary>
         /// Подстраивает ширину колонки-компенсатора заголовка (HeaderOffsetColumn) так,
         /// чтобы колонка «Название» заголовка совпадала с колонкой «Название» первой
         /// видимой строки базы в дереве.
