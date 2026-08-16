@@ -35,6 +35,12 @@ public class Infobase : INotifyPropertyChanged
     /// <summary>Группа, к которой относится база.</summary>
     public string Group { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Порядок отображения базы внутри группы (меньше — выше в списке).
+    /// Используется при перетаскивании между базами.
+    /// </summary>
+    public int SortOrder { get; set; }
+
     private bool _isFavorite;
 
     /// <summary>Признак избранной базы.</summary>
@@ -43,6 +49,28 @@ public class Infobase : INotifyPropertyChanged
         get => _isFavorite;
         set => SetProperty(ref _isFavorite, value);
     }
+
+    private int _favoriteHotkeyNumber;
+
+    /// <summary>
+    /// Номер горячей клавиши избранного (1–9 → Alt+N), 0 — не назначен.
+    /// Отображается рядом со звездой в списке.
+    /// </summary>
+    public int FavoriteHotkeyNumber
+    {
+        get => _favoriteHotkeyNumber;
+        set
+        {
+            if (SetProperty(ref _favoriteHotkeyNumber, value))
+                OnPropertyChanged(nameof(FavoriteHotkeyDisplay));
+        }
+    }
+
+    /// <summary>Текст номера для UI («1»…«9» или пусто).</summary>
+    public string FavoriteHotkeyDisplay =>
+        _favoriteHotkeyNumber >= 1 && _favoriteHotkeyNumber <= 9
+            ? _favoriteHotkeyNumber.ToString()
+            : string.Empty;
 
     private bool _isPinned;
 
@@ -62,8 +90,18 @@ public class Infobase : INotifyPropertyChanged
         set => SetProperty(ref _isSelected, value);
     }
 
+    private DateTime? _lastLaunchDate;
+
     /// <summary>Дата и время последнего запуска базы.</summary>
-    public DateTime? LastLaunchDate { get; set; }
+    public DateTime? LastLaunchDate
+    {
+        get => _lastLaunchDate;
+        set
+        {
+            if (SetProperty(ref _lastLaunchDate, value))
+                OnPropertyChanged(nameof(LastLaunchDisplay));
+        }
+    }
 
     private ConnectionSettings _connection = new();
 
@@ -84,13 +122,34 @@ public class Infobase : INotifyPropertyChanged
     public string PlatformVersion { get; set; } = string.Empty;
 
     /// <summary>Режим запуска (Автоматический, Тонкий клиент, Толстый клиент, Веб-клиент).</summary>
-    public string LaunchMode { get; set; } = "Автоматический";
+    private string _launchMode = "Автоматический";
+
+    /// <summary>Режим запуска (Автоматический, Тонкий клиент, Толстый клиент, Веб-клиент).</summary>
+    public string LaunchMode
+    {
+        get => _launchMode;
+        set
+        {
+            if (SetProperty(ref _launchMode, value ?? "Автоматический"))
+                OnPropertyChanged(nameof(ParsedLaunchMode));
+        }
+    }
 
     /// <summary>Дополнительные параметры запуска платформы 1С (например, /UC, /DisableStartupMessages и др.).</summary>
     public string LaunchParameters { get; set; } = string.Empty;
 
     /// <summary>Разрядность платформы при запуске базы («32» или «64» бита).</summary>
-    public string Architecture { get; set; } = "32";
+    public string Architecture { get; set; } = "32-priority";
+
+    /// <summary>Человекочитаемая разрядность для UI (как в лаунчере 1С).</summary>
+    public string ArchitectureDisplay => (Architecture ?? string.Empty).Trim().ToLowerInvariant() switch
+    {
+        "64" or "x64" => "64 (x86-64)",
+        "32" or "x86" => "32 (x86)",
+        "64-priority" => "Приоритет 64",
+        "32-priority" => "Приоритет 32",
+        _ => string.IsNullOrWhiteSpace(Architecture) ? "Приоритет 32" : Architecture
+    };
 
     /// <summary>Тип клиента (тонкий или толстый).</summary>
     public string ClientType { get; set; } = "Тонкий";
@@ -99,7 +158,27 @@ public class Infobase : INotifyPropertyChanged
     public string Description { get; set; } = string.Empty;
 
     /// <summary>Теги базы данных.</summary>
-    public List<string> Tags { get; set; } = new();
+    private List<string> _tags = new();
+
+    public List<string> Tags
+    {
+        get => _tags;
+        set
+        {
+            _tags = value ?? new List<string>();
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// Сообщает UI об изменении набора тегов.
+    /// Подменяет список новым экземпляром — иначе ItemsControl не обновляется.
+    /// </summary>
+    public void NotifyTagsChanged()
+    {
+        _tags = new List<string>(_tags);
+        OnPropertyChanged(nameof(Tags));
+    }
 
     /// <summary>Дерево метаданных конфигурации.</summary>
     public MetadataNode? MetadataRoot { get; set; }
@@ -141,6 +220,7 @@ public class Infobase : INotifyPropertyChanged
     public string ConnectionTypeDisplay => Connection.Type switch
     {
         ConnectionType.File => "Файловая",
+        ConnectionType.WebServer => "Веб-сервер",
         _ => "Клиент-серверная"
     };
 
@@ -172,6 +252,84 @@ public class Infobase : INotifyPropertyChanged
         LastLaunchDate.HasValue
             ? LastLaunchDate.Value.ToString("dd.MM.yyyy HH:mm")
             : "Не запускалась";
+
+    /// <summary>История запусков (до 30 последних записей).</summary>
+    private List<LaunchHistoryEntry> _launchHistory = new();
+
+    public List<LaunchHistoryEntry> LaunchHistory
+    {
+        get => _launchHistory;
+        set
+        {
+            _launchHistory = value ?? new List<LaunchHistoryEntry>();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(LaunchHistoryDisplay));
+        }
+    }
+
+    /// <summary>Краткий текст для UI: число записей / последний.</summary>
+    public string LaunchHistoryDisplay =>
+        _launchHistory.Count == 0
+            ? "Нет записей"
+            : $"{_launchHistory.Count} зап., посл.: {_launchHistory[0].Timestamp:dd.MM HH:mm}";
+
+    /// <summary>Добавить запись в историю (новые сверху, максимум 30).</summary>
+    public void AddLaunchHistory(string mode, string details = "")
+    {
+        _launchHistory.Insert(0, new LaunchHistoryEntry
+        {
+            Timestamp = DateTime.Now,
+            Mode = mode,
+            Details = details ?? ""
+        });
+        while (_launchHistory.Count > 30)
+            _launchHistory.RemoveAt(_launchHistory.Count - 1);
+        LastLaunchDate = DateTime.Now;
+        OnPropertyChanged(nameof(LaunchHistory));
+        OnPropertyChanged(nameof(LaunchHistoryDisplay));
+        OnPropertyChanged(nameof(LastLaunchDisplay));
+    }
+
+    private long? _fileSizeBytes;
+    private bool _fileSizeResolved;
+
+    /// <summary>Размер файловой ИБ в байтах (null — не файловая / не посчитан).</summary>
+    public long? FileSizeBytes
+    {
+        get => _fileSizeBytes;
+        set
+        {
+            if (SetProperty(ref _fileSizeBytes, value))
+            {
+                _fileSizeResolved = true;
+                OnPropertyChanged(nameof(FileSizeDisplay));
+            }
+        }
+    }
+
+    /// <summary>Размер для колонки списка.</summary>
+    public string FileSizeDisplay
+    {
+        get
+        {
+            if (Connection.Type != ConnectionType.File)
+                return "—";
+            if (!_fileSizeResolved || !_fileSizeBytes.HasValue)
+                return "…";
+            return FormatSize(_fileSizeBytes.Value);
+        }
+    }
+
+    public static string FormatSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} Б";
+        double kb = bytes / 1024.0;
+        if (kb < 1024) return $"{kb:0.#} КБ";
+        double mb = kb / 1024.0;
+        if (mb < 1024) return $"{mb:0.#} МБ";
+        double gb = mb / 1024.0;
+        return $"{gb:0.##} ГБ";
+    }
 
     /// <summary>
     /// Инициалы базы для отображения в аватаре списка.

@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Windows.Media;
+using Configuration_Management.Converters;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.ViewModels;
@@ -13,6 +15,9 @@ public class GroupNodeViewModel : ViewModelBase
 {
     private bool _isExpanded = true;
     private bool _isSelected;
+    private string? _fullPathCache;
+    private bool? _containsInfobasesCache;
+    private bool _suppressNotifications;
 
     /// <summary>
     /// Создаёт узел дерева для указанной группы.
@@ -28,7 +33,33 @@ public class GroupNodeViewModel : ViewModelBase
         Children = new ObservableCollection<GroupNodeViewModel>();
         Infobases = new ObservableCollection<Infobase>();
         Items = new ObservableCollection<object>();
+        // Кисти считаем один раз — без поиска группы по полному пути при каждой отрисовке.
+        var headerHex = group?.Color ?? "#2D6CDF";
+        // По умолчанию иконка белая — хорошо читается на цветном фоне заголовка.
+        var iconHex = !string.IsNullOrWhiteSpace(group?.IconColor) ? group!.IconColor : "#FFFFFF";
+        HeaderBrush = GroupColorConverter.GetBrush(headerHex);
+        HeaderTextBrush = GroupTextColorConverter.GetBrush(headerHex);
+        IconBrush = GroupColorConverter.GetBrush(iconHex);
+        Infobases.CollectionChanged += (_, _) =>
+        {
+            _containsInfobasesCache = null;
+            NotifyCountChanged();
+        };
+        Children.CollectionChanged += (_, _) =>
+        {
+            _containsInfobasesCache = null;
+            NotifyCountChanged();
+        };
     }
+
+    /// <summary>Кэшированная кисть фона заголовка группы (Freeze).</summary>
+    public Brush HeaderBrush { get; }
+
+    /// <summary>Кэшированная кисть текста заголовка (контраст к фону).</summary>
+    public Brush HeaderTextBrush { get; }
+
+    /// <summary>Кэшированная кисть иконки группы (может отличаться от цвета фона).</summary>
+    public Brush IconBrush { get; }
 
     /// <summary>Модель группы. Null для специальных узлов («Закреплённые», «Без группы»).</summary>
     public Group? Group { get; }
@@ -39,26 +70,55 @@ public class GroupNodeViewModel : ViewModelBase
     /// <summary>Имя группы для отображения (без пути).</summary>
     public string DisplayName { get; }
 
-    /// <summary>Полный путь группы в иерархии.</summary>
+    /// <summary>Полный путь группы в иерархии (кэшируется после первого обращения).</summary>
     public string FullPath
     {
         get
         {
+            if (_fullPathCache is not null)
+                return _fullPathCache;
+
             if (Group is null)
-                return string.Empty;
+                return _fullPathCache = string.Empty;
 
             var parts = new List<string>();
             for (var node = this; node is not null && node.Group is not null; node = node.Parent)
-            {
                 parts.Add(node.Group.Name);
-            }
             parts.Reverse();
-            return string.Join(GroupHierarchyHelper.PathSeparator, parts);
+            return _fullPathCache = string.Join(GroupHierarchyHelper.PathSeparator, parts);
         }
     }
 
-    /// <summary>Цвет группы.</summary>
+    /// <summary>Цвет фона заголовка группы.</summary>
     public string Color => Group?.Color ?? "#2D6CDF";
+
+    /// <summary>Цвет иконки (по умолчанию белый, если не задан отдельно).</summary>
+    public string IconColor =>
+        !string.IsNullOrWhiteSpace(Group?.IconColor) ? Group!.IconColor : "#FFFFFF";
+
+    /// <summary>
+    /// Ключ иконки группы (имя Geometry из Icons.xaml).
+    /// Для специальных узлов («Закреплённые», «Все базы», «Без группы») — фиксированные значения.
+    /// Для обычных групп берётся из Group.Icon; пустое значение → папка по умолчанию.
+    /// </summary>
+    public string Icon
+    {
+        get
+        {
+            if (Group is null)
+            {
+                return DisplayName switch
+                {
+                    "Закреплённые" => "IconPin",
+                    "Все базы" => "IconDatabase",
+                    "Без группы" => "IconFolder",
+                    _ => "IconFolder"
+                };
+            }
+
+            return string.IsNullOrWhiteSpace(Group.Icon) ? "IconFolder" : Group.Icon;
+        }
+    }
 
     /// <summary>Подгруппы текущего узла.</summary>
     public ObservableCollection<GroupNodeViewModel> Children { get; }
@@ -78,11 +138,45 @@ public class GroupNodeViewModel : ViewModelBase
     /// <summary>Признак наличия баз в группе.</summary>
     public bool HasInfobases => Infobases.Count > 0;
 
-    /// <summary>Признак наличия баз в группе или её подгруппах.</summary>
-    public bool ContainsInfobases => Infobases.Count > 0 || Children.Any(c => c.ContainsInfobases);
+    /// <summary>Признак наличия баз в группе или её подгруппах (с кэшем после PopulateItems).</summary>
+    public bool ContainsInfobases
+    {
+        get
+        {
+            if (_containsInfobasesCache.HasValue)
+                return _containsInfobasesCache.Value;
+            var value = Infobases.Count > 0 || Children.Any(c => c.ContainsInfobases);
+            _containsInfobasesCache = value;
+            return value;
+        }
+    }
 
-    /// <summary>Общее количество баз в группе и всех её подгруппах.</summary>
+    /// <summary>
+    /// Общее количество баз в группе и всех её подгруппах.
+    /// Уведомление UI — через <see cref="NotifyCountChanged"/>.
+    /// </summary>
     public int TotalInfobaseCount => Infobases.Count + Children.Sum(c => c.TotalInfobaseCount);
+
+    /// <summary>
+    /// Сообщает привязкам об изменении счётчика (и поднимает уведомление по родителям).
+    /// </summary>
+    public void NotifyCountChanged()
+    {
+        if (_suppressNotifications)
+            return;
+        OnPropertyChanged(nameof(TotalInfobaseCount));
+        OnPropertyChanged(nameof(HasInfobases));
+        OnPropertyChanged(nameof(ContainsInfobases));
+        Parent?.NotifyCountChanged();
+    }
+
+    /// <summary>Включить/выключить уведомления при массовом заполнении (перестройка дерева).</summary>
+    public void SetNotificationsSuppressed(bool suppress)
+    {
+        _suppressNotifications = suppress;
+        foreach (var child in Children)
+            child.SetNotificationsSuppressed(suppress);
+    }
 
     /// <summary>Состояние развёрнутости узла в дереве.</summary>
     public bool IsExpanded
@@ -90,6 +184,14 @@ public class GroupNodeViewModel : ViewModelBase
         get => _isExpanded;
         set => SetProperty(ref _isExpanded, value);
     }
+
+    /// <summary>
+    /// Устанавливает развёрнутость без PropertyChanged (массовые expand/collapse).
+    /// </summary>
+    public void SetExpandedSilent(bool expanded) => _isExpanded = expanded;
+
+    /// <summary>Сообщить UI о текущем IsExpanded (даже если значение не менялось).</summary>
+    public void NotifyIsExpanded() => OnPropertyChanged(nameof(IsExpanded));
 
     /// <summary>Состояние выделенности узла в дереве.</summary>
     public bool IsSelected
@@ -105,22 +207,30 @@ public class GroupNodeViewModel : ViewModelBase
     public void PopulateItems()
     {
         foreach (var child in Children)
-        {
             child.PopulateItems();
-        }
 
-        Items.Clear();
-        foreach (var child in Children)
+        _containsInfobasesCache = null;
+        _suppressNotifications = true;
+        try
         {
-            if (child.ContainsInfobases)
+            Items.Clear();
+            foreach (var child in Children)
             {
-                Items.Add(child);
+                if (child.ContainsInfobases)
+                    Items.Add(child);
             }
+            foreach (var infobase in Infobases)
+                Items.Add(infobase);
+            _containsInfobasesCache = Infobases.Count > 0 || Children.Any(c => c.ContainsInfobases);
         }
-        foreach (var infobase in Infobases)
+        finally
         {
-            Items.Add(infobase);
+            _suppressNotifications = false;
         }
+        // Одно уведомление после заполнения узла (родители обновятся при своём PopulateItems / с корня).
+        OnPropertyChanged(nameof(TotalInfobaseCount));
+        OnPropertyChanged(nameof(HasInfobases));
+        OnPropertyChanged(nameof(ContainsInfobases));
     }
 
     /// <summary>

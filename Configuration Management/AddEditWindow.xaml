@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="Добавление в список"
         Icon="{StaticResource AppIcon}"
@@ -72,11 +73,49 @@
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="📋" FontSize="24" VerticalAlignment="Center"
+                               Foreground="{DynamicResource AccentBrush}"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Существующая база" FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Text="Добавить в список уже созданную информационную базу 1С."
+                                   TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Grid>
+            </RadioButton>
+
+            <RadioButton Style="{StaticResource OptionRadioButton}"
+                         GroupName="AddType"
+                         Tag="CreateEmpty" Checked="OnOption_Checked">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="36"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="💾" FontSize="24" VerticalAlignment="Center"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="Информационная база" FontWeight="SemiBold" FontSize="14"/>
-                        <TextBlock Text="Создать новую информационную базу 1С (файловую или клиент-серверную)."
+                        <TextBlock Text="Создать пустую базу" FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Text="Создать новую пустую ИБ (файловую или на сервере) через CREATEINFOBASE."
+                                   TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Grid>
+            </RadioButton>
+
+            <RadioButton Style="{StaticResource OptionRadioButton}"
+                         GroupName="AddType"
+                         Tag="CreateFromTemplate" Checked="OnOption_Checked">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="36"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="📦" FontSize="24" VerticalAlignment="Center"
+                               Foreground="{DynamicResource AccentBrush}"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Создать из шаблона" FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Text="Создать базу из шаблона (.cf / .dt) — как в стандартном стартере 1С."
                                    TextWrapping="Wrap" FontSize="12"
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
@@ -103,19 +142,53 @@
             </RadioButton>
         </StackPanel>
 
-        <!-- Кнопки -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button Width="120" Height="34" Style="{DynamicResource ModernButton}"
-                    Margin="0,0,10,0" IsDefault="True" Click="OnNext_Click">
+        <!-- Кнопки — как в окне настроек (зелёная Далее / красная Отмена) -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Width="130" Height="36" Margin="0,0,10,0" IsDefault="True" Click="OnNext_Click"
+                    Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="12,8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#15803D"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#166534"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="➡" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Далее" VerticalAlignment="Center"/>
+                    <materialDesign:PackIcon Kind="ArrowRight" Width="16" Height="16" Foreground="White"
+                                             Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Далее" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
-            <Button Width="120" Height="34" Style="{DynamicResource SecondaryButton}" IsCancel="True">
+            <Button Width="130" Height="36" IsCancel="True"
+                    Background="Transparent" Cursor="Hand" BorderThickness="1.5"
+                    BorderBrush="#EF4444" Foreground="#EF4444">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="12,8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#FEF2F2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✖" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center"/>
+                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444"
+                                             Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
         </StackPanel>

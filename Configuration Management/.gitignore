@@ -1,0 +1,30 @@
+## Build
+bin/
+obj/
+publish/
+out/
+artifacts/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+
+## IDE
+.vs/
+.idea/
+*.swp
+*~
+
+## Logs / local
+*.log
+logs/
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store

@@ -1,14 +1,26 @@
 namespace Configuration_Management.Models;
 
 /// <summary>
-/// Группа установленных версий платформы 1С, объединённых по мажорной версии
-/// (например, «8.3.27»). Содержит полные версии (например, «8.3.27.1234»).
+/// Узел дерева платформ: линия (8.3) → разрядность (64/32) → сборка с путём.
 /// </summary>
 public class PlatformVersionGroup
 {
-    /// <summary>Мажорная версия группы (например, «8.3.27»).</summary>
+    /// <summary>Заголовок узла (линия, «64-разрядная» или Display сборки).</summary>
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>Полные версии платформы, входящие в группу.</summary>
-    public List<string> Versions { get; set; } = new();
+    /// <summary>Путь к папке версии (только у листьев).</summary>
+    public string? Path { get; set; }
+
+    /// <summary>Строка варианта для выбора, например «8.3.27.1688 (64)» (только у листьев).</summary>
+    public string? Variant { get; set; }
+
+    /// <summary>Вложенные узлы (для групп).</summary>
+    public List<PlatformVersionGroup> Children { get; set; } = new();
+
+    /// <summary>Листья (сборки) — для обратной совместимости с шаблонами, где ItemsSource=Versions.</summary>
+    public List<PlatformVersionInfo> Versions { get; set; } = new();
+
+    public bool IsLeaf => !string.IsNullOrEmpty(Variant);
+
+    public override string ToString() => Name;
 }

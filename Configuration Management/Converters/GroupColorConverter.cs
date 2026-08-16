@@ -1,47 +1,52 @@
-using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media;
-using Configuration_Management.Models;
 
 namespace Configuration_Management.Converters;
 
 /// <summary>
-/// Возвращает кисть цвета группы по её имени и списку групп.
-/// Используется для окрашивания фона заголовка группы в списке.
+/// Кисть фона заголовка группы. Предпочитает готовое значение Brush из values[0];
+/// иначе берёт цвет из строки (hex). Кисти кэшируются и Freeze().
 /// </summary>
 public class GroupColorConverter : IMultiValueConverter
 {
+    private static readonly ConcurrentDictionary<string, SolidColorBrush> Cache = new(StringComparer.OrdinalIgnoreCase);
+
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
-        var groupPath = values[0]?.ToString() ?? string.Empty;
+        if (values.Length > 0 && values[0] is SolidColorBrush ready)
+            return ready;
 
-        if (values.Length > 1 && values[1] is ObservableCollection<Group> groups)
-        {
-            // Ищем группу по полному пути в иерархии (например, «Учёт / Бухгалтерия»).
-            var group = groups.FirstOrDefault(g =>
-                string.Equals(GroupHierarchyHelper.GetFullPath(g, groups), groupPath, StringComparison.OrdinalIgnoreCase));
-            if (group is not null)
-            {
-                return CreateBrush(group.Color);
-            }
-        }
+        // values[0] — hex-цвет группы (или FullPath в старых привязках — тогда fallback).
+        var hex = values.Length > 0 ? values[0]?.ToString() : null;
+        if (string.IsNullOrWhiteSpace(hex) || !hex.StartsWith('#'))
+            hex = "#2D6CDF";
 
-        return CreateBrush("#2D6CDF");
+        return GetBrush(hex);
     }
 
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
 
-    private static SolidColorBrush CreateBrush(string hex)
+    public static SolidColorBrush GetBrush(string hex)
     {
-        try
+        return Cache.GetOrAdd(hex ?? "#2D6CDF", key =>
         {
-            return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
-        }
-        catch
-        {
-            return new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D6CDF"));
-        }
+            try
+            {
+                var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(key));
+                if (brush.CanFreeze)
+                    brush.Freeze();
+                return brush;
+            }
+            catch
+            {
+                var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D6CDF"));
+                if (brush.CanFreeze)
+                    brush.Freeze();
+                return brush;
+            }
+        });
     }
 }

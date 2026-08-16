@@ -1,0 +1,198 @@
+<Window x:Class="Configuration_Management.CreateInfobaseWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Создание информационной базы"
+        Icon="{StaticResource AppIcon}"
+        Width="620" Height="640" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        MaxHeight="800"
+        FontFamily="Segoe UI" FontSize="13"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ContentBackgroundBrush}">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="200"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,12"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
+                   Text="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"/>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Padding="0,0,4,0">
+        <StackPanel>
+            <TextBlock Text="Наименование:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+            <TextBox x:Name="NameBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12"
+                     Padding="6,4"/>
+
+            <TextBlock Text="Тип базы:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                <RadioButton x:Name="FileTypeRadio" Content="Файловая" IsChecked="True"
+                             GroupName="DbType" Margin="0,0,16,0" Checked="OnType_Changed"
+                             Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <RadioButton x:Name="ServerTypeRadio" Content="Клиент-серверная"
+                             GroupName="DbType" Checked="OnType_Changed"
+                             Foreground="{DynamicResource TextPrimaryBrush}"/>
+            </StackPanel>
+
+            <StackPanel x:Name="FilePanel">
+                <TextBlock Text="Каталог базы:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="FilePathBox" Style="{DynamicResource ModernTextBox}" Padding="6,4"/>
+                    <Button Grid.Column="1" Margin="8,0,0,0" Padding="10,4"
+                            Style="{DynamicResource SecondaryButton}" Click="OnBrowseFolder_Click"
+                            Content="Обзор…"/>
+                </Grid>
+            </StackPanel>
+
+            <StackPanel x:Name="ServerPanel" Visibility="Collapsed">
+                <TextBlock Text="Сервер 1С:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                <TextBox x:Name="ServerBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,8" Padding="6,4"
+                         ToolTip="Имя сервера, например Server1C или Server1C:1541"/>
+                <TextBlock Text="Имя базы (Ref):" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                <TextBox x:Name="RefBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12" Padding="6,4"/>
+            </StackPanel>
+
+            <StackPanel x:Name="TemplatePanel" Visibility="Collapsed">
+                <TextBlock Text="Шаблоны из манифестов 1cv8.mft (как в стартере 1С) — дерево по полю Catalog:"
+                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                <TextBlock x:Name="TemplateRootsHint" FontSize="11" Margin="0,0,0,6" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <TreeView x:Name="TemplateTree" Height="260" Margin="0,0,0,6"
+                          BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                          Background="{DynamicResource CardBackgroundBrush}"
+                          SelectedItemChanged="OnTemplateTree_SelectedItemChanged"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <TreeView.ItemTemplate>
+                        <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                            <StackPanel Margin="2,3" MaxWidth="520">
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding Subtitle}" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                           MaxHeight="36"/>
+                            </StackPanel>
+                        </HierarchicalDataTemplate>
+                    </TreeView.ItemTemplate>
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem" BasedOn="{StaticResource ModernTreeViewItem}">
+                            <Setter Property="IsExpanded" Value="True"/>
+                            <Setter Property="Padding" Value="2,1"/>
+                        </Style>
+                    </TreeView.ItemContainerStyle>
+                </TreeView>
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="TemplateBox" Style="{DynamicResource ModernTextBox}" Padding="6,4"
+                             ToolTip="Путь к файлу шаблона (.cf / .dt)"/>
+                    <Button Grid.Column="1" Margin="8,0,0,0" Padding="10,4"
+                            Style="{DynamicResource SecondaryButton}" Click="OnRefreshTemplates_Click"
+                            Content="Обновить" ToolTip="Повторно просканировать каталоги tmplts"/>
+                    <Button Grid.Column="2" Margin="8,0,0,0" Padding="10,4"
+                            Style="{DynamicResource SecondaryButton}" Click="OnBrowseTemplate_Click"
+                            Content="Файл…" ToolTip="Выбрать файл шаблона вручную"/>
+                </Grid>
+            </StackPanel>
+
+            <TextBlock Text="Версия платформы:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="PlatformBox" Style="{DynamicResource ModernTextBox}" Padding="6,4"
+                         IsReadOnly="True"
+                         ToolTip="Выбранная версия платформы 1С"/>
+                <Button Grid.Column="1" Margin="8,0,0,0" Padding="10,4"
+                        Style="{DynamicResource SecondaryButton}" Click="OnPickPlatform_Click"
+                        Content="Список…" ToolTip="Выбрать из установленных версий"/>
+                <Button Grid.Column="2" Margin="6,0,0,0" Padding="10,4"
+                        Style="{DynamicResource SecondaryButton}" Click="OnEditPlatformPaths_Click"
+                        Content="Пути…" ToolTip="Дополнительные каталоги поиска платформ"/>
+            </Grid>
+
+            <TextBlock Text="Группа в списке:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="GroupPathBox" IsReadOnly="True" Style="{DynamicResource ModernTextBox}"
+                         Padding="6,4"
+                         ToolTip="Группа, в которую будет добавлена база после создания"/>
+                <Button Grid.Column="1" Margin="8,0,0,0" Padding="10,4"
+                        Style="{DynamicResource SecondaryButton}" Click="OnPickGroup_Click"
+                        Content="Выбрать…" ToolTip="Выбрать группу из списка"/>
+            </Grid>
+            <TextBlock x:Name="HintText" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Width="140" Height="36" Margin="0,0,10,0" IsDefault="True" Click="OnCreate_Click"
+                    Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="12,8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#15803D"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#166534"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="DatabasePlus" Width="16" Height="16" Margin="0,0,8,0"
+                                             VerticalAlignment="Center" Foreground="White"/>
+                    <TextBlock Text="Создать" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+            <Button Width="130" Height="36" IsCancel="True"
+                    Background="Transparent" Cursor="Hand" BorderThickness="1.5"
+                    BorderBrush="#EF4444" Foreground="#EF4444">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="12,8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#FEF2F2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444"
+                                             Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

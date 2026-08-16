@@ -22,8 +22,20 @@ public class Group
     /// <summary>Описание группы.</summary>
     public string Description { get; set; } = string.Empty;
 
-    /// <summary>Цвет группы (в формате #RRGGBB).</summary>
+    /// <summary>Цвет фона заголовка группы в списке (в формате #RRGGBB).</summary>
     public string Color { get; set; } = "#2D6CDF";
+
+    /// <summary>
+    /// Цвет иконки группы (в формате #RRGGBB).
+    /// Пустая строка или не задано — белый (#FFFFFF), чтобы иконка читалась на цветном фоне.
+    /// </summary>
+    public string IconColor { get; set; } = "#FFFFFF";
+
+    /// <summary>
+    /// Ключ иконки группы (имя Geometry из Icons.xaml, например IconFolder, IconDatabase).
+    /// Пустая строка — иконка по умолчанию.
+    /// </summary>
+    public string Icon { get; set; } = string.Empty;
 
     /// <summary>
     /// Возвращает строковое представление группы.
