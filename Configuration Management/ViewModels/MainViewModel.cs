@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Linq;
 using Microsoft.Win32;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
@@ -1580,7 +1581,8 @@ public class MainViewModel : ViewModelBase
             default:
             {
                 // Существующая база — только регистрация в списке.
-                var dialog = new ConnectionSettingsWindow(null, Groups, _installedPlatformVersions, defaultGroupPath)
+                var dialog = new ConnectionSettingsWindow(null, Groups, _installedPlatformVersions, defaultGroupPath,
+                    availableServers: GetAvailableServers())
                 {
                     Owner = Application.Current.MainWindow
                 };
@@ -1620,6 +1622,20 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Возвращает список серверов 1С из клиент-серверных баз списка (без дублей, по алфавиту).
+    /// Используется для выпадающего списка «Сервер» в окне настройки подключения.
+    /// </summary>
+    private IEnumerable<string> GetAvailableServers()
+    {
+        return Infobases
+            .Where(b => b?.Connection?.Type == ConnectionType.ClientServer)
+            .Select(b => b.Connection!.Server?.Trim() ?? string.Empty)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Редактирует выбранный элемент: базу — через окно подключения, группу — через окно группы.
     /// Тип элемента при редактировании изменить нельзя (база не станет группой и наоборот).
     /// </summary>
@@ -1635,7 +1651,8 @@ public class MainViewModel : ViewModelBase
         if (SelectedInfobase is null)
             return;
 
-        var dialog = new ConnectionSettingsWindow(SelectedInfobase, Groups, _installedPlatformVersions)
+        var dialog = new ConnectionSettingsWindow(SelectedInfobase, Groups, _installedPlatformVersions,
+            availableServers: GetAvailableServers())
         {
             Owner = Application.Current.MainWindow
         };

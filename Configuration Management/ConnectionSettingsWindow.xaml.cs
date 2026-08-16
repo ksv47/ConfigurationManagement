@@ -19,12 +19,16 @@ namespace Configuration_Management
         /// <param name="infobase">База для редактирования. Если null — создаётся новая база.</param>
         /// <param name="groups">Список доступных групп для выбора.</param>
         /// <param name="installedPlatformVersions">Список установленных версий платформы 1С.</param>
+        /// <param name="defaultGroupPath">Путь группы по умолчанию для новой базы.</param>
+        /// <param name="availableServers">Список серверов 1С из других баз списка для выпадающего списка.</param>
         public ConnectionSettingsWindow(Infobase? infobase = null, IEnumerable<Group>? groups = null,
-            IEnumerable<string>? installedPlatformVersions = null, string? defaultGroupPath = null)
+            IEnumerable<string>? installedPlatformVersions = null, string? defaultGroupPath = null,
+            IEnumerable<string>? availableServers = null)
         {
             InitializeComponent();
             _viewModel = new ConnectionSettingsViewModel(groups);
             _viewModel.SetInstalledPlatformVersions(installedPlatformVersions ?? new List<string>());
+            _viewModel.SetAvailableServers(availableServers);
             if (infobase != null)
             {
                 _viewModel.LoadFrom(infobase);

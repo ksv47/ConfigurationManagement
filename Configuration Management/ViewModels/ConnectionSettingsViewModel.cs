@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.ViewModels;
@@ -219,6 +220,31 @@ public class ConnectionSettingsViewModel : ViewModelBase
         foreach (var version in versions)
         {
             InstalledPlatformVersions.Add(version);
+        }
+    }
+
+    /// <summary>
+    /// Список доступных серверов 1С (из клиент-серверных баз в списке) для выпадающего списка.
+    /// </summary>
+    public ObservableCollection<string> AvailableServers { get; } = new();
+
+    /// <summary>
+    /// Устанавливает список доступных серверов 1С из других баз списка.
+    /// Сортируем по алфавиту и исключаем пустые значения.
+    /// </summary>
+    public void SetAvailableServers(IEnumerable<string>? servers)
+    {
+        AvailableServers.Clear();
+        if (servers is null)
+            return;
+
+        foreach (var server in servers
+                     .Where(s => !string.IsNullOrWhiteSpace(s))
+                     .Select(s => s.Trim())
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
+        {
+            AvailableServers.Add(server);
         }
     }
 

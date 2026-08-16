@@ -319,7 +319,16 @@
                             </Border>
                         </StackPanel>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Сервер:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Server, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+                        <!-- Стиль ModernComboBox переопределяет шаблон без PART_EditableTextBox и не поддерживает
+                             редактируемый режим, поэтому для поля сервера отключаем его (Style={x:Null}),
+                             чтобы можно было и выбрать сервер из списка, и ввести его вручную. -->
+                        <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,3" Padding="6,4"
+                                  Style="{x:Null}"
+                                  IsEditable="True"
+                                  ItemsSource="{Binding AvailableServers}"
+                                  Text="{Binding Server, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="Имя сервера 1С. Можно выбрать из существующих баз или ввести вручную."
+                                  Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Имя базы:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DatabaseName, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Порт сервера:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
