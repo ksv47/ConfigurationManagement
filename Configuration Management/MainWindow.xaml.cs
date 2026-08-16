@@ -1,4 +1,6 @@
-﻿using System.Reflection;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -770,6 +772,22 @@ namespace Configuration_Management
         {
             var key = e.Key == Key.System ? e.SystemKey : e.Key;
 
+            // Стрелки ↑/↓/←/→ управляют выделением в списке баз, только если
+            // фокус находится в пределах дерева и не в поле ввода текста.
+            // Это гарантирует, что стрелки всегда перемещают выделение по дереву,
+            // а не «прыгают» по кнопкам внутри строки (избранное, закрепление, теги).
+            if (key is Key.Up or Key.Down or Key.Left or Key.Right &&
+                Keyboard.Modifiers == ModifierKeys.None &&
+                Keyboard.FocusedElement is not TextBox &&
+                IsFocusInsideMainTree())
+            {
+                if (HandleArrowNavigation(key))
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             // Esc → в трей (если включено в настройках)
             if (key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None)
             {
@@ -810,6 +828,276 @@ namespace Configuration_Management
                 _viewModel.LaunchFavoriteByHotkey(key - Key.NumPad0);
                 e.Handled = true;
             }
+        }
+
+        /// <summary>
+        /// Определяет, находится ли клавиатурный фокус внутри дерева баз.
+        /// Возвращает false, если фокус вне дерева (поле поиска, кнопка верхней панели и т.п.).
+        /// </summary>
+        private bool IsFocusInsideMainTree()
+        {
+            var focused = Keyboard.FocusedElement as DependencyObject;
+            return focused is not null && MainTree is not null &&
+                   IsDescendantOf(focused, MainTree);
+        }
+
+        /// <summary>
+        /// Проверяет, является ли <paramref name="candidate"/> потомком <paramref name="root"/> в визуальном дереве.
+        /// </summary>
+        private static bool IsDescendantOf(DependencyObject candidate, DependencyObject root)
+        {
+            for (var current = candidate; current is not null; current = VisualTreeHelper.GetParent(current))
+            {
+                if (ReferenceEquals(current, root))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Обрабатывает нажатие стрелки для навигации по дереву баз.
+        /// ↑/↓ — перемещение по видимым строкам, ←/→ — раскрытие/сворачивание групп.
+        /// Возвращает true, если событие обработано.
+        /// </summary>
+        private bool HandleArrowNavigation(Key key)
+        {
+            if (MainTree is null || _viewModel.GroupNodes.Count == 0)
+                return false;
+
+            // ↑/↓ — перемещение выделения по видимым узлам дерева.
+            if (key is Key.Up or Key.Down)
+            {
+                var visible = GetVisibleTreeNodes();
+                if (visible.Count == 0)
+                    return false;
+
+                var current = FindCurrentTreeNode(visible);
+                var index = current is null ? -1 : visible.IndexOf(current);
+                int targetIndex;
+
+                if (current is null)
+                {
+                    targetIndex = key == Key.Down ? 0 : visible.Count - 1;
+                }
+                else
+                {
+                    var last = visible.Count - 1;
+                    targetIndex = key == Key.Down
+                        ? (index >= last ? last : index + 1)
+                        : (index <= 0 ? 0 : index - 1);
+                }
+
+                if (targetIndex == index && current is not null)
+                    return false;
+
+                SelectTreeNode(visible[targetIndex]);
+                return true;
+            }
+
+            // ←/→ — раскрытие/сворачивание выбранной группы.
+            var selectedGroup = _viewModel.SelectedGroupNode ?? (_viewModel.SelectedInfobase is null
+                ? null
+                : FindGroupNodeByInfobase(_viewModel.SelectedInfobase));
+
+            if (selectedGroup is not null)
+            {
+                if (key == Key.Right && !selectedGroup.IsExpanded && selectedGroup.Items.Count > 0)
+                {
+                    _viewModel.ToggleGroupExpandedCommand.Execute(selectedGroup);
+                    return true;
+                }
+                if (key == Key.Left && selectedGroup.IsExpanded)
+                {
+                    _viewModel.ToggleGroupExpandedCommand.Execute(selectedGroup);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Собирает список узлов дерева в порядке их отображения (сверху вниз),
+        /// включая развёрнутые подгруппы. Возвращает элементы GroupNodeViewModel и Infobase.
+        /// </summary>
+        private List<object> GetVisibleTreeNodes()
+        {
+            var result = new List<object>();
+            foreach (var root in _viewModel.GroupNodes)
+                AppendVisible(root, result);
+            return result;
+        }
+
+        private static void AppendVisible(object node, List<object> result)
+        {
+            result.Add(node);
+
+            if (node is not GroupNodeViewModel group || !group.IsExpanded)
+                return;
+
+            foreach (var item in group.Items)
+                AppendVisible(item, result);
+        }
+
+        /// <summary>
+        /// Определяет текущий выбранный узел дерева по модели представления.
+        /// </summary>
+        private object? FindCurrentTreeNode(List<object> visible)
+        {
+            if (_viewModel.SelectedInfobase is not null)
+            {
+                foreach (var node in visible)
+                {
+                    if (ReferenceEquals(node, _viewModel.SelectedInfobase))
+                        return node;
+                }
+                return _viewModel.SelectedInfobase;
+            }
+
+            if (_viewModel.SelectedGroupNode is not null)
+            {
+                foreach (var node in visible)
+                {
+                    if (ReferenceEquals(node, _viewModel.SelectedGroupNode))
+                        return node;
+                }
+                return _viewModel.SelectedGroupNode;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Выделяет указанный узел дерева (группу или базу), синхронизирует модель
+        /// и переводит фокус на соответствующий TreeViewItem, чтобы дальнейшая
+        /// навигация стрелками была стабильной и не «прыгала» на кнопки.
+        /// </summary>
+        private void SelectTreeNode(object node)
+        {
+            var item = FindTreeViewItemForData(node);
+            switch (node)
+            {
+                case Infobase infobase:
+                    if (item is not null)
+                        ApplySelection(item, infobase);
+                    else
+                        _viewModel.SelectedInfobase = infobase;
+                    break;
+                case GroupNodeViewModel group when group.Group is not null:
+                    if (item is not null)
+                        ApplyGroupSelection(item, group);
+                    else
+                        _viewModel.SelectedGroupNode = group;
+                    break;
+            }
+
+            if (item is not null)
+            {
+                item.Focus();
+                Keyboard.Focus(item);
+            }
+            else
+            {
+                Keyboard.Focus(MainTree);
+            }
+
+            // Прокручиваем список к выбранной строке (отложенно, чтобы контейнер
+            // виртуализированного узла успел создаться после установки выделения).
+            var scrollTarget = item;
+            Dispatcher.BeginInvoke(new Action(() => ScrollSelectedIntoView(scrollTarget)),
+                System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        /// <summary>
+        /// Прокручивает список так, чтобы указанный элемент дерева был в зоне видимости.
+        /// Использует внутренний ScrollViewer дерева (вертикальная прокрутка списка).
+        /// </summary>
+        private void ScrollSelectedIntoView(TreeViewItem? item)
+        {
+            if (item is null)
+                return;
+
+            var scrollViewer = GetTreeScrollViewer();
+            if (scrollViewer is null)
+                return;
+
+            try
+            {
+                var point = item.TransformToAncestor(scrollViewer).Transform(new Point(0, 0));
+                var top = point.Y;
+                var bottom = top + item.ActualHeight;
+
+                if (top < scrollViewer.VerticalOffset)
+                {
+                    scrollViewer.ScrollToVerticalOffset(top);
+                }
+                else if (bottom > scrollViewer.VerticalOffset + scrollViewer.ViewportHeight)
+                {
+                    scrollViewer.ScrollToVerticalOffset(bottom - scrollViewer.ViewportHeight);
+                }
+            }
+            catch
+            {
+                // Элемент мог отсоединиться от визуального дерева — игнорируем.
+            }
+        }
+
+        /// <summary>
+        /// Возвращает контейнер TreeViewItem для указанного DataContext
+        /// (поиск по всем раскрытым уровням дерева).
+        /// </summary>
+        private TreeViewItem? FindTreeViewItemForData(object data)
+        {
+            if (MainTree is null)
+                return null;
+            return FindTreeViewItemIn(MainTree, data);
+        }
+
+        private static TreeViewItem? FindTreeViewItemIn(ItemsControl parent, object data)
+        {
+            for (var i = 0; i < parent.Items.Count; i++)
+            {
+                if (parent.ItemContainerGenerator.ContainerFromIndex(i) is not TreeViewItem tvi)
+                    continue;
+
+                if (ReferenceEquals(tvi.DataContext, data))
+                    return tvi;
+
+                if (tvi.Items.Count > 0)
+                {
+                    var found = FindTreeViewItemIn(tvi, data);
+                    if (found is not null)
+                        return found;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Находит узел группы, в котором размещена указанная база.
+        /// </summary>
+        private GroupNodeViewModel? FindGroupNodeByInfobase(Infobase infobase)
+        {
+            foreach (var root in _viewModel.GroupNodes)
+            {
+                var found = FindInNode(root, infobase);
+                if (found is not null)
+                    return found;
+            }
+            return null;
+        }
+
+        private static GroupNodeViewModel? FindInNode(GroupNodeViewModel node, Infobase infobase)
+        {
+            foreach (var child in node.Children)
+            {
+                var found = FindInNode(child, infobase);
+                if (found is not null)
+                    return found;
+            }
+            if (node.Infobases.Any(ib => ReferenceEquals(ib, infobase)))
+                return node;
+            return null;
         }
 
         /// <summary>
@@ -1111,6 +1399,19 @@ namespace Configuration_Management
                     _draggedData = null;
                     return;
             }
+
+            // Переводим клавиатурный фокус на строку дерева (отложенно, после завершения
+            // обработки клика), чтобы последующие нажатия стрелок управляли выделением
+            // в дереве, а не «прыгали» по кнопкам внутри строки.
+            var focusTarget = treeViewItem;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (focusTarget is not null)
+                {
+                    focusTarget.Focus();
+                    Keyboard.Focus(focusTarget);
+                }
+            }), System.Windows.Threading.DispatcherPriority.Input);
 
             // Помечаем клик обработанным, чтобы TreeView не сбросил выбранный элемент.
             e.Handled = true;

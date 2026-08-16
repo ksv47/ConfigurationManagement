@@ -430,13 +430,17 @@
                                     </Button>
                                 </StackPanel>
 
-                                <!-- Иконки колонок избранного / закрепления -->
-                                <materialDesign:PackIcon Grid.Column="2" Kind="Star" Width="14" Height="14"
-                                                         VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                         Margin="0,0,0,4"
-                                                         Foreground="{DynamicResource TextSecondaryBrush}"
-                                                         ToolTip="Избранное"
-                                                         Visibility="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
+                                <!-- Переключатель видимости тегов в списке (заменяет неактивный значок «Избранное») -->
+                                <ToggleButton Grid.Column="2"
+                                              IsChecked="{Binding DataContext.ShowTags, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              Style="{DynamicResource ToolbarToggleButton}"
+                                              VerticalAlignment="Center" HorizontalAlignment="Center"
+                                              Margin="0,0,0,4"
+                                              ToolTip="Показывать / скрывать теги в списке баз">
+                                    <Path Width="14" Height="14" Stretch="Uniform"
+                                          Data="{StaticResource IconTag}"
+                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                                </ToggleButton>
                                 <materialDesign:PackIcon Grid.Column="3" Kind="Pin" Width="14" Height="14"
                                                          VerticalAlignment="Center" HorizontalAlignment="Center"
                                                          Margin="0,0,0,4"

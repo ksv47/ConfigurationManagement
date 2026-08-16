@@ -90,6 +90,13 @@ public static class OneCLauncher
     public static OneCArchitecture ResolveArchitecture(string? architectureSetting, string? platformVersion)
     {
         var mode = (architectureSetting ?? string.Empty).Trim().ToLowerInvariant();
+
+        // Если в версии платформы явно указан суффикс разрядности («8.3.27.1688 (64)») —
+        // он имеет приоритет над настройкой разрядности: пользователь выбрал конкретную сборку.
+        PlatformVersionService.ParseVariant(platformVersion ?? string.Empty, out var cleanVersion, out var versionArch);
+        if (!string.IsNullOrWhiteSpace(cleanVersion) && (versionArch == "32" || versionArch == "64"))
+            return versionArch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86;
+
         if (mode is "64" or "x64" or "x86-64" or "x86_64")
             return OneCArchitecture.x64;
         if (mode is "32" or "x86")
@@ -97,7 +104,8 @@ public static class OneCLauncher
 
         // Приоритетные режимы: сравниваем лучшие доступные версии 32 и 64.
         var prefer64 = mode is "64-priority" or "priority64" or "x86-64-priority";
-        PlatformVersionService.ParseVariant(platformVersion ?? string.Empty, out var cleanVersion, out _);
+        if (string.IsNullOrWhiteSpace(cleanVersion))
+            cleanVersion = string.Empty;
 
         var v32 = FindBestVersionDir("32", cleanVersion);
         var v64 = FindBestVersionDir("64", cleanVersion);
@@ -450,11 +458,19 @@ public static class OneCLauncher
 
         if (found.Count > 0)
         {
-            // Берём «наибольшую» версию по строковому сравнению сегментов.
-            return found
-                .OrderByDescending(f => f.VersionDir, StringComparer.OrdinalIgnoreCase)
-                .Select(f => f.Path)
-                .First();
+            // Берём «наибольшую» версию по числовому сравнению сегментов
+            // (8.3.10 > 8.3.9 — строковое сравнение давало бы неверный результат).
+            string? best = null;
+            string bestDir = string.Empty;
+            foreach (var item in found)
+            {
+                if (best is null || CompareVersionDirs(item.VersionDir, bestDir) > 0)
+                {
+                    best = item.Path;
+                    bestDir = item.VersionDir;
+                }
+            }
+            return best!;
         }
 
         // 3. Общий лаунчер 1CEStart.exe (разрядность выбирает сам, но лучше, чем ничего).
