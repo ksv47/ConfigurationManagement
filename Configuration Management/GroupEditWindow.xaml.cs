@@ -288,6 +288,16 @@ namespace Configuration_Management
             }
         }
 
+        private void OnPickColor_Click(object sender, RoutedEventArgs e)
+        {
+            var picker = new ColorPickerWindow(_color) { Owner = this };
+            if (picker.ShowDialog() == true && !string.IsNullOrWhiteSpace(picker.Result))
+            {
+                _color = picker.Result;
+                UpdateColorPreview();
+            }
+        }
+
         private void OnSave_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(NameBox.Text))

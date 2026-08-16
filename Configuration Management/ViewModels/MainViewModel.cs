@@ -29,7 +29,6 @@ public class MainViewModel : ViewModelBase
     private string _savedTheme = string.Empty;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
     private List<string> _installedPlatformVersions = new();
-    private List<string> _additionalPlatformSearchPaths = new();
     private double _nameColumnWidth;
     private double _versionColumnWidth;
     private double _launchModeColumnWidth;
@@ -39,33 +38,12 @@ public class MainViewModel : ViewModelBase
     private bool _showPinnedButton = true;
     private bool _showTagFilterPanel;
     private bool _allowMultipleInstances;
-    private readonly ObservableCollection<string> _activeTagFilters = new();
-    private ListViewMode _listViewMode = ListViewMode.All;
-
+    private string _activeTagFilter = string.Empty;
     private bool _showTags = true;
     private bool _showVersionColumn = true;
-    private bool _showRightPanelDetails = true;
-    private bool _statusShowConnectionPath = true;
-    private bool _statusShowArchitecture = true;
-    private bool _statusShowLaunchMode = true;
-
-    /// <summary>Переопределение типа клиента для текущего запуска (не сохраняется в базу).</summary>
-    private SessionClientMode _sessionClientMode = SessionClientMode.Auto;
-    /// <summary>Переопределение разрядности для текущего запуска (не сохраняется в базу).</summary>
-    private SessionArchitectureMode _sessionArchitecture = SessionArchitectureMode.Auto;
-    /// <summary>Показывать блок «Текущая сессия» в правой панели.</summary>
-    private bool _showSessionLaunchPanel = true;
-    private bool _statusShowPort = true;
-    private bool _statusShowPlatformVersion = true;
-    private bool _statusShowClientType;
-    private bool _statusShowConnectionType;
-    private bool _statusShowUser;
-    private bool _statusShowId;
     private bool _showLaunchModeColumn = true;
     private bool _showServerColumn = true;
     private bool _showLastLaunchColumn = true;
-    private bool _showSizeColumn = true;
-    private double _sizeColumnWidth;
     private double _windowWidth;
     private double _windowHeight;
     private double _windowLeft;
@@ -86,22 +64,9 @@ public class MainViewModel : ViewModelBase
     private DateTime? _nextScheduleRun;
     private bool _syncTimerRunning;
     private bool _closeToTray;
-    private bool _showTrayIcon = true;
-    private bool _escapeToTray = true;
-    private List<string> _templateCatalogPaths = new();
-    private string _hotkeyEnterprise = "F3";
-    private string _hotkeyConfigurator = "F4";
-    private string _hotkeyFavorite = "F8";
-    private string _hotkeyEdit = "F2";
-    private string _hotkeyDelete = "Delete";
-    private string _hotkeyClearCache = "";
-    private string _hotkeyAdd = "Insert";
-    private string _hotkeyPin = "";
     private string _sortField = "Name";
     private bool _sortAscending = true;
     private readonly List<string> _favoriteHotkeyIds = new();
-    private CancellationTokenSource? _searchDebounceCts;
-    private HashSet<string> _activeTagFilterSet = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Событие: изменился список избранных с горячими клавишами (нужно перерегистрировать биндинги).</summary>
     public event EventHandler? FavoriteHotkeysChanged;
@@ -131,12 +96,7 @@ public class MainViewModel : ViewModelBase
         _showFavoritesOnly = settings.ShowFavoritesOnly;
         _groupByGroup = settings.GroupByGroup;
         _savedTheme = settings.Theme;
-        _additionalPlatformSearchPaths = new List<string>(settings.AdditionalPlatformSearchPaths ?? new List<string>());
-        PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformSearchPaths);
-        // Актуальный список с диска (Program Files + доп. пути, напр. E:\1cPlatform)
-        _installedPlatformVersions = PlatformVersionService.FindInstalledVersions(_additionalPlatformSearchPaths);
-        if (_installedPlatformVersions.Count == 0 && settings.InstalledPlatformVersions is { Count: > 0 })
-            _installedPlatformVersions = new List<string>(settings.InstalledPlatformVersions);
+        _installedPlatformVersions = new List<string>(settings.InstalledPlatformVersions);
         _nameColumnWidth = settings.NameColumnWidth;
         _versionColumnWidth = settings.VersionColumnWidth;
         _launchModeColumnWidth = settings.LaunchModeColumnWidth;
@@ -148,26 +108,9 @@ public class MainViewModel : ViewModelBase
         _showTagFilterPanel = settings.ShowTagFilterPanel;
         _allowMultipleInstances = settings.AllowMultipleInstances;
         _showVersionColumn = settings.ShowVersionColumn;
-        _showRightPanelDetails = settings.ShowRightPanelDetails;
-        _showSessionLaunchPanel = settings.ShowSessionLaunchPanel;
-        if (Enum.TryParse<SessionClientMode>(settings.SessionClientMode, true, out var scm))
-            _sessionClientMode = scm;
-        if (Enum.TryParse<SessionArchitectureMode>(settings.SessionArchitecture, true, out var sam))
-            _sessionArchitecture = sam;
-        _statusShowConnectionPath = settings.StatusShowConnectionPath;
-        _statusShowArchitecture = settings.StatusShowArchitecture;
-        _statusShowLaunchMode = settings.StatusShowLaunchMode;
-        _statusShowPort = settings.StatusShowPort;
-        _statusShowPlatformVersion = settings.StatusShowPlatformVersion;
-        _statusShowClientType = settings.StatusShowClientType;
-        _statusShowConnectionType = settings.StatusShowConnectionType;
-        _statusShowUser = settings.StatusShowUser;
-        _statusShowId = settings.StatusShowId;
         _showLaunchModeColumn = settings.ShowLaunchModeColumn;
         _showServerColumn = settings.ShowServerColumn;
         _showLastLaunchColumn = settings.ShowLastLaunchColumn;
-        _showSizeColumn = settings.ShowSizeColumn;
-        _sizeColumnWidth = settings.SizeColumnWidth;
         _windowWidth = settings.WindowWidth;
         _windowHeight = settings.WindowHeight;
         _windowLeft = settings.WindowLeft;
@@ -181,19 +124,6 @@ public class MainViewModel : ViewModelBase
         _ibasesBackupEnabled = settings.IbasesBackupEnabled;
         _ibasesBackupKeepCount = settings.IbasesBackupKeepCount > 0 ? settings.IbasesBackupKeepCount : 5;
         _closeToTray = settings.CloseToTray;
-        _showTrayIcon = settings.ShowTrayIcon;
-        _escapeToTray = settings.EscapeToTray;
-        _templateCatalogPaths = settings.TemplateCatalogPaths?.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
-            ?? new List<string>();
-        OneCTemplateService.SetUserTemplatePaths(_templateCatalogPaths);
-        _hotkeyEnterprise = string.IsNullOrWhiteSpace(settings.HotkeyEnterprise) ? "F3" : settings.HotkeyEnterprise.Trim();
-        _hotkeyConfigurator = string.IsNullOrWhiteSpace(settings.HotkeyConfigurator) ? "F4" : settings.HotkeyConfigurator.Trim();
-        _hotkeyFavorite = settings.HotkeyFavorite?.Trim() ?? "F8";
-        _hotkeyEdit = settings.HotkeyEdit?.Trim() ?? "F2";
-        _hotkeyDelete = settings.HotkeyDelete?.Trim() ?? "Delete";
-        _hotkeyClearCache = settings.HotkeyClearCache?.Trim() ?? "";
-        _hotkeyAdd = settings.HotkeyAdd?.Trim() ?? "Insert";
-        _hotkeyPin = settings.HotkeyPin?.Trim() ?? "";
         _sortField = string.IsNullOrWhiteSpace(settings.SortField) ? "Name" : settings.SortField;
         _sortAscending = settings.SortAscending;
         if (settings.FavoriteHotkeyIds != null)
@@ -224,9 +154,6 @@ public class MainViewModel : ViewModelBase
         // Назначаем слоты Alt+1…9 уже существующим избранным и проставляем номера в UI.
         SyncFavoriteHotkeys();
 
-        // Размеры и маркеры блокировки файловых баз (фоново, не блокируя UI дольше необходимого).
-        RefreshFileMetadata();
-
         // Дерево групп (отображается в виде «группа в группе»).
         GroupNodes = new ObservableCollection<GroupNodeViewModel>();
         RebuildGroupTree();
@@ -250,8 +177,6 @@ public class MainViewModel : ViewModelBase
         LaunchEnterpriseThick64Command = new RelayCommand(_ => Launch(LaunchKind.Thick64), _ => SelectedInfobase != null);
         ImportFromIbasesV8iCommand = new RelayCommand(ImportFromIbasesV8i);
         ExportToIbasesV8iCommand = new RelayCommand(_ => ExportToIbases());
-        SynchronizeWithIbasesCommand = new RelayCommand(SynchronizeWithIbasesManual);
-        ToggleRightPanelDetailsCommand = new RelayCommand(_ => ShowRightPanelDetails = !ShowRightPanelDetails);
         ExportInfobasesCommand = new RelayCommand(ExportInfobases);
         ImportInfobasesCommand = new RelayCommand(ImportInfobases);
         ClearAllInfobasesCommand = new RelayCommand(ClearAllInfobases);
@@ -259,26 +184,26 @@ public class MainViewModel : ViewModelBase
         TogglePinForCommand = new RelayCommand(TogglePinFor);
         CopyConnectionStringCommand = new RelayCommand(CopyConnectionString, _ => SelectedInfobase != null);
         ClearCacheCommand = new RelayCommand(ClearCache, _ => SelectedInfobase != null);
-        OpenInfobaseFolderCommand = new RelayCommand(OpenInfobaseFolder,
-            _ => SelectedInfobase?.Connection.Type == ConnectionType.File);
-        CreateDesktopShortcutCommand = new RelayCommand(CreateDesktopShortcut, _ => SelectedInfobase != null);
-        RemoveMissingFileBasesCommand = new RelayCommand(RemoveMissingFileBases);
-        KillOneCProcessesCommand = new RelayCommand(KillOneCProcesses);
-        DumpInfobaseDtCommand = new RelayCommand(DumpInfobaseDt, _ => SelectedInfobase != null);
-        DumpConfigurationCfCommand = new RelayCommand(DumpConfigurationCf, _ => SelectedInfobase != null);
-        TestInfobaseCommand = new RelayCommand(TestInfobase, _ => SelectedInfobase != null);
-        ShowLaunchHistoryCommand = new RelayCommand(ShowLaunchHistory, _ => SelectedInfobase != null);
-        RefreshFileSizesCommand = new RelayCommand(_ => RefreshFileMetadata());
         AddTagCommand = new RelayCommand(AddTag);
         AddTagInlineCommand = new RelayCommand(AddTagInline);
         RemoveTagCommand = new RelayCommand(RemoveTag);
         SearchByTagCommand = new RelayCommand(SearchByTag);
         ClearSearchCommand = new RelayCommand(ClearSearch);
-        ClearTagFiltersCommand = new RelayCommand(ClearTagFilters, _ => HasActiveTagFilter);
         CollapseAllGroupsCommand = new RelayCommand(CollapseAllGroups);
         ExpandAllGroupsCommand = new RelayCommand(ExpandAllGroups);
         ToggleGroupExpandedCommand = new RelayCommand(ToggleGroupExpanded);
         OpenSettingsCommand = new RelayCommand(OpenSettings);
+
+        // Композиция: выделенный VM запуска (чат 1 / 3).
+        LaunchVm = new LaunchViewModel(
+            () => SelectedInfobase,
+            _launcher,
+            _logger,
+            onLaunched: () =>
+            {
+                InfobasesView.Refresh();
+                Save();
+            });
 
         // Если список баз пуст — предлагаем загрузить базы из файла ibases.v8i.
         if (Infobases.Count == 0)
@@ -294,7 +219,7 @@ public class MainViewModel : ViewModelBase
     public ICollectionView InfobasesView { get; }
 
     /// <summary>Узлы дерева групп информационных баз для отображения «группа в группе».</summary>
-    public ObservableCollection<GroupNodeViewModel> GroupNodes { get; private set; }
+    public ObservableCollection<GroupNodeViewModel> GroupNodes { get; }
 
     /// <summary>Выбранная информационная база.</summary>
     public Infobase? SelectedInfobase
@@ -305,7 +230,6 @@ public class MainViewModel : ViewModelBase
             if (SetProperty(ref _selectedInfobase, value))
             {
                 CommandManager.InvalidateRequerySuggested();
-                OnPropertyChanged(nameof(StatusBarInfo));
             }
         }
     }
@@ -371,7 +295,6 @@ public class MainViewModel : ViewModelBase
                 RebuildGroupTree();
                 ScheduleSaveSettings();
                 OnPropertyChanged(nameof(GroupByGroupText));
-                OnPropertyChanged(nameof(ShowExpandCollapseButtons));
             }
         }
     }
@@ -389,30 +312,11 @@ public class MainViewModel : ViewModelBase
     public List<string> InstalledPlatformVersions => _installedPlatformVersions;
 
     /// <summary>
-    /// Дополнительные пути к каталогам установки платформы 1С.
-    /// </summary>
-    public List<string> AdditionalPlatformSearchPaths => _additionalPlatformSearchPaths;
-
-    /// <summary>
     /// Сохраняет список установленных версий платформы 1С.
     /// </summary>
     public void SetInstalledPlatformVersions(IEnumerable<string> versions)
     {
         _installedPlatformVersions = new List<string>(versions);
-        SaveSettings();
-    }
-
-    /// <summary>
-    /// Сохраняет дополнительные пути поиска платформы и применяет их к сервису.
-    /// </summary>
-    public void SetAdditionalPlatformSearchPaths(IEnumerable<string> paths)
-    {
-        _additionalPlatformSearchPaths = paths?
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Select(p => p.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList() ?? new List<string>();
-        PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformSearchPaths);
         SaveSettings();
     }
 
@@ -444,47 +348,7 @@ public class MainViewModel : ViewModelBase
     public string SyncMessage
     {
         get => _syncMessage;
-        private set
-        {
-            if (!SetProperty(ref _syncMessage, value))
-                return;
-            ScheduleClearSyncMessage();
-        }
-    }
-
-    private CancellationTokenSource? _syncMessageCts;
-
-    /// <summary>Сообщение о синхронизации скрывается через 10 секунд.</summary>
-    private void ScheduleClearSyncMessage()
-    {
-        _syncMessageCts?.Cancel();
-        _syncMessageCts?.Dispose();
-        _syncMessageCts = null;
-
-        if (string.IsNullOrEmpty(_syncMessage))
-            return;
-
-        var cts = new CancellationTokenSource();
-        _syncMessageCts = cts;
-        var token = cts.Token;
-        _ = ClearSyncMessageAfterDelayAsync(token);
-    }
-
-    private async Task ClearSyncMessageAfterDelayAsync(CancellationToken token)
-    {
-        try
-        {
-            await Task.Delay(TimeSpan.FromSeconds(10), token).ConfigureAwait(true);
-            if (!token.IsCancellationRequested)
-            {
-                _syncMessage = string.Empty;
-                OnPropertyChanged(nameof(SyncMessage));
-            }
-        }
-        catch (TaskCanceledException)
-        {
-            /* новая синхронизация */
-        }
+        private set => SetProperty(ref _syncMessage, value);
     }
 
     /// <summary>Признак того, что автоматическая синхронизация запущена по интервалу/расписанию.</summary>
@@ -506,39 +370,6 @@ public class MainViewModel : ViewModelBase
         _ibasesBackupKeepCount = backupKeepCount > 0 ? backupKeepCount : 5;
         SaveSettings();
         RestartAutoSync();
-    }
-
-    /// <summary>
-    /// После локального изменения базы: выгрузка в ibases.v8i без импорта,
-    /// чтобы не перезатереть только что заданные настройки (режим запуска и т.д.).
-    /// </summary>
-    private void ExportToIbasesAfterLocalChange()
-    {
-        if (_ibasesSyncMode is not (IbasesSyncMode.Export or IbasesSyncMode.Both))
-            return;
-
-        var filePath = ResolveIbasesFilePath();
-        if (filePath is null)
-            return;
-
-        try
-        {
-            if (_ibasesBackupEnabled && File.Exists(filePath))
-            {
-                try { IbasesBackupService.CreateBackup(filePath, _ibasesBackupKeepCount); }
-                catch { /* не блокируем сохранение */ }
-            }
-
-            var result = _ibasesSync.Export(filePath, Infobases, Groups);
-            var text = BuildSyncMessage("Выгружено в файл", result);
-            if (!string.IsNullOrEmpty(text))
-                SyncMessage = $"{DateTime.Now:HH:mm:ss} — {text}";
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Экспорт ibases после правки: {ex}");
-            SyncMessage = $"Ошибка экспорта: {ex.Message}";
-        }
     }
 
     /// <summary>
@@ -941,81 +772,31 @@ public class MainViewModel : ViewModelBase
     public bool ShowPinnedButton => _showPinnedButton;
 
     /// <summary>Показывать теги баз в списке.</summary>
-    public bool ShowTags
-    {
-        get => _showTags;
-        set
-        {
-            if (SetProperty(ref _showTags, value))
-            {
-                // Вместе с тегами в строках — панель быстрого отбора.
-                _showTagFilterPanel = value;
-                OnPropertyChanged(nameof(ShowTagFilterPanel));
-                ScheduleSaveSettings();
-            }
-        }
-    }
+    public bool ShowTags => _showTags;
 
     /// <summary>Показывать панель быстрого отбора по тегам.</summary>
-    public bool ShowTagFilterPanel
-    {
-        get => _showTagFilterPanel;
-        set
-        {
-            if (SetProperty(ref _showTagFilterPanel, value))
-                ScheduleSaveSettings();
-        }
-    }
+    public bool ShowTagFilterPanel => _showTagFilterPanel;
 
     /// <summary>Разрешить несколько экземпляров приложения.</summary>
     public bool AllowMultipleInstances => _allowMultipleInstances;
 
-    /// <summary>Выбранные теги для фильтра (можно несколько одновременно).</summary>
-    public ObservableCollection<string> ActiveTagFilters => _activeTagFilters;
-
-    /// <summary>Есть ли активный фильтр по тегам.</summary>
-    public bool HasActiveTagFilter => _activeTagFilters.Count > 0;
-
-    /// <summary>Режим списка: Все / Избранное / Недавние.</summary>
-    public ListViewMode ListViewMode
+    /// <summary>Активный тег-фильтр (пусто — без фильтра по тегу).</summary>
+    public string ActiveTagFilter
     {
-        get => _listViewMode;
+        get => _activeTagFilter;
         set
         {
-            if (SetProperty(ref _listViewMode, value))
+            if (SetProperty(ref _activeTagFilter, value ?? string.Empty))
             {
-                // Совместимость с прежним флагом избранного.
-                _showFavoritesOnly = value == ListViewMode.Favorites;
-                OnPropertyChanged(nameof(ShowFavoritesOnly));
-                OnPropertyChanged(nameof(IsListModeAll));
-                OnPropertyChanged(nameof(IsListModeFavorites));
-                OnPropertyChanged(nameof(IsListModeRecent));
+                InfobasesView.Refresh();
                 RebuildGroupTree();
+                OnPropertyChanged(nameof(HasActiveTagFilter));
             }
         }
     }
 
-    public bool IsListModeAll
-    {
-        get => _listViewMode == ListViewMode.All;
-        set { if (value) ListViewMode = ListViewMode.All; }
-    }
-
-    public bool IsListModeFavorites
-    {
-        get => _listViewMode == ListViewMode.Favorites;
-        set { if (value) ListViewMode = ListViewMode.Favorites; }
-    }
-
-    public bool IsListModeRecent
-    {
-        get => _listViewMode == ListViewMode.Recent;
-        set { if (value) ListViewMode = ListViewMode.Recent; }
-    }
-
-    /// <summary>Проверяет, выбран ли тег в фильтре.</summary>
-    public bool IsTagSelected(string tag) =>
-        !string.IsNullOrEmpty(tag) && _activeTagFilters.Any(t => string.Equals(t, tag, StringComparison.OrdinalIgnoreCase));
+    /// <summary>Есть ли активный фильтр по тегу.</summary>
+    public bool HasActiveTagFilter => !string.IsNullOrWhiteSpace(_activeTagFilter);
 
     /// <summary>
     /// Уникальные теги всех баз для панели быстрого отбора.
@@ -1027,239 +808,11 @@ public class MainViewModel : ViewModelBase
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(t => t, StringComparer.OrdinalIgnoreCase);
 
-    private readonly ObservableCollection<TagFilterItem> _tagFilterItems = new();
-
-    /// <summary>Теги с признаком выбора для панели фильтров.</summary>
-    public ObservableCollection<TagFilterItem> TagFilterItems => _tagFilterItems;
-
-    /// <summary>Пересобирает облако тегов (панель фильтров).</summary>
-    public void RefreshTagFilterItems()
-    {
-        var selected = new HashSet<string>(_activeTagFilters, StringComparer.OrdinalIgnoreCase);
-        var tags = Infobases
-            .SelectMany(i => i.Tags)
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        // Не трогаем UI, если набор тегов и выделение не изменились.
-        if (_tagFilterItems.Count == tags.Count)
-        {
-            var same = true;
-            for (var i = 0; i < tags.Count; i++)
-            {
-                if (!string.Equals(_tagFilterItems[i].Name, tags[i], StringComparison.OrdinalIgnoreCase)
-                    || _tagFilterItems[i].IsSelected != selected.Contains(tags[i]))
-                {
-                    same = false;
-                    break;
-                }
-            }
-            if (same)
-                return;
-        }
-
-        _tagFilterItems.Clear();
-        foreach (var t in tags)
-            _tagFilterItems.Add(new TagFilterItem(t, selected.Contains(t)));
-        OnPropertyChanged(nameof(HasActiveTagFilter));
-    }
-
-    private void SyncActiveTagFilterSet()
-    {
-        _activeTagFilterSet = new HashSet<string>(_activeTagFilters, StringComparer.OrdinalIgnoreCase);
-    }
-
-    /// <summary>Отложенная перестройка дерева (поиск по мере ввода).</summary>
-    private void ScheduleRebuildGroupTree()
-    {
-        _searchDebounceCts?.Cancel();
-        _searchDebounceCts?.Dispose();
-        var cts = new CancellationTokenSource();
-        _searchDebounceCts = cts;
-        var token = cts.Token;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                // Короче debounce — список реагирует быстрее при наборе.
-                await Task.Delay(90, token).ConfigureAwait(false);
-                if (token.IsCancellationRequested) return;
-                var dispatcher = Application.Current?.Dispatcher;
-                if (dispatcher is null) return;
-                // Loaded priority: после текущего ввода, до фоновой отрисовки.
-                await dispatcher.InvokeAsync(() =>
-                {
-                    if (!token.IsCancellationRequested)
-                        RebuildGroupTree();
-                }, System.Windows.Threading.DispatcherPriority.DataBind);
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                _logger.Error("Ошибка отложенной перестройки дерева", ex);
-            }
-        });
-    }
-
     /// <summary>Показывать кнопки свернуть/развернуть все (только при группировке).</summary>
     public bool ShowExpandCollapseButtons => _groupByGroup;
 
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn => _showVersionColumn;
-
-    /// <summary>Показывать подробности в правой панели (иначе — только кнопки).</summary>
-    public bool ShowRightPanelDetails
-    {
-        get => _showRightPanelDetails;
-        set
-        {
-            if (SetProperty(ref _showRightPanelDetails, value))
-            {
-                OnPropertyChanged(nameof(RightPanelToggleTooltip));
-                ScheduleSaveSettings();
-            }
-        }
-    }
-
-    /// <summary>Показывать блок «Текущая сессия» в правой панели (полный и компактный режим).</summary>
-    public bool ShowSessionLaunchPanel
-    {
-        get => _showSessionLaunchPanel;
-        set
-        {
-            if (SetProperty(ref _showSessionLaunchPanel, value))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public string RightPanelToggleTooltip =>
-        _showRightPanelDetails ? "Скрыть подробности правой панели" : "Показать подробности правой панели";
-
-    /// <summary>Тип клиента для текущего запуска (не пишется в настройки базы).</summary>
-    public SessionClientMode SessionClientMode
-    {
-        get => _sessionClientMode;
-        set
-        {
-            if (SetProperty(ref _sessionClientMode, value))
-            {
-                OnPropertyChanged(nameof(IsSessionClientAuto));
-                OnPropertyChanged(nameof(IsSessionClientOrdinary));
-                OnPropertyChanged(nameof(IsSessionClientThick));
-                OnPropertyChanged(nameof(IsSessionClientThin));
-                ScheduleSaveSettings();
-            }
-        }
-    }
-
-    public bool IsSessionClientAuto
-    {
-        get => _sessionClientMode == SessionClientMode.Auto;
-        set { if (value) SessionClientMode = SessionClientMode.Auto; }
-    }
-
-    public bool IsSessionClientOrdinary
-    {
-        get => _sessionClientMode == SessionClientMode.Ordinary;
-        set { if (value) SessionClientMode = SessionClientMode.Ordinary; }
-    }
-
-    public bool IsSessionClientThick
-    {
-        get => _sessionClientMode == SessionClientMode.Thick;
-        set { if (value) SessionClientMode = SessionClientMode.Thick; }
-    }
-
-    public bool IsSessionClientThin
-    {
-        get => _sessionClientMode == SessionClientMode.Thin;
-        set { if (value) SessionClientMode = SessionClientMode.Thin; }
-    }
-
-    /// <summary>Разрядность для текущего запуска (не пишется в настройки базы).</summary>
-    public SessionArchitectureMode SessionArchitecture
-    {
-        get => _sessionArchitecture;
-        set
-        {
-            if (SetProperty(ref _sessionArchitecture, value))
-            {
-                OnPropertyChanged(nameof(IsSessionArchAuto));
-                OnPropertyChanged(nameof(IsSessionArch32));
-                OnPropertyChanged(nameof(IsSessionArch64));
-                ScheduleSaveSettings();
-            }
-        }
-    }
-
-    public bool IsSessionArchAuto
-    {
-        get => _sessionArchitecture == SessionArchitectureMode.Auto;
-        set { if (value) SessionArchitecture = SessionArchitectureMode.Auto; }
-    }
-
-    public bool IsSessionArch32
-    {
-        get => _sessionArchitecture == SessionArchitectureMode.X86;
-        set { if (value) SessionArchitecture = SessionArchitectureMode.X86; }
-    }
-
-    public bool IsSessionArch64
-    {
-        get => _sessionArchitecture == SessionArchitectureMode.X64;
-        set { if (value) SessionArchitecture = SessionArchitectureMode.X64; }
-    }
-
-    public bool StatusShowConnectionPath => _statusShowConnectionPath;
-    public bool StatusShowArchitecture => _statusShowArchitecture;
-    public bool StatusShowLaunchMode => _statusShowLaunchMode;
-    public bool StatusShowPort => _statusShowPort;
-    public bool StatusShowPlatformVersion => _statusShowPlatformVersion;
-    public bool StatusShowClientType => _statusShowClientType;
-    public bool StatusShowConnectionType => _statusShowConnectionType;
-    public bool StatusShowUser => _statusShowUser;
-    public bool StatusShowId => _statusShowId;
-
-    /// <summary>Сводка для нижней строки состояния по выбранным в настройках полям.</summary>
-    public string StatusBarInfo
-    {
-        get
-        {
-            var ib = SelectedInfobase;
-            if (ib is null)
-                return string.Empty;
-
-            var parts = new List<string>();
-            if (_statusShowConnectionType)
-                parts.Add(ib.ConnectionTypeDisplay);
-            if (_statusShowConnectionPath)
-            {
-                var path = ib.Connection.Type == ConnectionType.File
-                    ? (string.IsNullOrWhiteSpace(ib.Connection.FilePath) ? "—" : ib.Connection.FilePath)
-                    : ib.ServerDatabaseDisplay;
-                if (!string.IsNullOrWhiteSpace(path))
-                    parts.Add(path);
-            }
-            if (_statusShowPort && ib.Connection.Type == ConnectionType.ClientServer && ib.Connection.Port > 0)
-                parts.Add($"порт {ib.Connection.Port}");
-            if (_statusShowPlatformVersion && !string.IsNullOrWhiteSpace(ib.PlatformVersion))
-                parts.Add($"платформа {ib.PlatformVersion}");
-            if (_statusShowArchitecture)
-                parts.Add(ib.ArchitectureDisplay);
-            if (_statusShowLaunchMode)
-                parts.Add(ib.ParsedLaunchMode);
-            if (_statusShowClientType && !string.IsNullOrWhiteSpace(ib.ClientType))
-                parts.Add(ib.ClientType);
-            if (_statusShowUser && !string.IsNullOrWhiteSpace(ib.Connection.User))
-                parts.Add($"пользователь {ib.Connection.User}");
-            if (_statusShowId && !string.IsNullOrWhiteSpace(ib.Id))
-                parts.Add($"ID {ib.Id}");
-
-            return string.Join("  ·  ", parts);
-        }
-    }
 
     /// <summary>Показывать колонку «Режим запуска» в списке баз.</summary>
     public bool ShowLaunchModeColumn => _showLaunchModeColumn;
@@ -1270,49 +823,6 @@ public class MainViewModel : ViewModelBase
     /// <summary>Показывать колонку «Последний запуск» в списке баз.</summary>
     public bool ShowLastLaunchColumn => _showLastLaunchColumn;
 
-    /// <summary>Показывать колонку «Размер» файловой ИБ.</summary>
-    public bool ShowSizeColumn => _showSizeColumn;
-
-    public double SizeColumnWidth
-    {
-        get => _sizeColumnWidth;
-        set
-        {
-            if (SetProperty(ref _sizeColumnWidth, value))
-                ScheduleSaveSettings();
-        }
-    }
-
-    /// <summary>
-    /// Применяет настройки содержимого нижней панели (строки состояния).
-    /// </summary>
-    public void ApplyStatusBarSettings(
-        bool connectionPath, bool architecture, bool launchMode, bool port,
-        bool platformVersion, bool clientType, bool connectionType, bool user,
-        bool showId = false)
-    {
-        _statusShowConnectionPath = connectionPath;
-        _statusShowArchitecture = architecture;
-        _statusShowLaunchMode = launchMode;
-        _statusShowPort = port;
-        _statusShowPlatformVersion = platformVersion;
-        _statusShowClientType = clientType;
-        _statusShowConnectionType = connectionType;
-        _statusShowUser = user;
-        _statusShowId = showId;
-        OnPropertyChanged(nameof(StatusShowConnectionPath));
-        OnPropertyChanged(nameof(StatusShowArchitecture));
-        OnPropertyChanged(nameof(StatusShowLaunchMode));
-        OnPropertyChanged(nameof(StatusShowPort));
-        OnPropertyChanged(nameof(StatusShowPlatformVersion));
-        OnPropertyChanged(nameof(StatusShowClientType));
-        OnPropertyChanged(nameof(StatusShowConnectionType));
-        OnPropertyChanged(nameof(StatusShowUser));
-        OnPropertyChanged(nameof(StatusShowId));
-        OnPropertyChanged(nameof(StatusBarInfo));
-        SaveSettings();
-    }
-
     /// <summary>
     /// Применяет настройки отображения списка баз, заданные в окне настроек.
     /// Обновляет видимость колонок, кнопок и тегов, а также поведение
@@ -1320,7 +830,7 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public void ApplyDisplaySettings(bool showFavoritesButton, bool showPinnedButton, bool showTags,
         bool showVersionColumn, bool showLaunchModeColumn, bool showServerColumn, bool showLastLaunchColumn,
-        bool groupByGroup, bool showFavoritesOnly, bool showSizeColumn = true)
+        bool groupByGroup, bool showFavoritesOnly)
     {
         _showFavoritesButton = showFavoritesButton;
         _showPinnedButton = showPinnedButton;
@@ -1329,7 +839,6 @@ public class MainViewModel : ViewModelBase
         _showLaunchModeColumn = showLaunchModeColumn;
         _showServerColumn = showServerColumn;
         _showLastLaunchColumn = showLastLaunchColumn;
-        _showSizeColumn = showSizeColumn;
 
         OnPropertyChanged(nameof(ShowFavoritesButton));
         OnPropertyChanged(nameof(ShowPinnedButton));
@@ -1338,7 +847,6 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowLaunchModeColumn));
         OnPropertyChanged(nameof(ShowServerColumn));
         OnPropertyChanged(nameof(ShowLastLaunchColumn));
-        OnPropertyChanged(nameof(ShowSizeColumn));
 
         // Применяем поведение списка (уже имеющиеся настройки).
         GroupByGroup = groupByGroup;
@@ -1378,8 +886,6 @@ public class MainViewModel : ViewModelBase
     /// <summary>Команда импорта баз из файла ibases.v8i.</summary>
     public ICommand ImportFromIbasesV8iCommand { get; }
     public ICommand ExportToIbasesV8iCommand { get; }
-    public ICommand SynchronizeWithIbasesCommand { get; }
-    public ICommand ToggleRightPanelDetailsCommand { get; }
 
     /// <summary>Команда экспорта списка информационных баз в файл.</summary>
     public ICommand ExportInfobasesCommand { get; }
@@ -1402,33 +908,6 @@ public class MainViewModel : ViewModelBase
     /// <summary>Команда очистки локального кеша 1С выбранной базы.</summary>
     public ICommand ClearCacheCommand { get; }
 
-    /// <summary>Открыть каталог файловой базы в проводнике.</summary>
-    public ICommand OpenInfobaseFolderCommand { get; }
-
-    /// <summary>Создать ярлык на рабочем столе для выбранной базы.</summary>
-    public ICommand CreateDesktopShortcutCommand { get; }
-
-    /// <summary>Удалить из списка файловые базы без 1Cv8.1CD.</summary>
-    public ICommand RemoveMissingFileBasesCommand { get; }
-
-    /// <summary>Завершить зависшие процессы платформы 1С.</summary>
-    public ICommand KillOneCProcessesCommand { get; }
-
-    /// <summary>Выгрузка ИБ в .dt (пакетный DESIGNER).</summary>
-    public ICommand DumpInfobaseDtCommand { get; }
-
-    /// <summary>Выгрузка конфигурации в .cf.</summary>
-    public ICommand DumpConfigurationCfCommand { get; }
-
-    /// <summary>Тестирование ИБ (/IBCheckAndRepair -TestOnly).</summary>
-    public ICommand TestInfobaseCommand { get; }
-
-    /// <summary>Показать историю запусков выбранной базы.</summary>
-    public ICommand ShowLaunchHistoryCommand { get; }
-
-    /// <summary>Пересчитать размеры файловых баз.</summary>
-    public ICommand RefreshFileSizesCommand { get; }
-
     /// <summary>Команда добавления тега к базе.</summary>
     public ICommand AddTagCommand { get; }
 
@@ -1443,9 +922,6 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Команда очистки поля поиска.</summary>
     public ICommand ClearSearchCommand { get; }
-
-    /// <summary>Сбросить только выбранные теги фильтра.</summary>
-    public ICommand ClearTagFiltersCommand { get; }
 
     /// <summary>Команда сворачивания всех групп.</summary>
     public ICommand CollapseAllGroupsCommand { get; }
@@ -1483,6 +959,8 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Команда запуска 1С:Предприятие.</summary>
     /// <summary>Под-VM запуска баз (композиция MainViewModel).</summary>
+    public LaunchViewModel LaunchVm { get; }
+
     /// <summary>Единая команда запуска (параметр: LaunchKind или строка имени enum).</summary>
     public ICommand LaunchCommand { get; }
 
@@ -1535,57 +1013,29 @@ public class MainViewModel : ViewModelBase
         if (addDialog.ShowDialog() != true)
             return;
 
-        var defaultGroupPath = SelectedGroupNode?.Group is not null
-            ? SelectedGroupNode.FullPath
-            : (SelectedInfobase?.Group ?? string.Empty);
-
-        switch (addDialog.SelectedType)
+        // В зависимости от выбранного типа открываем соответствующее окно добавления.
+        if (addDialog.SelectedType == "Group")
         {
-            case "Group":
-                AddGroup();
-                break;
+            AddGroup();
+        }
+        else
+        {
+            // Группа под курсором: если выбрана база — её группа, если узел группы — эта группа.
+            var defaultGroupPath = SelectedGroupNode?.Group is not null
+                ? SelectedGroupNode.FullPath
+                : (SelectedInfobase?.Group ?? string.Empty);
 
-            case "CreateEmpty":
-            case "CreateFromTemplate":
+            var dialog = new ConnectionSettingsWindow(null, Groups, _installedPlatformVersions, defaultGroupPath)
             {
-                var createDlg = new CreateInfobaseWindow(
-                    fromTemplate: addDialog.SelectedType == "CreateFromTemplate",
-                    platformVersions: _installedPlatformVersions,
-                    defaultGroupPath: defaultGroupPath,
-                    groups: Groups)
-                {
-                    Owner = Application.Current.MainWindow
-                };
-                if (createDlg.ShowDialog() == true && createDlg.Result is not null)
-                {
-                    Infobases.Add(createDlg.Result);
-                    SelectedInfobase = createDlg.Result;
-                    Save();
-                    RebuildGroupTree();
-                    ExportToIbasesAfterLocalChange();
-                    _dialogs.ShowInfo(
-                        $"База «{createDlg.Result.Name}» создана и добавлена в список.",
-                        "Создание ИБ");
-                }
-                break;
-            }
-
-            default:
+                Owner = Application.Current.MainWindow
+            };
+            if (dialog.ShowDialog() == true)
             {
-                // Существующая база — только регистрация в списке.
-                var dialog = new ConnectionSettingsWindow(null, Groups, _installedPlatformVersions, defaultGroupPath)
-                {
-                    Owner = Application.Current.MainWindow
-                };
-                if (dialog.ShowDialog() == true)
-                {
-                    Infobases.Add(dialog.Result);
-                    SelectedInfobase = dialog.Result;
-                    Save();
-                    RebuildGroupTree();
-                    ExportToIbasesAfterLocalChange();
-                }
-                break;
+                Infobases.Add(dialog.Result);
+                SelectedInfobase = dialog.Result;
+                Save();
+                RebuildGroupTree();
+                SynchronizeWithIbases();
             }
         }
     }
@@ -1652,14 +1102,12 @@ public class MainViewModel : ViewModelBase
             target.Tags = dialog.Result.Tags;
             target.MetadataRoot = dialog.Result.MetadataRoot;
             target.Connection = dialog.Result.Connection;
-            if (!string.IsNullOrWhiteSpace(dialog.Result.LaunchMode))
-                target.LaunchMode = dialog.Result.LaunchMode;
 
+            // Обновляем отображаемые данные (перегруппировка с учётом изменения закрепления).
             InfobasesView.Refresh();
             Save();
             RebuildGroupTree();
-            // Только выгрузка: импорт сразу после правки затирал режим запуска из ibases.v8i.
-            ExportToIbasesAfterLocalChange();
+            SynchronizeWithIbases();
         }
     }
 
@@ -1679,7 +1127,6 @@ public class MainViewModel : ViewModelBase
             group.Name = dialog.Result.Name;
             group.Description = dialog.Result.Description;
             group.Color = dialog.Result.Color;
-            group.IconColor = dialog.Result.IconColor ?? string.Empty;
             group.Icon = dialog.Result.Icon ?? string.Empty;
             group.ParentId = dialog.Result.ParentId;
 
@@ -1703,34 +1150,16 @@ public class MainViewModel : ViewModelBase
         if (SelectedInfobase is null)
             return;
 
-        var ib = SelectedInfobase;
-        var dlg = new Configuration_Management.DeleteInfobaseWindow(ib)
-        {
-            Owner = Application.Current?.MainWindow
-        };
-        if (dlg.ShowDialog() != true || !dlg.Confirmed)
+        if (!_dialogs.Confirm(
+            $"Удалить информационную базу «{SelectedInfobase.Name}»?\n\nЭто действие нельзя отменить.",
+            "Подтверждение удаления"))
             return;
 
-        if (dlg.DeletePhysically)
-        {
-            var err = InfobaseMaintenanceService.TryDeleteFileBasePhysically(ib);
-            if (err is not null)
-            {
-                _dialogs.ShowError(err, "Физическое удаление");
-                // Даже при ошибке на диске продолжаем удаление из списка по запросу пользователя
-                if (!_dialogs.Confirm(
-                        "Удалить базу только из списка программы (файлы на диске не тронуты или удалены частично)?",
-                        "Удаление из списка"))
-                    return;
-            }
-        }
-
-        Infobases.Remove(ib);
-        if (ReferenceEquals(SelectedInfobase, ib))
-            SelectedInfobase = null;
+        Infobases.Remove(SelectedInfobase);
+        SelectedInfobase = null;
         Save();
         RebuildGroupTree();
-        ExportToIbasesAfterLocalChange();
+        SynchronizeWithIbases();
     }
 
     /// <summary>
@@ -1858,7 +1287,7 @@ public class MainViewModel : ViewModelBase
         // (фильтр «Только избранные», поиск, отбор по тегу).
         if (ShowFavoritesOnly
             || !string.IsNullOrWhiteSpace(SearchText)
-            || HasActiveTagFilter)
+            || !string.IsNullOrWhiteSpace(ActiveTagFilter))
         {
             InfobasesView.Refresh();
             RebuildGroupTree();
@@ -1869,43 +1298,6 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>Запускает избранную базу по номеру горячей клавиши (1–9 → Alt+N).</summary>
-
-    /// <summary>Недавние базы по дате последнего запуска (для меню трея).</summary>
-    public System.Collections.Generic.IReadOnlyList<Models.Infobase> GetRecentInfobases(int count = 7)
-    {
-        return Infobases
-            .Where(i => i.LastLaunchDate.HasValue)
-            .OrderByDescending(i => i.LastLaunchDate)
-            .Take(Math.Max(1, count))
-            .ToList();
-    }
-
-    /// <summary>Запуск базы по Id из меню трея (без активации окна).</summary>
-    public void LaunchInfobaseById(string id, bool isConfigurator)
-    {
-        var ib = Infobases.FirstOrDefault(i => i.Id == id);
-        if (ib is null) return;
-
-        bool ok;
-        if (isConfigurator)
-            ok = _launcher.Launch(ib, Services.OneCLaunchMode.Configurator);
-        else
-            ok = LaunchEnterpriseWithSessionOverrides(ib);
-
-        if (ok)
-        {
-            ib.LastLaunchDate = DateTime.Now;
-            ib.AddLaunchHistory(isConfigurator ? "Configurator" : "Enterprise", "tray");
-            InfobasesView.Refresh();
-            Save();
-            _logger.Info($"[tray] Запущена «{ib.Name}» ({(isConfigurator ? "Конфигуратор" : "Предприятие")})");
-        }
-        else
-        {
-            _logger.Warn($"[tray] Не удалось запустить «{ib.Name}»");
-        }
-    }
-
     public void LaunchFavoriteByHotkey(int number)
     {
         if (number < 1 || number > 9 || number > _favoriteHotkeyIds.Count)
@@ -2018,37 +1410,27 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     private void SyncFavoriteHotkeys()
     {
-        try
+        // Удаляем ключи, которых больше нет в списке баз.
+        _favoriteHotkeyIds.RemoveAll(key =>
+            !Infobases.Any(ib => FavoriteKey(ib) == key));
+
+        // Добавляем избранные без слота (в порядке имени).
+        foreach (var ib in Infobases.Where(i => i.IsFavorite).OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase))
         {
-            if (Infobases is null)
-                return;
-
-            // Удаляем ключи, которых больше нет в списке баз.
-            _favoriteHotkeyIds.RemoveAll(key =>
-                !Infobases.Any(ib => FavoriteKey(ib) == key));
-
-            // Добавляем избранные без слота (в порядке имени).
-            foreach (var ib in Infobases.Where(i => i.IsFavorite).OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase))
-            {
-                var key = FavoriteKey(ib);
-                if (!_favoriteHotkeyIds.Contains(key) && _favoriteHotkeyIds.Count < 9)
-                    _favoriteHotkeyIds.Add(key);
-            }
-
-            // Проставляем номера на объектах Infobase для UI.
-            foreach (var ib in Infobases)
-            {
-                var key = FavoriteKey(ib);
-                var idx = _favoriteHotkeyIds.IndexOf(key);
-                ib.FavoriteHotkeyNumber = idx >= 0 ? idx + 1 : 0;
-            }
-
-            FavoriteHotkeysChanged?.Invoke(this, EventArgs.Empty);
+            var key = FavoriteKey(ib);
+            if (!_favoriteHotkeyIds.Contains(key) && _favoriteHotkeyIds.Count < 9)
+                _favoriteHotkeyIds.Add(key);
         }
-        catch
+
+        // Проставляем номера на объектах Infobase для UI.
+        foreach (var ib in Infobases)
         {
-            // не роняем приложение из‑за избранного
+            var key = FavoriteKey(ib);
+            var idx = _favoriteHotkeyIds.IndexOf(key);
+            ib.FavoriteHotkeyNumber = idx >= 0 ? idx + 1 : 0;
         }
+
+        FavoriteHotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Публичный доступ к упорядоченному списку ключей избранного (для настроек).</summary>
@@ -2079,123 +1461,6 @@ public class MainViewModel : ViewModelBase
                 ScheduleSaveSettings();
         }
     }
-
-    public bool ShowTrayIcon
-    {
-        get => _showTrayIcon;
-        set
-        {
-            if (SetProperty(ref _showTrayIcon, value))
-                ScheduleSaveSettings();
-        }
-    }
-
-    /// <summary>Esc сворачивает окно в трей (если значок в трее включён).</summary>
-    public bool EscapeToTray
-    {
-        get => _escapeToTray;
-        set
-        {
-            if (SetProperty(ref _escapeToTray, value))
-                ScheduleSaveSettings();
-        }
-    }
-
-    
-    /// <summary>Обновляет список каталогов шаблонов из настроек.</summary>
-    public void SetTemplateCatalogPaths(System.Collections.Generic.IEnumerable<string> paths)
-    {
-        _templateCatalogPaths = paths?
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Select(p => p.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList() ?? new System.Collections.Generic.List<string>();
-        Services.OneCTemplateService.SetUserTemplatePaths(_templateCatalogPaths);
-        ScheduleSaveSettings();
-    }
-
-public string HotkeyEnterprise
-    {
-        get => _hotkeyEnterprise;
-        set
-        {
-            if (SetProperty(ref _hotkeyEnterprise, NormalizeHotkey(value, "F3")))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public string HotkeyConfigurator
-    {
-        get => _hotkeyConfigurator;
-        set
-        {
-            if (SetProperty(ref _hotkeyConfigurator, NormalizeHotkey(value, "F4")))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public string HotkeyFavorite
-    {
-        get => _hotkeyFavorite;
-        set
-        {
-            if (SetProperty(ref _hotkeyFavorite, NormalizeHotkey(value, "")))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public string HotkeyEdit
-    {
-        get => _hotkeyEdit;
-        set
-        {
-            if (SetProperty(ref _hotkeyEdit, NormalizeHotkey(value, "")))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public string HotkeyDelete
-    {
-        get => _hotkeyDelete;
-        set
-        {
-            if (SetProperty(ref _hotkeyDelete, NormalizeHotkey(value, "")))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public string HotkeyClearCache
-    {
-        get => _hotkeyClearCache;
-        set
-        {
-            if (SetProperty(ref _hotkeyClearCache, NormalizeHotkey(value, "")))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public string HotkeyAdd
-    {
-        get => _hotkeyAdd;
-        set
-        {
-            if (SetProperty(ref _hotkeyAdd, NormalizeHotkey(value, "")))
-                ScheduleSaveSettings();
-        }
-    }
-
-    public string HotkeyPin
-    {
-        get => _hotkeyPin;
-        set
-        {
-            if (SetProperty(ref _hotkeyPin, NormalizeHotkey(value, "")))
-                ScheduleSaveSettings();
-        }
-    }
-
-    private static string NormalizeHotkey(string? value, string fallback)
-        => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
     public string SortField => _sortField;
     public bool SortAscending => _sortAscending;
@@ -2328,7 +1593,6 @@ public string HotkeyEnterprise
 
     /// <summary>
     /// Единая точка запуска 1С. parameter — LaunchKind, строка имени enum или null (Enterprise).
-    /// Для Enterprise учитываются переопределения «Текущая сессия» (клиент и разрядность).
     /// </summary>
     private void Launch(object? parameter)
     {
@@ -2355,65 +1619,20 @@ public string HotkeyEnterprise
                 ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x64);
                 break;
             default:
-                ok = LaunchEnterpriseWithSessionOverrides(SelectedInfobase);
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise);
                 break;
         }
 
         if (ok)
         {
-            SelectedInfobase.AddLaunchHistory(kind.ToString(),
-                $"клиент={_sessionClientMode}, арх={_sessionArchitecture}");
             InfobasesView.Refresh();
             Save();
-            _logger.Info($"Запущена база «{SelectedInfobase.Name}» ({kind}, клиент={_sessionClientMode}, арх={_sessionArchitecture})");
+            _logger.Info($"Запущена база «{SelectedInfobase.Name}» ({kind})");
         }
         else
         {
             _logger.Warn($"Не удалось запустить базу «{SelectedInfobase.Name}» ({kind})");
         }
-    }
-
-    /// <summary>
-    /// Запуск 1С:Предприятие с учётом переключателей «Текущая сессия».
-    /// </summary>
-    private bool LaunchEnterpriseWithSessionOverrides(Infobase ib)
-    {
-        // Полностью «Авто» — стандартная логика по настройкам базы.
-        if (_sessionClientMode == SessionClientMode.Auto &&
-            _sessionArchitecture == SessionArchitectureMode.Auto)
-        {
-            return _launcher.Launch(ib, OneCLaunchMode.Enterprise);
-        }
-
-        OneCClientType? client = _sessionClientMode switch
-        {
-            SessionClientMode.Thin => OneCClientType.Thin,
-            SessionClientMode.Thick => OneCClientType.Thick,
-            SessionClientMode.Ordinary => OneCClientType.Thick,
-            _ => ResolveClientFromInfobase(ib)
-        };
-
-        var arch = _sessionArchitecture switch
-        {
-            SessionArchitectureMode.X86 => OneCArchitecture.x86,
-            SessionArchitectureMode.X64 => OneCArchitecture.x64,
-            _ => OneCLauncher.ResolveArchitecture(ib.Architecture, ib.PlatformVersion)
-        };
-
-        return _launcher.Launch(ib, OneCLaunchMode.Enterprise, client, arch);
-    }
-
-    /// <summary>Тип клиента из настройки базы (LaunchMode).</summary>
-    private static OneCClientType? ResolveClientFromInfobase(Infobase ib)
-    {
-        if (string.Equals(ib.LaunchMode, "Автоматический", StringComparison.OrdinalIgnoreCase))
-            return null;
-        if (string.Equals(ib.LaunchMode, "Толстый клиент", StringComparison.OrdinalIgnoreCase))
-            return OneCClientType.Thick;
-        if (string.Equals(ib.LaunchMode, "Тонкий клиент", StringComparison.OrdinalIgnoreCase))
-            return OneCClientType.Thin;
-        // Веб и прочее — без принудительного /RunMode
-        return null;
     }
 
     private static LaunchKind ResolveLaunchKind(object? parameter) => parameter switch
@@ -2437,6 +1656,12 @@ public string HotkeyEnterprise
             && !infobase.Tags.Any(t => _activeTagFilterSet.Contains(t)))
             return false;
 
+        // Фильтр по выбранному тегу (панель быстрого отбора).
+        if (!string.IsNullOrWhiteSpace(_activeTagFilter)
+            && !infobase.Tags.Any(t => string.Equals(t, _activeTagFilter, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        // Фильтр по тексту поиска.
         var filter = SearchText?.Trim() ?? string.Empty;
         if (string.IsNullOrEmpty(filter))
             return true;
@@ -2445,8 +1670,6 @@ public string HotkeyEnterprise
                || (infobase.Description?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
                || (infobase.Group?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
                || (infobase.PlatformVersion?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
-               || (infobase.ServerDatabaseDisplay?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
-               || (infobase.ConnectionStringDisplay?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
                || infobase.Tags.Any(t => t.Contains(filter, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -2510,7 +1733,6 @@ public string HotkeyEnterprise
             Theme = _savedTheme,
             CollapsedGroups = _collapsedGroups.ToList(),
             InstalledPlatformVersions = _installedPlatformVersions,
-            AdditionalPlatformSearchPaths = _additionalPlatformSearchPaths,
             NameColumnWidth = _nameColumnWidth,
             VersionColumnWidth = _versionColumnWidth,
             LaunchModeColumnWidth = _launchModeColumnWidth,
@@ -2522,24 +1744,9 @@ public string HotkeyEnterprise
             ShowTagFilterPanel = _showTagFilterPanel,
             AllowMultipleInstances = _allowMultipleInstances,
             ShowVersionColumn = _showVersionColumn,
-            ShowRightPanelDetails = _showRightPanelDetails,
-            ShowSessionLaunchPanel = _showSessionLaunchPanel,
-            SessionClientMode = _sessionClientMode.ToString(),
-            SessionArchitecture = _sessionArchitecture.ToString(),
-            StatusShowConnectionPath = _statusShowConnectionPath,
-            StatusShowArchitecture = _statusShowArchitecture,
-            StatusShowLaunchMode = _statusShowLaunchMode,
-            StatusShowPort = _statusShowPort,
-            StatusShowPlatformVersion = _statusShowPlatformVersion,
-            StatusShowClientType = _statusShowClientType,
-            StatusShowConnectionType = _statusShowConnectionType,
-            StatusShowUser = _statusShowUser,
-            StatusShowId = _statusShowId,
             ShowLaunchModeColumn = _showLaunchModeColumn,
             ShowServerColumn = _showServerColumn,
             ShowLastLaunchColumn = _showLastLaunchColumn,
-            ShowSizeColumn = _showSizeColumn,
-            SizeColumnWidth = _sizeColumnWidth,
             WindowWidth = _windowWidth,
             WindowHeight = _windowHeight,
             WindowLeft = _windowLeft,
@@ -2553,17 +1760,6 @@ public string HotkeyEnterprise
             IbasesBackupEnabled = _ibasesBackupEnabled,
             IbasesBackupKeepCount = _ibasesBackupKeepCount,
             CloseToTray = _closeToTray,
-            ShowTrayIcon = _showTrayIcon,
-            EscapeToTray = _escapeToTray,
-            TemplateCatalogPaths = _templateCatalogPaths.ToList(),
-            HotkeyEnterprise = _hotkeyEnterprise,
-            HotkeyConfigurator = _hotkeyConfigurator,
-            HotkeyFavorite = _hotkeyFavorite,
-            HotkeyEdit = _hotkeyEdit,
-            HotkeyDelete = _hotkeyDelete,
-            HotkeyClearCache = _hotkeyClearCache,
-            HotkeyAdd = _hotkeyAdd,
-            HotkeyPin = _hotkeyPin,
             SortField = _sortField,
             SortAscending = _sortAscending,
             FavoriteHotkeyIds = _favoriteHotkeyIds.ToList()
@@ -2652,14 +1848,12 @@ public string HotkeyEnterprise
     /// </summary>
     private void CollapseAllGroups(object? parameter)
     {
-        SetExpandedDeepSilent(_groupNodes, expanded: false);
+        CollapseAllNodes(_groupNodes, collapse: true);
+        // Синхронизируем набор свёрнутых групп, чтобы состояние сохранилось
+        // после перестроения дерева (поиск, фильтр, перезапуск).
         _collapsedGroups.Clear();
         CollectGroupPaths(_groupNodes, _collapsedGroups);
-        ScheduleSaveSettings();
-
-        // Сворачиваем только существующие контейнеры (быстро, без пересборки ItemsSource).
-        if (Application.Current?.MainWindow is global::Configuration_Management.MainWindow window)
-            window.ApplyGroupExpandedState(expand: false);
+        SaveSettings();
     }
 
     /// <summary>
@@ -2667,24 +1861,9 @@ public string HotkeyEnterprise
     /// </summary>
     private void ExpandAllGroups(object? parameter)
     {
-        // Модель сразу в expanded — при создании новых TreeViewItem Binding читает true.
-        SetExpandedDeepSilent(_groupNodes, expanded: true);
+        CollapseAllNodes(_groupNodes, collapse: false);
         _collapsedGroups.Clear();
-        ScheduleSaveSettings();
-
-        // По уровням через контейнеры TreeView (без PropertyChanged-лавины и без ReplaceGroupNodes).
-        if (Application.Current?.MainWindow is global::Configuration_Management.MainWindow window)
-            window.ApplyGroupExpandedState(expand: true);
-    }
-
-    /// <summary>Рекурсивно задаёт IsExpanded без уведомлений UI.</summary>
-    private static void SetExpandedDeepSilent(IEnumerable<GroupNodeViewModel> nodes, bool expanded)
-    {
-        foreach (var node in nodes)
-        {
-            node.SetExpandedSilent(expanded);
-            SetExpandedDeepSilent(node.Children, expanded);
-        }
+        SaveSettings();
     }
 
     /// <summary>
@@ -2694,7 +1873,7 @@ public string HotkeyEnterprise
     {
         foreach (var node in nodes)
         {
-            node.SetExpandedSilent(!collapse);
+            node.IsExpanded = !collapse;
             CollapseAllNodes(node.Children, collapse);
         }
     }
@@ -2721,32 +1900,24 @@ public string HotkeyEnterprise
     {
         var search = SearchText?.Trim() ?? string.Empty;
         var hasSearch = search.Length > 0;
-        var hasTags = _activeTagFilterSet.Count > 0;
-        var mode = _listViewMode;
+        var hasTag = !string.IsNullOrWhiteSpace(_activeTagFilter);
+        var favOnly = ShowFavoritesOnly;
 
-        IEnumerable<Infobase> source = Infobases;
-        if (mode == ListViewMode.Favorites)
-            source = source.Where(i => i.IsFavorite);
-        else if (mode == ListViewMode.Recent)
-            source = source.Where(i => i.LastLaunchDate.HasValue)
-                           .OrderByDescending(i => i.LastLaunchDate);
-
-        foreach (var infobase in source)
+        foreach (var infobase in Infobases)
         {
-            // Несколько тегов: база подходит, если есть хотя бы один из выбранных (OR).
-            if (hasTags
-                && !infobase.Tags.Any(t => _activeTagFilterSet.Contains(t)))
+            if (favOnly && !infobase.IsFavorite)
                 continue;
 
-            // Поиск по имени/описанию/пути/серверу работает вместе с тегами (AND).
+            if (hasTag
+                && !infobase.Tags.Any(t => string.Equals(t, _activeTagFilter, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
             if (hasSearch)
             {
                 if (!(infobase.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
-                      || (infobase.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
-                      || (infobase.Group?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
-                      || (infobase.PlatformVersion?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
-                      || (infobase.ServerDatabaseDisplay?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
-                      || (infobase.ConnectionStringDisplay?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                      || infobase.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
+                      || infobase.Group.Contains(search, StringComparison.OrdinalIgnoreCase)
+                      || infobase.PlatformVersion.Contains(search, StringComparison.OrdinalIgnoreCase)
                       || infobase.Tags.Any(t => t.Contains(search, StringComparison.OrdinalIgnoreCase))))
                     continue;
             }
@@ -2765,24 +1936,21 @@ public string HotkeyEnterprise
     {
         // Один проход по базам без CollectionView.Refresh (он дорогой на больших списках).
         // Учитываем выбранное поле сортировки (_sortField / _sortAscending).
-        var filtered = EnumerateFilteredInfobases();
-        // В режиме «Недавние» порядок уже по LastLaunchDate; иначе — выбранная сортировка.
-        var visible = (_listViewMode == ListViewMode.Recent
-            ? filtered
-            : ApplyCurrentSort(filtered)).ToList();
+        var visible = ApplyCurrentSort(EnumerateFilteredInfobases()).ToList();
 
         // Когда группировка отключена — показываем плоский список всех баз в одном узле.
         if (!_groupByGroup)
         {
             var flatNode = new GroupNodeViewModel(null, displayName: "Все базы");
-            flatNode.SetNotificationsSuppressed(true);
             foreach (var infobase in visible)
                 flatNode.Infobases.Add(infobase);
+
             flatNode.PopulateItems();
-            flatNode.SetNotificationsSuppressed(false);
             flatNode.IsExpanded = true;
             _groupNodes = new List<GroupNodeViewModel> { flatNode };
             ReplaceGroupNodes(_groupNodes);
+            ApplyExpandedState(_groupNodes);
+            OnPropertyChanged(nameof(GroupNodes));
             return;
         }
 
@@ -2798,28 +1966,21 @@ public string HotkeyEnterprise
         {
             if (node.Group is not null)
             {
-                // FullPath уже кэшируется в узле — не вызываем GetFullPath по всему списку групп.
-                var path = node.FullPath;
+                var path = GroupHierarchyHelper.GetFullPath(node.Group, Groups);
                 if (!string.IsNullOrEmpty(path))
-                {
                     pathToNode[path] = node;
-                    var normalized = NormalizeGroupPath(path);
-                    if (!string.IsNullOrEmpty(normalized) &&
-                        !string.Equals(normalized, path, StringComparison.OrdinalIgnoreCase))
-                        pathToNode[normalized] = node;
-                }
+                var vmPath = node.FullPath;
+                if (!string.IsNullOrEmpty(vmPath))
+                    pathToNode[vmPath] = node;
+                var normalized = NormalizeGroupPath(path);
+                if (!string.IsNullOrEmpty(normalized))
+                    pathToNode[normalized] = node;
             }
             foreach (var child in node.Children)
                 IndexNode(child);
         }
         foreach (var root in roots)
             IndexNode(root);
-
-        // Без NotifyCountChanged на каждое добавление базы (лавина PropertyChanged).
-        foreach (var root in roots)
-            root.SetNotificationsSuppressed(true);
-        pinnedNode.SetNotificationsSuppressed(true);
-        noGroupNode.SetNotificationsSuppressed(true);
 
         foreach (var infobase in visible)
         {
@@ -2833,9 +1994,16 @@ public string HotkeyEnterprise
                 continue;
             }
 
-            if (pathToNode.TryGetValue(groupPath, out var node)
+            GroupNodeViewModel? node = null;
+            if (pathToNode.TryGetValue(groupPath, out node)
                 || pathToNode.TryGetValue(NormalizeGroupPath(groupPath), out node))
             {
+                // Подтягиваем канонический путь, если в JSON был другой разделитель.
+                var canonical = node.Group is not null
+                    ? GroupHierarchyHelper.GetFullPath(node.Group, Groups)
+                    : groupPath;
+                if (!string.Equals(infobase.Group, canonical, StringComparison.OrdinalIgnoreCase))
+                    infobase.Group = canonical;
                 node.Infobases.Add(infobase);
                 continue;
             }
@@ -2847,11 +2015,6 @@ public string HotkeyEnterprise
             root.PopulateItems();
         pinnedNode.PopulateItems();
         noGroupNode.PopulateItems();
-
-        foreach (var root in roots)
-            root.SetNotificationsSuppressed(false);
-        pinnedNode.SetNotificationsSuppressed(false);
-        noGroupNode.SetNotificationsSuppressed(false);
 
         var next = new List<GroupNodeViewModel>();
         if (pinnedNode.ContainsInfobases)
@@ -2865,42 +2028,10 @@ public string HotkeyEnterprise
         }
 
         _groupNodes = next;
-
-        // Expand/collapse до Replace — один проход построения TreeView.
-        if (ShouldAutoExpandGroups())
-            ExpandAllNodesWithContent(next);
-        else
-            ApplyExpandedState(next);
-
         ReplaceGroupNodes(next);
-
-        // Панель тегов обновляем только если набор тегов мог измениться
-        // (не на каждый символ поиска — там уже есть ранний выход, но лишний проход лишний).
-        RefreshTagFilterItems();
-    }
-
-    /// <summary>
-    /// Нужно ли автоматически разворачивать группы с видимыми базами:
-    /// при поиске, фильтре по тегам, режиме «Избранное» или «Недавние».
-    /// </summary>
-    private bool ShouldAutoExpandGroups() =>
-        !string.IsNullOrWhiteSpace(SearchText)
-        || HasActiveTagFilter
-        || _listViewMode == ListViewMode.Favorites
-        || _listViewMode == ListViewMode.Recent;
-
-    /// <summary>
-    /// Разворачивает узлы дерева, в которых есть базы (или вложенные с базами).
-    /// Используется при поиске, фильтре по тегу, избранном и недавних.
-    /// </summary>
-    private static void ExpandAllNodesWithContent(IEnumerable<GroupNodeViewModel> nodes)
-    {
-        foreach (var node in nodes)
-        {
-            if (node.ContainsInfobases)
-                node.SetExpandedSilent(true);
-            ExpandAllNodesWithContent(node.Children);
-        }
+        ApplyExpandedState(_groupNodes);
+        OnPropertyChanged(nameof(AvailableTags));
+        OnPropertyChanged(nameof(GroupNodes));
     }
 
     /// <summary>
@@ -2908,10 +2039,11 @@ public string HotkeyEnterprise
     /// </summary>
     private void ReplaceGroupNodes(List<GroupNodeViewModel> next)
     {
-        // Новая коллекция вместо Clear/Add: один сброс ItemsSource у TreeView,
-        // без промежуточных CollectionChanged на каждый корневой узел.
-        GroupNodes = new ObservableCollection<GroupNodeViewModel>(next);
-        OnPropertyChanged(nameof(GroupNodes));
+        // Clear + Add по-прежнему нужны для ObservableCollection, но без промежуточных
+        // операций между Clear и полным набором узлов.
+        GroupNodes.Clear();
+        foreach (var node in next)
+            GroupNodes.Add(node);
     }
 
     /// <summary>
@@ -2944,7 +2076,7 @@ public string HotkeyEnterprise
             // Для реальных групп ключом служит полный путь, для служебных узлов
             // («Закреплённые», «Без группы») — отображаемое имя (единый формат).
             var key = string.IsNullOrEmpty(node.FullPath) ? node.DisplayName : node.FullPath;
-            node.SetExpandedSilent(!IsGroupCollapsed(key));
+            node.IsExpanded = !IsGroupCollapsed(key);
             ApplyExpandedState(node.Children);
         }
     }
@@ -3075,63 +2207,6 @@ public string HotkeyEnterprise
         {
             _dialogs.ShowError($"Не удалось выполнить импорт.\n{ex.Message}",
                 "Ошибка импорта");
-        }
-    }
-
-    /// <summary>
-    /// Ручная синхронизация с ibases.v8i по режиму из настроек приложения.
-    /// Если синхронизация отключена — сообщает об этом и предлагает открыть настройки.
-    /// </summary>
-    private void SynchronizeWithIbasesManual(object? parameter)
-    {
-        if (_ibasesSyncMode == IbasesSyncMode.None)
-        {
-            if (_dialogs.Confirm(
-                    "Синхронизация с файлом ibases.v8i отключена в настройках.\n\n" +
-                    "Открыть настройки, чтобы выбрать режим (загрузка / выгрузка / двусторонняя)?",
-                    "Синхронизация ibases.v8i"))
-            {
-                OpenSettings(null);
-            }
-            return;
-        }
-
-        var filePath = ResolveIbasesFilePath();
-        if (filePath is null)
-        {
-            _dialogs.ShowInfo(
-                "Не удалось определить путь к файлу ibases.v8i.\n" +
-                "Укажите путь на вкладке «ibases.v8i» в настройках.",
-                "Синхронизация ibases.v8i");
-            return;
-        }
-
-        var modeText = _ibasesSyncMode switch
-        {
-            IbasesSyncMode.Import => "загрузка из файла в приложение",
-            IbasesSyncMode.Export => "выгрузка из приложения в файл",
-            IbasesSyncMode.Both => "двусторонняя (загрузка и выгрузка)",
-            _ => "неизвестный режим"
-        };
-
-        try
-        {
-            // Сбрасываем предыдущее сообщение, чтобы увидеть актуальный результат.
-            SyncMessage = string.Empty;
-            var ok = SynchronizeWithIbases();
-
-            var status = string.IsNullOrWhiteSpace(SyncMessage)
-                ? (ok ? "Синхронизация выполнена (изменений нет или режим не потребовал операций)." : "Синхронизация не выполнена.")
-                : SyncMessage;
-
-            _dialogs.ShowInfo(
-                $"Режим: {modeText}\nФайл: {filePath}\n\n{status}",
-                "Синхронизация ibases.v8i");
-        }
-        catch (Exception ex)
-        {
-            _dialogs.ShowError($"Не удалось выполнить синхронизацию.\n{ex.Message}",
-                "Ошибка синхронизации");
         }
     }
 
@@ -3412,205 +2487,6 @@ public string HotkeyEnterprise
         }
     }
 
-    /// <summary>Открывает каталог файловой ИБ в проводнике Windows.</summary>
-    private void OpenInfobaseFolder(object? parameter)
-    {
-        var ib = parameter as Infobase ?? SelectedInfobase;
-        if (ib is null) return;
-
-        if (ib.Connection.Type != ConnectionType.File)
-        {
-            _dialogs.ShowInfo("Открытие каталога доступно только для файловых информационных баз.",
-                "Открыть каталог");
-            return;
-        }
-
-        if (!InfobaseMaintenanceService.OpenInfobaseFolder(ib))
-        {
-            _dialogs.ShowError(
-                $"Не удалось открыть каталог.\nПуть: {ib.Connection.FilePath}",
-                "Открыть каталог");
-        }
-    }
-
-    /// <summary>Создаёт ярлык .lnk на рабочем столе для запуска базы.</summary>
-    private void CreateDesktopShortcut(object? parameter)
-    {
-        var ib = parameter as Infobase ?? SelectedInfobase;
-        if (ib is null) return;
-
-        if (InfobaseMaintenanceService.CreateDesktopShortcut(ib))
-        {
-            _dialogs.ShowInfo(
-                $"Ярлык для «{ib.Name}» создан на рабочем столе.\n" +
-                "Запуск через 1cv8.exe (как в стандартном стартере 1С).",
-                "Ярлык");
-            _logger.Info($"Создан ярлык 1С на рабочем столе для базы «{ib.Name}»");
-        }
-        else
-        {
-            _dialogs.ShowError(
-                "Не удалось создать ярлык.\n" +
-                "Проверьте, что установлена платформа 1С (1cv8.exe) и у базы указана версия платформы.",
-                "Ярлык");
-        }
-    }
-
-    /// <summary>Удаляет из списка файловые базы, у которых нет 1Cv8.1CD / каталога.</summary>
-    private void RemoveMissingFileBases(object? parameter)
-    {
-        var missing = Infobases.Where(ib => !InfobaseMaintenanceService.FileBaseExists(ib)).ToList();
-        if (missing.Count == 0)
-        {
-            _dialogs.ShowInfo("Все файловые базы на месте. Удалять нечего.",
-                "Проверка файловых баз");
-            return;
-        }
-
-        var preview = string.Join("\n", missing.Take(15).Select(ib => "• " + ib.Name));
-        if (missing.Count > 15)
-            preview += $"\n… и ещё {missing.Count - 15}";
-
-        if (!_dialogs.Confirm(
-                $"Найдено файловых баз без каталога/1Cv8.1CD: {missing.Count}\n\n{preview}\n\nУдалить их из списка?",
-                "Удаление отсутствующих баз"))
-            return;
-
-        foreach (var ib in missing)
-            Infobases.Remove(ib);
-
-        RebuildGroupTree();
-        InfobasesView.Refresh();
-        Save();
-        _logger.Info($"Удалено отсутствующих файловых баз: {missing.Count}");
-        _dialogs.ShowInfo($"Удалено из списка: {missing.Count}.", "Удаление отсутствующих баз");
-    }
-
-    /// <summary>Завершает процессы 1cv8 / 1cv8c и связанные.</summary>
-    private void KillOneCProcesses(object? parameter)
-    {
-        var count = InfobaseMaintenanceService.CountOneCProcesses();
-        if (count == 0)
-        {
-            _dialogs.ShowInfo("Процессы платформы 1С не найдены.", "Процессы 1С");
-            return;
-        }
-
-        if (!_dialogs.Confirm(
-                $"Будет завершено процессов 1С: примерно {count}.\n\n" +
-                "Несохранённые данные в открытых сеансах могут быть потеряны.\nПродолжить?",
-                "Завершение процессов 1С"))
-            return;
-
-        var killed = InfobaseMaintenanceService.KillOneCProcesses();
-        _logger.Info($"Завершено процессов 1С: {killed}");
-        _dialogs.ShowInfo($"Завершено процессов: {killed}.", "Процессы 1С");
-    }
-
-    /// <summary>Пересчёт размеров файловых баз.</summary>
-    private void RefreshFileMetadata()
-    {
-        foreach (var ib in Infobases)
-        {
-            if (ib.Connection.Type != ConnectionType.File)
-            {
-                ib.FileSizeBytes = null;
-                continue;
-            }
-            ib.FileSizeBytes = InfobaseMaintenanceService.CalculateFileBaseSize(ib);
-        }
-        InfobasesView?.Refresh();
-    }
-
-    private void DumpInfobaseDt(object? parameter)
-    {
-        var ib = parameter as Infobase ?? SelectedInfobase;
-        if (ib is null) return;
-
-        var dlg = new Microsoft.Win32.SaveFileDialog
-        {
-            Title = "Выгрузка информационной базы (.dt)",
-            Filter = "Выгрузка 1С (*.dt)|*.dt|Все файлы (*.*)|*.*",
-            FileName = SanitizeFileName(ib.Name) + ".dt"
-        };
-        if (dlg.ShowDialog() != true) return;
-
-        if (OneCLauncher.RunDesignerBatch(ib, OneCLauncher.DesignerBatchOperation.DumpIB, dlg.FileName))
-        {
-            ib.AddLaunchHistory("DumpDT", dlg.FileName);
-            Save();
-            _dialogs.ShowInfo(
-                "Запущена выгрузка ИБ в .dt.\nДождитесь закрытия окна конфигуратора / завершения процесса 1cv8.",
-                "Выгрузка .dt");
-        }
-    }
-
-    private void DumpConfigurationCf(object? parameter)
-    {
-        var ib = parameter as Infobase ?? SelectedInfobase;
-        if (ib is null) return;
-
-        var dlg = new Microsoft.Win32.SaveFileDialog
-        {
-            Title = "Выгрузка конфигурации (.cf)",
-            Filter = "Конфигурация 1С (*.cf)|*.cf|Все файлы (*.*)|*.*",
-            FileName = SanitizeFileName(ib.Name) + ".cf"
-        };
-        if (dlg.ShowDialog() != true) return;
-
-        if (OneCLauncher.RunDesignerBatch(ib, OneCLauncher.DesignerBatchOperation.DumpCfg, dlg.FileName))
-        {
-            ib.AddLaunchHistory("DumpCF", dlg.FileName);
-            Save();
-            _dialogs.ShowInfo(
-                "Запущена выгрузка конфигурации в .cf.\nДождитесь завершения процесса 1cv8.",
-                "Выгрузка .cf");
-        }
-    }
-
-    private void TestInfobase(object? parameter)
-    {
-        var ib = parameter as Infobase ?? SelectedInfobase;
-        if (ib is null) return;
-
-        if (!_dialogs.Confirm(
-                $"Запустить тестирование ИБ «{ib.Name}»?\n\n" +
-                "Будет выполнен /IBCheckAndRepair -TestOnly в пакетном режиме конфигуратора.",
-                "Тестирование ИБ"))
-            return;
-
-        if (OneCLauncher.RunDesignerBatch(ib, OneCLauncher.DesignerBatchOperation.TestAndRepair))
-        {
-            ib.AddLaunchHistory("Test", "");
-            Save();
-            _dialogs.ShowInfo(
-                "Запущено тестирование ИБ.\nСледите за окном конфигуратора / логом операции.",
-                "Тестирование ИБ");
-        }
-    }
-
-    private void ShowLaunchHistory(object? parameter)
-    {
-        var ib = parameter as Infobase ?? SelectedInfobase;
-        if (ib is null) return;
-
-        if (ib.LaunchHistory == null || ib.LaunchHistory.Count == 0)
-        {
-            _dialogs.ShowInfo($"История запусков для «{ib.Name}» пуста.", "История запусков");
-            return;
-        }
-
-        var text = string.Join("\n", ib.LaunchHistory.Select(h => h.Display));
-        _dialogs.ShowInfo($"История запусков «{ib.Name}»:\n\n{text}", "История запусков");
-    }
-
-    private static string SanitizeFileName(string name)
-    {
-        var invalid = Path.GetInvalidFileNameChars();
-        var s = new string((name ?? "base").Select(c => invalid.Contains(c) ? '_' : c).ToArray());
-        return string.IsNullOrWhiteSpace(s) ? "base" : s;
-    }
-
     /// <summary>
     /// Добавляет тег к выбранной базе.
     /// </summary>
@@ -3699,40 +2575,233 @@ public string HotkeyEnterprise
 
         SyncActiveTagFilterSet();
         OnPropertyChanged(nameof(HasActiveTagFilter));
-        // Обновляем подсветку чипов тегов — иначе визуально фильтр «остаётся».
-        RefreshTagFilterItems();
         RebuildGroupTree();
     }
 
     /// <summary>
-    /// Очищает поле поиска (теги не трогает).
+    /// Копирует тег в поле поиска и выполняет отбор баз с этим тегом.
+    /// </summary>
+    private void SearchByTag(object? parameter)
+    {
+        if (parameter is not string tag)
+            return;
+
+        // Повторный клик по тому же тегу снимает фильтр.
+        if (string.Equals(ActiveTagFilter, tag, StringComparison.OrdinalIgnoreCase))
+            ActiveTagFilter = string.Empty;
+        else
+            ActiveTagFilter = tag;
+
+        OnPropertyChanged(nameof(AvailableTags));
+    }
+
+    /// <summary>
+    /// Очищает поле поиска и фильтр по тегу.
     /// </summary>
     private void ClearSearch(object? parameter)
     {
-        // Отменяем отложенную перестройку от набора текста, чтобы не «вернуть» старый фильтр.
-        _searchDebounceCts?.Cancel();
-        _searchDebounceCts?.Dispose();
-        _searchDebounceCts = null;
+        SearchText = string.Empty;
+        ActiveTagFilter = string.Empty;
+    }
 
-        if (!string.IsNullOrEmpty(_searchText))
-            _searchText = string.Empty;
-        OnPropertyChanged(nameof(SearchText));
+    /// <summary>
+    /// Нормализует путь группы: единый разделитель « / », обрезка пробелов.
+    /// </summary>
+    private static string NormalizeGroupPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+        var parts = path
+            .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0);
+        return string.Join(GroupHierarchyHelper.PathSeparator, parts);
+    }
+
+    /// <summary>
+    /// Перемещает базу в указанную группу (полный путь).
+    /// <paramref name="insertBefore"/> — база, перед которой вставить (null = в конец группы).
+    /// </summary>
+    public void MoveInfobaseToGroup(Infobase infobase, string groupFullPath, Infobase? insertBefore = null)
+    {
+        var targetPath = groupFullPath ?? string.Empty;
+        var targetNorm = NormalizeGroupPath(targetPath);
+        infobase.Group = string.IsNullOrEmpty(targetNorm) ? targetPath : targetNorm;
+
+        // Соседи в целевой группе (кроме переносимой).
+        var siblings = Infobases
+            .Where(i => !ReferenceEquals(i, infobase)
+                        && string.Equals(NormalizeGroupPath(i.Group), targetNorm,
+                            StringComparison.OrdinalIgnoreCase))
+            .OrderBy(i => i.SortOrder)
+            .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (insertBefore is not null
+            && siblings.Any(s => ReferenceEquals(s, insertBefore)
+                                 || string.Equals(s.Id, insertBefore.Id, StringComparison.OrdinalIgnoreCase)
+                                    && !string.IsNullOrEmpty(insertBefore.Id)))
+        {
+            var index = siblings.FindIndex(s =>
+                ReferenceEquals(s, insertBefore)
+                || (string.Equals(s.Id, insertBefore.Id, StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(insertBefore.Id)));
+            siblings.Insert(Math.Max(0, index), infobase);
+        }
+        else
+        {
+            siblings.Add(infobase);
+        }
+
+        for (var i = 0; i < siblings.Count; i++)
+            siblings[i].SortOrder = (i + 1) * 10;
+
+        Save();
+        RebuildGroupTree();
+        OnPropertyChanged(nameof(AvailableTags));
+    }
+
+    /// <summary>
+    /// Перемещает группу под другую группу (или в корень при пустом newParentId)
+    /// вместе со всеми вложенными подгруппами и информационными базами.
+    /// Обновляет ParentId и полные пути Infobase.Group у всей подветки.
+    /// </summary>
+    public void MoveGroupUnder(Group group, string newParentId)
+    {
+        newParentId ??= string.Empty;
+        if (string.Equals(group.Id, newParentId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Нельзя сделать родителем потомка этой группы (иначе цикл в иерархии).
+        if (!string.IsNullOrEmpty(newParentId)
+            && GroupHierarchyHelper.IsAncestorOrSelf(newParentId, group.Id, Groups))
+            return;
+
+        // Старые полные пути: сама группа + все потомки (до смены ParentId).
+        var oldPathsById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var subtreeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { group.Id };
+        CollectGroupDescendants(group.Id, subtreeIds);
+        foreach (var id in subtreeIds)
+        {
+            var g = Groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is not null)
+                oldPathsById[id] = GroupHierarchyHelper.GetFullPath(g, Groups);
+        }
+
+        var oldRootPath = oldPathsById.TryGetValue(group.Id, out var orp) ? orp : string.Empty;
+        var oldRootNorm = NormalizeGroupPath(oldRootPath);
+
+        // Меняем родителя только у перемещаемой группы; вложенные группы
+        // остаются её потомками через свои ParentId и переезжают вместе с ней.
+        group.ParentId = newParentId;
+
+        // pathRemap: старый путь (и нормализованный) → новый канонический.
+        var pathRemap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in subtreeIds)
+        {
+            var g = Groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is null || !oldPathsById.TryGetValue(id, out var oldPath))
+                continue;
+            var newPath = GroupHierarchyHelper.GetFullPath(g, Groups);
+            if (string.IsNullOrEmpty(oldPath) || string.IsNullOrEmpty(newPath))
+                continue;
+            pathRemap[oldPath] = newPath;
+            pathRemap[NormalizeGroupPath(oldPath)] = newPath;
+        }
+
+        // Обновляем Infobase.Group у всех баз подветки.
+        if (pathRemap.Count > 0)
+        {
+            // Длинные пути первыми — чтобы «A / B» не переписывался как префикс «A».
+            var remapByLength = pathRemap
+                .OrderByDescending(kv => kv.Key.Length)
+                .ToList();
+
+            foreach (var ib in Infobases)
+            {
+                var current = ib.Group?.Trim() ?? string.Empty;
+                if (string.IsNullOrEmpty(current))
+                    continue;
+
+                var currentNorm = NormalizeGroupPath(current);
+                string? mapped = null;
+
+                if (pathRemap.TryGetValue(current, out mapped)
+                    || pathRemap.TryGetValue(currentNorm, out mapped))
+                {
+                    ib.Group = mapped;
+                    continue;
+                }
+
+                // Префикс: база во вложенном пути, которого не было в pathRemap.
+                foreach (var (oldKey, newKey) in remapByLength)
+                {
+                    if (current.StartsWith(oldKey + GroupHierarchyHelper.PathSeparator,
+                            StringComparison.OrdinalIgnoreCase)
+                        || currentNorm.StartsWith(NormalizeGroupPath(oldKey) + GroupHierarchyHelper.PathSeparator,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        var suffix = current.Length > oldKey.Length
+                            ? current.Substring(oldKey.Length)
+                            : currentNorm.Substring(NormalizeGroupPath(oldKey).Length);
+                        ib.Group = newKey + suffix;
+                        break;
+                    }
+                }
+            }
+
+            if (_collapsedGroups is { Count: > 0 })
+            {
+                var updated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var key in _collapsedGroups)
+                {
+                    if (pathRemap.TryGetValue(key, out var mapped)
+                        || pathRemap.TryGetValue(NormalizeGroupPath(key), out mapped))
+                        updated.Add(mapped);
+                    else if (!string.IsNullOrEmpty(oldRootPath)
+                             && (key.StartsWith(oldRootPath + GroupHierarchyHelper.PathSeparator,
+                                     StringComparison.OrdinalIgnoreCase)
+                                 || NormalizeGroupPath(key).StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                                     StringComparison.OrdinalIgnoreCase))
+                             && pathRemap.TryGetValue(oldRootPath, out var newRoot))
+                        updated.Add(newRoot + key.Substring(Math.Min(key.Length, oldRootPath.Length)));
+                    else
+                        updated.Add(key);
+                }
+                _collapsedGroups.Clear();
+                foreach (var k in updated)
+                    _collapsedGroups.Add(k);
+            }
+        }
+
+        // Всегда сохраняем базы и группы, затем UI — как после перезапуска.
+        Save();
+        SaveGroups();
         RebuildGroupTree();
     }
 
     /// <summary>
-    /// Сбрасывает выбранные теги фильтра.
+    /// Применяет настройки приложения (экземпляры, панель тегов).
     /// </summary>
-    private void ClearTagFilters(object? parameter)
+    public void ApplyAppBehaviorSettings(bool allowMultipleInstances, bool showTagFilterPanel, bool closeToTray = false)
     {
-        if (_activeTagFilters.Count == 0)
-            return;
-        _activeTagFilters.Clear();
-        SyncActiveTagFilterSet();
-        OnPropertyChanged(nameof(HasActiveTagFilter));
-        // Важно: пересоздать TagFilterItems с IsSelected=false, иначе чипы остаются «включёнными».
-        RefreshTagFilterItems();
-        RebuildGroupTree();
+        _allowMultipleInstances = allowMultipleInstances;
+        _showTagFilterPanel = showTagFilterPanel;
+        _closeToTray = closeToTray;
+        OnPropertyChanged(nameof(AllowMultipleInstances));
+        OnPropertyChanged(nameof(ShowTagFilterPanel));
+        OnPropertyChanged(nameof(CloseToTray));
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Уведомляет UI об изменении списка доступных тегов.
+    /// </summary>
+    public void RefreshAvailableTags()
+    {
+        OnPropertyChanged(nameof(AvailableTags));
     }
 
     /// <summary>
@@ -3922,41 +2991,22 @@ public string HotkeyEnterprise
         bool closeToTray = false,
         bool showTrayIcon = true,
         string? hotkeyEnterprise = null,
-        string? hotkeyConfigurator = null,
-        string? hotkeyFavorite = null,
-        string? hotkeyEdit = null,
-        string? hotkeyDelete = null,
-        string? hotkeyClearCache = null,
-        string? hotkeyAdd = null,
-        string? hotkeyPin = null,
-        bool escapeToTray = true)
+        string? hotkeyConfigurator = null)
     {
         _allowMultipleInstances = allowMultipleInstances;
         _showTagFilterPanel = showTagFilterPanel;
         _closeToTray = closeToTray;
         _showTrayIcon = showTrayIcon;
-        _escapeToTray = escapeToTray;
-        if (hotkeyEnterprise != null) _hotkeyEnterprise = hotkeyEnterprise.Trim();
-        if (hotkeyConfigurator != null) _hotkeyConfigurator = hotkeyConfigurator.Trim();
-        if (hotkeyFavorite != null) _hotkeyFavorite = hotkeyFavorite.Trim();
-        if (hotkeyEdit != null) _hotkeyEdit = hotkeyEdit.Trim();
-        if (hotkeyDelete != null) _hotkeyDelete = hotkeyDelete.Trim();
-        if (hotkeyClearCache != null) _hotkeyClearCache = hotkeyClearCache.Trim();
-        if (hotkeyAdd != null) _hotkeyAdd = hotkeyAdd.Trim();
-        if (hotkeyPin != null) _hotkeyPin = hotkeyPin.Trim();
+        if (!string.IsNullOrWhiteSpace(hotkeyEnterprise))
+            _hotkeyEnterprise = hotkeyEnterprise.Trim();
+        if (!string.IsNullOrWhiteSpace(hotkeyConfigurator))
+            _hotkeyConfigurator = hotkeyConfigurator.Trim();
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(ShowTagFilterPanel));
         OnPropertyChanged(nameof(CloseToTray));
         OnPropertyChanged(nameof(ShowTrayIcon));
-        OnPropertyChanged(nameof(EscapeToTray));
         OnPropertyChanged(nameof(HotkeyEnterprise));
         OnPropertyChanged(nameof(HotkeyConfigurator));
-        OnPropertyChanged(nameof(HotkeyFavorite));
-        OnPropertyChanged(nameof(HotkeyEdit));
-        OnPropertyChanged(nameof(HotkeyDelete));
-        OnPropertyChanged(nameof(HotkeyClearCache));
-        OnPropertyChanged(nameof(HotkeyAdd));
-        OnPropertyChanged(nameof(HotkeyPin));
         SaveSettings();
     }
 
