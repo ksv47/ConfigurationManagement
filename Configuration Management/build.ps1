@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-  Локальная сборка и публикация «Управление конфигурациями 1С».
+  Local build and publish of "Configuration Management 1C".
 
 .PARAMETER Configuration
-  Debug или Release (по умолчанию Release).
+  Debug or Release (default Release).
 
 .PARAMETER Publish
-  Если указан — выполнить dotnet publish (self-contained win-x64).
+  If specified - run dotnet publish (self-contained win-x64).
 
 .PARAMETER Output
-  Каталог публикации (по умолчанию .\publish\win-x64).
+  Publish directory (default .\publish\win-x64).
 
 .EXAMPLE
   .\build.ps1
@@ -27,7 +27,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $Project = Join-Path $PSScriptRoot 'Configuration Management.csproj'
 
-Write-Host "==> Restore" -ForegroundColor Cyan
+Write-Host '==> Restore' -ForegroundColor Cyan
 dotnet restore $Project
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -50,10 +50,10 @@ if ($Publish) {
 
     $exe = Get-ChildItem $Output -Filter *.exe | Select-Object -First 1
     if ($exe) {
-        Write-Host "==> Готово: $($exe.FullName) ($([math]::Round($exe.Length/1MB, 1)) MB)" -ForegroundColor Green
+        Write-Host "==> Done: $($exe.FullName) ($([math]::Round($exe.Length/1MB, 1)) MB)" -ForegroundColor Green
     } else {
-        Write-Host "==> Публикация завершена: $Output" -ForegroundColor Green
+        Write-Host "==> Publish finished: $Output" -ForegroundColor Green
     }
 } else {
-    Write-Host "==> Сборка завершена. Для публикации: .\build.ps1 -Publish" -ForegroundColor Green
+    Write-Host "==> Build finished. To publish: .\build.ps1 -Publish" -ForegroundColor Green
 }

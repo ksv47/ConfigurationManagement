@@ -83,74 +83,30 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Вставляет строку подключения 1С из буфера обмена с разбивкой по полям.
-        /// Заполняет тип подключения, сервер, имя базы, путь/URL, логин и пароль.
-        /// Если поле «Наименование» пустое — подставляет имя базы (Ref) или имя файла.
+        /// Открывает окно ввода строки подключения 1С. Если в буфере обмена лежит
+        /// строка, удовлетворяющая критериям ссылки на информационную базу, она
+        /// сразу подставляется в поле ввода. После подтверждения строка разбивается
+        /// по полям настроек базы.
         /// </summary>
         private void OnPasteConnectionString_Click(object sender, RoutedEventArgs e)
         {
-            string text;
-            try
+            var dialog = new ConnectionStringInputWindow(_viewModel.ConnectionString)
             {
-                text = Clipboard.ContainsText() ? Clipboard.GetText().Trim() : string.Empty;
-            }
-            catch
-            {
-                MessageBox.Show("Не удалось прочитать буфер обмена.",
-                    "Вставка строки подключения", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() != true)
                 return;
-            }
 
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                MessageBox.Show("Буфер обмена пуст или не содержит текста.",
-                    "Вставка строки подключения", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
+            // Применяем разобранную строку к полям ViewModel.
+            _viewModel.ApplyConnectionString(dialog.Result);
 
-            var parsed = ConnectionSettings.ParseConnectionString(text);
-
-            // Применяем разобранные значения к полям ViewModel.
-            _viewModel.ConnectionType = parsed.Type;
-            _viewModel.Server = parsed.Server;
-            _viewModel.DatabaseName = parsed.DatabaseName;
-            _viewModel.FilePath = parsed.FilePath;
-            _viewModel.WebUrl = parsed.WebUrl;
-            _viewModel.User = parsed.User;
-            _viewModel.Password = parsed.Password;
-            _viewModel.AuthenticationMode = parsed.AuthenticationMode;
-            _viewModel.Port = parsed.Port;
-
-            // Если наименование не задано — предлагаем имя базы (Ref) или имя файла.
-            if (string.IsNullOrWhiteSpace(_viewModel.Name))
-            {
-                var suggestedName = parsed.Type switch
-                {
-                    ConnectionType.File => SuggestNameFromPath(parsed.FilePath),
-                    ConnectionType.WebServer => parsed.WebUrl,
-                    _ => parsed.DatabaseName
-                };
-                if (!string.IsNullOrWhiteSpace(suggestedName))
-                {
-                    _viewModel.Name = suggestedName;
-                }
-            }
+            // Обновляем значение поля строки подключения во ViewModel,
+            // чтобы оно совпадало с применённым значением.
+            _viewModel.ConnectionString = dialog.Result ?? string.Empty;
 
             MessageBox.Show("Строка подключения успешно разобрана и заполнена по полям.",
                 "Вставка строки подключения", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        /// <summary>
-        /// Формирует имя базы из пути к файловой базе (имя последнего каталога).
-        /// </summary>
-        private static string SuggestNameFromPath(string filePath)
-        {
-            var path = (filePath ?? string.Empty).Trim().Trim('"');
-            if (string.IsNullOrWhiteSpace(path))
-                return string.Empty;
-
-            var name = System.IO.Path.GetFileName(path.TrimEnd('\\', '/'));
-            return string.IsNullOrWhiteSpace(name) ? path : name;
         }
 
         /// <summary>

@@ -31,6 +31,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
     private AuthenticationMode _authenticationMode = AuthenticationMode.Prompt;
     private int _port = 1541;
     private Group? _selectedGroup;
+    private string _connectionString = string.Empty;
 
     /// <summary>
     /// Создаёт ViewModel с указанным списком доступных групп.
@@ -459,6 +460,74 @@ public class ConnectionSettingsViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Строка подключения 1С для ввода/отображения в окне настроек базы.
+    /// Может быть введена вручную или вставлена из буфера обмена.
+    /// Всегда доступна в окне (не зависит от выбранной вкладки).
+    /// </summary>
+    public string ConnectionString
+    {
+        get => _connectionString;
+        set
+        {
+            if (SetProperty(ref _connectionString, value))
+                OnPropertyChanged(nameof(HasConnectionString));
+        }
+    }
+
+    /// <summary>Признак того, что строка подключения не пустая.</summary>
+    public bool HasConnectionString => !string.IsNullOrWhiteSpace(_connectionString);
+
+    /// <summary>
+    /// Применяет указанную строку подключения 1С к полям ViewModel.
+    /// Разбивает строку на тип подключения, сервер/порт, имя базы, путь файла или URL,
+    /// пользователя и пароль. Если наименование базы не задано — подставляет имя базы (Ref)
+    /// или имя каталога файловой базы.
+    /// </summary>
+    /// <param name="connectionString">Строка подключения 1С.</param>
+    public void ApplyConnectionString(string? connectionString)
+    {
+        var parsed = ConnectionSettings.ParseConnectionString(connectionString);
+
+        ConnectionType = parsed.Type;
+        Server = parsed.Server;
+        DatabaseName = parsed.DatabaseName;
+        FilePath = parsed.FilePath;
+        WebUrl = parsed.WebUrl;
+        User = parsed.User;
+        Password = parsed.Password;
+        AuthenticationMode = parsed.AuthenticationMode;
+        Port = parsed.Port;
+
+        // Если наименование не задано — предлагаем имя базы (Ref) или имя файла.
+        if (string.IsNullOrWhiteSpace(Name))
+        {
+            var suggestedName = parsed.Type switch
+            {
+                ConnectionType.File => SuggestNameFromPath(parsed.FilePath),
+                ConnectionType.WebServer => parsed.WebUrl,
+                _ => parsed.DatabaseName
+            };
+            if (!string.IsNullOrWhiteSpace(suggestedName))
+            {
+                Name = suggestedName;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Формирует имя базы из пути к файловой базе (имя последнего каталога).
+    /// </summary>
+    private static string SuggestNameFromPath(string? filePath)
+    {
+        var path = (filePath ?? string.Empty).Trim().Trim('"');
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+
+        var name = System.IO.Path.GetFileName(path.TrimEnd('\\', '/'));
+        return string.IsNullOrWhiteSpace(name) ? path : name;
+    }
+
+    /// <summary>
     /// Заполняет ViewModel из информационной базы.
     /// </summary>
     public void LoadFrom(Infobase infobase)
@@ -503,6 +572,8 @@ public class ConnectionSettingsViewModel : ViewModelBase
                 AuthenticationMode = AuthenticationMode.Prompt;
             }
             Port = conn.Port;
+            // Заполняем поле строки подключения для отображения/редактирования.
+            _connectionString = conn.ToConnectionString();
         }
         finally
         {
