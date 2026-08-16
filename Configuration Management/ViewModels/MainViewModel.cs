@@ -1577,7 +1577,7 @@ public class MainViewModel : ViewModelBase
             {
                 // Существующая база — только регистрация в списке.
                 var dialog = new ConnectionSettingsWindow(null, Groups, _installedPlatformVersions, defaultGroupPath,
-                    availableServers: GetAvailableServers())
+                    availableServers: GetAvailableServers(), availablePorts: GetAvailablePorts())
                 {
                     Owner = Application.Current.MainWindow
                 };
@@ -1631,6 +1631,21 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Возвращает список портов серверов 1С из клиент-серверных баз списка
+    /// (без дублей, по возрастанию). Используется для выпадающего списка
+    /// «Порт сервера» в окне настройки подключения.
+    /// </summary>
+    private IEnumerable<int> GetAvailablePorts()
+    {
+        return Infobases
+            .Where(b => b?.Connection?.Type == ConnectionType.ClientServer)
+            .Select(b => b.Connection!.Port)
+            .Where(p => p > 0)
+            .Distinct()
+            .OrderBy(p => p);
+    }
+
+    /// <summary>
     /// Редактирует выбранный элемент: базу — через окно подключения, группу — через окно группы.
     /// Тип элемента при редактировании изменить нельзя (база не станет группой и наоборот).
     /// </summary>
@@ -1647,7 +1662,7 @@ public class MainViewModel : ViewModelBase
             return;
 
         var dialog = new ConnectionSettingsWindow(SelectedInfobase, Groups, _installedPlatformVersions,
-            availableServers: GetAvailableServers())
+            availableServers: GetAvailableServers(), availablePorts: GetAvailablePorts())
         {
             Owner = Application.Current.MainWindow
         };

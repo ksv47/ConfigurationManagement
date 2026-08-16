@@ -21,14 +21,16 @@ namespace Configuration_Management
         /// <param name="installedPlatformVersions">Список установленных версий платформы 1С.</param>
         /// <param name="defaultGroupPath">Путь группы по умолчанию для новой базы.</param>
         /// <param name="availableServers">Список серверов 1С из других баз списка для выпадающего списка.</param>
+        /// <param name="availablePorts">Список портов серверов 1С из других баз списка для выпадающего списка.</param>
         public ConnectionSettingsWindow(Infobase? infobase = null, IEnumerable<Group>? groups = null,
             IEnumerable<string>? installedPlatformVersions = null, string? defaultGroupPath = null,
-            IEnumerable<string>? availableServers = null)
+            IEnumerable<string>? availableServers = null, IEnumerable<int>? availablePorts = null)
         {
             InitializeComponent();
             _viewModel = new ConnectionSettingsViewModel(groups);
             _viewModel.SetInstalledPlatformVersions(installedPlatformVersions ?? new List<string>());
             _viewModel.SetAvailableServers(availableServers);
+            _viewModel.SetAvailablePorts(availablePorts);
             if (infobase != null)
             {
                 _viewModel.LoadFrom(infobase);

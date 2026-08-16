@@ -249,6 +249,30 @@ public class ConnectionSettingsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Список доступных портов серверов 1С (из клиент-серверных баз в списке) для выпадающего списка.
+    /// </summary>
+    public ObservableCollection<string> AvailablePorts { get; } = new();
+
+    /// <summary>
+    /// Устанавливает список доступных портов серверов 1С из других баз списка.
+    /// Сортируем по возрастанию и исключаем пустые/нулевые значения.
+    /// </summary>
+    public void SetAvailablePorts(IEnumerable<int>? ports)
+    {
+        AvailablePorts.Clear();
+        if (ports is null)
+            return;
+
+        foreach (var port in ports
+                     .Where(p => p > 0)
+                     .Distinct()
+                     .OrderBy(p => p))
+        {
+            AvailablePorts.Add(port.ToString());
+        }
+    }
+
     /// <summary>Режим запуска (строка: Автоматический, Тонкий клиент, Толстый клиент, Веб-клиент).</summary>
     public string LaunchMode
     {
@@ -456,7 +480,25 @@ public class ConnectionSettingsViewModel : ViewModelBase
     public int Port
     {
         get => _port;
-        set => SetProperty(ref _port, value);
+        set
+        {
+            if (SetProperty(ref _port, value))
+                OnPropertyChanged(nameof(PortText));
+        }
+    }
+
+    /// <summary>
+    /// Текстовое представление порта для редактируемого выпадающего списка.
+    /// Позволяет и выбрать порт из списка доступных, и ввести значение вручную.
+    /// </summary>
+    public string PortText
+    {
+        get => _port > 0 ? _port.ToString() : string.Empty;
+        set
+        {
+            if (int.TryParse(value, out var parsed) && parsed > 0 && parsed <= 65535)
+                Port = parsed;
+        }
     }
 
     /// <summary>

@@ -332,7 +332,16 @@
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Имя базы:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DatabaseName, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Порт сервера:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+                        <!-- Стиль ModernComboBox переопределяет шаблон без PART_EditableTextBox и не поддерживает
+                             редактируемый режим, поэтому для поля порта отключаем его (Style={x:Null}),
+                             чтобы можно было и выбрать порт из списка, и ввести его вручную. -->
+                        <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,3" Padding="6,4"
+                                  Style="{x:Null}"
+                                  IsEditable="True"
+                                  ItemsSource="{Binding AvailablePorts}"
+                                  Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="Порт сервера 1С. Можно выбрать из портов существующих баз или ввести вручную."
+                                  Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Путь к файлу:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}"/>
                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="URL публикации:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"/>
