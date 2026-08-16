@@ -1686,6 +1686,41 @@
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                             </Grid>
                         </Button>
+
+                        <!-- Разделитель и кнопка «Выход»: всегда полностью закрывает приложение,
+                             игнорируя настройку «Закрывать в трей». -->
+                        <Border Height="1" Background="{DynamicResource BorderBrushColor}" Margin="8,10,8,10"
+                                Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
+
+                        <Button Click="OnExitApplicationClick"
+                                ToolTip="Полностью завершить работу приложения (игнорируя настройку «Закрывать в трей»)">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
+                                    <Setter Property="Padding" Value="14,11"/>
+                                    <Setter Property="Margin" Value="8,0,8,0"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
+                                            <Setter Property="Padding" Value="6,8"/>
+                                            <Setter Property="Margin" Value="0,0,0,0"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <materialDesign:PackIcon Kind="ExitToApp" Width="16" Height="16" Foreground="#DC2626" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Выход" VerticalAlignment="Center" Foreground="#DC2626" FontSize="12" FontWeight="SemiBold"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="✕"
+                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
+                                           Foreground="#DC2626" Opacity="0.85" Margin="8,0,0,0"
+                                           Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
+                            </Grid>
+                        </Button>
                     </StackPanel>
                 </ScrollViewer>
             </Border>

@@ -165,6 +165,17 @@ namespace Configuration_Management
             base.OnClosing(e);
         }
 
+        /// <summary>
+        /// Обработчик кнопки «Выход» в правой панели.
+        /// Всегда полностью завершает работу приложения, игнорируя настройку
+        /// «Закрывать в трей» (в отличие от обычного закрытия окна).
+        /// </summary>
+        private void OnExitApplicationClick(object sender, RoutedEventArgs e)
+        {
+            _forceClose = true;
+            Close();
+        }
+
         private void InitializeTrayIcon()
         {
             try
