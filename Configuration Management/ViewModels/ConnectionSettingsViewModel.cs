@@ -17,16 +17,17 @@ public class ConnectionSettingsViewModel : ViewModelBase
     private string _group = string.Empty;
     private string _description = string.Empty;
     private string _platformVersion = string.Empty;
-    private string _architecture = "32";
+    private string _architecture = "32-priority";
     private string _launchMode = "Автоматический";
     private string _launchParameters = string.Empty;
     private ConnectionType _connectionType = ConnectionType.ClientServer;
     private string _server = string.Empty;
     private string _databaseName = string.Empty;
     private string _filePath = string.Empty;
+    private string _webUrl = string.Empty;
     private string _user = string.Empty;
     private string _password = string.Empty;
-    private bool _useOsAuthentication = true;
+    private AuthenticationMode _authenticationMode = AuthenticationMode.Prompt;
     private int _port = 1541;
     private Group? _selectedGroup;
 
@@ -87,6 +88,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
                 Group = value is null
                     ? string.Empty
                     : GroupHierarchyHelper.GetFullPath(value, Groups);
+                OnPropertyChanged(nameof(GroupDisplayPath));
             }
         }
     }
@@ -95,8 +97,16 @@ public class ConnectionSettingsViewModel : ViewModelBase
     public string Group
     {
         get => _group;
-        set => SetProperty(ref _group, value);
+        set
+        {
+            if (SetProperty(ref _group, value))
+                OnPropertyChanged(nameof(GroupDisplayPath));
+        }
     }
+
+    /// <summary>Текст для поля группы: путь или «Без группы».</summary>
+    public string GroupDisplayPath =>
+        string.IsNullOrWhiteSpace(_group) ? "— Без группы —" : _group;
 
     /// <summary>
     /// Находит группу по полному пути (например, «Учёт / Бухгалтерия»).
@@ -123,25 +133,78 @@ public class ConnectionSettingsViewModel : ViewModelBase
         set => SetProperty(ref _platformVersion, value);
     }
 
-    /// <summary>Разрядность платформы при запуске («32» или «64»).</summary>
+    /// <summary>
+    /// Разрядность запуска клиента (как в 1С:Предприятие):
+    /// «32», «64», «32-priority» (по умолчанию в 1С), «64-priority».
+    /// </summary>
     public string Architecture
     {
         get => _architecture;
-        set => SetProperty(ref _architecture, value);
+        set
+        {
+            if (SetProperty(ref _architecture, NormalizeArchitecture(value)))
+            {
+                OnPropertyChanged(nameof(IsArchitecture32));
+                OnPropertyChanged(nameof(IsArchitecture64));
+                OnPropertyChanged(nameof(IsArchitecture32Priority));
+                OnPropertyChanged(nameof(IsArchitecture64Priority));
+                OnPropertyChanged(nameof(ArchitectureHint));
+            }
+        }
     }
 
-    /// <summary>Использовать 32-битную платформу.</summary>
+    /// <summary>Всегда 32 (x86).</summary>
     public bool IsArchitecture32
     {
         get => Architecture == "32";
         set { if (value) Architecture = "32"; }
     }
 
-    /// <summary>Использовать 64-битную платформу.</summary>
+    /// <summary>Всегда 64 (x86-64).</summary>
     public bool IsArchitecture64
     {
         get => Architecture == "64";
         set { if (value) Architecture = "64"; }
+    }
+
+    /// <summary>Приоритет 32 (x86) — режим по умолчанию в 1С.</summary>
+    public bool IsArchitecture32Priority
+    {
+        get => Architecture == "32-priority";
+        set { if (value) Architecture = "32-priority"; }
+    }
+
+    /// <summary>Приоритет 64 (x86-64).</summary>
+    public bool IsArchitecture64Priority
+    {
+        get => Architecture == "64-priority";
+        set { if (value) Architecture = "64-priority"; }
+    }
+
+    /// <summary>ОС 64-битная (иначе 64-клиент недоступен).</summary>
+    public bool IsOs64Bit { get; } = Environment.Is64BitOperatingSystem;
+
+    /// <summary>Краткая подсказка по выбранному режиму разрядности.</summary>
+    public string ArchitectureHint => Architecture switch
+    {
+        "32" => "Всегда запускается 32-разрядный клиент. 64-битные версии игнорируются.",
+        "64" => "Всегда запускается 64-разрядный клиент. 32-битные версии игнорируются.",
+        "64-priority" => "Предпочитается 64-битный клиент; если есть более новая 32-битная версия — будет она.",
+        _ => "Предпочитается 32-битный клиент (как в 1С по умолчанию); более новая 64-битная версия имеет приоритет."
+    };
+
+    /// <summary>Нормализация значения разрядности (совместимость со старыми «32»/«64»).</summary>
+    public static string NormalizeArchitecture(string? value)
+    {
+        var v = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return v switch
+        {
+            "64" or "x64" or "x86-64" or "x86_64" => "64",
+            "32" or "x86" => "32",
+            "64-priority" or "priority64" or "x86-64-priority" => "64-priority",
+            "32-priority" or "priority32" or "x86-priority" or "" => "32-priority",
+            _ => "32-priority"
+        };
     }
 
     /// <summary>Список установленных версий платформы 1С для выбора.</summary>
@@ -171,6 +234,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsThinClient));
                 OnPropertyChanged(nameof(IsThickClient));
                 OnPropertyChanged(nameof(IsWebClient));
+                OnPropertyChanged(nameof(LaunchModeHint));
             }
         }
     }
@@ -203,6 +267,15 @@ public class ConnectionSettingsViewModel : ViewModelBase
         set { if (value) LaunchMode = "Веб-клиент"; }
     }
 
+    /// <summary>Подсказка по выбранному режиму запуска.</summary>
+    public string LaunchModeHint => LaunchMode switch
+    {
+        "Тонкий клиент" => "Запуск в режиме управляемого приложения (тонкий клиент 1cv8c).",
+        "Толстый клиент" => "Запуск толстого клиента 1cv8 (обычное/управляемое приложение).",
+        "Веб-клиент" => "Открытие базы в веб-браузере. Доступно при веб-публикации или клиент-сервере.",
+        _ => "Режим выбирает платформа 1С автоматически по настройкам информационной базы."
+    };
+
     /// <summary>Дополнительные параметры запуска платформы 1С.</summary>
     public string LaunchParameters
     {
@@ -220,6 +293,11 @@ public class ConnectionSettingsViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(IsClientServer));
                 OnPropertyChanged(nameof(IsFile));
+                OnPropertyChanged(nameof(IsWebServer));
+                OnPropertyChanged(nameof(IsWebClientAllowed));
+                // Если веб-клиент выбран, а тип подключения больше не позволяет его — сбрасываем
+                if (!IsWebClientAllowed && IsWebClient)
+                    LaunchMode = "Автоматический";
             }
         }
     }
@@ -237,6 +315,20 @@ public class ConnectionSettingsViewModel : ViewModelBase
         get => ConnectionType == ConnectionType.File;
         set { if (value) ConnectionType = ConnectionType.File; }
     }
+
+    /// <summary>Признак подключения через веб-сервер.</summary>
+    public bool IsWebServer
+    {
+        get => ConnectionType == ConnectionType.WebServer;
+        set { if (value) ConnectionType = ConnectionType.WebServer; }
+    }
+
+    /// <summary>
+    /// Веб-клиент доступен только при подключении через веб-сервер
+    /// или клиент-серверном подключении (с публикацией).
+    /// </summary>
+    public bool IsWebClientAllowed =>
+        ConnectionType == ConnectionType.WebServer || ConnectionType == ConnectionType.ClientServer;
 
     /// <summary>Имя сервера.</summary>
     public string Server
@@ -259,6 +351,13 @@ public class ConnectionSettingsViewModel : ViewModelBase
         set => SetProperty(ref _filePath, value);
     }
 
+    /// <summary>URL веб-публикации.</summary>
+    public string WebUrl
+    {
+        get => _webUrl;
+        set => SetProperty(ref _webUrl, value);
+    }
+
     /// <summary>Пользователь.</summary>
     public string User
     {
@@ -273,21 +372,58 @@ public class ConnectionSettingsViewModel : ViewModelBase
         set => SetProperty(ref _password, value);
     }
 
-    /// <summary>Использовать аутентификацию ОС.</summary>
-    public bool UseOsAuthentication
+    /// <summary>Режим аутентификации.</summary>
+    public AuthenticationMode AuthenticationMode
     {
-        get => _useOsAuthentication;
+        get => _authenticationMode;
         set
         {
-            if (SetProperty(ref _useOsAuthentication, value))
+            if (SetProperty(ref _authenticationMode, value))
             {
+                OnPropertyChanged(nameof(IsAuthPrompt));
+                OnPropertyChanged(nameof(IsAuthCredentials));
+                OnPropertyChanged(nameof(IsAuthWindows));
                 OnPropertyChanged(nameof(IsCredentialsVisible));
             }
         }
     }
 
-    /// <summary>Видимость полей логина/пароля.</summary>
-    public bool IsCredentialsVisible => !UseOsAuthentication;
+    /// <summary>Запрашивать имя и пароль.</summary>
+    public bool IsAuthPrompt
+    {
+        get => AuthenticationMode == AuthenticationMode.Prompt;
+        set { if (value) AuthenticationMode = AuthenticationMode.Prompt; }
+    }
+
+    /// <summary>Выполнять вход автоматически.</summary>
+    public bool IsAuthCredentials
+    {
+        get => AuthenticationMode == AuthenticationMode.Credentials;
+        set { if (value) AuthenticationMode = AuthenticationMode.Credentials; }
+    }
+
+    /// <summary>Аутентификация операционной системы.</summary>
+    public bool IsAuthWindows
+    {
+        get => AuthenticationMode == AuthenticationMode.Windows;
+        set { if (value) AuthenticationMode = AuthenticationMode.Windows; }
+    }
+
+    /// <summary>Видимость полей логина/пароля (только при автоматическом входе).</summary>
+    public bool IsCredentialsVisible => AuthenticationMode == AuthenticationMode.Credentials;
+
+    /// <summary>Совместимость: признак аутентификации ОС.</summary>
+    public bool UseOsAuthentication
+    {
+        get => AuthenticationMode == AuthenticationMode.Windows;
+        set
+        {
+            if (value)
+                AuthenticationMode = AuthenticationMode.Windows;
+            else if (AuthenticationMode == AuthenticationMode.Windows)
+                AuthenticationMode = AuthenticationMode.Prompt;
+        }
+    }
 
     /// <summary>Порт сервера.</summary>
     public int Port
@@ -310,7 +446,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
             SelectedGroup = FindGroupByPath(infobase.Group);
             Description = infobase.Description;
             PlatformVersion = infobase.PlatformVersion;
-            Architecture = infobase.Architecture;
+            Architecture = NormalizeArchitecture(infobase.Architecture);
             LaunchMode = infobase.LaunchMode;
             LaunchParameters = infobase.LaunchParameters;
 
@@ -319,9 +455,27 @@ public class ConnectionSettingsViewModel : ViewModelBase
             Server = conn.Server;
             DatabaseName = conn.DatabaseName;
             FilePath = conn.FilePath;
+            WebUrl = conn.WebUrl;
             User = conn.User;
             Password = conn.Password;
-            UseOsAuthentication = conn.UseOsAuthentication;
+            // Восстанавливаем режим аутентификации (с учётом старых сохранений).
+            if (conn.AuthenticationMode != AuthenticationMode.Prompt
+                || !string.IsNullOrWhiteSpace(conn.User)
+                || conn.UseOsAuthentication)
+            {
+                AuthenticationMode = conn.AuthenticationMode;
+                // Старые файлы: если был только флаг ОС или логин без режима.
+                if (conn.UseOsAuthentication && conn.AuthenticationMode == AuthenticationMode.Prompt
+                    && string.IsNullOrWhiteSpace(conn.User))
+                    AuthenticationMode = AuthenticationMode.Windows;
+                else if (!string.IsNullOrWhiteSpace(conn.User) && conn.AuthenticationMode == AuthenticationMode.Prompt
+                         && !conn.UseOsAuthentication)
+                    AuthenticationMode = AuthenticationMode.Credentials;
+            }
+            else
+            {
+                AuthenticationMode = AuthenticationMode.Prompt;
+            }
             Port = conn.Port;
         }
         finally
@@ -344,20 +498,21 @@ public class ConnectionSettingsViewModel : ViewModelBase
         infobase.Group = Group;
         infobase.Description = Description;
         infobase.PlatformVersion = PlatformVersion;
-        infobase.Architecture = Architecture;
-        infobase.LaunchMode = LaunchMode;
-        infobase.LaunchParameters = LaunchParameters;
+        infobase.Architecture = NormalizeArchitecture(Architecture);
+        infobase.LaunchMode = string.IsNullOrWhiteSpace(LaunchMode) ? "Автоматический" : LaunchMode;
+        infobase.LaunchParameters = LaunchParameters ?? string.Empty;
 
+        if (infobase.Connection is null)
+            infobase.Connection = new ConnectionSettings();
         var conn = infobase.Connection;
         conn.Type = ConnectionType;
         conn.Server = Server;
         conn.DatabaseName = DatabaseName;
         conn.FilePath = FilePath;
+        conn.WebUrl = WebUrl;
         conn.User = User;
         conn.Password = Password;
-        // Если указан логин — используем аутентификацию по логину/паролю,
-        // иначе — аутентификацию ОС.
-        conn.UseOsAuthentication = string.IsNullOrWhiteSpace(User);
+        conn.AuthenticationMode = AuthenticationMode;
         conn.Port = Port;
     }
 }

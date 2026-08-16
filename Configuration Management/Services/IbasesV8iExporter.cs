@@ -262,9 +262,14 @@ public static class IbasesV8iExporter
         {
             sb.Append("File=\"").Append(connection.FilePath).Append('"');
         }
+        else if (connection.Type == ConnectionType.WebServer)
+        {
+            sb.Append("WS=\"").Append(connection.WebUrl).Append('"');
+        }
         else
         {
-            sb.Append("Srvr=\"").Append(connection.Server).Append("\";");
+            // Порт включаем в Srvr, если он нестандартный (как принято в 1С: host:port).
+            sb.Append("Srvr=\"").Append(connection.GetServerWithPort()).Append("\";");
             sb.Append("Ref=\"").Append(connection.DatabaseName).Append('"');
             if (!string.IsNullOrWhiteSpace(connection.User))
             {

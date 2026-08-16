@@ -7,12 +7,14 @@ namespace Configuration_Management.Services;
 /// <summary>
 /// Репозиторий для сохранения и загрузки настроек информационных баз в JSON-файл.
 /// </summary>
-public class InfobaseRepository
+public class InfobaseRepository : IInfobaseRepository
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true
+        // Без отступов — заметно быстрее сериализация/запись при большом списке баз.
+        WriteIndented = false,
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };
 
     private readonly string _filePath;
@@ -57,11 +59,7 @@ public class InfobaseRepository
     /// </summary>
     public void Save(List<Infobase> infobases)
     {
-        var directory = Path.GetDirectoryName(_filePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            Directory.CreateDirectory(directory);
-        var json = JsonSerializer.Serialize(infobases, JsonOptions);
-        File.WriteAllText(_filePath, json);
+        WriteAtomic(_filePath, JsonSerializer.Serialize(infobases, JsonOptions));
     }
 
     /// <summary>
@@ -145,11 +143,7 @@ public class InfobaseRepository
     /// </summary>
     public void SaveGroups(List<Group> groups)
     {
-        var directory = Path.GetDirectoryName(_groupsFilePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            Directory.CreateDirectory(directory);
-        var json = JsonSerializer.Serialize(groups, JsonOptions);
-        File.WriteAllText(_groupsFilePath, json);
+        WriteAtomic(_groupsFilePath, JsonSerializer.Serialize(groups, JsonOptions));
     }
 
     /// <summary>
@@ -176,10 +170,61 @@ public class InfobaseRepository
     /// </summary>
     public void SaveSettings(AppSettings settings)
     {
-        var directory = Path.GetDirectoryName(_settingsFilePath);
+        WriteAtomic(_settingsFilePath, JsonSerializer.Serialize(settings, JsonOptions));
+    }
+
+
+    public async Task SaveAsync(List<Infobase> infobases, CancellationToken cancellationToken = default)
+    {
+        var json = JsonSerializer.Serialize(infobases, JsonOptions);
+        await WriteAtomicAsync(_filePath, json, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SaveGroupsAsync(List<Group> groups, CancellationToken cancellationToken = default)
+    {
+        var json = JsonSerializer.Serialize(groups, JsonOptions);
+        await WriteAtomicAsync(_groupsFilePath, json, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SaveSettingsAsync(AppSettings settings, CancellationToken cancellationToken = default)
+    {
+        var json = JsonSerializer.Serialize(settings, JsonOptions);
+        await WriteAtomicAsync(_settingsFilePath, json, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Атомарная запись: сначала во временный файл, затем замена целевого.
+    /// Снижает риск повреждения данных при сбое/отключении питания.
+    /// </summary>
+    private static void WriteAtomic(string targetPath, string content)
+    {
+        var directory = Path.GetDirectoryName(targetPath);
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             Directory.CreateDirectory(directory);
-        var json = JsonSerializer.Serialize(settings, JsonOptions);
-        File.WriteAllText(_settingsFilePath, json);
+
+        var tempPath = targetPath + ".tmp";
+        File.WriteAllText(tempPath, content);
+        // File.Replace надёжнее на Windows при существующем файле; иначе Move.
+        if (File.Exists(targetPath))
+            File.Replace(tempPath, targetPath, null);
+        else
+            File.Move(tempPath, targetPath);
+    }
+
+    /// <summary>
+    /// Асинхронная атомарная запись через временный файл.
+    /// </summary>
+    private static async Task WriteAtomicAsync(string targetPath, string content, CancellationToken cancellationToken)
+    {
+        var directory = Path.GetDirectoryName(targetPath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+
+        var tempPath = targetPath + ".tmp";
+        await File.WriteAllTextAsync(tempPath, content, cancellationToken).ConfigureAwait(false);
+        if (File.Exists(targetPath))
+            File.Replace(tempPath, targetPath, null);
+        else
+            File.Move(tempPath, targetPath);
     }
 }

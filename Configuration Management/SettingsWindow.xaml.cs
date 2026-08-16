@@ -10,13 +10,14 @@ namespace Configuration_Management
 {
     /// <summary>
     /// Диалог настроек приложения с горизонтальными вкладками:
-    /// «Платформы», «Группы» и «Дополнительные функции».
+    /// «Платформы», «Отображение», «ibases.v8i» и «Дополнительные функции».
+    /// Управление группами — в основном окне (добавление/редактирование через список баз).
     /// </summary>
     public partial class SettingsWindow : Window
     {
         private readonly MainViewModel _viewModel;
-        private readonly ObservableCollection<Group> _groups;
         private List<string> _installedPlatformVersions;
+        private readonly ObservableCollection<string> _additionalPlatformPaths = new();
         private IbasesSyncMode _syncMode;
         private string _syncFilePath = string.Empty;
         private IbasesSyncTrigger _syncTrigger = IbasesSyncTrigger.OnStartup;
@@ -29,6 +30,7 @@ namespace Configuration_Management
         private bool _showLaunchModeColumn = true;
         private bool _showServerColumn = true;
         private bool _showLastLaunchColumn = true;
+        private readonly ObservableCollection<FavoriteHotkeyItem> _favoriteHotkeyItems = new();
 
         /// <summary>
         /// Создаёт диалог настроек приложения.
@@ -39,11 +41,74 @@ namespace Configuration_Management
             InitializeComponent();
             _viewModel = viewModel;
             _installedPlatformVersions = new List<string>(viewModel.InstalledPlatformVersions);
-            _groups = new ObservableCollection<Group>(viewModel.Groups);
-            RebuildTree();
+            foreach (var path in viewModel.AdditionalPlatformSearchPaths)
+                _additionalPlatformPaths.Add(path);
+            if (AdditionalPathsList != null)
+                AdditionalPathsList.ItemsSource = _additionalPlatformPaths;
             UpdatePlatformsDisplay();
             InitializeSyncSettings();
             InitializeDisplaySettings();
+            InitializeFavoriteHotkeys();
+        }
+
+        private void InitializeFavoriteHotkeys()
+        {
+            _favoriteHotkeyItems.Clear();
+            int n = 1;
+            foreach (var key in _viewModel.FavoriteHotkeyIds)
+            {
+                var ib = _viewModel.FindByFavoriteKey(key);
+                _favoriteHotkeyItems.Add(new FavoriteHotkeyItem
+                {
+                    Key = key,
+                    Number = n,
+                    Name = ib?.Name ?? key
+                });
+                n++;
+            }
+            if (FavoriteHotkeysList != null)
+                FavoriteHotkeysList.ItemsSource = _favoriteHotkeyItems;
+        }
+
+        private void RefreshFavoriteHotkeyNumbers()
+        {
+            var snapshot = _favoriteHotkeyItems.ToList();
+            _favoriteHotkeyItems.Clear();
+            for (int i = 0; i < snapshot.Count; i++)
+            {
+                snapshot[i].Number = i + 1;
+                _favoriteHotkeyItems.Add(snapshot[i]);
+            }
+        }
+
+        private void OnFavoriteHotkeyUp_Click(object sender, RoutedEventArgs e)
+        {
+            var idx = FavoriteHotkeysList.SelectedIndex;
+            if (idx <= 0) return;
+            var item = _favoriteHotkeyItems[idx];
+            _favoriteHotkeyItems.RemoveAt(idx);
+            _favoriteHotkeyItems.Insert(idx - 1, item);
+            RefreshFavoriteHotkeyNumbers();
+            FavoriteHotkeysList.SelectedIndex = idx - 1;
+        }
+
+        private void OnFavoriteHotkeyDown_Click(object sender, RoutedEventArgs e)
+        {
+            var idx = FavoriteHotkeysList.SelectedIndex;
+            if (idx < 0 || idx >= _favoriteHotkeyItems.Count - 1) return;
+            var item = _favoriteHotkeyItems[idx];
+            _favoriteHotkeyItems.RemoveAt(idx);
+            _favoriteHotkeyItems.Insert(idx + 1, item);
+            RefreshFavoriteHotkeyNumbers();
+            FavoriteHotkeysList.SelectedIndex = idx + 1;
+        }
+
+        private sealed class FavoriteHotkeyItem
+        {
+            public string Key { get; set; } = string.Empty;
+            public int Number { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public string Display => $"Alt+{Number}: {Name}";
         }
 
         /// <summary>
@@ -65,13 +130,93 @@ namespace Configuration_Management
             ShowLaunchModeColumnCheck.IsChecked = _showLaunchModeColumn;
             ShowServerColumnCheck.IsChecked = _showServerColumn;
             ShowLastLaunchColumnCheck.IsChecked = _showLastLaunchColumn;
+            if (ShowSizeColumnCheck != null)
+                ShowSizeColumnCheck.IsChecked = _viewModel.ShowSizeColumn;
 
             ShowFavoritesButtonCheck.IsChecked = _showFavoritesButton;
             ShowPinnedButtonCheck.IsChecked = _showPinnedButton;
             ShowTagsCheck.IsChecked = _showTags;
+            if (ShowTagFilterPanelCheck != null)
+                ShowTagFilterPanelCheck.IsChecked = _viewModel.ShowTagFilterPanel;
+            if (AllowMultipleInstancesCheck != null)
+                AllowMultipleInstancesCheck.IsChecked = _viewModel.AllowMultipleInstances;
+            if (ShowTrayIconCheck != null)
+                ShowTrayIconCheck.IsChecked = _viewModel.ShowTrayIcon;
+            if (CloseToTrayCheck != null)
+                CloseToTrayCheck.IsChecked = _viewModel.CloseToTray;
+            if (EscapeToTrayCheck != null)
+                EscapeToTrayCheck.IsChecked = _viewModel.EscapeToTray;
 
             GroupByGroupCheck.IsChecked = _viewModel.GroupByGroup;
             ShowFavoritesOnlyCheck.IsChecked = _viewModel.ShowFavoritesOnly;
+
+            if (ShowRightPanelDetailsCheck != null)
+                ShowRightPanelDetailsCheck.IsChecked = _viewModel.ShowRightPanelDetails;
+            if (ShowSessionLaunchPanelCheck != null)
+                ShowSessionLaunchPanelCheck.IsChecked = _viewModel.ShowSessionLaunchPanel;
+            if (StatusShowConnectionPathCheck != null)
+                StatusShowConnectionPathCheck.IsChecked = _viewModel.StatusShowConnectionPath;
+            if (StatusShowArchitectureCheck != null)
+                StatusShowArchitectureCheck.IsChecked = _viewModel.StatusShowArchitecture;
+            if (StatusShowLaunchModeCheck != null)
+                StatusShowLaunchModeCheck.IsChecked = _viewModel.StatusShowLaunchMode;
+            if (StatusShowPortCheck != null)
+                StatusShowPortCheck.IsChecked = _viewModel.StatusShowPort;
+            if (StatusShowPlatformVersionCheck != null)
+                StatusShowPlatformVersionCheck.IsChecked = _viewModel.StatusShowPlatformVersion;
+            if (StatusShowClientTypeCheck != null)
+                StatusShowClientTypeCheck.IsChecked = _viewModel.StatusShowClientType;
+            if (StatusShowConnectionTypeCheck != null)
+                StatusShowConnectionTypeCheck.IsChecked = _viewModel.StatusShowConnectionType;
+            if (StatusShowUserCheck != null)
+                StatusShowUserCheck.IsChecked = _viewModel.StatusShowUser;
+            if (StatusShowIdCheck != null)
+                StatusShowIdCheck.IsChecked = _viewModel.StatusShowId;
+
+            InitHotkeyCombos();
+        }
+
+        /// <summary>Доступные жесты для выпадающих списков («Нет» = не назначено).</summary>
+        private static readonly string[] HotkeyChoices =
+        {
+            "Нет",
+            "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+            "Delete", "Insert",
+            "Ctrl+F2", "Ctrl+F3", "Ctrl+F4",
+            "Shift+Insert", "Ctrl+Insert",
+            "Ctrl+Delete"
+        };
+
+        private void InitHotkeyCombos()
+        {
+            BindHotkeyCombo(HotkeyEnterpriseCombo, _viewModel.HotkeyEnterprise, "F3");
+            BindHotkeyCombo(HotkeyConfiguratorCombo, _viewModel.HotkeyConfigurator, "F4");
+            BindHotkeyCombo(HotkeyFavoriteCombo, _viewModel.HotkeyFavorite, "F8");
+            BindHotkeyCombo(HotkeyEditCombo, _viewModel.HotkeyEdit, "F2");
+            BindHotkeyCombo(HotkeyDeleteCombo, _viewModel.HotkeyDelete, "Delete");
+            BindHotkeyCombo(HotkeyClearCacheCombo, _viewModel.HotkeyClearCache, "Нет");
+            BindHotkeyCombo(HotkeyAddCombo, _viewModel.HotkeyAdd, "Insert");
+            BindHotkeyCombo(HotkeyPinCombo, _viewModel.HotkeyPin, "Нет");
+        }
+
+        private static void BindHotkeyCombo(System.Windows.Controls.ComboBox? combo, string current, string fallback)
+        {
+            if (combo is null) return;
+            combo.ItemsSource = null;
+            combo.ItemsSource = HotkeyChoices;
+            var value = string.IsNullOrWhiteSpace(current) ? "Нет" : current.Trim();
+            if (!HotkeyChoices.Contains(value, StringComparer.OrdinalIgnoreCase))
+                value = fallback;
+            var idx = Array.FindIndex(HotkeyChoices, c => c.Equals(value, StringComparison.OrdinalIgnoreCase));
+            combo.SelectedIndex = idx >= 0 ? idx : 0;
+        }
+
+        private static string ReadHotkeyCombo(System.Windows.Controls.ComboBox? combo, string fallback)
+        {
+            var s = combo?.SelectedItem as string;
+            if (string.IsNullOrWhiteSpace(s) || s == "Нет")
+                return "";
+            return s.Trim();
         }
 
         /// <summary>
@@ -100,6 +245,8 @@ namespace Configuration_Management
             SyncFilePathTextBox.Text = _syncFilePath;
             SyncIntervalTextBox.Text = _syncIntervalMinutes.ToString();
             SyncScheduleTimePicker.Text = _syncScheduleTime;
+            IbasesBackupEnabledCheck.IsChecked = _viewModel.IbasesBackupEnabled;
+            IbasesBackupKeepCountBox.Text = _viewModel.IbasesBackupKeepCount.ToString();
 
             UpdateSyncControls();
         }
@@ -287,271 +434,97 @@ namespace Configuration_Management
         public List<string> Result => _installedPlatformVersions;
 
         /// <summary>
-        /// Обновляет список установленных версий платформы, сканируя каталоги 1С.
+        /// Обновляет список установленных версий платформы, сканируя стандартные
+        /// и дополнительные каталоги 1С.
         /// </summary>
         private void OnRefreshPlatforms_Click(object sender, RoutedEventArgs e)
         {
-            _installedPlatformVersions = PlatformVersionService.FindInstalledVersions();
+            PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformPaths);
+            UpdatePlatformsDisplay();
             _viewModel.SetInstalledPlatformVersions(_installedPlatformVersions);
+        }
+
+        private void OnAddPlatformPath_Click(object sender, RoutedEventArgs e)
+        {
+            using var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Выберите папку с установкой платформы 1С (корень, 1cv8 или папка версии)",
+                UseDescriptionForTitle = true,
+                ShowNewFolderButton = false
+            };
+
+            if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                return;
+
+            var path = dialog.SelectedPath?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+
+            if (_additionalPlatformPaths.Any(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase)))
+            {
+                MessageBox.Show("Этот путь уже добавлен в список.",
+                    "Дополнительные пути", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            _additionalPlatformPaths.Add(path);
+            PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformPaths);
+            UpdatePlatformsDisplay();
+        }
+
+        private void OnRemovePlatformPath_Click(object sender, RoutedEventArgs e)
+        {
+            var selected = AdditionalPathsList?.SelectedItem as string;
+            if (string.IsNullOrEmpty(selected))
+            {
+                MessageBox.Show("Выберите путь для удаления.",
+                    "Дополнительные пути", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            _additionalPlatformPaths.Remove(selected);
+            PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformPaths);
             UpdatePlatformsDisplay();
         }
 
         /// <summary>
-        /// Обновляет отображение списка установленных версий платформы,
-        /// группируя их по мажорной версии (например, «8.3.27»).
+        /// Обновляет список платформ: линия (8.3) → разрядность → сборка с путём
+        /// (тот же принцип, что в диалоге выбора версии).
         /// </summary>
         private void UpdatePlatformsDisplay()
         {
             PlatformsTree.Items.Clear();
 
-            if (_installedPlatformVersions.Count == 0)
+            var infos = PlatformVersionService.FindInstalledVersionInfos(_additionalPlatformPaths);
+            _installedPlatformVersions = infos.Select(i => i.Display).ToList();
+
+            if (infos.Count == 0)
             {
                 StatusText.Text = "Версии платформы 1С не найдены. Нажмите «Обновить список».";
                 return;
             }
 
-            // Группируем версии по первым трём компонентам (мажорная версия).
-            var groups = _installedPlatformVersions
-                .GroupBy(GetMajorVersion)
-                .OrderByDescending(g => g.Key, new VersionComparer())
-                .Select(g => new PlatformVersionGroup
-                {
-                    Name = g.Key,
-                    Versions = g.OrderByDescending(v => v, new VersionComparer()).ToList()
-                })
-                .ToList();
+            var tree = PlatformVersionService.BuildGroupedTree(infos);
+            foreach (var node in tree)
+                PlatformsTree.Items.Add(node);
 
-            foreach (var group in groups)
-            {
-                PlatformsTree.Items.Add(group);
-            }
-
-            StatusText.Text = $"Найдено версий: {_installedPlatformVersions.Count}";
-        }
-
-        /// <summary>
-        /// Возвращает мажорную версию (первые три компонента) из варианта платформы.
-        /// Например, для «8.3.27.1234 (64)» вернёт «8.3.27».
-        /// </summary>
-        private static string GetMajorVersion(string variant)
-        {
-            PlatformVersionService.ParseVariant(variant, out var version, out _);
-            var parts = version.Split('.');
-            return parts.Length >= 3
-                ? string.Join(".", parts.Take(3))
-                : version;
-        }
-
-        /// <summary>
-        /// Перестраивает дерево групп из плоского списка.
-        /// </summary>
-        private void RebuildTree()
-        {
-            GroupsTree.ItemsSource = GroupNodeViewModel.BuildTree(_groups);
-        }
-
-        /// <summary>
-        /// Возвращает выбранный узел дерева групп.
-        /// </summary>
-        private GroupNodeViewModel? SelectedNode =>
-            GroupsTree.SelectedItem as GroupNodeViewModel;
-
-        private void OnAddRoot_Click(object sender, RoutedEventArgs e)
-        {
-            // Новая корневая группа.
-            var dialog = new GroupEditWindow(_groups, parent: null)
-            {
-                Owner = this
-            };
-            if (dialog.ShowDialog() == true)
-            {
-                _groups.Add(dialog.Result);
-                RebuildTree();
-                SelectGroup(dialog.Result);
-            }
-        }
-
-        private void OnAddSubgroup_Click(object sender, RoutedEventArgs e)
-        {
-            // Новая подгруппа внутри выбранной группы.
-            var parent = SelectedNode?.Group;
-            if (parent is null)
-            {
-                MessageBox.Show(
-                    "Выберите группу, внутри которой нужно создать подгруппу.",
-                    "Внимание",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
-
-            var dialog = new GroupEditWindow(_groups, parent)
-            {
-                Owner = this
-            };
-            if (dialog.ShowDialog() == true)
-            {
-                _groups.Add(dialog.Result);
-                RebuildTree();
-                SelectGroup(dialog.Result);
-            }
-        }
-
-        private void OnEditGroup_Click(object sender, RoutedEventArgs e)
-        {
-            if (SelectedNode?.Group is not Group group)
-                return;
-
-            var dialog = new GroupEditWindow(_groups, group.ParentId, group)
-            {
-                Owner = this
-            };
-            if (dialog.ShowDialog() == true)
-            {
-                // Обновляем группу в коллекции, сохраняя ссылку на объект,
-                // чтобы не потерять ParentId у дочерних групп.
-                var index = _groups.IndexOf(group);
-                if (index >= 0)
-                {
-                    _groups[index] = dialog.Result;
-                }
-
-                RebuildTree();
-                SelectGroup(dialog.Result);
-            }
-        }
-
-        private void OnDeleteGroup_Click(object sender, RoutedEventArgs e)
-        {
-            if (SelectedNode?.Group is not Group group)
-                return;
-
-            var subgroupCount = _groups.Count(g =>
-                string.Equals(g.ParentId, group.Id, StringComparison.OrdinalIgnoreCase));
-
-            var message = $"Удалить группу «{group.Name}»?";
-            if (subgroupCount > 0)
-            {
-                message += $"\n\nВнутри группы находится подгрупп: {subgroupCount}.\n" +
-                           "Они также будут удалены.";
-            }
-
-            var result = MessageBox.Show(
-                message,
-                "Подтверждение удаления",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            if (result != MessageBoxResult.Yes)
-                return;
-
-            // Собираем все удаляемые группы (саму группу и всех потомков).
-            var toRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { group.Id };
-            CollectDescendants(group.Id, toRemove);
-
-            for (var i = _groups.Count - 1; i >= 0; i--)
-            {
-                if (toRemove.Contains(_groups[i].Id))
-                {
-                    _groups.RemoveAt(i);
-                }
-            }
-            RebuildTree();
-        }
-
-        /// <summary>
-        /// Собирает идентификаторы всех групп-потомков указанной группы.
-        /// </summary>
-        private void CollectDescendants(string parentId, ISet<string> result)
-        {
-            var children = _groups
-                .Where(g => string.Equals(g.ParentId, parentId, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            foreach (var child in children)
-            {
-                if (result.Add(child.Id))
-                {
-                    CollectDescendants(child.Id, result);
-                }
-            }
-        }
-
-        private void OnCollapseAll_Click(object sender, RoutedEventArgs e)
-        {
-            SetAllExpanded(collapse: true);
-        }
-
-        private void OnExpandAll_Click(object sender, RoutedEventArgs e)
-        {
-            SetAllExpanded(collapse: false);
-        }
-
-        /// <summary>
-        /// Сворачивает или разворачивает все узлы дерева групп.
-        /// </summary>
-        private void SetAllExpanded(bool collapse)
-        {
-            SetExpandedRecursive(GroupsTree.Items.OfType<GroupNodeViewModel>(), collapse);
-        }
-
-        private static void SetExpandedRecursive(IEnumerable<GroupNodeViewModel> nodes, bool collapse)
-        {
-            foreach (var node in nodes)
-            {
-                node.IsExpanded = !collapse;
-                SetExpandedRecursive(node.Children, collapse);
-            }
-        }
-
-        /// <summary>
-        /// Выбирает узел с указанной группой в дереве (разворачивая предков).
-        /// </summary>
-        private void SelectGroup(Group group)
-        {
-            foreach (var root in GroupsTree.Items.OfType<GroupNodeViewModel>())
-            {
-                if (SelectInContainer(GroupsTree, root, group))
-                    return;
-            }
-        }
-
-        /// <summary>
-        /// Рекурсивно находит и выбирает узел с указанной группой.
-        /// </summary>
-        private static bool SelectInContainer(ItemsControl container, GroupNodeViewModel node, Group target)
-        {
-            // Разворачиваем узел, чтобы его потомки стали доступны.
-            node.IsExpanded = true;
-
-            if (node.Group is not null &&
-                string.Equals(node.Group.Id, target.Id, StringComparison.OrdinalIgnoreCase))
-            {
-                var item = container.ItemContainerGenerator.ContainerFromItem(node) as TreeViewItem;
-                if (item is not null)
-                {
-                    item.IsSelected = true;
-                    item.BringIntoView();
-                }
-                return true;
-            }
-
-            foreach (var child in node.Children)
-            {
-                // Получаем контейнер текущего узла для доступа к его ItemsControl.
-                var childContainer = container.ItemContainerGenerator.ContainerFromItem(node) as ItemsControl;
-                if (childContainer is not null && SelectInContainer(childContainer, child, target))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            StatusText.Text = $"Найдено версий: {infos.Count} (группировка: линия → разрядность → путь)";
         }
 
         private void OnExportInfobases_Click(object sender, RoutedEventArgs e)
         {
             _viewModel.ExportInfobasesCommand.Execute(null);
+        }
+
+        private void OnRemoveMissingFileBases_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.RemoveMissingFileBasesCommand.Execute(null);
+            RefreshGroupsAfterDataChange();
+        }
+
+        private void OnKillOneCProcesses_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.KillOneCProcessesCommand.Execute(null);
         }
 
         private void OnImportInfobases_Click(object sender, RoutedEventArgs e)
@@ -576,20 +549,60 @@ namespace Configuration_Management
         /// Обновляет локальную копию списка групп после изменения данных
         /// командами дополнительных функций.
         /// </summary>
+        /// <summary>
+        /// После импорта/очистки данные уже в MainViewModel; локальный список групп в настройках не ведётся.
+        /// </summary>
         private void RefreshGroupsAfterDataChange()
         {
-            _groups.Clear();
-            foreach (var group in _viewModel.Groups)
+            // Группы управляются из главного окна.
+        }
+        private void OnRestoreIbasesBackup_Click(object sender, RoutedEventArgs e)
+        {
+            var filePath = SyncFilePathTextBox.Text?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(filePath))
+                filePath = Services.IbasesV8iImporter.FindDefaultPath() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(filePath))
             {
-                _groups.Add(group);
+                MessageBox.Show("Не указан путь к файлу ibases.v8i.", "Восстановление", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
-            RebuildTree();
+
+            var backups = Services.IbasesBackupService.ListBackups(filePath);
+            if (backups.Count == 0)
+            {
+                MessageBox.Show("Резервные копии не найдены рядом с файлом:\n" + filePath,
+                    "Восстановление", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var latest = backups[0];
+            var result = MessageBox.Show(
+                $"Восстановить файл ibases.v8i из копии?\n\n{System.IO.Path.GetFileName(latest)}\n\nТекущий файл будет перезаписан.",
+                "Восстановление из резервной копии",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                Services.IbasesBackupService.RestoreBackup(latest, filePath);
+                MessageBox.Show("Файл ibases.v8i успешно восстановлен из резервной копии.",
+                    "Восстановление", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Не удалось восстановить файл.\n{ex.Message}",
+                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void OnSave_Click(object sender, RoutedEventArgs e)
         {
-            // Сохраняем изменения групп и версий платформы в модели представления.
-            _viewModel.ApplyGroupChanges(_groups);
+            // Сохраняем версии платформы и дополнительные пути поиска.
+            _viewModel.SetAdditionalPlatformSearchPaths(_additionalPlatformPaths);
             _viewModel.SetInstalledPlatformVersions(_installedPlatformVersions);
 
             // Сохраняем настройки синхронизации с файлом ibases.v8i.
@@ -599,7 +612,9 @@ namespace Configuration_Management
                 interval = 30;
             }
             var scheduleTime = SyncScheduleTimePicker.Text?.Trim() ?? string.Empty;
-            _viewModel.ApplyIbasesSyncSettings(_syncMode, filePath, _syncTrigger, interval, scheduleTime);
+            _viewModel.ApplyIbasesSyncSettings(_syncMode, filePath, _syncTrigger, interval, scheduleTime,
+                IbasesBackupEnabledCheck.IsChecked ?? true,
+                int.TryParse(IbasesBackupKeepCountBox.Text, out var keep) && keep > 0 ? keep : 5);
 
             // Сохраняем настройки отображения списка баз.
             _viewModel.ApplyDisplaySettings(
@@ -611,9 +626,160 @@ namespace Configuration_Management
                 ShowServerColumnCheck.IsChecked ?? false,
                 ShowLastLaunchColumnCheck.IsChecked ?? false,
                 GroupByGroupCheck.IsChecked ?? true,
-                ShowFavoritesOnlyCheck.IsChecked ?? false);
+                ShowFavoritesOnlyCheck.IsChecked ?? false,
+                ShowSizeColumnCheck?.IsChecked ?? true);
+
+            _viewModel.ShowRightPanelDetails = ShowRightPanelDetailsCheck?.IsChecked ?? true;
+            _viewModel.ShowSessionLaunchPanel = ShowSessionLaunchPanelCheck?.IsChecked ?? true;
+            _viewModel.ApplyStatusBarSettings(
+                StatusShowConnectionPathCheck?.IsChecked ?? true,
+                StatusShowArchitectureCheck?.IsChecked ?? true,
+                StatusShowLaunchModeCheck?.IsChecked ?? true,
+                StatusShowPortCheck?.IsChecked ?? true,
+                StatusShowPlatformVersionCheck?.IsChecked ?? true,
+                StatusShowClientTypeCheck?.IsChecked ?? false,
+                StatusShowConnectionTypeCheck?.IsChecked ?? false,
+                StatusShowUserCheck?.IsChecked ?? false,
+                StatusShowIdCheck?.IsChecked ?? false);
+            var hkEnterprise = ReadHotkeyCombo(HotkeyEnterpriseCombo, "F3");
+            var hkConfigurator = ReadHotkeyCombo(HotkeyConfiguratorCombo, "F4");
+            var hkFavorite = ReadHotkeyCombo(HotkeyFavoriteCombo, "");
+            var hkEdit = ReadHotkeyCombo(HotkeyEditCombo, "");
+            var hkDelete = ReadHotkeyCombo(HotkeyDeleteCombo, "");
+            var hkClearCache = ReadHotkeyCombo(HotkeyClearCacheCombo, "");
+            var hkAdd = ReadHotkeyCombo(HotkeyAddCombo, "");
+            var hkPin = ReadHotkeyCombo(HotkeyPinCombo, "");
+
+            // Проверка: одна клавиша — одно действие (пустые «Нет» не учитываются).
+            var assigned = new (string Name, string Key)[]
+            {
+                ("1С:Предприятие", hkEnterprise),
+                ("Конфигуратор", hkConfigurator),
+                ("Избранное", hkFavorite),
+                ("Изменить", hkEdit),
+                ("Удалить", hkDelete),
+                ("Очистить кэш", hkClearCache),
+                ("Добавить базу", hkAdd),
+                ("Закрепить", hkPin)
+            };
+            var duplicates = assigned
+                .Where(a => !string.IsNullOrEmpty(a.Key))
+                .GroupBy(a => a.Key, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1)
+                .ToList();
+            if (duplicates.Count > 0)
+            {
+                var msg = string.Join("\n", duplicates.Select(g =>
+                    $"«{g.Key}» назначена для: {string.Join(", ", g.Select(x => x.Name))}"));
+                MessageBox.Show(
+                    "Одна и та же клавиша не может быть назначена разным действиям:\n\n" + msg,
+                    "Горячие клавиши",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            _viewModel.ApplyAppBehaviorSettings(
+                AllowMultipleInstancesCheck.IsChecked ?? false,
+                ShowTagFilterPanelCheck.IsChecked ?? true,
+                CloseToTrayCheck.IsChecked ?? false,
+                ShowTrayIconCheck.IsChecked ?? true,
+                hkEnterprise,
+                hkConfigurator,
+                hkFavorite,
+                hkEdit,
+                hkDelete,
+                hkClearCache,
+                hkAdd,
+                hkPin,
+                EscapeToTrayCheck.IsChecked ?? true);
+
+            var templatePaths = TemplatePathsList?.Items.Cast<string>().Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
+                ?? new System.Collections.Generic.List<string>();
+            _viewModel.SetTemplateCatalogPaths(templatePaths);
+
+
+            // Порядок горячих клавиш избранного.
+            _viewModel.SetFavoriteHotkeyOrder(_favoriteHotkeyItems.Select(i => i.Key));
 
             DialogResult = true;
+        }
+
+
+        private void OnAddTemplatePath_Click(object sender, RoutedEventArgs e)
+        {
+            using var dlg = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Каталог шаблонов конфигураций 1С",
+                UseDescriptionForTitle = true
+            };
+            if (dlg.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+            var path = dlg.SelectedPath;
+            if (TemplatePathsList.Items.Cast<string>().Any(x => string.Equals(x, path, StringComparison.OrdinalIgnoreCase)))
+                return;
+            TemplatePathsList.Items.Add(path);
+        }
+
+        private void OnRemoveTemplatePath_Click(object sender, RoutedEventArgs e)
+        {
+            if (TemplatePathsList.SelectedItem is string path)
+                TemplatePathsList.Items.Remove(path);
+        }
+
+        private void OnEditTemplatePath_Click(object sender, RoutedEventArgs e)
+        {
+            if (TemplatePathsList.SelectedItem is not string currentPath)
+                return;
+
+            using var dlg = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Изменить каталог шаблонов конфигураций 1С",
+                UseDescriptionForTitle = true,
+                SelectedPath = currentPath
+            };
+            if (dlg.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+            var path = dlg.SelectedPath;
+            if (string.IsNullOrWhiteSpace(path)) return;
+            if (TemplatePathsList.Items.Cast<string>().Any(x =>
+                    !string.Equals(x, currentPath, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(x, path, StringComparison.OrdinalIgnoreCase)))
+                return;
+
+            var index = TemplatePathsList.Items.IndexOf(currentPath);
+            if (index < 0) return;
+            TemplatePathsList.Items[index] = path;
+            TemplatePathsList.SelectedItem = path;
+        }
+
+        private void OnLoadDefaultTemplatePaths_Click(object sender, RoutedEventArgs e)
+        {
+            TemplatePathsList.Items.Clear();
+            foreach (var p in Configuration_Management.Services.OneCTemplateService.GetTemplateRootFolders())
+                TemplatePathsList.Items.Add(p);
+            var def = Configuration_Management.Services.OneCTemplateService.GetConfiguredOrDefaultTemplatePath();
+            if (!string.IsNullOrEmpty(def) && !TemplatePathsList.Items.Cast<string>().Any(x => string.Equals(x, def, StringComparison.OrdinalIgnoreCase)))
+                TemplatePathsList.Items.Insert(0, def);
+        }
+
+        private void OnCancel_Click(object sender, RoutedEventArgs e)
+        {
+            DialogResult = false;
+        }
+
+        private void OnAboutLink_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement { Tag: string url } && !string.IsNullOrWhiteSpace(url))
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+                catch { /* ignore */ }
+            }
         }
 
         /// <summary>

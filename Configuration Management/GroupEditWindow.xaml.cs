@@ -2,139 +2,289 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using Configuration_Management.Models;
 
 namespace Configuration_Management
 {
     /// <summary>
     /// Диалог создания/редактирования группы.
-    /// Поддерживает выбор родительской группы для построения иерархии.
+    /// Поддерживает выбор родительской группы, иконки и цвета.
     /// </summary>
     public partial class GroupEditWindow : Window
     {
         private readonly ObservableCollection<Group> _groups;
+        private readonly Group? _editingGroup;
         private string _color = "#2D6CDF";
+        private string _iconColor = "#FFFFFF";
+        private string _icon = string.Empty;
+        private string _parentId = string.Empty;
 
-        /// <summary>
-        /// Создаёт диалог для новой группы (корневой или подгруппы).
-        /// </summary>
-        /// <param name="groups">Полный список групп (для выбора родителя).</param>
-        /// <param name="parent">Родительская группа. Null — создаётся корневая группа.</param>
+        private static readonly (string Key, string Label)[] AvailableIcons =
+        {
+            ("", "По умолчанию"),
+            ("IconFolder", "Папка"),
+            ("IconDatabase", "База"),
+            ("IconServices", "Сервер"),
+            ("IconStar", "Звезда"),
+            ("IconTag", "Тег"),
+            ("IconPin", "Закрепить"),
+            ("IconInfo", "Инфо"),
+            ("IconPlay", "Запуск"),
+            ("IconSettings", "Настройки"),
+            ("IconSearch", "Поиск"),
+            ("IconAdd", "Добавить"),
+            ("IconUsers", "Пользователи"),
+            ("IconHistory", "История"),
+            ("IconSync", "Синхронизация"),
+            ("IconBackup", "Резервная копия"),
+            ("IconConfiguration", "Конфигурация"),
+            ("IconPublish", "Публикация"),
+            ("IconMonitoring", "Мониторинг"),
+            ("IconScheduler", "Планировщик"),
+            ("IconLogs", "Журнал"),
+            ("IconRights", "Права"),
+            ("IconExtension", "Расширение"),
+            ("IconImport", "Импорт"),
+            ("IconExport", "Экспорт"),
+            ("IconFilter", "Фильтр"),
+            ("IconCopy", "Копия"),
+            ("IconEdit", "Редактирование"),
+            ("IconSave", "Сохранение"),
+            ("IconRefresh", "Обновление"),
+            ("IconOpen", "Открыть"),
+            ("IconWarning", "Внимание"),
+            ("IconOk", "ОК"),
+            ("IconError", "Ошибка"),
+            ("IconAutostart", "Автозапуск"),
+            ("IconTheme", "Тема"),
+            ("IconSun", "Солнце"),
+            ("IconMoon", "Луна"),
+            ("IconCompare", "Сравнение"),
+            ("IconMerge", "Объединение"),
+        };
+
         public GroupEditWindow(IEnumerable<Group> groups, Group? parent = null)
             : this(groups, parent?.Id ?? string.Empty, editingGroup: null)
         {
         }
 
-        /// <summary>
-        /// Создаёт диалог для редактирования существующей группы.
-        /// </summary>
-        /// <param name="groups">Полный список групп (для выбора родителя).</param>
-        /// <param name="parentId">Идентификатор текущего родителя группы (пустая строка — корень).</param>
-        /// <param name="editingGroup">Редактируемая группа. Null — создание новой группы.</param>
         public GroupEditWindow(IEnumerable<Group> groups, string parentId, Group? editingGroup)
         {
             InitializeComponent();
             _groups = new ObservableCollection<Group>(groups);
-
-            // Заполняем список доступных родительских групп.
-            BuildParentList(editingGroup, parentId);
+            _editingGroup = editingGroup;
+            _parentId = parentId ?? string.Empty;
 
             if (editingGroup is not null)
             {
                 Result.Id = editingGroup.Id;
                 NameBox.Text = editingGroup.Name;
                 DescriptionBox.Text = editingGroup.Description;
-                _color = editingGroup.Color;
+                _color = string.IsNullOrWhiteSpace(editingGroup.Color) ? "#2D6CDF" : editingGroup.Color;
+                _iconColor = string.IsNullOrWhiteSpace(editingGroup.IconColor) ? "#FFFFFF" : editingGroup.IconColor;
+                _icon = editingGroup.Icon ?? string.Empty;
             }
             else
             {
-                // Для новой группы генерируем уникальный идентификатор. Без него подгруппы,
-                // ссылающиеся на ParentId, потеряют связь, и иерархия не сохранится.
                 Result.Id = Guid.NewGuid().ToString();
             }
 
+            UpdateParentPathDisplay();
             ApplyPaletteColors();
-            UpdateColorPreview();
+            BuildIconPicker();
+            UpdateHeaderColorPreview();
+            UpdateIconColorPreview();
+            HighlightSelectedIcon();
         }
 
-        /// <summary>
-        /// Возвращает отредактированную группу.
-        /// </summary>
         public Group Result { get; private set; } = new();
 
-        /// <summary>
-        /// Строит список возможных родительских групп.
-        /// Исключает редактируемую группу и её потомков во избежание циклов.
-        /// </summary>
-        private void BuildParentList(Group? editingGroup, string currentParentId)
+        private void UpdateParentPathDisplay()
         {
-            // Добавляем вариант «Корневая группа» (без родителя).
-            ParentCombo.Items.Add(new ComboBoxItem { Content = "— Корневая группа —", Tag = string.Empty });
-
-            foreach (var group in _groups)
+            if (string.IsNullOrEmpty(_parentId))
             {
-                if (editingGroup is not null && editingGroup.Id == group.Id)
-                    continue;
-
-                // Нельзя выбрать в качестве родителя потомка редактируемой группы.
-                if (editingGroup is not null &&
-                    GroupHierarchyHelper.IsAncestorOrSelf(group.Id, editingGroup.Id, _groups))
-                {
-                    continue;
-                }
-
-                var path = GroupHierarchyHelper.GetFullPath(group, _groups);
-                if (string.IsNullOrWhiteSpace(path))
-                    continue;
-
-                ParentCombo.Items.Add(new ComboBoxItem { Content = path, Tag = group.Id });
+                ParentPathBox.Text = "— Корневая группа —";
+                return;
             }
 
-            // Выбираем текущий родитель.
-            SelectParent(currentParentId);
+            var parent = _groups.FirstOrDefault(g =>
+                string.Equals(g.Id, _parentId, StringComparison.OrdinalIgnoreCase));
+            ParentPathBox.Text = parent is null
+                ? "— Корневая группа —"
+                : GroupHierarchyHelper.GetFullPath(parent, _groups);
         }
 
-        /// <summary>
-        /// Выбирает родительскую группу в выпадающем списке.
-        /// </summary>
-        private void SelectParent(string parentId)
+        private void OnSelectParent_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var item in ParentCombo.Items)
+            var dialog = new GroupPickerWindow(
+                _groups,
+                currentGroupId: _parentId,
+                excludeGroupId: _editingGroup?.Id,
+                allowNone: true,
+                noneLabel: "— Корневая группа —")
             {
-                if (item is ComboBoxItem cbi && string.Equals(cbi.Tag as string, parentId, StringComparison.OrdinalIgnoreCase))
-                {
-                    ParentCombo.SelectedItem = cbi;
-                    return;
-                }
-            }
-
-            // Если родитель не найден — выбираем «Корневую группу».
-            if (ParentCombo.Items.Count > 0)
+                Owner = this
+            };
+            if (dialog.ShowDialog() == true)
             {
-                ParentCombo.SelectedIndex = 0;
+                _parentId = dialog.ResultGroupId;
+                UpdateParentPathDisplay();
             }
         }
 
-        /// <summary>
-        /// Задаёт фон каждой кнопке палитры из её Tag (HEX-цвет).
-        /// </summary>
         private void ApplyPaletteColors()
         {
-            foreach (var child in PaletteGrid.Children)
+            void Fill(System.Windows.Controls.Panel? panel)
             {
-                if (child is Button button && button.Tag is string hex)
+                if (panel is null) return;
+                foreach (var child in panel.Children)
                 {
-                    button.Background = new SolidColorBrush(ParseColor(hex));
+                    if (child is Button button && button.Tag is string hex)
+                        button.Background = new SolidColorBrush(ParseColor(hex));
+                }
+            }
+            Fill(HeaderPaletteGrid);
+            Fill(IconPaletteGrid);
+        }
+
+        private void BuildIconPicker()
+        {
+            IconPickerPanel.Children.Clear();
+            var iconBrush = new SolidColorBrush(ParseColor(_iconColor));
+            foreach (var (key, label) in AvailableIcons)
+            {
+                var btn = new Button
+                {
+                    Style = (Style)FindResource("IconPickButton"),
+                    Tag = key,
+                    ToolTip = label
+                };
+
+                if (string.IsNullOrEmpty(key))
+                {
+                    btn.Content = new TextBlock
+                    {
+                        Text = "∅",
+                        FontSize = 14,
+                        Foreground = Brushes.White,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                }
+                else
+                {
+                    try
+                    {
+                        var geom = TryFindResource(key) as Geometry;
+                        if (geom != null)
+                        {
+                            btn.Content = new Path
+                            {
+                                Data = geom,
+                                Fill = iconBrush,
+                                Width = 18,
+                                Height = 18,
+                                Stretch = Stretch.Uniform
+                            };
+                        }
+                        else
+                        {
+                            btn.Content = new TextBlock { Text = "?", FontSize = 12 };
+                        }
+                    }
+                    catch
+                    {
+                        btn.Content = new TextBlock { Text = "?", FontSize = 12 };
+                    }
+                }
+
+                btn.Click += OnIcon_Click;
+                IconPickerPanel.Children.Add(btn);
+            }
+
+            HighlightSelectedIcon();
+        }
+
+        /// <summary>Перекрашивает иконки в панели выбора в цвет иконки.</summary>
+        private void ApplyIconPickerColors()
+        {
+            var brush = new SolidColorBrush(ParseColor(_iconColor));
+            foreach (var child in IconPickerPanel.Children)
+            {
+                if (child is Button { Content: Path path })
+                    path.Fill = brush;
+            }
+        }
+
+        private void OnIcon_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is string key)
+            {
+                _icon = key;
+                HighlightSelectedIcon();
+            }
+        }
+
+        private static readonly Brush IconPickBaseBackground =
+            new SolidColorBrush(Color.FromRgb(0x37, 0x41, 0x51)); // #374151
+
+        private void HighlightSelectedIcon()
+        {
+            var c = ParseColor(_iconColor);
+            // Светлая иконка — подсветка выбора делаем яркой обводкой, фон остаётся тёмным.
+            var isLightIcon = (c.R + c.G + c.B) / 3.0 > 200;
+            foreach (var child in IconPickerPanel.Children)
+            {
+                if (child is Button button && button.Tag is string key)
+                {
+                    var isSelected = string.Equals(key, _icon, StringComparison.Ordinal);
+                    button.BorderBrush = isSelected
+                        ? (isLightIcon
+                            ? new SolidColorBrush(Color.FromRgb(0xFB, 0xBF, 0x24)) // янтарь
+                            : new SolidColorBrush(c))
+                        : new SolidColorBrush(Color.FromRgb(0x4B, 0x55, 0x63));
+                    button.BorderThickness = new Thickness(isSelected ? 2.5 : 1);
+                    button.Background = IconPickBaseBackground;
                 }
             }
         }
 
-        private void OnPaletteColor_Click(object sender, RoutedEventArgs e)
+        private void OnHeaderPalette_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button button && button.Tag is string hex)
             {
                 _color = hex;
-                UpdateColorPreview();
+                UpdateHeaderColorPreview();
+            }
+        }
+
+        private void OnIconPalette_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is string hex)
+            {
+                _iconColor = hex;
+                UpdateIconColorPreview();
+            }
+        }
+
+        private void OnPickHeaderColor_Click(object sender, RoutedEventArgs e)
+        {
+            var picker = new ColorPickerWindow(_color) { Owner = this };
+            if (picker.ShowDialog() == true && !string.IsNullOrWhiteSpace(picker.Result))
+            {
+                _color = picker.Result;
+                UpdateHeaderColorPreview();
+            }
+        }
+
+        private void OnPickIconColor_Click(object sender, RoutedEventArgs e)
+        {
+            var picker = new ColorPickerWindow(_iconColor) { Owner = this };
+            if (picker.ShowDialog() == true && !string.IsNullOrWhiteSpace(picker.Result))
+            {
+                _iconColor = picker.Result;
+                UpdateIconColorPreview();
             }
         }
 
@@ -150,16 +300,24 @@ namespace Configuration_Management
             Result.Name = NameBox.Text.Trim();
             Result.Description = DescriptionBox.Text.Trim();
             Result.Color = _color;
-            Result.ParentId = ParentCombo.SelectedItem is ComboBoxItem cbi && cbi.Tag is string parentId
-                ? parentId
-                : string.Empty;
+            Result.IconColor = _iconColor;
+            Result.Icon = _icon;
+            Result.ParentId = _parentId ?? string.Empty;
             DialogResult = true;
         }
 
-        private void UpdateColorPreview()
+        private void UpdateHeaderColorPreview()
         {
             ColorPreview.Background = new SolidColorBrush(ParseColor(_color));
             ColorHexText.Text = _color;
+        }
+
+        private void UpdateIconColorPreview()
+        {
+            IconColorPreview.Background = new SolidColorBrush(ParseColor(_iconColor));
+            IconColorHexText.Text = _iconColor;
+            ApplyIconPickerColors();
+            HighlightSelectedIcon();
         }
 
         private static Color ParseColor(string? hex)

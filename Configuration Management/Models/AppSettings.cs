@@ -20,6 +20,13 @@ public class AppSettings
     /// <summary>Список установленных версий платформы 1С.</summary>
     public List<string> InstalledPlatformVersions { get; set; } = new();
 
+    /// <summary>
+    /// Дополнительные пути к каталогам установки платформы 1С
+    /// (помимо стандартных Program Files и Program Files (x86)).
+    /// Пользователь может указать нестандартные/портативные установки.
+    /// </summary>
+    public List<string> AdditionalPlatformSearchPaths { get; set; } = new();
+
     /// <summary>Режим синхронизации с файлом ibases.v8i.</summary>
     public IbasesSyncMode IbasesSyncMode { get; set; } = IbasesSyncMode.None;
 
@@ -34,6 +41,16 @@ public class AppSettings
 
     /// <summary>Время автоматической синхронизации по расписанию в формате "HH:mm" (для режима Schedule).</summary>
     public string IbasesSyncScheduleTime { get; set; } = "09:00";
+
+    /// <summary>
+    /// Создавать резервную копию файла ibases.v8i перед синхронизацией (экспортом/записью).
+    /// </summary>
+    public bool IbasesBackupEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Сколько последних резервных копий ibases.v8i хранить (старые удаляются).
+    /// </summary>
+    public int IbasesBackupKeepCount { get; set; } = 5;
 
     /// <summary>Ширина колонки «Название» в списке баз (0 — по умолчанию).</summary>
     public double NameColumnWidth { get; set; }
@@ -59,6 +76,15 @@ public class AppSettings
     /// <summary>Показывать теги баз в списке.</summary>
     public bool ShowTags { get; set; } = true;
 
+    /// <summary>Показывать панель быстрого отбора по тегам над списком баз.</summary>
+    public bool ShowTagFilterPanel { get; set; } = true;
+
+    /// <summary>
+    /// Разрешить запуск нескольких экземпляров приложения.
+    /// false — при повторном запуске активируется уже открытое окно.
+    /// </summary>
+    public bool AllowMultipleInstances { get; set; }
+
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn { get; set; } = true;
 
@@ -70,6 +96,12 @@ public class AppSettings
 
     /// <summary>Показывать колонку «Последний запуск» в списке баз.</summary>
     public bool ShowLastLaunchColumn { get; set; } = true;
+
+    /// <summary>Показывать колонку «Размер» (файловые ИБ) в списке баз.</summary>
+    public bool ShowSizeColumn { get; set; } = true;
+
+    /// <summary>Ширина колонки «Размер» (0 — по умолчанию).</summary>
+    public double SizeColumnWidth { get; set; }
 
     /// <summary>Сохранённая ширина окна приложения (0 — по умолчанию).</summary>
     public double WindowWidth { get; set; }
@@ -85,4 +117,107 @@ public class AppSettings
 
     /// <summary>Состояние окна приложения (Normal, Maximized, Minimized).</summary>
     public string WindowState { get; set; } = string.Empty;
+
+    /// <summary>
+    /// При закрытии окна сворачивать приложение в системный трей вместо выхода.
+    /// </summary>
+    public bool CloseToTray { get; set; }
+
+    /// <summary>Показывать значок приложения в системном трее.</summary>
+    public bool ShowTrayIcon { get; set; } = true;
+
+    /// <summary>Горячая клавиша запуска «1С:Предприятие» (например F3). Пусто — не назначена.</summary>
+    public string HotkeyEnterprise { get; set; } = "F3";
+
+    /// <summary>Горячая клавиша запуска «Конфигуратор» (например F4).</summary>
+    public string HotkeyConfigurator { get; set; } = "F4";
+
+    /// <summary>Горячая клавиша «Избранное» (например F8).</summary>
+    public string HotkeyFavorite { get; set; } = "F8";
+
+    /// <summary>Горячая клавиша «Изменить» (например F2).</summary>
+    public string HotkeyEdit { get; set; } = "F2";
+
+    /// <summary>Горячая клавиша «Удалить» (например Delete).</summary>
+    public string HotkeyDelete { get; set; } = "Delete";
+
+    /// <summary>Горячая клавиша «Очистить кэш».</summary>
+    public string HotkeyClearCache { get; set; } = "";
+
+    /// <summary>Горячая клавиша «Добавить базу» (например Insert).</summary>
+    public string HotkeyAdd { get; set; } = "Insert";
+
+    /// <summary>Горячая клавиша «Закрепить».</summary>
+    public string HotkeyPin { get; set; } = "";
+
+    /// <summary>
+    /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.
+    /// </summary>
+    public string SortField { get; set; } = "Name";
+
+    /// <summary>Направление сортировки: true — по возрастанию, false — по убыванию.</summary>
+    public bool SortAscending { get; set; } = true;
+
+    /// <summary>
+    /// Упорядоченный список идентификаторов избранных баз для горячих клавиш Alt+1…Alt+9.
+    /// Индекс 0 → Alt+1, индекс 1 → Alt+2 и т.д. (максимум 9).
+    /// </summary>
+    public List<string> FavoriteHotkeyIds { get; set; } = new();
+
+    /// <summary>
+    /// Показывать подробности в правой панели (имя, подключение, теги).
+    /// false — компактный режим: только кнопки действий.
+    /// </summary>
+    public bool ShowRightPanelDetails { get; set; } = true;
+
+    /// <summary>
+    /// Показывать блок «Текущая сессия» (режим клиента и разрядность) в правой панели.
+    /// Работает и в полном, и в компактном режиме панели.
+    /// </summary>
+    public bool ShowSessionLaunchPanel { get; set; } = true;
+
+    /// <summary>Сохранённый режим клиента «текущей сессии» (Auto / Ordinary / Thick / Thin).</summary>
+    public string SessionClientMode { get; set; } = "Auto";
+
+    /// <summary>Сохранённая разрядность «текущей сессии» (Auto / X86 / X64).</summary>
+    public string SessionArchitecture { get; set; } = "Auto";
+
+    /// <summary>
+    /// Каталоги шаблонов конфигураций (как в стартере 1С).
+    /// Пустой список — использовать пути, настроенные в 1С / по умолчанию.
+    /// </summary>
+    public List<string> TemplateCatalogPaths { get; set; } = new();
+
+    /// <summary>
+    /// При Esc сворачивать главное окно в трей (нужен включённый значок в трее).
+    /// </summary>
+    public bool EscapeToTray { get; set; } = true;
+
+    /// <summary>В нижней панели показывать путь / строку подключения.</summary>
+    public bool StatusShowConnectionPath { get; set; } = true;
+
+    /// <summary>В нижней панели показывать разрядность (32/64).</summary>
+    public bool StatusShowArchitecture { get; set; } = true;
+
+    /// <summary>В нижней панели показывать режим запуска.</summary>
+    public bool StatusShowLaunchMode { get; set; } = true;
+
+    /// <summary>В нижней панели показывать порт сервера.</summary>
+    public bool StatusShowPort { get; set; } = true;
+
+    /// <summary>В нижней панели показывать версию платформы.</summary>
+    public bool StatusShowPlatformVersion { get; set; } = true;
+
+    /// <summary>В нижней панели показывать тип клиента.</summary>
+    public bool StatusShowClientType { get; set; }
+
+    /// <summary>В нижней панели показывать тип подключения.</summary>
+    public bool StatusShowConnectionType { get; set; }
+
+    /// <summary>В нижней панели показывать имя пользователя подключения.</summary>
+    public bool StatusShowUser { get; set; }
+
+    /// <summary>В нижней панели показывать ID информационной базы.</summary>
+    public bool StatusShowId { get; set; }
+
 }

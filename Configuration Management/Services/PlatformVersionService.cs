@@ -7,41 +7,110 @@ namespace Configuration_Management.Services;
 /// </summary>
 public static class PlatformVersionService
 {
-    /// <summary>
-    /// Ищет установленные варианты платформы 1С в стандартных каталогах
-    /// Program Files\1cv8 и Program Files (x86)\1cv8.
-    /// Разрядность установки определяется каталогом, в который установлена платформа:
-    /// Program Files — 64-битная, Program Files (x86) — 32-битная.
-    /// В современных версиях (8.3.22+ и 8.5.x) исполняемый файл называется единообразно
-    /// «1cv8.exe» для обеих разрядностей, поэтому разрядность нельзя определить по имени файла.
-    /// В результат попадают только реально установленные варианты,
-    /// в формате «8.3.25.1234 (32)» / «8.3.25.1234 (64)».
-    /// </summary>
-    /// <returns>Отсортированный по убыванию список вариантов платформы.</returns>
-    public static List<string> FindInstalledVersions()
+    private static readonly object _extraRootsLock = new();
+    private static List<string> _extraSearchRoots = new();
+
+    public static void SetAdditionalSearchPaths(IEnumerable<string>? paths)
     {
-        var versions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        lock (_extraRootsLock)
+        {
+            _extraSearchRoots = paths?
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => p.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? new List<string>();
+        }
+    }
+
+    public static IReadOnlyList<string> GetAdditionalSearchPaths()
+    {
+        lock (_extraRootsLock)
+        {
+            return _extraSearchRoots.ToList();
+        }
+    }
+
+    public static List<string> FindInstalledVersions(IEnumerable<string>? additionalPaths = null)
+        => FindInstalledVersionInfos(additionalPaths).Select(v => v.Display).ToList();
+
+    /// <summary>
+    /// Возвращает установленные версии платформы вместе с путями к каталогам версий.
+    /// </summary>
+    public static List<Models.PlatformVersionInfo> FindInstalledVersionInfos(IEnumerable<string>? additionalPaths = null)
+    {
+        // Display → Path (при дубликатах оставляем первый найденный путь)
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
-        // 64-битные версии устанавливаются в Program Files.
-        AddVersionsFromRoot(versions, programFiles, "64");
+        AddVersionsFromRoot(map, programFiles, "64");
+        AddVersionsFromRoot(map, programFilesX86, "32");
 
-        // 32-битные версии устанавливаются в Program Files (x86).
-        AddVersionsFromRoot(versions, programFilesX86, "32");
+        IEnumerable<string> extra;
+        if (additionalPaths != null)
+        {
+            extra = additionalPaths
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => p.Trim().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        }
+        else
+        {
+            lock (_extraRootsLock)
+            {
+                extra = _extraSearchRoots.ToList();
+            }
+        }
 
-        // Сортируем по убыванию версии (сначала самые новые).
-        return versions
-            .OrderByDescending(v => v, new VersionComparer())
+        foreach (var path in extra)
+            AddVersionsFromCustomPath(map, path, programFiles, programFilesX86);
+
+        return map
+            .Select(kv => new Models.PlatformVersionInfo { Display = kv.Key, Path = kv.Value })
+            .OrderByDescending(v => v.Display, new VersionComparer())
             .ToList();
     }
 
-    /// <summary>
-    /// Добавляет варианты платформы из указанного корневого каталога установки
-    /// (Program Files или Program Files (x86)) с заданной разрядностью.
-    /// </summary>
-    private static void AddVersionsFromRoot(HashSet<string> versions, string? root, string architecture)
+    public static IReadOnlyList<string> GetSearchRoots(string architecture)
+    {
+        var roots = new List<string>();
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+
+        if (architecture == "64" || architecture == "x64")
+        {
+            if (!string.IsNullOrEmpty(programFiles))
+                roots.Add(programFiles);
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(programFilesX86))
+                roots.Add(programFilesX86);
+            if (roots.Count == 0 && !string.IsNullOrEmpty(programFiles))
+                roots.Add(programFiles);
+        }
+
+        lock (_extraRootsLock)
+        {
+            foreach (var p in _extraSearchRoots)
+            {
+                if (string.IsNullOrWhiteSpace(p)) continue;
+                var root = ResolveRootFromCustomPath(p);
+                if (!string.IsNullOrEmpty(root) && !roots.Contains(root, StringComparer.OrdinalIgnoreCase))
+                    roots.Add(root);
+            }
+        }
+
+        return roots;
+    }
+
+    private static void TryAddVersion(Dictionary<string, string> map, string display, string versionDir)
+    {
+        if (!map.ContainsKey(display))
+            map[display] = versionDir;
+    }
+
+    private static void AddVersionsFromRoot(Dictionary<string, string> map, string? root, string architecture)
     {
         if (string.IsNullOrEmpty(root))
             return;
@@ -50,34 +119,211 @@ public static class PlatformVersionService
         if (!Directory.Exists(baseDir))
             return;
 
-        foreach (var dir in Directory.GetDirectories(baseDir))
-        {
-            var name = Path.GetFileName(dir);
-            // Каталог версии платформы имеет вид «8.3.25.1234».
-            if (!IsVersionDirectory(name))
-                continue;
+        AddVersionsFrom1cv8Dir(map, baseDir, architecture);
+    }
 
-            // Проверяем, что в каталоге версии действительно есть исполняемый файл клиента.
-            var binDir = Path.Combine(dir, "bin");
+    private static void AddVersionsFromCustomPath(
+        Dictionary<string, string> map,
+        string path,
+        string? programFiles,
+        string? programFilesX86)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return;
+
+        string? preferredArch = null;
+        if (!string.IsNullOrEmpty(programFilesX86) &&
+            path.StartsWith(programFilesX86, StringComparison.OrdinalIgnoreCase))
+            preferredArch = "32";
+        else if (!string.IsNullOrEmpty(programFiles) &&
+                 path.StartsWith(programFiles, StringComparison.OrdinalIgnoreCase))
+            preferredArch = "64";
+
+        // E:\1cPlatform\1cv8\8.3.x  или  E:\1cPlatform\8.3.x
+        var oneCDir = Path.Combine(path, "1cv8");
+        if (Directory.Exists(oneCDir))
+        {
+            AddVersionsFrom1cv8Dir(map, oneCDir, preferredArch);
+            // также рекурсивно — на случай вложенных копий
+            ScanForVersionDirectories(map, path, preferredArch, depth: 0, maxDepth: 4);
+            return;
+        }
+
+        if (HasVersionSubdirectories(path) ||
+            string.Equals(Path.GetFileName(path), "1cv8", StringComparison.OrdinalIgnoreCase))
+        {
+            AddVersionsFrom1cv8Dir(map, path, preferredArch);
+            ScanForVersionDirectories(map, path, preferredArch, depth: 0, maxDepth: 3);
+            return;
+        }
+
+        var binDir = Path.Combine(path, "bin");
+        if (Directory.Exists(binDir) && IsVersionDirectory(Path.GetFileName(path)))
+        {
+            var arch = preferredArch ?? DetectArchitecture(binDir);
             if (File.Exists(Path.Combine(binDir, "1cv8.exe")) ||
                 File.Exists(Path.Combine(binDir, "1cv8x64.exe")))
             {
-                versions.Add(FormatVariant(name, architecture));
+                TryAddVersion(map, FormatVariant(Path.GetFileName(path), arch), path);
+            }
+            return;
+        }
+
+        // Произвольный корень (например E:\1cPlatform) — ищем версии рекурсивно
+        ScanForVersionDirectories(map, path, preferredArch, depth: 0, maxDepth: 5);
+    }
+
+    /// <summary>
+    /// Рекурсивный поиск каталогов вида 8.3.x.x с bin\1cv8.exe (нестандартные корни установки).
+    /// </summary>
+    private static void ScanForVersionDirectories(
+        Dictionary<string, string> map,
+        string path,
+        string? preferredArchitecture,
+        int depth,
+        int maxDepth)
+    {
+        if (depth > maxDepth || !Directory.Exists(path))
+            return;
+
+        try
+        {
+            foreach (var dir in Directory.GetDirectories(path))
+            {
+                var name = Path.GetFileName(dir);
+                if (string.IsNullOrEmpty(name) || name.StartsWith(".", StringComparison.Ordinal))
+                    continue;
+
+                if (IsVersionDirectory(name))
+                {
+                    var binDir = Path.Combine(dir, "bin");
+                    if (Directory.Exists(binDir) &&
+                        (File.Exists(Path.Combine(binDir, "1cv8.exe")) ||
+                         File.Exists(Path.Combine(binDir, "1cv8x64.exe"))))
+                    {
+                        var arch = preferredArchitecture ?? DetectArchitecture(binDir);
+                        TryAddVersion(map, FormatVariant(name, arch), dir);
+                    }
+                }
+
+                // не заходим в bin/docs и т.п.
+                if (name.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("docs", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("readme", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                ScanForVersionDirectories(map, dir, preferredArchitecture, depth + 1, maxDepth);
+            }
+        }
+        catch
+        {
+            /* нет доступа */
+        }
+    }
+
+    private static void AddVersionsFrom1cv8Dir(Dictionary<string, string> map, string baseDir, string? preferredArchitecture)
+    {
+        if (!Directory.Exists(baseDir))
+            return;
+
+        foreach (var dir in Directory.GetDirectories(baseDir))
+        {
+            var name = Path.GetFileName(dir);
+            if (!IsVersionDirectory(name))
+                continue;
+
+            var binDir = Path.Combine(dir, "bin");
+            if (!Directory.Exists(binDir))
+                continue;
+
+            if (File.Exists(Path.Combine(binDir, "1cv8.exe")) ||
+                File.Exists(Path.Combine(binDir, "1cv8x64.exe")))
+            {
+                var arch = preferredArchitecture ?? DetectArchitecture(binDir);
+                TryAddVersion(map, FormatVariant(name, arch), dir);
             }
         }
     }
 
     /// <summary>
-    /// Формирует строку варианта платформы вида «8.3.25.1234 (64)».
+    /// Определяет разрядность по имени exe и PE-заголовку (Machine).
     /// </summary>
+    private static string DetectArchitecture(string binDir)
+    {
+        var x64 = Path.Combine(binDir, "1cv8x64.exe");
+        if (File.Exists(x64))
+            return "64";
+
+        var exe = Path.Combine(binDir, "1cv8.exe");
+        if (!File.Exists(exe))
+            return "64";
+
+        try
+        {
+            using var fs = File.OpenRead(exe);
+            if (fs.Length < 0x40) return "64";
+            using var br = new BinaryReader(fs);
+            // MZ
+            if (br.ReadUInt16() != 0x5A4D) return "64";
+            fs.Seek(0x3C, SeekOrigin.Begin);
+            var peOffset = br.ReadInt32();
+            if (peOffset <= 0 || peOffset + 6 >= fs.Length) return "64";
+            fs.Seek(peOffset, SeekOrigin.Begin);
+            if (br.ReadUInt32() != 0x00004550) return "64"; // PE\0\0
+            var machine = br.ReadUInt16();
+            // IMAGE_FILE_MACHINE_I386 = 0x14c, AMD64 = 0x8664
+            if (machine == 0x014c) return "32";
+            if (machine == 0x8664) return "64";
+        }
+        catch
+        {
+            /* ignore */
+        }
+
+        return "64";
+    }
+
+    private static bool HasVersionSubdirectories(string path)
+    {
+        try
+        {
+            return Directory.GetDirectories(path).Any(d => IsVersionDirectory(Path.GetFileName(d)));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string? ResolveRootFromCustomPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return null;
+
+        if (Directory.Exists(Path.Combine(path, "1cv8")))
+            return path;
+
+        if (string.Equals(Path.GetFileName(path), "1cv8", StringComparison.OrdinalIgnoreCase) ||
+            HasVersionSubdirectories(path))
+        {
+            var parent = Path.GetDirectoryName(path);
+            return string.IsNullOrEmpty(parent) ? path : parent;
+        }
+
+        if (IsVersionDirectory(Path.GetFileName(path)) &&
+            Directory.Exists(Path.Combine(path, "bin")))
+        {
+            var oneC = Path.GetDirectoryName(path);
+            var root = string.IsNullOrEmpty(oneC) ? null : Path.GetDirectoryName(oneC);
+            return root ?? oneC ?? path;
+        }
+
+        return path;
+    }
+
     public static string FormatVariant(string version, string architecture)
         => $"{version} ({architecture})";
 
-    /// <summary>
-    /// Разбирает вариант платформы вида «8.3.25.1234 (64)» на чистую версию
-    /// «8.3.25.1234» и разрядность «64». Если суффикс разрядности отсутствует —
-    /// возвращает исходную строку как версию и «32» как разрядность по умолчанию.
-    /// </summary>
     public static void ParseVariant(string variant, out string version, out string architecture)
     {
         version = variant;
@@ -100,8 +346,72 @@ public static class PlatformVersionService
     }
 
     /// <summary>
-    /// Проверяет, является ли имя каталога версией платформы вида «8.3.25.1234».
+    /// Линия платформы — первые два числа версии: «8.3.27.1688 (64)» → «8.3».
     /// </summary>
+    public static string GetVersionLine(string variant)
+    {
+        ParseVariant(variant, out var version, out _);
+        var parts = version.Split('.');
+        return parts.Length >= 2
+            ? string.Join(".", parts.Take(2))
+            : (string.IsNullOrEmpty(version) ? "—" : version);
+    }
+
+    /// <summary>
+    /// Единое дерево для настроек и диалога выбора:
+    /// линия (8.3) → разрядность (64/32) → сборка с путём.
+    /// </summary>
+    public static List<Models.PlatformVersionGroup> BuildGroupedTree(
+        IEnumerable<Models.PlatformVersionInfo> infos)
+    {
+        var list = infos?.ToList() ?? new List<Models.PlatformVersionInfo>();
+        var roots = new List<Models.PlatformVersionGroup>();
+
+        var byLine = list
+            .GroupBy(i => GetVersionLine(i.Display))
+            .OrderByDescending(g => g.Key, new VersionComparer());
+
+        foreach (var lineGroup in byLine)
+        {
+            var lineNode = new Models.PlatformVersionGroup { Name = lineGroup.Key };
+
+            var byArch = lineGroup
+                .GroupBy(i =>
+                {
+                    ParseVariant(i.Display, out _, out var arch);
+                    return arch == "32" ? "32" : "64";
+                })
+                .OrderByDescending(g => g.Key); // 64 выше 32
+
+            foreach (var archGroup in byArch)
+            {
+                var archNode = new Models.PlatformVersionGroup
+                {
+                    Name = $"{archGroup.Key}-разрядная"
+                };
+
+                foreach (var info in archGroup.OrderByDescending(i => i.Display, new VersionComparer()))
+                {
+                    archNode.Children.Add(new Models.PlatformVersionGroup
+                    {
+                        Name = info.Display,
+                        Path = info.Path,
+                        Variant = info.Display,
+                        Versions = { info }
+                    });
+                    archNode.Versions.Add(info);
+                }
+
+                lineNode.Children.Add(archNode);
+                lineNode.Versions.AddRange(archNode.Versions);
+            }
+
+            roots.Add(lineNode);
+        }
+
+        return roots;
+    }
+
     private static bool IsVersionDirectory(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -120,11 +430,6 @@ public static class PlatformVersionService
         return true;
     }
 
-    /// <summary>
-    /// Компаратор для сортировки версий по убыванию.
-    /// Учитывает суффикс разрядности «(32)» / «(64)»: в пределах одной версии
-    /// 64-битный вариант считается более новым.
-    /// </summary>
     private sealed class VersionComparer : IComparer<string>
     {
         public int Compare(string? x, string? y)
@@ -137,7 +442,6 @@ public static class PlatformVersionService
             if (result != 0)
                 return result;
 
-            // Версии совпадают — сравниваем разрядность (64 > 32).
             return GetArch(x).CompareTo(GetArch(y));
         }
 
