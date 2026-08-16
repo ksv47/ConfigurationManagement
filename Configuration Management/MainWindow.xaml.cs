@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Reflection;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
@@ -28,6 +29,10 @@ namespace Configuration_Management
         public MainWindow(ViewModels.MainViewModel? viewModel = null)
         {
             InitializeComponent();
+
+            // Выводим версию программы в заголовок окна.
+            Title = $"{Title} v{Assembly.GetExecutingAssembly().GetName().Version}";
+
             _viewModel = viewModel ?? new ViewModels.MainViewModel();
             DataContext = _viewModel;
 
@@ -775,6 +780,18 @@ namespace Configuration_Management
                 if (_viewModel.EscapeToTray && _viewModel.ShowTrayIcon)
                 {
                     MinimizeToTray();
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            // Ctrl+F → фокус в поле поиска (в том числе когда фокус в другом поле ввода)
+            if (key == Key.F && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                if (SearchTextBox is not null)
+                {
+                    SearchTextBox.Focus();
+                    SearchTextBox.SelectAll();
                     e.Handled = true;
                     return;
                 }

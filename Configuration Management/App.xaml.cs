@@ -81,9 +81,7 @@ namespace Configuration_Management
 
                 // Версия в заголовке.
                 var version = Assembly.GetExecutingAssembly().GetName().Version;
-                var versionText = version is null
-                    ? ""
-                    : $" v{version.Major}.{version.Minor}.{version.Build}";
+                var versionText = version is null ? "" : $" v{version}";
                 mainWindow.Title = $"Управление конфигурациями 1С{versionText}";
 
                 mainWindow.Show();

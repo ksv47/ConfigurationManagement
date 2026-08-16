@@ -616,6 +616,175 @@ public static class OneCLauncher
     }
 
     /// <summary>
+    /// Запускает 1С по ссылке на информационную базу (аналог «Перейти по ссылке»
+    /// в стандартном загрузчике 1С). Поддерживаются форматы:
+    /// <list type="bullet">
+    /// <item>Ссылка-протокол: «e1c://...» (передаётся стандартному загрузчику 1С — обработчику протокола)</item>
+    /// <item>Файловая база: путь к каталогу базы, напр. «C:\1C\База» или «File="C:\1C\База"»</item>
+    /// <item>Клиент-серверная база: «server\База», «server:1541\База» или «Srvr="server";Ref="База"»</item>
+    /// <item>Веб-клиент: «http://server/base» или «https://server/base»</item>
+    /// </list>
+    /// </summary>
+    /// <param name="link">Ссылка на информационную базу.</param>
+    /// <returns>true, если запуск успешно инициирован.</returns>
+    public static bool LaunchByLink(string link)
+    {
+        var parsed = ParseLink(link);
+        if (parsed is null)
+        {
+            System.Windows.MessageBox.Show(
+                "Не удалось распознать ссылку на информационную базу.\n\n" +
+                "Поддерживаемые форматы:\n" +
+                "• Ссылка-протокол:  e1c://... (стандартный загрузчик 1С)\n" +
+                "• Файловая база:  C:\\1C\\База\n" +
+                "• Клиент-сервер:  server\\База  или  Srvr=\"server\";Ref=\"База\"\n" +
+                "• Веб-клиент:     http://server/base",
+                "Ссылка на базу 1С",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return false;
+        }
+
+        // Веб-клиент открывается в браузере по умолчанию.
+        if (parsed.IsWeb)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = parsed.WebUrl!,
+                    UseShellExecute = true
+                });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(
+                    $"Не удалось открыть веб-клиент.\n{ex.Message}",
+                    "Ошибка запуска",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+                return false;
+            }
+        }
+
+        // Файловая / клиент-серверная база запускается через платформу 1С.
+        var exePath = FindExecutable(string.Empty, OneCArchitecture.x64, OneCClientType.Thick, OneCLaunchMode.Enterprise);
+        if (string.IsNullOrEmpty(exePath) ||
+            exePath.EndsWith("1CEStart.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            exePath = FindExecutable(string.Empty, OneCArchitecture.x86, OneCClientType.Thick, OneCLaunchMode.Enterprise);
+        }
+        if (string.IsNullOrEmpty(exePath) ||
+            exePath.EndsWith("1CEStart.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            System.Windows.MessageBox.Show(
+                "Не удалось найти платформу 1С (1cv8.exe).\nУстановите платформу 1С:Предприятие.",
+                "Платформа 1С не найдена",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return false;
+        }
+
+        var arguments = $"ENTERPRISE {parsed.Arguments}";
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = arguments,
+                UseShellExecute = false
+            });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                $"Не удалось запустить платформу 1С.\n{ex.Message}",
+                "Ошибка запуска",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Результат разбора ссылки на информационную базу.
+    /// </summary>
+    private sealed class ParsedLink
+    {
+        public bool IsWeb;
+        public string? WebUrl;
+        public string Arguments = string.Empty;
+    }
+
+    /// <summary>
+    /// Разбирает ссылку на информационную базу в аргументы командной строки 1С.
+    /// Возвращает null, если формат не распознан.
+    /// </summary>
+    private static ParsedLink? ParseLink(string link)
+    {
+        var value = (link ?? string.Empty).Trim().Trim('"');
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        // 1. Ссылка-URI, обрабатываемая ОС (зарегистрированным обработчиком протокола):
+        //    e1c://... — стандартный загрузчик 1С; http:// / https:// — веб-клиент в браузере.
+        if (value.StartsWith("e1c:", StringComparison.OrdinalIgnoreCase) ||
+            value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ParsedLink { IsWeb = true, WebUrl = value };
+        }
+
+        // 2. Строка подключения 1С: Srvr="...";Ref="..."
+        var srvrMatch = System.Text.RegularExpressions.Regex.Match(
+            value, @"Srvr\s*=\s*""(?<s>[^""]*)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (srvrMatch.Success)
+        {
+            var refMatch = System.Text.RegularExpressions.Regex.Match(
+                value, @"Ref\s*=\s*""(?<r>[^""]*)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var server = srvrMatch.Groups["s"].Value.Trim();
+            var database = refMatch.Success ? refMatch.Groups["r"].Value.Trim() : string.Empty;
+            if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(database))
+                return null;
+            return new ParsedLink { Arguments = $" /S \"{server}\\{database}\"" };
+        }
+
+        // 3. Файловая база: File="..." или File=...
+        var fileMatch = System.Text.RegularExpressions.Regex.Match(
+            value, @"File\s*=\s*""?(?<f>[^"";]*)""?", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (fileMatch.Success)
+        {
+            var path = fileMatch.Groups["f"].Value.Trim();
+            if (string.IsNullOrWhiteSpace(path))
+                return null;
+            return new ParsedLink { Arguments = $" /F \"{path}\"" };
+        }
+
+        // 4. Клиент-серверная: server\База (обратный слэш, но не существующий каталог)
+        if (value.Contains('\\'))
+        {
+            // Если это существующий каталог — трактуем как файловую базу.
+            if (Directory.Exists(value))
+                return new ParsedLink { Arguments = $" /F \"{value}\"" };
+
+            var separator = value.IndexOf('\\');
+            var server = value.Substring(0, separator).Trim();
+            var database = value.Substring(separator + 1).Trim();
+            if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(database))
+                return null;
+            return new ParsedLink { Arguments = $" /S \"{server}\\{database}\"" };
+        }
+
+        // 5. Простой путь к каталогу файловой базы (существует на диске).
+        if (Directory.Exists(value))
+            return new ParsedLink { Arguments = $" /F \"{value}\"" };
+
+        return null;
+    }
+
+    /// <summary>
     /// Создаёт информационную базу командой CREATEINFOBASE (пустую или из шаблона .cf/.dt).
     /// </summary>
     public static (bool Ok, string? Error) CreateInfoBase(

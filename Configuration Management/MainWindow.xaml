@@ -143,7 +143,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="🔍" FontSize="13" Margin="2,0,6,0"
                                    VerticalAlignment="Center" Opacity="0.7" IsHitTestVisible="False"/>
-                        <TextBox Grid.Column="1" Background="Transparent" BorderThickness="0"
+                        <TextBox x:Name="SearchTextBox" Grid.Column="1" Background="Transparent" BorderThickness="0"
                                  Padding="2,6" FontSize="13" VerticalContentAlignment="Center"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  CaretBrush="{DynamicResource TextPrimaryBrush}"
@@ -222,7 +222,7 @@
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="360" MinWidth="300"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <!-- ============ Левая панель: список информационных баз ============ -->
@@ -1630,6 +1630,54 @@
                                 <TextBlock Grid.Column="1" Text="{Binding HotkeyDelete}"
                                            VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
                                            Foreground="#DC2626" Opacity="0.85" Margin="8,0,0,0"
+                                           Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
+                            </Grid>
+                        </Button>
+
+                        <!-- Отдельная кнопка «Перейти по ссылке» (аналог стандартного загрузчика 1С) -->
+                        <Border Height="1" Background="{DynamicResource BorderBrushColor}" Margin="8,6,8,10"
+                                Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
+
+                        <Button Command="{Binding OpenInfobaseByLinkCommand}"
+                                ToolTip="Ввести ссылку на информационную базу и запустить её (как в стандартном загрузчике 1С)">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
+                                    <Setter Property="Padding" Value="14,11"/>
+                                    <Setter Property="Margin" Value="8,0,8,0"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
+                                            <Setter Property="Padding" Value="6,8"/>
+                                            <Setter Property="Margin" Value="0,0,0,0"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <materialDesign:PackIcon Kind="Link" Width="16" Height="16" Margin="0,0,4,0"
+                                                             Foreground="#0EA5E9" VerticalAlignment="Center"/>
+                                    <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ButtonTextBrush}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="Перейти по ссылке"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                        <Setter Property="Text" Value="По ссылке"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="➜"
+                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
+                                           Foreground="{DynamicResource ButtonTextBrush}" Opacity="0.75"
+                                           Margin="8,0,0,0"
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                             </Grid>
                         </Button>
