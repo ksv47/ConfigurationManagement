@@ -258,29 +258,35 @@ namespace Configuration_Management
         /// </summary>
         private static Drawing.Icon? LoadApplicationIcon()
         {
-            // 1) Embedded resource «app.ico»
+            // 1) Embedded resource «tray.ico» (приоритет), затем «app.ico»
             try
             {
                 var asm = System.Reflection.Assembly.GetExecutingAssembly();
-                foreach (var name in asm.GetManifestResourceNames())
+                string[] preferred = ["tray.ico", "app.ico"];
+                var names = asm.GetManifestResourceNames();
+                foreach (var pref in preferred)
                 {
-                    if (!name.EndsWith("app.ico", StringComparison.OrdinalIgnoreCase) &&
-                        !name.Equals("app.ico", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    using var stream = asm.GetManifestResourceStream(name);
-                    if (stream is null) continue;
-                    return CreateTraySizedIcon(stream);
+                    foreach (var name in names)
+                    {
+                        if (!name.EndsWith(pref, StringComparison.OrdinalIgnoreCase) &&
+                            !name.Equals(pref, StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        using var stream = asm.GetManifestResourceStream(name);
+                        if (stream is null) continue;
+                        return CreateTraySizedIcon(stream);
+                    }
                 }
             }
             catch { /* ignore */ }
 
-            // 2) WPF Resource (pack URI)
+            // 2) WPF Resource (pack URI): tray.ico, затем app.ico
             try
             {
-                var uri = new Uri("pack://application:,,,/app.ico", UriKind.Absolute);
-                var info = Application.GetResourceStream(uri);
-                if (info?.Stream is not null)
+                foreach (var res in new[] { "tray.ico", "app.ico" })
                 {
+                    var uri = new Uri($"pack://application:,,,/{res}", UriKind.Absolute);
+                    var info = Application.GetResourceStream(uri);
+                    if (info?.Stream is null) continue;
                     using (info.Stream)
                         return CreateTraySizedIcon(info.Stream);
                 }
@@ -301,10 +307,13 @@ namespace Configuration_Management
                 }
                 foreach (var dir in dirs.Distinct(StringComparer.OrdinalIgnoreCase))
                 {
-                    var iconPath = System.IO.Path.Combine(dir, "app.ico");
-                    if (!System.IO.File.Exists(iconPath)) continue;
-                    using var fs = System.IO.File.OpenRead(iconPath);
-                    return CreateTraySizedIcon(fs);
+                    foreach (var fileName in new[] { "tray.ico", "app.ico" })
+                    {
+                        var iconPath = System.IO.Path.Combine(dir, fileName);
+                        if (!System.IO.File.Exists(iconPath)) continue;
+                        using var fs = System.IO.File.OpenRead(iconPath);
+                        return CreateTraySizedIcon(fs);
+                    }
                 }
             }
             catch { /* ignore */ }

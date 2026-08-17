@@ -16,47 +16,53 @@
             <conv:GroupTextColorConverter x:Key="GroupTextColorConverter"/>
             <conv:IconKeyToGeometryConverter x:Key="IconKeyToGeometryConverter"/>
 
-            <!-- ===================== Иконка приложения (современный стиль) ===================== -->
+            <!-- ===================== Иконка приложения 0.2.6.10 ===================== -->
             <DrawingImage x:Key="AppIcon">
                 <DrawingImage.Drawing>
                     <DrawingGroup>
-                        <!-- Фон: градиентный скруглённый квадрат (тёмно-синий → акцент) -->
+                        <!-- Фон: indigo → blue → cyan, скруглённый квадрат -->
                         <GeometryDrawing>
                             <GeometryDrawing.Brush>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                                     <GradientStop Color="#1E3A8A" Offset="0"/>
-                                    <GradientStop Color="#2563EB" Offset="0.6"/>
-                                    <GradientStop Color="#3B82F6" Offset="1"/>
+                                    <GradientStop Color="#2563EB" Offset="0.45"/>
+                                    <GradientStop Color="#3B82F6" Offset="0.75"/>
+                                    <GradientStop Color="#0EA5E9" Offset="1"/>
                                 </LinearGradientBrush>
                             </GeometryDrawing.Brush>
                             <GeometryDrawing.Geometry>
                                 <RectangleGeometry Rect="0,0,32,32" RadiusX="7" RadiusY="7"/>
                             </GeometryDrawing.Geometry>
                         </GeometryDrawing>
-                        <!-- База данных (цилиндр) — белый с лёгкой прозрачностью -->
-                        <GeometryDrawing Brush="#FFFFFF">
+                        <!-- Цилиндр БД по центру -->
+                        <GeometryDrawing Brush="#F8FAFC">
                             <GeometryDrawing.Geometry>
                                 <GeometryGroup>
-                                    <!-- Верхний эллипс -->
-                                    <EllipseGeometry Center="12.5,9" RadiusX="7" RadiusY="2.6"/>
-                                    <!-- Стенки -->
-                                    <PathGeometry Figures="M5.5,9 L5.5,18 A7,2.6 0 0 0 19.5,18 L19.5,9"/>
-                                    <!-- Нижний эллипс -->
-                                    <EllipseGeometry Center="12.5,18" RadiusX="7" RadiusY="2.6"/>
-                                    <!-- Средняя линия -->
-                                    <PathGeometry Figures="M5.5,13.5 A7,2.6 0 0 0 19.5,13.5"/>
+                                    <PathGeometry Figures="M9,9 L9,21 A7,2.5 0 0 0 23,21 L23,9"/>
+                                    <EllipseGeometry Center="16,21" RadiusX="7" RadiusY="2.5"/>
+                                    <EllipseGeometry Center="16,15" RadiusX="7" RadiusY="2.5"/>
+                                    <EllipseGeometry Center="16,9" RadiusX="7" RadiusY="2.5"/>
                                 </GeometryGroup>
                             </GeometryDrawing.Geometry>
                         </GeometryDrawing>
-                        <!-- Современная шестерёнка (справа внизу, Fluent-стиль) -->
+                        <GeometryDrawing Brush="#FFFFFF">
+                            <GeometryDrawing.Geometry>
+                                <EllipseGeometry Center="16,9" RadiusX="7" RadiusY="2.5"/>
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                        <!-- Янтарный бейдж -->
                         <GeometryDrawing Brush="#FBBF24">
                             <GeometryDrawing.Geometry>
-                                <GeometryGroup FillRule="EvenOdd">
-                                    <!-- Упрощённая шестерёнка: внешние зубцы + кольцо -->
-                                    <PathGeometry Figures="M22.5,14.2 L23.8,14.6 L23.5,16 L24.8,16.7 L24.2,18 L25.2,19 L23.9,19.8 L24.2,21.2 L22.7,21.5 L22.2,23 L20.7,22.5 L19.8,23.6 L18.3,22.9 L17.3,23.8 L16.3,22.5 L14.8,22.8 L14.5,21.3 L13.2,20.6 L13.8,19.2 L12.8,18.2 L14.1,17.4 L13.8,16 L15.3,15.7 L15.8,14.2 L17.3,14.7 L18.2,13.6 L19.7,14.3 L20.7,13.4 L21.7,14.7 Z"/>
-                                    <EllipseGeometry Center="19.5,18.5" RadiusX="3.2" RadiusY="3.2"/>
-                                    <EllipseGeometry Center="19.5,18.5" RadiusX="1.5" RadiusY="1.5"/>
-                                </GeometryGroup>
+                                <EllipseGeometry Center="24,23" RadiusX="4.2" RadiusY="4.2"/>
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                        <!-- Галочка на бейдже -->
+                        <GeometryDrawing>
+                            <GeometryDrawing.Pen>
+                                <Pen Brush="#1E293B" Thickness="1.6" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                            </GeometryDrawing.Pen>
+                            <GeometryDrawing.Geometry>
+                                <PathGeometry Figures="M21.8,23.2 L23.2,24.6 L26.4,21.2"/>
                             </GeometryDrawing.Geometry>
                         </GeometryDrawing>
                     </DrawingGroup>

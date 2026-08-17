@@ -7,7 +7,7 @@ namespace Configuration_Management
 {
     /// <summary>
     /// Диалог выбора версии платформы 1С (тот же вид, что в Настройки → Платформы):
-    /// линия (8.3) → разрядность (64/32) → сборка с путём.
+    /// линия (8.2 / 8.3 / 8.5) → разрядность (64/32) → сборка с путём.
     /// </summary>
     public partial class PlatformVersionPickerWindow : Window
     {
@@ -18,7 +18,9 @@ namespace Configuration_Management
         {
             InitializeComponent();
 
-            var infos = PlatformVersionService.FindInstalledVersionInfos();
+            // Учитываем доп. пути поиска платформ (как в настройках).
+            var extras = PlatformVersionService.GetAdditionalSearchPaths();
+            var infos = PlatformVersionService.FindInstalledVersionInfos(extras);
             if (infos.Count == 0 && installedPlatformVersions != null)
             {
                 infos = installedPlatformVersions
@@ -36,14 +38,16 @@ namespace Configuration_Management
                 }
             }
 
+            // Группировка: 8.2 / 8.3 / 8.5 → 64/32 → сборка
             _tree = PlatformVersionService.BuildGroupedTree(infos);
             PlatformsTree.ItemsSource = _tree;
 
-            if (!string.IsNullOrWhiteSpace(currentVersion))
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                Dispatcher.BeginInvoke(new Action(() => SelectCurrent(currentVersion)),
-                    System.Windows.Threading.DispatcherPriority.Loaded);
-            }
+                ExpandAllGroups(PlatformsTree);
+                if (!string.IsNullOrWhiteSpace(currentVersion))
+                    SelectCurrent(currentVersion);
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         public string Result => _selectedVersion;
@@ -63,7 +67,7 @@ namespace Configuration_Management
 
         private void OnPlatformsTree_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (SelectButton.IsEnabled)
+            if (!string.IsNullOrEmpty(_selectedVersion))
                 OnSelect_Click(sender, e);
         }
 
@@ -72,6 +76,22 @@ namespace Configuration_Management
             if (string.IsNullOrEmpty(_selectedVersion))
                 return;
             DialogResult = true;
+        }
+
+        /// <summary>Разворачивает все нелистовые узлы (линии 8.x и разрядность), чтобы группировка была видна сразу.</summary>
+        private static void ExpandAllGroups(ItemsControl parent)
+        {
+            parent.UpdateLayout();
+            foreach (var item in parent.Items)
+            {
+                if (item is not PlatformVersionGroup node || node.IsLeaf)
+                    continue;
+                if (parent.ItemContainerGenerator.ContainerFromItem(item) is not TreeViewItem container)
+                    continue;
+                container.IsExpanded = true;
+                container.UpdateLayout();
+                ExpandAllGroups(container);
+            }
         }
 
         private void SelectCurrent(string currentVersion)

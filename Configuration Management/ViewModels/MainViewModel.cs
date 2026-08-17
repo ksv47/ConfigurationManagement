@@ -381,6 +381,7 @@ public class MainViewModel : ViewModelBase
     /// <summary>Текст кнопки переключения отображения групп.</summary>
     public string GroupByGroupText => _groupByGroup ? "📁 Скрыть группы" : "📁 Показывать группы";
 
+
     /// <summary>Список групп информационных баз.</summary>
     public ObservableCollection<Group> Groups { get; }
 
@@ -2936,6 +2937,7 @@ public string HotkeyEnterprise
             ExpandAllNodesWithContent(node.Children);
         }
     }
+
 
     /// <summary>
     /// Заменяет содержимое GroupNodes с минимумом лишних уведомлений UI.

@@ -551,7 +551,26 @@ namespace Configuration_Management
             foreach (var node in tree)
                 PlatformsTree.Items.Add(node);
 
-            StatusText.Text = $"Найдено версий: {infos.Count} (группировка: линия → разрядность → путь)";
+            StatusText.Text = $"Найдено версий: {infos.Count} (группировка: 8.2 / 8.3 / 8.5 → разрядность → путь)";
+
+            // Разворачиваем линии 8.x, чтобы группировка была видна сразу
+            Dispatcher.BeginInvoke(new Action(() => ExpandPlatformTreeGroups(PlatformsTree)),
+                System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private static void ExpandPlatformTreeGroups(ItemsControl parent)
+        {
+            parent.UpdateLayout();
+            foreach (var item in parent.Items)
+            {
+                if (item is not Models.PlatformVersionGroup node || node.IsLeaf)
+                    continue;
+                if (parent.ItemContainerGenerator.ContainerFromItem(item) is not TreeViewItem container)
+                    continue;
+                container.IsExpanded = true;
+                container.UpdateLayout();
+                ExpandPlatformTreeGroups(container);
+            }
         }
 
         private void OnExportInfobases_Click(object sender, RoutedEventArgs e)

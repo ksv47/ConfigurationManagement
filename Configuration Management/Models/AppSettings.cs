@@ -11,6 +11,7 @@ public class AppSettings
     /// <summary>Группировать базы по группам.</summary>
     public bool GroupByGroup { get; set; } = true;
 
+
     /// <summary>Название выбранной темы оформления.</summary>
     public string Theme { get; set; } = string.Empty;
 
