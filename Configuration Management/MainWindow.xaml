@@ -787,13 +787,7 @@
 
                                         <TextBlock x:Name="NameText" Grid.Column="3" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
                                                    Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
-                                                   HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis">
-                                            <TextBlock.Margin>
-                                                <MultiBinding Converter="{StaticResource LevelToThickness}">
-                                                    <Binding Path="(controls:LeveledTreeView.Level)" RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
-                                                </MultiBinding>
-                                            </TextBlock.Margin>
-                                        </TextBlock>
+                                                   HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis"/>
 
                                         <TextBlock Grid.Column="4" Text="{Binding PlatformVersion}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
@@ -819,11 +813,6 @@
                                         <StackPanel Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="6"
                                                     Orientation="Horizontal"
                                                     Visibility="{Binding DataContext.ShowTags, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                                            <StackPanel.Margin>
-                                                <MultiBinding Converter="{StaticResource LevelToThickness}">
-                                                    <Binding Path="(controls:LeveledTreeView.Level)" RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
-                                                </MultiBinding>
-                                            </StackPanel.Margin>
                                             <ItemsControl ItemsSource="{Binding Tags}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
@@ -932,21 +921,9 @@
                                         <ControlTemplate TargetType="TreeViewItem">
                                             <StackPanel>
                                                 <Grid x:Name="RowGrid">
-                                                    <!-- Отступ вложенности применяется ТОЛЬКО к заголовкам групп
-                                                         (expander + текст группы), а не к строкам баз. Строки баз
-                                                         (листья) не сдвигаются, поэтому их колонки данных остаются
-                                                         строго под заголовками колонок. Название базы сдвигается
-                                                         отдельно через LevelToThickness в DataTemplate базы. -->
-                                                    <Grid.RenderTransform>
-                                                        <TranslateTransform>
-                                                            <TranslateTransform.X>
-                                                                <MultiBinding Converter="{StaticResource GroupOffset}">
-                                                                    <Binding Path="(controls:LeveledTreeView.Level)" RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
-                                                                    <Binding Path="HasItems" RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
-                                                                </MultiBinding>
-                                                            </TranslateTransform.X>
-                                                        </TranslateTransform>
-                                                    </Grid.RenderTransform>
+                                                    <!-- Смещение вложенных групп обеспечивается классическим отступом
+                                                         ItemsPresenter (см. ниже): заголовок группы всегда на левом крае,
+                                                         а его содержимое (подгруппы и базы) сдвигается вправо. -->
                                                     <Grid.ColumnDefinitions>
                                                         <!-- Колонка expander: у листьев кнопка Collapsed → ширина Auto ≈ 0 -->
                                                         <ColumnDefinition Width="Auto" MinWidth="0"/>
@@ -1026,10 +1003,11 @@
                                                         <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
                                                     </Border>
                                                 </Grid>
-                                                <!-- Строки баз и дочерние группы НЕ сдвигаются отступом ItemsPresenter:
-                                                     отступ вложенности теперь задаётся только названию базы (LevelToThickness)
-                                                     и заголовкам групп (RowGrid). Так данные всех баз остаются под заголовками. -->
-                                                <ItemsPresenter x:Name="ItemsHost" Margin="0"/>
+                                                <!-- Классический отступ вложенности: содержимое группы (вложенные подгруппы
+                                                     и базы) сдвигается вправо относительно заголовка группы. Корневые элементы
+                                                     остаются на месте, а каждый вложенный уровень смещается на IndentStep (18 px),
+                                                     благодаря чему видно, что одна группа находится внутри другой. -->
+                                                <ItemsPresenter x:Name="ItemsHost" Margin="18,0,0,0"/>
                                             </StackPanel>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsExpanded" Value="False">
