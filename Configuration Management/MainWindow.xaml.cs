@@ -7,6 +7,9 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.IO;
+using MaterialDesignThemes.Wpf;
 using Configuration_Management.Models;
 using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
@@ -472,6 +475,9 @@ namespace Configuration_Management
             {
                 Image = GetTrayIcon(kind),
                 ImageScaling = Forms.ToolStripItemImageScaling.None,
+                DisplayStyle = Forms.ToolStripItemDisplayStyle.ImageAndText,
+                ImageAlign = Drawing.ContentAlignment.MiddleLeft,
+                TextAlign = Drawing.ContentAlignment.MiddleLeft,
                 Padding = new Forms.Padding(2, 3, 4, 3),
                 AutoSize = true
             };
@@ -493,111 +499,149 @@ namespace Configuration_Management
         private static readonly Dictionary<TrayIconKind, Drawing.Image> TrayIconCache = new();
 
         /// <summary>
-        /// Иконки меню трея в стиле Material Design (как PackIcon в главном окне): 18×18, заливка.
+        /// Иконки меню трея: те же символы Material Design, что PackIcon в главном окне
+        /// (Play, Wrench, Database, Cog, Sync, ExitToApp, Application), 16×16.
+        /// Рисуются через GDI+ по геометрии MD — без зависимости от WPF visual tree
+        /// (PackIcon вне окна даёт пустой bitmap).
         /// </summary>
         private static Drawing.Image GetTrayIcon(TrayIconKind kind)
         {
             if (TrayIconCache.TryGetValue(kind, out var cached))
                 return cached;
 
-            // Цвета как у MaterialDesign PackIcon в правой панели / меню
-            Drawing.Color accent = kind switch
+            var img = DrawMaterialTrayIcon(kind, 16);
+            TrayIconCache[kind] = img;
+            return img;
+        }
+
+        private static Drawing.Image DrawMaterialTrayIcon(TrayIconKind kind, int size)
+        {
+            var bmp = new Drawing.Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using var g = Drawing.Graphics.FromImage(bmp);
+            g.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+            g.Clear(Drawing.Color.Transparent);
+
+            // Цвета как у кнопок/меню главного окна
+            Drawing.Color c = kind switch
             {
-                TrayIconKind.Open => Drawing.Color.FromArgb(34, 197, 94),       // green-500
-                TrayIconKind.Database => Drawing.Color.FromArgb(59, 130, 246),  // blue-500
-                TrayIconKind.Enterprise => Drawing.Color.FromArgb(37, 99, 235), // blue-600 Play
-                TrayIconKind.Configurator => Drawing.Color.FromArgb(100, 116, 139), // slate wrench
-                TrayIconKind.Sync => Drawing.Color.FromArgb(20, 184, 166),      // teal
+                TrayIconKind.Open => Drawing.Color.FromArgb(34, 197, 94),
+                TrayIconKind.Database => Drawing.Color.FromArgb(59, 130, 246),
+                TrayIconKind.Enterprise => Drawing.Color.FromArgb(37, 99, 235),
+                TrayIconKind.Configurator => Drawing.Color.FromArgb(100, 116, 139),
+                TrayIconKind.Sync => Drawing.Color.FromArgb(20, 184, 166),
                 TrayIconKind.Settings => Drawing.Color.FromArgb(100, 116, 139),
-                TrayIconKind.Exit => Drawing.Color.FromArgb(220, 38, 38),       // red-600
+                TrayIconKind.Exit => Drawing.Color.FromArgb(220, 38, 38),
                 _ => Drawing.Color.FromArgb(100, 116, 139)
             };
 
-            var bmp = new Drawing.Bitmap(18, 18);
-            using (var g = Drawing.Graphics.FromImage(bmp))
+            using var brush = new Drawing.SolidBrush(c);
+            using var pen = new Drawing.Pen(c, Math.Max(1.4f, size / 11f))
             {
-                g.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                g.PixelOffsetMode = Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-                g.Clear(Drawing.Color.Transparent);
-                using var brush = new Drawing.SolidBrush(accent);
-                using var pen = new Drawing.Pen(accent, 1.7f)
-                {
-                    StartCap = Drawing.Drawing2D.LineCap.Round,
-                    EndCap = Drawing.Drawing2D.LineCap.Round,
-                    LineJoin = Drawing.Drawing2D.LineJoin.Round
-                };
+                StartCap = Drawing.Drawing2D.LineCap.Round,
+                EndCap = Drawing.Drawing2D.LineCap.Round,
+                LineJoin = Drawing.Drawing2D.LineJoin.Round
+            };
 
-                switch (kind)
-                {
-                    case TrayIconKind.Open:
-                        // «окно приложения»
-                        g.DrawRectangle(pen, 3, 3, 12, 11);
-                        g.DrawLine(pen, 3, 6, 15, 6);
-                        g.FillEllipse(brush, 4, 4, 2, 2);
-                        break;
-                    case TrayIconKind.Database:
-                        // цилиндр БД (как Database PackIcon)
-                        g.FillEllipse(brush, 4, 2, 10, 4);
-                        g.FillRectangle(brush, 4, 4, 10, 9);
-                        g.FillEllipse(brush, 4, 11, 10, 4);
-                        using (var cut = new Drawing.SolidBrush(Drawing.Color.FromArgb(30, 255, 255, 255)))
-                            g.FillEllipse(cut, 5, 3, 8, 2);
-                        break;
-                    case TrayIconKind.Enterprise:
-                        // Play (как PackIcon Kind=Play)
-                        g.FillPolygon(brush, new[]
+            float s = size;
+            switch (kind)
+            {
+                case TrayIconKind.Enterprise:
+                    // PackIcon Kind=Play — треугольник
+                    g.FillPolygon(brush, new[]
+                    {
+                        new Drawing.PointF(s * 0.28f, s * 0.18f),
+                        new Drawing.PointF(s * 0.82f, s * 0.50f),
+                        new Drawing.PointF(s * 0.28f, s * 0.82f)
+                    });
+                    break;
+
+                case TrayIconKind.Configurator:
+                    // PackIcon Kind=Wrench
+                    using (var path = new Drawing.Drawing2D.GraphicsPath())
+                    {
+                        // рукоять
+                        path.AddLine(s * 0.22f, s * 0.78f, s * 0.55f, s * 0.45f);
+                        using var thick = new Drawing.Pen(c, s * 0.18f)
                         {
-                            new Drawing.Point(5, 3),
-                            new Drawing.Point(15, 9),
-                            new Drawing.Point(5, 15)
-                        });
-                        break;
-                    case TrayIconKind.Configurator:
-                        // Wrench-like
-                        g.DrawEllipse(pen, 9, 2, 6, 6);
-                        g.DrawLine(pen, 10, 8, 4, 14);
-                        g.DrawLine(pen, 3, 13, 5, 15);
-                        g.DrawLine(pen, 5, 11, 7, 13);
-                        break;
-                    case TrayIconKind.Sync:
-                        // две дуги / refresh
-                        g.DrawArc(pen, 3, 3, 12, 12, 40, 200);
-                        g.DrawArc(pen, 3, 3, 12, 12, 220, 200);
-                        g.FillPolygon(brush, new[]
+                            StartCap = Drawing.Drawing2D.LineCap.Round,
+                            EndCap = Drawing.Drawing2D.LineCap.Round
+                        };
+                        g.DrawLine(thick, s * 0.25f, s * 0.75f, s * 0.55f, s * 0.45f);
+                        // головка
+                        g.DrawArc(pen, s * 0.48f, s * 0.12f, s * 0.40f, s * 0.40f, 200, 220);
+                        g.FillEllipse(brush, s * 0.58f, s * 0.22f, s * 0.12f, s * 0.12f);
+                    }
+                    break;
+
+                case TrayIconKind.Database:
+                    // PackIcon Kind=Database — цилиндр
+                    g.FillEllipse(brush, s * 0.22f, s * 0.12f, s * 0.56f, s * 0.28f);
+                    g.FillRectangle(brush, s * 0.22f, s * 0.26f, s * 0.56f, s * 0.48f);
+                    g.FillEllipse(brush, s * 0.22f, s * 0.60f, s * 0.56f, s * 0.28f);
+                    using (var top = new Drawing.SolidBrush(Drawing.Color.FromArgb(90, 255, 255, 255)))
+                        g.FillEllipse(top, s * 0.28f, s * 0.16f, s * 0.44f, s * 0.16f);
+                    break;
+
+                case TrayIconKind.Settings:
+                    // PackIcon Kind=Cog
+                    {
+                        float cx = s * 0.5f, cy = s * 0.5f, r = s * 0.28f, tooth = s * 0.12f;
+                        for (int i = 0; i < 8; i++)
                         {
-                            new Drawing.Point(13, 2), new Drawing.Point(16, 6), new Drawing.Point(11, 6)
-                        });
-                        g.FillPolygon(brush, new[]
-                        {
-                            new Drawing.Point(5, 16), new Drawing.Point(2, 12), new Drawing.Point(7, 12)
-                        });
-                        break;
-                    case TrayIconKind.Settings:
-                        // шестерёнка упрощённо
-                        g.FillEllipse(brush, 5, 5, 8, 8);
-                        for (var i = 0; i < 6; i++)
-                        {
-                            var a = i * Math.PI / 3.0;
-                            var x = 9 + Math.Cos(a) * 6.5;
-                            var y = 9 + Math.Sin(a) * 6.5;
-                            g.FillEllipse(brush, (float)x - 1.6f, (float)y - 1.6f, 3.2f, 3.2f);
+                            double a = i * Math.PI / 4.0;
+                            float x = cx + (float)(Math.Cos(a) * (r + tooth * 0.35));
+                            float y = cy + (float)(Math.Sin(a) * (r + tooth * 0.35));
+                            g.FillEllipse(brush, x - tooth * 0.55f, y - tooth * 0.55f, tooth * 1.1f, tooth * 1.1f);
                         }
-                        using (var hole = new Drawing.SolidBrush(Drawing.Color.White))
-                            g.FillEllipse(hole, 7.2f, 7.2f, 3.6f, 3.6f);
-                        break;
-                    case TrayIconKind.Exit:
-                        // ExitToApp
-                        g.DrawRectangle(pen, 2.5f, 3f, 8f, 12f);
-                        g.DrawLine(pen, 10, 9, 16, 9);
-                        g.FillPolygon(brush, new[]
-                        {
-                            new Drawing.Point(13, 6), new Drawing.Point(17, 9), new Drawing.Point(13, 12)
-                        });
-                        break;
-                }
+                        g.FillEllipse(brush, cx - r, cy - r, r * 2, r * 2);
+                        using var hole = new Drawing.SolidBrush(Drawing.Color.FromArgb(255, 255, 255, 255));
+                        // вырезаем центр «дыркой» поверх — для меню фон светлый, белый ок
+                        g.FillEllipse(hole, cx - r * 0.38f, cy - r * 0.38f, r * 0.76f, r * 0.76f);
+                        using var ring = new Drawing.Pen(c, s * 0.08f);
+                        g.DrawEllipse(ring, cx - r * 0.38f, cy - r * 0.38f, r * 0.76f, r * 0.76f);
+                    }
+                    break;
+
+                case TrayIconKind.Sync:
+                    // PackIcon Kind=Sync — две стрелки по кругу
+                    g.DrawArc(pen, s * 0.18f, s * 0.18f, s * 0.64f, s * 0.64f, -40, 200);
+                    g.DrawArc(pen, s * 0.18f, s * 0.18f, s * 0.64f, s * 0.64f, 140, 200);
+                    g.FillPolygon(brush, new[]
+                    {
+                        new Drawing.PointF(s * 0.72f, s * 0.12f),
+                        new Drawing.PointF(s * 0.92f, s * 0.32f),
+                        new Drawing.PointF(s * 0.62f, s * 0.34f)
+                    });
+                    g.FillPolygon(brush, new[]
+                    {
+                        new Drawing.PointF(s * 0.28f, s * 0.88f),
+                        new Drawing.PointF(s * 0.08f, s * 0.68f),
+                        new Drawing.PointF(s * 0.38f, s * 0.66f)
+                    });
+                    break;
+
+                case TrayIconKind.Exit:
+                    // PackIcon Kind=ExitToApp
+                    g.DrawRectangle(pen, s * 0.12f, s * 0.18f, s * 0.42f, s * 0.64f);
+                    g.DrawLine(pen, s * 0.42f, s * 0.50f, s * 0.88f, s * 0.50f);
+                    g.FillPolygon(brush, new[]
+                    {
+                        new Drawing.PointF(s * 0.68f, s * 0.32f),
+                        new Drawing.PointF(s * 0.92f, s * 0.50f),
+                        new Drawing.PointF(s * 0.68f, s * 0.68f)
+                    });
+                    break;
+
+                case TrayIconKind.Open:
+                default:
+                    // PackIcon Kind=Application — окно
+                    g.DrawRectangle(pen, s * 0.16f, s * 0.18f, s * 0.68f, s * 0.64f);
+                    g.DrawLine(pen, s * 0.16f, s * 0.36f, s * 0.84f, s * 0.36f);
+                    g.FillEllipse(brush, s * 0.24f, s * 0.24f, s * 0.10f, s * 0.10f);
+                    break;
             }
 
-            TrayIconCache[kind] = bmp;
             return bmp;
         }
 
