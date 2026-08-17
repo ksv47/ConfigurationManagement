@@ -17,6 +17,8 @@ public class ConnectionSettingsViewModel : ViewModelBase
     private string _name = string.Empty;
     private string _group = string.Empty;
     private string _description = string.Empty;
+    private string _configurationName = string.Empty;
+    private string _configurationVersion = string.Empty;
     private string _platformVersion = string.Empty;
     private string _architecture = "32-priority";
     private string _launchMode = "Автоматический";
@@ -134,6 +136,19 @@ public class ConnectionSettingsViewModel : ViewModelBase
         get => _platformVersion;
         set => SetProperty(ref _platformVersion, value);
     }
+    public string ConfigurationName
+    {
+        get => _configurationName;
+        set => SetProperty(ref _configurationName, value ?? string.Empty);
+    }
+
+    public string ConfigurationVersion
+    {
+        get => _configurationVersion;
+        set => SetProperty(ref _configurationVersion, value ?? string.Empty);
+    }
+
+
 
     /// <summary>
     /// Разрядность запуска клиента (как в 1С:Предприятие):
@@ -583,6 +598,8 @@ public class ConnectionSettingsViewModel : ViewModelBase
             SelectedGroup = FindGroupByPath(infobase.Group);
             Description = infobase.Description;
             PlatformVersion = infobase.PlatformVersion;
+            ConfigurationName = infobase.ConfigurationName;
+            ConfigurationVersion = infobase.ConfigurationVersion;
             Architecture = NormalizeArchitecture(infobase.Architecture);
             LaunchMode = infobase.LaunchMode;
             LaunchParameters = infobase.LaunchParameters;
@@ -637,6 +654,8 @@ public class ConnectionSettingsViewModel : ViewModelBase
         infobase.Group = Group;
         infobase.Description = Description;
         infobase.PlatformVersion = PlatformVersion;
+        infobase.ConfigurationName = ConfigurationName;
+        infobase.ConfigurationVersion = ConfigurationVersion;
         infobase.Architecture = NormalizeArchitecture(Architecture);
         infobase.LaunchMode = string.IsNullOrWhiteSpace(LaunchMode) ? "Автоматический" : LaunchMode;
         infobase.LaunchParameters = LaunchParameters ?? string.Empty;

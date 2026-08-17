@@ -121,6 +121,45 @@ public class Infobase : INotifyPropertyChanged
     /// <summary>Версия платформы 1С.</summary>
     public string PlatformVersion { get; set; } = string.Empty;
 
+    private string _configurationName = string.Empty;
+    private string _configurationVersion = string.Empty;
+
+    /// <summary>Наименование конфигурации 1С (например «Бухгалтерия предприятия»).</summary>
+    public string ConfigurationName
+    {
+        get => _configurationName;
+        set
+        {
+            if (SetProperty(ref _configurationName, value ?? string.Empty))
+                OnPropertyChanged(nameof(ConfigurationDisplay));
+        }
+    }
+
+    /// <summary>Версия конфигурации 1С (например «3.0.142.32»).</summary>
+    public string ConfigurationVersion
+    {
+        get => _configurationVersion;
+        set
+        {
+            if (SetProperty(ref _configurationVersion, value ?? string.Empty))
+                OnPropertyChanged(nameof(ConfigurationDisplay));
+        }
+    }
+
+    /// <summary>Отображение: «Название (версия)» или одно из полей.</summary>
+    public string ConfigurationDisplay
+    {
+        get
+        {
+            var n = (_configurationName ?? string.Empty).Trim();
+            var v = (_configurationVersion ?? string.Empty).Trim();
+            if (n.Length == 0 && v.Length == 0) return string.Empty;
+            if (n.Length == 0) return v;
+            if (v.Length == 0) return n;
+            return $"{n} ({v})";
+        }
+    }
+
     /// <summary>Режим запуска (Автоматический, Тонкий клиент, Толстый клиент, Веб-клиент).</summary>
     private string _launchMode = "Автоматический";
 

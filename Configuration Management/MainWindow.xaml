@@ -390,6 +390,14 @@
                                             </MultiBinding>
                                         </ColumnDefinition.Width>
                                     </ColumnDefinition>
+                                    <ColumnDefinition x:Name="ConfigurationColumn">
+                                        <ColumnDefinition.Width>
+                                            <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="160">
+                                                <Binding Path="DataContext.ShowConfigurationColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                <Binding Path="DataContext.ConfigurationColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                            </MultiBinding>
+                                        </ColumnDefinition.Width>
+                                    </ColumnDefinition>
                                     <ColumnDefinition x:Name="LaunchModeColumn">
                                         <ColumnDefinition.Width>
                                             <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="120">
@@ -469,18 +477,22 @@
                                 <TextBlock Grid.Column="5" Text="Версия платформы" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="6" Text="Режим запуска" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="6" Text="Конфигурация" FontWeight="SemiBold" FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
+                                           ToolTip="Название и версия конфигурации 1С"/>
+                                <TextBlock Grid.Column="7" Text="Режим запуска" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="7" Text="Сервер/База" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="8" Text="Сервер/База" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="8" Text="Последний запуск" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="9" Text="Последний запуск" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
                                            Cursor="Hand" Tag="LastLaunchDate" ToolTip="Сортировка по дате последнего запуска (клик)"
                                            MouseLeftButtonUp="OnColumnHeader_Click"/>
-                                <TextBlock Grid.Column="9" Text="Размер" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="10" Text="Размер" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
                                            ToolTip="Размер файловой информационной базы"/>
@@ -509,7 +521,7 @@
                                             Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
                                             Margin="0,2,0,4"/>
                                 </Border>
-                                <Border x:Name="LaunchModeSplitter" Grid.Column="6"
+                                <Border x:Name="LaunchModeSplitter" Grid.Column="7"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="Изменить ширину колонки"
@@ -521,7 +533,7 @@
                                             Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
                                             Margin="0,2,0,4"/>
                                 </Border>
-                                <Border x:Name="ServerSplitter" Grid.Column="7"
+                                <Border x:Name="ServerSplitter" Grid.Column="8"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="Изменить ширину колонки"
@@ -533,7 +545,7 @@
                                             Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
                                             Margin="0,2,0,4"/>
                                 </Border>
-                                <Border x:Name="LastLaunchSplitter" Grid.Column="8"
+                                <Border x:Name="LastLaunchSplitter" Grid.Column="9"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="Изменить ширину колонки"
@@ -545,7 +557,7 @@
                                             Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
                                             Margin="0,2,0,4"/>
                                 </Border>
-                                <Border x:Name="SizeSplitter" Grid.Column="9"
+                                <Border x:Name="SizeSplitter" Grid.Column="10"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="Изменить ширину колонки"
@@ -678,6 +690,14 @@
                                             </ColumnDefinition>
                                             <ColumnDefinition>
                                                 <ColumnDefinition.Width>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="160">
+                                                        <Binding Path="DataContext.ShowConfigurationColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.ConfigurationColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
                                                     <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="120">
                                                         <Binding Path="DataContext.ShowLaunchModeColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                         <Binding Path="DataContext.LaunchModeColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
@@ -803,19 +823,24 @@
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
 
-                                        <TextBlock Grid.Column="5" Text="{Binding ParsedLaunchMode}" FontSize="12"
+                                        <TextBlock Grid.Column="5" Text="{Binding ConfigurationDisplay}" FontSize="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                                   HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding ConfigurationDisplay}"/>
+
+                                        <TextBlock Grid.Column="6" Text="{Binding ParsedLaunchMode}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
 
-                                        <TextBlock Grid.Column="6" Text="{Binding ServerDatabaseDisplay}" FontSize="12"
+                                        <TextBlock Grid.Column="7" Text="{Binding ServerDatabaseDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
 
-                                        <TextBlock Grid.Column="7" Text="{Binding LastLaunchDisplay}" FontSize="12"
+                                        <TextBlock Grid.Column="8" Text="{Binding LastLaunchDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
 
-                                        <TextBlock Grid.Column="8" Text="{Binding FileSizeDisplay}" FontSize="12"
+                                        <TextBlock Grid.Column="9" Text="{Binding FileSizeDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
 
@@ -1322,10 +1347,11 @@
                                    Margin="0,0,0,10"
                                    Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
 
-                        <!-- Кнопки запуска со split-меню (как StartManager): основное действие + ▼ -->
-                        <Grid Margin="8,0,8,8">
-                            <Grid.Style>
-                                <Style TargetType="Grid">
+                        <!-- Split-кнопки запуска: единый блок «действие | ▼» -->
+                        <Border Margin="8,0,8,8" CornerRadius="10" ClipToBounds="True"
+                                Background="{DynamicResource AccentBrush}">
+                            <Border.Style>
+                                <Style TargetType="Border">
                                     <Setter Property="Margin" Value="8,0,8,8"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
@@ -1333,78 +1359,98 @@
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </Grid.Style>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0" Command="{Binding LaunchEnterpriseCommand}"
-                                    ToolTip="{Binding HotkeyEnterprise, StringFormat=Запустить 1С:Предприятие ({0})}"
-                                    Cursor="Hand">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource ActionPanelButton}">
-                                        <Setter Property="Padding" Value="14,12"/>
-                                        <Setter Property="Margin" Value="0"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                                <Setter Property="Padding" Value="6,8"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="Play" Width="16" Height="16" Margin="0,0,6,0"
-                                                             Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center"/>
-                                    <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource ButtonTextBrush}">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Запустить 1С:Предприятие"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                        <Setter Property="Text" Value="1С:Предприятие"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
-                            </Button>
-                            <Button Grid.Column="1" x:Name="EnterpriseMenuButton" Width="28" Padding="0"
-                                    Cursor="Hand" Click="OnEnterpriseMenuClick"
-                                    ToolTip="Дополнительные варианты запуска 1С:Предприятие"
-                                    Style="{StaticResource ActionPanelButton}">
-                                <materialDesign:PackIcon Kind="MenuDown" Width="16" Height="16"
-                                                         Foreground="{DynamicResource ButtonTextBrush}"/>
-                                <Button.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="Запустить с выбором параметров" Command="{Binding LaunchEnterpriseWithParamsCommand}"
-                                                  InputGestureText="Ctrl+F3" Style="{DynamicResource ModernMenuItem}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="Tune" Width="16" Height="16"/>
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="Запустить с аутентификацией" Command="{Binding LaunchEnterpriseWithAuthCommand}"
-                                                  InputGestureText="Shift+F3" Style="{DynamicResource ModernMenuItem}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="AccountKey" Width="16" Height="16"/>
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <Separator/>
-                                        <MenuItem Header="Запустить от имени администратора" Command="{Binding LaunchEnterpriseAsAdminCommand}"
-                                                  Style="{DynamicResource ModernMenuItem}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="ShieldAccount" Width="16" Height="16"/>
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                    </ContextMenu>
-                                </Button.ContextMenu>
-                            </Button>
-                        </Grid>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Command="{Binding LaunchEnterpriseCommand}"
+                                        ToolTip="{Binding HotkeyEnterprise, StringFormat=Запустить 1С:Предприятие ({0})}"
+                                        Cursor="Hand" HorizontalContentAlignment="Left"
+                                        Background="Transparent" BorderThickness="0" Padding="12,11">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#22FFFFFF"/>
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#33FFFFFF"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Play" Width="16" Height="16" Margin="0,0,8,0"
+                                                                 Foreground="White" VerticalAlignment="Center"/>
+                                        <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="White">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="1С:Предприятие"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                            <Setter Property="Text" Value="Предприятие"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Button>
+                                <Border Grid.Column="1" Width="1" Background="#55FFFFFF" Margin="0,8"/>
+                                <Button Grid.Column="2" x:Name="EnterpriseMenuButton" Width="34" Cursor="Hand"
+                                        Click="OnEnterpriseMenuClick" ToolTip="Дополнительные варианты запуска"
+                                        Background="Transparent" BorderThickness="0" Padding="0">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="Transparent">
+                                                <materialDesign:PackIcon Kind="ChevronDown" Width="16" Height="16"
+                                                                         Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#22FFFFFF"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Button.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="Запустить с выбором параметров" Command="{Binding LaunchEnterpriseWithParamsCommand}"
+                                                      Style="{DynamicResource ModernMenuItem}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="Tune" Width="18" Height="18" Foreground="#0EA5E9"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Запустить с аутентификацией" Command="{Binding LaunchEnterpriseWithAuthCommand}"
+                                                      Style="{DynamicResource ModernMenuItem}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="AccountKey" Width="18" Height="18" Foreground="#8B5CF6"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator/>
+                                            <MenuItem Header="Запустить от имени администратора" Command="{Binding LaunchEnterpriseAsAdminCommand}"
+                                                      Style="{DynamicResource ModernMenuItem}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="ShieldAccount" Width="18" Height="18" Foreground="#F59E0B"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
+                            </Grid>
+                        </Border>
 
-                        <Grid Margin="8,0,8,8">
-                            <Grid.Style>
-                                <Style TargetType="Grid">
+                        <Border Margin="8,0,8,8" CornerRadius="10" ClipToBounds="True"
+                                Background="{DynamicResource CardBackgroundBrush}"
+                                BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
+                            <Border.Style>
+                                <Style TargetType="Border">
                                     <Setter Property="Margin" Value="8,0,8,8"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
@@ -1412,72 +1458,74 @@
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </Grid.Style>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0" Command="{Binding LaunchConfiguratorCommand}"
-                                    ToolTip="{Binding HotkeyConfigurator, StringFormat=Запустить Конфигуратор ({0})}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
-                                        <Setter Property="Padding" Value="14,12"/>
-                                        <Setter Property="Margin" Value="0"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                                <Setter Property="Padding" Value="6,8"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="Wrench" Width="16" Height="16" Margin="0,0,6,0"
-                                                             Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center"/>
-                                    <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource ButtonTextBrush}">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Запустить Конфигуратор"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                        <Setter Property="Text" Value="Конфигуратор"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
-                            </Button>
-                            <Button Grid.Column="1" x:Name="ConfiguratorMenuButton" Width="28" Padding="0"
-                                    Cursor="Hand" Click="OnConfiguratorMenuClick"
-                                    ToolTip="Дополнительные варианты запуска Конфигуратора">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
-                                        <Setter Property="Padding" Value="0"/>
-                                        <Setter Property="Margin" Value="0"/>
-                                    </Style>
-                                </Button.Style>
-                                <materialDesign:PackIcon Kind="MenuDown" Width="16" Height="16"
-                                                         Foreground="{DynamicResource ButtonTextBrush}"/>
-                                <Button.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="Запустить с выбором параметров" Command="{Binding LaunchConfiguratorWithParamsCommand}"
-                                                  Style="{DynamicResource ModernMenuItem}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="Tune" Width="16" Height="16"/>
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <Separator/>
-                                        <MenuItem Header="Запустить от имени администратора" Command="{Binding LaunchConfiguratorAsAdminCommand}"
-                                                  Style="{DynamicResource ModernMenuItem}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="ShieldAccount" Width="16" Height="16"/>
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                    </ContextMenu>
-                                </Button.ContextMenu>
-                            </Button>
-                        </Grid>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Command="{Binding LaunchConfiguratorCommand}"
+                                        ToolTip="{Binding HotkeyConfigurator, StringFormat=Запустить Конфигуратор ({0})}"
+                                        Cursor="Hand" HorizontalContentAlignment="Left"
+                                        Background="Transparent" BorderThickness="0" Padding="12,11">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Wrench" Width="16" Height="16" Margin="0,0,8,0"
+                                                                 Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" Text="Конфигуратор"/>
+                                    </StackPanel>
+                                </Button>
+                                <Border Grid.Column="1" Width="1" Background="{DynamicResource BorderBrushColor}" Margin="0,8"/>
+                                <Button Grid.Column="2" x:Name="ConfiguratorMenuButton" Width="34" Cursor="Hand"
+                                        Click="OnConfiguratorMenuClick" ToolTip="Дополнительные варианты запуска"
+                                        Background="Transparent" BorderThickness="0" Padding="0">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="Transparent">
+                                                <materialDesign:PackIcon Kind="ChevronDown" Width="16" Height="16"
+                                                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Button.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="Запустить с выбором параметров" Command="{Binding LaunchConfiguratorWithParamsCommand}"
+                                                      Style="{DynamicResource ModernMenuItem}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="Tune" Width="18" Height="18" Foreground="#0EA5E9"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator/>
+                                            <MenuItem Header="Запустить от имени администратора" Command="{Binding LaunchConfiguratorAsAdminCommand}"
+                                                      Style="{DynamicResource ModernMenuItem}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="ShieldAccount" Width="18" Height="18" Foreground="#F59E0B"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
+                            </Grid>
+                        </Border>
 
                         <!-- Родной стартер 1С (1CEStart.exe) для сверки списка -->
                         <Button Command="{Binding LaunchNativeStarterCommand}"

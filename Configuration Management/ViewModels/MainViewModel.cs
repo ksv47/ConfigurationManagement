@@ -7,6 +7,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Win32;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
@@ -45,6 +46,8 @@ public class MainViewModel : ViewModelBase
 
     private bool _showTags = true;
     private bool _showVersionColumn = true;
+    private bool _showConfigurationColumn = true;
+    private double _configurationColumnWidth;
     private bool _showRightPanelDetails = true;
     private bool _statusShowConnectionPath = true;
     private bool _statusShowArchitecture = true;
@@ -149,6 +152,8 @@ public class MainViewModel : ViewModelBase
         _showTagFilterPanel = settings.ShowTagFilterPanel;
         _allowMultipleInstances = settings.AllowMultipleInstances;
         _showVersionColumn = settings.ShowVersionColumn;
+        _showConfigurationColumn = settings.ShowConfigurationColumn;
+        _configurationColumnWidth = settings.ConfigurationColumnWidth;
         _showRightPanelDetails = settings.ShowRightPanelDetails;
         _showSessionLaunchPanel = settings.ShowSessionLaunchPanel;
         if (Enum.TryParse<SessionClientMode>(settings.SessionClientMode, true, out var scm))
@@ -227,6 +232,7 @@ public class MainViewModel : ViewModelBase
 
         // Размеры и маркеры блокировки файловых баз (фоново, не блокируя UI дольше необходимого).
         RefreshFileMetadata();
+        RefreshConfigurationInfoAsync();
 
         // Дерево групп (отображается в виде «группа в группе»).
         GroupNodes = new ObservableCollection<GroupNodeViewModel>();
@@ -1134,6 +1140,24 @@ public class MainViewModel : ViewModelBase
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn => _showVersionColumn;
 
+    /// <summary>Показывать колонку «Конфигурация».</summary>
+    public bool ShowConfigurationColumn => _showConfigurationColumn;
+
+    /// <summary>Ширина колонки «Конфигурация».</summary>
+    public double ConfigurationColumnWidth
+    {
+        get => _configurationColumnWidth;
+        set
+        {
+            if (_configurationColumnWidth != value)
+            {
+                _configurationColumnWidth = value;
+                OnPropertyChanged();
+                ScheduleSaveSettings();
+            }
+        }
+    }
+
     /// <summary>Показывать подробности в правой панели (иначе — только кнопки).</summary>
     public bool ShowRightPanelDetails
     {
@@ -1345,12 +1369,14 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public void ApplyDisplaySettings(bool showFavoritesButton, bool showPinnedButton, bool showTags,
         bool showVersionColumn, bool showLaunchModeColumn, bool showServerColumn, bool showLastLaunchColumn,
-        bool groupByGroup, bool showFavoritesOnly, bool showSizeColumn = true)
+        bool groupByGroup, bool showFavoritesOnly, bool showSizeColumn = true,
+        bool showConfigurationColumn = true)
     {
         _showFavoritesButton = showFavoritesButton;
         _showPinnedButton = showPinnedButton;
         _showTags = showTags;
         _showVersionColumn = showVersionColumn;
+        _showConfigurationColumn = showConfigurationColumn;
         _showLaunchModeColumn = showLaunchModeColumn;
         _showServerColumn = showServerColumn;
         _showLastLaunchColumn = showLastLaunchColumn;
@@ -1360,6 +1386,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowPinnedButton));
         OnPropertyChanged(nameof(ShowTags));
         OnPropertyChanged(nameof(ShowVersionColumn));
+        OnPropertyChanged(nameof(ShowConfigurationColumn));
         OnPropertyChanged(nameof(ShowLaunchModeColumn));
         OnPropertyChanged(nameof(ShowServerColumn));
         OnPropertyChanged(nameof(ShowLastLaunchColumn));
@@ -1559,6 +1586,8 @@ public class MainViewModel : ViewModelBase
         SelectedInfobase = null;
         Save();
         RebuildGroupTree();
+        RefreshFileMetadata();
+        RefreshConfigurationInfoAsync();
     }
 
     /// <summary>
@@ -2673,6 +2702,8 @@ public string HotkeyEnterprise
             ShowTagFilterPanel = _showTagFilterPanel,
             AllowMultipleInstances = _allowMultipleInstances,
             ShowVersionColumn = _showVersionColumn,
+            ShowConfigurationColumn = _showConfigurationColumn,
+            ConfigurationColumnWidth = _configurationColumnWidth,
             ShowRightPanelDetails = _showRightPanelDetails,
             ShowSessionLaunchPanel = _showSessionLaunchPanel,
             SessionClientMode = _sessionClientMode.ToString(),
@@ -3675,6 +3706,45 @@ public string HotkeyEnterprise
         var killed = InfobaseMaintenanceService.KillOneCProcesses();
         _logger.Info($"Завершено процессов 1С: {killed}");
         _dialogs.ShowInfo($"Завершено процессов: {killed}.", "Процессы 1С");
+    }
+
+
+    /// <summary>
+    /// Фоново считывает имя и версию конфигурации для баз, где они ещё не заполнены.
+    /// </summary>
+    private void RefreshConfigurationInfoAsync()
+    {
+        var targets = Infobases
+            .Where(ib => string.IsNullOrWhiteSpace(ib.ConfigurationName)
+                         || string.IsNullOrWhiteSpace(ib.ConfigurationVersion))
+            .ToList();
+        if (targets.Count == 0) return;
+
+        _ = Task.Run(() =>
+        {
+            var any = false;
+            foreach (var ib in targets)
+            {
+                try
+                {
+                    if (ConfigurationInfoService.TryApply(ib, overwriteExisting: false))
+                        any = true;
+                }
+                catch { }
+            }
+
+            if (!any) return;
+
+            try
+            {
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    InfobasesView?.Refresh();
+                    Save();
+                });
+            }
+            catch { }
+        });
     }
 
     /// <summary>Пересчёт размеров файловых баз.</summary>

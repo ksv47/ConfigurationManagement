@@ -730,6 +730,21 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox Grid.Column="0" Text="{Binding PlatformVersion, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" VerticalContentAlignment="Center" ToolTip="Например 8.3.24.1774"/>
+
+                            <TextBlock Text="Конфигурация:" VerticalAlignment="Center" Margin="0,8,0,0"/>
+                            <Grid Margin="0,4,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Text="{Binding ConfigurationName, UpdateSourceTrigger=PropertyChanged}"
+                                         Padding="8,6" VerticalContentAlignment="Center"
+                                         ToolTip="Название конфигурации 1С"/>
+                                <TextBox Grid.Column="2" Text="{Binding ConfigurationVersion, UpdateSourceTrigger=PropertyChanged}"
+                                         Padding="8,6" VerticalContentAlignment="Center"
+                                         ToolTip="Версия конфигурации, например 3.0.142.32"/>
+                            </Grid>
                             <Button Grid.Column="1" Margin="6,0,0,0" Padding="8,3" Style="{DynamicResource SecondaryButton}" Click="OnPlatformSettings_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="CubeOutline" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"/>

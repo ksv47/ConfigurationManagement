@@ -502,6 +502,12 @@
                                         <TextBlock Text="Версия платформы" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
+                                <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowConfigurationColumnCheck" Margin="0,0,0,6">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="FileDocumentOutline" Width="16" Height="16" Foreground="#EC4899" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Конфигурация (название и версия)" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowLaunchModeColumnCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="PlayCircleOutline" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,8,0" VerticalAlignment="Center"/>

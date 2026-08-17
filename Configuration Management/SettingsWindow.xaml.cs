@@ -121,12 +121,15 @@ namespace Configuration_Management
             _showPinnedButton = _viewModel.ShowPinnedButton;
             _showTags = _viewModel.ShowTags;
             _showVersionColumn = _viewModel.ShowVersionColumn;
+            // configuration column from VM
             _showLaunchModeColumn = _viewModel.ShowLaunchModeColumn;
             _showServerColumn = _viewModel.ShowServerColumn;
             _showLastLaunchColumn = _viewModel.ShowLastLaunchColumn;
 
             ShowNameColumnCheck.IsChecked = true;
             ShowVersionColumnCheck.IsChecked = _showVersionColumn;
+            if (ShowConfigurationColumnCheck != null)
+                ShowConfigurationColumnCheck.IsChecked = _viewModel.ShowConfigurationColumn;
             ShowLaunchModeColumnCheck.IsChecked = _showLaunchModeColumn;
             ShowServerColumnCheck.IsChecked = _showServerColumn;
             ShowLastLaunchColumnCheck.IsChecked = _showLastLaunchColumn;
@@ -689,7 +692,8 @@ namespace Configuration_Management
                 ShowLastLaunchColumnCheck.IsChecked ?? false,
                 GroupByGroupCheck.IsChecked ?? true,
                 ShowFavoritesOnlyCheck.IsChecked ?? false,
-                ShowSizeColumnCheck?.IsChecked ?? true);
+                ShowSizeColumnCheck?.IsChecked ?? true,
+                ShowConfigurationColumnCheck?.IsChecked ?? true);
 
             _viewModel.ShowRightPanelDetails = ShowRightPanelDetailsCheck?.IsChecked ?? true;
             _viewModel.ShowSessionLaunchPanel = ShowSessionLaunchPanelCheck?.IsChecked ?? true;

@@ -63,8 +63,9 @@
         <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
         <Setter Property="Foreground" Value="{StaticResource ButtonTextBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="Padding" Value="14,9"/>
         <Setter Property="FontSize" Value="13"/>
+        <Setter Property="MinHeight" Value="36"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -703,6 +704,8 @@
 
     <!-- ===================== Стиль контекстного меню ===================== -->
     <Style x:Key="ModernContextMenu" TargetType="ContextMenu">
+        <Setter Property="MinWidth" Value="280"/>
+        <Setter Property="HasDropShadow" Value="True"/>
         <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
         <Setter Property="BorderThickness" Value="1"/>

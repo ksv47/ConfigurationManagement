@@ -89,6 +89,12 @@ public class AppSettings
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn { get; set; } = true;
 
+    /// <summary>Показывать колонку «Конфигурация» (название и версия) в списке баз.</summary>
+    public bool ShowConfigurationColumn { get; set; } = true;
+
+    /// <summary>Ширина колонки «Конфигурация» (0 — по умолчанию).</summary>
+    public double ConfigurationColumnWidth { get; set; }
+
     /// <summary>Показывать колонку «Режим запуска» в списке баз.</summary>
     public bool ShowLaunchModeColumn { get; set; } = true;
 
