@@ -319,28 +319,26 @@
                             </Border>
                         </StackPanel>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Сервер:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                        <!-- Стиль ModernComboBox переопределяет шаблон без PART_EditableTextBox и не поддерживает
-                             редактируемый режим, поэтому для поля сервера отключаем его (Style={x:Null}),
-                             чтобы можно было и выбрать сервер из списка, и ввести его вручную. -->
-                        <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,3" Padding="6,4"
-                                  Style="{x:Null}"
+                        <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,3"
+                                  Style="{StaticResource ModernComboBox}"
                                   IsEditable="True"
+                                  IsTextSearchEnabled="True"
+                                  StaysOpenOnEdit="True"
                                   ItemsSource="{Binding AvailableServers}"
                                   Text="{Binding Server, UpdateSourceTrigger=PropertyChanged}"
-                                  ToolTip="Имя сервера 1С. Можно выбрать из существующих баз или ввести вручную."
+                                  ToolTip="Имя сервера 1С. Можно выбрать из списка или ввести вручную."
                                   Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Имя базы:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DatabaseName, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Порт сервера:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                        <!-- Стиль ModernComboBox переопределяет шаблон без PART_EditableTextBox и не поддерживает
-                             редактируемый режим, поэтому для поля порта отключаем его (Style={x:Null}),
-                             чтобы можно было и выбрать порт из списка, и ввести его вручную. -->
-                        <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,3" Padding="6,4"
-                                  Style="{x:Null}"
+                        <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,3"
+                                  Style="{StaticResource ModernComboBox}"
                                   IsEditable="True"
+                                  IsTextSearchEnabled="True"
+                                  StaysOpenOnEdit="True"
                                   ItemsSource="{Binding AvailablePorts}"
                                   Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}"
-                                  ToolTip="Порт сервера 1С. Можно выбрать из портов существующих баз или ввести вручную."
+                                  ToolTip="Порт сервера 1С. Можно выбрать из списка или ввести вручную."
                                   Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Путь к файлу:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}"/>
                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}"/>
@@ -722,6 +720,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Версия:" VerticalAlignment="Center" Margin="0,3"/>
                         <Grid Grid.Row="0" Grid.Column="1" Margin="0,3">
@@ -729,31 +728,39 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" Text="{Binding PlatformVersion, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" VerticalContentAlignment="Center" ToolTip="Например 8.3.24.1774"/>
-
-                            <TextBlock Text="Конфигурация:" VerticalAlignment="Center" Margin="0,8,0,0"/>
-                            <Grid Margin="0,4,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="2*"/>
-                                    <ColumnDefinition Width="12"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" Text="{Binding ConfigurationName, UpdateSourceTrigger=PropertyChanged}"
-                                         Padding="8,6" VerticalContentAlignment="Center"
-                                         ToolTip="Название конфигурации 1С"/>
-                                <TextBox Grid.Column="2" Text="{Binding ConfigurationVersion, UpdateSourceTrigger=PropertyChanged}"
-                                         Padding="8,6" VerticalContentAlignment="Center"
-                                         ToolTip="Версия конфигурации, например 3.0.142.32"/>
-                            </Grid>
-                            <Button Grid.Column="1" Margin="6,0,0,0" Padding="8,3" Style="{DynamicResource SecondaryButton}" Click="OnPlatformSettings_Click">
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding PlatformVersion, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8,6" VerticalContentAlignment="Center"
+                                     ToolTip="Версия платформы, например 8.3.24.1774"/>
+                            <Button Grid.Column="1" Margin="6,0,0,0" Padding="8,3"
+                                    Style="{DynamicResource SecondaryButton}"
+                                    Click="OnPlatformSettings_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="CubeOutline" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Выбрать…" VerticalAlignment="Center" FontSize="12"/>
                                 </StackPanel>
                             </Button>
                         </Grid>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Параметры:" VerticalAlignment="Center" Margin="0,3"/>
-                        <Grid Grid.Row="1" Grid.Column="1" Margin="0,3">
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Конфигурация:" VerticalAlignment="Center" Margin="0,6,0,3"/>
+                        <Grid Grid.Row="1" Grid.Column="1" Margin="0,6,0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding ConfigurationName, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8,6" VerticalContentAlignment="Center"
+                                     ToolTip="Название конфигурации 1С"/>
+                            <TextBox Grid.Column="2"
+                                     Text="{Binding ConfigurationVersion, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8,6" VerticalContentAlignment="Center"
+                                     ToolTip="Версия конфигурации, например 3.0.142.32"/>
+                        </Grid>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Параметры:" VerticalAlignment="Center" Margin="0,3"/>
+                        <Grid Grid.Row="2" Grid.Column="1" Margin="0,3">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>

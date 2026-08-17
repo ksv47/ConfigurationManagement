@@ -201,6 +201,7 @@ namespace Configuration_Management
                 {
                     if (container is not null)
                     {
+                        node.IsSelected = true;
                         container.IsSelected = true;
                         container.BringIntoView();
                     }

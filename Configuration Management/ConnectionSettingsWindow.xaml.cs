@@ -175,16 +175,31 @@ namespace Configuration_Management
         /// </summary>
         private void OnPlatformSettings_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new PlatformVersionPickerWindow(_viewModel.InstalledPlatformVersions, _viewModel.PlatformVersion)
+            var current = _viewModel.PlatformVersion ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(_viewModel.Architecture)
+                && _viewModel.Architecture is "32" or "64"
+                && !current.Contains('('))
+            {
+                current = $"{current} ({_viewModel.Architecture})".Trim();
+            }
+
+            var dialog = new PlatformVersionPickerWindow(_viewModel.InstalledPlatformVersions, current)
             {
                 Owner = this
             };
-            if (dialog.ShowDialog() == true)
-            {
-                PlatformVersionService.ParseVariant(dialog.Result, out var version, out var architecture);
-                _viewModel.PlatformVersion = version;
+            if (dialog.ShowDialog() != true)
+                return;
+
+            var result = (dialog.Result ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(result))
+                return;
+
+            PlatformVersionService.ParseVariant(result, out var version, out var architecture);
+            // Подставляем чистую версию; если разбор не удался — всю строку выбора.
+            _viewModel.PlatformVersion = string.IsNullOrWhiteSpace(version) ? result : version;
+            // Разрядность меняем только если в выбранной строке она явно указана «(32)/(64)».
+            if (result.Contains('(') && (architecture == "32" || architecture == "64"))
                 _viewModel.Architecture = architecture;
-            }
         }
 
         /// <summary>Синхронизация PasswordBox → ViewModel (пароль не биндится напрямую).</summary>

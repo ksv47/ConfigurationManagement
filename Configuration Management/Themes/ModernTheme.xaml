@@ -180,54 +180,150 @@
 
     <!-- ===================== Стиль выпадающего списка ===================== -->
     <Style x:Key="ModernComboBox" TargetType="ComboBox">
-        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1.5"/>
+        <Setter Property="Padding" Value="10,6"/>
         <Setter Property="FontSize" Value="13"/>
+        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="MinWidth" Value="120"/>
+        <Setter Property="MaxDropDownHeight" Value="280"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
         <Setter Property="ItemContainerStyle" Value="{StaticResource ModernComboBoxItem}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBox">
-                    <Grid>
-                        <ToggleButton x:Name="ToggleButton" Focusable="False" ClickMode="Press"
-                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                    <Grid x:Name="Root">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                SnapsToDevicePixels="True">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="32"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Режим выбора (как горячие клавиши) -->
+                                <ContentPresenter x:Name="ContentSite"
+                                                  Grid.Column="0"
+                                                  Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True"
+                                                  IsHitTestVisible="False">
+                                    <ContentPresenter.Content>
+                                        <Binding Path="SelectionBoxItem" RelativeSource="{RelativeSource TemplatedParent}"/>
+                                    </ContentPresenter.Content>
+                                    <ContentPresenter.ContentTemplate>
+                                        <Binding Path="SelectionBoxItemTemplate" RelativeSource="{RelativeSource TemplatedParent}"/>
+                                    </ContentPresenter.ContentTemplate>
+                                    <ContentPresenter.ContentStringFormat>
+                                        <Binding Path="SelectionBoxItemStringFormat" RelativeSource="{RelativeSource TemplatedParent}"/>
+                                    </ContentPresenter.ContentStringFormat>
+                                </ContentPresenter>
+
+                                <!-- Редактируемый режим (сервер / порт) -->
+                                <TextBox x:Name="PART_EditableTextBox"
+                                         Grid.Column="0"
+                                         Margin="6,0,0,0"
+                                         Padding="{TemplateBinding Padding}"
+                                         VerticalContentAlignment="Center"
+                                         HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Foreground="{TemplateBinding Foreground}"
+                                         FontSize="{TemplateBinding FontSize}"
+                                         CaretBrush="{DynamicResource TextPrimaryBrush}"
+                                         Focusable="True"
+                                         Visibility="Collapsed"/>
+
+                                <ToggleButton x:Name="DropDownToggle"
+                                              Grid.Column="1"
+                                              Focusable="False"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              ClickMode="Press"
+                                              Background="Transparent"
+                                              BorderThickness="0">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="Transparent" Cursor="Hand">
+                                                <Path Data="M0,0 L4,4 L8,0"
+                                                      Stroke="{DynamicResource TextSecondaryBrush}"
+                                                      StrokeThickness="1.5"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"
+                                                      Width="10" Height="5"
+                                                      Stretch="Uniform"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                            </Grid>
+                        </Border>
+
+                        <!-- Невидимый toggle на всю ширину для открытия списка в non-editable режиме -->
+                        <ToggleButton x:Name="FullDropDownToggle"
+                                      Focusable="False"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                      ClickMode="Press">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
-                                    <Border x:Name="border"
-                                            Background="{TemplateBinding Background}"
-                                            BorderBrush="{TemplateBinding BorderBrush}"
-                                            BorderThickness="{TemplateBinding BorderThickness}"
-                                            CornerRadius="6">
-                                        <Path x:Name="Arrow" Data="M 0 0 L 4 4 L 8 0 Z"
-                                              Fill="{StaticResource TextSecondaryBrush}"
-                                              HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                    </Border>
+                                    <Border Background="Transparent"/>
                                 </ControlTemplate>
                             </ToggleButton.Template>
                         </ToggleButton>
-                        <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center"
-                                          Content="{TemplateBinding SelectionBoxItem}"
-                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                          TextElement.Foreground="{TemplateBinding Foreground}"
-                                          IsHitTestVisible="False"/>
-                        <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}"
-                               AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
-                            <Border Background="{StaticResource CardBackgroundBrush}"
-                                    BorderBrush="{StaticResource BorderBrushColor}"
-                                    BorderThickness="1" CornerRadius="6"
-                                    MinWidth="{TemplateBinding ActualWidth}"
+
+                        <Popup x:Name="PART_Popup"
+                               Placement="Bottom"
+                               AllowsTransparency="True"
+                               Focusable="False"
+                               StaysOpen="False"
+                               PopupAnimation="Slide"
+                               VerticalOffset="2"
+                               IsOpen="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                            <Border Background="{DynamicResource CardBackgroundBrush}"
+                                    BorderBrush="{DynamicResource BorderBrushColor}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="4"
+                                    MinWidth="{Binding ActualWidth, ElementName=Root}"
                                     MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                <ScrollViewer>
-                                    <ItemsPresenter/>
+                                <ScrollViewer CanContentScroll="True"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
                                 </ScrollViewer>
                             </Border>
                         </Popup>
                     </Grid>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/>
+                            <Setter TargetName="FullDropDownToggle" Property="IsHitTestVisible" Value="False"/>
+                            <Setter TargetName="FullDropDownToggle" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                        <Trigger Property="IsEditable" Value="False">
+                            <Setter TargetName="DropDownToggle" Property="IsHitTestVisible" Value="False"/>
+                        </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="ToggleButton" Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -235,7 +331,8 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль элемента выпадающего списка ===================== -->
+
+
     <Style x:Key="ModernComboBoxItem" TargetType="ComboBoxItem">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
         <Setter Property="Background" Value="Transparent"/>

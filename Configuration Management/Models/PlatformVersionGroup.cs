@@ -40,5 +40,11 @@ public class PlatformVersionGroup
 
     public bool IsLeaf => !string.IsNullOrEmpty(Variant);
 
+    /// <summary>
+    /// Синхронизация с TreeViewItem.IsSelected (стиль ModernTreeViewItem биндит IsSelected).
+    /// У групп обычно false; у выбранного листа — true.
+    /// </summary>
+    public bool IsSelected { get; set; }
+
     public override string ToString() => Name;
 }
