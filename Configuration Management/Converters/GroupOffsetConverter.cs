@@ -21,7 +21,8 @@ public class GroupOffsetConverter : IMultiValueConverter
         var level = values.Length > 0 && values[0] is int i ? i : 0;
         var hasItems = values.Length > 1 && values[1] is bool b && b;
         var offset = hasItems ? level * IndentStep : 0d;
-        return new Thickness(offset, 0, 0, 0);
+        // Вертикальный 1px — как прежний Margin="0,1" у заголовка группы
+        return new Thickness(offset, 1, 0, 1);
     }
 
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)

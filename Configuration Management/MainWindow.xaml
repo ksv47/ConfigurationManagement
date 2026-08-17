@@ -601,6 +601,9 @@
                             <!-- Узел группы: заголовок + вложенные подгруппы и базы -->
                             <HierarchicalDataTemplate DataType="{x:Type vm:GroupNodeViewModel}"
                                                       ItemsSource="{Binding Items}">
+                                <!-- Заголовок группы без собственного горизонтального отступа:
+                                     сдвиг иерархии даёт отступ Expander по Level (в ItemContainerStyle).
+                                     Фон/выделение начинаются сразу после кнопки разворота. -->
                                 <Border CornerRadius="6" Padding="8,6" Margin="0,1">
                                     <Border.Style>
                                         <!-- Стиль подсветки выбранной группы: при выделении (IsSelected)
@@ -711,83 +714,90 @@
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
 
-                                        <Button Grid.Column="1"
-                                                Command="{Binding DataContext.ToggleFavoriteForCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}"
-                                                Background="Transparent" BorderThickness="0"
-                                                Cursor="Hand" Padding="0"
-                                                MinWidth="0" MinHeight="0"
-                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                ToolTip="Добавить/убрать из избранного (Alt+N — быстрый запуск)">
-                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                                <materialDesign:PackIcon Kind="Star" Width="14" Height="14" VerticalAlignment="Center">
+                                        <!-- ★ + 📌 + название: старт с колонки 0 (под иконкой группы),
+                                             без лишних пробелов; сдвиг только по уровню родителя (base). -->
+                                        <StackPanel Grid.Column="0" Grid.ColumnSpan="4"
+                                                    Orientation="Horizontal" VerticalAlignment="Center">
+                                            <StackPanel.Margin>
+                                                <MultiBinding Converter="{StaticResource LevelToThickness}" ConverterParameter="base">
+                                                    <Binding Path="(controls:LeveledTreeView.Level)"
+                                                             RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                                </MultiBinding>
+                                            </StackPanel.Margin>
+                                            <Button Command="{Binding DataContext.ToggleFavoriteForCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Cursor="Hand" Padding="0,0,2,0"
+                                                    MinWidth="0" MinHeight="0"
+                                                    VerticalAlignment="Center"
+                                                    ToolTip="Добавить/убрать из избранного (Alt+N — быстрый запуск)">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <materialDesign:PackIcon Kind="Star" Width="14" Height="14" VerticalAlignment="Center">
+                                                        <materialDesign:PackIcon.Style>
+                                                            <Style TargetType="materialDesign:PackIcon">
+                                                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource FavoriteBrush}"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </materialDesign:PackIcon.Style>
+                                                    </materialDesign:PackIcon>
+                                                    <Border VerticalAlignment="Center" Margin="2,0,0,0" CornerRadius="3" Padding="4,0,4,1"
+                                                            MinWidth="16" Background="{DynamicResource FavoriteBrush}">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding IsFavorite}" Value="True"/>
+                                                                            <Condition Binding="{Binding FavoriteHotkeyNumber}" Value="0"/>
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    </MultiDataTrigger>
+                                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding FavoriteHotkeyNumber}" Value="0">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding FavoriteHotkeyDisplay}"
+                                                                   FontSize="10" FontWeight="Bold"
+                                                                   Foreground="#1C1917"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Command="{Binding DataContext.TogglePinForCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Cursor="Hand" Padding="0,0,4,0"
+                                                    MinWidth="0" MinHeight="0"
+                                                    VerticalAlignment="Center"
+                                                    ToolTip="Закрепить/открепить базу вверху списка">
+                                                <materialDesign:PackIcon Kind="Pin" Width="14" Height="14" VerticalAlignment="Center">
                                                     <materialDesign:PackIcon.Style>
                                                         <Style TargetType="materialDesign:PackIcon">
                                                             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                                                             <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                                    <Setter Property="Foreground" Value="{DynamicResource FavoriteBrush}"/>
+                                                                <DataTrigger Binding="{Binding IsPinned}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </materialDesign:PackIcon.Style>
                                                 </materialDesign:PackIcon>
-                                                <Border VerticalAlignment="Center" Margin="2,0,0,0" CornerRadius="3" Padding="4,0,4,1"
-                                                        MinWidth="16" Background="{DynamicResource FavoriteBrush}">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                            <Style.Triggers>
-                                                                <MultiDataTrigger>
-                                                                    <MultiDataTrigger.Conditions>
-                                                                        <Condition Binding="{Binding IsFavorite}" Value="True"/>
-                                                                        <Condition Binding="{Binding FavoriteHotkeyNumber}" Value="0"/>
-                                                                    </MultiDataTrigger.Conditions>
-                                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                                </MultiDataTrigger>
-                                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding FavoriteHotkeyNumber}" Value="0">
-                                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                    <TextBlock Text="{Binding FavoriteHotkeyDisplay}"
-                                                               FontSize="10" FontWeight="Bold"
-                                                               Foreground="#1C1917"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center"/>
-                                                </Border>
-                                            </StackPanel>
-                                        </Button>
-
-                                        <Button Grid.Column="2"
-                                                Command="{Binding DataContext.TogglePinForCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}"
-                                                Background="Transparent" BorderThickness="0"
-                                                Cursor="Hand" Padding="0"
-                                                MinWidth="0" MinHeight="0"
-                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                ToolTip="Закрепить/открепить базу вверху списка">
-                                            <materialDesign:PackIcon Kind="Pin" Width="14" Height="14">
-                                                <materialDesign:PackIcon.Style>
-                                                    <Style TargetType="materialDesign:PackIcon">
-                                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsPinned}" Value="True">
-                                                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </materialDesign:PackIcon.Style>
-                                            </materialDesign:PackIcon>
-                                        </Button>
-
-                                        <TextBlock x:Name="NameText" Grid.Column="3" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
-                                                   HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis"/>
+                                            </Button>
+                                            <TextBlock x:Name="NameText" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
 
                                         <TextBlock Grid.Column="4" Text="{Binding PlatformVersion}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
@@ -809,10 +819,16 @@
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
 
-                                        <!-- Теги базы -->
-                                        <StackPanel Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="6"
+                                        <!-- Теги базы: тот же сдвиг, старт с колонки 0 как у ★/📌/названия -->
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="9"
                                                     Orientation="Horizontal"
                                                     Visibility="{Binding DataContext.ShowTags, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                                            <StackPanel.Margin>
+                                                <MultiBinding Converter="{StaticResource LevelToThickness}" ConverterParameter="base">
+                                                    <Binding Path="(controls:LeveledTreeView.Level)"
+                                                             RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                                </MultiBinding>
+                                            </StackPanel.Margin>
                                             <ItemsControl ItemsSource="{Binding Tags}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
@@ -895,8 +911,8 @@
 
                         <controls:LeveledTreeView.ItemContainerStyle>
                             <!-- Стиль элемента дерева: заголовок группы/базы и вложенные элементы.
-                                 Вложенные подгруппы сдвигаются вправо (Margin на ItemsPresenter),
-                                 формируя классический вид дерева «группа в группе». -->
+                                 ItemsPresenter без отступа — колонки данных всех баз выровнены.
+                                 Иерархия: сдвиг только названия базы (LevelToThickness) и заголовка группы (GroupOffset). -->
                             <Style TargetType="TreeViewItem">
                                 <!-- Скрыть красную рамку ошибок привязки (IsExpanded у листьев-баз и т.п.) -->
                                 <Setter Property="Validation.ErrorTemplate" Value="{x:Null}"/>
@@ -921,9 +937,8 @@
                                         <ControlTemplate TargetType="TreeViewItem">
                                             <StackPanel>
                                                 <Grid x:Name="RowGrid">
-                                                    <!-- Смещение вложенных групп обеспечивается классическим отступом
-                                                         ItemsPresenter (см. ниже): заголовок группы всегда на левом крае,
-                                                         а его содержимое (подгруппы и базы) сдвигается вправо. -->
+                                                    <!-- Без отступа ItemsPresenter: строки баз на одном уровне с заголовками колонок.
+                                                         Иерархия — только сдвиг названия/заголовка группы по Level. -->
                                                     <Grid.ColumnDefinitions>
                                                         <!-- Колонка expander: у листьев кнопка Collapsed → ширина Auto ≈ 0 -->
                                                         <ColumnDefinition Width="Auto" MinWidth="0"/>
@@ -939,6 +954,12 @@
                                                             Background="Transparent" BorderThickness="0"
                                                             Cursor="Hand"
                                                             ToolTip="Свернуть / развернуть группу">
+                                                        <Button.Margin>
+                                                            <MultiBinding Converter="{StaticResource LevelToThickness}">
+                                                                <Binding Path="(controls:LeveledTreeView.Level)"
+                                                                         RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                                            </MultiBinding>
+                                                        </Button.Margin>
                                                         <Button.Style>
                                                             <Style TargetType="Button">
                                                                 <Setter Property="ToolTip" Value="Свернуть группу"/>
@@ -1003,11 +1024,11 @@
                                                         <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
                                                     </Border>
                                                 </Grid>
-                                                <!-- Классический отступ вложенности: содержимое группы (вложенные подгруппы
-                                                     и базы) сдвигается вправо относительно заголовка группы. Корневые элементы
-                                                     остаются на месте, а каждый вложенный уровень смещается на IndentStep (18 px),
-                                                     благодаря чему видно, что одна группа находится внутри другой. -->
-                                                <ItemsPresenter x:Name="ItemsHost" Margin="18,0,0,0"/>
+                                                <!-- Отступ вложенности НЕ применяется к ItemsPresenter: иначе все колонки данных
+                                                     вложенных баз сдвигаются относительно заголовков. Иерархия показывается
+                                                     сдвигом только названия базы (LevelToThickness) и заголовка группы
+                                                     (GroupOffset). Все строки баз выровнены по одним и тем же колонкам. -->
+                                                <ItemsPresenter x:Name="ItemsHost" Margin="0,0,0,0"/>
                                             </StackPanel>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsExpanded" Value="False">

@@ -25,7 +25,7 @@ public class LeveledTreeView : TreeView
     /// <summary>Задать уровень вложенности контейнера.</summary>
     public static void SetLevel(DependencyObject obj, int value) => obj.SetValue(LevelProperty, value);
 
-    protected override DependencyObject GetContainerForItemOverride() => new TreeViewItem();
+    protected override DependencyObject GetContainerForItemOverride() => new LeveledTreeViewItem();
 
     protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
     {

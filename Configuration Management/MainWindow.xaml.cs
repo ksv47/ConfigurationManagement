@@ -1207,12 +1207,12 @@ namespace Configuration_Management
             // Кнопки — отдельная колонка; Offset только подгоняет выравнивание с деревом.
             var dataX = nameCell.TranslatePoint(new Point(0, 0), MainTree).X;
             var depth = CountAncestorTreeViewItems(nameCell);
-            // Строки баз не сдвигаются отступом вложенности (ItemsPresenter Margin=0): отступ
-            // применяется только к названию базы (LevelToThickness) и заголовкам групп. Поэтому
-            // у заголовка и у данных одинаковые колонки слева: [кнопки 56] + [★ 28] + [📌 26].
-            // Вычитаем их суммарную ширину (110) и сдвиг названия (depth*18), получая offset=0,
-            // т.е. колонки данных совпадают с заголовками на любом уровне вложенности.
-            var offset = Math.Max(0, dataX - 110 - depth * GroupTreeIndentStep);
+            // Сдвиг блока ★/📌/название = (depth-1)*step + ExpanderWidth (26), чтобы ★
+            // совпадала по X с иконкой папки родительской группы.
+            var parentLevel = depth > 0 ? depth - 1 : 0;
+            var nameIndent = parentLevel * GroupTreeIndentStep + GroupTreeExpanderWidth;
+            // Вычитаем [кнопки 56]+[★ 28]+[📌 26]=110 и этот сдвиг → offset≈0.
+            var offset = Math.Max(0, dataX - 110 - nameIndent);
             HeaderOffsetColumn.Width = new GridLength(offset);
 
             SyncHeaderWidthWithList();
@@ -1264,14 +1264,14 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Находит текстовый элемент колонки «Название» (Grid.Column=3) строки базы.
+        /// Находит текстовый элемент названия базы (x:Name=NameText) в строке.
         /// </summary>
         private static TextBlock? FindNameCell(DependencyObject parent)
         {
             for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
             {
                 var child = VisualTreeHelper.GetChild(parent, i);
-                if (child is TextBlock tb && Grid.GetColumn(tb) == 3)
+                if (child is TextBlock tb && tb.Name == "NameText")
                     return tb;
 
                 var result = FindNameCell(child);
@@ -1982,6 +1982,9 @@ namespace Configuration_Management
         /// иерархия «группа в группе».
         /// </summary>
         private const double GroupTreeIndentStep = 18.0;
+
+        /// <summary>Ширина кнопки разворота группы (px). Синхронизирована с Expander Width в XAML.</summary>
+        private const double GroupTreeExpanderWidth = 26.0;
 
         /// <summary>
         /// Считает количество РОДИТЕЛЬСКИХ (не считая собственного) TreeViewItem
