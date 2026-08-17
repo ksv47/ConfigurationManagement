@@ -119,7 +119,13 @@ public class Infobase : INotifyPropertyChanged
     }
 
     /// <summary>Версия платформы 1С.</summary>
-    public string PlatformVersion { get; set; } = string.Empty;
+    private string _platformVersion = string.Empty;
+    /// <summary>Версия платформы 1С (например 8.3.27.1644).</summary>
+    public string PlatformVersion
+    {
+        get => _platformVersion;
+        set => SetProperty(ref _platformVersion, value ?? string.Empty);
+    }
 
     private string _configurationName = string.Empty;
     private string _configurationVersion = string.Empty;

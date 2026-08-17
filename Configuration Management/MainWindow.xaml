@@ -821,7 +821,10 @@
 
                                         <TextBlock Grid.Column="4" Text="{Binding PlatformVersion}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                                   HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
+                                                   HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"
+                                                   Tag="PlatformVersion"
+                                                   Cursor="Hand"
+                                                   ToolTip="Двойной щелчок — выбрать версию платформы"/>
 
                                         <TextBlock Grid.Column="5" Text="{Binding ConfigurationDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"

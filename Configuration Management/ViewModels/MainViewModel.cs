@@ -2630,6 +2630,21 @@ public string HotkeyEnterprise
                || infobase.Tags.Any(t => t.Contains(filter, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>Сохранение списка баз после точечного изменения (версия платформы и т.п.).</summary>
+    public void PersistInfobasesAfterInlineEdit()
+    {
+        try
+        {
+            Save();
+            InfobasesView?.Refresh();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка сохранения после правки базы", ex);
+            _dialogs.ShowError($"Не удалось сохранить изменение.\n{ex.Message}", "Ошибка сохранения");
+        }
+    }
+
     private void Save()
     {
         try

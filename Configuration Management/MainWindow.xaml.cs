@@ -1374,8 +1374,28 @@ namespace Configuration_Management
         private void OnInfobaseTree_PreviewMouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             // Двойной клик по группе сворачивает/разворачивает её в зависимости от текущего состояния.
+            // Двойной клик по ячейке «Версия платформы» — выбор версии без полного окна свойств.
             // Двойной клик по базе по-прежнему запускает 1С.
             var source = e.OriginalSource as DependencyObject;
+
+            if (source is FrameworkElement fe
+                && string.Equals(fe.Tag as string, "PlatformVersion", StringComparison.Ordinal)
+                && fe.DataContext is Infobase versionIb)
+            {
+                OpenPlatformVersionPicker(versionIb);
+                e.Handled = true;
+                return;
+            }
+
+            // Клик по дочернему Run/тексту внутри TextBlock с Tag
+            var tagged = source is null ? null : FindAncestorWithTag(source, "PlatformVersion");
+            if (tagged?.DataContext is Infobase versionIb2)
+            {
+                OpenPlatformVersionPicker(versionIb2);
+                e.Handled = true;
+                return;
+            }
+
             var treeViewItem = source is null ? null : FindAncestor<TreeViewItem>(source);
             if (treeViewItem?.DataContext is GroupNodeViewModel groupNode && groupNode.Group is not null)
             {
@@ -1387,6 +1407,35 @@ namespace Configuration_Management
             {
                 _viewModel.LaunchEnterpriseCommand.Execute(null);
             }
+        }
+
+        private static FrameworkElement? FindAncestorWithTag(DependencyObject? current, string tag)
+        {
+            while (current is not null)
+            {
+                if (current is FrameworkElement fe && string.Equals(fe.Tag as string, tag, StringComparison.Ordinal))
+                    return fe;
+                current = System.Windows.Media.VisualTreeHelper.GetParent(current);
+            }
+            return null;
+        }
+
+        private void OpenPlatformVersionPicker(Infobase ib)
+        {
+            _viewModel.SelectedInfobase = ib;
+            var dialog = new PlatformVersionPickerWindow(_viewModel.InstalledPlatformVersions, ib.PlatformVersion)
+            {
+                Owner = this
+            };
+            if (dialog.ShowDialog() != true)
+                return;
+
+            var selected = dialog.Result?.Trim() ?? string.Empty;
+            if (string.Equals(ib.PlatformVersion, selected, StringComparison.Ordinal))
+                return;
+
+            ib.PlatformVersion = selected;
+            _viewModel.PersistInfobasesAfterInlineEdit();
         }
 
         /// <summary>
