@@ -167,8 +167,8 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <CheckBox x:Name="ChkPwd" Content="/P" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox x:Name="TxtPwd" Grid.Column="1" Padding="6,4" VerticalContentAlignment="Center"
-                             ToolTip="Пароль пользователя"/>
+                    <PasswordBox x:Name="TxtPwd" Grid.Column="1" Padding="6,4" VerticalContentAlignment="Center"
+                                 ToolTip="Пароль пользователя"/>
                 </Grid>
             </Grid>
         </GroupBox>

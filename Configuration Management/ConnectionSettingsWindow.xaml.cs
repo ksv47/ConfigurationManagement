@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using System.Windows.Controls;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.ViewModels;
@@ -27,6 +28,7 @@ namespace Configuration_Management
             IEnumerable<string>? availableServers = null, IEnumerable<int>? availablePorts = null)
         {
             InitializeComponent();
+            Loaded += (_, _) => SyncPasswordBoxFromViewModel();
             _viewModel = new ConnectionSettingsViewModel(groups);
             _viewModel.SetInstalledPlatformVersions(installedPlatformVersions ?? new List<string>());
             _viewModel.SetAvailableServers(availableServers);
@@ -50,6 +52,11 @@ namespace Configuration_Management
                 _viewModel.SelectedGroup = GroupHierarchyHelper.FindByFullPath(defaultGroupPath, _viewModel.Groups);
             }
             DataContext = _viewModel;
+            _viewModel.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ConnectionSettingsViewModel.Password))
+                    SyncPasswordBoxFromViewModel();
+            };
         }
 
         /// <summary>
@@ -177,6 +184,32 @@ namespace Configuration_Management
                 PlatformVersionService.ParseVariant(dialog.Result, out var version, out var architecture);
                 _viewModel.PlatformVersion = version;
                 _viewModel.Architecture = architecture;
+            }
+        }
+
+        /// <summary>Синхронизация PasswordBox → ViewModel (пароль не биндится напрямую).</summary>
+        private void OnPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel is null || sender is not PasswordBox pb) return;
+            if (_isSyncingPassword) return;
+            _viewModel.Password = pb.Password;
+        }
+
+        private bool _isSyncingPassword;
+
+        /// <summary>Заполняет PasswordBox из ViewModel без рекурсии событий.</summary>
+        private void SyncPasswordBoxFromViewModel()
+        {
+            if (PasswordBox is null || _viewModel is null) return;
+            _isSyncingPassword = true;
+            try
+            {
+                if (PasswordBox.Password != (_viewModel.Password ?? string.Empty))
+                    PasswordBox.Password = _viewModel.Password ?? string.Empty;
+            }
+            finally
+            {
+                _isSyncingPassword = false;
             }
         }
     }

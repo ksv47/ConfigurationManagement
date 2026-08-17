@@ -60,7 +60,7 @@ namespace Configuration_Management
                     case "/EXECUTE": ChkExecute.IsChecked = true; TxtExecute.Text = value; break;
                     case "/DUMPRESULT": ChkDumpResult.IsChecked = true; TxtDumpResult.Text = value; break;
                     case "/N": ChkUser.IsChecked = true; TxtUser.Text = value; break;
-                    case "/P": ChkPwd.IsChecked = true; TxtPwd.Text = value; break;
+                    case "/P": ChkPwd.IsChecked = true; TxtPwd.Password = value; break;
                     default:
                         // Неизвестный параметр добавляем в произвольные.
                         AppendCustom(token.Raw);
@@ -189,7 +189,7 @@ namespace Configuration_Management
             if (ChkExecute.IsChecked == true) AddValue("/Execute", TxtExecute.Text);
             if (ChkDumpResult.IsChecked == true) AddValue("/DumpResult", TxtDumpResult.Text);
             if (ChkUser.IsChecked == true) AddValue("/N", TxtUser.Text);
-            if (ChkPwd.IsChecked == true) AddValue("/P", TxtPwd.Text);
+            if (ChkPwd.IsChecked == true) AddValue("/P", TxtPwd.Password);
 
             if (!string.IsNullOrWhiteSpace(TxtCustom.Text))
             {

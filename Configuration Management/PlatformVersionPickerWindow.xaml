@@ -8,8 +8,8 @@
         mc:Ignorable="d"
         Title="Выбор версии платформы"
         Icon="{StaticResource AppIcon}"
-        Width="560" Height="580"
-        MinHeight="420" MinWidth="420"
+        Width="520" Height="560"
+        MinHeight="400" MinWidth="400"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI"
@@ -23,82 +23,163 @@
         </Style>
         <Style TargetType="TreeViewItem" BasedOn="{StaticResource ModernTreeViewItem}">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="IsExpanded" Value="True"/>
+            <Setter Property="IsExpanded" Value="False"/>
             <Setter Property="Padding" Value="2,1"/>
+        </Style>
+        <Style x:Key="ArchRadio" TargetType="RadioButton">
+            <Setter Property="Margin" Value="0,0,12,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style x:Key="SortToggle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4" Padding="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
+    <Grid Margin="14">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <GroupBox Grid.Row="0" Header="Установленные версии платформы" Padding="8" Margin="0,0,0,12">
+        <!-- Фильтр разрядности + сортировка (как в стартере 1С) -->
+        <Border Grid.Row="0" Padding="8,6" Margin="0,0,0,8"
+                Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                CornerRadius="6">
             <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0"
-                           Text="Группировка: линия (8.3 / 8.5) → разрядность (64/32) → сборка с путём. Двойной щелчок — выбор."
-                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
-                           TextWrapping="Wrap"/>
-
-                <TreeView x:Name="PlatformsTree" Grid.Row="1"
-                          Background="{DynamicResource CardBackgroundBrush}"
-                          BorderBrush="{DynamicResource BorderBrushColor}"
-                          BorderThickness="1"
-                          Padding="6,4"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                          SelectedItemChanged="OnPlatformsTree_SelectedItemChanged"
-                          MouseDoubleClick="OnPlatformsTree_MouseDoubleClick"
-                          ToolTip="Линия (8.3) → разрядность → сборка с путём">
-                    <TreeView.ItemTemplate>
-                        <HierarchicalDataTemplate DataType="{x:Type models:PlatformVersionGroup}"
-                                                  ItemsSource="{Binding Children}">
-                            <Border Margin="0,2" Padding="6,4" CornerRadius="4"
-                                    Background="{DynamicResource ItemHoverBrush}"
-                                    ToolTip="{Binding Path}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <materialDesign:PackIcon Grid.Column="0" Width="14" Height="14"
-                                                             Margin="0,2,8,0" VerticalAlignment="Top">
-                                        <materialDesign:PackIcon.Style>
-                                            <Style TargetType="materialDesign:PackIcon">
-                                                <Setter Property="Kind" Value="Folder"/>
-                                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsLeaf}" Value="True">
-                                                        <Setter Property="Kind" Value="CubeOutline"/>
-                                                        <Setter Property="Foreground" Value="#3B82F6"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </materialDesign:PackIcon.Style>
-                                    </materialDesign:PackIcon>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding Path}" FontSize="11"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   ToolTip="{Binding Path}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </HierarchicalDataTemplate>
-                    </TreeView.ItemTemplate>
-                </TreeView>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <RadioButton x:Name="FilterAll" Content="Все" Style="{StaticResource ArchRadio}"
+                                 GroupName="ArchFilter" IsChecked="True"
+                                 Checked="OnArchFilter_Changed"/>
+                    <RadioButton x:Name="FilterX32" Content="x32" Style="{StaticResource ArchRadio}"
+                                 GroupName="ArchFilter"
+                                 Checked="OnArchFilter_Changed"/>
+                    <RadioButton x:Name="FilterX64" Content="x64" Style="{StaticResource ArchRadio}"
+                                 GroupName="ArchFilter"
+                                 Checked="OnArchFilter_Changed"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ToggleButton x:Name="SortAsc" Style="{StaticResource SortToggle}"
+                                  IsChecked="True" ToolTip="Сортировка по возрастанию (A→Z)"
+                                  Click="OnSortAsc_Click">
+                        <TextBlock Text="A↓Z" FontSize="11" FontWeight="SemiBold"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="SortDesc" Style="{StaticResource SortToggle}"
+                                  ToolTip="Сортировка по убыванию (Z→A)"
+                                  Click="OnSortDesc_Click">
+                        <TextBlock Text="Z↓A" FontSize="11" FontWeight="SemiBold"/>
+                    </ToggleButton>
+                </StackPanel>
             </Grid>
-        </GroupBox>
+        </Border>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+        <!-- Дерево: 8.3 → 8.3.27 → 8.3.27.2214 (x64) -->
+        <Border Grid.Row="1" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}">
+            <TreeView x:Name="PlatformsTree"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      Padding="4"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      SelectedItemChanged="OnPlatformsTree_SelectedItemChanged"
+                      MouseDoubleClick="OnPlatformsTree_MouseDoubleClick">
+                <TreeView.ItemTemplate>
+                    <HierarchicalDataTemplate DataType="{x:Type models:PlatformVersionGroup}"
+                                              ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal" Margin="0,1">
+                            <!-- Иконка по типу узла: папка линии / папка сборок / куб x64|x32 -->
+                            <materialDesign:PackIcon Width="16" Height="16" Margin="0,0,6,0"
+                                                     VerticalAlignment="Center">
+                                <materialDesign:PackIcon.Style>
+                                    <Style TargetType="materialDesign:PackIcon">
+                                        <Setter Property="Kind" Value="Folder"/>
+                                        <Setter Property="Foreground" Value="#F59E0B"/>
+                                        <Style.Triggers>
+                                            <!-- Линия 8.3 — папка-акцент -->
+                                            <DataTrigger Binding="{Binding Kind}" Value="Line">
+                                                <Setter Property="Kind" Value="Folder"/>
+                                                <Setter Property="Foreground" Value="#F59E0B"/>
+                                            </DataTrigger>
+                                            <!-- Группа сборок 8.3.27 — открытая папка -->
+                                            <DataTrigger Binding="{Binding Kind}" Value="BuildGroup">
+                                                <Setter Property="Kind" Value="FolderOpen"/>
+                                                <Setter Property="Foreground" Value="#3B82F6"/>
+                                            </DataTrigger>
+                                            <!-- Сборка x64 -->
+                                            <DataTrigger Binding="{Binding Kind}" Value="LeafX64">
+                                                <Setter Property="Kind" Value="CubeOutline"/>
+                                                <Setter Property="Foreground" Value="#22C55E"/>
+                                            </DataTrigger>
+                                            <!-- Сборка x32 -->
+                                            <DataTrigger Binding="{Binding Kind}" Value="LeafX32">
+                                                <Setter Property="Kind" Value="Cube"/>
+                                                <Setter Property="Foreground" Value="#8B5CF6"/>
+                                            </DataTrigger>
+                                            <!-- Сборка без метки разрядности -->
+                                            <DataTrigger Binding="{Binding Kind}" Value="Leaf">
+                                                <Setter Property="Kind" Value="Application"/>
+                                                <Setter Property="Foreground" Value="#0EA5E9"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialDesign:PackIcon.Style>
+                            </materialDesign:PackIcon>
+                            <TextBlock Text="{Binding Name}" FontSize="12"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="Normal"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsLeaf}" Value="False">
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </HierarchicalDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button x:Name="SelectButton" Width="140" Height="36" Margin="0,0,10,0" IsDefault="True"
                     Click="OnSelect_Click" IsEnabled="False"
                     Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">

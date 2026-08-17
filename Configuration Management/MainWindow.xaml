@@ -1322,37 +1322,41 @@
                                    Margin="0,0,0,10"
                                    Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
 
-                        <!-- Кнопки действий: полные подписи в развёрнутой панели, короткие — в компактной -->
-                        <Button Command="{Binding LaunchEnterpriseCommand}"
-                                ToolTip="{Binding HotkeyEnterprise, StringFormat=Запустить 1С:Предприятие ({0})}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource ActionPanelButton}">
-                                    <Setter Property="Padding" Value="14,12"/>
+                        <!-- Кнопки запуска со split-меню (как StartManager): основное действие + ▼ -->
+                        <Grid Margin="8,0,8,8">
+                            <Grid.Style>
+                                <Style TargetType="Grid">
                                     <Setter Property="Margin" Value="8,0,8,8"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                            <Setter Property="Padding" Value="6,8"/>
                                             <Setter Property="Margin" Value="0,0,0,4"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </Button.Style>
-                            <Grid HorizontalAlignment="Stretch">
+                            </Grid.Style>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Command="{Binding LaunchEnterpriseCommand}"
+                                    ToolTip="{Binding HotkeyEnterprise, StringFormat=Запустить 1С:Предприятие ({0})}"
+                                    Cursor="Hand">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ActionPanelButton}">
+                                        <Setter Property="Padding" Value="14,12"/>
+                                        <Setter Property="Margin" Value="0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
+                                                <Setter Property="Padding" Value="6,8"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="Play" Width="16" Height="16"
-                                                             Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center">
-                                        <materialDesign:PackIcon.Style>
-                                            <Style TargetType="materialDesign:PackIcon">
-                                                <Setter Property="Margin" Value="0,0,10,0"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                        <Setter Property="Margin" Value="0,0,4,0"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </materialDesign:PackIcon.Style>
-                                    </materialDesign:PackIcon>
-                                    <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource ButtonTextBrush}" FontSize="12" FontWeight="SemiBold">
+                                    <materialDesign:PackIcon Kind="Play" Width="16" Height="16" Margin="0,0,6,0"
+                                                             Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ButtonTextBrush}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="Text" Value="Запустить 1С:Предприятие"/>
@@ -1365,14 +1369,119 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                 </StackPanel>
-                                <TextBlock Text="{Binding HotkeyEnterprise}" HorizontalAlignment="Right"
-                                           VerticalAlignment="Center" Foreground="{DynamicResource ButtonTextBrush}"
-                                           Opacity="0.85" FontWeight="SemiBold"
-                                           Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
-                            </Grid>
-                        </Button>
-                        <Button Command="{Binding LaunchConfiguratorCommand}"
-                                ToolTip="{Binding HotkeyConfigurator, StringFormat=Открыть конфигуратор ({0})}">
+                            </Button>
+                            <Button Grid.Column="1" x:Name="EnterpriseMenuButton" Width="28" Padding="0"
+                                    Cursor="Hand" Click="OnEnterpriseMenuClick"
+                                    ToolTip="Дополнительные варианты запуска 1С:Предприятие"
+                                    Style="{StaticResource ActionPanelButton}">
+                                <materialDesign:PackIcon Kind="MenuDown" Width="16" Height="16"
+                                                         Foreground="{DynamicResource ButtonTextBrush}"/>
+                                <Button.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Запустить с выбором параметров" Command="{Binding LaunchEnterpriseWithParamsCommand}"
+                                                  InputGestureText="Ctrl+F3" Style="{DynamicResource ModernMenuItem}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="Tune" Width="16" Height="16"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Запустить с аутентификацией" Command="{Binding LaunchEnterpriseWithAuthCommand}"
+                                                  InputGestureText="Shift+F3" Style="{DynamicResource ModernMenuItem}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="AccountKey" Width="16" Height="16"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator/>
+                                        <MenuItem Header="Запустить от имени администратора" Command="{Binding LaunchEnterpriseAsAdminCommand}"
+                                                  Style="{DynamicResource ModernMenuItem}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="ShieldAccount" Width="16" Height="16"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                        </Grid>
+
+                        <Grid Margin="8,0,8,8">
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Setter Property="Margin" Value="8,0,8,8"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
+                                            <Setter Property="Margin" Value="0,0,0,4"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Command="{Binding LaunchConfiguratorCommand}"
+                                    ToolTip="{Binding HotkeyConfigurator, StringFormat=Запустить Конфигуратор ({0})}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
+                                        <Setter Property="Padding" Value="14,12"/>
+                                        <Setter Property="Margin" Value="0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
+                                                <Setter Property="Padding" Value="6,8"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <materialDesign:PackIcon Kind="Wrench" Width="16" Height="16" Margin="0,0,6,0"
+                                                             Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ButtonTextBrush}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="Запустить Конфигуратор"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                        <Setter Property="Text" Value="Конфигуратор"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="1" x:Name="ConfiguratorMenuButton" Width="28" Padding="0"
+                                    Cursor="Hand" Click="OnConfiguratorMenuClick"
+                                    ToolTip="Дополнительные варианты запуска Конфигуратора">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="Margin" Value="0"/>
+                                    </Style>
+                                </Button.Style>
+                                <materialDesign:PackIcon Kind="MenuDown" Width="16" Height="16"
+                                                         Foreground="{DynamicResource ButtonTextBrush}"/>
+                                <Button.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Запустить с выбором параметров" Command="{Binding LaunchConfiguratorWithParamsCommand}"
+                                                  Style="{DynamicResource ModernMenuItem}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="Tune" Width="16" Height="16"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator/>
+                                        <MenuItem Header="Запустить от имени администратора" Command="{Binding LaunchConfiguratorAsAdminCommand}"
+                                                  Style="{DynamicResource ModernMenuItem}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="ShieldAccount" Width="16" Height="16"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                        </Grid>
+
+                        <!-- Родной стартер 1С (1CEStart.exe) для сверки списка -->
+                        <Button Command="{Binding LaunchNativeStarterCommand}"
+                                ToolTip="Открыть стандартный стартер 1С (1CEStart.exe)">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,12"/>
@@ -1385,30 +1494,23 @@
                                     </Style.Triggers>
                                 </Style>
                             </Button.Style>
-                            <Grid HorizontalAlignment="Stretch">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="Cog" Width="16" Height="16"
-                                                             Foreground="{DynamicResource ButtonTextBrush}"
-                                                             VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                    <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource ButtonTextBrush}">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Открыть конфигуратор"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                        <Setter Property="Text" Value="Конфигуратор"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
-                                <TextBlock Text="{Binding HotkeyConfigurator}" HorizontalAlignment="Right"
-                                           VerticalAlignment="Center" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource ButtonTextBrush}" Opacity="0.75"
-                                           Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
-                            </Grid>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                <materialDesign:PackIcon Kind="Application" Width="16" Height="16" Margin="0,0,6,0"
+                                                         Foreground="#F59E0B" VerticalAlignment="Center"/>
+                                <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource ButtonTextBrush}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="1С:Стартер"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                    <Setter Property="Text" Value="Стартер"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
                         </Button>
 
                         <!-- Отступ между запуском (1С / Конфигуратор) и остальными действиями -->
@@ -1706,8 +1808,18 @@
                         </Button>
 
                         <!-- Отдельная кнопка «Перейти по ссылке» (аналог стандартного загрузчика 1С) -->
-                        <Border Height="1" Background="{DynamicResource BorderBrushColor}" Margin="8,6,8,10"
-                                Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
+                        <Border Height="1" Background="{DynamicResource BorderBrushColor}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Margin" Value="8,6,8,10"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
+                                            <Setter Property="Margin" Value="4,8,4,8"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
 
                         <Button Command="{Binding OpenInfobaseByLinkCommand}"
                                 ToolTip="Ввести ссылку на информационную базу и запустить её (как в стандартном загрузчике 1С)">
@@ -1754,9 +1866,19 @@
                         </Button>
 
                         <!-- Разделитель и кнопка «Выход»: всегда полностью закрывает приложение,
-                             игнорируя настройку «Закрывать в трей». -->
-                        <Border Height="1" Background="{DynamicResource BorderBrushColor}" Margin="8,10,8,10"
-                                Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
+                             игнорируя настройку «Закрывать в трей». Виден и в компактной панели. -->
+                        <Border Height="1" Background="{DynamicResource BorderBrushColor}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Margin" Value="8,10,8,10"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
+                                            <Setter Property="Margin" Value="4,8,4,8"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
 
                         <Button Click="OnExitApplicationClick"
                                 ToolTip="Полностью завершить работу приложения (игнорируя настройку «Закрывать в трей»)">

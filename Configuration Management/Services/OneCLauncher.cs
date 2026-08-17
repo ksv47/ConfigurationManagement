@@ -54,11 +54,11 @@ public static class OneCLauncher
     /// <param name="infobase">Информационная база.</param>
     /// <param name="mode">Режим запуска (Предприятие или Конфигуратор).</param>
     /// <returns>true, если запуск успешно инициирован.</returns>
-    public static bool Launch(Infobase infobase, OneCLaunchMode mode)
+    public static bool Launch(Infobase infobase, OneCLaunchMode mode, bool runAsAdmin = false)
     {
         // В режиме «Конфигуратор» тип клиента не применяется.
         if (mode == OneCLaunchMode.Configurator)
-            return Launch(infobase, mode, OneCClientType.Thin, GetArchitecture(infobase));
+            return Launch(infobase, mode, OneCClientType.Thin, GetArchitecture(infobase), runAsAdmin);
 
         // Веб-клиент запускается через браузер.
         if (string.Equals(infobase.LaunchMode, "Веб-клиент", StringComparison.OrdinalIgnoreCase))
@@ -66,14 +66,14 @@ public static class OneCLauncher
 
         // Автоматический режим — платформа сама выбирает клиент (без /RunMode).
         if (string.Equals(infobase.LaunchMode, "Автоматический", StringComparison.OrdinalIgnoreCase))
-            return Launch(infobase, mode, null, GetArchitecture(infobase));
+            return Launch(infobase, mode, null, GetArchitecture(infobase), runAsAdmin);
 
         // Толстый клиент.
         if (string.Equals(infobase.LaunchMode, "Толстый клиент", StringComparison.OrdinalIgnoreCase))
-            return Launch(infobase, mode, OneCClientType.Thick, GetArchitecture(infobase));
+            return Launch(infobase, mode, OneCClientType.Thick, GetArchitecture(infobase), runAsAdmin);
 
         // По умолчанию — тонкий клиент.
-        return Launch(infobase, mode, OneCClientType.Thin, GetArchitecture(infobase));
+        return Launch(infobase, mode, OneCClientType.Thin, GetArchitecture(infobase), runAsAdmin);
     }
 
     /// <summary>
@@ -203,7 +203,7 @@ public static class OneCLauncher
     /// <param name="clientType">Тип клиента (тонкий или толстый). null — автоматический выбор платформой.</param>
     /// <param name="architecture">Разрядность (32 или 64 бита).</param>
     /// <returns>true, если запуск успешно инициирован.</returns>
-    public static bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture)
+    public static bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture, bool runAsAdmin = false)
     {
         var exePath = FindExecutable(infobase.PlatformVersion, architecture, clientType, mode);
         if (string.IsNullOrEmpty(exePath))
@@ -232,7 +232,8 @@ public static class OneCLauncher
             {
                 FileName = exePath,
                 Arguments = arguments,
-                UseShellExecute = false
+                UseShellExecute = runAsAdmin, // runas требует ShellExecute
+                Verb = runAsAdmin ? "runas" : string.Empty
             };
             Process.Start(psi);
 

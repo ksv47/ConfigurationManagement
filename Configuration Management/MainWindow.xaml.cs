@@ -2169,5 +2169,26 @@ namespace Configuration_Management
             if (item.DataContext is GroupNodeViewModel g)
                 group = g;
         }
+
+        private void OnEnterpriseMenuClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button btn || btn.ContextMenu is null)
+                return;
+            btn.ContextMenu.PlacementTarget = btn;
+            btn.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            btn.ContextMenu.DataContext = DataContext;
+            btn.ContextMenu.IsOpen = true;
+        }
+
+        private void OnConfiguratorMenuClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button btn || btn.ContextMenu is null)
+                return;
+            btn.ContextMenu.PlacementTarget = btn;
+            btn.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            btn.ContextMenu.DataContext = DataContext;
+            btn.ContextMenu.IsOpen = true;
+        }
+
     }
 }

@@ -241,7 +241,7 @@ public class MainViewModel : ViewModelBase
             _ => SelectedInfobase != null || SelectedGroupNode?.Group != null);
         ToggleFavoriteCommand = new RelayCommand(ToggleFavorite, _ => SelectedInfobase != null);
         ToggleFavoriteForCommand = new RelayCommand(ToggleFavoriteFor);
-        LaunchCommand = new RelayCommand(Launch, _ => SelectedInfobase != null);
+        LaunchCommand = new RelayCommand(p => Launch(p), _ => SelectedInfobase != null);
         // Обратная совместимость с XAML: отдельные команды делегируют в единую LaunchCommand.
         LaunchEnterpriseCommand = new RelayCommand(_ => Launch(LaunchKind.Enterprise), _ => SelectedInfobase != null);
         LaunchConfiguratorCommand = new RelayCommand(_ => Launch(LaunchKind.Configurator), _ => SelectedInfobase != null);
@@ -249,6 +249,12 @@ public class MainViewModel : ViewModelBase
         LaunchEnterpriseThickCommand = new RelayCommand(_ => Launch(LaunchKind.Thick32), _ => SelectedInfobase != null);
         LaunchEnterpriseThin64Command = new RelayCommand(_ => Launch(LaunchKind.Thin64), _ => SelectedInfobase != null);
         LaunchEnterpriseThick64Command = new RelayCommand(_ => Launch(LaunchKind.Thick64), _ => SelectedInfobase != null);
+        LaunchEnterpriseAsAdminCommand = new RelayCommand(_ => Launch(LaunchKind.Enterprise, runAsAdmin: true), _ => SelectedInfobase != null);
+        LaunchConfiguratorAsAdminCommand = new RelayCommand(_ => Launch(LaunchKind.Configurator, runAsAdmin: true), _ => SelectedInfobase != null);
+        LaunchEnterpriseWithParamsCommand = new RelayCommand(LaunchEnterpriseWithParams, _ => SelectedInfobase != null);
+        LaunchEnterpriseWithAuthCommand = new RelayCommand(LaunchEnterpriseWithAuth, _ => SelectedInfobase != null);
+        LaunchConfiguratorWithParamsCommand = new RelayCommand(LaunchConfiguratorWithParams, _ => SelectedInfobase != null);
+        LaunchNativeStarterCommand = new RelayCommand(_ => LaunchNativeStarter());
         ImportFromIbasesV8iCommand = new RelayCommand(ImportFromIbasesV8i);
         ExportToIbasesV8iCommand = new RelayCommand(_ => ExportToIbases());
         SynchronizeWithIbasesCommand = new RelayCommand(SynchronizeWithIbasesManual);
@@ -565,30 +571,12 @@ public class MainViewModel : ViewModelBase
 
         var message = string.Empty;
 
-        if (importPerformed && File.Exists(filePath))
+        // В двустороннем режиме сначала выгрузка (удаления из приложения попадают в файл),
+        // затем загрузка (удаления из стартера 1С убираются из приложения).
+        void DoExport()
         {
             try
             {
-                var result = _ibasesSync.Import(filePath, Infobases, Groups);
-                InfobasesView.Refresh();
-                Save();
-                SaveGroups();
-                RebuildGroupTree();
-                message = BuildSyncMessage("Загружено из файла", result);
-            }
-            catch (Exception ex)
-            {
-                // Не прерываем работу пользователя при авто-синхронизации, но фиксируем ошибку в статусе.
-                System.Diagnostics.Debug.WriteLine($"Авто-импорт ibases.v8i: {ex}");
-                SyncMessage = $"Ошибка импорта: {ex.Message}";
-            }
-        }
-
-        if (exportPerformed)
-        {
-            try
-            {
-                // Резервная копия перед записью в ibases.v8i.
                 if (_ibasesBackupEnabled && File.Exists(filePath))
                 {
                     try
@@ -620,6 +608,43 @@ public class MainViewModel : ViewModelBase
             }
         }
 
+        void DoImport()
+        {
+            if (!File.Exists(filePath))
+                return;
+            try
+            {
+                var result = _ibasesSync.Import(filePath, Infobases, Groups);
+                InfobasesView.Refresh();
+                Save();
+                SaveGroups();
+                RebuildGroupTree();
+                var importText = BuildSyncMessage("Загружено из файла", result);
+                if (!string.IsNullOrEmpty(importText))
+                {
+                    message = string.IsNullOrEmpty(message)
+                        ? importText
+                        : message + "; " + importText;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Авто-импорт ibases.v8i: {ex}");
+                SyncMessage = $"Ошибка импорта: {ex.Message}";
+            }
+        }
+
+        if (_ibasesSyncMode == IbasesSyncMode.Both)
+        {
+            if (exportPerformed) DoExport();
+            if (importPerformed) DoImport();
+        }
+        else
+        {
+            if (importPerformed) DoImport();
+            if (exportPerformed) DoExport();
+        }
+
         if (!string.IsNullOrEmpty(message))
         {
             SyncMessage = $"{DateTime.Now:HH:mm:ss} — {message}";
@@ -640,6 +665,7 @@ public class MainViewModel : ViewModelBase
         {
             if (import.Added > 0) parts.Add($"добавлено баз: {import.Added}");
             if (import.Updated > 0) parts.Add($"обновлено баз: {import.Updated}");
+            if (import.Removed > 0) parts.Add($"удалено баз: {import.Removed}");
             if (import.Skipped > 0) parts.Add($"пропущено: {import.Skipped}");
             if (import.GroupsCreated > 0) parts.Add($"создано групп: {import.GroupsCreated}");
         }
@@ -647,6 +673,7 @@ public class MainViewModel : ViewModelBase
         {
             if (export.Added > 0) parts.Add($"добавлено баз: {export.Added}");
             if (export.Updated > 0) parts.Add($"обновлено баз: {export.Updated}");
+            if (export.Removed > 0) parts.Add($"удалено баз: {export.Removed}");
             if (export.GroupsCreated > 0) parts.Add($"создано групп: {export.GroupsCreated}");
         }
 
@@ -1507,6 +1534,13 @@ public class MainViewModel : ViewModelBase
     /// <summary>Команда запуска 1С:Предприятие толстым клиентом (64 бита).</summary>
     public ICommand LaunchEnterpriseThick64Command { get; }
 
+    public ICommand LaunchEnterpriseAsAdminCommand { get; }
+    public ICommand LaunchConfiguratorAsAdminCommand { get; }
+    public ICommand LaunchEnterpriseWithParamsCommand { get; }
+    public ICommand LaunchEnterpriseWithAuthCommand { get; }
+    public ICommand LaunchConfiguratorWithParamsCommand { get; }
+    public ICommand LaunchNativeStarterCommand { get; }
+
     private void SelectInfobase(object? parameter)
     {
         if (parameter is Infobase infobase)
@@ -2361,11 +2395,93 @@ public string HotkeyEnterprise
         }, token);
     }
 
+    private void LaunchEnterpriseWithParams(object? parameter)
+    {
+        if (SelectedInfobase is null) return;
+        var dlg = new Configuration_Management.LaunchParametersWindow(SelectedInfobase.LaunchParameters ?? "")
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dlg.ShowDialog() != true) return;
+        var saved = SelectedInfobase.LaunchParameters;
+        try
+        {
+            SelectedInfobase.LaunchParameters = dlg.Result ?? "";
+            var ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise);
+            if (ok)
+            {
+                SelectedInfobase.LastLaunchDate = DateTime.Now;
+                Save();
+            }
+        }
+        finally
+        {
+            SelectedInfobase.LaunchParameters = saved;
+        }
+    }
+
+    private void LaunchConfiguratorWithParams(object? parameter)
+    {
+        if (SelectedInfobase is null) return;
+        var dlg = new Configuration_Management.LaunchParametersWindow(SelectedInfobase.LaunchParameters ?? "")
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dlg.ShowDialog() != true) return;
+        var saved = SelectedInfobase.LaunchParameters;
+        try
+        {
+            SelectedInfobase.LaunchParameters = dlg.Result ?? "";
+            var ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Configurator);
+            if (ok)
+            {
+                SelectedInfobase.LastLaunchDate = DateTime.Now;
+                Save();
+            }
+        }
+        finally
+        {
+            SelectedInfobase.LaunchParameters = saved;
+        }
+    }
+
+    private void LaunchEnterpriseWithAuth(object? parameter)
+    {
+        if (SelectedInfobase is null) return;
+        var conn = SelectedInfobase.Connection;
+        var savedUser = conn.User;
+        var savedPwd = conn.Password;
+        var savedAuth = conn.AuthenticationMode;
+        try
+        {
+            conn.User = string.Empty;
+            conn.Password = string.Empty;
+            conn.AuthenticationMode = AuthenticationMode.Prompt;
+            var ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise);
+            if (ok)
+            {
+                SelectedInfobase.LastLaunchDate = DateTime.Now;
+                Save();
+            }
+        }
+        finally
+        {
+            conn.User = savedUser;
+            conn.Password = savedPwd;
+            conn.AuthenticationMode = savedAuth;
+        }
+    }
+
+    private void LaunchNativeStarter()
+    {
+        InfobaseMaintenanceService.OpenNativeStarter();
+    }
+
     /// <summary>
     /// Единая точка запуска 1С. parameter — LaunchKind, строка имени enum или null (Enterprise).
     /// Для Enterprise учитываются переопределения «Текущая сессия» (клиент и разрядность).
     /// </summary>
-    private void Launch(object? parameter)
+    private void Launch(object? parameter, bool runAsAdmin = false)
     {
         if (SelectedInfobase is null)
             return;
@@ -2375,22 +2491,22 @@ public string HotkeyEnterprise
         switch (kind)
         {
             case LaunchKind.Configurator:
-                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Configurator);
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Configurator, runAsAdmin);
                 break;
             case LaunchKind.Thin32:
-                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thin, OneCArchitecture.x86);
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thin, OneCArchitecture.x86, runAsAdmin);
                 break;
             case LaunchKind.Thick32:
-                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x86);
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x86, runAsAdmin);
                 break;
             case LaunchKind.Thin64:
-                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thin, OneCArchitecture.x64);
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thin, OneCArchitecture.x64, runAsAdmin);
                 break;
             case LaunchKind.Thick64:
-                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x64);
+                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x64, runAsAdmin);
                 break;
             default:
-                ok = LaunchEnterpriseWithSessionOverrides(SelectedInfobase);
+                ok = LaunchEnterpriseWithSessionOverrides(SelectedInfobase, runAsAdmin);
                 break;
         }
 
@@ -2411,13 +2527,13 @@ public string HotkeyEnterprise
     /// <summary>
     /// Запуск 1С:Предприятие с учётом переключателей «Текущая сессия».
     /// </summary>
-    private bool LaunchEnterpriseWithSessionOverrides(Infobase ib)
+    private bool LaunchEnterpriseWithSessionOverrides(Infobase ib, bool runAsAdmin = false)
     {
         // Полностью «Авто» — стандартная логика по настройкам базы.
         if (_sessionClientMode == SessionClientMode.Auto &&
             _sessionArchitecture == SessionArchitectureMode.Auto)
         {
-            return _launcher.Launch(ib, OneCLaunchMode.Enterprise);
+            return _launcher.Launch(ib, OneCLaunchMode.Enterprise, runAsAdmin);
         }
 
         OneCClientType? client = _sessionClientMode switch
@@ -2435,7 +2551,7 @@ public string HotkeyEnterprise
             _ => OneCLauncher.ResolveArchitecture(ib.Architecture, ib.PlatformVersion)
         };
 
-        return _launcher.Launch(ib, OneCLaunchMode.Enterprise, client, arch);
+        return _launcher.Launch(ib, OneCLaunchMode.Enterprise, client, arch, runAsAdmin);
     }
 
     /// <summary>Тип клиента из настройки базы (LaunchMode).</summary>

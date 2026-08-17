@@ -135,7 +135,43 @@ public static class InfobaseMaintenanceService
         }
     }
 
-    private static string? FindOneCStartExe()
+
+    /// <summary>
+    /// Запускает родной стартер 1С (1CEStart.exe) для сверки списка баз.
+    /// </summary>
+    public static bool OpenNativeStarter()
+    {
+        try
+        {
+            var path = FindOneCStartExe();
+            if (string.IsNullOrEmpty(path))
+            {
+                System.Windows.MessageBox.Show(
+                    "Не найден 1CEStart.exe.\nОжидаемый путь: Program Files\\1cv8\\common\\1CEStart.exe",
+                    "Стартер 1С",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+                return false;
+            }
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                $"Не удалось запустить стартер 1С.\n{ex.Message}",
+                "Стартер 1С",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+            return false;
+        }
+    }
+
+    public static string? FindOneCStartExe()
     {
         foreach (var root in new[]
                  {

@@ -306,11 +306,27 @@
                                                 <materialDesign:PackIcon.Style>
                                                     <Style TargetType="materialDesign:PackIcon">
                                                         <Setter Property="Kind" Value="Folder"/>
-                                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                                        <Setter Property="Foreground" Value="#F59E0B"/>
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsLeaf}" Value="True">
-                                                                <Setter Property="Kind" Value="CubeOutline"/>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="Line">
+                                                                <Setter Property="Kind" Value="Folder"/>
+                                                                <Setter Property="Foreground" Value="#F59E0B"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="BuildGroup">
+                                                                <Setter Property="Kind" Value="FolderOpen"/>
                                                                 <Setter Property="Foreground" Value="#3B82F6"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="LeafX64">
+                                                                <Setter Property="Kind" Value="CubeOutline"/>
+                                                                <Setter Property="Foreground" Value="#22C55E"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="LeafX32">
+                                                                <Setter Property="Kind" Value="Cube"/>
+                                                                <Setter Property="Foreground" Value="#8B5CF6"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="Leaf">
+                                                                <Setter Property="Kind" Value="Application"/>
+                                                                <Setter Property="Foreground" Value="#0EA5E9"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>

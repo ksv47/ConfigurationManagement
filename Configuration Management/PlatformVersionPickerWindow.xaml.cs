@@ -6,51 +6,133 @@ using Configuration_Management.Services;
 namespace Configuration_Management
 {
     /// <summary>
-    /// Диалог выбора версии платформы 1С (тот же вид, что в Настройки → Платформы):
-    /// линия (8.2 / 8.3 / 8.5) → разрядность (64/32) → сборка с путём.
+    /// Диалог выбора версии платформы 1С (как в стартере):
+    /// фильтр Все / x32 / x64, сортировка A→Z / Z→A,
+    /// дерево 8.3 → 8.3.27 → 8.3.27.2214 (x64).
     /// </summary>
     public partial class PlatformVersionPickerWindow : Window
     {
         private string _selectedVersion = string.Empty;
-        private List<PlatformVersionGroup> _tree = new();
+        private List<PlatformVersionInfo> _allInfos = new();
+        private string _currentVersion = string.Empty;
+        private bool _sortAscending = true;
+        private string _archFilter = "all"; // all | x32 | x64
 
         public PlatformVersionPickerWindow(IEnumerable<string> installedPlatformVersions, string currentVersion)
         {
             InitializeComponent();
+            _currentVersion = currentVersion ?? "";
 
-            // Учитываем доп. пути поиска платформ (как в настройках).
             var extras = PlatformVersionService.GetAdditionalSearchPaths();
-            var infos = PlatformVersionService.FindInstalledVersionInfos(extras);
-            if (infos.Count == 0 && installedPlatformVersions != null)
+            _allInfos = PlatformVersionService.FindInstalledVersionInfos(extras);
+            if (_allInfos.Count == 0 && installedPlatformVersions != null)
             {
-                infos = installedPlatformVersions
+                _allInfos = installedPlatformVersions
                     .Where(s => !string.IsNullOrWhiteSpace(s))
                     .Select(s => new PlatformVersionInfo { Display = s.Trim(), Path = "" })
                     .ToList();
             }
             else if (installedPlatformVersions != null)
             {
-                var known = new HashSet<string>(infos.Select(i => i.Display), StringComparer.OrdinalIgnoreCase);
+                var known = new HashSet<string>(_allInfos.Select(i => i.Display), StringComparer.OrdinalIgnoreCase);
                 foreach (var s in installedPlatformVersions)
                 {
                     if (string.IsNullOrWhiteSpace(s) || known.Contains(s.Trim())) continue;
-                    infos.Add(new PlatformVersionInfo { Display = s.Trim(), Path = "" });
+                    _allInfos.Add(new PlatformVersionInfo { Display = s.Trim(), Path = "" });
                 }
             }
 
-            // Группировка: 8.2 / 8.3 / 8.5 → 64/32 → сборка
-            _tree = PlatformVersionService.BuildGroupedTree(infos);
-            PlatformsTree.ItemsSource = _tree;
-
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                ExpandAllGroups(PlatformsTree);
-                if (!string.IsNullOrWhiteSpace(currentVersion))
-                    SelectCurrent(currentVersion);
-            }), System.Windows.Threading.DispatcherPriority.Loaded);
+            RefreshTree();
         }
 
         public string Result => _selectedVersion;
+
+        private void RefreshTree()
+        {
+            var filtered = FilterByArchitecture(_allInfos, _archFilter);
+            var tree = PlatformVersionService.BuildGroupedTree(filtered);
+            if (_sortAscending)
+                tree = ReverseTreeOrder(tree);
+
+            PlatformsTree.ItemsSource = tree;
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // Разворачиваем первый уровень (линии 8.3), чтобы было похоже на стартер
+                ExpandTopLevel(PlatformsTree);
+                if (!string.IsNullOrWhiteSpace(_currentVersion))
+                    SelectCurrent(_currentVersion);
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private static List<PlatformVersionInfo> FilterByArchitecture(
+            IEnumerable<PlatformVersionInfo> infos, string filter)
+        {
+            if (filter == "all")
+                return infos.ToList();
+
+            return infos.Where(i =>
+            {
+                PlatformVersionService.ParseVariant(i.Display, out _, out var arch);
+                var label = PlatformVersionService.FormatArchitectureLabel(arch);
+                if (filter == "x64")
+                    return label == "x64" || string.IsNullOrEmpty(label); // без метки часто 64
+                if (filter == "x32")
+                    return label == "x32";
+                return true;
+            }).ToList();
+        }
+
+        private static List<PlatformVersionGroup> ReverseTreeOrder(List<PlatformVersionGroup> roots)
+        {
+            var list = roots.AsEnumerable().Reverse().ToList();
+            foreach (var node in list)
+                ReverseChildren(node);
+            return list;
+        }
+
+        private static void ReverseChildren(PlatformVersionGroup node)
+        {
+            if (node.Children.Count == 0) return;
+            node.Children = node.Children.AsEnumerable().Reverse().ToList();
+            foreach (var c in node.Children)
+                ReverseChildren(c);
+        }
+
+        private static void ExpandTopLevel(ItemsControl parent)
+        {
+            parent.UpdateLayout();
+            foreach (var item in parent.Items)
+            {
+                if (parent.ItemContainerGenerator.ContainerFromItem(item) is TreeViewItem tvi)
+                    tvi.IsExpanded = true;
+            }
+        }
+
+        private void OnArchFilter_Changed(object sender, RoutedEventArgs e)
+        {
+            if (!IsLoaded) return;
+            if (FilterX32.IsChecked == true) _archFilter = "x32";
+            else if (FilterX64.IsChecked == true) _archFilter = "x64";
+            else _archFilter = "all";
+            RefreshTree();
+        }
+
+        private void OnSortAsc_Click(object sender, RoutedEventArgs e)
+        {
+            _sortAscending = true;
+            SortAsc.IsChecked = true;
+            SortDesc.IsChecked = false;
+            RefreshTree();
+        }
+
+        private void OnSortDesc_Click(object sender, RoutedEventArgs e)
+        {
+            _sortAscending = false;
+            SortDesc.IsChecked = true;
+            SortAsc.IsChecked = false;
+            RefreshTree();
+        }
 
         private void OnPlatformsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
@@ -78,25 +160,11 @@ namespace Configuration_Management
             DialogResult = true;
         }
 
-        /// <summary>Разворачивает все нелистовые узлы (линии 8.x и разрядность), чтобы группировка была видна сразу.</summary>
-        private static void ExpandAllGroups(ItemsControl parent)
-        {
-            parent.UpdateLayout();
-            foreach (var item in parent.Items)
-            {
-                if (item is not PlatformVersionGroup node || node.IsLeaf)
-                    continue;
-                if (parent.ItemContainerGenerator.ContainerFromItem(item) is not TreeViewItem container)
-                    continue;
-                container.IsExpanded = true;
-                container.UpdateLayout();
-                ExpandAllGroups(container);
-            }
-        }
-
         private void SelectCurrent(string currentVersion)
         {
-            var leaf = FindMatchingLeaf(_tree, currentVersion);
+            if (PlatformsTree.ItemsSource is not IEnumerable<PlatformVersionGroup> roots)
+                return;
+            var leaf = FindMatchingLeaf(roots, currentVersion);
             if (leaf is null) return;
             SelectNodeInTree(PlatformsTree, leaf);
         }

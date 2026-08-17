@@ -358,8 +358,32 @@ public static class PlatformVersionService
     }
 
     /// <summary>
-    /// Единое дерево для настроек и диалога выбора:
-    /// линия (8.3) → разрядность (64/32) → сборка с путём.
+    /// Группа сборки — первые три числа: «8.3.27.1688 (64)» → «8.3.27».
+    /// </summary>
+    public static string GetVersionBuildGroup(string variant)
+    {
+        ParseVariant(variant, out var version, out _);
+        var parts = version.Split('.');
+        return parts.Length >= 3
+            ? string.Join(".", parts.Take(3))
+            : GetVersionLine(variant);
+    }
+
+    /// <summary>
+    /// Подпись разрядности в стиле стартера 1С: «x64» / «x32».
+    /// </summary>
+    public static string FormatArchitectureLabel(string? architecture)
+    {
+        if (string.IsNullOrWhiteSpace(architecture)) return "";
+        var a = architecture.Trim();
+        if (a is "64" or "x64" or "X64") return "x64";
+        if (a is "32" or "x32" or "X32" or "x86") return "x32";
+        return a;
+    }
+
+    /// <summary>
+    /// Дерево выбора платформы (как в стартере 1С):
+    /// линия (8.3) → группа сборок (8.3.27) → полная версия «8.3.27.2214 (x64)».
     /// </summary>
     public static List<Models.PlatformVersionGroup> BuildGroupedTree(
         IEnumerable<Models.PlatformVersionInfo> infos)
@@ -373,37 +397,43 @@ public static class PlatformVersionService
 
         foreach (var lineGroup in byLine)
         {
-            var lineNode = new Models.PlatformVersionGroup { Name = lineGroup.Key };
+            var lineNode = new Models.PlatformVersionGroup { Name = lineGroup.Key, Kind = Models.PlatformNodeKind.Line };
 
-            var byArch = lineGroup
-                .GroupBy(i =>
-                {
-                    ParseVariant(i.Display, out _, out var arch);
-                    return arch == "32" ? "32" : "64";
-                })
-                .OrderByDescending(g => g.Key); // 64 выше 32
+            var byBuild = lineGroup
+                .GroupBy(i => GetVersionBuildGroup(i.Display))
+                .OrderByDescending(g => g.Key, new VersionComparer());
 
-            foreach (var archGroup in byArch)
+            foreach (var buildGroup in byBuild)
             {
-                var archNode = new Models.PlatformVersionGroup
-                {
-                    Name = $"{archGroup.Key}-разрядная"
-                };
+                var buildNode = new Models.PlatformVersionGroup { Name = buildGroup.Key, Kind = Models.PlatformNodeKind.BuildGroup };
 
-                foreach (var info in archGroup.OrderByDescending(i => i.Display, new VersionComparer()))
+                foreach (var info in buildGroup.OrderByDescending(i => i.Display, new VersionComparer()))
                 {
-                    archNode.Children.Add(new Models.PlatformVersionGroup
+                    ParseVariant(info.Display, out var version, out var arch);
+                    var archLabel = FormatArchitectureLabel(arch);
+                    var leafName = string.IsNullOrEmpty(archLabel)
+                        ? version
+                        : $"{version} ({archLabel})";
+
+                    var leafKind = archLabel switch
                     {
-                        Name = info.Display,
+                        "x64" => Models.PlatformNodeKind.LeafX64,
+                        "x32" => Models.PlatformNodeKind.LeafX32,
+                        _ => Models.PlatformNodeKind.Leaf
+                    };
+                    buildNode.Children.Add(new Models.PlatformVersionGroup
+                    {
+                        Name = leafName,
                         Path = info.Path,
                         Variant = info.Display,
+                        Kind = leafKind,
                         Versions = { info }
                     });
-                    archNode.Versions.Add(info);
+                    buildNode.Versions.Add(info);
                 }
 
-                lineNode.Children.Add(archNode);
-                lineNode.Versions.AddRange(archNode.Versions);
+                lineNode.Children.Add(buildNode);
+                lineNode.Versions.AddRange(buildNode.Versions);
             }
 
             roots.Add(lineNode);

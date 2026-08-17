@@ -551,7 +551,7 @@ namespace Configuration_Management
             foreach (var node in tree)
                 PlatformsTree.Items.Add(node);
 
-            StatusText.Text = $"Найдено версий: {infos.Count} (группировка: 8.2 / 8.3 / 8.5 → разрядность → путь)";
+            StatusText.Text = $"Найдено версий: {infos.Count} (группировка: 8.3 → 8.3.27 → сборка)";
 
             // Разворачиваем линии 8.x, чтобы группировка была видна сразу
             Dispatcher.BeginInvoke(new Action(() => ExpandPlatformTreeGroups(PlatformsTree)),

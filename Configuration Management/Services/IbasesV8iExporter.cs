@@ -17,6 +17,9 @@ public class IbasesExportResult
 
     /// <summary>Количество созданных новых групп.</summary>
     public int GroupsCreated { get; set; }
+
+    /// <summary>Количество удалённых из файла баз (есть в файле, нет в приложении).</summary>
+    public int Removed { get; set; }
 }
 
 /// <summary>
@@ -110,6 +113,28 @@ public static class IbasesV8iExporter
                 result.Added++;
             }
         }
+
+        // Удаляем из файла базы, которых больше нет в приложении (двусторонняя синхронизация).
+        // Секции-группы в файле не трогаем — их удаление может ломать иерархию 1С.
+        var appNames = new HashSet<string>(
+            infobaseList.Where(b => !string.IsNullOrWhiteSpace(b.Name)).Select(b => b.Name),
+            StringComparer.OrdinalIgnoreCase);
+        var kept = new List<IbaseEntry>(entries.Count);
+        foreach (var entry in entries)
+        {
+            if (entry.IsGroup || string.IsNullOrWhiteSpace(entry.Name))
+            {
+                kept.Add(entry);
+                continue;
+            }
+            if (appNames.Contains(entry.Name))
+            {
+                kept.Add(entry);
+                continue;
+            }
+            result.Removed++;
+        }
+        entries = kept;
 
         // Устраняем дубликаты секций с одинаковым именем. Имя секции в файле 1С
         // уникально (это ключ базы). Дубли появляются, например, когда имя группы

@@ -4,16 +4,15 @@ namespace Configuration_Management.Services;
 
 public interface IOneCLauncher
 {
-    bool Launch(Infobase infobase, OneCLaunchMode mode);
-    bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture);
+    bool Launch(Infobase infobase, OneCLaunchMode mode, bool runAsAdmin = false);
+    bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture, bool runAsAdmin = false);
 }
 
-/// <summary>Адаптер над статическим OneCLauncher.</summary>
 public sealed class OneCLauncherService : IOneCLauncher
 {
-    public bool Launch(Infobase infobase, OneCLaunchMode mode) =>
-        OneCLauncher.Launch(infobase, mode);
+    public bool Launch(Infobase infobase, OneCLaunchMode mode, bool runAsAdmin = false) =>
+        OneCLauncher.Launch(infobase, mode, runAsAdmin);
 
-    public bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture) =>
-        OneCLauncher.Launch(infobase, mode, clientType, architecture);
+    public bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture, bool runAsAdmin = false) =>
+        OneCLauncher.Launch(infobase, mode, clientType, architecture, runAsAdmin);
 }

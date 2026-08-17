@@ -441,7 +441,10 @@
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Пользователь:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding User, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Пароль:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                        <PasswordBox x:Name="PasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,3" Padding="6,4"
+                                     VerticalContentAlignment="Center"
+                                     PasswordChanged="OnPasswordBox_PasswordChanged"
+                                     Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                     </Grid>
                 </GroupBox>
             </TabItem>

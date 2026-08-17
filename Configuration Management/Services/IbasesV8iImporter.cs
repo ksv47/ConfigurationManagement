@@ -18,6 +18,9 @@ public class IbasesImportResult
     /// <summary>Количество пропущенных (отключённых) баз.</summary>
     public int Skipped { get; set; }
 
+    /// <summary>Количество удалённых из приложения баз (есть в приложении, нет в файле).</summary>
+    public int Removed { get; set; }
+
     /// <summary>Количество созданных новых групп.</summary>
     public int GroupsCreated { get; set; }
 }
@@ -72,9 +75,23 @@ public static class IbasesV8iImporter
             else
             {
                 // Существующая база — обновляем настройки подключения, группу, ID базы 1С,
-                // версию платформы и режим запуска.
+                // версию платформы и режим запуска. Логин/пароль из приложения сохраняем,
+                // если в файле они пустые (ibases.v8i часто не хранит пароль).
                 var imported = entry.ToInfobase();
+                var prevUser = existing.Connection?.User ?? string.Empty;
+                var prevPassword = existing.Connection?.Password ?? string.Empty;
+                var prevAuth = existing.Connection?.AuthenticationMode ?? AuthenticationMode.Prompt;
+
                 existing.Connection = imported.Connection;
+                if (string.IsNullOrWhiteSpace(existing.Connection.User) && !string.IsNullOrWhiteSpace(prevUser))
+                    existing.Connection.User = prevUser;
+                if (string.IsNullOrWhiteSpace(existing.Connection.Password) && !string.IsNullOrWhiteSpace(prevPassword))
+                    existing.Connection.Password = prevPassword;
+                if (existing.Connection.AuthenticationMode == AuthenticationMode.Prompt
+                    && prevAuth != AuthenticationMode.Prompt
+                    && (!string.IsNullOrWhiteSpace(existing.Connection.User) || !string.IsNullOrWhiteSpace(existing.Connection.Password)))
+                    existing.Connection.AuthenticationMode = prevAuth;
+
                 if (!string.IsNullOrWhiteSpace(entry.Group))
                     existing.Group = NormalizeGroupPath(entry.Group);
                 if (!string.IsNullOrWhiteSpace(entry.Id))
@@ -87,6 +104,37 @@ public static class IbasesV8iImporter
                     existing.LaunchParameters = imported.LaunchParameters;
                 result.Updated++;
             }
+        }
+
+        // Удаляем из приложения базы, которых нет в файле:
+        // — с заполненным ID 1С (синхронизировались со стартером);
+        // — либо с тем же именем, что было в файле ранее и исчезло.
+        // Локальные базы без ID, которых никогда не было в ibases.v8i, не трогаем.
+        var fileNames = new HashSet<string>(
+            entries.Where(e => !e.IsGroup && e.Enabled && !string.IsNullOrWhiteSpace(e.Name))
+                   .Select(e => e.Name),
+            StringComparer.OrdinalIgnoreCase);
+        var fileIds = new HashSet<string>(
+            entries.Where(e => !e.IsGroup && e.Enabled && !string.IsNullOrWhiteSpace(e.Id))
+                   .Select(e => e.Id.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        for (var i = infobases.Count - 1; i >= 0; i--)
+        {
+            var b = infobases[i];
+            var hasId = !string.IsNullOrWhiteSpace(b.Id);
+            var nameInFile = !string.IsNullOrWhiteSpace(b.Name) && fileNames.Contains(b.Name);
+            var idInFile = hasId && fileIds.Contains(b.Id.Trim());
+
+            if (nameInFile || idInFile)
+                continue;
+
+            // Удаляем только базы, которые явно пришли из 1С (есть ID).
+            if (!hasId)
+                continue;
+
+            infobases.RemoveAt(i);
+            result.Removed++;
         }
 
         return result;
