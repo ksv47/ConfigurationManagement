@@ -8,6 +8,7 @@
         xmlns:converters="clr-namespace:Configuration_Management.Converters"
         xmlns:models="clr-namespace:Configuration_Management.Models"
         xmlns:conv="clr-namespace:Configuration_Management.Converters"
+        xmlns:controls="clr-namespace:Configuration_Management.Controls"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="Управление конфигурациями 1С"
@@ -33,7 +34,10 @@
         <conv:GroupTextColorConverter x:Key="GroupTextColorConverter"/>
         <conv:BooleanToGridLengthConverter x:Key="BoolToGridLen"/>
         <conv:ColumnVisibilityConverter x:Key="ColumnVis"/>
+        <conv:NameColumnWidthConverter x:Key="NameColumnWidth"/>
         <conv:IconKeyToGeometryConverter x:Key="IconKeyToGeometryConverter"/>
+        <conv:LevelToThicknessConverter x:Key="LevelToThickness"/>
+        <conv:GroupOffsetConverter x:Key="GroupOffset"/>
 
         <!-- ScrollViewer списка баз: корректные PART_* и привязки полос прокрутки.
              Виртуализация TreeView отключена — иначе высота контента = viewport и ScrollableHeight=0. -->
@@ -129,6 +133,7 @@
                               Data="{StaticResource IconTag}"
                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>
+                    <!-- Кнопки «развернуть/свернуть все группы» перенесены в заголовки колонок слева -->
                 </StackPanel>
 
                 <!-- Поиск (без тегов) -->
@@ -363,14 +368,20 @@
                                     Padding="0,2,0,2" Opacity="0.95">
                             <Grid x:Name="HeaderGrid" MinWidth="{Binding ActualWidth, ElementName=MainTree}">
                                 <Grid.ColumnDefinitions>
-                                    <!-- Колонка кнопок «развернуть/свернуть все»: фиксированная ширина, не сжимается AlignHeaderToData -->
+                                    <!-- Кнопки «развернуть/свернуть все группы» слева (видно только при группировке) -->
                                     <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=56}"/>
-                                    <!-- Компенсация сдвига дерева (отступ expander у групп) — ширина уточняется в AlignHeaderToData -->
+                                    <!-- Компенсация сдвига дерева (отступ вложенности групп) — ширина уточняется в AlignHeaderToData -->
                                     <ColumnDefinition x:Name="HeaderOffsetColumn" Width="0"/>
                                     <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
                                     <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
-                                    <!-- Имя растягивается на оставшееся место — без пустой «дыры» справа -->
-                                    <ColumnDefinition x:Name="NameColumn" Width="*"/>
+                                    <!-- Имя: растягивается на оставшееся место, пока не задана фиксированная
+                                         ширина перетаскиванием разделителя (NameColumnWidth). -->
+                                    <ColumnDefinition x:Name="NameColumn">
+                                        <ColumnDefinition.Width>
+                                            <Binding Path="DataContext.NameColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"
+                                                     Converter="{StaticResource NameColumnWidth}"/>
+                                        </ColumnDefinition.Width>
+                                    </ColumnDefinition>
                                     <ColumnDefinition x:Name="VersionColumn">
                                         <ColumnDefinition.Width>
                                             <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="120">
@@ -413,20 +424,21 @@
                                     </ColumnDefinition>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Развернуть / свернуть все группы — отдельная колонка, не обрезается -->
+                                <!-- Кнопки «развернуть/свернуть все группы» в заголовке слева -->
                                 <StackPanel Grid.Column="0" Orientation="Horizontal"
                                             VerticalAlignment="Center" HorizontalAlignment="Center"
+                                            Margin="0,0,0,4"
                                             Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                     <Button Command="{Binding DataContext.ExpandAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            Style="{DynamicResource HeaderIconButton}"
+                                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
                                             ToolTip="Развернуть все группы в списке">
-                                        <materialDesign:PackIcon Kind="ExpandAll" Width="18" Height="18"
+                                        <materialDesign:PackIcon Kind="ExpandAll" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.CollapseAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            Style="{DynamicResource HeaderIconButton}" Margin="2,0,0,0"
+                                            Style="{DynamicResource IconButton}"
                                             ToolTip="Свернуть все группы в списке">
-                                        <materialDesign:PackIcon Kind="CollapseAll" Width="18" Height="18"
+                                        <materialDesign:PackIcon Kind="CollapseAll" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                 </StackPanel>
@@ -474,8 +486,8 @@
                                            ToolTip="Размер файловой информационной базы"/>
 
                                 <!-- Современные разделители колонок: тонкая линия + широкая зона захвата -->
-                                <Border x:Name="VersionSplitter" Grid.Column="5"
-                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="8"
+                                <Border x:Name="NameSplitter" Grid.Column="4"
+                                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="Изменить ширину колонки"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
@@ -485,8 +497,8 @@
                                             Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
                                             Margin="0,2,0,4"/>
                                 </Border>
-                                <Border x:Name="LaunchModeSplitter" Grid.Column="6"
-                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="8"
+                                <Border x:Name="VersionSplitter" Grid.Column="5"
+                                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="Изменить ширину колонки"
                                         Visibility="{Binding DataContext.ShowVersionColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
@@ -497,8 +509,8 @@
                                             Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
                                             Margin="0,2,0,4"/>
                                 </Border>
-                                <Border x:Name="ServerSplitter" Grid.Column="7"
-                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="8"
+                                <Border x:Name="LaunchModeSplitter" Grid.Column="6"
+                                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="Изменить ширину колонки"
                                         Visibility="{Binding DataContext.ShowLaunchModeColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
@@ -509,11 +521,35 @@
                                             Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
                                             Margin="0,2,0,4"/>
                                 </Border>
-                                <Border x:Name="LastLaunchSplitter" Grid.Column="8"
-                                        HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="8"
+                                <Border x:Name="ServerSplitter" Grid.Column="7"
+                                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="Изменить ширину колонки"
                                         Visibility="{Binding DataContext.ShowServerColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                        MouseLeftButtonDown="OnColumnResize_MouseDown"
+                                        MouseMove="OnColumnResize_MouseMove"
+                                        MouseLeftButtonUp="OnColumnResize_MouseUp">
+                                    <Border Width="1" HorizontalAlignment="Center"
+                                            Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
+                                            Margin="0,2,0,4"/>
+                                </Border>
+                                <Border x:Name="LastLaunchSplitter" Grid.Column="8"
+                                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
+                                        Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
+                                        ToolTip="Изменить ширину колонки"
+                                        Visibility="{Binding DataContext.ShowLastLaunchColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                        MouseLeftButtonDown="OnColumnResize_MouseDown"
+                                        MouseMove="OnColumnResize_MouseMove"
+                                        MouseLeftButtonUp="OnColumnResize_MouseUp">
+                                    <Border Width="1" HorizontalAlignment="Center"
+                                            Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
+                                            Margin="0,2,0,4"/>
+                                </Border>
+                                <Border x:Name="SizeSplitter" Grid.Column="9"
+                                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
+                                        Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
+                                        ToolTip="Изменить ширину колонки"
+                                        Visibility="{Binding DataContext.ShowSizeColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
                                         MouseLeftButtonUp="OnColumnResize_MouseUp">
@@ -528,7 +564,7 @@
                     <!-- Прокручиваемая область списка баз. Прокручивается только по вертикали,
                          заголовок таблицы выше остаётся на месте. -->
                     <!-- Список баз в виде дерева «группа в группе» -->
-                    <TreeView x:Name="MainTree"
+                    <controls:LeveledTreeView x:Name="MainTree"
                               Grid.Row="1"
                               AllowDrop="True"
                               PreviewMouseMove="OnMainTree_PreviewMouseMove"
@@ -555,13 +591,13 @@
                               PreviewMouseLeftButtonDown="OnInfobaseTree_PreviewMouseLeftButtonDown">
 
                         <!-- Виртуализация панели: при большом числе баз создаются только видимые строки. -->
-                        <TreeView.ItemsPanel>
+                        <controls:LeveledTreeView.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <VirtualizingStackPanel/>
                             </ItemsPanelTemplate>
-                        </TreeView.ItemsPanel>
+                        </controls:LeveledTreeView.ItemsPanel>
 
-                        <TreeView.Resources>
+                        <controls:LeveledTreeView.Resources>
                             <!-- Узел группы: заголовок + вложенные подгруппы и базы -->
                             <HierarchicalDataTemplate DataType="{x:Type vm:GroupNodeViewModel}"
                                                       ItemsSource="{Binding Items}">
@@ -616,13 +652,19 @@
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
-                                    <Grid>
+                                    <Grid x:Name="InfobaseRowGrid">
                                         <Grid.ColumnDefinitions>
-                                            <!-- Без лишнего отступа — ★ сразу у левого края строки -->
-                                            <ColumnDefinition Width="0"/>
+                                            <!-- Пустая колонка под кнопки «развернуть/свернуть все группы» в заголовке,
+                                                 чтобы колонки данных выравнивались с заголовком (сдвиг вложенности идёт только на название). -->
+                                            <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=56}"/>
                                             <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
                                             <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
-                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <Binding Path="DataContext.NameColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"
+                                                             Converter="{StaticResource NameColumnWidth}"/>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
                                             <ColumnDefinition>
                                                 <ColumnDefinition.Width>
                                                     <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="120">
@@ -743,9 +785,15 @@
                                             </materialDesign:PackIcon>
                                         </Button>
 
-                                        <TextBlock Grid.Column="3" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                        <TextBlock x:Name="NameText" Grid.Column="3" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
                                                    Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
-                                                   HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis"/>
+                                                   HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Margin>
+                                                <MultiBinding Converter="{StaticResource LevelToThickness}">
+                                                    <Binding Path="(controls:LeveledTreeView.Level)" RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                                </MultiBinding>
+                                            </TextBlock.Margin>
+                                        </TextBlock>
 
                                         <TextBlock Grid.Column="4" Text="{Binding PlatformVersion}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
@@ -769,8 +817,13 @@
 
                                         <!-- Теги базы -->
                                         <StackPanel Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="6"
-                                                    Orientation="Horizontal" Margin="0,0,0,0"
+                                                    Orientation="Horizontal"
                                                     Visibility="{Binding DataContext.ShowTags, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                                            <StackPanel.Margin>
+                                                <MultiBinding Converter="{StaticResource LevelToThickness}">
+                                                    <Binding Path="(controls:LeveledTreeView.Level)" RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                                </MultiBinding>
+                                            </StackPanel.Margin>
                                             <ItemsControl ItemsSource="{Binding Tags}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
@@ -849,9 +902,9 @@
                                     </Grid>
                                 </Border>
                             </DataTemplate>
-                        </TreeView.Resources>
+                        </controls:LeveledTreeView.Resources>
 
-                        <TreeView.ItemContainerStyle>
+                        <controls:LeveledTreeView.ItemContainerStyle>
                             <!-- Стиль элемента дерева: заголовок группы/базы и вложенные элементы.
                                  Вложенные подгруппы сдвигаются вправо (Margin на ItemsPresenter),
                                  формируя классический вид дерева «группа в группе». -->
@@ -878,7 +931,22 @@
                                     <Setter.Value>
                                         <ControlTemplate TargetType="TreeViewItem">
                                             <StackPanel>
-                                                <Grid>
+                                                <Grid x:Name="RowGrid">
+                                                    <!-- Отступ вложенности применяется ТОЛЬКО к заголовкам групп
+                                                         (expander + текст группы), а не к строкам баз. Строки баз
+                                                         (листья) не сдвигаются, поэтому их колонки данных остаются
+                                                         строго под заголовками колонок. Название базы сдвигается
+                                                         отдельно через LevelToThickness в DataTemplate базы. -->
+                                                    <Grid.RenderTransform>
+                                                        <TranslateTransform>
+                                                            <TranslateTransform.X>
+                                                                <MultiBinding Converter="{StaticResource GroupOffset}">
+                                                                    <Binding Path="(controls:LeveledTreeView.Level)" RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                                                    <Binding Path="HasItems" RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                                                </MultiBinding>
+                                                            </TranslateTransform.X>
+                                                        </TranslateTransform>
+                                                    </Grid.RenderTransform>
                                                     <Grid.ColumnDefinitions>
                                                         <!-- Колонка expander: у листьев кнопка Collapsed → ширина Auto ≈ 0 -->
                                                         <ColumnDefinition Width="Auto" MinWidth="0"/>
@@ -958,11 +1026,10 @@
                                                         <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
                                                     </Border>
                                                 </Grid>
-                                                <!-- Вложенные уровни сдвигаются вправо (Margin накапливается
-                                                     рекурсивно на каждом уровне), формируя классическую иерархию
-                                                     дерева «группа в группе». -->
-                                                <!-- Небольшой отступ вложенности — без «пустой колонны» слева -->
-                                                <ItemsPresenter x:Name="ItemsHost" Margin="6,0,0,0"/>
+                                                <!-- Строки баз и дочерние группы НЕ сдвигаются отступом ItemsPresenter:
+                                                     отступ вложенности теперь задаётся только названию базы (LevelToThickness)
+                                                     и заголовкам групп (RowGrid). Так данные всех баз остаются под заголовками. -->
+                                                <ItemsPresenter x:Name="ItemsHost" Margin="0"/>
                                             </StackPanel>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsExpanded" Value="False">
@@ -1001,10 +1068,10 @@
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </TreeView.ItemContainerStyle>
+                        </controls:LeveledTreeView.ItemContainerStyle>
 
                         <!-- Контекстное меню по правой кнопке мыши для выбранной базы -->
-                        <TreeView.ContextMenu>
+                        <controls:LeveledTreeView.ContextMenu>
                             <ContextMenu Style="{DynamicResource ModernContextMenu}">
                                 <MenuItem Header="Запустить 1С:Предприятие" Command="{Binding LaunchEnterpriseCommand}" InputGestureText="{Binding HotkeyEnterprise}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Play" Width="16" Height="16" Foreground="#22C55E"/></MenuItem.Icon>
@@ -1052,8 +1119,8 @@
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444"/></MenuItem.Icon>
                                 </MenuItem>
                             </ContextMenu>
-                        </TreeView.ContextMenu>
-                        </TreeView>
+                        </controls:LeveledTreeView.ContextMenu>
+                        </controls:LeveledTreeView>
                     
                 </Grid>
                 </Grid>

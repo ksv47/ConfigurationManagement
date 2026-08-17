@@ -3879,8 +3879,22 @@ public string HotkeyEnterprise
         // остаются её потомками через свои ParentId и переезжают вместе с ней.
         group.ParentId = newParentId;
 
+        // Новый полный путь самой перемещаемой группы (после смены родителя).
+        var newRootPath = GroupHierarchyHelper.GetFullPath(group, Groups);
+        var newRootNorm = NormalizeGroupPath(newRootPath);
+
         // pathRemap: старый путь (и нормализованный) → новый канонический.
         var pathRemap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // Гарантированно добавляем маппинг для самой перемещаемой группы, чтобы базы,
+        // находящиеся непосредственно в ней, всегда получили новый путь.
+        if (!string.IsNullOrEmpty(oldRootPath)
+            && !string.IsNullOrEmpty(newRootPath))
+        {
+            pathRemap[oldRootPath] = newRootPath;
+            pathRemap[oldRootNorm] = newRootPath;
+        }
+
         foreach (var id in subtreeIds)
         {
             var g = Groups.FirstOrDefault(x =>
@@ -3919,19 +3933,37 @@ public string HotkeyEnterprise
                 }
 
                 // Префикс: база во вложенном пути, которого не было в pathRemap.
+                // Всегда работаем через нормализованный путь и нормализованный ключ, чтобы
+                // суффикс и итоговый путь получались каноническими и совпадали с FullPath узла.
+                // Иначе база не найдёт группу при перестройке дерева и «уедет» в «Без группы».
                 foreach (var (oldKey, newKey) in remapByLength)
                 {
-                    if (current.StartsWith(oldKey + GroupHierarchyHelper.PathSeparator,
-                            StringComparison.OrdinalIgnoreCase)
-                        || currentNorm.StartsWith(NormalizeGroupPath(oldKey) + GroupHierarchyHelper.PathSeparator,
-                            StringComparison.OrdinalIgnoreCase))
-                    {
-                        var suffix = current.Length > oldKey.Length
-                            ? current.Substring(oldKey.Length)
-                            : currentNorm.Substring(NormalizeGroupPath(oldKey).Length);
-                        ib.Group = newKey + suffix;
-                        break;
-                    }
+                    var oldKeyNorm = NormalizeGroupPath(oldKey);
+                    if (string.IsNullOrEmpty(oldKeyNorm))
+                        continue;
+                    var prefix = oldKeyNorm + GroupHierarchyHelper.PathSeparator;
+                    if (!currentNorm.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var suffix = currentNorm.Substring(oldKeyNorm.Length);
+                    ib.Group = newKey + suffix;
+                    break;
+                }
+
+                // Фолбэк: если путь базы относится к подветке (сама группа или вложенная),
+                // но почему-то не попал в pathRemap — пересчитываем его по старому корневому пути.
+                // Защищает от потери группы (попадания базы в «Без группы») при любых расхождениях
+                // в формате/нормализации пути.
+                if (!string.IsNullOrEmpty(oldRootNorm)
+                    && !string.IsNullOrEmpty(newRootPath)
+                    && (string.Equals(currentNorm, oldRootNorm, StringComparison.OrdinalIgnoreCase)
+                        || currentNorm.StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                            StringComparison.OrdinalIgnoreCase)))
+                {
+                    var suffix = currentNorm.Length > oldRootNorm.Length
+                        ? currentNorm.Substring(oldRootNorm.Length)
+                        : string.Empty;
+                    ib.Group = newRootPath + suffix;
                 }
             }
 

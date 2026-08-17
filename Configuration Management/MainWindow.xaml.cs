@@ -79,6 +79,19 @@ namespace Configuration_Management
                     return;
                 }
 
+                // При изменении видимости колонок/кнопок пересчитываем выравнивание
+                // заголовка с данными, чтобы колонки не разъезжались.
+                if (e.PropertyName is nameof(MainViewModel.ShowVersionColumn)
+                    or nameof(MainViewModel.ShowLaunchModeColumn)
+                    or nameof(MainViewModel.ShowServerColumn)
+                    or nameof(MainViewModel.ShowLastLaunchColumn)
+                    or nameof(MainViewModel.ShowSizeColumn)
+                    or nameof(MainViewModel.ShowFavoritesButton)
+                    or nameof(MainViewModel.ShowPinnedButton))
+                {
+                    Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+                }
+
                 if (e.PropertyName is nameof(MainViewModel.HotkeyEnterprise)
                     or nameof(MainViewModel.HotkeyConfigurator)
                     or nameof(MainViewModel.HotkeyFavorite)
@@ -1191,12 +1204,15 @@ namespace Configuration_Management
 
             // Положение колонки «Название» данных относительно дерева (левого края списка).
             // В заголовке слева: [кнопки развернуть/свернуть 56] + [Offset] + [★ 28] + [📌 26] + Название.
-            // Кнопки — отдельная колонка; Offset только подгоняет выравнивание с деревом
-            // (у листьев expander схлопнут, у групп — шире).
+            // Кнопки — отдельная колонка; Offset только подгоняет выравнивание с деревом.
             var dataX = nameCell.TranslatePoint(new Point(0, 0), MainTree).X;
-            var expandCol = _viewModel.ShowExpandCollapseButtons ? 56.0 : 0.0;
-            // dataX ≈ отступ до «Название» в строке; вычитаем ★+📌 и колонку кнопок.
-            var offset = Math.Max(0, dataX - 54 - expandCol);
+            var depth = CountAncestorTreeViewItems(nameCell);
+            // Строки баз не сдвигаются отступом вложенности (ItemsPresenter Margin=0): отступ
+            // применяется только к названию базы (LevelToThickness) и заголовкам групп. Поэтому
+            // у заголовка и у данных одинаковые колонки слева: [кнопки 56] + [★ 28] + [📌 26].
+            // Вычитаем их суммарную ширину (110) и сдвиг названия (depth*18), получая offset=0,
+            // т.е. колонки данных совпадают с заголовками на любом уровне вложенности.
+            var offset = Math.Max(0, dataX - 110 - depth * GroupTreeIndentStep);
             HeaderOffsetColumn.Width = new GridLength(offset);
 
             SyncHeaderWidthWithList();
@@ -1205,6 +1221,9 @@ namespace Configuration_Management
         /// <summary>
         /// Выравнивает ширину сетки заголовка с контентом списка, чтобы горизонтальная
         /// прокрутка «до конца» не разъезжала колонки заголовка и строк.
+        /// Важно: ширина заголовка не должна включать ширину вертикальной полосы прокрутки
+        /// (sbw), иначе гибкая колонка «Название» в заголовке растянется шире, чем в данных,
+        /// и фиксированные колонки данных окажутся смещёнными влево относительно заголовков.
         /// </summary>
         private void SyncHeaderWidthWithList()
         {
@@ -1212,19 +1231,17 @@ namespace Configuration_Management
                 return;
 
             var treeScroll = GetTreeScrollViewer();
-            double sbw = 0;
             double extent = MainTree.ActualWidth;
             double viewport = MainTree.ActualWidth;
             if (treeScroll is not null)
             {
-                sbw = treeScroll.ComputedVerticalScrollBarVisibility == Visibility.Visible
-                    ? SystemParameters.VerticalScrollBarWidth
-                    : 0;
                 extent = Math.Max(treeScroll.ExtentWidth, treeScroll.ViewportWidth);
                 viewport = treeScroll.ViewportWidth;
             }
 
-            double target = Math.Max(extent + sbw, viewport + sbw);
+            // Не добавляем sbw: заголовок и данные должны иметь одинаковую общую ширину,
+            // чтобы колонки данных совпадали с колонками заголовка.
+            double target = Math.Max(extent, viewport);
             if (target > 0)
                 HeaderGrid.Width = target;
         }
@@ -1695,24 +1712,15 @@ namespace Configuration_Management
 
         /// <summary>
         /// Применяет сохранённые ширины колонок списка баз.
+        /// Ширины уже загружены в модель (VersionColumnWidth и т.д.), а колонки заголовка
+        /// и строки данных привязаны к ним через ColumnVisibilityConverter, поэтому ручная
+        /// установка Width не требуется и лишь перебивала бы binding, рассинхронизируя
+        /// заголовок с данными.
         /// </summary>
         private void ApplySavedColumnWidths()
         {
-            // NameColumn = * (растягивается) — фиксированную ширину не задаём
-            SetColumnWidth(VersionColumn, _viewModel.VersionColumnWidth);
-            SetColumnWidth(LaunchModeColumn, _viewModel.LaunchModeColumnWidth);
-            SetColumnWidth(ServerColumn, _viewModel.ServerColumnWidth);
-            SetColumnWidth(LastLaunchColumn, _viewModel.LastLaunchColumnWidth);
-        }
-
-        /// <summary>
-        /// Устанавливает ширину колонки, если задано значение больше нуля.
-        /// </summary>
-        private static void SetColumnWidth(ColumnDefinition? column, double width)
-        {
-            if (column is null || width <= 0)
-                return;
-            column.Width = new GridLength(width);
+            // Колонка «Название» — гибкая (*), фиксированную ширину не задаём.
+            // Остальные колонки применяют сохранённые ширины автоматически через binding.
         }
 
         // Поля для ручного перетаскивания разделителя колонок.
@@ -1722,18 +1730,23 @@ namespace Configuration_Management
 
         /// <summary>
         /// Определяет колонку, ширину которой меняет данный разделитель.
-        /// Разделитель в Grid.Column=N расположен слева от колонки N, поэтому он меняет колонку N-1.
+        /// Разделитель расположен на правом краю своей колонки (Grid.Column=N),
+        /// поэтому он меняет ширину колонки с тем же индексом N.
         /// </summary>
         private ColumnDefinition? GetSplitterTargetColumn(object sender)
         {
-            if (ReferenceEquals(sender, VersionSplitter))
+            if (ReferenceEquals(sender, NameSplitter))
                 return NameColumn;
-            if (ReferenceEquals(sender, LaunchModeSplitter))
+            if (ReferenceEquals(sender, VersionSplitter))
                 return VersionColumn;
-            if (ReferenceEquals(sender, ServerSplitter))
+            if (ReferenceEquals(sender, LaunchModeSplitter))
                 return LaunchModeColumn;
-            if (ReferenceEquals(sender, LastLaunchSplitter))
+            if (ReferenceEquals(sender, ServerSplitter))
                 return ServerColumn;
+            if (ReferenceEquals(sender, LastLaunchSplitter))
+                return LastLaunchColumn;
+            if (ReferenceEquals(sender, SizeSplitter))
+                return SizeColumn;
             return null;
         }
 
@@ -1758,7 +1771,9 @@ namespace Configuration_Management
 
         /// <summary>
         /// Меняет ширину только целевой колонки при движении мыши.
-        /// Соседние колонки не затрагиваются: разность впитывает последняя гибкая колонка (*).
+        /// Ширина записывается в модель (VersionColumnWidth и т.д.), к которой привязаны
+        /// и колонка заголовка, и колонки данных — поэтому заголовок и данные синхронно
+        /// изменяются. Прямая установка Width перебивала бы binding и рассинхронизировала их.
         /// </summary>
         private void OnColumnResize_MouseMove(object sender, MouseEventArgs e)
         {
@@ -1772,14 +1787,19 @@ namespace Configuration_Management
             if (newWidth < 40)
                 newWidth = 40;
 
-            _resizeColumn.Width = new GridLength(newWidth);
+            if (ReferenceEquals(_resizeColumn, SizeColumn))
+            {
+                // SizeColumnWidth имеет публичный сеттер и авто-сохраняется при изменении.
+                _viewModel.SizeColumnWidth = newWidth;
+                return;
+            }
 
             _viewModel.UpdateColumnWidths(
-                NameColumn?.ActualWidth ?? 0,
-                VersionColumn?.ActualWidth ?? 0,
-                LaunchModeColumn?.ActualWidth ?? 0,
-                ServerColumn?.ActualWidth ?? 0,
-                LastLaunchColumn?.ActualWidth ?? 0);
+                ReferenceEquals(_resizeColumn, NameColumn) ? newWidth : NameColumn?.ActualWidth ?? 0,
+                ReferenceEquals(_resizeColumn, VersionColumn) ? newWidth : VersionColumn?.ActualWidth ?? 0,
+                ReferenceEquals(_resizeColumn, LaunchModeColumn) ? newWidth : LaunchModeColumn?.ActualWidth ?? 0,
+                ReferenceEquals(_resizeColumn, ServerColumn) ? newWidth : ServerColumn?.ActualWidth ?? 0,
+                ReferenceEquals(_resizeColumn, LastLaunchColumn) ? newWidth : LastLaunchColumn?.ActualWidth ?? 0);
         }
 
         /// <summary>
@@ -1953,6 +1973,45 @@ namespace Configuration_Management
                 _isDragging = false;
                 _draggedData = null;
             }
+        }
+
+        /// <summary>
+        /// Шаг накопительного отступа вложенности дерева (см. Margin у ItemsHost
+        /// в ControlTemplate TreeViewItem: "18,0,0,0" на каждый уровень).
+        /// Базы внутри групп смещаются вправо на этот шаг, чтобы была видна
+        /// иерархия «группа в группе».
+        /// </summary>
+        private const double GroupTreeIndentStep = 18.0;
+
+        /// <summary>
+        /// Считает количество РОДИТЕЛЬСКИХ (не считая собственного) TreeViewItem
+        /// от строки базы до корня TreeView — это и есть число уровней вложенности
+        /// групп, чьи ItemsPresenter.Margin реально сдвигают строку вправо.
+        /// Собственный TreeViewItem строки базы (лист без детей) в счёт не идёт:
+        /// его ItemsPresenter ничего не сдвигает, так как у листа нет дочерних строк.
+        /// </summary>
+        private static int CountAncestorTreeViewItems(DependencyObject node)
+        {
+            var depth = 0;
+            var skippedOwnContainer = false;
+            var parent = VisualTreeHelper.GetParent(node);
+            while (parent is not null)
+            {
+                if (parent is TreeViewItem)
+                {
+                    if (!skippedOwnContainer)
+                        skippedOwnContainer = true;
+                    else
+                        depth++;
+                }
+                else if (parent is TreeView)
+                {
+                    break;
+                }
+
+                parent = VisualTreeHelper.GetParent(parent);
+            }
+            return depth;
         }
 
         private void OnMainTree_GiveFeedback(object sender, GiveFeedbackEventArgs e)
