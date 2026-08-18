@@ -261,6 +261,28 @@ public class GroupNodeViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Рекурсивно сортирует подгруппы текущего узла по имени (без учёта регистра).
+    /// Порядок баз внутри группы при этом не меняется.
+    /// </summary>
+    /// <param name="ascending">true — по возрастанию (А→Я), false — по убыванию (Я→А).</param>
+    public void SortChildrenRecursive(bool ascending)
+    {
+        var comparer = StringComparer.OrdinalIgnoreCase;
+        List<GroupNodeViewModel> sorted;
+        if (ascending)
+            sorted = Children.OrderBy(c => c.DisplayName, comparer).ToList();
+        else
+            sorted = Children.OrderByDescending(c => c.DisplayName, comparer).ToList();
+
+        Children.Clear();
+        foreach (var child in sorted)
+            Children.Add(child);
+
+        foreach (var child in Children)
+            child.SortChildrenRecursive(ascending);
+    }
+
+    /// <summary>
     /// Возвращает строковое представление узла (полный путь группы).
     /// </summary>
     public override string ToString() => string.IsNullOrEmpty(FullPath) ? DisplayName : FullPath;

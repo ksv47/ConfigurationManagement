@@ -382,8 +382,8 @@
                                     Padding="0,2,0,2" Opacity="0.95">
                             <Grid x:Name="HeaderGrid" MinWidth="{Binding ActualWidth, ElementName=MainTree}">
                                 <Grid.ColumnDefinitions>
-                                    <!-- Кнопки «развернуть/свернуть все группы» слева (видно только при группировке) -->
-                                    <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=56}"/>
+                                    <!-- Кнопки «развернуть/свернуть» и «сортировка» групп слева (видно только при группировке) -->
+                                    <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=144}"/>
                                     <!-- Компенсация сдвига дерева (отступ вложенности групп) — ширина уточняется в AlignHeaderToData -->
                                     <ColumnDefinition x:Name="HeaderOffsetColumn" Width="0"/>
                                     <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
@@ -458,9 +458,21 @@
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.CollapseAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            Style="{DynamicResource IconButton}"
+                                            Style="{DynamicResource IconButton}" Margin="0,0,4,0"
                                             ToolTip="Свернуть все группы в списке">
                                         <materialDesign:PackIcon Kind="CollapseAll" Width="15" Height="15"
+                                                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </Button>
+                                    <Button Command="{Binding DataContext.SortGroupsAscendingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                            ToolTip="Сортировать группы по возрастанию (А→Я)">
+                                        <materialDesign:PackIcon Kind="SortAscending" Width="15" Height="15"
+                                                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </Button>
+                                    <Button Command="{Binding DataContext.SortGroupsDescendingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Style="{DynamicResource IconButton}"
+                                            ToolTip="Сортировать группы по убыванию (Я→А)">
+                                        <materialDesign:PackIcon Kind="SortDescending" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                 </StackPanel>
@@ -706,9 +718,9 @@
                                     </Border.Style>
                                     <Grid x:Name="InfobaseRowGrid">
                                         <Grid.ColumnDefinitions>
-                                            <!-- Пустая колонка под кнопки «развернуть/свернуть все группы» в заголовке,
+                                            <!-- Пустая колонка под кнопки «развернуть/свернуть» и «сортировка» групп в заголовке,
                                                  чтобы колонки данных выравнивались с заголовком (сдвиг вложенности идёт только на название). -->
-                                            <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=56}"/>
+                                            <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=144}"/>
                                             <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
                                             <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
                                             <ColumnDefinition>

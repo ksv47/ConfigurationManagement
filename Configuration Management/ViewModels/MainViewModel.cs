@@ -112,6 +112,8 @@ public class MainViewModel : ViewModelBase
     private string _hotkeyShowRecent = "";
     private string _sortField = "Name";
     private bool _sortAscending = true;
+    /// <summary>Направление сортировки подгрупп по имени (true — А→Я, false — Я→А).</summary>
+    private bool _groupSortAscending = true;
     private readonly List<string> _favoriteHotkeyIds = new();
     private CancellationTokenSource? _searchDebounceCts;
     private HashSet<string> _activeTagFilterSet = new(StringComparer.OrdinalIgnoreCase);
@@ -317,6 +319,8 @@ public class MainViewModel : ViewModelBase
         ClearTagFiltersCommand = new RelayCommand(ClearTagFilters, _ => HasActiveTagFilter);
         CollapseAllGroupsCommand = new RelayCommand(CollapseAllGroups);
         ExpandAllGroupsCommand = new RelayCommand(ExpandAllGroups);
+        SortGroupsAscendingCommand = new RelayCommand(_ => SortGroups(ascending: true));
+        SortGroupsDescendingCommand = new RelayCommand(_ => SortGroups(ascending: false));
         ToggleGroupExpandedCommand = new RelayCommand(ToggleGroupExpanded);
         OpenSettingsCommand = new RelayCommand(OpenSettings);
         OpenInfobaseByLinkCommand = new RelayCommand(OpenInfobaseByLink);
@@ -1621,6 +1625,12 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Команда разворачивания всех групп.</summary>
     public ICommand ExpandAllGroupsCommand { get; }
+
+    /// <summary>Команда сортировки групп по возрастанию (А→Я).</summary>
+    public ICommand SortGroupsAscendingCommand { get; }
+
+    /// <summary>Команда сортировки групп по убыванию (Я→А).</summary>
+    public ICommand SortGroupsDescendingCommand { get; }
 
     /// <summary>Команда сворачивания/разворачивания отдельной группы с сохранением состояния.</summary>
     public ICommand ToggleGroupExpandedCommand { get; }
@@ -3088,6 +3098,16 @@ public string HotkeyEnterprise
             window.ApplyGroupExpandedState(expand: true);
     }
 
+    /// <summary>
+    /// Сортирует группы по имени (А→Я или Я→А): корневые группы и рекурсивно все подгруппы.
+    /// Направление запоминается и применяется при последующих перестройках дерева.
+    /// </summary>
+    private void SortGroups(bool ascending)
+    {
+        _groupSortAscending = ascending;
+        RebuildGroupTree();
+    }
+
     /// <summary>Рекурсивно задаёт IsExpanded без уведомлений UI.</summary>
     private static void SetExpandedDeepSilent(IEnumerable<GroupNodeViewModel> nodes, bool expanded)
     {
@@ -3202,6 +3222,14 @@ public string HotkeyEnterprise
         }
 
         var roots = GroupNodeViewModel.BuildTree(Groups);
+
+        // Сортируем корневые группы и все подгруппы по имени согласно сохранённому направлению.
+        var groupComparer = StringComparer.OrdinalIgnoreCase;
+        roots.Sort(_groupSortAscending
+            ? (a, b) => groupComparer.Compare(a.DisplayName, b.DisplayName)
+            : (a, b) => groupComparer.Compare(b.DisplayName, a.DisplayName));
+        foreach (var root in roots)
+            root.SortChildrenRecursive(_groupSortAscending);
 
         var pinnedNode = new GroupNodeViewModel(null, displayName: "Закреплённые");
         var noGroupNode = new GroupNodeViewModel(
