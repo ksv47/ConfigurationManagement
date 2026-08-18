@@ -6,6 +6,7 @@ public interface IOneCLauncher
 {
     bool Launch(Infobase infobase, OneCLaunchMode mode, bool runAsAdmin = false);
     bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture, bool runAsAdmin = false);
+    bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode, OneCArchitecture architecture, bool runAsAdmin = false);
 }
 
 public sealed class OneCLauncherService : IOneCLauncher
@@ -15,4 +16,7 @@ public sealed class OneCLauncherService : IOneCLauncher
 
     public bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture, bool runAsAdmin = false) =>
         OneCLauncher.Launch(infobase, mode, clientType, architecture, runAsAdmin);
+
+    public bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode, OneCArchitecture architecture, bool runAsAdmin = false) =>
+        OneCLauncher.Launch(infobase, mode, clientType, runMode, architecture, runAsAdmin);
 }

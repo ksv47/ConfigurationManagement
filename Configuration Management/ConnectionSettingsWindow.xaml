@@ -527,8 +527,31 @@
                         <RadioButton GroupName="LaunchMode" Cursor="Hand"
                                      IsChecked="{Binding IsThickClient, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                             <StackPanel>
-                                <TextBlock Text="Толстый клиент" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="Полный клиент 1cv8. Нужен для конфигуратора, отладки и ряда режимов совместимости." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                                <TextBlock Text="Толстый клиент (управляемые формы)" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="Полный клиент 1cv8 в управляемых формах (/RunModeManagedApplication)." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </RadioButton>
+                    </Border>
+
+                    <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6"
+                            BorderThickness="1.5" Cursor="Hand"
+                            Background="{DynamicResource CardBackgroundBrush}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsThickOrdinaryClient}" Value="True">
+                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                        <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <RadioButton GroupName="LaunchMode" Cursor="Hand"
+                                     IsChecked="{Binding IsThickOrdinaryClient, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                            <StackPanel>
+                                <TextBlock Text="Толстый клиент (обычные формы)" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="Полный клиент 1cv8 в обычных формах (/RunModeOrdinaryApplication)." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </Border>

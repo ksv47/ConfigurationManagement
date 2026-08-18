@@ -299,6 +299,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsAutoMode));
                 OnPropertyChanged(nameof(IsThinClient));
                 OnPropertyChanged(nameof(IsThickClient));
+                OnPropertyChanged(nameof(IsThickOrdinaryClient));
                 OnPropertyChanged(nameof(IsWebClient));
                 OnPropertyChanged(nameof(LaunchModeHint));
             }
@@ -319,11 +320,18 @@ public class ConnectionSettingsViewModel : ViewModelBase
         set { if (value) LaunchMode = "Тонкий клиент"; }
     }
 
-    /// <summary>Толстый клиент.</summary>
+    /// <summary>Толстый клиент (управляемые формы).</summary>
     public bool IsThickClient
     {
         get => LaunchMode == "Толстый клиент";
         set { if (value) LaunchMode = "Толстый клиент"; }
+    }
+
+    /// <summary>Толстый клиент (обычные формы).</summary>
+    public bool IsThickOrdinaryClient
+    {
+        get => LaunchMode == "Толстый клиент (обычные формы)";
+        set { if (value) LaunchMode = "Толстый клиент (обычные формы)"; }
     }
 
     /// <summary>Веб-клиент.</summary>
@@ -337,7 +345,8 @@ public class ConnectionSettingsViewModel : ViewModelBase
     public string LaunchModeHint => LaunchMode switch
     {
         "Тонкий клиент" => "Запуск в режиме управляемого приложения (тонкий клиент 1cv8c).",
-        "Толстый клиент" => "Запуск толстого клиента 1cv8 (обычное/управляемое приложение).",
+        "Толстый клиент" => "Запуск толстого клиента 1cv8 в управляемых формах (/RunModeManagedApplication).",
+        "Толстый клиент (обычные формы)" => "Запуск толстого клиента 1cv8 в обычных формах (/RunModeOrdinaryApplication).",
         "Веб-клиент" => "Открытие базы в веб-браузере. Доступно при веб-публикации или клиент-сервере.",
         _ => "Режим выбирает платформа 1С автоматически по настройкам информационной базы."
     };
@@ -394,7 +403,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
     /// или клиент-серверном подключении (с публикацией).
     /// </summary>
     public bool IsWebClientAllowed =>
-        ConnectionType == ConnectionType.WebServer || ConnectionType == ConnectionType.ClientServer;
+        ConnectionType == ConnectionType.WebServer;
 
     /// <summary>Имя сервера.</summary>
     public string Server

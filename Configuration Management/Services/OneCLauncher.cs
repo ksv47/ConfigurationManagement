@@ -29,6 +29,20 @@ public enum OneCClientType
 }
 
 /// <summary>
+/// Режим форм приложения 1С:Предприятие (независим от типа клиента,
+/// как в стандартном списке баз 1С — «Толстый клиент (управляемое приложение)»
+/// и «Толстый клиент (обычное приложение)»).
+/// </summary>
+public enum OneCRunMode
+{
+    /// <summary>Управляемые формы (/RunModeManagedApplication).</summary>
+    Managed,
+
+    /// <summary>Обычные формы (/RunModeOrdinaryApplication).</summary>
+    Ordinary
+}
+
+/// <summary>
 /// Разрядность исполняемого файла платформы 1С.
 /// </summary>
 public enum OneCArchitecture
@@ -75,12 +89,33 @@ public static class OneCLauncher
         if (string.Equals(infobase.LaunchMode, "Автоматический", StringComparison.OrdinalIgnoreCase))
             return Launch(infobase, mode, null, GetArchitecture(infobase), runAsAdmin);
 
-        // Толстый клиент.
-        if (string.Equals(infobase.LaunchMode, "Толстый клиент", StringComparison.OrdinalIgnoreCase))
-            return Launch(infobase, mode, OneCClientType.Thick, GetArchitecture(infobase), runAsAdmin);
+        // Толстый клиент в обычных формах.
+        if (string.Equals(infobase.LaunchMode, "Толстый клиент (обычные формы)", StringComparison.OrdinalIgnoreCase))
+            return Launch(infobase, mode, OneCClientType.Thick, OneCRunMode.Ordinary, GetArchitecture(infobase), runAsAdmin);
 
-        // По умолчанию — тонкий клиент.
-        return Launch(infobase, mode, OneCClientType.Thin, GetArchitecture(infobase), runAsAdmin);
+        // Толстый клиент (управляемые формы) — по умолчанию «Толстый клиент».
+        if (string.Equals(infobase.LaunchMode, "Толстый клиент", StringComparison.OrdinalIgnoreCase))
+            return Launch(infobase, mode, OneCClientType.Thick, OneCRunMode.Managed, GetArchitecture(infobase), runAsAdmin);
+
+        // По умолчанию — тонкий клиент (управляемые формы).
+        return Launch(infobase, mode, OneCClientType.Thin, OneCRunMode.Managed, GetArchitecture(infobase), runAsAdmin);
+    }
+
+    /// <summary>
+    /// Определяет режим форм по режиму запуска базы (LaunchMode).
+    /// Только толстый клиент может работать и в управляемых, и в обычных формах:
+    /// «Толстый клиент» → управляемые, «Толстый клиент (обычные формы)» → обычные,
+    /// «Тонкий клиент» → управляемые; иначе — null (Авто).
+    /// </summary>
+    public static OneCRunMode? GetRunModeFromLaunchMode(string? launchMode)
+    {
+        if (string.Equals(launchMode, "Толстый клиент (обычные формы)", StringComparison.OrdinalIgnoreCase))
+            return OneCRunMode.Ordinary;
+        if (string.Equals(launchMode, "Толстый клиент", StringComparison.OrdinalIgnoreCase))
+            return OneCRunMode.Managed;
+        if (string.Equals(launchMode, "Тонкий клиент", StringComparison.OrdinalIgnoreCase))
+            return OneCRunMode.Managed;
+        return null;
     }
 
     /// <summary>
@@ -208,7 +243,8 @@ public static class OneCLauncher
 
     /// <summary>
     /// Запускает платформу 1С для указанной информационной базы с заданным
-    /// типом клиента и разрядностью.
+    /// типом клиента и разрядностью. Режим форм выводится из типа клиента
+    /// (тонкий → управляемые, толстый → обычные).
     /// </summary>
     /// <param name="infobase">Информационная база.</param>
     /// <param name="mode">Режим запуска (Предприятие или Конфигуратор).</param>
@@ -216,6 +252,21 @@ public static class OneCLauncher
     /// <param name="architecture">Разрядность (32 или 64 бита).</param>
     /// <returns>true, если запуск успешно инициирован.</returns>
     public static bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture, bool runAsAdmin = false)
+        => Launch(infobase, mode, clientType, null, architecture, runAsAdmin);
+
+    /// <summary>
+    /// Запускает платформу 1С для указанной информационной базы с заданным
+    /// типом клиента, режимом форм и разрядностью. Если <paramref name="runMode"/>
+    /// задан, он имеет приоритет над режимом, выводимым из типа клиента,
+    /// что позволяет запускать управляемые формы толстым клиентом и наоборот.
+    /// </summary>
+    /// <param name="infobase">Информационная база.</param>
+    /// <param name="mode">Режим запуска (Предприятие или Конфигуратор).</param>
+    /// <param name="clientType">Тип клиента (тонкий или толстый). null — автоматический выбор платформой.</param>
+    /// <param name="runMode">Режим форм (управляемые/обычные). null — из типа клиента.</param>
+    /// <param name="architecture">Разрядность (32 или 64 бита).</param>
+    /// <returns>true, если запуск успешно инициирован.</returns>
+    public static bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode, OneCArchitecture architecture, bool runAsAdmin = false)
     {
         var exePath = FindExecutable(infobase.PlatformVersion, architecture, clientType, mode);
         if (string.IsNullOrEmpty(exePath))
@@ -236,7 +287,7 @@ public static class OneCLauncher
             return false;
         }
 
-        var arguments = BuildArguments(infobase, mode, clientType);
+        var arguments = BuildArguments(infobase, mode, clientType, runMode);
 
         try
         {
@@ -268,7 +319,7 @@ public static class OneCLauncher
     /// <summary>
     /// Формирует аргументы командной строки для запуска 1С.
     /// </summary>
-    private static string BuildArguments(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType)
+    private static string BuildArguments(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode)
     {
         var modeArg = mode switch
         {
@@ -276,13 +327,15 @@ public static class OneCLauncher
             _ => "DESIGNER"
         };
 
-        // Параметр типа клиента применяется только в режиме «Предприятие».
-        // null — автоматический режим: параметр /RunMode не передаётся,
-        // платформа сама выбирает подходящий клиент.
-        var clientArg = mode == OneCLaunchMode.Enterprise && clientType.HasValue
-            ? clientType.Value switch
+        // Параметр режима форм применяется только в режиме «Предприятие».
+        // Явно заданный runMode имеет приоритет; иначе режим выводится из типа клиента
+        // (тонкий → управляемые, толстый → обычные). Если задано и runMode, и clientType —
+        // они независимы, что соответствует 1С («толстый клиент в управляемом приложении»).
+        // null (автоматический выбор платформы) — параметр /RunMode не передаётся.
+        var clientArg = mode == OneCLaunchMode.Enterprise && (runMode.HasValue || clientType.HasValue)
+            ? (runMode ?? (clientType == OneCClientType.Thin ? OneCRunMode.Managed : OneCRunMode.Ordinary)) switch
             {
-                OneCClientType.Thin => " /RunModeManagedApplication",
+                OneCRunMode.Managed => " /RunModeManagedApplication",
                 _ => " /RunModeOrdinaryApplication"
             }
             : "";

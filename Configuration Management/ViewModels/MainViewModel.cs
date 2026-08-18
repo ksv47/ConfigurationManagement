@@ -2776,7 +2776,13 @@ public string HotkeyEnterprise
             _ => OneCLauncher.ResolveArchitecture(ib.Architecture, ib.PlatformVersion)
         };
 
-        return _launcher.Launch(ib, OneCLaunchMode.Enterprise, client, arch, runAsAdmin);
+        // Режим форм берём из настройки базы, если клиент не переопределён явно
+        // в «Текущей сессии» (только толстый клиент различает управляемые/обычные формы).
+        OneCRunMode? runMode = _sessionClientMode == SessionClientMode.Auto
+            ? OneCLauncher.GetRunModeFromLaunchMode(ib.LaunchMode)
+            : null;
+
+        return _launcher.Launch(ib, OneCLaunchMode.Enterprise, client, runMode, arch, runAsAdmin);
     }
 
     /// <summary>Тип клиента из настройки базы (LaunchMode).</summary>
@@ -2784,6 +2790,8 @@ public string HotkeyEnterprise
     {
         if (string.Equals(ib.LaunchMode, "Автоматический", StringComparison.OrdinalIgnoreCase))
             return null;
+        if (string.Equals(ib.LaunchMode, "Толстый клиент (обычные формы)", StringComparison.OrdinalIgnoreCase))
+            return OneCClientType.Thick;
         if (string.Equals(ib.LaunchMode, "Толстый клиент", StringComparison.OrdinalIgnoreCase))
             return OneCClientType.Thick;
         if (string.Equals(ib.LaunchMode, "Тонкий клиент", StringComparison.OrdinalIgnoreCase))
