@@ -1048,6 +1048,11 @@ public class MainViewModel : ViewModelBase
         {
             if (SetProperty(ref _showTags, value))
                 ScheduleSaveSettings();
+            // При отключении показа тегов (верхняя кнопка «Показывать теги»)
+            // сбрасываем и активные фильтры по тегам для списка баз,
+            // иначе отбор по тегу продолжает скрывать базы без тегов.
+            if (!value && _activeTagFilters.Count > 0)
+                ClearTagFilters(null);
         }
     }
 
@@ -2428,8 +2433,10 @@ public string HotkeyEnterprise
     /// </summary>
     private void UpdatePinnedSection(Infobase infobase)
     {
-        // При отключённой группировке закрепление влияет только на данные.
-        if (!_groupByGroup)
+        // При отключённой группировке или активном временном фильтре
+        // (Избранное / Недавние / тег / поиск) закрепление не отображается —
+        // влияет только на данные и проявится после выхода из режима фильтра.
+        if (!_groupByGroup || IsFilterModeActive())
         {
             return;
         }
@@ -3074,10 +3081,14 @@ public string HotkeyEnterprise
             ? filtered
             : ApplyCurrentSort(filtered)).ToList();
 
-        // Когда группировка отключена — показываем плоский список всех баз в одном узле.
-        if (!_groupByGroup)
+        // Когда группировка отключена или активен временный фильтр
+        // (Избранное / Недавние / отбор по тегу / поиск) — показываем плоский список
+        // в одном узле без групп и закреплений. Так избегаем дублей: закреплённая база
+        // иначе попадает и в «Закреплённые», и в свою группу, а при фильтрации
+        // группировка по группам теряет смысл.
+        if (!_groupByGroup || IsFilterModeActive())
         {
-            var flatNode = new GroupNodeViewModel(null, displayName: "Все базы");
+            var flatNode = new GroupNodeViewModel(null, displayName: IsFilterModeActive() ? "Найдено" : "Все базы");
             flatNode.SetNotificationsSuppressed(true);
             foreach (var infobase in visible)
                 flatNode.Infobases.Add(infobase);
@@ -3196,6 +3207,15 @@ public string HotkeyEnterprise
         || HasActiveTagFilter
         || _listViewMode == ListViewMode.Favorites
         || _listViewMode == ListViewMode.Recent;
+
+    /// <summary>
+    /// Активен ли временный режим фильтра (Избранное / Недавние / отбор по тегу / поиск),
+    /// при котором группы и закрепления временно скрываются, чтобы не было дублей.
+    /// </summary>
+    private bool IsFilterModeActive() =>
+        _listViewMode != ListViewMode.All
+        || HasActiveTagFilter
+        || !string.IsNullOrWhiteSpace(SearchText);
 
     /// <summary>
     /// Разворачивает узлы дерева, в которых есть базы (или вложенные с базами).
