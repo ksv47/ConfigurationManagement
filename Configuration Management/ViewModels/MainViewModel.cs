@@ -2874,10 +2874,11 @@ public string HotkeyEnterprise
     /// <summary>
     /// Сохраняет ширины колонок списка баз в настройках.
     /// </summary>
-    public void SaveColumnWidths(double nameWidth, double versionWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth)
+    public void SaveColumnWidths(double nameWidth, double versionWidth, double configurationWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth)
     {
         NameColumnWidth = nameWidth;
         VersionColumnWidth = versionWidth;
+        ConfigurationColumnWidth = configurationWidth;
         LaunchModeColumnWidth = launchModeWidth;
         ServerColumnWidth = serverWidth;
         LastLaunchColumnWidth = lastLaunchWidth;
@@ -2888,10 +2889,11 @@ public string HotkeyEnterprise
     /// Обновляет ширины колонок в памяти (без сохранения в файл).
     /// Используется для синхронизации колонок строк во время перетаскивания разделителя.
     /// </summary>
-    public void UpdateColumnWidths(double nameWidth, double versionWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth)
+    public void UpdateColumnWidths(double nameWidth, double versionWidth, double configurationWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth)
     {
         NameColumnWidth = nameWidth;
         VersionColumnWidth = versionWidth;
+        ConfigurationColumnWidth = configurationWidth;
         LaunchModeColumnWidth = launchModeWidth;
         ServerColumnWidth = serverWidth;
         LastLaunchColumnWidth = lastLaunchWidth;

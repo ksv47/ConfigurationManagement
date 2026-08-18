@@ -529,6 +529,18 @@
                                             Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
                                             Margin="0,2,0,4"/>
                                 </Border>
+                                <Border x:Name="ConfigurationSplitter" Grid.Column="6"
+                                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
+                                        Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
+                                        ToolTip="Изменить ширину колонки"
+                                        Visibility="{Binding DataContext.ShowConfigurationColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                        MouseLeftButtonDown="OnColumnResize_MouseDown"
+                                        MouseMove="OnColumnResize_MouseMove"
+                                        MouseLeftButtonUp="OnColumnResize_MouseUp">
+                                    <Border Width="1" HorizontalAlignment="Center"
+                                            Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
+                                            Margin="0,2,0,4"/>
+                                </Border>
                                 <Border x:Name="LaunchModeSplitter" Grid.Column="7"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"

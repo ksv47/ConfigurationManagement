@@ -3,10 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Configuration_Management.ViewModels"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        Title="Выбор группы"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Выбор родительской группы"
         Icon="{StaticResource AppIcon}"
-        Width="480" Height="520"
-        MinWidth="360" MinHeight="400"
+        Width="520" Height="560"
+        MinHeight="400" MinWidth="400"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI"
@@ -21,54 +24,102 @@
         <Style TargetType="TreeViewItem" BasedOn="{StaticResource ModernTreeViewItem}">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="IsExpanded" Value="True"/>
+            <Setter Property="Padding" Value="2,1"/>
         </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
+    <Grid Margin="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- Подсказка -->
         <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
                    Foreground="{DynamicResource TextSecondaryBrush}"
-                   Text="Выберите группу в дереве. Двойной щелчок — подтверждение. «Без группы» — корневой уровень."/>
+                   Text="Выберите группу в дереве. Двойной щелчок — подтверждение. «Корневая группа» — верхний уровень (без родителя)."/>
 
+        <!-- Дерево групп: цвет и иконка каждой группы, как в настройках -->
         <Border Grid.Row="1" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
-                Background="{DynamicResource CardBackgroundBrush}" CornerRadius="6" Padding="4">
+                CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}">
             <TreeView x:Name="GroupsTree"
                       Background="Transparent"
                       BorderThickness="0"
+                      Padding="4"
                       ScrollViewer.VerticalScrollBarVisibility="Auto"
                       SelectedItemChanged="OnGroupsTree_SelectedItemChanged"
                       MouseDoubleClick="OnGroupsTree_MouseDoubleClick">
-                <TreeView.Resources>
+                <TreeView.ItemTemplate>
                     <HierarchicalDataTemplate DataType="{x:Type vm:GroupNodeViewModel}"
                                               ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal" Margin="0,2">
-                            <materialDesign:PackIcon Kind="Folder" Width="16" Height="16"
-                                                     Foreground="{DynamicResource AccentBrush}"
-                                                     Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,1">
+                            <!-- Иконка на цвете группы — как в списке баз: видна и в светлой, и в тёмной теме -->
+                            <Border Padding="4,1" CornerRadius="4" Margin="0,0,6,0"
+                                    VerticalAlignment="Center"
+                                    Background="{Binding HeaderBrush}">
+                                <Path Width="14" Height="14" Stretch="Uniform"
+                                      Fill="{Binding IconBrush}"
+                                      Data="{Binding Icon, Converter={StaticResource IconKeyToGeometryConverter}}"/>
+                            </Border>
+                            <TextBlock Text="{Binding DisplayName}" FontSize="13" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </HierarchicalDataTemplate>
-                </TreeView.Resources>
+                </TreeView.ItemTemplate>
             </TreeView>
         </Border>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button x:Name="SelectButton" Width="120" Height="34" Style="{DynamicResource ModernButton}"
-                    Margin="0,0,10,0" IsDefault="True" Click="OnSelect_Click" IsEnabled="False">
+        <!-- Кнопки (в стиле выбора версии платформы) -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="SelectButton" Width="140" Height="36" Margin="0,0,10,0" IsDefault="True"
+                    Click="OnSelect_Click" IsEnabled="False"
+                    Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="12,8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#15803D"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#166534"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✔" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Выбрать" VerticalAlignment="Center"/>
+                    <materialDesign:PackIcon Kind="Check" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Выбрать" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
-            <Button Width="120" Height="34" Style="{DynamicResource SecondaryButton}" IsCancel="True">
+            <Button Width="140" Height="36" IsCancel="True"
+                    Background="Transparent" Cursor="Hand" BorderThickness="1.5"
+                    BorderBrush="#EF4444" Foreground="#EF4444">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="12,8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#FEF2F2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✖" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center"/>
+                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
         </StackPanel>

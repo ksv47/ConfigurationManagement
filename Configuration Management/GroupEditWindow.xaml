@@ -9,8 +9,9 @@
         Icon="{StaticResource AppIcon}"
         Width="540"
         MinWidth="460"
-        Height="600"
         MinHeight="480"
+        MaxHeight="880"
+        SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI"
@@ -194,7 +195,6 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="ParentPathBox" Grid.Column="0" IsReadOnly="True" Padding="4,3"
                                          Style="{DynamicResource ModernTextBox}"
@@ -207,12 +207,6 @@
                                         <TextBlock Text="📁" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="Выбрать…" VerticalAlignment="Center"/>
                                     </StackPanel>
-                                </Button>
-                                <Button x:Name="ClearParentButton" Grid.Column="2" Margin="4,0,0,0" Padding="10,4"
-                                        Style="{DynamicResource SecondaryButton}"
-                                        Click="OnClearParent_Click"
-                                        ToolTip="Сделать корневой группой (без родителя)">
-                                    <TextBlock Text="Без родителя" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="Описание:" VerticalAlignment="Center" Margin="0,4"

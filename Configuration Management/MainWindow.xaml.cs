@@ -1867,6 +1867,8 @@ namespace Configuration_Management
                 return NameColumn;
             if (ReferenceEquals(sender, VersionSplitter))
                 return VersionColumn;
+            if (ReferenceEquals(sender, ConfigurationSplitter))
+                return ConfigurationColumn;
             if (ReferenceEquals(sender, LaunchModeSplitter))
                 return LaunchModeColumn;
             if (ReferenceEquals(sender, ServerSplitter))
@@ -1925,6 +1927,7 @@ namespace Configuration_Management
             _viewModel.UpdateColumnWidths(
                 ReferenceEquals(_resizeColumn, NameColumn) ? newWidth : NameColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, VersionColumn) ? newWidth : VersionColumn?.ActualWidth ?? 0,
+                ReferenceEquals(_resizeColumn, ConfigurationColumn) ? newWidth : ConfigurationColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, LaunchModeColumn) ? newWidth : LaunchModeColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, ServerColumn) ? newWidth : ServerColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, LastLaunchColumn) ? newWidth : LastLaunchColumn?.ActualWidth ?? 0);
@@ -1943,6 +1946,7 @@ namespace Configuration_Management
                 _viewModel.SaveColumnWidths(
                     NameColumn?.ActualWidth ?? 0,
                     VersionColumn?.ActualWidth ?? 0,
+                    ConfigurationColumn?.ActualWidth ?? 0,
                     LaunchModeColumn?.ActualWidth ?? 0,
                     ServerColumn?.ActualWidth ?? 0,
                     LastLaunchColumn?.ActualWidth ?? 0);

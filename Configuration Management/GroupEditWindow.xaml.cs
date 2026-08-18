@@ -119,7 +119,6 @@ namespace Configuration_Management
                 ParentPathBox.Text = "— Корневая группа —";
                 ParentPathBox.IsEnabled = false;
                 SelectParentButton.IsEnabled = false;
-                ClearParentButton.IsEnabled = false;
 
                 _color = !string.IsNullOrWhiteSpace(noGroupColor) ? noGroupColor : "#2D6CDF";
                 _iconColor = !string.IsNullOrWhiteSpace(noGroupIconColor) ? noGroupIconColor : "#FFFFFF";
@@ -162,12 +161,6 @@ namespace Configuration_Management
             ParentPathBox.Text = parent is null
                 ? "— Корневая группа —"
                 : GroupHierarchyHelper.GetFullPath(parent, _groups);
-        }
-
-        private void OnClearParent_Click(object sender, RoutedEventArgs e)
-        {
-            _parentId = string.Empty;
-            UpdateParentPathDisplay();
         }
 
         private void OnSelectParent_Click(object sender, RoutedEventArgs e)
