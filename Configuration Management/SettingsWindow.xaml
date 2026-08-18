@@ -419,6 +419,20 @@
                             </StackPanel>
                         </Grid>
                     </GroupBox>
+
+                    <!-- Разрядность по умолчанию -->
+                    <GroupBox Grid.Row="4" Header="Разрядность по умолчанию" Padding="10,8" Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0"
+                                       Text="Если у базы не указана разрядность:"/>
+                            <ComboBox x:Name="DefaultArchComboBox" Grid.Column="1" Width="200"
+                                      HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </Grid>
+                    </GroupBox>
                 </Grid>
             </TabItem>
 

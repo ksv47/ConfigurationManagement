@@ -210,6 +210,12 @@ public class AppSettings
     public string SessionArchitecture { get; set; } = "Auto";
 
     /// <summary>
+    /// Разрядность по умолчанию (X86 / X64), используемая при запуске, когда
+    /// у информационной базы не указана собственная разрядность.
+    /// </summary>
+    public string DefaultArchitecture { get; set; } = "X64";
+
+    /// <summary>
     /// Каталоги шаблонов конфигураций (как в стартере 1С).
     /// Пустой список — использовать пути, настроенные в 1С / по умолчанию.
     /// </summary>

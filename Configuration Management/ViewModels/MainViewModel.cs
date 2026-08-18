@@ -61,6 +61,8 @@ public class MainViewModel : ViewModelBase
     private SessionClientMode _sessionClientMode = SessionClientMode.Auto;
     /// <summary>Переопределение разрядности для текущего запуска (не сохраняется в базу).</summary>
     private SessionArchitectureMode _sessionArchitecture = SessionArchitectureMode.Auto;
+    /// <summary>Разрядность по умолчанию, если у базы она не указана (X86 / X64).</summary>
+    private string _defaultArchitecture = "X64";
     /// <summary>Показывать блок «Текущая сессия» в правой панели.</summary>
     private bool _showSessionLaunchPanel = true;
     private bool _statusShowPort = true;
@@ -171,6 +173,10 @@ public class MainViewModel : ViewModelBase
             _sessionClientMode = scm;
         if (Enum.TryParse<SessionArchitectureMode>(settings.SessionArchitecture, true, out var sam))
             _sessionArchitecture = sam;
+        // Разрядность по умолчанию для запуска, если у базы она не указана.
+        _defaultArchitecture = string.Equals(settings.DefaultArchitecture, "X64", StringComparison.OrdinalIgnoreCase)
+            ? "X64" : "X86";
+        OneCLauncher.DefaultArchitecture = ParseArchitecture(_defaultArchitecture);
         _statusShowConnectionPath = settings.StatusShowConnectionPath;
         _statusShowArchitecture = settings.StatusShowArchitecture;
         _statusShowLaunchMode = settings.StatusShowLaunchMode;
@@ -1342,6 +1348,25 @@ public class MainViewModel : ViewModelBase
         get => _sessionArchitecture == SessionArchitectureMode.X64;
         set { if (value) SessionArchitecture = SessionArchitectureMode.X64; }
     }
+
+    /// <summary>Разрядность по умолчанию (X86 / X64), если у базы она не указана.</summary>
+    public string DefaultArchitecture => _defaultArchitecture;
+
+    /// <summary>
+    /// Задаёт разрядность по умолчанию и немедленно применяет её для последующих запусков.
+    /// </summary>
+    public void ApplyDefaultArchitecture(string architecture)
+    {
+        _defaultArchitecture = ParseArchitecture(architecture) == OneCArchitecture.x64 ? "X64" : "X86";
+        OneCLauncher.DefaultArchitecture = ParseArchitecture(_defaultArchitecture);
+        SaveSettings();
+    }
+
+    /// <summary>Преобразует строку разрядности (X86/X64) в enum OneCArchitecture.</summary>
+    private static OneCArchitecture ParseArchitecture(string value) =>
+        string.Equals(value, "X64", StringComparison.OrdinalIgnoreCase)
+            ? OneCArchitecture.x64
+            : OneCArchitecture.x86;
 
     public bool StatusShowConnectionPath => _statusShowConnectionPath;
     public bool StatusShowArchitecture => _statusShowArchitecture;
@@ -2895,6 +2920,7 @@ public string HotkeyEnterprise
             ShowSessionLaunchPanel = _showSessionLaunchPanel,
             SessionClientMode = _sessionClientMode.ToString(),
             SessionArchitecture = _sessionArchitecture.ToString(),
+            DefaultArchitecture = _defaultArchitecture,
             StatusShowConnectionPath = _statusShowConnectionPath,
             StatusShowArchitecture = _statusShowArchitecture,
             StatusShowLaunchMode = _statusShowLaunchMode,

@@ -46,6 +46,13 @@ public enum OneCArchitecture
 public static class OneCLauncher
 {
     /// <summary>
+    /// Глобальная разрядность по умолчанию, используемая при запуске, когда
+    /// у информационной базы не указана собственная разрядность.
+    /// Задаётся в «Настройки → Платформы».
+    /// </summary>
+    public static OneCArchitecture DefaultArchitecture { get; set; } = OneCArchitecture.x64;
+
+    /// <summary>
     /// Запускает платформу 1С для указанной информационной базы в заданном режиме.
     /// Тип клиента определяется из режима запуска базы (LaunchMode):
     /// «Автоматический», «Тонкий клиент», «Толстый клиент» или «Веб-клиент».
@@ -101,6 +108,11 @@ public static class OneCLauncher
             return OneCArchitecture.x64;
         if (mode is "32" or "x86")
             return OneCArchitecture.x86;
+
+        // Разрядность в базе не указана — используем глобальную настройку
+        // по умолчанию (Настройки → Платформы → «Разрядность по умолчанию»).
+        if (string.IsNullOrWhiteSpace(mode))
+            return DefaultArchitecture;
 
         // Приоритетные режимы: сравниваем лучшие доступные версии 32 и 64.
         var prefer64 = mode is "64-priority" or "priority64" or "x86-64-priority";

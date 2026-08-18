@@ -47,9 +47,22 @@ namespace Configuration_Management
             if (AdditionalPathsList != null)
                 AdditionalPathsList.ItemsSource = _additionalPlatformPaths;
             UpdatePlatformsDisplay();
+            InitializeDefaultArchitecture();
             InitializeSyncSettings();
             InitializeDisplaySettings();
             InitializeFavoriteHotkeys();
+        }
+
+        /// <summary>
+        /// Инициализирует выпадающий список «Разрядность по умолчанию» во вкладке «Платформы».
+        /// </summary>
+        private void InitializeDefaultArchitecture()
+        {
+            DefaultArchComboBox.Items.Clear();
+            DefaultArchComboBox.Items.Add("64 бит (рекомендуется)");
+            DefaultArchComboBox.Items.Add("32 бит");
+            DefaultArchComboBox.SelectedIndex =
+                string.Equals(_viewModel.DefaultArchitecture, "X64", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
         }
 
         private void InitializeFavoriteHotkeys()
@@ -659,6 +672,9 @@ namespace Configuration_Management
             // Сохраняем версии платформы и дополнительные пути поиска.
             _viewModel.SetAdditionalPlatformSearchPaths(_additionalPlatformPaths);
             _viewModel.SetInstalledPlatformVersions(_installedPlatformVersions);
+
+            // Разрядность по умолчанию (Настройки → Платформы).
+            _viewModel.ApplyDefaultArchitecture(DefaultArchComboBox.SelectedIndex == 0 ? "X64" : "X86");
 
             // Сохраняем настройки синхронизации с файлом ibases.v8i.
             var filePath = SyncFilePathTextBox.Text?.Trim() ?? string.Empty;
