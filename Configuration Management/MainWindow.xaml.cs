@@ -102,7 +102,10 @@ namespace Configuration_Management
                     or nameof(MainViewModel.HotkeyDelete)
                     or nameof(MainViewModel.HotkeyClearCache)
                     or nameof(MainViewModel.HotkeyAdd)
-                    or nameof(MainViewModel.HotkeyPin))
+                    or nameof(MainViewModel.HotkeyPin)
+                    or nameof(MainViewModel.HotkeyShowAll)
+                    or nameof(MainViewModel.HotkeyShowFavorites)
+                    or nameof(MainViewModel.HotkeyShowRecent))
                 {
                     try { RegisterLaunchHotkeys(); } catch { /* ignore */ }
                 }
@@ -794,6 +797,10 @@ namespace Configuration_Management
             Add(_viewModel.HotkeyClearCache, _viewModel.ClearCacheCommand);
             Add(_viewModel.HotkeyAdd, _viewModel.AddInfobaseCommand);
             Add(_viewModel.HotkeyPin, _viewModel.TogglePinCommand);
+            // Переключение вкладок списка баз: Все / Избранное / Недавние.
+            Add(_viewModel.HotkeyShowAll, _viewModel.ShowAllCommand);
+            Add(_viewModel.HotkeyShowFavorites, _viewModel.ShowFavoritesCommand);
+            Add(_viewModel.HotkeyShowRecent, _viewModel.ShowRecentCommand);
         }
 
         /// <summary>
@@ -823,6 +830,9 @@ namespace Configuration_Management
                     modifiers |= ModifierKeys.Shift;
                 else if (p.Equals("Alt", StringComparison.OrdinalIgnoreCase))
                     modifiers |= ModifierKeys.Alt;
+                else if (p.Equals("Win", StringComparison.OrdinalIgnoreCase) ||
+                         p.Equals("Windows", StringComparison.OrdinalIgnoreCase))
+                    modifiers |= ModifierKeys.Windows;
                 else
                     return false;
             }
@@ -2304,6 +2314,16 @@ namespace Configuration_Management
         }
 
         private void OnConfiguratorMenuClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button btn || btn.ContextMenu is null)
+                return;
+            btn.ContextMenu.PlacementTarget = btn;
+            btn.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            btn.ContextMenu.DataContext = DataContext;
+            btn.ContextMenu.IsOpen = true;
+        }
+
+        private void OnClearCacheMenuClick(object sender, RoutedEventArgs e)
         {
             if (sender is not System.Windows.Controls.Button btn || btn.ContextMenu is null)
                 return;

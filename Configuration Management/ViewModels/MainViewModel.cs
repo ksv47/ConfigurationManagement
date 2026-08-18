@@ -105,6 +105,9 @@ public class MainViewModel : ViewModelBase
     private string _hotkeyClearCache = "";
     private string _hotkeyAdd = "Insert";
     private string _hotkeyPin = "";
+    private string _hotkeyShowAll = "";
+    private string _hotkeyShowFavorites = "";
+    private string _hotkeyShowRecent = "";
     private string _sortField = "Name";
     private bool _sortAscending = true;
     private readonly List<string> _favoriteHotkeyIds = new();
@@ -208,6 +211,9 @@ public class MainViewModel : ViewModelBase
         _hotkeyClearCache = settings.HotkeyClearCache?.Trim() ?? "";
         _hotkeyAdd = settings.HotkeyAdd?.Trim() ?? "Insert";
         _hotkeyPin = settings.HotkeyPin?.Trim() ?? "";
+        _hotkeyShowAll = settings.HotkeyShowAll?.Trim() ?? "";
+        _hotkeyShowFavorites = settings.HotkeyShowFavorites?.Trim() ?? "";
+        _hotkeyShowRecent = settings.HotkeyShowRecent?.Trim() ?? "";
         _sortField = string.IsNullOrWhiteSpace(settings.SortField) ? "Name" : settings.SortField;
         _sortAscending = settings.SortAscending;
         if (settings.FavoriteHotkeyIds != null)
@@ -259,6 +265,10 @@ public class MainViewModel : ViewModelBase
         // Обратная совместимость с XAML: отдельные команды делегируют в единую LaunchCommand.
         LaunchEnterpriseCommand = new RelayCommand(_ => Launch(LaunchKind.Enterprise), _ => SelectedInfobase != null);
         LaunchConfiguratorCommand = new RelayCommand(_ => Launch(LaunchKind.Configurator), _ => SelectedInfobase != null);
+        // Переключение вкладок списка баз (Все / Избранное / Недавние) по горячим клавишам.
+        ShowAllCommand = new RelayCommand(_ => IsListModeAll = true);
+        ShowFavoritesCommand = new RelayCommand(_ => IsListModeFavorites = true);
+        ShowRecentCommand = new RelayCommand(_ => IsListModeRecent = true);
         LaunchEnterpriseThinCommand = new RelayCommand(_ => Launch(LaunchKind.Thin32), _ => SelectedInfobase != null);
         LaunchEnterpriseThickCommand = new RelayCommand(_ => Launch(LaunchKind.Thick32), _ => SelectedInfobase != null);
         LaunchEnterpriseThin64Command = new RelayCommand(_ => Launch(LaunchKind.Thin64), _ => SelectedInfobase != null);
@@ -280,6 +290,9 @@ public class MainViewModel : ViewModelBase
         TogglePinForCommand = new RelayCommand(TogglePinFor);
         CopyConnectionStringCommand = new RelayCommand(CopyConnectionString, _ => SelectedInfobase != null);
         ClearCacheCommand = new RelayCommand(ClearCache, _ => SelectedInfobase != null);
+        ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program), _ => SelectedInfobase != null);
+        ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User), _ => SelectedInfobase != null);
+        ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All), _ => SelectedInfobase != null);
         OpenInfobaseFolderCommand = new RelayCommand(OpenInfobaseFolder,
             _ => SelectedInfobase?.Connection.Type == ConnectionType.File);
         CreateDesktopShortcutCommand = new RelayCommand(CreateDesktopShortcut, _ => SelectedInfobase != null);
@@ -1524,6 +1537,15 @@ public class MainViewModel : ViewModelBase
     /// <summary>Команда очистки локального кеша 1С выбранной базы.</summary>
     public ICommand ClearCacheCommand { get; }
 
+    /// <summary>Команда очистки программного кеша 1С.</summary>
+    public ICommand ClearProgramCacheCommand { get; }
+
+    /// <summary>Команда очистки пользовательского кеша 1С.</summary>
+    public ICommand ClearUserCacheCommand { get; }
+
+    /// <summary>Команда одновременной очистки программного и пользовательского кеша 1С.</summary>
+    public ICommand ClearCacheBothCommand { get; }
+
     /// <summary>Открыть каталог файловой базы в проводнике.</summary>
     public ICommand OpenInfobaseFolderCommand { get; }
 
@@ -1618,6 +1640,15 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Команда запуска Конфигуратора.</summary>
     public ICommand LaunchConfiguratorCommand { get; }
+
+    /// <summary>Команда переключения вкладки списка на «Все базы» (горячая клавиша).</summary>
+    public ICommand ShowAllCommand { get; }
+
+    /// <summary>Команда переключения вкладки списка на «Избранное» (горячая клавиша).</summary>
+    public ICommand ShowFavoritesCommand { get; }
+
+    /// <summary>Команда переключения вкладки списка на «Недавние» (горячая клавиша).</summary>
+    public ICommand ShowRecentCommand { get; }
 
     /// <summary>Команда запуска 1С:Предприятие тонким клиентом (32 бита).</summary>
     public ICommand LaunchEnterpriseThinCommand { get; }
@@ -2397,6 +2428,39 @@ public string HotkeyEnterprise
         }
     }
 
+    /// <summary>Горячая клавиша показа вкладки «Все базы». Пусто — не назначена.</summary>
+    public string HotkeyShowAll
+    {
+        get => _hotkeyShowAll;
+        set
+        {
+            if (SetProperty(ref _hotkeyShowAll, NormalizeHotkey(value, "")))
+                ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>Горячая клавиша показа вкладки «Избранное». Пусто — не назначена.</summary>
+    public string HotkeyShowFavorites
+    {
+        get => _hotkeyShowFavorites;
+        set
+        {
+            if (SetProperty(ref _hotkeyShowFavorites, NormalizeHotkey(value, "")))
+                ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>Горячая клавиша показа вкладки «Недавние». Пусто — не назначена.</summary>
+    public string HotkeyShowRecent
+    {
+        get => _hotkeyShowRecent;
+        set
+        {
+            if (SetProperty(ref _hotkeyShowRecent, NormalizeHotkey(value, "")))
+                ScheduleSaveSettings();
+        }
+    }
+
     private static string NormalizeHotkey(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
@@ -2869,6 +2933,9 @@ public string HotkeyEnterprise
             HotkeyClearCache = _hotkeyClearCache,
             HotkeyAdd = _hotkeyAdd,
             HotkeyPin = _hotkeyPin,
+            HotkeyShowAll = _hotkeyShowAll,
+            HotkeyShowFavorites = _hotkeyShowFavorites,
+            HotkeyShowRecent = _hotkeyShowRecent,
             SortField = _sortField,
             SortAscending = _sortAscending,
             FavoriteHotkeyIds = _favoriteHotkeyIds.ToList(),
@@ -3724,31 +3791,63 @@ public string HotkeyEnterprise
     }
 
     /// <summary>
-    /// Очищает локальный кеш 1С выбранной базы.
+    /// Очищает локальный кеш 1С выбранной базы (программный и пользовательский).
     /// </summary>
     private void ClearCache(object? parameter)
     {
-        if (SelectedInfobase is null)
+        OpenCacheClean(OneCCacheKind.All);
+    }
+
+    /// <summary>
+    /// Открывает диалог выбора типа кеша и баз 1С, после подтверждения выполняет очистку.
+    /// </summary>
+    /// <param name="kind">Тип кеша, выбранный по умолчанию.</param>
+    private void OpenCacheClean(OneCCacheKind kind)
+    {
+        if (Infobases.Count == 0)
+        {
+            _dialogs.ShowInfo("Список информационных баз пуст. Добавьте базы, чтобы очистить их кеш.",
+                "Очистка кеша 1С");
+            return;
+        }
+
+        var dialog = new CacheCleanWindow(Infobases, kind, SelectedInfobase)
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true)
             return;
 
-        if (!_dialogs.Confirm($"Очистить локальный кеш 1С для базы «{SelectedInfobase.Name}»?\n\n" +
-            "Кеш будет удалён из каталогов %LOCALAPPDATA%\\1C\\1cv8 и %APPDATA%\\1C\\1cv8.\n" +
-            "Рекомендуется закрыть все сеансы 1С для этой базы перед очисткой.",
+        var infobases = dialog.SelectedInfobases;
+        var selectedKind = dialog.SelectedCacheKind;
+        if (infobases.Count == 0 || selectedKind == OneCCacheKind.None)
+            return;
+
+        var names = string.Join(", ", infobases.Select(ib => ib.Name));
+        var kindLabel = CacheKindLabel(selectedKind);
+
+        if (!_dialogs.Confirm($"Очистить {kindLabel} для баз:\n\n{names}\n\n" +
+            "Рекомендуется закрыть все сеансы 1С для этих баз перед очисткой.",
             "Очистка кеша 1С"))
             return;
 
         try
         {
-            var removed = OneCCacheCleaner.Clear(SelectedInfobase);
+            var removed = OneCCacheCleaner.Clear(infobases, selectedKind);
+
+            var baseLabel = infobases.Count == 1
+                ? $"базы «{infobases[0].Name}»"
+                : $"баз: {infobases.Count}";
 
             if (removed > 0)
             {
-                _dialogs.ShowInfo($"Кеш базы «{SelectedInfobase.Name}» очищен.\nУдалено каталогов: {removed}.",
+                _dialogs.ShowInfo($"Кеш ({kindLabel}) для {baseLabel} очищен.\nУдалено каталогов: {removed}.",
                     "Очистка кеша 1С");
             }
             else
             {
-                _dialogs.ShowInfo($"Каталоги кеша для базы «{SelectedInfobase.Name}» не найдены.",
+                _dialogs.ShowInfo($"Каталоги кеша ({kindLabel}) для {baseLabel} не найдены.",
                     "Очистка кеша 1С");
             }
         }
@@ -3757,6 +3856,17 @@ public string HotkeyEnterprise
             _dialogs.ShowError($"Не удалось очистить кеш.\n{ex.Message}",
                 "Ошибка очистки кеша");
         }
+    }
+
+    /// <summary>Возвращает читаемое описание типа кеша.</summary>
+    private static string CacheKindLabel(OneCCacheKind kind)
+    {
+        return kind switch
+        {
+            OneCCacheKind.Program => "программный кеш",
+            OneCCacheKind.User => "пользовательский кеш",
+            _ => "программный и пользовательский кеш"
+        };
     }
 
     /// <summary>Открывает каталог файловой ИБ в проводнике Windows.</summary>
@@ -4347,7 +4457,10 @@ public string HotkeyEnterprise
         string? hotkeyClearCache = null,
         string? hotkeyAdd = null,
         string? hotkeyPin = null,
-        bool escapeToTray = true)
+        bool escapeToTray = true,
+        string? hotkeyShowAll = null,
+        string? hotkeyShowFavorites = null,
+        string? hotkeyShowRecent = null)
     {
         _allowMultipleInstances = allowMultipleInstances;
         _showTagFilterPanel = showTagFilterPanel;
@@ -4362,6 +4475,9 @@ public string HotkeyEnterprise
         if (hotkeyClearCache != null) _hotkeyClearCache = hotkeyClearCache.Trim();
         if (hotkeyAdd != null) _hotkeyAdd = hotkeyAdd.Trim();
         if (hotkeyPin != null) _hotkeyPin = hotkeyPin.Trim();
+        if (hotkeyShowAll != null) _hotkeyShowAll = hotkeyShowAll.Trim();
+        if (hotkeyShowFavorites != null) _hotkeyShowFavorites = hotkeyShowFavorites.Trim();
+        if (hotkeyShowRecent != null) _hotkeyShowRecent = hotkeyShowRecent.Trim();
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(ShowTagFilterPanel));
         OnPropertyChanged(nameof(CloseToTray));
@@ -4375,6 +4491,9 @@ public string HotkeyEnterprise
         OnPropertyChanged(nameof(HotkeyClearCache));
         OnPropertyChanged(nameof(HotkeyAdd));
         OnPropertyChanged(nameof(HotkeyPin));
+        OnPropertyChanged(nameof(HotkeyShowAll));
+        OnPropertyChanged(nameof(HotkeyShowFavorites));
+        OnPropertyChanged(nameof(HotkeyShowRecent));
         SaveSettings();
     }
 

@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="clr-namespace:Configuration_Management.Models"
         xmlns:vm="clr-namespace:Configuration_Management.ViewModels"
+        xmlns:controls="clr-namespace:Configuration_Management.Controls"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="Настройки"
@@ -681,10 +682,14 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="4,12,4,0" Padding="0,0,4,0">
                     <StackPanel>
-                        <TextBlock Text="Горячие клавиши действий"
-                                   FontWeight="SemiBold" Margin="0,0,0,4"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock Text="Одна и та же клавиша не может быть назначена разным действиям. «Нет» — клавиша не используется."
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="Горячие клавиши действий"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HelpLink Margin="6,0,0,0"
+                                               HelpText="Назначение горячих клавиш действий (по аналогии с конфигуратором 1С).&#10;&#10;• Установите курсор в поле и нажмите нужную комбинацию: Ctrl, Shift, Alt, Win (например Ctrl+Shift+F), либо F2–F12, Delete, Insert.&#10;• Backspace/Delete — сбросить назначение; «Нет» — клавиша не используется.&#10;• Esc — отменить текущий ввод.&#10;• Одна и та же клавиша не может быть назначена разным действиям.&#10;• Назначенные клавиши применяются сразу после сохранения настроек и отображаются на кнопках правой панели и в контекстном меню."/>
+                        </StackPanel>
+                        <TextBlock Text="Одна и та же клавиша не может быть назначена разным действиям. Установите курсор в поле и нажмите нужное сочетание (Ctrl, Shift, Alt и др.). Backspace/Delete — сбросить, «Нет» — клавиша не используется."
                                    Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                    TextWrapping="Wrap" Margin="0,0,0,8"/>
                         <Grid Margin="0,0,0,12">
@@ -701,47 +706,65 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="1С:Предприятие:" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <ComboBox x:Name="HotkeyEnterpriseCombo" Grid.Row="0" Grid.Column="1"
-                                      Height="34" Margin="0,0,0,6" FontSize="13"
-                                      Style="{StaticResource ModernComboBox}"/>
+                            <controls:HotkeyBox x:Name="HotkeyEnterpriseBox" Grid.Row="0" Grid.Column="1"
+                                                Height="34" Margin="0,0,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Конфигуратор:" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <ComboBox x:Name="HotkeyConfiguratorCombo" Grid.Row="1" Grid.Column="1"
-                                      Height="34" Margin="0,0,0,6" FontSize="13"
-                                      Style="{StaticResource ModernComboBox}"/>
+                            <controls:HotkeyBox x:Name="HotkeyConfiguratorBox" Grid.Row="1" Grid.Column="1"
+                                                Height="34" Margin="0,0,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="Избранное:" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <ComboBox x:Name="HotkeyFavoriteCombo" Grid.Row="2" Grid.Column="1"
-                                      Height="34" Margin="0,0,0,6" FontSize="13"
-                                      Style="{StaticResource ModernComboBox}"/>
+                            <controls:HotkeyBox x:Name="HotkeyFavoriteBox" Grid.Row="2" Grid.Column="1"
+                                                Height="34" Margin="0,0,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="Изменить:" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <ComboBox x:Name="HotkeyEditCombo" Grid.Row="3" Grid.Column="1"
-                                      Height="34" Margin="0,0,0,6" FontSize="13"
-                                      Style="{StaticResource ModernComboBox}"/>
+                            <controls:HotkeyBox x:Name="HotkeyEditBox" Grid.Row="3" Grid.Column="1"
+                                                Height="34" Margin="0,0,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
                             <TextBlock Grid.Row="4" Grid.Column="0" Text="Удалить:" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <ComboBox x:Name="HotkeyDeleteCombo" Grid.Row="4" Grid.Column="1"
-                                      Height="34" Margin="0,0,0,6" FontSize="13"
-                                      Style="{StaticResource ModernComboBox}"/>
+                            <controls:HotkeyBox x:Name="HotkeyDeleteBox" Grid.Row="4" Grid.Column="1"
+                                                Height="34" Margin="0,0,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
                             <TextBlock Grid.Row="5" Grid.Column="0" Text="Очистить кэш:" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <ComboBox x:Name="HotkeyClearCacheCombo" Grid.Row="5" Grid.Column="1"
-                                      Height="34" Margin="0,0,0,6" FontSize="13"
-                                      Style="{StaticResource ModernComboBox}"/>
+                            <controls:HotkeyBox x:Name="HotkeyClearCacheBox" Grid.Row="5" Grid.Column="1"
+                                                Height="34" Margin="0,0,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
                             <TextBlock Grid.Row="6" Grid.Column="0" Text="Добавить базу:" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <ComboBox x:Name="HotkeyAddCombo" Grid.Row="6" Grid.Column="1"
-                                      Height="34" Margin="0,0,0,6" FontSize="13"
-                                      Style="{StaticResource ModernComboBox}"/>
-                            <TextBlock Grid.Row="7" Grid.Column="0" Text="Закрепить:" VerticalAlignment="Center"
+                            <controls:HotkeyBox x:Name="HotkeyAddBox" Grid.Row="6" Grid.Column="1"
+                                                Height="34" Margin="0,0,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="7" Grid.Column="0" Text="Закрепить:" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <ComboBox x:Name="HotkeyPinCombo" Grid.Row="7" Grid.Column="1"
-                                      Height="34" FontSize="13"
-                                      Style="{StaticResource ModernComboBox}"/>
+                            <controls:HotkeyBox x:Name="HotkeyPinBox" Grid.Row="7" Grid.Column="1"
+                                                Height="34" Margin="0,0,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="8" Grid.Column="0" Text="Показать все базы:" VerticalAlignment="Center" Margin="0,0,0,6"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HotkeyBox x:Name="HotkeyShowAllBox" Grid.Row="8" Grid.Column="1"
+                                                Height="34" Margin="0,0,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="9" Grid.Column="0" Text="Показать избранное:" VerticalAlignment="Center" Margin="0,0,0,6"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HotkeyBox x:Name="HotkeyShowFavoritesBox" Grid.Row="9" Grid.Column="1"
+                                                Height="34" Margin="0,0,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="10" Grid.Column="0" Text="Показать недавние:" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HotkeyBox x:Name="HotkeyShowRecentBox" Grid.Row="10" Grid.Column="1"
+                                                Height="34" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
                         </Grid>
 
                         <TextBlock Text="Порядок избранного (Alt+1 … Alt+9)"
@@ -858,6 +881,9 @@
                     <!-- Синхронизация с ibases.v8i -->
                     <GroupBox Grid.Row="1" Header="Настройки синхронизации" Padding="8">
                         <StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,-4,0,4">
+                                <controls:HelpLink HelpText="Синхронизация со стандартным файлом списка баз 1С ibases.v8i.&#10;&#10;• Режим: отключена / только загрузка / только выгрузка / двусторонняя (сначала выгрузка, затем загрузка).&#10;• Файл: путь к ibases.v8i (по умолчанию %APPDATA%\1C\1CEStart\).&#10;• Момент синхронизации: при старте, по интервалу (мин) или по расписанию (ЧЧ:ММ).&#10;• «Загрузить из файла» — добавить базы из файла в приложение; «Выгрузить в файл» — наоборот.&#10;• Рекомендуется включать резервные копии ibases.v8i перед синхронизацией — их можно восстановить кнопкой «Восстановить из последней копии»."/>
+                            </StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                 <TextBlock Text="Режим синхронизации:" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -1115,8 +1141,13 @@
                 </TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="4,12,4,0">
                     <StackPanel>
-                        <TextBlock Text="Управление конфигурациями 1С" FontSize="18" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Управление конфигурациями 1С" FontSize="18" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HelpLink Margin="8,0,0,0" VerticalAlignment="Center"
+                                               HelpText="Версия: 0.2.7.3.&#10;&#10;Это десктопное приложение для управления информационными базами 1С:Предприятие 8.3 — замена стандартному списку баз 1С.&#10;&#10;• Во многих окнах рядом с элементами есть значок «?» — нажмите его, чтобы увидеть подсказку о том, как работает этот элемент.&#10;• Полное описание возможностей и архитектуры — в файле README.md репозитория."/>
+                        </StackPanel>
                         <TextBlock Text="Автор: Sivatorov" FontSize="14"
                                    Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,16"/>
                         <TextBlock Text="Публикация на Infostart:" FontWeight="SemiBold"

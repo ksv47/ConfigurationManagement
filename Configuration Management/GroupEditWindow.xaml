@@ -4,6 +4,7 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Configuration_Management.Controls"
         mc:Ignorable="d"
         Title="Настройка группы"
         Icon="{StaticResource AppIcon}"
@@ -189,8 +190,12 @@
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBox x:Name="NameBox" Grid.Row="0" Grid.Column="1" Margin="0,4" Padding="4,3"
                                      Style="{DynamicResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Родительская группа:" VerticalAlignment="Center" Margin="0,4"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4">
+                                <TextBlock Text="Родительская группа:" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <controls:HelpLink Margin="4,0,0,0"
+                                                   HelpText="Группа, внутри которой будет находиться данная группа (вложенность «группа в группе»).&#10;&#10;• Кнопка «Выбрать…» открывает окно выбора родительской группы в виде дерева (у каждой группы виден её цвет и иконка).&#10;• Пункт «Корневая группа» делает группу корневой (без родителя).&#10;• Поле пустое — группа корневая.&#10;• У служебного узла «Без группы» это поле заблокировано."/>
+                            </StackPanel>
                             <Grid Grid.Row="1" Grid.Column="1" Margin="0,4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>

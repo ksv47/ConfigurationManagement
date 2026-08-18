@@ -1,0 +1,88 @@
+<UserControl x:Class="Configuration_Management.Controls.HelpLink"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             x:Name="Root"
+             d:DesignHeight="40" d:DesignWidth="70">
+    <UserControl.Resources>
+        <!-- Стиль круглой кнопки «?» (гиперссылка-вопрос) -->
+        <Style x:Key="HelpQuestionButton" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="MinWidth" Value="18"/>
+            <Setter Property="MinHeight" Value="18"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="ToolTip" Value="Что это? Нажмите, чтобы открыть подсказку"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding Foreground}"
+                                BorderThickness="1"
+                                CornerRadius="9"
+                                Width="18" Height="18">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource SecondaryButtonBackgroundBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <ToggleButton x:Name="HelpToggle"
+                      Style="{StaticResource HelpQuestionButton}"
+                      Checked="OnHelpToggle_Checked"
+                      Unchecked="OnHelpToggle_Unchecked"
+                      VerticalAlignment="Center"
+                      HorizontalAlignment="Center">
+            <TextBlock Text="?" FontWeight="Bold" FontSize="11" FontFamily="Segoe UI"
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+        </ToggleButton>
+
+        <Popup x:Name="HelpPopup"
+               PlacementTarget="{Binding ElementName=HelpToggle}"
+               Placement="Bottom"
+               AllowsTransparency="True"
+               StaysOpen="True"
+               Closed="OnHelpPopup_Closed">
+            <Border Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderBrushColor}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12"
+                    MaxWidth="460"
+                    Margin="0,6,0,0"
+                    UseLayoutRounding="True">
+                <StackPanel>
+                    <TextBlock Text="Подсказка"
+                               FontWeight="SemiBold" FontSize="12"
+                               Foreground="{DynamicResource AccentBrush}"
+                               Margin="0,0,0,6"/>
+                    <TextBlock Text="{Binding HelpText, ElementName=Root}"
+                               TextWrapping="Wrap"
+                               FontSize="12.5" LineHeight="19"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

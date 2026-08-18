@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:controls="clr-namespace:Configuration_Management.Controls"
         mc:Ignorable="d"
         Title="Добавление в список"
         Icon="{StaticResource AppIcon}"
@@ -60,8 +61,11 @@
         </Grid.RowDefinitions>
 
         <!-- Заголовок -->
-        <TextBlock Grid.Row="0" Text="Что добавить в список?"
-                   FontSize="15" FontWeight="SemiBold" Margin="0,0,0,12"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+            <TextBlock Text="Что добавить в список?" FontSize="15" FontWeight="SemiBold"/>
+            <controls:HelpLink Margin="8,0,0,0" VerticalAlignment="Center"
+                               HelpText="Выберите, что добавить в список информационных баз:&#10;&#10;• «Существующая база» — добавить уже созданную ИБ 1С, указав её строку подключения.&#10;• «Создать пустую базу» — создать новую пустую ИБ (файловую или на сервере) через CREATEINFOBASE.&#10;• «Создать из шаблона» — создать базу из шаблона (.cf / .dt), как в стандартном стартере 1С.&#10;• «Новая группа» — создать группу для упорядочивания баз в дереве.&#10;&#10;После выбора нажмите «Далее» — откроется соответствующее окно настройки."/>
+        </StackPanel>
 
         <!-- Варианты выбора -->
         <StackPanel Grid.Row="1">

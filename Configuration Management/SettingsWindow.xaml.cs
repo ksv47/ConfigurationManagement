@@ -182,44 +182,31 @@ namespace Configuration_Management
             InitHotkeyCombos();
         }
 
-        /// <summary>Доступные жесты для выпадающих списков («Нет» = не назначено).</summary>
-        private static readonly string[] HotkeyChoices =
-        {
-            "Нет",
-            "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
-            "Delete", "Insert",
-            "Ctrl+F2", "Ctrl+F3", "Ctrl+F4",
-            "Shift+Insert", "Ctrl+Insert",
-            "Ctrl+Delete"
-        };
-
+        /// <summary>Инициализирует поля ввода горячих клавиш (запись комбинаций Ctrl/Shift/Alt).</summary>
         private void InitHotkeyCombos()
         {
-            BindHotkeyCombo(HotkeyEnterpriseCombo, _viewModel.HotkeyEnterprise, "F3");
-            BindHotkeyCombo(HotkeyConfiguratorCombo, _viewModel.HotkeyConfigurator, "F4");
-            BindHotkeyCombo(HotkeyFavoriteCombo, _viewModel.HotkeyFavorite, "F8");
-            BindHotkeyCombo(HotkeyEditCombo, _viewModel.HotkeyEdit, "F2");
-            BindHotkeyCombo(HotkeyDeleteCombo, _viewModel.HotkeyDelete, "Delete");
-            BindHotkeyCombo(HotkeyClearCacheCombo, _viewModel.HotkeyClearCache, "Нет");
-            BindHotkeyCombo(HotkeyAddCombo, _viewModel.HotkeyAdd, "Insert");
-            BindHotkeyCombo(HotkeyPinCombo, _viewModel.HotkeyPin, "Нет");
+            BindHotkeyBox(HotkeyEnterpriseBox, _viewModel.HotkeyEnterprise);
+            BindHotkeyBox(HotkeyConfiguratorBox, _viewModel.HotkeyConfigurator);
+            BindHotkeyBox(HotkeyFavoriteBox, _viewModel.HotkeyFavorite);
+            BindHotkeyBox(HotkeyEditBox, _viewModel.HotkeyEdit);
+            BindHotkeyBox(HotkeyDeleteBox, _viewModel.HotkeyDelete);
+            BindHotkeyBox(HotkeyClearCacheBox, _viewModel.HotkeyClearCache);
+            BindHotkeyBox(HotkeyAddBox, _viewModel.HotkeyAdd);
+            BindHotkeyBox(HotkeyPinBox, _viewModel.HotkeyPin);
+            BindHotkeyBox(HotkeyShowAllBox, _viewModel.HotkeyShowAll);
+            BindHotkeyBox(HotkeyShowFavoritesBox, _viewModel.HotkeyShowFavorites);
+            BindHotkeyBox(HotkeyShowRecentBox, _viewModel.HotkeyShowRecent);
         }
 
-        private static void BindHotkeyCombo(System.Windows.Controls.ComboBox? combo, string current, string fallback)
+        private static void BindHotkeyBox(Controls.HotkeyBox? box, string current)
         {
-            if (combo is null) return;
-            combo.ItemsSource = null;
-            combo.ItemsSource = HotkeyChoices;
-            var value = string.IsNullOrWhiteSpace(current) ? "Нет" : current.Trim();
-            if (!HotkeyChoices.Contains(value, StringComparer.OrdinalIgnoreCase))
-                value = fallback;
-            var idx = Array.FindIndex(HotkeyChoices, c => c.Equals(value, StringComparison.OrdinalIgnoreCase));
-            combo.SelectedIndex = idx >= 0 ? idx : 0;
+            if (box is null) return;
+            box.Value = current?.Trim() ?? string.Empty;
         }
 
-        private static string ReadHotkeyCombo(System.Windows.Controls.ComboBox? combo, string fallback)
+        private static string ReadHotkeyBox(Controls.HotkeyBox? box)
         {
-            var s = combo?.SelectedItem as string;
+            var s = box?.Value;
             if (string.IsNullOrWhiteSpace(s) || s == "Нет")
                 return "";
             return s.Trim();
@@ -711,14 +698,17 @@ namespace Configuration_Management
                 StatusShowConnectionTypeCheck?.IsChecked ?? false,
                 StatusShowUserCheck?.IsChecked ?? false,
                 StatusShowIdCheck?.IsChecked ?? false);
-            var hkEnterprise = ReadHotkeyCombo(HotkeyEnterpriseCombo, "F3");
-            var hkConfigurator = ReadHotkeyCombo(HotkeyConfiguratorCombo, "F4");
-            var hkFavorite = ReadHotkeyCombo(HotkeyFavoriteCombo, "");
-            var hkEdit = ReadHotkeyCombo(HotkeyEditCombo, "");
-            var hkDelete = ReadHotkeyCombo(HotkeyDeleteCombo, "");
-            var hkClearCache = ReadHotkeyCombo(HotkeyClearCacheCombo, "");
-            var hkAdd = ReadHotkeyCombo(HotkeyAddCombo, "");
-            var hkPin = ReadHotkeyCombo(HotkeyPinCombo, "");
+            var hkEnterprise = ReadHotkeyBox(HotkeyEnterpriseBox);
+            var hkConfigurator = ReadHotkeyBox(HotkeyConfiguratorBox);
+            var hkFavorite = ReadHotkeyBox(HotkeyFavoriteBox);
+            var hkEdit = ReadHotkeyBox(HotkeyEditBox);
+            var hkDelete = ReadHotkeyBox(HotkeyDeleteBox);
+            var hkClearCache = ReadHotkeyBox(HotkeyClearCacheBox);
+            var hkAdd = ReadHotkeyBox(HotkeyAddBox);
+            var hkPin = ReadHotkeyBox(HotkeyPinBox);
+            var hkShowAll = ReadHotkeyBox(HotkeyShowAllBox);
+            var hkShowFavorites = ReadHotkeyBox(HotkeyShowFavoritesBox);
+            var hkShowRecent = ReadHotkeyBox(HotkeyShowRecentBox);
 
             // Проверка: одна клавиша — одно действие (пустые «Нет» не учитываются).
             var assigned = new (string Name, string Key)[]
@@ -730,7 +720,10 @@ namespace Configuration_Management
                 ("Удалить", hkDelete),
                 ("Очистить кэш", hkClearCache),
                 ("Добавить базу", hkAdd),
-                ("Закрепить", hkPin)
+                ("Закрепить", hkPin),
+                ("Показать все базы", hkShowAll),
+                ("Показать избранное", hkShowFavorites),
+                ("Показать недавние", hkShowRecent)
             };
             var duplicates = assigned
                 .Where(a => !string.IsNullOrEmpty(a.Key))
@@ -762,7 +755,10 @@ namespace Configuration_Management
                 hkClearCache,
                 hkAdd,
                 hkPin,
-                EscapeToTrayCheck.IsChecked ?? true);
+                EscapeToTrayCheck.IsChecked ?? true,
+                hkShowAll,
+                hkShowFavorites,
+                hkShowRecent);
 
             var templatePaths = TemplatePathsList?.Items.Cast<string>().Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
                 ?? new System.Collections.Generic.List<string>();

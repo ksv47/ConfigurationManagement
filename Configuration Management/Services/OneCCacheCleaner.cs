@@ -5,26 +5,87 @@ using Configuration_Management.Models;
 namespace Configuration_Management.Services;
 
 /// <summary>
-/// Сервис очистки локального кеша платформы 1С для конкретной информационной базы.
+/// Тип локального кеша платформы 1С.
+/// </summary>
+[Flags]
+public enum OneCCacheKind
+{
+    /// <summary>Не очищать кеш.</summary>
+    None = 0,
+
+    /// <summary>
+    /// Программный кеш: %LOCALAPPDATA%\1C\1cv8…
+    /// </summary>
+    Program = 1,
+
+    /// <summary>
+    /// Пользовательский кеш: %APPDATA%\1C\1cv8…
+    /// </summary>
+    User = 2,
+
+    /// <summary>Программный и пользовательский кеш одновременно.</summary>
+    All = Program | User
+}
+
+/// <summary>
+/// Сервис очистки локального кеша платформы 1С для одной или нескольких информационных баз.
 /// </summary>
 public static class OneCCacheCleaner
 {
     /// <summary>
-    /// Очищает локальный кеш 1С для указанной информационной базы.
-    /// Кеш хранится в каталогах %LOCALAPPDATA%\1C\1cv8 и %APPDATA%\1C\1cv8
-    /// в подкаталогах, имя которых соответствует ID базы 1С.
+    /// Очищает программный и пользовательский кеш 1С для указанной информационной базы.
     /// </summary>
     /// <param name="infobase">Информационная база, кеш которой нужно очистить.</param>
     /// <returns>Количество удалённых каталогов кеша.</returns>
     public static int Clear(Infobase infobase)
     {
-        if (infobase is null)
+        return Clear(infobase, OneCCacheKind.All);
+    }
+
+    /// <summary>
+    /// Очищает кеш указанного типа для одной информационной базы.
+    /// </summary>
+    /// <param name="infobase">Информационная база, кеш которой нужно очистить.</param>
+    /// <param name="kind">Тип очищаемого кеша (программный и/или пользовательский).</param>
+    /// <returns>Количество удалённых каталогов кеша.</returns>
+    public static int Clear(Infobase infobase, OneCCacheKind kind)
+    {
+        return Clear(new[] { infobase }, kind);
+    }
+
+    /// <summary>
+    /// Очищает кеш указанного типа для набора информационных баз.
+    /// </summary>
+    /// <param name="infobases">Набор информационных баз, кеш которых нужно очистить.</param>
+    /// <param name="kind">Тип очищаемого кеша (программный и/или пользовательский).</param>
+    /// <returns>Количество удалённых каталогов кеша.</returns>
+    public static int Clear(IEnumerable<Infobase> infobases, OneCCacheKind kind)
+    {
+        if (infobases is null || kind == OneCCacheKind.None)
             return 0;
 
         var removed = 0;
+        foreach (var infobase in infobases)
+        {
+            if (infobase is null)
+                continue;
+            removed += ClearSingle(infobase, kind);
+        }
+
+        return removed;
+    }
+
+    /// <summary>
+    /// Очищает кеш 1С указанного типа для конкретной информационной базы.
+    /// Кеш хранится в каталогах %LOCALAPPDATA%\1C\1cv8 (программный) и %APPDATA%\1C\1cv8
+    /// (пользовательский) в подкаталогах, имя которых соответствует ID базы 1С.
+    /// </summary>
+    private static int ClearSingle(Infobase infobase, OneCCacheKind kind)
+    {
+        var removed = 0;
 
         // Кеш может находиться в нескольких корневых каталогах.
-        foreach (var root in GetCacheRoots())
+        foreach (var root in GetCacheRoots(kind))
         {
             if (!Directory.Exists(root))
                 continue;
@@ -95,19 +156,27 @@ public static class OneCCacheCleaner
     }
 
     /// <summary>
-    /// Возвращает корневые каталоги, где 1С хранит кеш пользователя.
+    /// Возвращает корневые каталоги, где 1С хранит кеш, с учётом выбранного типа кеша.
     /// </summary>
-    private static IEnumerable<string> GetCacheRoots()
+    private static IEnumerable<string> GetCacheRoots(OneCCacheKind kind)
     {
         var roots = new List<string>();
 
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        // Программный кеш — %LOCALAPPDATA%\1C\1cv8.
+        if (kind.HasFlag(OneCCacheKind.Program))
+        {
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (!string.IsNullOrEmpty(localAppData))
+                roots.Add(Path.Combine(localAppData, "1C", "1cv8"));
+        }
 
-        if (!string.IsNullOrEmpty(localAppData))
-            roots.Add(Path.Combine(localAppData, "1C", "1cv8"));
-        if (!string.IsNullOrEmpty(appData))
-            roots.Add(Path.Combine(appData, "1C", "1cv8"));
+        // Пользовательский кеш — %APPDATA%\1C\1cv8.
+        if (kind.HasFlag(OneCCacheKind.User))
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (!string.IsNullOrEmpty(appData))
+                roots.Add(Path.Combine(appData, "1C", "1cv8"));
+        }
 
         return roots;
     }

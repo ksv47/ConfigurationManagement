@@ -214,6 +214,8 @@
 
                 <!-- Синхронизация + тема + настройки (добавление — в правой панели и контекстном меню) -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                    <controls:HelpLink Margin="0,0,4,0"
+                                       HelpText="Центральный список информационных баз 1С.&#10;&#10;• Чтобы запустить базу, выберите её и нажмите «1С:Предприятие» или «Конфигуратор» в правой панели (или дважды щёлкните по строке).&#10;• Группы раскрываются/сворачиваются стрелкой ◂, а также клавишами ←/→ при выделенной группе.&#10;• Стрелки ↑/↓ перемещают выделение по строкам.&#10;• ★ добавляет базу в «Избранное» (быстрый запуск Alt+1…Alt+9), 📌 закрепляет её вверху списка.&#10;• Ширину любой колонки можно менять, перетаскивая разделитель на её правой границе.&#10;• Клик по заголовку «Название» или «Последний запуск» сортирует список."/>
                     <Button Command="{Binding SynchronizeWithIbasesCommand}"
                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
                             ToolTip="Синхронизация с ibases.v8i по режиму из настроек">
@@ -276,10 +278,14 @@
                                       VerticalAlignment="Center"
                                       Data="{StaticResource IconTag}"
                                       Fill="{DynamicResource TextSecondaryBrush}"/>
-                                <TextBlock Grid.Column="1" Text="Теги — нажмите, чтобы добавить в фильтр"
-                                           FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Теги — нажмите, чтобы добавить в фильтр"
+                                               FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <controls:HelpLink Margin="6,0,0,0"
+                                                       HelpText="Панель быстрого отбора по тегам.&#10;&#10;• Нажмите на тег — список баз отфильтруется по этому тегу (выбранный тег подсвечивается).&#10;• Можно выбрать несколько тегов сразу — будет показаны базы, у которых есть все выбранные теги (мультифильтр).&#10;• Повторный клик по выбранному тегу снимает его из фильтра.&#10;• Кнопка «Очистить» (справа) сбрасывает все выбранные теги.&#10;• Во время отбора по тегу группы и закреплённые базы временно скрываются — показывается единый плоский список найденных баз."/>
+                                </StackPanel>
                                 <Button Grid.Column="2" Command="{Binding ClearTagFiltersCommand}"
                                         Style="{DynamicResource HeaderIconButton}" Padding="4,2"
                                         ToolTip="Сбросить выбранные теги"
@@ -1147,8 +1153,12 @@
                                 <MenuItem Header="Закрепить" Command="{Binding TogglePinCommand}" InputGestureText="{Binding HotkeyPin}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Pin" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Очистить кеш базы" Command="{Binding ClearCacheCommand}" InputGestureText="{Binding HotkeyClearCache}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="Очистить кеш" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
+                                    <MenuItem Header="Программный кеш" Command="{Binding ClearProgramCacheCommand}" InputGestureText="{Binding HotkeyClearCache}" Style="{DynamicResource ModernMenuItem}"/>
+                                    <MenuItem Header="Пользовательский кеш" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}"/>
+                                    <Separator/>
+                                    <MenuItem Header="Программный и пользовательский" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}"/>
                                 </MenuItem>
                                 <MenuItem Header="Копировать строку подключения" Command="{Binding CopyConnectionStringCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" Foreground="#06B6D4"/></MenuItem.Icon>
@@ -1403,7 +1413,7 @@
                                 <Button Grid.Column="0" Command="{Binding LaunchEnterpriseCommand}"
                                         ToolTip="{Binding HotkeyEnterprise, StringFormat=Запустить 1С:Предприятие ({0})}"
                                         Cursor="Hand" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
-                                        Background="Transparent" BorderThickness="0" Padding="10,10,4,10">
+                                        Background="Transparent" BorderThickness="0" Padding="10,12,4,12" MinHeight="40">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}">
@@ -1420,10 +1430,12 @@
                                         </ControlTemplate>
                                     </Button.Template>
                                     <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Play" Width="15" Height="15" Margin="0,0,6,0"
+                                        <materialDesign:PackIcon Kind="Play" Width="16" Height="16" Margin="0,0,6,0"
                                                                  Foreground="White" VerticalAlignment="Center"/>
                                         <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="White"
-                                                   Text="1С:Предприятие" TextTrimming="None"/>
+                                                   Text="1С:Предприятие" TextTrimming="None"
+                                                   LineHeight="20" LineStackingStrategy="BlockLineHeight"
+                                                   Padding="0,1,0,2"/>
                                     </StackPanel>
                                 </Button>
                                 <Border Grid.Column="1" Width="1" Background="#55FFFFFF" Margin="0,8"/>
@@ -1492,7 +1504,7 @@
                                 <Button Grid.Column="0" Command="{Binding LaunchConfiguratorCommand}"
                                         ToolTip="{Binding HotkeyConfigurator, StringFormat=Запустить Конфигуратор ({0})}"
                                         Cursor="Hand" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
-                                        Background="Transparent" BorderThickness="0" Padding="10,10,4,10">
+                                        Background="Transparent" BorderThickness="0" Padding="10,12,4,12" MinHeight="40">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}">
@@ -1506,11 +1518,13 @@
                                         </ControlTemplate>
                                     </Button.Template>
                                     <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Wrench" Width="15" Height="15" Margin="0,0,6,0"
+                                        <materialDesign:PackIcon Kind="Wrench" Width="16" Height="16" Margin="0,0,6,0"
                                                                  Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                         <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource TextPrimaryBrush}" Text="Конфигуратор"
-                                                   TextTrimming="None"/>
+                                                   TextTrimming="None"
+                                                   LineHeight="20" LineStackingStrategy="BlockLineHeight"
+                                                   Padding="0,1,0,2"/>
                                     </StackPanel>
                                 </Button>
                                 <Border Grid.Column="1" Width="1" Background="{DynamicResource BorderBrushColor}" Margin="0,8"/>
@@ -1599,21 +1613,25 @@
                                 </Style>
                             </Border.Style>
                             <StackPanel>
-                                <TextBlock Text="Текущая сессия" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="FontSize" Value="12"/>
-                                            <Setter Property="Margin" Value="0,0,0,6"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                    <Setter Property="FontSize" Value="11"/>
-                                                    <Setter Property="Margin" Value="0,0,0,4"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Текущая сессия" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="FontSize" Value="12"/>
+                                                <Setter Property="Margin" Value="0,0,0,6"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
+                                                        <Setter Property="FontSize" Value="11"/>
+                                                        <Setter Property="Margin" Value="0,0,0,4"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <controls:HelpLink Margin="6,0,0,4"
+                                                       HelpText="Блок «Текущая сессия» задаёт режим клиента и разрядность только для следующего запуска 1С:Предприятие, не изменяя сохранённые настройки базы.&#10;&#10;• Режим клиента: Авто / Обычный / Толстый / Тонкий.&#10;• Разрядность: Авто / 32 / 64.&#10;• Выбранные значения применяются к очередному запуску; настройки базы в свойствах остаются прежними."/>
+                                </StackPanel>
                                 <TextBlock Text="Только для следующего запуска 1С:Предприятие."
                                            FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
@@ -1807,7 +1825,7 @@
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                             </Grid>
                         </Button>
-                        <Button Command="{Binding ClearCacheCommand}" ToolTip="Очистить кэш 1С">
+                        <Button x:Name="ClearCacheMenuButton" Click="OnClearCacheMenuClick" ToolTip="Очистить кэш 1С">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
@@ -1824,19 +1842,36 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="DeleteSweep" Width="16" Height="16" Margin="0,0,4,0"
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.Column="0">
+                                    <materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Margin="0,0,4,0"
                                                              Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center"/>
                                     <TextBlock Text="Очистить кэш" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
                                                Foreground="{DynamicResource ButtonTextBrush}"/>
                                 </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding HotkeyClearCache}"
+                                <materialDesign:PackIcon Grid.Column="1" Kind="ChevronDown" Width="14" Height="14"
+                                                         Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                <TextBlock Grid.Column="2" Text="{Binding HotkeyClearCache}"
                                            VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
                                            Foreground="{DynamicResource ButtonTextBrush}" Opacity="0.75"
                                            Margin="8,0,0,0"
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                             </Grid>
+                            <Button.ContextMenu>
+                                <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                    <MenuItem Header="Очистка программного кэша" Command="{Binding ClearProgramCacheCommand}" Style="{DynamicResource ModernMenuItem}">
+                                        <MenuItem.Icon><materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Очистка пользовательского кэша" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}">
+                                        <MenuItem.Icon><materialDesign:PackIcon Kind="Account" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator/>
+                                    <MenuItem Header="Очистить программный и пользовательский кэш" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}">
+                                        <MenuItem.Icon><materialDesign:PackIcon Kind="DeleteSweep" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </Button.ContextMenu>
                         </Button>
                         <Border Height="1" Background="{DynamicResource BorderBrushColor}" Margin="0,6,0,8"
                                 Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>

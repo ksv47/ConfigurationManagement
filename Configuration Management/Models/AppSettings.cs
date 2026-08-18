@@ -168,6 +168,15 @@ public class AppSettings
     /// <summary>Горячая клавиша «Закрепить».</summary>
     public string HotkeyPin { get; set; } = "";
 
+    /// <summary>Горячая клавиша показа вкладки «Все базы». Пусто — не назначена.</summary>
+    public string HotkeyShowAll { get; set; } = "";
+
+    /// <summary>Горячая клавиша показа вкладки «Избранное». Пусто — не назначена.</summary>
+    public string HotkeyShowFavorites { get; set; } = "";
+
+    /// <summary>Горячая клавиша показа вкладки «Недавние». Пусто — не назначена.</summary>
+    public string HotkeyShowRecent { get; set; } = "";
+
     /// <summary>
     /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.
     /// </summary>

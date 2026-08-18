@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:controls="clr-namespace:Configuration_Management.Controls"
         Title="Создание информационной базы"
         Icon="{StaticResource AppIcon}"
         Width="620" Height="640" MinHeight="420"
@@ -19,9 +20,13 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,12"
-                   Foreground="{DynamicResource TextPrimaryBrush}"
-                   Text="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+            <TextBlock FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       Text="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"/>
+            <controls:HelpLink Margin="8,0,0,0" VerticalAlignment="Center"
+                               HelpText="Создание информационной базы через CREATEINFOBASE.&#10;&#10;• Файловая — укажите каталог, в котором будет размещена база (будет создан 1Cv8.1CD).&#10;• Клиент-серверная — укажите сервер 1С, имя базы на сервере и (опционально) порт.&#10;• «Создать из шаблона» — выберите конфигурацию из установленных шаблонов (.cf / .dt) либо укажите файл вручную.&#10;• Пустую базу или базу из шаблона можно создать; после создания она появится в списке баз."/>
+        </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                       Padding="0,0,4,0">

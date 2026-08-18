@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Configuration_Management.ViewModels"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:controls="clr-namespace:Configuration_Management.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -36,9 +37,13 @@
         </Grid.RowDefinitions>
 
         <!-- Подсказка -->
-        <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
-                   Foreground="{DynamicResource TextSecondaryBrush}"
-                   Text="Выберите группу в дереве. Двойной щелчок — подтверждение. «Корневая группа» — верхний уровень (без родителя)."/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="Выберите группу в дереве. Двойной щелчок — подтверждение. «Корневая группа» — верхний уровень (без родителя)."/>
+            <controls:HelpLink Margin="6,0,0,0" VerticalAlignment="Center"
+                               HelpText="Выбор родительской группы (куда будет помещена группа).&#10;&#10;• Дерево показывает иерархию групп; у каждой группы видны её цвет и иконка.&#10;• Клик по группе — выделение; двойной щелчок — выбор и подтверждение.&#10;• Зелёная кнопка «Выбрать» подтверждает выбор, «Отмена» (с красной обводкой) закрывает окно.&#10;• «Корневая группа» размещает группу на верхнем уровне (без родителя)."/>
+        </StackPanel>
 
         <!-- Дерево групп: цвет и иконка каждой группы, как в настройках -->
         <Border Grid.Row="1" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
