@@ -5,6 +5,12 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.2.7.9] — 2026-08-18
+
+### Исправлено
+
+- **Панель отборов по тегам обновляется после правки и удаления тега**: при удалении тега из базы или изменении набора тегов через окно редактирования базы облако тегов на панели отборов пересобирается, а теги, которых больше нет ни на одной базе, автоматически убираются из активного фильтра. Ранее отбор по удалённому тегу «зависал»: чип исчезал из панели, но фильтр продолжал применяться и скрывал базы, при этом снять его было невозможно. Реализовано в [`PruneActiveTagFilters`](Configuration Management/ViewModels/MainViewModel.cs) и вызовах после [`RemoveTag`](Configuration Management/ViewModels/MainViewModel.cs), [`AddTag`](Configuration Management/ViewModels/MainViewModel.cs), [`AddTagInline`](Configuration Management/ViewModels/MainViewModel.cs) и [`EditInfobase`](Configuration Management/ViewModels/MainViewModel.cs).
+
 ## [0.2.7.8] — 2026-08-18
 
 ### Исправлено

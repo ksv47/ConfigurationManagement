@@ -1189,6 +1189,40 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasActiveTagFilter));
     }
 
+    /// <summary>
+    /// Удаляет из активных фильтров теги, которых больше нет ни на одной базе
+    /// (например, после удаления или переименования тега). Иначе отбор «зависает»:
+    /// фильтр продолжает применяться, но чипа в панели отборов уже нет и снять его нельзя.
+    /// </summary>
+    private void PruneActiveTagFilters()
+    {
+        if (_activeTagFilters.Count == 0)
+            return;
+
+        var available = new HashSet<string>(
+            Infobases.SelectMany(i => i.Tags),
+            StringComparer.OrdinalIgnoreCase);
+
+        var changed = false;
+        for (var i = _activeTagFilters.Count - 1; i >= 0; i--)
+        {
+            if (!available.Contains(_activeTagFilters[i]))
+            {
+                _activeTagFilters.RemoveAt(i);
+                changed = true;
+            }
+        }
+
+        if (!changed)
+            return;
+
+        SyncActiveTagFilterSet();
+        OnPropertyChanged(nameof(HasActiveTagFilter));
+        // Набор активных фильтров изменился — пересобираем список/дерево баз,
+        // иначе отбор по «исчезнувшему» тегу продолжал бы скрывать базы.
+        RebuildGroupTree();
+    }
+
     private void SyncActiveTagFilterSet()
     {
         _activeTagFilterSet = new HashSet<string>(_activeTagFilters, StringComparer.OrdinalIgnoreCase);
@@ -1899,6 +1933,10 @@ public class MainViewModel : ViewModelBase
             InfobasesView.Refresh();
             Save();
             RebuildGroupTree();
+            // Теги могли измениться (добавлены/удалены/переименованы) —
+            // обновляем панель отборов и убираем из фильтра теги, которых больше нет ни на одной базе.
+            PruneActiveTagFilters();
+            RefreshTagFilterItems();
             // Только выгрузка: импорт сразу после правки затирал режим запуска из ibases.v8i.
             ExportToIbasesAfterLocalChange();
         }
@@ -4194,6 +4232,7 @@ public string HotkeyEnterprise
             infobase.Tags.Add(tag);
             infobase.NotifyTagsChanged();
             ScheduleSave();
+            PruneActiveTagFilters();
             RefreshTagFilterItems();
         }
     }
@@ -4219,6 +4258,7 @@ public string HotkeyEnterprise
             infobase.Tags.Add(tag);
             infobase.NotifyTagsChanged();
             ScheduleSave();
+            PruneActiveTagFilters();
             RefreshTagFilterItems();
         }
     }
@@ -4238,6 +4278,10 @@ public string HotkeyEnterprise
         infobase.Tags.RemoveAll(t => string.Equals(t, tag, StringComparison.OrdinalIgnoreCase));
         infobase.NotifyTagsChanged();
         ScheduleSave();
+        // Если удалённый тег был выбран в фильтре и его больше нет ни на одной базе,
+        // убираем его из активных отборов, иначе отбор «зависает»: чипа в панели нет,
+        // а фильтр продолжает применяться и скрывать базы.
+        PruneActiveTagFilters();
         RefreshTagFilterItems();
     }
 
