@@ -579,6 +579,14 @@
                                         <TextBlock Text="Показывать только избранные базы" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
+                                <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowEmptyGroupsCheck" Margin="0,6,0,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="FolderOutline" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Показывать пустые группы (без баз)" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <TextBlock Text="Пустые группы отображаются в дереве в своей иерархии — внутри своей родительской группы."
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="24,0,0,12"/>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

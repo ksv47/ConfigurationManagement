@@ -15,10 +15,13 @@ namespace Configuration_Management
     {
         private readonly ObservableCollection<Group> _groups;
         private readonly Group? _editingGroup;
+        private readonly bool _noGroupMode;
         private string _color = "#2D6CDF";
         private string _iconColor = "#FFFFFF";
         private string _icon = string.Empty;
         private string _parentId = string.Empty;
+        private bool _colorTabInitialized;
+        private bool _iconTabInitialized;
 
         private static readonly (string Key, string Label)[] AvailableIcons =
         {
@@ -70,11 +73,59 @@ namespace Configuration_Management
         }
 
         public GroupEditWindow(IEnumerable<Group> groups, string parentId, Group? editingGroup)
+            : this(groups, parentId, editingGroup, noGroupMode: false,
+                  noGroupColor: null, noGroupIconColor: null, noGroupIcon: null)
+        {
+        }
+
+        /// <summary>
+        /// Редактирование служебного узла «Без группы» (у него нет модели Group).
+        /// Открывается то же окно, но только с вкладками «Цвет» и «Иконка»,
+        /// как для обычной группы (по аналогии с настройками группы).
+        /// </summary>
+        public GroupEditWindow(
+            IEnumerable<Group> groups,
+            string noGroupColor,
+            string noGroupIconColor,
+            string noGroupIcon)
+            : this(groups, parentId: string.Empty, editingGroup: null, noGroupMode: true,
+                  noGroupColor, noGroupIconColor, noGroupIcon)
+        {
+        }
+
+        private GroupEditWindow(
+            IEnumerable<Group> groups,
+            string parentId,
+            Group? editingGroup,
+            bool noGroupMode,
+            string? noGroupColor,
+            string? noGroupIconColor,
+            string? noGroupIcon)
         {
             InitializeComponent();
             _groups = new ObservableCollection<Group>(groups);
             _editingGroup = editingGroup;
             _parentId = parentId ?? string.Empty;
+            _noGroupMode = noGroupMode;
+
+            if (noGroupMode)
+            {
+                // Служебный узел «Без группы»: наименование и родительскую группу
+                // менять нельзя — показываем те же вкладки, что у обычной группы,
+                // но поля имени/родителя/описания заблокированы.
+                NameBox.Text = "Без группы";
+                NameBox.IsEnabled = false;
+                DescriptionBox.IsEnabled = false;
+                ParentPathBox.Text = "— Корневая группа —";
+                ParentPathBox.IsEnabled = false;
+                SelectParentButton.IsEnabled = false;
+                ClearParentButton.IsEnabled = false;
+
+                _color = !string.IsNullOrWhiteSpace(noGroupColor) ? noGroupColor : "#2D6CDF";
+                _iconColor = !string.IsNullOrWhiteSpace(noGroupIconColor) ? noGroupIconColor : "#FFFFFF";
+                _icon = noGroupIcon ?? string.Empty;
+                return;
+            }
 
             if (editingGroup is not null)
             {
@@ -91,11 +142,9 @@ namespace Configuration_Management
             }
 
             UpdateParentPathDisplay();
-            ApplyPaletteColors();
-            BuildIconPicker();
-            UpdateHeaderColorPreview();
-            UpdateIconColorPreview();
-            HighlightSelectedIcon();
+            // Содержимое вкладок «Цвет» и «Иконка» инициализируется лениво —
+            // при первой загрузке соответствующей вкладки (OnColorTab_Loaded / OnIconTab_Loaded),
+            // т.к. WPF создаёт элементы только активной вкладки TabControl.
         }
 
         public Group Result { get; private set; } = new();
@@ -113,6 +162,12 @@ namespace Configuration_Management
             ParentPathBox.Text = parent is null
                 ? "— Корневая группа —"
                 : GroupHierarchyHelper.GetFullPath(parent, _groups);
+        }
+
+        private void OnClearParent_Click(object sender, RoutedEventArgs e)
+        {
+            _parentId = string.Empty;
+            UpdateParentPathDisplay();
         }
 
         private void OnSelectParent_Click(object sender, RoutedEventArgs e)
@@ -288,17 +343,48 @@ namespace Configuration_Management
             }
         }
 
+        /// <summary>
+        /// Инициализирует вкладку «Цвет» при её первой загрузке.
+        /// </summary>
+        private void OnColorTab_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (_colorTabInitialized)
+                return;
+            _colorTabInitialized = true;
+
+            ApplyPaletteColors();
+            UpdateHeaderColorPreview();
+        }
+
+        /// <summary>
+        /// Инициализирует вкладку «Иконка» при её первой загрузке.
+        /// </summary>
+        private void OnIconTab_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (_iconTabInitialized)
+                return;
+            _iconTabInitialized = true;
+
+            ApplyPaletteColors();
+            BuildIconPicker();
+            UpdateIconColorPreview();
+        }
+
         private void OnSave_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(NameBox.Text))
+            // Разрешено сохранять группу без наименования — в файле ibases.v8i
+            // группы могут не иметь имени, поэтому редактирование должно работать.
+            if (!_noGroupMode)
             {
-                MessageBox.Show("Укажите наименование группы.", "Внимание",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                Result.Name = NameBox.Text.Trim();
+                Result.Description = DescriptionBox.Text.Trim();
+            }
+            else
+            {
+                // Служебный узел «Без группы»: имя зафиксировано, цвет/иконка берутся из вкладок.
+                Result.Name = "Без группы";
             }
 
-            Result.Name = NameBox.Text.Trim();
-            Result.Description = DescriptionBox.Text.Trim();
             Result.Color = _color;
             Result.IconColor = _iconColor;
             Result.Icon = _icon;

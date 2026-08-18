@@ -28,6 +28,10 @@ public class MainViewModel : ViewModelBase
     private string _searchText = string.Empty;
     private bool _showFavoritesOnly;
     private bool _groupByGroup = true;
+    private bool _showEmptyGroups;
+    private string _noGroupColor = "#2D6CDF";
+    private string _noGroupIconColor = "#FFFFFF";
+    private string _noGroupIcon = string.Empty;
     private string _savedTheme = string.Empty;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
     private List<string> _installedPlatformVersions = new();
@@ -134,6 +138,10 @@ public class MainViewModel : ViewModelBase
         var settings = _repository.LoadSettings();
         _showFavoritesOnly = settings.ShowFavoritesOnly;
         _groupByGroup = settings.GroupByGroup;
+        _showEmptyGroups = settings.ShowEmptyGroups;
+        _noGroupColor = string.IsNullOrWhiteSpace(settings.NoGroupColor) ? "#2D6CDF" : settings.NoGroupColor;
+        _noGroupIconColor = string.IsNullOrWhiteSpace(settings.NoGroupIconColor) ? "#FFFFFF" : settings.NoGroupIconColor;
+        _noGroupIcon = settings.NoGroupIcon ?? string.Empty;
         _savedTheme = settings.Theme;
         _additionalPlatformSearchPaths = new List<string>(settings.AdditionalPlatformSearchPaths ?? new List<string>());
         PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformSearchPaths);
@@ -242,7 +250,7 @@ public class MainViewModel : ViewModelBase
         RefreshCommand = new RelayCommand(Refresh);
         AddInfobaseCommand = new RelayCommand(AddInfobase);
         EditInfobaseCommand = new RelayCommand(EditInfobase,
-            _ => SelectedInfobase != null || SelectedGroupNode?.Group != null);
+            _ => SelectedInfobase != null || SelectedGroupNode?.Group != null || IsNoGroupNodeSelected());
         DeleteInfobaseCommand = new RelayCommand(DeleteSelected,
             _ => SelectedInfobase != null || SelectedGroupNode?.Group != null);
         ToggleFavoriteCommand = new RelayCommand(ToggleFavorite, _ => SelectedInfobase != null);
@@ -387,6 +395,62 @@ public class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(GroupByGroupText));
                 OnPropertyChanged(nameof(ShowExpandCollapseButtons));
             }
+        }
+    }
+
+    /// <summary>Показывать пустые группы в дереве.</summary>
+    public bool ShowEmptyGroups
+    {
+        get => _showEmptyGroups;
+        set
+        {
+            if (_showEmptyGroups == value) return;
+            _showEmptyGroups = value;
+            OnPropertyChanged();
+            RebuildGroupTree();
+            ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>Цвет фона заголовка узла «Без группы».</summary>
+    public string NoGroupColor
+    {
+        get => _noGroupColor;
+        set
+        {
+            if (_noGroupColor == value) return;
+            _noGroupColor = value;
+            OnPropertyChanged();
+            RebuildGroupTree();
+            ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>Цвет иконки узла «Без группы».</summary>
+    public string NoGroupIconColor
+    {
+        get => _noGroupIconColor;
+        set
+        {
+            if (_noGroupIconColor == value) return;
+            _noGroupIconColor = value;
+            OnPropertyChanged();
+            RebuildGroupTree();
+            ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>Ключ иконки узла «Без группы» (пусто — по умолчанию).</summary>
+    public string NoGroupIcon
+    {
+        get => _noGroupIcon;
+        set
+        {
+            if (_noGroupIcon == value) return;
+            _noGroupIcon = value;
+            OnPropertyChanged();
+            RebuildGroupTree();
+            ScheduleSaveSettings();
         }
     }
 
@@ -1370,7 +1434,7 @@ public class MainViewModel : ViewModelBase
     public void ApplyDisplaySettings(bool showFavoritesButton, bool showPinnedButton, bool showTags,
         bool showVersionColumn, bool showLaunchModeColumn, bool showServerColumn, bool showLastLaunchColumn,
         bool groupByGroup, bool showFavoritesOnly, bool showSizeColumn = true,
-        bool showConfigurationColumn = true)
+        bool showConfigurationColumn = true, bool showEmptyGroups = false)
     {
         _showFavoritesButton = showFavoritesButton;
         _showPinnedButton = showPinnedButton;
@@ -1395,6 +1459,7 @@ public class MainViewModel : ViewModelBase
         // Применяем поведение списка (уже имеющиеся настройки).
         GroupByGroup = groupByGroup;
         ShowFavoritesOnly = showFavoritesOnly;
+        ShowEmptyGroups = showEmptyGroups;
 
         SaveSettings();
     }
@@ -1722,6 +1787,13 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
+        // Служебный узел «Без группы» — меняем его цвет и иконку, как у обычной группы.
+        if (IsNoGroupNodeSelected())
+        {
+            EditNoGroupNode();
+            return;
+        }
+
         if (SelectedInfobase is null)
             return;
 
@@ -1784,6 +1856,34 @@ public class MainViewModel : ViewModelBase
             SaveGroups();
             RebuildGroupTree();
         }
+    }
+
+    /// <summary>
+    /// Признак того, что выбран служебный узел «Без группы» (базы без группы).
+    /// </summary>
+    private bool IsNoGroupNodeSelected() =>
+        SelectedGroupNode is { Group: null } node &&
+        string.Equals(node.DisplayName, "Без группы", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Редактирует оформление служебного узла «Без группы» (цвет и иконку)
+    /// по аналогии с обычной группой. Изменения сохраняются в настройках приложения.
+    /// </summary>
+    private void EditNoGroupNode()
+    {
+        var dialog = new GroupEditWindow(Groups, _noGroupColor, _noGroupIconColor, _noGroupIcon)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        _noGroupColor = string.IsNullOrWhiteSpace(dialog.Result.Color) ? "#2D6CDF" : dialog.Result.Color;
+        _noGroupIconColor = string.IsNullOrWhiteSpace(dialog.Result.IconColor) ? "#FFFFFF" : dialog.Result.IconColor;
+        _noGroupIcon = dialog.Result.Icon ?? string.Empty;
+
+        RebuildGroupTree();
+        ScheduleSaveSettings();
     }
 
     /// <summary>
@@ -2702,6 +2802,7 @@ public string HotkeyEnterprise
         {
             ShowFavoritesOnly = _showFavoritesOnly,
             GroupByGroup = _groupByGroup,
+            ShowEmptyGroups = _showEmptyGroups,
             Theme = _savedTheme,
             CollapsedGroups = _collapsedGroups.ToList(),
             InstalledPlatformVersions = _installedPlatformVersions,
@@ -2763,7 +2864,10 @@ public string HotkeyEnterprise
             HotkeyPin = _hotkeyPin,
             SortField = _sortField,
             SortAscending = _sortAscending,
-            FavoriteHotkeyIds = _favoriteHotkeyIds.ToList()
+            FavoriteHotkeyIds = _favoriteHotkeyIds.ToList(),
+            NoGroupColor = _noGroupColor,
+            NoGroupIconColor = _noGroupIconColor,
+            NoGroupIcon = _noGroupIcon
         });
     }
 
@@ -2986,7 +3090,12 @@ public string HotkeyEnterprise
         var roots = GroupNodeViewModel.BuildTree(Groups);
 
         var pinnedNode = new GroupNodeViewModel(null, displayName: "Закреплённые");
-        var noGroupNode = new GroupNodeViewModel(null, displayName: "Без группы");
+        var noGroupNode = new GroupNodeViewModel(
+            null,
+            displayName: "Без группы",
+            defaultColor: _noGroupColor,
+            defaultIconColor: _noGroupIconColor,
+            defaultIcon: _noGroupIcon);
 
         // Индексация по каноническому пути (GetFullPath) и по FullPath узла —
         // после DnD группы пути в памяти и в UI должны совпасть сразу, без перезапуска.
@@ -3041,9 +3150,9 @@ public string HotkeyEnterprise
         }
 
         foreach (var root in roots)
-            root.PopulateItems();
-        pinnedNode.PopulateItems();
-        noGroupNode.PopulateItems();
+            root.PopulateItems(_showEmptyGroups);
+        pinnedNode.PopulateItems(_showEmptyGroups);
+        noGroupNode.PopulateItems(_showEmptyGroups);
 
         foreach (var root in roots)
             root.SetNotificationsSuppressed(false);
@@ -3057,7 +3166,7 @@ public string HotkeyEnterprise
             next.Add(noGroupNode);
         foreach (var root in roots)
         {
-            if (root.ContainsInfobases)
+            if (_showEmptyGroups || root.ContainsInfobases)
                 next.Add(root);
         }
 

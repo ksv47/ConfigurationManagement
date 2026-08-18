@@ -123,6 +123,14 @@
                               Data="{StaticResource IconFolder}"
                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>
+                    <ToggleButton IsChecked="{Binding ShowEmptyGroups}"
+                                  Style="{DynamicResource ToolbarToggleButton}"
+                                  Margin="0,0,2,0"
+                                  ToolTip="Показывать пустые группы (без баз)"
+                                  Visibility="{Binding GroupByGroup, Converter={StaticResource BoolToVis}}">
+                        <materialDesign:PackIcon Kind="FolderOutline" Width="18" Height="18"
+                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                    </ToggleButton>
                     <!-- Показывать теги: включает теги и вверху (панель отбора), и в списке -->
                     <ToggleButton IsChecked="{Binding ShowTagFilterPanel, Mode=TwoWay}"
                                   Click="OnTopTagsToggle_Click"
@@ -616,7 +624,18 @@
                                 <!-- Заголовок группы без собственного горизонтального отступа:
                                      сдвиг иерархии даёт отступ Expander по Level (в ItemContainerStyle).
                                      Фон/выделение начинаются сразу после кнопки разворота. -->
-                                <Border CornerRadius="6" Padding="8,6" Margin="0,1">
+                                <Border CornerRadius="6" Padding="8,6">
+                                    <!-- Отступ заголовка группы по уровню вложенности. У групп с дочерними
+                                         элементами сдвиг даёт кнопка разворота; у пустых (листовых) групп её нет,
+                                         поэтому GroupOffset добавляет такой же отступ, чтобы иерархия сохранялась. -->
+                                    <Border.Margin>
+                                        <MultiBinding Converter="{StaticResource GroupOffset}">
+                                            <Binding Path="(controls:LeveledTreeView.Level)"
+                                                     RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                            <Binding Path="HasItems"
+                                                     RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                        </MultiBinding>
+                                    </Border.Margin>
                                     <Border.Style>
                                         <!-- Стиль подсветки выбранной группы: при выделении (IsSelected)
                                              рамка акцентного цвета, чтобы выделение было видно поверх цвета группы. -->

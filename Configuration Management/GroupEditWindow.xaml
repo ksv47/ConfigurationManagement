@@ -7,9 +7,10 @@
         mc:Ignorable="d"
         Title="Настройка группы"
         Icon="{StaticResource AppIcon}"
-        Width="500"
+        Width="540"
         MinWidth="460"
-        SizeToContent="Height"
+        Height="600"
+        MinHeight="480"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI"
@@ -66,167 +67,343 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- ===================== Стиль горизонтальных вкладок (по аналогии с настройками) ===================== -->
+        <Style x:Key="SettingsSubTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="TabStripPlacement" Value="Top"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <!-- Полоса вкладок: равная ширина, общая линия снизу -->
+                            <Border Grid.Row="0"
+                                    BorderBrush="{DynamicResource BorderBrushColor}"
+                                    BorderThickness="0,0,0,1"
+                                    Margin="0,0,0,10">
+                                <UniformGrid Rows="1" IsItemsHost="True"/>
+                            </Border>
+                            <ContentPresenter Grid.Row="1"
+                                              ContentSource="SelectedContent"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SettingsSubTabItem" TargetType="TabItem">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="10,10"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="0,0,0,3"
+                                Margin="0,0,0,-1"
+                                SnapsToDevicePixels="True"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                            </MultiTrigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <!-- Только нижняя акцентная линия — без заливки, чтобы не спорить с боковым меню -->
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Bd" Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <GroupBox Grid.Row="0" Header="Основные параметры" Padding="10" Margin="0,0,0,12"
-                  BorderBrush="{DynamicResource BorderBrushColor}"
-                  Background="{DynamicResource CardBackgroundBrush}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Наименование:" VerticalAlignment="Center" Margin="0,4"
-                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                <TextBox x:Name="NameBox" Grid.Row="0" Grid.Column="1" Margin="0,4" Padding="4,3"
-                         Style="{DynamicResource ModernTextBox}"/>
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Родительская группа:" VerticalAlignment="Center" Margin="0,4"
-                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                <Grid Grid.Row="1" Grid.Column="1" Margin="0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="ParentPathBox" Grid.Column="0" IsReadOnly="True" Padding="4,3"
-                             Style="{DynamicResource ModernTextBox}"
-                             VerticalContentAlignment="Center"
-                             ToolTip="Группа, внутри которой будет находиться данная группа"/>
-                    <Button Grid.Column="1" Margin="6,0,0,0" Padding="10,4"
-                            Style="{DynamicResource SecondaryButton}"
-                            Click="OnSelectParent_Click" ToolTip="Выбрать родительскую группу в дереве">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📁" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="Выбрать…" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </Grid>
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Описание:" VerticalAlignment="Center" Margin="0,4"
-                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                <TextBox x:Name="DescriptionBox" Grid.Row="2" Grid.Column="1" Margin="0,4" Padding="4,3"
-                         Style="{DynamicResource ModernTextBox}"/>
-            </Grid>
-        </GroupBox>
+        <TabControl Grid.Row="0" Margin="16,16,16,0"
+                    Style="{StaticResource SettingsSubTabControl}">
 
-        <GroupBox Grid.Row="1" Header="Цвет заголовка" Padding="10" Margin="0,0,0,12"
-                  BorderBrush="{DynamicResource BorderBrushColor}"
-                  Background="{DynamicResource CardBackgroundBrush}">
-            <StackPanel>
-                <TextBlock Text="Фон строки группы в списке баз."
-                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"
-                           TextWrapping="Wrap"/>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <Border x:Name="ColorPreview" Width="48" Height="32" CornerRadius="4" Margin="0,0,10,0"
-                            VerticalAlignment="Center" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"/>
-                    <TextBlock x:Name="ColorHexText" VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" FontFamily="Consolas"/>
-                    <Button Margin="16,0,0,0" Padding="10,4" Style="{DynamicResource SecondaryButton}"
-                            Click="OnPickHeaderColor_Click" ToolTip="Полная палитра для цвета заголовка">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="Палитра…" VerticalAlignment="Center"
+            <!-- ============ Вкладка «Основные» ============ -->
+            <TabItem x:Name="MainTabItem" Style="{StaticResource SettingsSubTabItem}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="TextBox" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                        <TextBlock Text="Основные" VerticalAlignment="Center"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Padding="2,8,2,4"
+                              CanContentScroll="False">
+                    <GroupBox Header="Основные параметры" Padding="10" Margin="0,0,0,12"
+                              BorderBrush="{DynamicResource BorderBrushColor}"
+                              Background="{DynamicResource CardBackgroundBrush}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Наименование:" VerticalAlignment="Center" Margin="0,4"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-                <TextBlock Text="Быстрый выбор:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
-                <UniformGrid x:Name="HeaderPaletteGrid" Rows="2" Columns="8">
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#EF4444" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#F97316" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#F59E0B" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#EAB308" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#84CC16" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#22C55E" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#10B981" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#14B8A6" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#06B6D4" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#0EA5E9" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#3B82F6" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#2D6CDF" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#6366F1" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#8B5CF6" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#A855F7" Click="OnHeaderPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#D946EF" Click="OnHeaderPalette_Click"/>
-                </UniformGrid>
-            </StackPanel>
-        </GroupBox>
-
-        <GroupBox Grid.Row="2" Header="Иконка и её цвет" Padding="10" Margin="0,0,0,12"
-                  BorderBrush="{DynamicResource BorderBrushColor}"
-                  Background="{DynamicResource CardBackgroundBrush}">
-            <StackPanel>
-                <TextBlock Text="Цвет только для иконки (независим от фона заголовка)."
-                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"
-                           TextWrapping="Wrap"/>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <Border x:Name="IconColorPreview" Width="48" Height="32" CornerRadius="4" Margin="0,0,10,0"
-                            VerticalAlignment="Center" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"/>
-                    <TextBlock x:Name="IconColorHexText" VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" FontFamily="Consolas"/>
-                    <Button Margin="16,0,0,0" Padding="10,4" Style="{DynamicResource SecondaryButton}"
-                            Click="OnPickIconColor_Click" ToolTip="Полная палитра для цвета иконки">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="Палитра…" VerticalAlignment="Center"
+                            <TextBox x:Name="NameBox" Grid.Row="0" Grid.Column="1" Margin="0,4" Padding="4,3"
+                                     Style="{DynamicResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Родительская группа:" VerticalAlignment="Center" Margin="0,4"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-                <TextBlock Text="Быстрый выбор цвета иконки:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
-                <UniformGrid x:Name="IconPaletteGrid" Rows="2" Columns="8" Margin="0,0,0,12">
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#EF4444" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#F97316" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#F59E0B" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#EAB308" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#84CC16" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#22C55E" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#10B981" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#14B8A6" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#06B6D4" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#0EA5E9" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#3B82F6" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#2D6CDF" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#6366F1" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#8B5CF6" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#A855F7" Click="OnIconPalette_Click"/>
-                    <Button Style="{StaticResource PaletteColorButton}" Tag="#D946EF" Click="OnIconPalette_Click"/>
-                </UniformGrid>
-                <TextBlock Text="Иконка:"
-                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"/>
-                <WrapPanel x:Name="IconPickerPanel"/>
-            </StackPanel>
-        </GroupBox>
+                            <Grid Grid.Row="1" Grid.Column="1" Margin="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="ParentPathBox" Grid.Column="0" IsReadOnly="True" Padding="4,3"
+                                         Style="{DynamicResource ModernTextBox}"
+                                         VerticalContentAlignment="Center"
+                                         ToolTip="Группа, внутри которой будет находиться данная группа. Пусто — корневая (без родителя)."/>
+                                <Button x:Name="SelectParentButton" Grid.Column="1" Margin="6,0,0,0" Padding="10,4"
+                                        Style="{DynamicResource SecondaryButton}"
+                                        Click="OnSelectParent_Click" ToolTip="Выбрать родительскую группу в дереве">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="📁" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Выбрать…" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="ClearParentButton" Grid.Column="2" Margin="4,0,0,0" Padding="10,4"
+                                        Style="{DynamicResource SecondaryButton}"
+                                        Click="OnClearParent_Click"
+                                        ToolTip="Сделать корневой группой (без родителя)">
+                                    <TextBlock Text="Без родителя" VerticalAlignment="Center"/>
+                                </Button>
+                            </Grid>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Описание:" VerticalAlignment="Center" Margin="0,4"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBox x:Name="DescriptionBox" Grid.Row="2" Grid.Column="1" Margin="0,4" Padding="4,3"
+                                     Style="{DynamicResource ModernTextBox}"/>
+                        </Grid>
+                    </GroupBox>
+                </ScrollViewer>
+            </TabItem>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
-            <Button Width="130" Height="36" Style="{DynamicResource ModernButton}"
-                    Margin="0,0,10,0" IsDefault="True" Click="OnSave_Click">
-                <StackPanel Orientation="Horizontal">
-                    <Path Data="{StaticResource IconSave}" Fill="White" Width="16" Height="16"
-                          Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Сохранить" VerticalAlignment="Center"/>
-                </StackPanel>
-            </Button>
-            <Button Width="120" Height="36" Style="{DynamicResource SecondaryButton}" IsCancel="True">
-                <StackPanel Orientation="Horizontal">
-                    <Path Data="{StaticResource IconClear}" Fill="{DynamicResource TextPrimaryBrush}" Width="14" Height="14"
-                          Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center"/>
-                </StackPanel>
-            </Button>
-        </StackPanel>
+            <!-- ============ Вкладка «Цвет» ============ -->
+            <TabItem Style="{StaticResource SettingsSubTabItem}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                        <TextBlock Text="Цвет" VerticalAlignment="Center"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer x:Name="ColorTabScroller"
+                              Loaded="OnColorTab_Loaded"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Padding="2,8,2,4"
+                              CanContentScroll="False">
+                    <GroupBox Header="Цвет заголовка" Padding="10" Margin="0,0,0,12"
+                              BorderBrush="{DynamicResource BorderBrushColor}"
+                              Background="{DynamicResource CardBackgroundBrush}">
+                        <StackPanel>
+                            <TextBlock Text="Фон строки группы в списке баз."
+                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"
+                                       TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <Border x:Name="ColorPreview" Width="48" Height="32" CornerRadius="4" Margin="0,0,10,0"
+                                        VerticalAlignment="Center" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"/>
+                                <TextBlock x:Name="ColorHexText" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" FontFamily="Consolas"/>
+                                <Button Margin="16,0,0,0" Padding="10,4" Style="{DynamicResource SecondaryButton}"
+                                        Click="OnPickHeaderColor_Click" ToolTip="Полная палитра для цвета заголовка">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="Палитра…" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                            <TextBlock Text="Быстрый выбор:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                            <UniformGrid x:Name="HeaderPaletteGrid" Rows="2" Columns="8">
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#EF4444" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#F97316" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#F59E0B" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#EAB308" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#84CC16" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#22C55E" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#10B981" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#14B8A6" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#06B6D4" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#0EA5E9" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#3B82F6" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#2D6CDF" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#6366F1" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#8B5CF6" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#A855F7" Click="OnHeaderPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#D946EF" Click="OnHeaderPalette_Click"/>
+                            </UniformGrid>
+                        </StackPanel>
+                    </GroupBox>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ============ Вкладка «Иконка» ============ -->
+            <TabItem Style="{StaticResource SettingsSubTabItem}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Shape" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                        <TextBlock Text="Иконка" VerticalAlignment="Center"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer x:Name="IconTabScroller"
+                              Loaded="OnIconTab_Loaded"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Padding="2,8,2,4"
+                              CanContentScroll="False">
+                    <GroupBox Header="Иконка и её цвет" Padding="10" Margin="0,0,0,12"
+                              BorderBrush="{DynamicResource BorderBrushColor}"
+                              Background="{DynamicResource CardBackgroundBrush}">
+                        <StackPanel>
+                            <TextBlock Text="Цвет только для иконки (независим от фона заголовка)."
+                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"
+                                       TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <Border x:Name="IconColorPreview" Width="48" Height="32" CornerRadius="4" Margin="0,0,10,0"
+                                        VerticalAlignment="Center" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"/>
+                                <TextBlock x:Name="IconColorHexText" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" FontFamily="Consolas"/>
+                                <Button Margin="16,0,0,0" Padding="10,4" Style="{DynamicResource SecondaryButton}"
+                                        Click="OnPickIconColor_Click" ToolTip="Полная палитра для цвета иконки">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <TextBlock Text="Палитра…" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                            <TextBlock Text="Быстрый выбор цвета иконки:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                            <UniformGrid x:Name="IconPaletteGrid" Rows="2" Columns="8" Margin="0,0,0,12">
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#EF4444" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#F97316" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#F59E0B" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#EAB308" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#84CC16" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#22C55E" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#10B981" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#14B8A6" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#06B6D4" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#0EA5E9" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#3B82F6" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#2D6CDF" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#6366F1" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#8B5CF6" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#A855F7" Click="OnIconPalette_Click"/>
+                                <Button Style="{StaticResource PaletteColorButton}" Tag="#D946EF" Click="OnIconPalette_Click"/>
+                            </UniformGrid>
+                            <TextBlock Text="Иконка:"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"/>
+                            <WrapPanel x:Name="IconPickerPanel"/>
+                        </StackPanel>
+                    </GroupBox>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <Border Grid.Row="1" Padding="16,10,16,16"
+                BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,1,0,0"
+                Background="{DynamicResource CardBackgroundBrush}">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Width="130" Height="36" Margin="0,0,10,0" IsDefault="True" Click="OnSave_Click"
+                        Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="12,8">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="bd" Property="Background" Value="#15803D"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="bd" Property="Background" Value="#166534"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IconSave}" Fill="White" Width="16" Height="16"
+                              Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Сохранить" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Button>
+                <Button Width="120" Height="36" IsCancel="True"
+                        Background="Transparent" Cursor="Hand" BorderThickness="1.5"
+                        BorderBrush="#EF4444" Foreground="#EF4444">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8" Padding="12,8">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="bd" Property="Background" Value="#FEF2F2"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IconClear}" Fill="#EF4444" Width="14" Height="14"
+                              Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

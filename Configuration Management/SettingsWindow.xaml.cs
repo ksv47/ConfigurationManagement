@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.ViewModels;
@@ -152,6 +153,8 @@ namespace Configuration_Management
 
             GroupByGroupCheck.IsChecked = _viewModel.GroupByGroup;
             ShowFavoritesOnlyCheck.IsChecked = _viewModel.ShowFavoritesOnly;
+            if (ShowEmptyGroupsCheck != null)
+                ShowEmptyGroupsCheck.IsChecked = _viewModel.ShowEmptyGroups;
 
             if (ShowRightPanelDetailsCheck != null)
                 ShowRightPanelDetailsCheck.IsChecked = _viewModel.ShowRightPanelDetails;
@@ -693,7 +696,8 @@ namespace Configuration_Management
                 GroupByGroupCheck.IsChecked ?? true,
                 ShowFavoritesOnlyCheck.IsChecked ?? false,
                 ShowSizeColumnCheck?.IsChecked ?? true,
-                ShowConfigurationColumnCheck?.IsChecked ?? true);
+                ShowConfigurationColumnCheck?.IsChecked ?? true,
+                ShowEmptyGroupsCheck?.IsChecked ?? false);
 
             _viewModel.ShowRightPanelDetails = ShowRightPanelDetailsCheck?.IsChecked ?? true;
             _viewModel.ShowSessionLaunchPanel = ShowSessionLaunchPanelCheck?.IsChecked ?? true;

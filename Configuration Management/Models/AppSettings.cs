@@ -11,6 +11,17 @@ public class AppSettings
     /// <summary>Группировать базы по группам.</summary>
     public bool GroupByGroup { get; set; } = true;
 
+    /// <summary>Показывать пустые группы (без информационных баз) в дереве.</summary>
+    public bool ShowEmptyGroups { get; set; } = false;
+
+    /// <summary>Цвет фона заголовка узла «Без группы» (в формате #RRGGBB).</summary>
+    public string NoGroupColor { get; set; } = "#2D6CDF";
+
+    /// <summary>Цвет иконки узла «Без группы» (в формате #RRGGBB).</summary>
+    public string NoGroupIconColor { get; set; } = "#FFFFFF";
+
+    /// <summary>Ключ иконки узла «Без группы» (имя Geometry из Icons.xaml, пусто — по умолчанию).</summary>
+    public string NoGroupIcon { get; set; } = string.Empty;
 
     /// <summary>Название выбранной темы оформления.</summary>
     public string Theme { get; set; } = string.Empty;

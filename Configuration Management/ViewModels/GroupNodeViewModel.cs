@@ -19,27 +19,48 @@ public class GroupNodeViewModel : ViewModelBase
     private bool? _containsInfobasesCache;
     private bool _suppressNotifications;
 
+    // Для специальных узлов («Закреплённые», «Без группы»), у которых нет модели Group,
+    // храним настраиваемые цвет/иконку. Для обычных групп значения берутся из Group.
+    private readonly string _color;
+    private readonly string _iconColor;
+    private readonly string _icon;
+
     /// <summary>
     /// Создаёт узел дерева для указанной группы.
     /// </summary>
     /// <param name="group">Модель группы. Может быть null для специального узла («Закреплённые», «Без группы»).</param>
     /// <param name="parent">Родительский узел. Null для корневого узла.</param>
     /// <param name="displayName">Имя для отображения (для специальных узлов).</param>
-    public GroupNodeViewModel(Group? group, GroupNodeViewModel? parent = null, string? displayName = null)
+    /// <param name="defaultColor">Цвет фона заголовка для специального узла (когда <paramref name="group"/> равен null).</param>
+    /// <param name="defaultIconColor">Цвет иконки для специального узла (когда <paramref name="group"/> равен null).</param>
+    /// <param name="defaultIcon">Ключ иконки для специального узла (когда <paramref name="group"/> равен null).</param>
+    public GroupNodeViewModel(
+        Group? group,
+        GroupNodeViewModel? parent = null,
+        string? displayName = null,
+        string? defaultColor = null,
+        string? defaultIconColor = null,
+        string? defaultIcon = null)
     {
         Group = group;
         Parent = parent;
-        DisplayName = displayName ?? group?.Name ?? "Без группы";
+        // Группа может не иметь имени (например, импортирована из ibases.v8i) —
+        // тогда в дереве показываем плейсхолдер, чтобы группу можно было увидеть и отредактировать.
+        DisplayName = displayName
+            ?? (group is null ? "Без группы" : (string.IsNullOrWhiteSpace(group.Name) ? "Без названия" : group.Name));
         Children = new ObservableCollection<GroupNodeViewModel>();
         Infobases = new ObservableCollection<Infobase>();
         Items = new ObservableCollection<object>();
         // Кисти считаем один раз — без поиска группы по полному пути при каждой отрисовке.
-        var headerHex = group?.Color ?? "#2D6CDF";
+        _color = group?.Color ?? defaultColor ?? "#2D6CDF";
         // По умолчанию иконка белая — хорошо читается на цветном фоне заголовка.
-        var iconHex = !string.IsNullOrWhiteSpace(group?.IconColor) ? group!.IconColor : "#FFFFFF";
-        HeaderBrush = GroupColorConverter.GetBrush(headerHex);
-        HeaderTextBrush = GroupTextColorConverter.GetBrush(headerHex);
-        IconBrush = GroupColorConverter.GetBrush(iconHex);
+        _iconColor = group is not null
+            ? (!string.IsNullOrWhiteSpace(group.IconColor) ? group.IconColor : "#FFFFFF")
+            : (defaultIconColor ?? "#FFFFFF");
+        _icon = group?.Icon ?? defaultIcon ?? string.Empty;
+        HeaderBrush = GroupColorConverter.GetBrush(_color);
+        HeaderTextBrush = GroupTextColorConverter.GetBrush(_color);
+        IconBrush = GroupColorConverter.GetBrush(_iconColor);
         Infobases.CollectionChanged += (_, _) =>
         {
             _containsInfobasesCache = null;
@@ -94,11 +115,12 @@ public class GroupNodeViewModel : ViewModelBase
     }
 
     /// <summary>Цвет фона заголовка группы.</summary>
-    public string Color => Group?.Color ?? "#2D6CDF";
+    public string Color => Group?.Color ?? _color;
 
     /// <summary>Цвет иконки (по умолчанию белый, если не задан отдельно).</summary>
-    public string IconColor =>
-        !string.IsNullOrWhiteSpace(Group?.IconColor) ? Group!.IconColor : "#FFFFFF";
+    public string IconColor => Group is not null
+        ? (!string.IsNullOrWhiteSpace(Group.IconColor) ? Group.IconColor : "#FFFFFF")
+        : _iconColor;
 
     /// <summary>
     /// Ключ иконки группы (имя Geometry из Icons.xaml).
@@ -109,18 +131,19 @@ public class GroupNodeViewModel : ViewModelBase
     {
         get
         {
-            if (Group is null)
-            {
-                return DisplayName switch
-                {
-                    "Закреплённые" => "IconPin",
-                    "Все базы" => "IconDatabase",
-                    "Без группы" => "IconFolder",
-                    _ => "IconFolder"
-                };
-            }
+            if (Group is not null)
+                return string.IsNullOrWhiteSpace(Group.Icon) ? "IconFolder" : Group.Icon;
 
-            return string.IsNullOrWhiteSpace(Group.Icon) ? "IconFolder" : Group.Icon;
+            // Для специального узла можно задать иконку отдельно (например, «Без группы»).
+            if (!string.IsNullOrWhiteSpace(_icon))
+                return _icon;
+
+            return DisplayName switch
+            {
+                "Закреплённые" => "IconPin",
+                "Все базы" => "IconDatabase",
+                _ => "IconFolder"
+            };
         }
     }
 
@@ -208,10 +231,10 @@ public class GroupNodeViewModel : ViewModelBase
     /// Заполняет коллекцию <see cref="Items"/>: сначала подгруппы, содержащие базы (рекурсивно),
     /// затем базы текущей группы. Пустые группы (без баз) в дерево не попадают.
     /// </summary>
-    public void PopulateItems()
+    public void PopulateItems(bool includeEmptyGroups = false)
     {
         foreach (var child in Children)
-            child.PopulateItems();
+            child.PopulateItems(includeEmptyGroups);
 
         _containsInfobasesCache = null;
         _suppressNotifications = true;
@@ -220,7 +243,7 @@ public class GroupNodeViewModel : ViewModelBase
             Items.Clear();
             foreach (var child in Children)
             {
-                if (child.ContainsInfobases)
+                if (includeEmptyGroups || child.ContainsInfobases)
                     Items.Add(child);
             }
             foreach (var infobase in Infobases)
