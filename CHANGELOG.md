@@ -5,6 +5,12 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.2.7.10] — 2026-08-18
+
+### Добавлено
+
+- **Приложение запоминает последнюю выделенную строку списка баз** (базу или группу) и восстанавливает её при следующем запуске: выделение, правая панель и состояние кнопок возвращаются к тому же элементу. Идентификатор выбранной базы или полный путь выбранной группы сохраняются в настройках ([`AppSettings`](Configuration Management/Models/AppSettings.cs)) и автоматически обновляются при каждом изменении выделения. Для восстановления строка и нужная ветка дерева заранее раскрываются в модели ([`PrepareLastSelectionExpansion`](Configuration Management/ViewModels/MainViewModel.cs)) и выделяются после загрузки окна ([`RestoreLastSelection`](Configuration Management/MainWindow.xaml.cs)).
+
 ## [0.2.7.9] — 2026-08-18
 
 ### Исправлено

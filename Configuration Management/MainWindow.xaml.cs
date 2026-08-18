@@ -63,6 +63,7 @@ namespace Configuration_Management
                     InitializeTrayIcon();
                     RegisterLaunchHotkeys();
                     RegisterFavoriteHotkeys();
+                    RestoreLastSelection();
                 }
                 catch
                 {
@@ -1119,6 +1120,52 @@ namespace Configuration_Management
             var scrollTarget = item;
             Dispatcher.BeginInvoke(new Action(() => ScrollSelectedIntoView(scrollTarget)),
                 System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        /// <summary>
+        /// Восстанавливает последнюю выбранную строку списка (базу или группу) после запуска.
+        /// Строка определяется по сохранённым значениям
+        /// <see cref="ViewModels.MainViewModel.LastSelectedInfobaseId"/> и
+        /// <see cref="ViewModels.MainViewModel.LastSelectedGroupPath"/>.
+        /// </summary>
+        private void RestoreLastSelection()
+        {
+            if (MainTree is null || _viewModel is null)
+                return;
+
+            object? target = null;
+
+            var infobaseId = _viewModel.LastSelectedInfobaseId;
+            if (!string.IsNullOrEmpty(infobaseId))
+            {
+                var ib = _viewModel.Infobases.FirstOrDefault(
+                    i => string.Equals(i.Id, infobaseId, StringComparison.Ordinal));
+                if (ib is not null)
+                    target = ib;
+            }
+            else
+            {
+                var groupPath = _viewModel.LastSelectedGroupPath;
+                if (!string.IsNullOrEmpty(groupPath))
+                {
+                    var groupNode = _viewModel.FindGroupNodeByPath(groupPath);
+                    if (groupNode is not null)
+                        target = groupNode;
+                }
+            }
+
+            if (target is null)
+                return;
+
+            // Отложенно, чтобы виртуализированное дерево успело сгенерировать
+            // контейнер строки после первой отрисовки.
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (target is Infobase infobase)
+                    SelectTreeNode(infobase);
+                else if (target is GroupNodeViewModel group)
+                    SelectTreeNode(group);
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         /// <summary>

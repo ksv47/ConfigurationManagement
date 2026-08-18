@@ -186,6 +186,18 @@ public class AppSettings
     public bool SortAscending { get; set; } = true;
 
     /// <summary>
+    /// Идентификатор последней выбранной информационной базы (восстанавливается при запуске).
+    /// Пусто — база не была выбрана.
+    /// </summary>
+    public string LastSelectedInfobaseId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Полный путь последней выбранной группы (восстанавливается при запуске).
+    /// Пусто — группа не была выбрана.
+    /// </summary>
+    public string LastSelectedGroupPath { get; set; } = string.Empty;
+
+    /// <summary>
     /// Упорядоченный список идентификаторов избранных баз для горячих клавиш Alt+1…Alt+9.
     /// Индекс 0 → Alt+1, индекс 1 → Alt+2 и т.д. (максимум 9).
     /// </summary>

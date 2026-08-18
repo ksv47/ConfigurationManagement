@@ -25,6 +25,8 @@ public class MainViewModel : ViewModelBase
     private readonly IOneCLauncher _launcher;
     private readonly IIbasesSyncService _ibasesSync;
     private Infobase? _selectedInfobase;
+    private string _lastSelectedInfobaseId = string.Empty;
+    private string _lastSelectedGroupPath = string.Empty;
     private string _searchText = string.Empty;
     private bool _showFavoritesOnly;
     private bool _groupByGroup = true;
@@ -224,6 +226,8 @@ public class MainViewModel : ViewModelBase
         _hotkeyShowRecent = settings.HotkeyShowRecent?.Trim() ?? "";
         _sortField = string.IsNullOrWhiteSpace(settings.SortField) ? "Name" : settings.SortField;
         _sortAscending = settings.SortAscending;
+        _lastSelectedInfobaseId = settings.LastSelectedInfobaseId ?? string.Empty;
+        _lastSelectedGroupPath = settings.LastSelectedGroupPath ?? string.Empty;
         if (settings.FavoriteHotkeyIds != null)
         {
             foreach (var id in settings.FavoriteHotkeyIds.Take(9))
@@ -259,6 +263,11 @@ public class MainViewModel : ViewModelBase
         // Дерево групп (отображается в виде «группа в группе»).
         GroupNodes = new ObservableCollection<GroupNodeViewModel>();
         RebuildGroupTree();
+
+        // Раскрываем ветку, содержащую последнюю выбранную строку, чтобы её контейнер
+        // в виртуализированном дереве создался сразу при первой отрисовке и выделение
+        // можно было восстановить (см. PrepareLastSelectionExpansion).
+        PrepareLastSelectionExpansion();
 
         SelectInfobaseCommand = new RelayCommand(SelectInfobase);
         RefreshCommand = new RelayCommand(Refresh);
@@ -349,6 +358,14 @@ public class MainViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedInfobase, value))
             {
+                // Запоминаем последнюю выбранную базу для восстановления при следующем запуске.
+                if (value is not null)
+                {
+                    _lastSelectedInfobaseId = value.Id ?? string.Empty;
+                    _lastSelectedGroupPath = string.Empty;
+                    ScheduleSaveSettings();
+                }
+
                 CommandManager.InvalidateRequerySuggested();
                 OnPropertyChanged(nameof(StatusBarInfo));
             }
@@ -366,6 +383,14 @@ public class MainViewModel : ViewModelBase
             var previous = _selectedGroupNode;
             if (SetProperty(ref _selectedGroupNode, value))
             {
+                // Запоминаем последнюю выбранную группу для восстановления при следующем запуске.
+                if (value?.Group is not null)
+                {
+                    _lastSelectedGroupPath = value.FullPath;
+                    _lastSelectedInfobaseId = string.Empty;
+                    ScheduleSaveSettings();
+                }
+
                 // Сбрасываем подсветку ранее выбранной группы и подсвечиваем новую,
                 // чтобы выделение было видно поверх цвета группы в дереве.
                 if (previous is not null)
@@ -375,6 +400,78 @@ public class MainViewModel : ViewModelBase
 
                 CommandManager.InvalidateRequerySuggested();
             }
+        }
+    }
+
+    /// <summary>Идентификатор последней выбранной базы (для восстановления при запуске).</summary>
+    public string LastSelectedInfobaseId => _lastSelectedInfobaseId;
+
+    /// <summary>Полный путь последней выбранной группы (для восстановления при запуске).</summary>
+    public string LastSelectedGroupPath => _lastSelectedGroupPath;
+
+    /// <summary>
+    /// Рекурсивно ищет узел группы по полному пути в текущем дереве групп.
+    /// </summary>
+    public GroupNodeViewModel? FindGroupNodeByPath(string fullPath)
+    {
+        if (string.IsNullOrEmpty(fullPath))
+            return null;
+        foreach (var root in GroupNodes)
+        {
+            var found = FindGroupNodeIn(root, fullPath);
+            if (found is not null)
+                return found;
+        }
+        return null;
+    }
+
+    private static GroupNodeViewModel? FindGroupNodeIn(GroupNodeViewModel node, string fullPath)
+    {
+        if (node.Group is not null &&
+            string.Equals(node.FullPath, fullPath, StringComparison.OrdinalIgnoreCase))
+            return node;
+        foreach (var child in node.Children)
+        {
+            var found = FindGroupNodeIn(child, fullPath);
+            if (found is not null)
+                return found;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Раскрывает (в модели) ветку дерева, содержащую последнюю выбранную строку,
+    /// чтобы при запуске её контейнер был сгенерирован и выделение можно было восстановить.
+    /// </summary>
+    private void PrepareLastSelectionExpansion()
+    {
+        string? groupPath = null;
+        if (!string.IsNullOrEmpty(_lastSelectedInfobaseId))
+        {
+            var ib = Infobases.FirstOrDefault(i => string.Equals(i.Id, _lastSelectedInfobaseId, StringComparison.Ordinal));
+            if (ib is not null && !string.IsNullOrEmpty(ib.Group))
+                groupPath = ib.Group;
+        }
+        else if (!string.IsNullOrEmpty(_lastSelectedGroupPath))
+        {
+            groupPath = _lastSelectedGroupPath;
+        }
+
+        if (string.IsNullOrEmpty(groupPath))
+            return;
+
+        var node = FindGroupNodeByPath(groupPath);
+        if (node is null)
+            return;
+
+        var chain = new List<GroupNodeViewModel>();
+        for (var n = node; n is not null; n = n.Parent)
+            chain.Add(n);
+        chain.Reverse();
+        foreach (var n in chain)
+        {
+            n.SetExpandedSilent(true);
+            n.NotifyIsExpanded();
         }
     }
 
@@ -3023,7 +3120,9 @@ public string HotkeyEnterprise
             FavoriteHotkeyIds = _favoriteHotkeyIds.ToList(),
             NoGroupColor = _noGroupColor,
             NoGroupIconColor = _noGroupIconColor,
-            NoGroupIcon = _noGroupIcon
+            NoGroupIcon = _noGroupIcon,
+            LastSelectedInfobaseId = _lastSelectedInfobaseId,
+            LastSelectedGroupPath = _lastSelectedGroupPath
         });
     }
 
