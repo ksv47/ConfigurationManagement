@@ -179,6 +179,13 @@ namespace Configuration_Management
                 {
                     Result.Id = id;
                 }
+                else
+                {
+                    // ID не найден ни во ViewModel, ни в ibases.v8i —
+                    // назначаем новый идентификатор, чтобы у базы он был всегда
+                    // (нужен для точечной очистки кеша и экспорта в ibases.v8i).
+                    Result.Id = Guid.NewGuid().ToString("D");
+                }
             }
 
             DialogResult = true;

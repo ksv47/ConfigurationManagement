@@ -237,7 +237,8 @@
                         <TextBlock Text="Подключение" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
-                <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
+                <StackPanel>
+                    <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ServerNetwork" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
@@ -361,7 +362,22 @@
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="URL публикации:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WebUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"/>
                     </Grid>
-                </GroupBox>
+                    </GroupBox>
+
+                    <!-- Кнопка вставки строки подключения: доступна только на вкладке «Подключение» -->
+                    <StackPanel Orientation="Horizontal" Margin="4,8,4,0">
+                        <Button Height="36" Padding="12,0" Margin="0,0,6,0"
+                                Style="{DynamicResource SecondaryButton}"
+                                Click="OnPasteConnectionString_Click"
+                                ToolTip="Вставить строку подключения из буфера обмена с разбивкой по полям">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ContentPaste" Width="15" Height="15" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Вставить строку подключения" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                        <controls:HelpLink HelpText="Кнопка доступна на вкладке «Подключение» и при создании, и при правке базы.&#10;&#10;• Открывает окно ввода строки подключения; если в буфере обмена есть ссылка на базу 1С (строка с Srvr/Ref/File/WS, e1c://, http(s)://, путь к файловой базе или server\base), она подставится автоматически.&#10;• «Применить» разбивает строку по полям: тип подключения, сервер/порт, имя базы, путь или URL, пользователь и пароль.&#10;• Если наименование базы не задано, подставляется имя базы (Ref) или каталога файловой базы."/>
+                    </StackPanel>
+                </StackPanel>
             </TabItem>
 
             <!-- Хранилище конфигурации -->
@@ -1004,19 +1020,8 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Кнопка вставки строки подключения: всегда доступна слева внизу -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Height="36" Padding="12,0" Margin="0,0,6,0"
-                            Style="{DynamicResource SecondaryButton}"
-                            Click="OnPasteConnectionString_Click"
-                            ToolTip="Вставить строку подключения из буфера обмена с разбивкой по полям">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ContentPaste" Width="15" Height="15" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="Вставить строку подключения" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"/>
-                        </StackPanel>
-                    </Button>
-                    <controls:HelpLink HelpText="Кнопка доступна на любой вкладке и при создании, и при правке базы.&#10;&#10;• Открывает окно ввода строки подключения; если в буфере обмена есть ссылка на базу 1С (строка с Srvr/Ref/File/WS, e1c://, http(s)://, путь к файловой базе или server\base), она подставится автоматически.&#10;• «Применить» разбивает строку по полям: тип подключения, сервер/порт, имя базы, путь или URL, пользователь и пароль.&#10;• Если наименование базы не задано, подставляется имя базы (Ref) или каталога файловой базы."/>
-                </StackPanel>
+                <!-- Левая колонка нижней панели (кнопка вставки строки подключения
+                     перенесена на вкладку «Подключение», доступна только там). -->
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Width="140" Height="36" Margin="0,0,10,0" IsDefault="True" Click="OnSave_Click"
