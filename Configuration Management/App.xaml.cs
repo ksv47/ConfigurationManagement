@@ -70,11 +70,19 @@ namespace Configuration_Management
 
                 base.OnStartup(e);
 
-                // Синхронизируем тему.
-                var theme = string.IsNullOrWhiteSpace(settings.Theme)
-                    ? ThemeManager.LightThemeName
-                    : settings.Theme;
-                ThemeManager.ApplyTheme(theme);
+                // Применяем сохранённую цветовую схему (тему оформления).
+                if (settings.ActiveColorScheme is { Colors.Count: > 0 })
+                {
+                    ThemeManager.ApplyScheme(settings.ActiveColorScheme);
+                }
+                else
+                {
+                    // Обратная совместимость: только имя темы Light/Dark.
+                    var theme = string.IsNullOrWhiteSpace(settings.Theme)
+                        ? ThemeManager.LightThemeName
+                        : settings.Theme;
+                    ThemeManager.ApplyTheme(theme);
+                }
 
                 var mainWindow = AppServices.GetRequiredService<MainWindow>();
                 MainWindow = mainWindow;

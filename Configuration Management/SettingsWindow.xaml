@@ -116,7 +116,7 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Padding" Value="14,12"/>
             <Setter Property="Margin" Value="0,3"/>
-            <Setter Property="Width" Value="180"/>
+            <Setter Property="Width" Value="235"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template">
@@ -683,6 +683,127 @@
 
             </TabItem>
 
+            <!-- ============ Вкладка «Цветовое оформление» ============ -->
+            <TabItem Style="{StaticResource SettingsTabItem}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Palette" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                        <TextBlock Text="Цветовое оформление" VerticalAlignment="Center"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              Margin="4,12,4,0" Padding="0,0,4,0">
+                    <StackPanel>
+                        <GroupBox Header="Тема оформления" Padding="8" Margin="0,0,0,12">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="Тема:" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <ComboBox x:Name="SchemeComboBox" Width="280" Height="34" Margin="10,0,0,0"
+                                              VerticalAlignment="Center"
+                                              Style="{StaticResource ModernComboBox}"
+                                              SelectionChanged="OnSchemeCombo_SelectionChanged"/>
+                                    <Button x:Name="ApplySchemeButton" Content="Применить" Margin="10,0,0,0"
+                                            Padding="12,5" VerticalAlignment="Center"
+                                            Style="{DynamicResource ModernButton}"
+                                            Click="OnApplyColorScheme_Click"
+                                            ToolTip="Применить выбранную тему и цвета сразу (предпросмотр)"/>
+                                </StackPanel>
+                                <TextBlock Text="Встроенные темы: «Светлая» и «Тёмная». Свои темы сохраняются в каталоге пользователя и появляются в списке."
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                <WrapPanel Orientation="Horizontal">
+                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                            Click="OnCreateScheme_Click"
+                                            ToolTip="Создать свою тему на основе текущих цветов">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Создать тему" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="RenameSchemeButton" Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                            Click="OnRenameScheme_Click"
+                                            ToolTip="Переименовать выбранную тему">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Переименовать" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="DeleteSchemeButton" Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                            Click="OnDeleteScheme_Click"
+                                            ToolTip="Удалить выбранную пользовательскую тему">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Удалить" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                            Click="OnResetSchemeColors_Click"
+                                            ToolTip="Восстановить цвета выбранной темы по умолчанию">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Restore" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Сбросить цвета" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                            Click="OnExportScheme_Click"
+                                            ToolTip="Выгрузить текущую тему в JSON-файл">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Export" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Выгрузить…" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,0,4"
+                                            Click="OnImportScheme_Click"
+                                            ToolTip="Загрузить тему из JSON-файла">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Import" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Загрузить…" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </WrapPanel>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Цвета" Padding="8" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="Измените цвета выбранной темы. «Применить» — сразу применить (предпросмотр), «Сохранить» — сохранить настройки."
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <ItemsControl x:Name="ColorItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="36"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Label}" VerticalAlignment="Center"
+                                                           Margin="0,0,12,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <Border Grid.Column="1" Width="28" Height="20" CornerRadius="4"
+                                                        BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                                                        Background="{Binding ColorBrush}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Hex}" VerticalAlignment="Center"
+                                                           Margin="12,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <Button Grid.Column="3" Content="Выбрать…" Padding="10,3"
+                                                        Margin="12,0,0,0" VerticalAlignment="Center"
+                                                        Style="{DynamicResource SecondaryButton}"
+                                                        Tag="{Binding Key}"
+                                                        Click="OnColorPick_Click"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <!-- ============ Вкладка «Клавиши» ============ -->
             <TabItem Style="{StaticResource SettingsTabItem}">
                 <TabItem.Header>
@@ -1184,7 +1305,7 @@
                                        VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HelpLink Margin="8,0,0,0" VerticalAlignment="Center"
-                                               HelpText="Версия: 0.2.7.3.&#10;&#10;Это десктопное приложение для управления информационными базами 1С:Предприятие 8.3 — замена стандартному списку баз 1С.&#10;&#10;• Во многих окнах рядом с элементами есть значок «?» — нажмите его, чтобы увидеть подсказку о том, как работает этот элемент.&#10;• Полное описание возможностей и архитектуры — в файле README.md репозитория."/>
+                                               HelpText="Версия: 0.2.7.24.&#10;&#10;Это десктопное приложение для управления информационными базами 1С:Предприятие 8.3 — замена стандартному списку баз 1С.&#10;&#10;• Во многих окнах рядом с элементами есть значок «?» — нажмите его, чтобы увидеть подсказку о том, как работает этот элемент.&#10;• Полное описание возможностей и архитектуры — в файле README.md репозитория."/>
                         </StackPanel>
                         <TextBlock Text="Автор: Sivatorov" FontSize="14"
                                    Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,16"/>

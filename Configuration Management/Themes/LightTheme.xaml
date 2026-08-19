@@ -1,7 +1,7 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- ===================== Цветовая палитра (светлая тема) ===================== -->
+    <!-- ===================== Р¦РІРµС‚РѕРІР°СЏ РїР°Р»РёС‚СЂР° (СЃРІРµС‚Р»Р°СЏ С‚РµРјР°) ===================== -->
     <Color x:Key="AccentColor">#FDBF00</Color>
     <Color x:Key="AccentHoverColor">#E0A800</Color>
     <Color x:Key="AccentPressedColor">#C49400</Color>
@@ -17,7 +17,7 @@
     <Color x:Key="ButtonTextColor">#000000</Color>
     <Color x:Key="FavoriteColor">#F59E0B</Color>
 
-    <!-- Дополнительные цвета для выразительных списков -->
+    <!-- Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ С†РІРµС‚Р° РґР»СЏ РІС‹СЂР°Р·РёС‚РµР»СЊРЅС‹С… СЃРїРёСЃРєРѕРІ -->
     <Color x:Key="ItemHoverColor">#FFF3CD</Color>
     <Color x:Key="ItemSelectedColor">#FFE69C</Color>
     <Color x:Key="AvatarBackgroundColor">#FFF3CD</Color>
@@ -28,40 +28,40 @@
     <Color x:Key="TreeHoverColor">#FFF9E6</Color>
     <Color x:Key="TreeSelectedColor">#FFD54D</Color>
 
-    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
-    <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHoverColor}"/>
-    <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressedColor}"/>
-    <SolidColorBrush x:Key="SidebarBrush" Color="{StaticResource SidebarColor}"/>
-    <SolidColorBrush x:Key="SidebarHoverBrush" Color="{StaticResource SidebarHoverColor}"/>
-    <SolidColorBrush x:Key="SidebarSelectedBrush" Color="{StaticResource SidebarSelectedColor}"/>
-    <SolidColorBrush x:Key="ContentBackgroundBrush" Color="{StaticResource ContentBackgroundColor}"/>
-    <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackgroundColor}"/>
-    <SolidColorBrush x:Key="BorderBrushColor" Color="{StaticResource BorderColor}"/>
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
-    <SolidColorBrush x:Key="TextOnAccentBrush" Color="{StaticResource TextOnAccentColor}"/>
-    <SolidColorBrush x:Key="ButtonTextBrush" Color="{StaticResource ButtonTextColor}"/>
-    <SolidColorBrush x:Key="FavoriteBrush" Color="{StaticResource FavoriteColor}"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{DynamicResource AccentHoverColor}"/>
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="{DynamicResource AccentPressedColor}"/>
+    <SolidColorBrush x:Key="SidebarBrush" Color="{DynamicResource SidebarColor}"/>
+    <SolidColorBrush x:Key="SidebarHoverBrush" Color="{DynamicResource SidebarHoverColor}"/>
+    <SolidColorBrush x:Key="SidebarSelectedBrush" Color="{DynamicResource SidebarSelectedColor}"/>
+    <SolidColorBrush x:Key="ContentBackgroundBrush" Color="{DynamicResource ContentBackgroundColor}"/>
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="{DynamicResource CardBackgroundColor}"/>
+    <SolidColorBrush x:Key="BorderBrushColor" Color="{DynamicResource BorderColor}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource TextPrimaryColor}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="TextOnAccentBrush" Color="{DynamicResource TextOnAccentColor}"/>
+    <SolidColorBrush x:Key="ButtonTextBrush" Color="{DynamicResource ButtonTextColor}"/>
+    <SolidColorBrush x:Key="FavoriteBrush" Color="{DynamicResource FavoriteColor}"/>
 
-    <SolidColorBrush x:Key="ItemHoverBrush" Color="{StaticResource ItemHoverColor}"/>
-    <SolidColorBrush x:Key="ItemSelectedBrush" Color="{StaticResource ItemSelectedColor}"/>
-    <SolidColorBrush x:Key="AvatarBackgroundBrush" Color="{StaticResource AvatarBackgroundColor}"/>
-    <SolidColorBrush x:Key="AvatarTextBrush" Color="{StaticResource AvatarTextColor}"/>
-    <SolidColorBrush x:Key="SecondaryButtonBackgroundBrush" Color="{StaticResource SecondaryButtonBackgroundColor}"/>
-    <SolidColorBrush x:Key="SecondaryButtonHoverBrush" Color="{StaticResource SecondaryButtonHoverColor}"/>
-    <SolidColorBrush x:Key="SecondaryButtonPressedBrush" Color="{StaticResource SecondaryButtonPressedColor}"/>
-    <SolidColorBrush x:Key="TreeHoverBrush" Color="{StaticResource TreeHoverColor}"/>
-    <SolidColorBrush x:Key="TreeSelectedBrush" Color="{StaticResource TreeSelectedColor}"/>
+    <SolidColorBrush x:Key="ItemHoverBrush" Color="{DynamicResource ItemHoverColor}"/>
+    <SolidColorBrush x:Key="ItemSelectedBrush" Color="{DynamicResource ItemSelectedColor}"/>
+    <SolidColorBrush x:Key="AvatarBackgroundBrush" Color="{DynamicResource AvatarBackgroundColor}"/>
+    <SolidColorBrush x:Key="AvatarTextBrush" Color="{DynamicResource AvatarTextColor}"/>
+    <SolidColorBrush x:Key="SecondaryButtonBackgroundBrush" Color="{DynamicResource SecondaryButtonBackgroundColor}"/>
+    <SolidColorBrush x:Key="SecondaryButtonHoverBrush" Color="{DynamicResource SecondaryButtonHoverColor}"/>
+    <SolidColorBrush x:Key="SecondaryButtonPressedBrush" Color="{DynamicResource SecondaryButtonPressedColor}"/>
+    <SolidColorBrush x:Key="TreeHoverBrush" Color="{DynamicResource TreeHoverColor}"/>
+    <SolidColorBrush x:Key="TreeSelectedBrush" Color="{DynamicResource TreeSelectedColor}"/>
 
     <SolidColorBrush x:Key="ScrollTrackBrush" Color="#E8EDF3"/>
     <SolidColorBrush x:Key="ScrollThumbBrush" Color="#B6C2D2"/>
     <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#94A3B8"/>
     <SolidColorBrush x:Key="ScrollThumbPressedBrush" Color="#7C8BA0"/>
 
-    <!-- ===================== Стиль кнопки ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ РєРЅРѕРїРєРё ===================== -->
     <Style x:Key="ModernButton" TargetType="Button">
-        <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ButtonTextBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="14,9"/>
         <Setter Property="FontSize" Value="13"/>
@@ -78,10 +78,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource AccentPressedBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.5"/>
@@ -92,10 +92,10 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль вторичной кнопки ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ РІС‚РѕСЂРёС‡РЅРѕР№ РєРЅРѕРїРєРё ===================== -->
     <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
-        <Setter Property="Background" Value="{StaticResource SecondaryButtonBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ButtonTextBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SecondaryButtonBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -109,10 +109,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource SecondaryButtonHoverBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SecondaryButtonHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource SecondaryButtonPressedBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SecondaryButtonPressedBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.5"/>
@@ -123,12 +123,12 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль кнопки-переключателя фильтра ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ РєРЅРѕРїРєРё-РїРµСЂРµРєР»СЋС‡Р°С‚РµР»СЏ С„РёР»СЊС‚СЂР° ===================== -->
     <Style x:Key="FilterToggleButton" TargetType="ToggleButton">
-        <Setter Property="Background" Value="{StaticResource SecondaryButtonBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ButtonTextBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SecondaryButtonBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="BorderBrush" Value="{StaticResource SecondaryButtonHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonHoverBrush}"/>
         <Setter Property="Padding" Value="10,5"/>
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -146,15 +146,15 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource SecondaryButtonHoverBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SecondaryButtonHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource SecondaryButtonPressedBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SecondaryButtonPressedBrush}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource AccentBrush}"/>
-                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                            <Setter Property="Foreground" Value="{StaticResource ButtonTextBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.5"/>
@@ -166,10 +166,10 @@
     </Style>
 
 
-    <!-- Иконка-переключатель на панели инструментов (группы, теги): акцент при IsChecked -->
+    <!-- РРєРѕРЅРєР°-РїРµСЂРµРєР»СЋС‡Р°С‚РµР»СЊ РЅР° РїР°РЅРµР»Рё РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ (РіСЂСѓРїРїС‹, С‚РµРіРё): Р°РєС†РµРЅС‚ РїСЂРё IsChecked -->
     <Style x:Key="ToolbarToggleButton" TargetType="ToggleButton">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="6"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -184,18 +184,18 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource ItemHoverBrush}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBrush}"/>
-                            <Setter Property="Foreground" Value="{StaticResource ButtonTextBrush}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
                         </Trigger>
                         <MultiTrigger>
                             <MultiTrigger.Conditions>
                                 <Condition Property="IsChecked" Value="True"/>
                                 <Condition Property="IsMouseOver" Value="True"/>
                             </MultiTrigger.Conditions>
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
                         </MultiTrigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
@@ -206,11 +206,11 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль текстового поля ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ С‚РµРєСЃС‚РѕРІРѕРіРѕ РїРѕР»СЏ ===================== -->
     <Style x:Key="ModernTextBox" TargetType="TextBox">
-        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="8,6"/>
         <Setter Property="FontSize" Value="13"/>
@@ -226,10 +226,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -237,7 +237,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль выпадающего списка ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ РІС‹РїР°РґР°СЋС‰РµРіРѕ СЃРїРёСЃРєР° ===================== -->
     <Style x:Key="ModernComboBoxItem" TargetType="ComboBoxItem">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Background" Value="Transparent"/>
@@ -305,7 +305,7 @@
                                     <ColumnDefinition Width="32"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Режим выбора (как горячие клавиши) -->
+                                <!-- Р РµР¶РёРј РІС‹Р±РѕСЂР° (РєР°Рє РіРѕСЂСЏС‡РёРµ РєР»Р°РІРёС€Рё) -->
                                 <ContentPresenter x:Name="ContentSite"
                                                   Grid.Column="0"
                                                   Margin="{TemplateBinding Padding}"
@@ -324,7 +324,7 @@
                                     </ContentPresenter.ContentStringFormat>
                                 </ContentPresenter>
 
-                                <!-- Редактируемый режим (сервер / порт) -->
+                                <!-- Р РµРґР°РєС‚РёСЂСѓРµРјС‹Р№ СЂРµР¶РёРј (СЃРµСЂРІРµСЂ / РїРѕСЂС‚) -->
                                 <TextBox x:Name="PART_EditableTextBox"
                                          Grid.Column="0"
                                          Margin="6,0,0,0"
@@ -408,11 +408,11 @@
 
 
 
-    <!-- Неявный стиль ComboBox: перебивает MaterialDesign Defaults -->
+    <!-- РќРµСЏРІРЅС‹Р№ СЃС‚РёР»СЊ ComboBox: РїРµСЂРµР±РёРІР°РµС‚ MaterialDesign Defaults -->
     <Style TargetType="ComboBox" BasedOn="{StaticResource ModernComboBox}"/>
 
 
-    <!-- ===================== Чекбокс в стиле Material Design ===================== -->
+    <!-- ===================== Р§РµРєР±РѕРєСЃ РІ СЃС‚РёР»Рµ Material Design ===================== -->
     <Style x:Key="ModernMaterialCheckBox" TargetType="CheckBox">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -476,13 +476,13 @@
     <Style TargetType="CheckBox" BasedOn="{StaticResource ModernMaterialCheckBox}"/>
 
 
-    <!-- ===================== Стиль поля поиска с подсказкой ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ РїРѕР»СЏ РїРѕРёСЃРєР° СЃ РїРѕРґСЃРєР°Р·РєРѕР№ ===================== -->
     <Style x:Key="SearchTextBox" TargetType="TextBox">
-        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <!-- Слева место под лупу, справа — под кнопку очистки -->
+        <!-- РЎР»РµРІР° РјРµСЃС‚Рѕ РїРѕРґ Р»СѓРїСѓ, СЃРїСЂР°РІР° вЂ” РїРѕРґ РєРЅРѕРїРєСѓ РѕС‡РёСЃС‚РєРё -->
         <Setter Property="Padding" Value="36,8,28,8"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Template">
@@ -500,12 +500,12 @@
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Hidden"/>
                         </Border>
-                        <TextBlock Text="🔍" FontSize="14"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
+                        <TextBlock Text="рџ”Ќ" FontSize="14"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left"
                                    IsHitTestVisible="False"/>
-                        <TextBlock x:Name="Watermark" Text="Поиск по базам, конфигурациям, серверу…"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
+                        <TextBlock x:Name="Watermark" Text="РџРѕРёСЃРє РїРѕ Р±Р°Р·Р°Рј, РєРѕРЅС„РёРіСѓСЂР°С†РёСЏРј, СЃРµСЂРІРµСЂСѓвЂ¦"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="36,0,28,0" VerticalAlignment="Center"
                                    IsHitTestVisible="False"
                                    Visibility="Collapsed"/>
@@ -518,10 +518,10 @@
                             <Setter TargetName="Watermark" Property="Visibility" Value="Visible"/>
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -529,10 +529,10 @@
         </Setter>
     </Style>
 
-    <!-- Сегментированные вкладки Все / Избранное / Недавние -->
+    <!-- РЎРµРіРјРµРЅС‚РёСЂРѕРІР°РЅРЅС‹Рµ РІРєР»Р°РґРєРё Р’СЃРµ / РР·Р±СЂР°РЅРЅРѕРµ / РќРµРґР°РІРЅРёРµ -->
     <Style x:Key="SegmentRadioButton" TargetType="RadioButton">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="Padding" Value="14,7"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -545,7 +545,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBrush}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentBrush}"/>
                             <Setter Property="Foreground" Value="White"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -579,9 +579,9 @@
         </Setter>
     </Style>
 
-    <!-- Кнопка-иконка на тёмной строке состояния: hover без светлой заливки (иначе белая иконка не видна). -->
+    <!-- РљРЅРѕРїРєР°-РёРєРѕРЅРєР° РЅР° С‚С‘РјРЅРѕР№ СЃС‚СЂРѕРєРµ СЃРѕСЃС‚РѕСЏРЅРёСЏ: hover Р±РµР· СЃРІРµС‚Р»РѕР№ Р·Р°Р»РёРІРєРё (РёРЅР°С‡Рµ Р±РµР»Р°СЏ РёРєРѕРЅРєР° РЅРµ РІРёРґРЅР°). -->
 
-    <!-- Кнопка в строке заголовков списка: развернуть/свернуть группы, hover-подсветка -->
+    <!-- РљРЅРѕРїРєР° РІ СЃС‚СЂРѕРєРµ Р·Р°РіРѕР»РѕРІРєРѕРІ СЃРїРёСЃРєР°: СЂР°Р·РІРµСЂРЅСѓС‚СЊ/СЃРІРµСЂРЅСѓС‚СЊ РіСЂСѓРїРїС‹, hover-РїРѕРґСЃРІРµС‚РєР° -->
     <Style x:Key="HeaderIconButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
@@ -598,10 +598,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource ItemHoverBrush}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource SecondaryButtonHoverBrush}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource SecondaryButtonHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
@@ -628,7 +628,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource SidebarHoverBrush}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource SidebarHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="#0F172A"/>
@@ -639,7 +639,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль элемента списка ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ СЌР»РµРјРµРЅС‚Р° СЃРїРёСЃРєР° ===================== -->
     <Style x:Key="ModernListBoxItem" TargetType="ListBoxItem">
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         <Setter Property="Template">
@@ -654,10 +654,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource ItemHoverBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource ItemSelectedBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource ItemSelectedBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -665,7 +665,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль элемента дерева ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ СЌР»РµРјРµРЅС‚Р° РґРµСЂРµРІР° ===================== -->
     <Style x:Key="ModernTreeViewItem" TargetType="TreeViewItem">
         <Setter Property="IsExpanded" Value="{Binding IsExpanded}"/>
         <Setter Property="IsSelected" Value="{Binding IsSelected}"/>
@@ -696,13 +696,13 @@
                                                        FontSize="12"
                                                        FontWeight="Bold"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
                                                     <Setter TargetName="ExpanderSymbol" Property="Opacity" Value="0.6"/>
                                                 </Trigger>
                                                 <Trigger Property="IsChecked" Value="True">
-                                                    <Setter TargetName="ExpanderSymbol" Property="Text" Value="−"/>
+                                                    <Setter TargetName="ExpanderSymbol" Property="Text" Value="в€’"/>
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -721,14 +721,14 @@
                             <Setter TargetName="Expander" Property="Visibility" Value="Hidden"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="header" Property="Background" Value="{StaticResource TreeHoverBrush}"/>
+                            <Setter TargetName="header" Property="Background" Value="{DynamicResource TreeHoverBrush}"/>
                         </Trigger>
                         <MultiDataTrigger>
                             <MultiDataTrigger.Conditions>
                                 <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True"/>
                                 <Condition Binding="{Binding HasItems, RelativeSource={RelativeSource TemplatedParent}}" Value="False"/>
                             </MultiDataTrigger.Conditions>
-                            <Setter TargetName="header" Property="Background" Value="{StaticResource TreeSelectedBrush}"/>
+                            <Setter TargetName="header" Property="Background" Value="{DynamicResource TreeSelectedBrush}"/>
                         </MultiDataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -736,9 +736,9 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль пункта контекстного меню ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ РїСѓРЅРєС‚Р° РєРѕРЅС‚РµРєСЃС‚РЅРѕРіРѕ РјРµРЅСЋ ===================== -->
     <Style x:Key="ModernMenuItem" TargetType="MenuItem">
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Padding" Value="12,6"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -767,7 +767,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource ItemHoverBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5"/>
@@ -778,15 +778,15 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль контекстного меню ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ РєРѕРЅС‚РµРєСЃС‚РЅРѕРіРѕ РјРµРЅСЋ ===================== -->
     <Style x:Key="ModernContextMenu" TargetType="ContextMenu">
         <Setter Property="MinWidth" Value="280"/>
         <Setter Property="HasDropShadow" Value="True"/>
-        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="4"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContextMenu">
@@ -802,17 +802,17 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль заголовка группы ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ Р·Р°РіРѕР»РѕРІРєР° РіСЂСѓРїРїС‹ ===================== -->
     <Style x:Key="ModernGroupHeader" TargetType="TextBlock">
         <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="FontSize" Value="17"/>
         <Setter Property="Margin" Value="4,10,4,6"/>
     </Style>
 
-    <!-- ===================== Стиль Expander группы (красивый chevron) ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ Expander РіСЂСѓРїРїС‹ (РєСЂР°СЃРёРІС‹Р№ chevron) ===================== -->
     <Style x:Key="GroupExpanderStyle" TargetType="Expander">
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Expander">
@@ -835,7 +835,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <!-- Символ «+» / «−» -->
+                                        <!-- РЎРёРјРІРѕР» В«+В» / В«в€’В» -->
                                         <Border x:Name="ToggleSymbol"
                                               Grid.Column="0"
                                               Width="22" Height="22"
@@ -849,7 +849,7 @@
                                                   Text="+"
                                                   FontSize="16"
                                                   FontWeight="Bold"
-                                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                                   HorizontalAlignment="Center"
                                                   VerticalAlignment="Center"
                                                   LineHeight="16"/>
@@ -862,13 +862,13 @@
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter TargetName="ToggleSymbol" Property="Background" Value="#D9E6F2"/>
-                                            <Setter TargetName="ToggleSymbolText" Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                            <Setter TargetName="ToggleSymbolText" Property="Foreground" Value="{DynamicResource AccentBrush}"/>
                                         </Trigger>
                                         <Trigger Property="IsChecked" Value="True">
-                                            <Setter TargetName="ToggleSymbol" Property="Background" Value="{StaticResource AccentBrush}"/>
-                                            <Setter TargetName="ToggleSymbol" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                                            <Setter TargetName="ToggleSymbolText" Property="Text" Value="−"/>
-                                            <Setter TargetName="ToggleSymbolText" Property="Foreground" Value="{StaticResource ButtonTextBrush}"/>
+                                            <Setter TargetName="ToggleSymbol" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                            <Setter TargetName="ToggleSymbol" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                            <Setter TargetName="ToggleSymbolText" Property="Text" Value="в€’"/>
+                                            <Setter TargetName="ToggleSymbolText" Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -889,10 +889,10 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль GroupBox ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ GroupBox ===================== -->
     <Style TargetType="GroupBox">
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="8"/>
         <Setter Property="Template">
@@ -903,16 +903,16 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <Border Grid.Row="0" Background="{StaticResource CardBackgroundBrush}"
-                                BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1"
+                        <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
+                                BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
                                 CornerRadius="6" Padding="8,4" Margin="0,0,0,0">
                             <ContentPresenter ContentSource="Header"
                                               RecognizesAccessKey="True"
-                                              TextElement.Foreground="{StaticResource TextPrimaryBrush}"
+                                              TextElement.Foreground="{DynamicResource TextPrimaryBrush}"
                                               TextElement.FontWeight="SemiBold"/>
                         </Border>
-                        <Border Grid.Row="1" Background="{StaticResource CardBackgroundBrush}"
-                                BorderBrush="{StaticResource BorderBrushColor}" BorderThickness="1,0,1,1"
+                        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}"
+                                BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1,0,1,1"
                                 CornerRadius="0,0,6,6" Padding="{TemplateBinding Padding}">
                             <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
@@ -922,27 +922,27 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль ListBox ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ ListBox ===================== -->
     <Style TargetType="ListBox">
-        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="ItemContainerStyle" Value="{StaticResource ModernListBoxItem}"/>
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
     </Style>
 
-    <!-- ===================== Стиль DataGrid (таблица баз) ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ DataGrid (С‚Р°Р±Р»РёС†Р° Р±Р°Р·) ===================== -->
     <Style TargetType="DataGrid">
-        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="RowBackground" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="AlternatingRowBackground" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource BorderBrushColor}"/>
-        <Setter Property="VerticalGridLinesBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="RowBackground" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="AlternatingRowBackground" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource BorderBrushColor}"/>
         <Setter Property="RowHeaderWidth" Value="0"/>
         <Setter Property="GridLinesVisibility" Value="Horizontal"/>
         <Setter Property="HeadersVisibility" Value="Column"/>
@@ -955,13 +955,13 @@
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
     </Style>
 
-    <!-- ===================== Стиль заголовка колонки DataGrid ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ Р·Р°РіРѕР»РѕРІРєР° РєРѕР»РѕРЅРєРё DataGrid ===================== -->
     <Style TargetType="DataGridColumnHeader">
-        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="FontSize" Value="12"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="Padding" Value="8,4"/>
         <Setter Property="Template">
@@ -982,7 +982,7 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="{StaticResource ItemHoverBrush}"/>
+                            <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -990,38 +990,38 @@
         </Setter>
     </Style>
 
-    <!-- ===================== Стиль строки DataGrid ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ СЃС‚СЂРѕРєРё DataGrid ===================== -->
     <Style TargetType="DataGridRow">
-        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource BorderBrushColor}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource ItemHoverBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
             </Trigger>
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="{StaticResource ItemSelectedBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource ItemSelectedBrush}"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- ===================== Стиль ячейки DataGrid ===================== -->
+    <!-- ===================== РЎС‚РёР»СЊ СЏС‡РµР№РєРё DataGrid ===================== -->
     <Style TargetType="DataGridCell">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="8,4"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
                 <Setter Property="Background" Value="Transparent"/>
-                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- ===================== Динамический стиль ScrollBar (скрывается, когда не нужен) ===================== -->
+    <!-- ===================== Р”РёРЅР°РјРёС‡РµСЃРєРёР№ СЃС‚РёР»СЊ ScrollBar (СЃРєСЂС‹РІР°РµС‚СЃСЏ, РєРѕРіРґР° РЅРµ РЅСѓР¶РµРЅ) ===================== -->
     <Style TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Width" Value="12"/>
@@ -1044,14 +1044,14 @@
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
                                             <Border x:Name="ThumbBorder"
-                                                    Background="{StaticResource ScrollThumbBrush}"
+                                                    Background="{DynamicResource ScrollThumbBrush}"
                                                     CornerRadius="4"/>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="ThumbBorder" Property="Background" Value="{StaticResource ScrollThumbHoverBrush}"/>
+                                                    <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource ScrollThumbHoverBrush}"/>
                                                 </Trigger>
                                                 <Trigger Property="IsDragging" Value="True">
-                                                    <Setter TargetName="ThumbBorder" Property="Background" Value="{StaticResource ScrollThumbPressedBrush}"/>
+                                                    <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource ScrollThumbPressedBrush}"/>
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -1116,11 +1116,11 @@
         </Setter>
     </Style>
 
-    <!-- Основная кнопка панели действий: акцент + тёмный текст -->
+    <!-- РћСЃРЅРѕРІРЅР°СЏ РєРЅРѕРїРєР° РїР°РЅРµР»Рё РґРµР№СЃС‚РІРёР№: Р°РєС†РµРЅС‚ + С‚С‘РјРЅС‹Р№ С‚РµРєСЃС‚ -->
     <Style x:Key="ActionPanelButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="Foreground" Value="{StaticResource ButtonTextBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -1142,12 +1142,12 @@
         </Setter>
     </Style>
 
-    <!-- Вторичные кнопки панели: кремовый фон + тёмный текст -->
+    <!-- Р’С‚РѕСЂРёС‡РЅС‹Рµ РєРЅРѕРїРєРё РїР°РЅРµР»Рё: РєСЂРµРјРѕРІС‹Р№ С„РѕРЅ + С‚С‘РјРЅС‹Р№ С‚РµРєСЃС‚ -->
     <Style x:Key="ActionPanelSecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="Background" Value="{StaticResource SecondaryButtonBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource ButtonTextBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SecondaryButtonBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -1161,10 +1161,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource SecondaryButtonHoverBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SecondaryButtonHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{StaticResource SecondaryButtonPressedBrush}"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SecondaryButtonPressedBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.5"/>
@@ -1175,7 +1175,7 @@
         </Setter>
     </Style>
 
-    <!-- Тумблер для вкладки «Отображение» -->
+    <!-- РўСѓРјР±Р»РµСЂ РґР»СЏ РІРєР»Р°РґРєРё В«РћС‚РѕР±СЂР°Р¶РµРЅРёРµВ» -->
     <Style x:Key="SettingsToggle" TargetType="ToggleButton">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>

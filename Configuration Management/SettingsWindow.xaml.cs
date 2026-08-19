@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -33,6 +34,13 @@ namespace Configuration_Management
         private bool _showLastLaunchColumn = true;
         private readonly ObservableCollection<FavoriteHotkeyItem> _favoriteHotkeyItems = new();
 
+        // ---- Цветовое оформление ----
+        private ColorScheme _colorScheme = ColorScheme.CreateLight();
+        private readonly ObservableCollection<ColorItem> _colorItems = new();
+        private bool _suppressSchemeEvent;
+        private const string BuiltInLightName = "Светлая";
+        private const string BuiltInDarkName = "Тёмная";
+
         /// <summary>
         /// Создаёт диалог настроек приложения.
         /// </summary>
@@ -52,6 +60,339 @@ namespace Configuration_Management
             InitializeDisplaySettings();
             InitializeFavoriteHotkeys();
             InitializeExportTimestampSettings();
+            InitializeColorSchemes();
+        }
+
+        // ===================== Цветовое оформление =====================
+
+        /// <summary>
+        /// Инициализирует вкладку «Цветовое оформление»: загружает активную схему,
+        /// заполняет список тем и редактор цветов.
+        /// </summary>
+        private void InitializeColorSchemes()
+        {
+            _colorScheme = _viewModel.ActiveColorScheme.Clone();
+            ColorItemsControl.ItemsSource = _colorItems;
+            RefreshSchemeComboBox();
+            RefreshColorItems();
+        }
+
+        /// <summary>Строит список доступных тем (встроенные + пользовательские) и выбирает текущую.</summary>
+        private void RefreshSchemeComboBox()
+        {
+            _suppressSchemeEvent = true;
+            try
+            {
+                SchemeComboBox.Items.Clear();
+                var items = BuildSchemeItems();
+                // Гарантируем, что рабочая схема присутствует в списке.
+                if (!items.Any(i => string.Equals(i.Name, _colorScheme.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    items.Add(new SchemeComboItem { Name = _colorScheme.Name, IsBuiltIn = false });
+                }
+                foreach (var it in items)
+                    SchemeComboBox.Items.Add(it);
+
+                var selected = items.FirstOrDefault(i =>
+                    string.Equals(i.Name, _colorScheme.Name, StringComparison.OrdinalIgnoreCase));
+                SchemeComboBox.SelectedItem = selected;
+                UpdateSchemeButtons();
+            }
+            finally
+            {
+                _suppressSchemeEvent = false;
+            }
+        }
+
+        private List<SchemeComboItem> BuildSchemeItems()
+        {
+            var items = new List<SchemeComboItem>();
+            var all = _viewModel.AvailableColorSchemes();
+            for (int i = 0; i < all.Count; i++)
+            {
+                items.Add(new SchemeComboItem { Name = all[i].Name, IsBuiltIn = i < 2 });
+            }
+            return items;
+        }
+
+        /// <summary>Обновляет список редактируемых цветов из текущей схемы.</summary>
+        private void RefreshColorItems()
+        {
+            _colorItems.Clear();
+            foreach (var (key, label) in ColorScheme.Definitions)
+            {
+                _colorItems.Add(new ColorItem { Key = key, Label = label, Hex = _colorScheme.Get(key) });
+            }
+        }
+
+        /// <summary>Возвращает схему по имени из доступных (встроенных или пользовательских).</summary>
+        private ColorScheme? ResolveScheme(string name)
+        {
+            return _viewModel.AvailableColorSchemes()
+                .FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase))?.Clone();
+        }
+
+        /// <summary>Обновляет доступность кнопок «Переименовать»/«Удалить» для встроенных тем.</summary>
+        private void UpdateSchemeButtons()
+        {
+            var selected = SchemeComboBox.SelectedItem as SchemeComboItem;
+            var isBuiltIn = selected?.IsBuiltIn ?? false;
+            if (RenameSchemeButton != null) RenameSchemeButton.IsEnabled = !isBuiltIn;
+            if (DeleteSchemeButton != null) DeleteSchemeButton.IsEnabled = !isBuiltIn;
+        }
+
+        private void OnSchemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressSchemeEvent)
+                return;
+            if (SchemeComboBox.SelectedItem is SchemeComboItem item)
+            {
+                var scheme = ResolveScheme(item.Name);
+                if (scheme != null)
+                {
+                    _colorScheme = scheme;
+                    RefreshColorItems();
+                    UpdateSchemeButtons();
+                }
+            }
+        }
+
+        /// <summary>Применяет выбранную тему и цвета сразу (предпросмотр, без сохранения настроек).</summary>
+        private void OnApplyColorScheme_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.PreviewColorScheme(_colorScheme);
+        }
+
+        /// <summary>Открывает диалог выбора цвета для отдельного элемента схемы.</summary>
+        private void OnColorPick_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { Tag: string key })
+                return;
+            var item = _colorItems.FirstOrDefault(ci => string.Equals(ci.Key, key, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+                return;
+
+            var picker = new ColorPickerWindow(item.Hex) { Owner = this };
+            if (picker.ShowDialog() == true)
+            {
+                item.Hex = picker.Result;
+                _colorScheme.Colors[item.Key] = picker.Result;
+            }
+        }
+
+        /// <summary>Создаёт собственную тему на основе текущих цветов.</summary>
+        private void OnCreateScheme_Click(object sender, RoutedEventArgs e)
+        {
+            var name = PromptForName("Создать тему", $"{_colorScheme.Name} — копия");
+            if (string.IsNullOrWhiteSpace(name))
+                return;
+            name = name.Trim();
+            if (IsReservedName(name))
+            {
+                MessageBox.Show("Такое имя занято встроенной темой или уже существует. Выберите другое имя.",
+                    "Создать тему", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var copy = _colorScheme.Clone();
+            copy.Name = name;
+            _viewModel.SaveCustomColorScheme(copy);
+            _colorScheme = copy;
+            RefreshSchemeComboBox();
+            RefreshColorItems();
+        }
+
+        /// <summary>Переименовывает выбранную пользовательскую тему.</summary>
+        private void OnRenameScheme_Click(object sender, RoutedEventArgs e)
+        {
+            if (SchemeComboBox.SelectedItem is not SchemeComboItem item || item.IsBuiltIn)
+            {
+                MessageBox.Show("Встроенные темы переименовать нельзя.",
+                    "Переименовать тему", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var name = PromptForName("Переименовать тему", item.Name);
+            if (string.IsNullOrWhiteSpace(name) || string.Equals(name.Trim(), item.Name, StringComparison.OrdinalIgnoreCase))
+                return;
+            name = name.Trim();
+            if (IsReservedName(name))
+            {
+                MessageBox.Show("Такое имя занято встроенной темой или уже существует. Выберите другое имя.",
+                    "Переименовать тему", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // Сохраняем под новым именем и удаляем старый файл.
+            var scheme = ResolveScheme(item.Name);
+            if (scheme != null)
+            {
+                _viewModel.DeleteCustomColorScheme(item.Name);
+                scheme.Name = name;
+                _viewModel.SaveCustomColorScheme(scheme);
+            }
+
+            if (string.Equals(_colorScheme.Name, item.Name, StringComparison.OrdinalIgnoreCase))
+                _colorScheme.Name = name;
+            RefreshSchemeComboBox();
+            RefreshColorItems();
+        }
+
+        /// <summary>Удаляет выбранную пользовательскую тему.</summary>
+        private void OnDeleteScheme_Click(object sender, RoutedEventArgs e)
+        {
+            if (SchemeComboBox.SelectedItem is not SchemeComboItem item || item.IsBuiltIn)
+            {
+                MessageBox.Show("Встроенные темы удалить нельзя.",
+                    "Удалить тему", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var result = MessageBox.Show($"Удалить тему «{item.Name}»?",
+                "Удалить тему", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            _viewModel.DeleteCustomColorScheme(item.Name);
+
+            // Если удалили активную — переключаемся на базовую встроенную тему.
+            if (string.Equals(_colorScheme.Name, item.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                _colorScheme = _colorScheme.IsDark ? ColorScheme.CreateDark() : ColorScheme.CreateLight();
+            }
+            RefreshSchemeComboBox();
+            RefreshColorItems();
+        }
+
+        /// <summary>Сбрасывает цвета выбранной темы на значения по умолчанию.</summary>
+        private void OnResetSchemeColors_Click(object sender, RoutedEventArgs e)
+        {
+            var wasDark = _colorScheme.IsDark;
+            var name = _colorScheme.Name;
+            _colorScheme = ColorScheme.Create(name, wasDark);
+            RefreshColorItems();
+        }
+
+        /// <summary>Выгружает текущую тему в JSON-файл.</summary>
+        private void OnExportScheme_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new SaveFileDialog
+            {
+                Title = "Выгрузить цветовую схему",
+                Filter = "Цветовая схема (*.json)|*.json|Все файлы (*.*)|*.*",
+                FileName = _colorScheme.Name + ".json",
+                DefaultExt = ".json",
+                AddExtension = true
+            };
+            if (dialog.ShowDialog() != true)
+                return;
+
+            try
+            {
+                _viewModel.ExportColorScheme(_colorScheme, dialog.FileName);
+                MessageBox.Show("Цветовая схема выгружена в файл:\n" + dialog.FileName,
+                    "Выгрузить схему", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Не удалось выгрузить схему.\n{ex.Message}",
+                    "Выгрузить схему", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>Загружает тему из JSON-файла и добавляет её в список пользовательских тем.</summary>
+        private void OnImportScheme_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Загрузить цветовую схему",
+                Filter = "Цветовая схема (*.json)|*.json|Все файлы (*.*)|*.*",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+            if (dialog.ShowDialog() != true)
+                return;
+
+            var scheme = _viewModel.ImportColorScheme(dialog.FileName);
+            if (scheme is null || scheme.Colors.Count == 0)
+            {
+                MessageBox.Show("Не удалось загрузить цветовую схему из файла. Проверьте файл.",
+                    "Загрузить схему", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            _viewModel.SaveCustomColorScheme(scheme);
+            _colorScheme = scheme;
+            RefreshSchemeComboBox();
+            RefreshColorItems();
+            MessageBox.Show($"Цветовая схема «{scheme.Name}» загружена.",
+                "Загрузить схему", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private static bool IsReservedName(string name)
+        {
+            return string.Equals(name, BuiltInLightName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, BuiltInDarkName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Показывает модальное окно ввода названия темы (стиль Material Design,
+        /// как остальные окна приложения). Возвращает null при отмене.
+        /// </summary>
+        private string? PromptForName(string title, string initial)
+        {
+            var dialog = new NameInputWindow(title, "Название темы:", "ОК", initial) { Owner = this };
+            return dialog.ShowDialog() == true ? dialog.Result : null;
+        }
+
+        /// <summary>Элемент списка тем.</summary>
+        private sealed class SchemeComboItem
+        {
+            public string Name { get; set; } = string.Empty;
+            public bool IsBuiltIn { get; set; }
+            public override string ToString() => Name;
+        }
+
+        /// <summary>Элемент редактора цветов: подпись, ключ, HEX и кисть-образец.</summary>
+        private sealed class ColorItem : INotifyPropertyChanged
+        {
+            public string Key { get; set; } = string.Empty;
+            public string Label { get; set; } = string.Empty;
+
+            private string _hex = "#000000";
+            public string Hex
+            {
+                get => _hex;
+                set
+                {
+                    _hex = value;
+                    OnPropertyChanged(nameof(Hex));
+                    ColorBrush = ParseBrush(value);
+                    OnPropertyChanged(nameof(ColorBrush));
+                }
+            }
+
+            private SolidColorBrush _colorBrush = new(Colors.Black);
+            public SolidColorBrush ColorBrush
+            {
+                get => _colorBrush;
+                private set { _colorBrush = value; OnPropertyChanged(nameof(ColorBrush)); }
+            }
+
+            public event PropertyChangedEventHandler? PropertyChanged;
+            private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+            private static SolidColorBrush ParseBrush(string hex)
+            {
+                try
+                {
+                    return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
+                }
+                catch
+                {
+                    return new SolidColorBrush(Colors.Transparent);
+                }
+            }
         }
 
         /// <summary>
@@ -851,6 +1192,9 @@ namespace Configuration_Management
 
             // Порядок горячих клавиш избранного.
             _viewModel.SetFavoriteHotkeyOrder(_favoriteHotkeyItems.Select(i => i.Key));
+
+            // Сохраняем выбранную цветовую схему (тему оформления).
+            _viewModel.ApplyColorScheme(_colorScheme);
 
             DialogResult = true;
         }

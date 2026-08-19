@@ -26,6 +26,13 @@ public class AppSettings
     /// <summary>Название выбранной темы оформления.</summary>
     public string Theme { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Активная цветовая схема (тема оформления). Если задана — применяется при запуске.
+    /// Если отсутствует — используется встроенная светлая/тёмная схема по свойству
+    /// <see cref="Theme"/>.
+    /// </summary>
+    public ColorScheme? ActiveColorScheme { get; set; }
+
     /// <summary>Имена групп, свёрнутых в списке баз.</summary>
     public List<string> CollapsedGroups { get; set; } = new();
 

@@ -35,6 +35,7 @@ public class MainViewModel : ViewModelBase
     private string _noGroupIconColor = "#FFFFFF";
     private string _noGroupIcon = string.Empty;
     private string _savedTheme = string.Empty;
+    private ColorScheme? _activeColorScheme;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
     private List<string> _installedPlatformVersions = new();
     private List<string> _additionalPlatformSearchPaths = new();
@@ -155,6 +156,17 @@ public class MainViewModel : ViewModelBase
         _noGroupIconColor = string.IsNullOrWhiteSpace(settings.NoGroupIconColor) ? "#FFFFFF" : settings.NoGroupIconColor;
         _noGroupIcon = settings.NoGroupIcon ?? string.Empty;
         _savedTheme = settings.Theme;
+        // Активная цветовая схема: если сохранена пользовательская/настроенная тема — используем её,
+        // иначе встроенную схему по выбранной теме оформления.
+        if (settings.ActiveColorScheme is { Colors.Count: > 0 })
+        {
+            _activeColorScheme = settings.ActiveColorScheme;
+        }
+        else
+        {
+            var baseTheme = string.IsNullOrWhiteSpace(_savedTheme) ? Themes.ThemeManager.LightThemeName : _savedTheme;
+            _activeColorScheme = Themes.ThemeManager.GetBuiltInScheme(baseTheme) ?? Models.ColorScheme.CreateLight();
+        }
         _additionalPlatformSearchPaths = new List<string>(settings.AdditionalPlatformSearchPaths ?? new List<string>());
         PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformSearchPaths);
         // Актуальный список с диска (Program Files + доп. пути, напр. E:\1cPlatform)
@@ -594,6 +606,9 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Название сохранённой темы оформления (пусто, если тема не сохранялась).</summary>
     public string SavedTheme => _savedTheme;
+
+    /// <summary>Активная цветовая схема (тема оформления).</summary>
+    public ColorScheme ActiveColorScheme => _activeColorScheme ?? ColorScheme.CreateLight();
 
     /// <summary>Список установленных версий платформы 1С.</summary>
     public List<string> InstalledPlatformVersions => _installedPlatformVersions;
@@ -3125,6 +3140,7 @@ public string HotkeyEnterprise
             GroupByGroup = _groupByGroup,
             ShowEmptyGroups = _showEmptyGroups,
             Theme = _savedTheme,
+            ActiveColorScheme = _activeColorScheme,
             CollapsedGroups = _collapsedGroups.ToList(),
             InstalledPlatformVersions = _installedPlatformVersions,
             AdditionalPlatformSearchPaths = _additionalPlatformSearchPaths,
@@ -3236,6 +3252,78 @@ public string HotkeyEnterprise
     {
         _savedTheme = theme;
         SaveSettings();
+    }
+
+    /// <summary>
+    /// Применяет встроенную тему оформления по имени («Light»/«Dark»), обновляет
+    /// активную схему и сохраняет настройки.
+    /// </summary>
+    public void ApplyTheme(string theme)
+    {
+        var scheme = Themes.ThemeManager.GetBuiltInScheme(theme) ?? Models.ColorScheme.CreateLight();
+        ApplyColorScheme(scheme);
+    }
+
+    /// <summary>
+    /// Применяет цветовую схему, сохраняет её как активную и записывает настройки.
+    /// </summary>
+    public void ApplyColorScheme(ColorScheme scheme)
+    {
+        if (scheme is null)
+            return;
+        _activeColorScheme = scheme.Clone();
+        _savedTheme = _activeColorScheme.BaseThemeName;
+        Themes.ThemeManager.ApplyScheme(_activeColorScheme);
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Применяет активную цветовую схему к интерфейсу (без сохранения настроек).
+    /// Используется при запуске, чтобы применить сохранённую тему.
+    /// </summary>
+    public void ApplyActiveColorSchemeToUi()
+    {
+        Themes.ThemeManager.ApplyScheme(_activeColorScheme ?? Models.ColorScheme.CreateLight());
+    }
+
+    /// <summary>Список доступных схем: встроенные (Светлая/Тёмная) и пользовательские.</summary>
+    public IReadOnlyList<Models.ColorScheme> AvailableColorSchemes()
+    {
+        return Themes.ThemeManager.EnumerateAllSchemes();
+    }
+
+    /// <summary>Сохраняет пользовательскую цветовую схему в каталог пользователя.</summary>
+    public void SaveCustomColorScheme(Models.ColorScheme scheme)
+    {
+        Themes.ThemeManager.SaveCustomScheme(scheme);
+    }
+
+    /// <summary>Удаляет пользовательскую цветовую схему по имени.</summary>
+    public bool DeleteCustomColorScheme(string name)
+    {
+        return Themes.ThemeManager.DeleteCustomScheme(name);
+    }
+
+    /// <summary>
+    /// Применяет цветовую схему к интерфейсу для предпросмотра (без сохранения настроек).
+    /// </summary>
+    public void PreviewColorScheme(Models.ColorScheme scheme)
+    {
+        if (scheme is null)
+            return;
+        Themes.ThemeManager.ApplyScheme(scheme);
+    }
+
+    /// <summary>Выгружает схему в JSON-файл.</summary>
+    public void ExportColorScheme(Models.ColorScheme scheme, string filePath)
+    {
+        Themes.ThemeManager.ExportScheme(scheme, filePath);
+    }
+
+    /// <summary>Загружает схему из JSON-файла.</summary>
+    public Models.ColorScheme? ImportColorScheme(string filePath)
+    {
+        return Themes.ThemeManager.ImportScheme(filePath);
     }
 
     /// <summary>

@@ -45,11 +45,8 @@ namespace Configuration_Management
             _viewModel = viewModel ?? new ViewModels.MainViewModel();
             DataContext = _viewModel;
 
-            // Применяем сохранённую тему оформления при запуске.
-            if (!string.IsNullOrEmpty(_viewModel.SavedTheme))
-            {
-                ThemeManager.ApplyTheme(_viewModel.SavedTheme);
-            }
+            // Применяем сохранённую цветовую схему (тему оформления) при запуске.
+            _viewModel.ApplyActiveColorSchemeToUi();
 
             UpdateThemeButton();
 
@@ -1311,9 +1308,9 @@ namespace Configuration_Management
 
         private void OnToggleTheme_Click(object sender, RoutedEventArgs e)
         {
-            ThemeManager.ToggleTheme();
+            var next = ThemeManager.ToggleTheme();
             UpdateThemeButton();
-            _viewModel.SaveTheme(ThemeManager.CurrentTheme);
+            _viewModel.ApplyTheme(next);
         }
 
         /// <summary>
