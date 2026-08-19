@@ -137,6 +137,12 @@ public class AppSettings
     public string WindowState { get; set; } = string.Empty;
 
     /// <summary>
+    /// Запоминать размер, позицию, состояние окна и монитор, на котором оно было
+    /// закрыто, и восстанавливать их при следующем запуске.
+    /// </summary>
+    public bool RememberWindowLayout { get; set; } = true;
+
+    /// <summary>
     /// При закрытии окна сворачивать приложение в системный трей вместо выхода.
     /// </summary>
     public bool CloseToTray { get; set; }

@@ -86,6 +86,7 @@ public class MainViewModel : ViewModelBase
     private CancellationTokenSource? _saveDebounceCts;
     private const int SaveDebounceMs = 400;
     private string _windowState = string.Empty;
+    private bool _rememberWindowLayout = true;
     private IbasesSyncMode _ibasesSyncMode = IbasesSyncMode.None;
     private string _ibasesSyncFilePath = string.Empty;
     private IbasesSyncTrigger _ibasesSyncTrigger = IbasesSyncTrigger.OnStartup;
@@ -202,6 +203,7 @@ public class MainViewModel : ViewModelBase
         _windowLeft = settings.WindowLeft;
         _windowTop = settings.WindowTop;
         _windowState = settings.WindowState;
+        _rememberWindowLayout = settings.RememberWindowLayout;
         _ibasesSyncMode = settings.IbasesSyncMode;
         _ibasesSyncFilePath = settings.IbasesSyncFilePath;
         _ibasesSyncTrigger = settings.IbasesSyncTrigger;
@@ -1707,6 +1709,9 @@ public class MainViewModel : ViewModelBase
     /// <summary>Сохранённое состояние окна (пусто — обычное).</summary>
     public string SavedWindowState => _windowState;
 
+    /// <summary>Запоминать размер, позицию, состояние окна и монитор при закрытии.</summary>
+    public bool RememberWindowLayout => _rememberWindowLayout;
+
     /// <summary>
     /// Сохраняет размер, позицию и состояние окна приложения.
     /// </summary>
@@ -3160,6 +3165,7 @@ public string HotkeyEnterprise
             WindowLeft = _windowLeft,
             WindowTop = _windowTop,
             WindowState = _windowState,
+            RememberWindowLayout = _rememberWindowLayout,
             IbasesSyncMode = _ibasesSyncMode,
             IbasesSyncFilePath = _ibasesSyncFilePath,
             IbasesSyncTrigger = _ibasesSyncTrigger,
@@ -4931,13 +4937,15 @@ public string HotkeyEnterprise
         bool escapeToTray = true,
         string? hotkeyShowAll = null,
         string? hotkeyShowFavorites = null,
-        string? hotkeyShowRecent = null)
+        string? hotkeyShowRecent = null,
+        bool rememberWindowLayout = true)
     {
         _allowMultipleInstances = allowMultipleInstances;
         _showTagFilterPanel = showTagFilterPanel;
         _closeToTray = closeToTray;
         _showTrayIcon = showTrayIcon;
         _escapeToTray = escapeToTray;
+        _rememberWindowLayout = rememberWindowLayout;
         if (hotkeyEnterprise != null) _hotkeyEnterprise = hotkeyEnterprise.Trim();
         if (hotkeyConfigurator != null) _hotkeyConfigurator = hotkeyConfigurator.Trim();
         if (hotkeyFavorite != null) _hotkeyFavorite = hotkeyFavorite.Trim();
@@ -4965,6 +4973,7 @@ public string HotkeyEnterprise
         OnPropertyChanged(nameof(HotkeyShowAll));
         OnPropertyChanged(nameof(HotkeyShowFavorites));
         OnPropertyChanged(nameof(HotkeyShowRecent));
+        OnPropertyChanged(nameof(RememberWindowLayout));
         SaveSettings();
     }
 

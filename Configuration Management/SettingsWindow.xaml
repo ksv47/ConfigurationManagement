@@ -860,10 +860,16 @@
                                 <TextBlock Text="Сворачивать в трей при закрытии" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
-                        <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="EscapeToTrayCheck">
+                        <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="EscapeToTrayCheck" Margin="0,0,0,6">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Keyboard" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="По Esc сворачивать в трей" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </ToggleButton>
+                        <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="RememberWindowLayoutCheck">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Monitor" Width="16" Height="16" Foreground="#EC4899" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Запоминать расположение, размер и монитор окна" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
                     </StackPanel>

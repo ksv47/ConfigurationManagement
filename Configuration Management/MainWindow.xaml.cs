@@ -124,20 +124,48 @@ namespace Configuration_Management
             var width = _viewModel.SavedWindowWidth;
             var height = _viewModel.SavedWindowHeight;
 
+            // Если запоминание окна отключено — не восстанавливаем положение и размер.
+            if (!_viewModel.RememberWindowLayout)
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                return;
+            }
+
             if (width > 0 && height > 0)
             {
-                // Не допускаем выход окна за пределы рабочей области экрана.
-                var area = SystemParameters.WorkArea;
                 var left = _viewModel.SavedWindowLeft;
                 var top = _viewModel.SavedWindowTop;
-                if (left <= 0 && top <= 0)
+                if (left == 0 && top == 0)
                 {
                     // Если позиция не сохранена — центрируем окно.
                     WindowStartupLocation = WindowStartupLocation.CenterScreen;
                 }
                 else
                 {
-                    // Ограничиваем позицию, чтобы окно оставалось видимым.
+                    // Позиция восстановлена — отключаем авторасположение по центру,
+                    // иначе WPF переопределит Left/Top при показе окна (в XAML задан CenterScreen).
+                    WindowStartupLocation = WindowStartupLocation.Manual;
+
+                    // Определяем монитор, на котором окно было закрыто, по сохранённой позиции.
+                    // Это возвращает окно на тот же экран (в т.ч. при нескольких мониторах).
+                    var area = SystemParameters.WorkArea;
+                    try
+                    {
+                        var screen = Forms.Screen.FromPoint(
+                            new Drawing.Point((int)Math.Round(left), (int)Math.Round(top)));
+                        if (screen != null)
+                        {
+                            var wa = screen.WorkingArea;
+                            area = new System.Windows.Rect(wa.Left, wa.Top, wa.Width, wa.Height);
+                        }
+                    }
+                    catch
+                    {
+                        // Если экран недоступен — используем рабочую область основного монитора.
+                        area = SystemParameters.WorkArea;
+                    }
+
+                    // Ограничиваем позицию, чтобы окно оставалось видимым на выбранном мониторе.
                     var safeLeft = Math.Max(area.Left, Math.Min(left, area.Right - Math.Min(width, area.Width)));
                     var safeTop = Math.Max(area.Top, Math.Min(top, area.Bottom - Math.Min(height, area.Height)));
                     Left = safeLeft;
@@ -162,9 +190,15 @@ namespace Configuration_Management
         /// </summary>
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            // Сохраняем только в обычном состоянии, чтобы не сохранить развёрнутое окно как размер по умолчанию.
-            if (WindowState == WindowState.Normal)
+            if (!_viewModel.RememberWindowLayout)
             {
+                // Если запоминание окна отключено — сбрасываем сохранённый макет,
+                // чтобы при следующем запуске окно не открывалось в старом месте/размере.
+                _viewModel.SaveWindowLayout(0, 0, 0, 0, string.Empty);
+            }
+            else if (WindowState == WindowState.Normal)
+            {
+                // Сохраняем только в обычном состоянии, чтобы не сохранить развёрнутое окно как размер по умолчанию.
                 _viewModel.SaveWindowLayout(Width, Height, Left, Top, WindowState.ToString());
             }
             else if (WindowState == WindowState.Maximized)

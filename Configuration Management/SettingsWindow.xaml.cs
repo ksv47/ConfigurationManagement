@@ -220,6 +220,8 @@ namespace Configuration_Management
                 CloseToTrayCheck.IsChecked = _viewModel.CloseToTray;
             if (EscapeToTrayCheck != null)
                 EscapeToTrayCheck.IsChecked = _viewModel.EscapeToTray;
+            if (RememberWindowLayoutCheck != null)
+                RememberWindowLayoutCheck.IsChecked = _viewModel.RememberWindowLayout;
 
             GroupByGroupCheck.IsChecked = _viewModel.GroupByGroup;
             ShowFavoritesOnlyCheck.IsChecked = _viewModel.ShowFavoritesOnly;
@@ -833,7 +835,8 @@ namespace Configuration_Management
                 EscapeToTrayCheck.IsChecked ?? true,
                 hkShowAll,
                 hkShowFavorites,
-                hkShowRecent);
+                hkShowRecent,
+                RememberWindowLayoutCheck.IsChecked ?? true);
 
             var templatePaths = TemplatePathsList?.Items.Cast<string>().Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
                 ?? new System.Collections.Generic.List<string>();
