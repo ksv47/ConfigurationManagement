@@ -94,6 +94,13 @@ namespace Configuration_Management
                 var versionText = string.IsNullOrWhiteSpace(infoVersion) ? "" : $" v{infoVersion}";
                 mainWindow.Title = $"Управление конфигурациями 1С{versionText}";
 
+                // Применяем сохранённые настройки шрифта интерфейса.
+                ThemeManager.ApplyFont(mainWindow,
+                    settings.FontFamily, settings.FontSize, settings.FontWeight, settings.FontStyle);
+
+                // Применяем индивидуальные настройки шрифта отдельных областей.
+                ThemeManager.ApplyElementFonts(mainWindow, settings.ElementFonts);
+
                 mainWindow.Show();
             }
             catch (Exception ex)

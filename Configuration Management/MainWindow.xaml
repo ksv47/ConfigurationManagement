@@ -226,7 +226,7 @@
                 </Border>
 
                 <!-- Вкладки Все / Избранное / Недавние -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                <StackPanel x:Name="TabsPanel" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                     <RadioButton GroupName="ListMode"
                                  IsChecked="{Binding IsListModeAll, Mode=TwoWay}"
                                  Style="{DynamicResource SegmentRadioButton}" Margin="0,0,4,0"
@@ -269,6 +269,21 @@
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                     <controls:HelpLink Margin="0,0,4,0"
                                        HelpText="Центральный список информационных баз 1С.&#10;&#10;• Чтобы запустить базу, выберите её и нажмите «1С:Предприятие» или «Конфигуратор» в правой панели (или дважды щёлкните по строке).&#10;• Группы раскрываются/сворачиваются стрелкой ◂, а также клавишами ←/→ при выделенной группе.&#10;• Стрелки ↑/↓ перемещают выделение по строкам.&#10;• ★ добавляет базу в «Избранное» (быстрый запуск Alt+1…Alt+9), 📌 закрепляет её вверху списка.&#10;• Ширину любой колонки можно менять, перетаскивая разделитель на её правой границе.&#10;• Клик по заголовку «Название» или «Последний запуск» сортирует список."/>
+                    <!-- Индикатор выгрузки .dt/.cf: появляется при запуске пакетной операции,
+                         анимируется (стрелка вверх подпрыгивает) и скрывается по её завершении.
+                         При наведении показывает сводку о текущей выгрузке. -->
+                    <Button x:Name="ExportIndicatorButton"
+                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                            Visibility="{Binding IsExporting, Converter={StaticResource BoolToVis}}"
+                            ToolTip="{Binding ExportIndicatorTooltip}"
+                            Focusable="False" Cursor="Hand">
+                        <materialDesign:PackIcon Kind="Upload" Width="18" Height="18"
+                                                 Foreground="#F59E0B">
+                            <materialDesign:PackIcon.RenderTransform>
+                                <TranslateTransform x:Name="ExportIndicatorBounce" Y="0"/>
+                            </materialDesign:PackIcon.RenderTransform>
+                        </materialDesign:PackIcon>
+                    </Button>
                     <Button Command="{Binding SynchronizeWithIbasesCommand}"
                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
                             ToolTip="Синхронизация с ibases.v8i по режиму из настроек">
@@ -1271,7 +1286,7 @@
             </Border>
 
             <!-- ============ Правая панель: сведения и действия ============ -->
-            <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}"
+            <Border x:Name="RightPanelBorder" Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}"
                     BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0"
                     HorizontalAlignment="Left">
                 <Border.Style>
@@ -2097,7 +2112,7 @@
         </Grid>
 
         <!-- ===================== Строка состояния ============ -->
-        <Border Grid.Row="2" Background="{DynamicResource SidebarBrush}" Padding="12,6">
+        <Border x:Name="StatusBarBorder" Grid.Row="2" Background="{DynamicResource SidebarBrush}" Padding="12,6">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>

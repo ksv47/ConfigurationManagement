@@ -679,6 +679,71 @@
                         </ScrollViewer>
                     </TabItem>
 
+                    <!-- Шрифт -->
+                    <TabItem Style="{StaticResource SettingsSubTabItem}">
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="FormatFont" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                <TextBlock Text="Шрифт" VerticalAlignment="Center" ToolTip="Шрифт интерфейса"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                            </StackPanel>
+                        </TabItem.Header>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,4,4,4">
+                            <StackPanel>
+                                <TextBlock Text="Настройка шрифта интерфейса: семейство, размер и начертание. Изменения применяются к главному окну по кнопке «Применить» и сохраняются кнопкой «Сохранить»."
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                <TextBlock Text="Элемент интерфейса:" Margin="0,0,0,6"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <ComboBox x:Name="ElementComboBox" Height="34" Margin="0,0,0,12"
+                                          Style="{StaticResource ModernComboBox}"
+                                          SelectionChanged="OnElement_SelectionChanged"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="160"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Семейство шрифта:" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="FontFamilyComboBox" Height="34"
+                                              VerticalAlignment="Center" Style="{StaticResource ModernComboBox}"
+                                              SelectionChanged="OnFontCombo_Changed"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Размер:" VerticalAlignment="Center" Margin="0,8,0,0"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <ComboBox Grid.Row="1" Grid.Column="1" x:Name="FontSizeComboBox" Height="34"
+                                              VerticalAlignment="Center" Margin="0,8,0,0" Style="{StaticResource ModernComboBox}"
+                                              IsEditable="True"
+                                              KeyUp="OnFontSize_KeyUp"
+                                              SelectionChanged="OnFontCombo_Changed"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Начертание:" VerticalAlignment="Center" Margin="0,8,0,0"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <ComboBox Grid.Row="2" Grid.Column="1" x:Name="FontStyleComboBox" Height="34"
+                                              VerticalAlignment="Center" Margin="0,8,0,0" Style="{StaticResource ModernComboBox}"
+                                              SelectionChanged="OnFontCombo_Changed"/>
+                                </Grid>
+                                <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderBrushColor}"
+                                        BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
+                                    <TextBlock x:Name="FontPreviewText" Text="Образец текста: Управление конфигурациями 1С"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                </Border>
+                                <Button Style="{DynamicResource ModernButton}" Padding="12,6" HorizontalAlignment="Left"
+                                        Click="OnFontApply_Click"
+                                        ToolTip="Применить выбранный шрифт к главному окну сразу (предпросмотр)">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="FormatFont" Width="16" Height="16" Foreground="{DynamicResource ButtonTextBrush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Применить" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
                 </TabControl>
 
             </TabItem>

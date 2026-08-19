@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -7,6 +8,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.IO;
 using MaterialDesignThemes.Wpf;
@@ -84,6 +86,14 @@ namespace Configuration_Management
                     return;
                 }
 
+                // Индикатор выгрузки .dt/.cf: запускаем/останавливаем анимацию.
+                if (e.PropertyName is nameof(MainViewModel.IsExporting))
+                {
+                    if (_viewModel.IsExporting) StartExportIndicatorAnimation();
+                    else StopExportIndicatorAnimation();
+                    return;
+                }
+
                 // При изменении видимости колонок/кнопок пересчитываем выравнивание
                 // заголовка с данными, чтобы колонки не разъезжались.
                 if (e.PropertyName is nameof(MainViewModel.ShowVersionColumn)
@@ -112,6 +122,41 @@ namespace Configuration_Management
                     try { RegisterLaunchHotkeys(); } catch { /* ignore */ }
                 }
             };
+        }
+
+        private DoubleAnimation? _exportBounceAnimation;
+        private bool _exportAnimating;
+
+        /// <summary>
+        /// Запускает бесконечное «подпрыгивание» индикатора выгрузки .dt/.cf (стрелка вверх).
+        /// </summary>
+        private void StartExportIndicatorAnimation()
+        {
+            if (_exportAnimating || ExportIndicatorBounce is null)
+                return;
+            _exportAnimating = true;
+            _exportBounceAnimation = new DoubleAnimation
+            {
+                From = 0,
+                To = -4,
+                Duration = TimeSpan.FromSeconds(0.5),
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            ExportIndicatorBounce.BeginAnimation(TranslateTransform.YProperty, _exportBounceAnimation);
+        }
+
+        /// <summary>
+        /// Останавливает анимацию индикатора выгрузки .dt/.cf (по завершении операции).
+        /// </summary>
+        private void StopExportIndicatorAnimation()
+        {
+            if (!_exportAnimating)
+                return;
+            _exportAnimating = false;
+            ExportIndicatorBounce?.BeginAnimation(TranslateTransform.YProperty, null);
+            if (ExportIndicatorBounce is not null)
+                ExportIndicatorBounce.Y = 0;
         }
 
         /// <summary>

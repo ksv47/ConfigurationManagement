@@ -5,6 +5,67 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.2.7.31] — 2026-08-19
+
+### Добавлено
+
+- **Анимированный индикатор выгрузки `.dt` / `.cf`** в верхнем правом блоке кнопок, слева от кнопки синхронизации. Иконка автоматически **появляется**, когда запускается выгрузка информационной базы в `.dt` или конфигурации в `.cf` (пакетная операция конфигуратора через [`RunDesignerBatch`](Configuration Management/Services/OneCLauncher.cs)), и **исчезает** по её завершении. Реализовано через:
+  - события [`DesignerBatchStarted`](Configuration Management/Services/OneCLauncher.cs) / [`DesignerBatchCompleted`](Configuration Management/Services/OneCLauncher.cs) и класс [`DesignerBatchInfo`](Configuration Management/Services/OneCLauncher.cs) — отслеживание запуска и завершения пакетной операции (процесс `1cv8.exe`, регистрируемый в реестре активных операций);
+  - свойства [`MainViewModel.IsExporting`](Configuration Management/ViewModels/MainViewModel.cs) и [`MainViewModel.ExportIndicatorTooltip`](Configuration Management/ViewModels/MainViewModel.cs) — видимость индикатора и сводка о выгрузке;
+  - анимированную иконку (`Upload` — стрелка выгрузки вверх, «подпрыгивает») в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml), управление анимацией — [`MainWindow.StartExportIndicatorAnimation`](Configuration Management/MainWindow.xaml.cs) / [`MainWindow.StopExportIndicatorAnimation`](Configuration Management/MainWindow.xaml.cs).
+- **Сводка о выгрузке при наведении** на индикатор: подсказка показывает операцию («Выгрузка ИБ (.dt)» / «Выгрузка конфигурации (.cf)»), имя информационной базы и путь к файлу выгрузки.
+
+## [0.2.7.30] — 2026-08-19
+
+### Добавлено
+
+- **Проверка блокировки запуска конфигуратора перед выгрузкой `.dt` / `.cf` и тестированием ИБ** — перед запуском пакетной операции ([`RunDesignerBatch`](Configuration Management/Services/OneCLauncher.cs)) приложение проверяет, не запущен ли уже конфигуратор этой базы (в т.ч. открытый вручную вне приложения) или не идёт ли другая выгрузка/операция DESIGNER, и в этом случае выводит предупреждение и отменяет запуск. Реализовано через:
+  - реестр активных пакетных операций, запущенных приложением ([`IsDesignerBlocked`](Configuration Management/Services/OneCLauncher.cs)) — блокирует параллельные выгрузки, процесс удаляется из реестра по завершении;
+  - поиск запущенного процесса конфигуратора `1cv8.exe` / `1cv8x64.exe` для нужной базы по командной строке (`Win32_Process`, пакет [`System.Management`](Configuration Management/Configuration Management.csproj)) — обнаруживает конфигуратор, открытый даже вне приложения.
+
+## [0.2.7.29] — 2026-08-19
+
+### Исправлено
+
+- **Ошибка «Платформа 1С, Не найден 1cv8.exe для режима Конфигуратор» при выгрузке `.dt` и `.cf`** — при пакетной выгрузке через конфигуратор ([`RunDesignerBatch`](Configuration Management/Services/OneCLauncher.cs)) исполняемый файл `1cv8.exe` искался строго для одной разрядности, выбранной по настройке по умолчанию (обычно 64-бит). Если платформа была установлена только в другой разрядности (например, 32-бит в `Program Files (x86)`), поиск не находил `1cv8.exe`, доходил до запасного `1CEStart.exe` (который отбрасывался) — и показывалась ошибка. Теперь, если для выбранной разрядности файл не найден, автоматически выполняется поиск по противоположной разрядности (по аналогии с запуском «1С:Предприятие» и ярлыками). Предупреждение выводится только если `1cv8.exe` не найден ни в одной разрядности.
+
+## [0.2.7.28] — 2026-08-19
+
+### Добавлено
+
+- **Индивидуальная настройка шрифта для отдельных областей программы** — в **Настройки → Отображение → Шрифт** добавлен выбор **«Элемент интерфейса»**: размер, семейство и начертание шрифта можно задать отдельно для:
+  - **По умолчанию** (общий шрифт всех окон);
+  - **Список баз** ([`MainTree`](Configuration Management/MainWindow.xaml));
+  - **Заголовки списка** ([`HeaderGrid`](Configuration Management/MainWindow.xaml));
+  - **Правая панель** ([`RightPanelBorder`](Configuration Management/MainWindow.xaml));
+  - **Нижняя панель (статус)** ([`StatusBarBorder`](Configuration Management/MainWindow.xaml));
+  - **Вкладки** ([`TabsPanel`](Configuration Management/MainWindow.xaml));
+  - **Кнопки**;
+  - **Поля ввода**.
+  Изменения применяются сразу (кнопка «Применить», предпросмотр) и сохраняются кнопкой «Сохранить».
+- **Новая модель** [`ElementFontSettings`](Configuration Management/Models/ElementFontSettings.cs) и словарь [`AppSettings.ElementFonts`](Configuration Management/Models/AppSettings.cs): настройки каждой области хранятся отдельно и восстанавливаются при запуске.
+- **Применение по областям**: [`ThemeManager.ApplyElementFonts`](Configuration Management/Themes/ThemeManager.cs) накладывает шрифт каждой области на соответствующий контейнер главного окна (сначала «По умолчанию», затем конкретные области поверх). Сохранение и предпросмотр — [`MainViewModel.SaveElementFonts`](Configuration Management/ViewModels/MainViewModel.cs) / [`MainViewModel.PreviewElementFonts`](Configuration Management/ViewModels/MainViewModel.cs); применяется при запуске в [`App.OnStartup`](Configuration Management/App.xaml.cs).
+
+## [0.2.7.27] — 2026-08-19
+
+### Изменено
+
+- **Выбор размера шрифта расширен как в Microsoft Word** — в **Настройки → Отображение → Шрифт** список размеров теперь от 8 до 72 (8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 48, 56, 64, 72) ([`FontSizeComboBox`](Configuration Management/SettingsWindow.xaml)). Список стал **редактируемым**: размер можно не только выбрать, но и **ввести вручную** (в т.ч. дробное значение).
+- **Мгновенное применение шрифта ко всей программе**: кнопка «Применить» теперь меняет шрифт **сразу во всех открытых окнах** приложения (главное окно, окна настроек, диалоги) — реализовано через новый метод [`ThemeManager.ApplyFontToAllWindows`](Configuration Management/Themes/ThemeManager.cs), а не только в главном окне. Сохранение (`MainViewModel.ApplyFontSettings`) также применяет шрифт ко всем окнам.
+
+## [0.2.7.26] — 2026-08-19
+
+### Изменено
+
+- **Иконки разворачивания «+»/«−»** в окне **выбора версии платформы** ([`PlatformVersionPickerWindow`](Configuration Management/PlatformVersionPickerWindow.xaml)) и в окне **выбора группы** ([`GroupPickerWindow`](Configuration Management/GroupPickerWindow.xaml)) увеличены — стали заметно крупнее и удобнее для нажатия. Изменение внесено в общий стиль элемента дерева [`ModernTreeViewItem`](Configuration Management/Themes/LightTheme.xaml) (светлая тема) и [`ModernTreeViewItem`](Configuration Management/Themes/DarkTheme.xaml) (тёмная тема).
+
+## [0.2.7.25] — 2026-08-19
+
+### Добавлено
+
+- **Настройка шрифта интерфейса** — в **Настройки → Отображение → Шрифт** добавлена возможность менять **семейство шрифта** (Segoe UI, Arial, Calibri, Tahoma, Verdana, Trebuchet MS, Georgia, Times New Roman, Courier New, Consolas), **размер** (11–20) и **начертание** (Обычный / Полужирный / Курсив / Полужирный курсив) ([`SettingsWindow`](Configuration Management/SettingsWindow.xaml)). Изменения применяются к главному окну сразу по кнопке «Применить» (предпросмотр) и сохраняются кнопкой «Сохранить». Настройки хранятся в [`AppSettings.FontFamily`](Configuration Management/Models/AppSettings.cs), [`AppSettings.FontSize`](Configuration Management/Models/AppSettings.cs), [`AppSettings.FontWeight`](Configuration Management/Models/AppSettings.cs) и [`AppSettings.FontStyle`](Configuration Management/Models/AppSettings.cs).
+- **Применение шрифта при запуске**: сохранённый шрифт применяется к главному окну при старте приложения ([`App.OnStartup`](Configuration Management/App.xaml.cs)). Реализовано через новый метод [`ThemeManager.ApplyFont`](Configuration Management/Themes/ThemeManager.cs), который распространяет семейство, размер и начертание через наследуемые свойства `TextElement` на дочерние элементы, не переопределяющие их явно. Сохранение и применение шрифта выполняет [`MainViewModel.ApplyFontSettings`](Configuration Management/ViewModels/MainViewModel.cs).
+
 ## [0.2.7.24] — 2026-08-19
 
 ### Изменено

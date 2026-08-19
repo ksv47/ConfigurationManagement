@@ -291,4 +291,23 @@ public class AppSettings
     /// </summary>
     public string ExportTimestampFormat { get; set; } = "yyyyMMdd_HHmmss";
 
+    /// <summary>Семейство шрифта интерфейса (например «Segoe UI»).</summary>
+    public string FontFamily { get; set; } = "Segoe UI";
+
+    /// <summary>Размер шрифта интерфейса (в логических единицах WPF, по умолчанию 13).</summary>
+    public double FontSize { get; set; } = 13;
+
+    /// <summary>Начертание шрифта интерфейса: «Normal» или «Bold».</summary>
+    public string FontWeight { get; set; } = "Normal";
+
+    /// <summary>Стиль шрифта интерфейса: «Normal» или «Italic».</summary>
+    public string FontStyle { get; set; } = "Normal";
+
+    /// <summary>
+    /// Индивидуальные настройки шрифта для отдельных областей интерфейса
+    /// (список баз, заголовки, правая панель, строка состояния, вкладки, кнопки, поля ввода).
+    /// Ключи — из <see cref="Themes.ThemeManager.FontDefault"/>, <see cref="Themes.ThemeManager.FontList"/> и т.д.
+    /// </summary>
+    public Dictionary<string, ElementFontSettings> ElementFonts { get; set; } = new();
+
 }

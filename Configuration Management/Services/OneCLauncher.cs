@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
+using System.Management;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services;
@@ -65,6 +67,26 @@ public static class OneCLauncher
     /// Задаётся в «Настройки → Платформы».
     /// </summary>
     public static OneCArchitecture DefaultArchitecture { get; set; } = OneCArchitecture.x64;
+
+    /// <summary>
+    /// Активные пакетные операции DESIGNER (выгрузка .dt/.cf, тест), запущенные приложением.
+    /// Ключ — токен подключения базы. Используется для блокировки параллельных выгрузок
+    /// и обнаружения уже запущенного конфигуратора этой же базы.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, Process> _activeBatchProcesses =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Возникает при запуске пакетной операции DESIGNER (выгрузка .dt/.cf или тест).
+    /// Используется главным окном для показа анимированного индикатора выгрузки.
+    /// </summary>
+    public static event EventHandler<DesignerBatchInfo>? DesignerBatchStarted;
+
+    /// <summary>
+    /// Возникает при завершении пакетной операции DESIGNER (в т.ч. по ошибке).
+    /// Используется главным окном для скрытия индикатора выгрузки.
+    /// </summary>
+    public static event EventHandler<DesignerBatchInfo>? DesignerBatchCompleted;
 
     /// <summary>
     /// Запускает платформу 1С для указанной информационной базы в заданном режиме.
@@ -558,6 +580,39 @@ public static class OneCLauncher
     }
 
     /// <summary>
+    /// Информация о запущенной пакетной операции DESIGNER (выгрузка .dt/.cf или тест),
+    /// передаваемая через события <see cref="OneCLauncher.DesignerBatchStarted"/> /
+    /// <see cref="OneCLauncher.DesignerBatchCompleted"/>.
+    /// </summary>
+    public sealed class DesignerBatchInfo
+    {
+        public DesignerBatchInfo(DesignerBatchOperation operation, string infobaseName, string? outputPath)
+        {
+            Operation = operation;
+            InfobaseName = infobaseName;
+            OutputPath = outputPath;
+        }
+
+        /// <summary>Тип выполняемой операции.</summary>
+        public DesignerBatchOperation Operation { get; }
+
+        /// <summary>Имя информационной базы, для которой выполняется операция.</summary>
+        public string InfobaseName { get; }
+
+        /// <summary>Путь к файлу выгрузки (.dt/.cf); может быть пустым для тестирования.</summary>
+        public string? OutputPath { get; }
+
+        /// <summary>Человекочитаемое название операции для индикатора и подсказки.</summary>
+        public string OperationLabel => Operation switch
+        {
+            DesignerBatchOperation.DumpIB => "Выгрузка ИБ (.dt)",
+            DesignerBatchOperation.DumpCfg => "Выгрузка конфигурации (.cf)",
+            DesignerBatchOperation.TestAndRepair => "Тестирование ИБ",
+            _ => "Пакетная операция конфигуратора"
+        };
+    }
+
+    /// <summary>
     /// Запускает конфигуратор в пакетном режиме: выгрузка .dt / .cf или тестирование ИБ.
     /// Формат аргументов как у командной строки 1С (без пробела между ключом и значением в кавычках).
     /// </summary>
@@ -565,6 +620,20 @@ public static class OneCLauncher
     {
         var arch = ResolveArchitecture(infobase.Architecture, infobase.PlatformVersion);
         var exePath = FindExecutable(infobase.PlatformVersion, arch, null, OneCLaunchMode.Configurator);
+
+        // Платформа может быть установлена только в одной разрядности (например,
+        // 32-бит в Program Files (x86) при глобальной настройке по умолчанию «64»).
+        // Если для выбранной разрядности 1cv8.exe не найден — пробуем противоположную.
+        if (string.IsNullOrEmpty(exePath) ||
+            exePath.EndsWith("1CEStart.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            var otherArch = arch == OneCArchitecture.x64 ? OneCArchitecture.x86 : OneCArchitecture.x64;
+            var fallback = FindExecutable(infobase.PlatformVersion, otherArch, null, OneCLaunchMode.Configurator);
+            if (!string.IsNullOrEmpty(fallback) &&
+                !fallback.EndsWith("1CEStart.exe", StringComparison.OrdinalIgnoreCase))
+                exePath = fallback;
+        }
+
         if (string.IsNullOrEmpty(exePath) ||
             exePath.EndsWith("1CEStart.exe", StringComparison.OrdinalIgnoreCase))
         {
@@ -572,6 +641,18 @@ public static class OneCLauncher
                 "Не найден 1cv8.exe для режима Конфигуратор.\n" +
                 "Укажите версию платформы у базы или проверьте установку 1С.",
                 "Платформа 1С",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return false;
+        }
+
+        // Проверка блокировки запуска конфигуратора: уже запущен конфигуратор этой базы
+        // (в т.ч. открытый вручную вне приложения) или идёт другая выгрузка/операция DESIGNER.
+        if (IsDesignerBlocked(infobase, out var blockReason))
+        {
+            System.Windows.MessageBox.Show(
+                $"Запуск конфигуратора для операции невозможен.\n\n{blockReason}",
+                "Конфигуратор уже запущен",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
             return false;
@@ -624,7 +705,10 @@ public static class OneCLauncher
                 UseShellExecute = false,
                 WorkingDirectory = Path.GetDirectoryName(exePath) ?? ""
             };
-            Process.Start(psi);
+            var process = Process.Start(psi);
+            var info = new DesignerBatchInfo(operation, infobase.Name, outputPath);
+            RegisterBatchProcess(infobase, process, info);
+            DesignerBatchStarted?.Invoke(null, info);
             return true;
         }
         catch (Exception ex)
@@ -636,6 +720,105 @@ public static class OneCLauncher
                 System.Windows.MessageBoxImage.Error);
             return false;
         }
+    }
+
+    /// <summary>Токен подключения базы для сопоставления с командной строкой процесса конфигуратора.</summary>
+    public static string GetBaseConnectionToken(Infobase infobase)
+    {
+        var conn = infobase.Connection;
+        return conn.Type switch
+        {
+            ConnectionType.File => (conn.FilePath ?? string.Empty).Trim().TrimEnd('\\'),
+            ConnectionType.WebServer => (conn.WebUrl ?? string.Empty).Trim(),
+            _ => $"{conn.GetServerWithPort()}\\{conn.DatabaseName}".Trim()
+        };
+    }
+
+    /// <summary>Регистрирует запущенный процесс пакетной операции и удаляет его по завершении.</summary>
+    private static void RegisterBatchProcess(Infobase infobase, Process? process, DesignerBatchInfo info)
+    {
+        var token = GetBaseConnectionToken(infobase);
+        if (process is null || string.IsNullOrWhiteSpace(token))
+            return;
+
+        _activeBatchProcesses[token] = process;
+        try
+        {
+            process.EnableRaisingEvents = true;
+            process.Exited += (_, _) =>
+            {
+                _activeBatchProcesses.TryRemove(token, out _);
+                // Оповещаем об окончании операции (индикатор выгрузки в главном окне).
+                DesignerBatchCompleted?.Invoke(null, info);
+            };
+        }
+        catch
+        {
+            /* процесс мог уже завершиться */
+        }
+    }
+
+    /// <summary>Удаляет завершившиеся процессы из реестра активных операций.</summary>
+    private static void PruneDeadBatchProcesses()
+    {
+        foreach (var kvp in _activeBatchProcesses)
+        {
+            if (kvp.Value == null || kvp.Value.HasExited)
+                _activeBatchProcesses.TryRemove(kvp.Key, out _);
+        }
+    }
+
+    /// <summary>
+    /// Проверяет блокировку запуска конфигуратора перед выгрузкой .dt/.cf или тестированием.
+    /// Возвращает true, если запуск нужно заблокировать; <paramref name="reason"/> описывает причину.
+    /// </summary>
+    public static bool IsDesignerBlocked(Infobase infobase, out string? reason)
+    {
+        reason = null;
+        PruneDeadBatchProcesses();
+
+        // 1. Уже идёт другая выгрузка / пакетная операция DESIGNER, запущенная приложением.
+        if (_activeBatchProcesses.Count > 0)
+        {
+            var otherName = _activeBatchProcesses.First().Value?.ProcessName ?? "1cv8.exe";
+            reason = "Уже запущена другая выгрузка или операция конфигуратора " +
+                     $"(процесс {otherName}).\nДождитесь её завершения перед новой выгрузкой.";
+            return true;
+        }
+
+        // 2. Конфигуратор этой базы уже запущен (в т.ч. открыт вручную вне приложения).
+        var token = GetBaseConnectionToken(infobase);
+        if (!string.IsNullOrWhiteSpace(token) && IsConfiguratorRunningForBase(token))
+        {
+            reason = "Конфигуратор этой базы уже запущен.\n" +
+                     "Закройте окно конфигуратора перед выгрузкой .dt / .cf.";
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Ищет запущенный процесс конфигуратора (1cv8.exe) для указанной базы по командной строке.</summary>
+    private static bool IsConfiguratorRunningForBase(string baseToken)
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT CommandLine FROM Win32_Process " +
+                "WHERE Name='1cv8.exe' OR Name='1cv8x64.exe'");
+            foreach (var obj in searcher.Get())
+            {
+                var cmd = obj["CommandLine"] as string ?? string.Empty;
+                if (cmd.Contains("DESIGNER", StringComparison.OrdinalIgnoreCase) &&
+                    cmd.Contains(baseToken, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        catch
+        {
+            // Нет прав на чтение командной строки процессов других пользователей или WMI недоступен.
+        }
+        return false;
     }
 
     /// <summary>Аргумент подключения в стиле 1С: /F"path", /S"srv\db", /WS"url".</summary>

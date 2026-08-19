@@ -1,5 +1,8 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Media;
 using Configuration_Management.Models;
 
@@ -83,6 +86,175 @@ namespace Configuration_Management.Themes
             var next = CurrentTheme == DarkThemeName ? LightThemeName : DarkThemeName;
             ApplyTheme(next);
             return next;
+        }
+
+        /// <summary>Шрифт интерфейса по умолчанию (если настройки не заданы).</summary>
+        public const string DefaultFontFamily = "Segoe UI";
+        public const double DefaultFontSize = 13;
+        public const string DefaultFontWeight = "Normal";
+        public const string DefaultFontStyle = "Normal";
+
+        /// <summary>
+        /// Применяет настройки шрифта интерфейса к указанному элементу (окну).
+        /// Семейство, размер, начертание и стиль шрифта задаются через наследуемые
+        /// свойства <see cref="TextElement"/>, поэтому распространяются на все дочерние
+        /// текстовые элементы, не переопределяющие их явно.
+        /// </summary>
+        public static void ApplyFont(FrameworkElement target,
+            string fontFamily, double fontSize, string fontWeight, string fontStyle)
+        {
+            if (target is null)
+                return;
+
+            try
+            {
+                var family = string.IsNullOrWhiteSpace(fontFamily) ? DefaultFontFamily : fontFamily;
+                var size = fontSize > 0 ? fontSize : DefaultFontSize;
+
+                TextElement.SetFontFamily(target, new FontFamily(family));
+                TextElement.SetFontSize(target, size);
+                TextElement.SetFontWeight(target,
+                    string.Equals(fontWeight, "Bold", StringComparison.OrdinalIgnoreCase)
+                        ? FontWeights.Bold : FontWeights.Normal);
+                TextElement.SetFontStyle(target,
+                    string.Equals(fontStyle, "Italic", StringComparison.OrdinalIgnoreCase)
+                        ? FontStyles.Italic : FontStyles.Normal);
+            }
+            catch
+            {
+                // Игнорируем некорректные настройки шрифта (например, несуществующее семейство).
+            }
+        }
+
+        /// <summary>
+        /// Применяет настройки шрифта интерфейса ко всем открытым окнам приложения.
+        /// Используется для мгновенного обновления интерфейса после применения/сохранения.
+        /// </summary>
+        public static void ApplyFontToAllWindows(
+            string fontFamily, double fontSize, string fontWeight, string fontStyle)
+        {
+            if (Application.Current is null)
+                return;
+
+            foreach (Window window in Application.Current.Windows)
+            {
+                ApplyFont(window, fontFamily, fontSize, fontWeight, fontStyle);
+            }
+        }
+
+        // ---- Настройки шрифта отдельных областей интерфейса ----
+
+        public const string FontDefault = "Default";
+        public const string FontList = "List";
+        public const string FontListHeader = "ListHeader";
+        public const string FontRightPanel = "RightPanel";
+        public const string FontStatusBar = "StatusBar";
+        public const string FontTabs = "Tabs";
+        public const string FontButtons = "Buttons";
+        public const string FontInputs = "Inputs";
+
+        /// <summary>Все ключи областей (в порядке наложения).</summary>
+        public static readonly string[] AllFontScopes =
+        {
+            FontDefault, FontButtons, FontInputs, FontTabs, FontListHeader, FontList, FontRightPanel, FontStatusBar
+        };
+
+        /// <summary>Читаемое название области для интерфейса настроек.</summary>
+        public static string FontScopeDisplayName(string key) => key switch
+        {
+            FontDefault => "По умолчанию",
+            FontList => "Список баз",
+            FontListHeader => "Заголовки списка",
+            FontRightPanel => "Правая панель",
+            FontStatusBar => "Нижняя панель (статус)",
+            FontTabs => "Вкладки",
+            FontButtons => "Кнопки",
+            FontInputs => "Поля ввода",
+            _ => key
+        };
+
+        /// <summary>
+        /// Применяет настройки шрифта ко всем текстовым элементам поддерева принудительно
+        /// (устанавливает локальные значения, перекрывающие фиксированные размеры в XAML).
+        /// </summary>
+        public static void ApplyFontToTree(DependencyObject root, ElementFontSettings? fs)
+        {
+            if (root is null)
+                return;
+            ApplyFontProps(root as FrameworkElement, fs);
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+                ApplyFontToTree(VisualTreeHelper.GetChild(root, i), fs);
+        }
+
+        private static void ApplyFontProps(FrameworkElement? fe, ElementFontSettings? fs)
+        {
+            if (fe is null)
+                return;
+            var family = string.IsNullOrWhiteSpace(fs?.FontFamily) ? DefaultFontFamily : fs.FontFamily;
+            var size = fs is { FontSize: > 0 } ? fs.FontSize : DefaultFontSize;
+            var weight = string.Equals(fs?.FontWeight, "Bold", StringComparison.OrdinalIgnoreCase)
+                ? FontWeights.Bold : FontWeights.Normal;
+            var style = string.Equals(fs?.FontStyle, "Italic", StringComparison.OrdinalIgnoreCase)
+                ? FontStyles.Italic : FontStyles.Normal;
+
+            fe.SetValue(TextElement.FontFamilyProperty, new FontFamily(family));
+            fe.SetValue(TextElement.FontSizeProperty, size);
+            fe.SetValue(TextElement.FontWeightProperty, weight);
+            fe.SetValue(TextElement.FontStyleProperty, style);
+        }
+
+        /// <summary>
+        /// Применяет индивидуальные настройки шрифта областей к главному окну.
+        /// Сначала применяется «По умолчанию» ко всему окну, затем более конкретные
+        /// области (кнопки, поля, вкладки, список, заголовки, панели) накладываются поверх.
+        /// </summary>
+        public static void ApplyElementFonts(MainWindow window, IReadOnlyDictionary<string, ElementFontSettings>? fonts)
+        {
+            if (window is null)
+                return;
+            fonts ??= new Dictionary<string, ElementFontSettings>();
+
+            ElementFontSettings? Scope(string key)
+            {
+                if (fonts.TryGetValue(key, out var fs) && fs is not null && fs.FontSize > 0)
+                    return fs;
+                return null;
+            }
+
+            if (window.Content is FrameworkElement content)
+                ApplyFontToTree(content, Scope(FontDefault) ?? new ElementFontSettings());
+
+            ApplyFontToType(window, typeof(Button), Scope(FontButtons));
+            ApplyFontToType(window, typeof(TextBoxBase), Scope(FontInputs));
+            ApplyFontToType(window, typeof(PasswordBox), Scope(FontInputs));
+            ApplyFontToType(window, typeof(ComboBox), Scope(FontInputs));
+
+            ApplyFontToNamed(window, "TabsPanel", Scope(FontTabs));
+            ApplyFontToNamed(window, "HeaderGrid", Scope(FontListHeader));
+            ApplyFontToNamed(window, "MainTree", Scope(FontList));
+            ApplyFontToNamed(window, "RightPanelBorder", Scope(FontRightPanel));
+            ApplyFontToNamed(window, "StatusBarBorder", Scope(FontStatusBar));
+        }
+
+        private static void ApplyFontToNamed(MainWindow window, string name, ElementFontSettings? fs)
+        {
+            if (fs is null)
+                return;
+            var el = window.FindName(name) as FrameworkElement;
+            if (el is not null)
+                ApplyFontToTree(el, fs);
+        }
+
+        private static void ApplyFontToType(DependencyObject root, Type type, ElementFontSettings? fs)
+        {
+            if (root is null || fs is null)
+                return;
+            if (type.IsInstanceOfType(root) && root is FrameworkElement fe)
+                ApplyFontProps(fe, fs);
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+                ApplyFontToType(VisualTreeHelper.GetChild(root, i), type, fs);
         }
 
         /// <summary>Возвращает встроенную схему по имени темы («Light»/«Dark») или null.</summary>

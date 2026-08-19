@@ -120,9 +120,19 @@ public class MainViewModel : ViewModelBase
     private bool _sortAscending = true;
     /// <summary>Направление сортировки подгрупп по имени (true — А→Я, false — Я→А).</summary>
     private bool _groupSortAscending = true;
+    private string _fontFamily = Themes.ThemeManager.DefaultFontFamily;
+    private double _fontSize = Themes.ThemeManager.DefaultFontSize;
+    private string _fontWeight = Themes.ThemeManager.DefaultFontWeight;
+    private string _fontStyle = Themes.ThemeManager.DefaultFontStyle;
+    private Dictionary<string, Models.ElementFontSettings> _elementFonts = new();
     private readonly List<string> _favoriteHotkeyIds = new();
     private CancellationTokenSource? _searchDebounceCts;
     private HashSet<string> _activeTagFilterSet = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Идёт ли в данный момент выгрузка .dt/.cf (показывает индикатор в верхней панели).</summary>
+    private bool _isExporting;
+    /// <summary>Текст подсказки индикатора выгрузки (сводка о текущей операции).</summary>
+    private string _exportIndicatorTooltip = string.Empty;
 
     /// <summary>Событие: изменился список избранных с горячими клавишами (нужно перерегистрировать биндинги).</summary>
     public event EventHandler? FavoriteHotkeysChanged;
@@ -147,6 +157,10 @@ public class MainViewModel : ViewModelBase
         _ibasesSync = ibasesSync ?? new IbasesSyncService();
         _logger.Info("MainViewModel инициализирован");
 
+        // Отслеживание выгрузок .dt/.cf для анимированного индикатора в верхней панели.
+        OneCLauncher.DesignerBatchStarted += OnDesignerBatchStarted;
+        OneCLauncher.DesignerBatchCompleted += OnDesignerBatchCompleted;
+
         // Загружаем настройки интерфейса (состояние кнопок «Избранные» и «Группировать»).
         var settings = _repository.LoadSettings();
         _showFavoritesOnly = settings.ShowFavoritesOnly;
@@ -156,6 +170,16 @@ public class MainViewModel : ViewModelBase
         _noGroupIconColor = string.IsNullOrWhiteSpace(settings.NoGroupIconColor) ? "#FFFFFF" : settings.NoGroupIconColor;
         _noGroupIcon = settings.NoGroupIcon ?? string.Empty;
         _savedTheme = settings.Theme;
+        _fontFamily = string.IsNullOrWhiteSpace(settings.FontFamily)
+            ? Themes.ThemeManager.DefaultFontFamily : settings.FontFamily;
+        _fontSize = settings.FontSize > 0 ? settings.FontSize : Themes.ThemeManager.DefaultFontSize;
+        _fontWeight = string.Equals(settings.FontWeight, "Bold", StringComparison.OrdinalIgnoreCase)
+            ? "Bold" : Themes.ThemeManager.DefaultFontWeight;
+        _fontStyle = string.Equals(settings.FontStyle, "Italic", StringComparison.OrdinalIgnoreCase)
+            ? "Italic" : Themes.ThemeManager.DefaultFontStyle;
+        _elementFonts = settings.ElementFonts is null
+            ? new Dictionary<string, Models.ElementFontSettings>()
+            : new Dictionary<string, Models.ElementFontSettings>(settings.ElementFonts);
         // Активная цветовая схема: если сохранена пользовательская/настроенная тема — используем её,
         // иначе встроенную схему по выбранной теме оформления.
         if (settings.ActiveColorScheme is { Colors.Count: > 0 })
@@ -609,6 +633,21 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Активная цветовая схема (тема оформления).</summary>
     public ColorScheme ActiveColorScheme => _activeColorScheme ?? ColorScheme.CreateLight();
+
+    /// <summary>Семейство шрифта интерфейса.</summary>
+    public string FontFamily => _fontFamily;
+
+    /// <summary>Размер шрифта интерфейса.</summary>
+    public double FontSize => _fontSize;
+
+    /// <summary>Начертание шрифта интерфейса («Normal»/«Bold»).</summary>
+    public string FontWeight => _fontWeight;
+
+    /// <summary>Стиль шрифта интерфейса («Normal»/«Italic»).</summary>
+    public string FontStyle => _fontStyle;
+
+    /// <summary>Индивидуальные настройки шрифта отдельных областей интерфейса.</summary>
+    public IReadOnlyDictionary<string, Models.ElementFontSettings> ElementFonts => _elementFonts;
 
     /// <summary>Список установленных версий платформы 1С.</summary>
     public List<string> InstalledPlatformVersions => _installedPlatformVersions;
@@ -1793,6 +1832,20 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Выгрузка конфигурации в .cf.</summary>
     public ICommand DumpConfigurationCfCommand { get; }
+
+    /// <summary>Идёт ли в данный момент выгрузка .dt/.cf (показывает индикатор в верхней панели).</summary>
+    public bool IsExporting
+    {
+        get => _isExporting;
+        private set => SetProperty(ref _isExporting, value);
+    }
+
+    /// <summary>Текст подсказки индикатора выгрузки (сводка о текущей операции).</summary>
+    public string ExportIndicatorTooltip
+    {
+        get => _exportIndicatorTooltip;
+        private set => SetProperty(ref _exportIndicatorTooltip, value);
+    }
 
     /// <summary>Тестирование ИБ (/IBCheckAndRepair -TestOnly).</summary>
     public ICommand TestInfobaseCommand { get; }
@@ -3212,6 +3265,11 @@ public string HotkeyEnterprise
             NoGroupColor = _noGroupColor,
             NoGroupIconColor = _noGroupIconColor,
             NoGroupIcon = _noGroupIcon,
+            FontFamily = _fontFamily,
+            FontSize = _fontSize,
+            FontWeight = _fontWeight,
+            FontStyle = _fontStyle,
+            ElementFonts = _elementFonts,
             LastSelectedInfobaseId = _lastSelectedInfobaseId,
             LastSelectedGroupPath = _lastSelectedGroupPath
         });
@@ -3312,6 +3370,73 @@ public string HotkeyEnterprise
         if (scheme is null)
             return;
         Themes.ThemeManager.ApplyScheme(scheme);
+    }
+
+    /// <summary>
+    /// Применяет настройки шрифта интерфейса (семейство, размер, начертание, стиль),
+    /// обновляет главное окно и сохраняет настройки.
+    /// </summary>
+    public void ApplyFontSettings(string fontFamily, double fontSize, string fontWeight, string fontStyle)
+    {
+        _fontFamily = string.IsNullOrWhiteSpace(fontFamily)
+            ? Themes.ThemeManager.DefaultFontFamily : fontFamily;
+        _fontSize = fontSize > 0 ? fontSize : Themes.ThemeManager.DefaultFontSize;
+        _fontWeight = string.Equals(fontWeight, "Bold", StringComparison.OrdinalIgnoreCase)
+            ? "Bold" : Themes.ThemeManager.DefaultFontWeight;
+        _fontStyle = string.Equals(fontStyle, "Italic", StringComparison.OrdinalIgnoreCase)
+            ? "Italic" : Themes.ThemeManager.DefaultFontStyle;
+
+        Themes.ThemeManager.ApplyFontToAllWindows(_fontFamily, _fontSize, _fontWeight, _fontStyle);
+
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Применяет индивидуальные настройки шрифта областей к главному окну.
+    /// Используется при запуске и для предпросмотра при «Применить».
+    /// </summary>
+    public void ApplyElementFonts()
+    {
+        var window = Application.Current?.MainWindow;
+        if (window is not MainWindow mw)
+            return;
+        Themes.ThemeManager.ApplyElementFonts(mw, _elementFonts);
+    }
+
+    /// <summary>
+    /// Сохраняет индивидуальные настройки шрифта областей, применяет их и записывает в настройки.
+    /// </summary>
+    public void SaveElementFonts(IDictionary<string, Models.ElementFontSettings> fonts)
+    {
+        _elementFonts = fonts is null
+            ? new Dictionary<string, Models.ElementFontSettings>()
+            : new Dictionary<string, Models.ElementFontSettings>(fonts);
+
+        // «По умолчанию» также обновляет глобальные настройки шрифта (для всех окон и при запуске).
+        if (_elementFonts.TryGetValue(Themes.ThemeManager.FontDefault, out var def) && def is not null && def.FontSize > 0)
+        {
+            _fontFamily = string.IsNullOrWhiteSpace(def.FontFamily) ? Themes.ThemeManager.DefaultFontFamily : def.FontFamily;
+            _fontSize = def.FontSize;
+            _fontWeight = string.Equals(def.FontWeight, "Bold", StringComparison.OrdinalIgnoreCase)
+                ? "Bold" : Themes.ThemeManager.DefaultFontWeight;
+            _fontStyle = string.Equals(def.FontStyle, "Italic", StringComparison.OrdinalIgnoreCase)
+                ? "Italic" : Themes.ThemeManager.DefaultFontStyle;
+        }
+
+        Themes.ThemeManager.ApplyFontToAllWindows(_fontFamily, _fontSize, _fontWeight, _fontStyle);
+        ApplyElementFonts();
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Применяет индивидуальные настройки шрифта областей для предпросмотра (без сохранения).
+    /// </summary>
+    public void PreviewElementFonts(IReadOnlyDictionary<string, Models.ElementFontSettings> fonts)
+    {
+        var window = Application.Current?.MainWindow;
+        if (window is not MainWindow mw)
+            return;
+        Themes.ThemeManager.ApplyElementFonts(mw, fonts);
     }
 
     /// <summary>Выгружает схему в JSON-файл.</summary>
@@ -4559,6 +4684,30 @@ public string HotkeyEnterprise
             ib.FileSizeBytes = InfobaseMaintenanceService.CalculateFileBaseSize(ib);
         }
         InfobasesView?.Refresh();
+    }
+
+    /// <summary>Обработчик запуска пакетной операции DESIGNER (показывает индикатор выгрузки).</summary>
+    private void OnDesignerBatchStarted(object? sender, OneCLauncher.DesignerBatchInfo e)
+    {
+        Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            _logger.Info($"Пакетная операция запущена: {e.OperationLabel}, база «{e.InfobaseName}»");
+            ExportIndicatorTooltip =
+                $"Выгружаются данные…\nОперация: {e.OperationLabel}\nБаза: {e.InfobaseName}" +
+                (string.IsNullOrWhiteSpace(e.OutputPath) ? "" : $"\nФайл: {e.OutputPath}");
+            IsExporting = true;
+        });
+    }
+
+    /// <summary>Обработчик завершения пакетной операции DESIGNER (скрывает индикатор выгрузки).</summary>
+    private void OnDesignerBatchCompleted(object? sender, OneCLauncher.DesignerBatchInfo e)
+    {
+        Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            _logger.Info($"Пакетная операция завершена: {e.OperationLabel}, база «{e.InfobaseName}»");
+            IsExporting = false;
+            ExportIndicatorTooltip = string.Empty;
+        });
     }
 
     private void DumpInfobaseDt(object? parameter)
