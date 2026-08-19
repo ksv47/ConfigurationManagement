@@ -79,9 +79,11 @@ namespace Configuration_Management
                 var mainWindow = AppServices.GetRequiredService<MainWindow>();
                 MainWindow = mainWindow;
 
-                // Версия в заголовке.
-                var version = Assembly.GetExecutingAssembly().GetName().Version;
-                var versionText = version is null ? "" : $" v{version}";
+                // Версия в заголовке (используем информационную версию, чтобы показать
+                // точное значение «0.2.5.7.13», которое не помещается в 4-частный AssemblyVersion).
+                var infoVersion = Assembly.GetExecutingAssembly()
+                    .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+                var versionText = string.IsNullOrWhiteSpace(infoVersion) ? "" : $" v{infoVersion}";
                 mainWindow.Title = $"Управление конфигурациями 1С{versionText}";
 
                 mainWindow.Show();

@@ -173,39 +173,24 @@ public static class OneCLauncher
         return prefer64 ? OneCArchitecture.x64 : OneCArchitecture.x86;
     }
 
-    /// <summary>Лучший каталог версии для указанной разрядности (или null).</summary>
+    /// <summary>
+    /// Лучший каталог версии для указанной разрядности (или null).
+    /// Использует гибкий поиск, покрывающий и нестандартные корни из дополнительных папок.
+    /// </summary>
     private static string? FindBestVersionDir(string archKey, string preferredVersion)
     {
-        var roots = PlatformVersionService.GetSearchRoots(archKey).ToList();
+        var entries = PlatformVersionService.FindPlatformVersionDirs(archKey);
         string? best = null;
 
-        foreach (var root in roots)
+        foreach (var (version, _) in entries)
         {
-            var baseDir = Path.Combine(root, "1cv8");
-            if (!Directory.Exists(baseDir))
-                continue;
-
             // Точное совпадение версии
-            if (!string.IsNullOrWhiteSpace(preferredVersion))
-            {
-                var exact = Path.Combine(baseDir, preferredVersion, "bin");
-                if (Directory.Exists(exact) && Directory.EnumerateFiles(exact, "1cv8*.exe").Any())
-                    return preferredVersion;
-            }
+            if (!string.IsNullOrWhiteSpace(preferredVersion) &&
+                string.Equals(version, preferredVersion, StringComparison.OrdinalIgnoreCase))
+                return version;
 
-            foreach (var dir in Directory.GetDirectories(baseDir))
-            {
-                var name = Path.GetFileName(dir);
-                if (string.Equals(name, "common", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (!Directory.Exists(Path.Combine(dir, "bin")))
-                    continue;
-                if (!Directory.EnumerateFiles(Path.Combine(dir, "bin"), "1cv8*.exe").Any())
-                    continue;
-
-                if (best is null || CompareVersionDirs(name, best) > 0)
-                    best = name;
-            }
+            if (best is null || CompareVersionDirs(version, best) > 0)
+                best = version;
         }
 
         return best;
@@ -452,9 +437,7 @@ public static class OneCLauncher
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
-        // Корни поиска: стандартные + дополнительные пути пользователя.
         var archKey = architecture == OneCArchitecture.x64 ? "64" : "32";
-        var searchRoots = PlatformVersionService.GetSearchRoots(archKey).ToList();
 
         // Имена exe в порядке приоритета.
         // Конфигуратор всегда требует 1cv8.exe (толстый).
@@ -481,14 +464,16 @@ public static class OneCLauncher
                 : new[] { "1cv8.exe" };
         }
 
-        // 1. Конкретная версия в bin\.
+        // 1. Конкретная версия в bin\. Используем гибкое разрешение каталога версии,
+        //    покрывающее и нестандартные корни из дополнительных папок в настройках.
         if (!string.IsNullOrWhiteSpace(cleanVersion))
         {
-            foreach (var root in searchRoots)
+            var versionBinDir = PlatformVersionService.ResolveVersionBinDirectory(cleanVersion, archKey);
+            if (versionBinDir != null)
             {
                 foreach (var exeName in exeNames)
                 {
-                    var candidate = Path.Combine(root, "1cv8", cleanVersion, "bin", exeName);
+                    var candidate = Path.Combine(versionBinDir, exeName);
                     if (File.Exists(candidate))
                         return candidate;
                 }
@@ -496,48 +481,36 @@ public static class OneCLauncher
         }
 
         // 2. Любая установленная версия нужной разрядности (новейшая по имени каталога).
-        var found = new List<(string Path, string VersionDir)>();
-        foreach (var root in searchRoots)
+        //    Гибкий поиск учитывает стандартные и дополнительные корни.
+        string? best = null;
+        string bestDir = string.Empty;
+        foreach (var (verName, binDir) in PlatformVersionService.FindPlatformVersionDirs(archKey))
         {
-            var baseDir = Path.Combine(root, "1cv8");
-            if (!Directory.Exists(baseDir))
+            string? chosen = null;
+            foreach (var exeName in exeNames)
+            {
+                var candidate = Path.Combine(binDir, exeName);
+                if (File.Exists(candidate))
+                {
+                    chosen = candidate;
+                    break; // один exe на каталог версии (первый по приоритету)
+                }
+            }
+
+            if (chosen is null)
                 continue;
 
-            foreach (var dir in Directory.GetDirectories(baseDir))
-            {
-                var verName = Path.GetFileName(dir);
-                // Пропускаем common, conf и т.п.
-                if (string.Equals(verName, "common", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                foreach (var exeName in exeNames)
-                {
-                    var candidate = Path.Combine(dir, "bin", exeName);
-                    if (File.Exists(candidate))
-                    {
-                        found.Add((candidate, verName));
-                        break; // один exe на каталог версии (первый по приоритету)
-                    }
-                }
-            }
-        }
-
-        if (found.Count > 0)
-        {
             // Берём «наибольшую» версию по числовому сравнению сегментов
             // (8.3.10 > 8.3.9 — строковое сравнение давало бы неверный результат).
-            string? best = null;
-            string bestDir = string.Empty;
-            foreach (var item in found)
+            if (best is null || CompareVersionDirs(verName, bestDir) > 0)
             {
-                if (best is null || CompareVersionDirs(item.VersionDir, bestDir) > 0)
-                {
-                    best = item.Path;
-                    bestDir = item.VersionDir;
-                }
+                best = chosen;
+                bestDir = verName;
             }
-            return best!;
         }
+
+        if (best != null)
+            return best;
 
         // 3. Общий лаунчер 1CEStart.exe (разрядность выбирает сам, но лучше, чем ничего).
         foreach (var root in new[] { programFiles, programFilesX86 }.Where(r => !string.IsNullOrEmpty(r)).Distinct())

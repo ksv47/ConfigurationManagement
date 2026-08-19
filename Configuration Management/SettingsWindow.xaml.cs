@@ -51,6 +51,7 @@ namespace Configuration_Management
             InitializeSyncSettings();
             InitializeDisplaySettings();
             InitializeFavoriteHotkeys();
+            InitializeExportTimestampSettings();
         }
 
         /// <summary>
@@ -82,6 +83,62 @@ namespace Configuration_Management
             }
             if (FavoriteHotkeysList != null)
                 FavoriteHotkeysList.ItemsSource = _favoriteHotkeyItems;
+        }
+
+        /// <summary>
+        /// Инициализирует выбор шаблона (формата) даты и времени для имени файла при выгрузке:
+        /// заполняет список популярных шаблонов и показывает предпросмотр текущего.
+        /// </summary>
+        private void InitializeExportTimestampSettings()
+        {
+            if (ExportTimestampFormatComboBox == null)
+                return;
+
+            ExportTimestampFormatComboBox.Items.Clear();
+            string[] templates =
+            {
+                "yyyyMMdd_HHmmss",
+                "yyyy-MM-dd_HH-mm-ss",
+                "yyyy-MM-dd_HHmmss",
+                "dd.MM.yyyy HH-mm-ss",
+                "yyyyMMdd",
+                "HHmmss"
+            };
+            foreach (var t in templates)
+                ExportTimestampFormatComboBox.Items.Add(t);
+
+            var current = _viewModel.ExportTimestampFormat;
+            ExportTimestampFormatComboBox.Text = string.IsNullOrWhiteSpace(current) ? "yyyyMMdd_HHmmss" : current;
+            UpdateExportTimestampPreview();
+        }
+
+        /// <summary>Обновляет текст предпросмотра отметки даты и времени по выбранному шаблону.</summary>
+        private void UpdateExportTimestampPreview()
+        {
+            if (ExportTimestampPreview == null)
+                return;
+
+            var format = ExportTimestampFormatComboBox.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(format))
+            {
+                ExportTimestampPreview.Text = "Укажите шаблон даты и времени (например yyyyMMdd_HHmmss).";
+                return;
+            }
+
+            try
+            {
+                var preview = $"База_{DateTime.Now.ToString(format)}.dt";
+                ExportTimestampPreview.Text = $"Пример: «{preview}»";
+            }
+            catch (FormatException)
+            {
+                ExportTimestampPreview.Text = "Недопустимый шаблон. Используйте стандартные спецификаторы .NET (например yyyyMMdd_HHmmss).";
+            }
+        }
+
+        private void OnExportTimestampFormat_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateExportTimestampPreview();
         }
 
         private void RefreshFavoriteHotkeyNumbers()
@@ -168,6 +225,8 @@ namespace Configuration_Management
             ShowFavoritesOnlyCheck.IsChecked = _viewModel.ShowFavoritesOnly;
             if (ShowEmptyGroupsCheck != null)
                 ShowEmptyGroupsCheck.IsChecked = _viewModel.ShowEmptyGroups;
+            if (AddTimestampToExportFileNameCheck != null)
+                AddTimestampToExportFileNameCheck.IsChecked = _viewModel.AddTimestampToExportFileName;
 
             if (ShowRightPanelDetailsCheck != null)
                 ShowRightPanelDetailsCheck.IsChecked = _viewModel.ShowRightPanelDetails;
@@ -779,6 +838,12 @@ namespace Configuration_Management
             var templatePaths = TemplatePathsList?.Items.Cast<string>().Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
                 ?? new System.Collections.Generic.List<string>();
             _viewModel.SetTemplateCatalogPaths(templatePaths);
+
+            // Добавление даты-времени к имени файла при выгрузке (JSON, .dt, .cf).
+            _viewModel.ApplyExportFileNameSettings(AddTimestampToExportFileNameCheck?.IsChecked ?? true);
+
+            // Шаблон (формат) отметки даты и времени для имени файла при выгрузке.
+            _viewModel.ApplyExportTimestampFormat(ExportTimestampFormatComboBox?.Text ?? "yyyyMMdd_HHmmss");
 
 
             // Порядок горячих клавиш избранного.

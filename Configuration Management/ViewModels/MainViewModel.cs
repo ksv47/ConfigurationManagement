@@ -93,6 +93,8 @@ public class MainViewModel : ViewModelBase
     private string _ibasesSyncScheduleTime = "09:00";
     private bool _ibasesBackupEnabled = true;
     private int _ibasesBackupKeepCount = 5;
+    private bool _addTimestampToExportFileName = true;
+    private string _exportTimestampFormat = "yyyyMMdd_HHmmss";
     private string _syncMessage = string.Empty;
     private DispatcherTimer? _syncTimer;
     private DateTime? _nextScheduleRun;
@@ -207,6 +209,10 @@ public class MainViewModel : ViewModelBase
         _ibasesSyncScheduleTime = settings.IbasesSyncScheduleTime;
         _ibasesBackupEnabled = settings.IbasesBackupEnabled;
         _ibasesBackupKeepCount = settings.IbasesBackupKeepCount > 0 ? settings.IbasesBackupKeepCount : 5;
+        _addTimestampToExportFileName = settings.AddTimestampToExportFileName;
+        _exportTimestampFormat = string.IsNullOrWhiteSpace(settings.ExportTimestampFormat)
+            ? "yyyyMMdd_HHmmss"
+            : settings.ExportTimestampFormat;
         _closeToTray = settings.CloseToTray;
         _showTrayIcon = settings.ShowTrayIcon;
         _escapeToTray = settings.EscapeToTray;
@@ -635,6 +641,40 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Число хранимых резервных копий ibases.v8i.</summary>
     public int IbasesBackupKeepCount => _ibasesBackupKeepCount;
+
+    /// <summary>
+    /// Добавлять дату-время к имени файла при выгрузке (экспорт списка баз в JSON,
+    /// выгрузка ИБ в .dt, выгрузка конфигурации в .cf).
+    /// </summary>
+    public bool AddTimestampToExportFileName => _addTimestampToExportFileName;
+
+    /// <summary>
+    /// Применяет настройку добавления даты-времени к имени файла при выгрузке.
+    /// </summary>
+    public void ApplyExportFileNameSettings(bool addTimestamp)
+    {
+        if (_addTimestampToExportFileName == addTimestamp)
+            return;
+        _addTimestampToExportFileName = addTimestamp;
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Шаблон (формат) отметки даты и времени для имени файла при выгрузке.
+    /// </summary>
+    public string ExportTimestampFormat => _exportTimestampFormat;
+
+    /// <summary>
+    /// Применяет шаблон (формат) даты и времени для имени файла при выгрузке.
+    /// </summary>
+    public void ApplyExportTimestampFormat(string format)
+    {
+        format = string.IsNullOrWhiteSpace(format) ? "yyyyMMdd_HHmmss" : format.Trim();
+        if (string.Equals(_exportTimestampFormat, format, StringComparison.Ordinal))
+            return;
+        _exportTimestampFormat = format;
+        SaveSettings();
+    }
 
     /// <summary>
     /// Текст сообщения о последней выполненной синхронизации с файлом ibases.v8i
@@ -3100,6 +3140,8 @@ public string HotkeyEnterprise
             IbasesSyncScheduleTime = _ibasesSyncScheduleTime,
             IbasesBackupEnabled = _ibasesBackupEnabled,
             IbasesBackupKeepCount = _ibasesBackupKeepCount,
+            AddTimestampToExportFileName = _addTimestampToExportFileName,
+            ExportTimestampFormat = _exportTimestampFormat,
             CloseToTray = _closeToTray,
             ShowTrayIcon = _showTrayIcon,
             EscapeToTray = _escapeToTray,
@@ -3810,7 +3852,7 @@ public string HotkeyEnterprise
             Title = "Экспорт списка информационных баз",
             Filter = "JSON-файл (*.json)|*.json|Все файлы (*.*)|*.*",
             DefaultExt = ".json",
-            FileName = "infobases_export.json",
+            FileName = BuildExportFileName("infobases_export", ".json"),
             AddExtension = true
         };
 
@@ -4226,7 +4268,7 @@ public string HotkeyEnterprise
         {
             Title = "Выгрузка информационной базы (.dt)",
             Filter = "Выгрузка 1С (*.dt)|*.dt|Все файлы (*.*)|*.*",
-            FileName = SanitizeFileName(ib.Name) + ".dt"
+            FileName = BuildExportFileName(SanitizeFileName(ib.Name), ".dt")
         };
         if (dlg.ShowDialog() != true) return;
 
@@ -4249,7 +4291,7 @@ public string HotkeyEnterprise
         {
             Title = "Выгрузка конфигурации (.cf)",
             Filter = "Конфигурация 1С (*.cf)|*.cf|Все файлы (*.*)|*.*",
-            FileName = SanitizeFileName(ib.Name) + ".cf"
+            FileName = BuildExportFileName(SanitizeFileName(ib.Name), ".cf")
         };
         if (dlg.ShowDialog() != true) return;
 
@@ -4304,6 +4346,22 @@ public string HotkeyEnterprise
         var invalid = Path.GetInvalidFileNameChars();
         var s = new string((name ?? "base").Select(c => invalid.Contains(c) ? '_' : c).ToArray());
         return string.IsNullOrWhiteSpace(s) ? "base" : s;
+    }
+
+    /// <summary>
+    /// Формирует имя файла выгрузки. Если включена настройка добавления даты-времени
+    /// (<see cref="AddTimestampToExportFileName"/>), к базовому имени добавляется суффикс
+    /// «_yyyyMMdd_HHmmss» (например «База_20260819_074312.dt»).
+    /// </summary>
+    private string BuildExportFileName(string baseName, string extension)
+    {
+        if (_addTimestampToExportFileName)
+        {
+            var format = string.IsNullOrWhiteSpace(_exportTimestampFormat) ? "yyyyMMdd_HHmmss" : _exportTimestampFormat;
+            var ts = DateTime.Now.ToString(format);
+            return $"{baseName}_{ts}{extension}";
+        }
+        return $"{baseName}{extension}";
     }
 
     /// <summary>

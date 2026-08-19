@@ -343,7 +343,7 @@
                                               Grid.Column="1"
                                               Focusable="False"
                                               IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                              ClickMode="Press"
+                                              ClickMode="Release"
                                               Background="Transparent"
                                               BorderThickness="0">
                                     <ToggleButton.Template>
@@ -362,20 +362,6 @@
                                 </ToggleButton>
                             </Grid>
                         </Border>
-
-                        <!-- Невидимый toggle на всю ширину для открытия списка в non-editable режиме -->
-                        <ToggleButton x:Name="FullDropDownToggle"
-                                      Focusable="False"
-                                      Background="Transparent"
-                                      BorderThickness="0"
-                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                      ClickMode="Press">
-                            <ToggleButton.Template>
-                                <ControlTemplate TargetType="ToggleButton">
-                                    <Border Background="Transparent"/>
-                                </ControlTemplate>
-                            </ToggleButton.Template>
-                        </ToggleButton>
 
                         <Popup x:Name="PART_Popup"
                                Placement="Bottom"
@@ -404,11 +390,6 @@
                         <Trigger Property="IsEditable" Value="True">
                             <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
                             <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/>
-                            <Setter TargetName="FullDropDownToggle" Property="IsHitTestVisible" Value="False"/>
-                            <Setter TargetName="FullDropDownToggle" Property="Visibility" Value="Collapsed"/>
-                        </Trigger>
-                        <Trigger Property="IsEditable" Value="False">
-                            <Setter TargetName="DropDownToggle" Property="IsHitTestVisible" Value="False"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
@@ -430,6 +411,69 @@
     <!-- Неявный стиль ComboBox: перебивает MaterialDesign Defaults -->
     <Style TargetType="ComboBox" BasedOn="{StaticResource ModernComboBox}"/>
 
+
+    <!-- ===================== Чекбокс в стиле Material Design ===================== -->
+    <Style x:Key="ModernMaterialCheckBox" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent" Cursor="Hand">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid Width="18" Height="18" VerticalAlignment="Center">
+                            <Border x:Name="Box" Width="18" Height="18" CornerRadius="3"
+                                    Background="{DynamicResource CardBackgroundBrush}"
+                                    BorderBrush="{DynamicResource BorderBrushColor}"
+                                    BorderThickness="2"
+                                    SnapsToDevicePixels="True">
+                                <Grid>
+                                    <Path x:Name="Check" Data="M 3.2,8.2 L 6.8,11.8 L 14.6,4.2"
+                                          Stroke="White" StrokeThickness="2.2"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Stretch="None" Visibility="Collapsed"/>
+                                    <Path x:Name="Dash" Data="M 4.2,9 L 13.8,9"
+                                          Stroke="White" StrokeThickness="2.2"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Stretch="None" Visibility="Collapsed"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                        <ContentPresenter Grid.Column="1" Margin="9,0,0,0"
+                                          VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="{x:Null}">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="Dash" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="CheckBox" BasedOn="{StaticResource ModernMaterialCheckBox}"/>
 
 
     <!-- ===================== Стиль поля поиска с подсказкой ===================== -->

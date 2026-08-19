@@ -31,7 +31,7 @@
         <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}"/>
         <Style TargetType="ComboBox" BasedOn="{StaticResource ModernComboBox}"/>
         <Style TargetType="TreeViewItem" BasedOn="{StaticResource ModernTreeViewItem}"/>
-        <Style TargetType="CheckBox">
+        <Style TargetType="CheckBox" BasedOn="{StaticResource ModernMaterialCheckBox}">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,4"/>
@@ -1083,7 +1083,7 @@
                                         <TextBlock Text="Загрузка списка баз из файла" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,0" Padding="10,8"
+                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
                                         HorizontalAlignment="Stretch"
                                         Click="OnImportIbasesV8i_Click"
                                         ToolTip="Считать список баз из файла ibases.v8i и добавить/обновить базы">
@@ -1092,6 +1092,24 @@
                                         <TextBlock Text="Импорт из ibases.v8i" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
+                                <CheckBox x:Name="AddTimestampToExportFileNameCheck"
+                                          Content="Добавлять дату-время к имени файла при выгрузке"
+                                          Margin="0,6,0,0"
+                                          ToolTip="В имя файла при выгрузке (экспорт списка в JSON, выгрузка ИБ в .dt, выгрузка конфигурации в .cf) автоматически добавляется отметка даты и времени, например «База_20260819_074312.dt»."/>
+                                <TextBlock Text="Шаблон даты и времени:"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           Margin="0,12,0,4"/>
+                                <ComboBox x:Name="ExportTimestampFormatComboBox"
+                                          Height="34" FontSize="13"
+                                          Style="{StaticResource ModernComboBox}"
+                                          IsEditable="True"
+                                          IsTextSearchEnabled="True"
+                                          StaysOpenOnEdit="True"
+                                          SelectionChanged="OnExportTimestampFormat_SelectionChanged"
+                                          ToolTip="Шаблон отметки даты и времени в имени файла. Выберите из списка или введите свой формат (например yyyy-MM-dd_HHmmss)."/>
+                                <TextBlock x:Name="ExportTimestampPreview"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           Margin="0,6,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </GroupBox>
 

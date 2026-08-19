@@ -104,6 +104,170 @@ public static class PlatformVersionService
         return roots;
     }
 
+    /// <summary>
+    /// Разрешает каталог <c>bin</c> указанной версии платформы нужной разрядности.
+    /// Использует те же правила поиска, что и при составлении списка версий
+    /// (стандартные Program Files + дополнительные папки с учётом нестандартной
+    /// вложенности каталогов версий). Возвращает null, если версия не найдена.
+    /// </summary>
+    public static string? ResolveVersionBinDirectory(string version, string architecture)
+    {
+        ParseVariant(version ?? string.Empty, out var cleanVersion, out _);
+        if (string.IsNullOrWhiteSpace(cleanVersion))
+            return null;
+
+        var archKey = architecture == "64" ? "64" : "32";
+
+        foreach (var root in GetSearchRoots(archKey))
+        {
+            // Стандартный макет: <root>\1cv8\<ver>\bin
+            var standard = Path.Combine(root, "1cv8", cleanVersion, "bin");
+            if (IsVersionBin(standard, archKey))
+                return standard;
+
+            // Нестандартный макет (дополнительные папки): рекурсивный поиск каталога версии.
+            var flexible = FindVersionBinRecursive(root, cleanVersion, archKey, depth: 0, maxDepth: 6);
+            if (flexible != null)
+                return flexible;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Возвращает все найденные каталоги версий нужной разрядности в виде пар
+    /// (имя версии, каталог bin), включая стандартные и дополнительные корни с учётом
+    /// нестандартной вложенности. Используется лаунчером для выбора новейшей версии.
+    /// </summary>
+    public static List<(string Version, string BinDir)> FindPlatformVersionDirs(string architecture)
+    {
+        var archKey = architecture == "64" ? "64" : "32";
+        var results = new List<(string Version, string BinDir)>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var root in GetSearchRoots(archKey))
+        {
+            AddVersionDirsFrom1cv8(results, seen, Path.Combine(root, "1cv8"), archKey);
+            ScanAddVersionDirs(results, seen, root, archKey, depth: 0, maxDepth: 6);
+        }
+
+        return results;
+    }
+
+    private static bool IsVersionBin(string binDir, string archKey)
+    {
+        if (!Directory.Exists(binDir))
+            return false;
+        if (!Directory.EnumerateFiles(binDir, "1cv8*.exe").Any())
+            return false;
+        return archKey == "32" ? DetectArchitecture(binDir) == "32"
+                               : DetectArchitecture(binDir) == "64";
+    }
+
+    private static string? FindVersionBinRecursive(string path, string version, string archKey, int depth, int maxDepth)
+    {
+        if (depth > maxDepth || !Directory.Exists(path))
+            return null;
+
+        try
+        {
+            foreach (var dir in Directory.GetDirectories(path))
+            {
+                var name = Path.GetFileName(dir);
+                if (string.IsNullOrEmpty(name) || name.StartsWith(".", StringComparison.Ordinal))
+                    continue;
+
+                if (string.Equals(name, version, StringComparison.OrdinalIgnoreCase))
+                {
+                    var binDir = Path.Combine(dir, "bin");
+                    if (IsVersionBin(binDir, archKey))
+                        return binDir;
+                }
+
+                if (name.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("docs", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("readme", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("common", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var sub = FindVersionBinRecursive(dir, version, archKey, depth + 1, maxDepth);
+                if (sub != null)
+                    return sub;
+            }
+        }
+        catch
+        {
+            /* нет доступа */
+        }
+
+        return null;
+    }
+
+    private static void AddVersionDirsFrom1cv8(
+        List<(string Version, string BinDir)> results,
+        HashSet<string> seen,
+        string baseDir,
+        string archKey)
+    {
+        if (!Directory.Exists(baseDir))
+            return;
+
+        foreach (var dir in Directory.GetDirectories(baseDir))
+        {
+            var name = Path.GetFileName(dir);
+            if (!IsVersionDirectory(name))
+                continue;
+
+            var binDir = Path.Combine(dir, "bin");
+            if (!IsVersionBin(binDir, archKey))
+                continue;
+
+            if (seen.Add(binDir))
+                results.Add((name, binDir));
+        }
+    }
+
+    private static void ScanAddVersionDirs(
+        List<(string Version, string BinDir)> results,
+        HashSet<string> seen,
+        string path,
+        string archKey,
+        int depth,
+        int maxDepth)
+    {
+        if (depth > maxDepth || !Directory.Exists(path))
+            return;
+
+        try
+        {
+            foreach (var dir in Directory.GetDirectories(path))
+            {
+                var name = Path.GetFileName(dir);
+                if (string.IsNullOrEmpty(name) || name.StartsWith(".", StringComparison.Ordinal))
+                    continue;
+
+                if (IsVersionDirectory(name))
+                {
+                    var binDir = Path.Combine(dir, "bin");
+                    if (IsVersionBin(binDir, archKey) && seen.Add(binDir))
+                        results.Add((name, binDir));
+                }
+
+                if (name.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("docs", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("readme", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("common", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                ScanAddVersionDirs(results, seen, dir, archKey, depth + 1, maxDepth);
+            }
+        }
+        catch
+        {
+            /* нет доступа */
+        }
+    }
+
     private static void TryAddVersion(Dictionary<string, string> map, string display, string versionDir)
     {
         if (!map.ContainsKey(display))

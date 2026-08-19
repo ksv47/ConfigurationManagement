@@ -265,4 +265,17 @@ public class AppSettings
     /// <summary>В нижней панели показывать ID информационной базы.</summary>
     public bool StatusShowId { get; set; }
 
+    /// <summary>
+    /// Добавлять дату-время к имени файла при выгрузке (экспорт списка баз в JSON,
+    /// выгрузка ИБ в .dt, выгрузка конфигурации в .cf). По умолчанию — включено.
+    /// </summary>
+    public bool AddTimestampToExportFileName { get; set; } = true;
+
+    /// <summary>
+    /// Шаблон (формат) отметки даты и времени для имени файла при выгрузке.
+    /// По умолчанию — «yyyyMMdd_HHmmss» (например «20260819_074312»).
+    /// Применяется только когда <see cref="AddTimestampToExportFileName"/> включён.
+    /// </summary>
+    public string ExportTimestampFormat { get; set; } = "yyyyMMdd_HHmmss";
+
 }

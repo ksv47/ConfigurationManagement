@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using Configuration_Management.Models;
@@ -78,6 +79,24 @@ namespace Configuration_Management
                 if (dialog.ResultGroup is null)
                     _viewModel.Group = string.Empty;
             }
+        }
+
+        /// <summary>
+        /// Открывает диалог выбора каталога для файловой базы и подставляет путь в поле.
+        /// </summary>
+        private void OnBrowseFilePath_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "Выберите каталог информационной базы 1С",
+                Multiselect = false
+            };
+            var current = _viewModel.FilePath;
+            if (!string.IsNullOrWhiteSpace(current) && Directory.Exists(current))
+                dialog.InitialDirectory = current;
+
+            if (dialog.ShowDialog(this) == true)
+                _viewModel.FilePath = dialog.FolderName;
         }
 
         /// <summary>

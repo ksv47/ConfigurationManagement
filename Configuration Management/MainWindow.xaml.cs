@@ -35,8 +35,11 @@ namespace Configuration_Management
         {
             InitializeComponent();
 
-            // Выводим версию программы в заголовок окна.
-            Title = $"{Title} v{Assembly.GetExecutingAssembly().GetName().Version}";
+            // Выводим версию программы в заголовок окна (информационная версия,
+            // чтобы показать точное значение «0.2.5.7.13»).
+            var infoVersion = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            Title = $"{Title} v{infoVersion}";
 
             _viewModel = viewModel ?? new ViewModels.MainViewModel();
             DataContext = _viewModel;

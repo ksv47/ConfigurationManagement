@@ -249,7 +249,7 @@
                                               Grid.Column="1"
                                               Focusable="False"
                                               IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                              ClickMode="Press"
+                                              ClickMode="Release"
                                               Background="Transparent"
                                               BorderThickness="0">
                                     <ToggleButton.Template>
@@ -268,20 +268,6 @@
                                 </ToggleButton>
                             </Grid>
                         </Border>
-
-                        <!-- Невидимый toggle на всю ширину для открытия списка в non-editable режиме -->
-                        <ToggleButton x:Name="FullDropDownToggle"
-                                      Focusable="False"
-                                      Background="Transparent"
-                                      BorderThickness="0"
-                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                      ClickMode="Press">
-                            <ToggleButton.Template>
-                                <ControlTemplate TargetType="ToggleButton">
-                                    <Border Background="Transparent"/>
-                                </ControlTemplate>
-                            </ToggleButton.Template>
-                        </ToggleButton>
 
                         <Popup x:Name="PART_Popup"
                                Placement="Bottom"
@@ -310,11 +296,6 @@
                         <Trigger Property="IsEditable" Value="True">
                             <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
                             <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/>
-                            <Setter TargetName="FullDropDownToggle" Property="IsHitTestVisible" Value="False"/>
-                            <Setter TargetName="FullDropDownToggle" Property="Visibility" Value="Collapsed"/>
-                        </Trigger>
-                        <Trigger Property="IsEditable" Value="False">
-                            <Setter TargetName="DropDownToggle" Property="IsHitTestVisible" Value="False"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
