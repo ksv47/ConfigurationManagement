@@ -15,7 +15,7 @@ namespace Configuration_Management
         private string _selectedVersion = string.Empty;
         private List<PlatformVersionInfo> _allInfos = new();
         private string _currentVersion = string.Empty;
-        private bool _sortAscending = true;
+        private bool _sortAscending = false; // по умолчанию — свежие версии сверху
         private string _archFilter = "all"; // all | x32 | x64
 
         public PlatformVersionPickerWindow(IEnumerable<string> installedPlatformVersions, string currentVersion)
@@ -58,8 +58,8 @@ namespace Configuration_Management
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                // Разворачиваем первый уровень (линии 8.3), чтобы было похоже на стартер
-                ExpandTopLevel(PlatformsTree);
+                // Полностью разворачиваем дерево (линии → группы сборок → сборки), как в стартере
+                ExpandAll(PlatformsTree);
                 if (!string.IsNullOrWhiteSpace(_currentVersion))
                     SelectCurrent(_currentVersion);
             }), System.Windows.Threading.DispatcherPriority.Loaded);
@@ -99,13 +99,17 @@ namespace Configuration_Management
                 ReverseChildren(c);
         }
 
-        private static void ExpandTopLevel(ItemsControl parent)
+        private static void ExpandAll(ItemsControl parent)
         {
             parent.UpdateLayout();
             foreach (var item in parent.Items)
             {
                 if (parent.ItemContainerGenerator.ContainerFromItem(item) is TreeViewItem tvi)
+                {
                     tvi.IsExpanded = true;
+                    tvi.UpdateLayout();
+                    ExpandAll(tvi);
+                }
             }
         }
 
@@ -164,18 +168,74 @@ namespace Configuration_Management
         {
             if (PlatformsTree.ItemsSource is not IEnumerable<PlatformVersionGroup> roots)
                 return;
-            var leaf = FindMatchingLeaf(roots, currentVersion);
+            var leaf = FindBestLeaf(roots, currentVersion);
             if (leaf is null) return;
+            leaf.IsCurrent = true; // подсветка жирным
             SelectNodeInTree(PlatformsTree, leaf);
         }
 
-        private static PlatformVersionGroup? FindMatchingLeaf(IEnumerable<PlatformVersionGroup> nodes, string current)
+        /// <summary>
+        /// Ищет лист, соответствующий текущей версии. Повторяет «трюк 1С»:
+        /// если указана частичная версия (8.3 или 8.3.19, в т.ч. с разрядностью «8.3 (64)»),
+        /// выбирается максимальная доступная сборка в пределах этой линии/группы.
+        /// </summary>
+        private static PlatformVersionGroup? FindBestLeaf(
+            IEnumerable<PlatformVersionGroup> nodes, string currentVersion)
+        {
+            if (string.IsNullOrWhiteSpace(currentVersion)) return null;
+
+            ParseVersionAndArch(currentVersion, out var version, out var arch);
+            var parts = version.Split('.', StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length >= 4)
+                return FindExactLeaf(nodes, currentVersion); // полная версия — точное совпадение
+
+            var linePrefix = string.Join(".", parts.Take(2));
+            var line = nodes.FirstOrDefault(n =>
+                !n.IsLeaf && string.Equals(n.Name, linePrefix, StringComparison.OrdinalIgnoreCase));
+            if (line is null) return null;
+
+            if (parts.Length == 3)
+            {
+                // группа сборок, например «8.3.19» → максимальная сборка в 8.3.19
+                var buildPrefix = string.Join(".", parts.Take(3));
+                var build = line.Children.FirstOrDefault(n =>
+                    !n.IsLeaf && string.Equals(n.Name, buildPrefix, StringComparison.OrdinalIgnoreCase));
+                return build is null ? null : FirstLeaf(build.Children, arch);
+            }
+
+            // только линия, например «8.3» → 1С сама выбирает максимальную доступную версию
+            return FirstLeaf(line.Children, arch);
+        }
+
+        /// <summary>
+        /// Возвращает первую (максимальную, т.к. дерево отсортировано по убыванию)
+        /// сборку в поддереве, при необходимости ограниченную разрядностью.
+        /// </summary>
+        private static PlatformVersionGroup? FirstLeaf(IEnumerable<PlatformVersionGroup> nodes, string? arch)
         {
             foreach (var n in nodes)
             {
-                if (n.IsLeaf && MatchesCurrent(n.Variant ?? n.Name, current))
+                if (n.IsLeaf)
+                {
+                    if (arch is null || MatchesArch(n.Variant, arch))
+                        return n;
+                    continue;
+                }
+                var found = FirstLeaf(n.Children, arch);
+                if (found is not null) return found;
+            }
+            return null;
+        }
+
+        private static PlatformVersionGroup? FindExactLeaf(
+            IEnumerable<PlatformVersionGroup> nodes, string currentVersion)
+        {
+            foreach (var n in nodes)
+            {
+                if (n.IsLeaf && MatchesCurrent(n.Variant ?? n.Name, currentVersion))
                     return n;
-                var found = FindMatchingLeaf(n.Children, current);
+                var found = FindExactLeaf(n.Children, currentVersion);
                 if (found is not null) return found;
             }
             return null;
@@ -189,6 +249,33 @@ namespace Configuration_Management
             if (string.Equals(version.Trim(), cur.Trim(), StringComparison.OrdinalIgnoreCase))
                 return true;
             return string.Equals(variant.Trim(), currentVersion.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool MatchesArch(string? variant, string arch)
+        {
+            PlatformVersionService.ParseVariant(variant ?? string.Empty, out _, out var a);
+            return string.Equals(a, arch, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Разбирает строку версии, отделяя необязательную разрядность «8.3 (64)».
+        /// Возвращает версию без суффикса и разрядность (null, если не указана).
+        /// </summary>
+        private static void ParseVersionAndArch(string variant, out string version, out string? arch)
+        {
+            version = variant.Trim();
+            arch = null;
+            var end = variant.LastIndexOf(')');
+            var start = variant.LastIndexOf('(');
+            if (end >= 0 && start >= 0 && start < end)
+            {
+                var a = variant.Substring(start + 1, end - start - 1).Trim();
+                if (a == "64" || a == "32")
+                {
+                    arch = a;
+                    version = variant.Substring(0, start).Trim();
+                }
+            }
         }
 
         private static bool SelectNodeInTree(ItemsControl parent, PlatformVersionGroup target)

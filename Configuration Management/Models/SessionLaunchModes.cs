@@ -2,6 +2,8 @@ namespace Configuration_Management.Models;
 
 /// <summary>
 /// Режим клиента для «текущей сессии» (временное переопределение при запуске).
+/// По аналогии с настройками подключения базы 1С толстый клиент разделён
+/// по режиму форм на управляемые и обычные.
 /// </summary>
 public enum SessionClientMode
 {
@@ -11,8 +13,11 @@ public enum SessionClientMode
     /// <summary>Обычное приложение (/RunModeOrdinaryApplication).</summary>
     Ordinary,
 
-    /// <summary>Толстый клиент.</summary>
+    /// <summary>Толстый клиент (управляемые формы) (/RunModeManagedApplication).</summary>
     Thick,
+
+    /// <summary>Толстый клиент (обычные формы) (/RunModeOrdinaryApplication).</summary>
+    ThickOrdinary,
 
     /// <summary>Тонкий клиент (/RunModeManagedApplication).</summary>
     Thin

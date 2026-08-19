@@ -80,7 +80,7 @@ namespace Configuration_Management
                 MainWindow = mainWindow;
 
                 // Версия в заголовке (используем информационную версию, чтобы показать
-                // точное значение «0.2.5.7.13», которое не помещается в 4-частный AssemblyVersion).
+                // точное значение «0.2.5.7.15», которое не помещается в 4-частный AssemblyVersion).
                 var infoVersion = Assembly.GetExecutingAssembly()
                     .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion;
                 var versionText = string.IsNullOrWhiteSpace(infoVersion) ? "" : $" v{infoVersion}";

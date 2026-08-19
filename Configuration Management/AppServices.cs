@@ -19,6 +19,8 @@ public static class AppServices
         services.AddSingleton<IDialogService, WpfDialogService>();
         services.AddSingleton<IInfobaseRepository, InfobaseRepository>();
         services.AddSingleton<IOneCLauncher, OneCLauncherService>();
+        services.AddSingleton<IOneCComConnector, OneCComConnector>();
+        services.AddSingleton<IOneCComConnectorRegistrar, OneCComConnectorRegistrar>();
         services.AddSingleton<IPlatformVersionService, PlatformVersionServiceAdapter>();
         services.AddSingleton<IIbasesSyncService, IbasesSyncService>();
         services.AddTransient<MainViewModel>();

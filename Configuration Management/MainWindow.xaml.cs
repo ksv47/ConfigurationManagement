@@ -36,7 +36,7 @@ namespace Configuration_Management
             InitializeComponent();
 
             // Выводим версию программы в заголовок окна (информационная версия,
-            // чтобы показать точное значение «0.2.5.7.13»).
+            // чтобы показать точное значение «0.2.5.7.15»).
             var infoVersion = System.Reflection.Assembly.GetExecutingAssembly()
                 .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion;
             Title = $"{Title} v{infoVersion}";

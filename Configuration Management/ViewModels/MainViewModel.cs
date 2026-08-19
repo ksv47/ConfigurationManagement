@@ -339,6 +339,9 @@ public class MainViewModel : ViewModelBase
         ToggleGroupExpandedCommand = new RelayCommand(ToggleGroupExpanded);
         OpenSettingsCommand = new RelayCommand(OpenSettings);
         OpenInfobaseByLinkCommand = new RelayCommand(OpenInfobaseByLink);
+        RefreshConfigurationInfoCommand = new RelayCommand(RefreshConfigurationInfo, _ => SelectedInfobase != null);
+        RefreshAllConfigurationInfoCommand = new RelayCommand(_ => RefreshAllConfigurationInfo());
+        RegisterComConnectorCommand = new RelayCommand(RegisterComConnector);
 
         // Если список баз пуст — предлагаем загрузить базы из файла ibases.v8i.
         if (Infobases.Count == 0)
@@ -1460,6 +1463,7 @@ public class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsSessionClientAuto));
                 OnPropertyChanged(nameof(IsSessionClientOrdinary));
                 OnPropertyChanged(nameof(IsSessionClientThick));
+                OnPropertyChanged(nameof(IsSessionClientThickOrdinary));
                 OnPropertyChanged(nameof(IsSessionClientThin));
                 ScheduleSaveSettings();
             }
@@ -1522,6 +1526,12 @@ public class MainViewModel : ViewModelBase
     {
         get => _sessionArchitecture == SessionArchitectureMode.X64;
         set { if (value) SessionArchitecture = SessionArchitectureMode.X64; }
+    }
+
+    public bool IsSessionClientThickOrdinary
+    {
+        get => _sessionClientMode == SessionClientMode.ThickOrdinary;
+        set { if (value) SessionClientMode = SessionClientMode.ThickOrdinary; }
     }
 
     /// <summary>Разрядность по умолчанию (X86 / X64), если у базы она не указана.</summary>
@@ -1772,6 +1782,15 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Пересчитать размеры файловых баз.</summary>
     public ICommand RefreshFileSizesCommand { get; }
+
+    /// <summary>Запросить и заполнить информацию о конфигурации выбранной базы (точечно).</summary>
+    public ICommand RefreshConfigurationInfoCommand { get; }
+
+    /// <summary>Запросить и заполнить информацию о конфигурации по всем базам 1С.</summary>
+    public ICommand RefreshAllConfigurationInfoCommand { get; }
+
+    /// <summary>Зарегистрировать COM-коннектор 1С (comcntr.dll) в системе.</summary>
+    public ICommand RegisterComConnectorCommand { get; }
 
     /// <summary>Команда добавления тега к базе.</summary>
     public ICommand AddTagCommand { get; }
@@ -2950,6 +2969,7 @@ public string HotkeyEnterprise
         {
             SessionClientMode.Thin => OneCClientType.Thin,
             SessionClientMode.Thick => OneCClientType.Thick,
+            SessionClientMode.ThickOrdinary => OneCClientType.Thick,
             SessionClientMode.Ordinary => OneCClientType.Thick,
             _ => ResolveClientFromInfobase(ib)
         };
@@ -2961,11 +2981,15 @@ public string HotkeyEnterprise
             _ => OneCLauncher.ResolveArchitecture(ib.Architecture, ib.PlatformVersion)
         };
 
-        // Режим форм берём из настройки базы, если клиент не переопределён явно
-        // в «Текущей сессии» (только толстый клиент различает управляемые/обычные формы).
-        OneCRunMode? runMode = _sessionClientMode == SessionClientMode.Auto
-            ? OneCLauncher.GetRunModeFromLaunchMode(ib.LaunchMode)
-            : null;
+        // Режим форм: «Толстый (управляемые формы)» и «Толстый (обычные формы)» задают
+        // его явно; в остальных случаях берём из настройки базы при автоматическом клиенте.
+        OneCRunMode? runMode = _sessionClientMode switch
+        {
+            SessionClientMode.Thick => OneCRunMode.Managed,
+            SessionClientMode.ThickOrdinary => OneCRunMode.Ordinary,
+            SessionClientMode.Auto => OneCLauncher.GetRunModeFromLaunchMode(ib.LaunchMode),
+            _ => null
+        };
 
         return _launcher.Launch(ib, OneCLaunchMode.Enterprise, client, runMode, arch, runAsAdmin);
     }
@@ -4241,6 +4265,187 @@ public string HotkeyEnterprise
                 });
             }
             catch { }
+        });
+    }
+
+    /// <summary>
+    /// Точечно запрашивает и заполняет информацию о конфигурации выбранной базы
+    /// (из контекстного меню). Выполняется в фоне, чтобы не блокировать UI.
+    /// </summary>
+    private void RefreshConfigurationInfo(object? parameter)
+    {
+        var ib = parameter as Infobase ?? SelectedInfobase;
+        if (ib is null) return;
+
+        var baseName = ib.Name;
+        _ = Task.Run(() =>
+        {
+            OneCConfigInfo? info = null;
+            try
+            {
+                info = ConfigurationInfoService.ReadAndApply(ib, overwriteExisting: true);
+            }
+            catch { }
+
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (info is null)
+                {
+                    var comError = ConfigurationInfoService.LastComError;
+                    var detail = string.IsNullOrWhiteSpace(comError)
+                        ? "Проверьте, что база доступна и установлена платформа 1С (COM-коннектор)."
+                        : $"Причина: {comError}";
+                    _logger.Warn($"Не удалось получить информацию о конфигурации базы «{baseName}». {detail}");
+                    _dialogs.ShowWarning(
+                        $"Не удалось получить информацию о конфигурации базы «{baseName}».\n\n{detail}",
+                        "Информация о конфигурации");
+                    return;
+                }
+
+                InfobasesView?.Refresh();
+                Save();
+
+                var name = info.Value.Name.Trim();
+                var version = info.Value.Version.Trim();
+                _logger.Info($"Обновлена информация о конфигурации базы «{baseName}»: {name} ({version})");
+
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"База: {baseName}");
+                if (name.Length > 0) sb.AppendLine($"Конфигурация: {name}");
+                if (version.Length > 0) sb.AppendLine($"Версия: {version}");
+                _dialogs.ShowInfo(sb.ToString().TrimEnd(), "Информация о конфигурации");
+            });
+        });
+    }
+
+    /// <summary>
+    /// Запрашивает и заполняет информацию о конфигурации по всем базам 1С.
+    /// Перезаписывает уже заполненные значения; итог выводится по завершении.
+    /// </summary>
+    private void RefreshAllConfigurationInfo()
+    {
+        var targets = Infobases.ToList();
+        if (targets.Count == 0)
+        {
+            _dialogs.ShowInfo("Список информационных баз пуст.", "Информация о конфигурациях");
+            return;
+        }
+
+        if (!_dialogs.Confirm(
+                $"Будет запрошена информация о конфигурации для всех баз — всего {targets.Count}.\n\n" +
+                "Операция может занять некоторое время. Продолжить?",
+                "Обновление информации о конфигурациях"))
+            return;
+
+        var updated = 0;
+        var failed = 0;
+
+        _ = Task.Run(() =>
+        {
+            foreach (var ib in targets)
+            {
+                try
+                {
+                    if (ConfigurationInfoService.ReadAndApply(ib, overwriteExisting: true) is not null)
+                        updated++;
+                    else
+                        failed++;
+                }
+                catch
+                {
+                    failed++;
+                }
+            }
+
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                InfobasesView?.Refresh();
+                Save();
+                _logger.Info(
+                    $"Обновление информации о конфигурациях завершено: обновлено {updated}, " +
+                    $"ошибок {failed} из {targets.Count}");
+                _dialogs.ShowInfo(
+                    $"Обновление информации о конфигурациях завершено.\n\n" +
+                    $"Обновлено баз: {updated}\nНе удалось: {failed}\nВсего: {targets.Count}",
+                    "Информация о конфигурациях");
+            });
+        });
+    }
+
+    /// <summary>
+    /// Регистрирует COM-коннектор 1С в системе (comcntr.dll / comcntr64.dll).
+    /// Использует версию и разрядность выбранной базы, либо новейшую установленную платформу.
+    /// Требует прав администратора (запрос UAC).
+    /// </summary>
+    private void RegisterComConnector(object? parameter)
+    {
+        var ib = parameter as Infobase ?? SelectedInfobase;
+        var version = ib?.PlatformVersion ?? string.Empty;
+        var architecture = ib is not null && (ib.Architecture == "64" || ib.Architecture == "x64") ? "64" : "32";
+
+        if (!_dialogs.Confirm(
+                "Будет выполнена регистрация COM-коннектора платформы 1С (regsvr32).\n\n" +
+                "Для этого потребуются права администратора — появится запрос UAC.\n\n" +
+                $"Версия платформы: {(string.IsNullOrWhiteSpace(version) ? "новейшая установленная" : version)}\n" +
+                $"Разрядность: {architecture} бит.\n\nПродолжить?",
+                "Регистрация COM-коннектора 1С"))
+            return;
+
+        var registrar = AppServices.GetRequiredService<IOneCComConnectorRegistrar>();
+
+        _ = Task.Run(() =>
+        {
+            var result = registrar.Register(version, architecture);
+
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (result.BinDirectory is null)
+                {
+                    _dialogs.ShowError(
+                        "Не найдена установленная платформа 1С (нет каталога bin с COM-коннектором).\n\n" +
+                        (!string.IsNullOrWhiteSpace(result.VerificationNote)
+                            ? result.VerificationNote
+                            : "Установите платформу 1С:Предприятие на этой машине."),
+                        "Регистрация COM-коннектора 1С");
+                    return;
+                }
+
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"Платформа: {result.PlatformVersion}");
+                sb.AppendLine($"Каталог: {result.BinDirectory}");
+                sb.AppendLine();
+
+                if (result.Items.Count == 0)
+                {
+                    sb.AppendLine("DLL COM-коннектора не найдены в каталоге bin.");
+                }
+                else
+                {
+                    foreach (var item in result.Items)
+                        sb.AppendLine($"{(item.Success ? "✓" : "✗")} {Path.GetFileName(item.DllPath)}" +
+                                      (item.Success ? " — зарегистрирован" : $" — ошибка: {item.Error}"));
+                }
+
+                sb.AppendLine();
+                sb.AppendLine(result.ProgIdVisible
+                    ? "✓ ProgID V83.COMConnector доступен приложению."
+                    : "✗ ProgID V83.COMConnector не виден приложению.");
+                if (!string.IsNullOrWhiteSpace(result.VerificationNote))
+                    sb.AppendLine(result.VerificationNote);
+
+                if (result.Success && result.ProgIdVisible)
+                {
+                    _logger.Info("COM-коннектор 1С успешно зарегистрирован.");
+                    _dialogs.ShowInfo(sb.ToString().TrimEnd(),
+                        "Регистрация COM-коннектора 1С");
+                }
+                else
+                {
+                    _logger.Warn("Регистрация COM-коннектора 1С завершилась неудачно.");
+                    _dialogs.ShowWarning(sb.ToString().TrimEnd(),
+                        "Регистрация COM-коннектора 1С");
+                }
+            });
         });
     }
 

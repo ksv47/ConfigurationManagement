@@ -46,5 +46,10 @@ public class PlatformVersionGroup
     /// </summary>
     public bool IsSelected { get; set; }
 
+    /// <summary>
+    /// Признак того, что этот узел соответствует текущей версии базы — выделяется жирным.
+    /// </summary>
+    public bool IsCurrent { get; set; }
+
     public override string ToString() => Name;
 }

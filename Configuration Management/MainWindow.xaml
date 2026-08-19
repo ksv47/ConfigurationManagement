@@ -274,6 +274,11 @@
                             ToolTip="Синхронизация с ibases.v8i по режиму из настроек">
                         <materialDesign:PackIcon Kind="Sync" Width="18" Height="18" Foreground="#14B8A6"/>
                     </Button>
+                    <Button Command="{Binding RefreshAllConfigurationInfoCommand}"
+                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                            ToolTip="Запросить информацию о конфигурации по всем базам 1С">
+                        <materialDesign:PackIcon Kind="CloudDownload" Width="18" Height="18" Foreground="#0EA5E9"/>
+                    </Button>
                     <Button x:Name="ThemeToggleButton" Click="OnToggleTheme_Click"
                             Style="{DynamicResource IconButton}" Margin="0,0,2,0" ToolTip="Переключить тему">
                         <Path x:Name="ThemeToggleIcon" Width="18" Height="18" Stretch="Uniform"
@@ -1211,6 +1216,12 @@
                                 <MenuItem Header="Изменить настройки" Command="{Binding EditInfobaseCommand}" InputGestureText="{Binding HotkeyEdit}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
                                 </MenuItem>
+                                <MenuItem Header="Обновить информацию о конфигурации" Command="{Binding RefreshConfigurationInfoCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="CloudDownload" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Зарегистрировать COM-коннектор 1С" Command="{Binding RegisterComConnectorCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Key" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
+                                </MenuItem>
                                 <Separator/>
                                 <MenuItem Header="Избранное" Command="{Binding ToggleFavoriteCommand}" InputGestureText="{Binding HotkeyFavorite}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Star" Width="16" Height="16" Foreground="#FBBF24"/></MenuItem.Icon>
@@ -1695,7 +1706,7 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                     <controls:HelpLink Margin="6,0,0,4"
-                                                       HelpText="Блок «Текущая сессия» задаёт режим клиента и разрядность только для следующего запуска 1С:Предприятие, не изменяя сохранённые настройки базы.&#10;&#10;• Режим клиента: Авто / Обычный / Толстый / Тонкий.&#10;• Разрядность: Авто / 32 / 64.&#10;• Выбранные значения применяются к очередному запуску; настройки базы в свойствах остаются прежними."/>
+                                                       HelpText="Блок «Текущая сессия» задаёт режим клиента и разрядность только для следующего запуска 1С:Предприятие, не изменяя сохранённые настройки базы.&#10;&#10;• Режим клиента: Авто / Обычный / Толстый (управляемые формы, /RunModeManagedApplication) / Толстый (обычные формы, /RunModeOrdinaryApplication) / Тонкий.&#10;• Разрядность: Авто / 32 / 64.&#10;• Выбранные значения применяются к очередному запуску; настройки базы в свойствах остаются прежними."/>
                                 </StackPanel>
                                 <TextBlock Text="Только для следующего запуска 1С:Предприятие."
                                            FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"
@@ -1714,9 +1725,15 @@
                                                  IsChecked="{Binding IsSessionClientOrdinary, Mode=TwoWay}"
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <RadioButton Content="Толстый" GroupName="SessionClient"
+                                    <RadioButton Content="Толстый (управляемые формы)" GroupName="SessionClient"
                                                  IsChecked="{Binding IsSessionClientThick, Mode=TwoWay}"
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
+                                                 ToolTip="Полный клиент 1cv8 в управляемых формах (/RunModeManagedApplication)"
+                                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <RadioButton Content="Толстый (обычные формы)" GroupName="SessionClient"
+                                                 IsChecked="{Binding IsSessionClientThickOrdinary, Mode=TwoWay}"
+                                                 Margin="0,2" Cursor="Hand" FontSize="12"
+                                                 ToolTip="Полный клиент 1cv8 в обычных формах (/RunModeOrdinaryApplication)"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <RadioButton Content="Тонкий" GroupName="SessionClient"
                                                  IsChecked="{Binding IsSessionClientThin, Mode=TwoWay}"

@@ -94,14 +94,16 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <ToggleButton x:Name="SortAsc" Style="{StaticResource SortToggle}"
-                                  IsChecked="True" ToolTip="Сортировка по возрастанию (A→Z)"
+                                  ToolTip="Сортировка по возрастанию (A→Z)"
                                   Click="OnSortAsc_Click">
-                        <TextBlock Text="A↓Z" FontSize="11" FontWeight="SemiBold"/>
+                        <materialDesign:PackIcon Kind="SortAscending" Width="16" Height="16"
+                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>
                     <ToggleButton x:Name="SortDesc" Style="{StaticResource SortToggle}"
-                                  ToolTip="Сортировка по убыванию (Z→A)"
+                                  IsChecked="True" ToolTip="Сортировка по убыванию (Z→A)"
                                   Click="OnSortDesc_Click">
-                        <TextBlock Text="Z↓A" FontSize="11" FontWeight="SemiBold"/>
+                        <materialDesign:PackIcon Kind="SortDescending" Width="16" Height="16"
+                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>
                 </StackPanel>
             </Grid>
@@ -168,6 +170,9 @@
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsLeaf}" Value="False">
                                                 <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                                <Setter Property="FontWeight" Value="Bold"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
