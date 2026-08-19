@@ -34,6 +34,13 @@ public class ConnectionSettingsViewModel : ViewModelBase
     private int _port = 1541;
     private Group? _selectedGroup;
     private string _connectionString = string.Empty;
+    private string _repositoryServer = string.Empty;
+    private string _repositoryName = string.Empty;
+    private string _repositoryUser = string.Empty;
+    private string _repositoryPassword = string.Empty;
+    private AuthenticationMode _configuratorAuthenticationMode = AuthenticationMode.Prompt;
+    private string _configuratorUser = string.Empty;
+    private string _configuratorPassword = string.Empty;
 
     /// <summary>
     /// Создаёт ViewModel с указанным списком доступных групп.
@@ -447,6 +454,88 @@ public class ConnectionSettingsViewModel : ViewModelBase
         set => SetProperty(ref _password, value);
     }
 
+    /// <summary>Адрес сервера хранилища конфигурации.</summary>
+    public string RepositoryServer
+    {
+        get => _repositoryServer;
+        set => SetProperty(ref _repositoryServer, value);
+    }
+
+    /// <summary>Имя хранилища конфигурации на сервере.</summary>
+    public string RepositoryName
+    {
+        get => _repositoryName;
+        set => SetProperty(ref _repositoryName, value);
+    }
+
+    /// <summary>Логин пользователя хранилища конфигурации.</summary>
+    public string RepositoryUser
+    {
+        get => _repositoryUser;
+        set => SetProperty(ref _repositoryUser, value);
+    }
+
+    /// <summary>Пароль пользователя хранилища конфигурации.</summary>
+    public string RepositoryPassword
+    {
+        get => _repositoryPassword;
+        set => SetProperty(ref _repositoryPassword, value);
+    }
+
+    /// <summary>Режим аутентификации для запуска Конфигуратора.</summary>
+    public AuthenticationMode ConfiguratorAuthenticationMode
+    {
+        get => _configuratorAuthenticationMode;
+        set
+        {
+            if (SetProperty(ref _configuratorAuthenticationMode, value))
+            {
+                OnPropertyChanged(nameof(IsConfiguratorAuthPrompt));
+                OnPropertyChanged(nameof(IsConfiguratorAuthCredentials));
+                OnPropertyChanged(nameof(IsConfiguratorAuthWindows));
+                OnPropertyChanged(nameof(IsConfiguratorCredentialsVisible));
+            }
+        }
+    }
+
+    /// <summary>Запрашивать имя и пароль в Конфигураторе.</summary>
+    public bool IsConfiguratorAuthPrompt
+    {
+        get => ConfiguratorAuthenticationMode == AuthenticationMode.Prompt;
+        set { if (value) ConfiguratorAuthenticationMode = AuthenticationMode.Prompt; }
+    }
+
+    /// <summary>Выполнять вход автоматически в Конфигураторе.</summary>
+    public bool IsConfiguratorAuthCredentials
+    {
+        get => ConfiguratorAuthenticationMode == AuthenticationMode.Credentials;
+        set { if (value) ConfiguratorAuthenticationMode = AuthenticationMode.Credentials; }
+    }
+
+    /// <summary>Аутентификация ОС в Конфигураторе.</summary>
+    public bool IsConfiguratorAuthWindows
+    {
+        get => ConfiguratorAuthenticationMode == AuthenticationMode.Windows;
+        set { if (value) ConfiguratorAuthenticationMode = AuthenticationMode.Windows; }
+    }
+
+    /// <summary>Видимость полей логина/пароля Конфигуратора (только при автоматическом входе).</summary>
+    public bool IsConfiguratorCredentialsVisible => ConfiguratorAuthenticationMode == AuthenticationMode.Credentials;
+
+    /// <summary>Пользователь для запуска Конфигуратора.</summary>
+    public string ConfiguratorUser
+    {
+        get => _configuratorUser;
+        set => SetProperty(ref _configuratorUser, value);
+    }
+
+    /// <summary>Пароль для запуска Конфигуратора.</summary>
+    public string ConfiguratorPassword
+    {
+        get => _configuratorPassword;
+        set => SetProperty(ref _configuratorPassword, value);
+    }
+
     /// <summary>Режим аутентификации.</summary>
     public AuthenticationMode AuthenticationMode
     {
@@ -619,29 +708,66 @@ public class ConnectionSettingsViewModel : ViewModelBase
             DatabaseName = conn.DatabaseName;
             FilePath = conn.FilePath;
             WebUrl = conn.WebUrl;
-            User = conn.User;
-            Password = conn.Password;
-            // Восстанавливаем режим аутентификации (с учётом старых сохранений).
-            if (conn.AuthenticationMode != AuthenticationMode.Prompt
-                || !string.IsNullOrWhiteSpace(conn.User)
-                || conn.UseOsAuthentication)
+            // Авторизация «1С:Предприятие» — отдельная настройка (EnterpriseAuth),
+            // если задана; иначе берём авторизацию информационной базы (обратная совместимость).
+            if (infobase.EnterpriseAuth is { } ent)
             {
-                AuthenticationMode = conn.AuthenticationMode;
-                // Старые файлы: если был только флаг ОС или логин без режима.
-                if (conn.UseOsAuthentication && conn.AuthenticationMode == AuthenticationMode.Prompt
-                    && string.IsNullOrWhiteSpace(conn.User))
+                // Отдельная авторизация уже сохранена — используем её режим как есть,
+                // без устаревшей миграции (иначе выбранный «Запрашивать имя и пароль»
+                // с заполненным логином перезаписывался бы на «Вход автоматически»).
+                User = ent.User;
+                Password = ent.Password;
+                if (ent.UseOsAuthentication && ent.AuthenticationMode == AuthenticationMode.Prompt
+                    && string.IsNullOrWhiteSpace(ent.User))
                     AuthenticationMode = AuthenticationMode.Windows;
-                else if (!string.IsNullOrWhiteSpace(conn.User) && conn.AuthenticationMode == AuthenticationMode.Prompt
-                         && !conn.UseOsAuthentication)
-                    AuthenticationMode = AuthenticationMode.Credentials;
+                else
+                    AuthenticationMode = ent.AuthenticationMode;
             }
             else
             {
-                AuthenticationMode = AuthenticationMode.Prompt;
+                // Обратная совместимость: отдельной авторизации нет — берём из базы,
+                // применяя миграцию старого формата (логин без режима → автоматический вход).
+                User = conn.User;
+                Password = conn.Password;
+                if (conn.AuthenticationMode != AuthenticationMode.Prompt
+                    || !string.IsNullOrWhiteSpace(conn.User)
+                    || conn.UseOsAuthentication)
+                {
+                    AuthenticationMode = conn.AuthenticationMode;
+                    // Старые файлы: если был только флаг ОС или логин без режима.
+                    if (conn.UseOsAuthentication && conn.AuthenticationMode == AuthenticationMode.Prompt
+                        && string.IsNullOrWhiteSpace(conn.User))
+                        AuthenticationMode = AuthenticationMode.Windows;
+                    else if (!string.IsNullOrWhiteSpace(conn.User) && conn.AuthenticationMode == AuthenticationMode.Prompt
+                             && !conn.UseOsAuthentication)
+                        AuthenticationMode = AuthenticationMode.Credentials;
+                }
+                else
+                {
+                    AuthenticationMode = AuthenticationMode.Prompt;
+                }
             }
             Port = conn.Port;
             // Заполняем поле строки подключения для отображения/редактирования.
             _connectionString = conn.ToConnectionString();
+
+            // Данные хранилища конфигурации.
+            var repo = infobase.Repository;
+            RepositoryServer = repo.Server;
+            RepositoryName = repo.RepositoryName;
+            RepositoryUser = repo.User;
+            RepositoryPassword = repo.Password;
+
+            // Авторизация Конфигуратора — отдельная настройка, независимая от
+            // авторизации «1С:Предприятие». Если она ещё не задана, поля остаются
+            // в значениях по умолчанию (запрос имени и пароля, без пользователя),
+            // и при сохранении не копируются из авторизации базы.
+            if (infobase.ConfiguratorAuth is { } cfgAuth)
+            {
+                ConfiguratorAuthenticationMode = cfgAuth.AuthenticationMode;
+                ConfiguratorUser = cfgAuth.User;
+                ConfiguratorPassword = cfgAuth.Password;
+            }
         }
         finally
         {
@@ -681,5 +807,32 @@ public class ConnectionSettingsViewModel : ViewModelBase
         conn.Password = Password;
         conn.AuthenticationMode = AuthenticationMode;
         conn.Port = Port;
+
+        if (infobase.Repository is null)
+            infobase.Repository = new RepositorySettings();
+        var repo = infobase.Repository;
+        repo.Server = RepositoryServer;
+        repo.RepositoryName = RepositoryName;
+        repo.User = RepositoryUser;
+        repo.Password = RepositoryPassword;
+
+        // Авторизация «1С:Предприятие» сохраняется отдельно (EnterpriseAuth),
+        // независимо от авторизации Конфигуратора и параметров подключения базы.
+        infobase.EnterpriseAuth = new InfobaseAuthSettings
+        {
+            AuthenticationMode = AuthenticationMode,
+            User = User,
+            Password = Password
+        };
+
+        // Авторизация Конфигуратора всегда сохраняется отдельно (независимо от
+        // авторизации «1С:Предприятие»), чтобы при изменении одной из них другая
+        // не подстраивалась автоматически.
+        infobase.ConfiguratorAuth = new InfobaseAuthSettings
+        {
+            AuthenticationMode = ConfiguratorAuthenticationMode,
+            User = ConfiguratorUser,
+            Password = ConfiguratorPassword
+        };
     }
 }

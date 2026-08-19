@@ -118,6 +118,35 @@ public class Infobase : INotifyPropertyChanged
         set => _connection = value ?? new ConnectionSettings();
     }
 
+    private RepositorySettings _repository = new();
+
+    /// <summary>
+    /// Настройки подключения к хранилищу конфигурации (адрес, имя хранилища,
+    /// логин и пароль). Используются при работе в Конфигураторе для входа «под собой».
+    /// Никогда не равен null: при десериализации подменяется пустыми настройками.
+    /// </summary>
+    public RepositorySettings Repository
+    {
+        get => _repository;
+        set => _repository = value ?? new RepositorySettings();
+    }
+
+    /// <summary>
+    /// Настройки авторизации для запуска «1С:Предприятие» (отдельно от Конфигуратора).
+    /// Если значение равно null — Предприятие использует авторизацию информационной базы
+    /// (<see cref="Connection"/>), что обеспечивает обратную совместимость.
+    /// При задании отдельной авторизации она применяется при запуске «1С:Предприятие».
+    /// </summary>
+    public InfobaseAuthSettings? EnterpriseAuth { get; set; }
+
+    /// <summary>
+    /// Настройки авторизации для запуска Конфигуратора (отдельно от «1С:Предприятие»).
+    /// Если значение равно null — Конфигуратор использует авторизацию информационной базы
+    /// (<see cref="Connection"/>), что обеспечивает обратную совместимость.
+    /// При задании отдельной авторизации она применяется при запуске Конфигуратора.
+    /// </summary>
+    public InfobaseAuthSettings? ConfiguratorAuth { get; set; }
+
     /// <summary>Версия платформы 1С.</summary>
     private string _platformVersion = string.Empty;
     /// <summary>Версия платформы 1С (например 8.3.27.1644).</summary>

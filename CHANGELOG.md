@@ -5,6 +5,18 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.2.5.7.17] — 2026-08-19
+
+### Добавлено
+
+- **Вкладка «Хранилище» и раздельные настройки авторизации в окне настроек подключения**:
+  - **«Хранилище»** — хранение данных подключения к хранилищу конфигурации 1С: адрес сервера, имя хранилища, логин и пароль ([`RepositorySettings`](Configuration Management/Models/RepositorySettings.cs), [`Infobase.Repository`](Configuration Management/Models/Infobase.cs)).
+  - **«Авторизация»** — отдельная вкладка с двумя независимыми настройками: **«Авторизация в 1С:Предприятие»** (пользователь и пароль для запуска клиента, например тестовый пользователь) и **«Авторизация в Конфигураторе»** (отдельные учётные данные для запуска Конфигуратора, «под собой»). Прежняя вкладка **«Аутентификация»** заменена этим разделом.
+  - **Обе настройки авторизации хранятся отдельно** и независимо: [`Infobase.EnterpriseAuth`](Configuration Management/Models/Infobase.cs) (для «1С:Предприятие») и [`Infobase.ConfiguratorAuth`](Configuration Management/Models/Infobase.cs) (для Конфигуратора), модель [`InfobaseAuthSettings`](Configuration Management/Models/InfobaseAuthSettings.cs). Настройки не копируются друг из друга и не зависят от параметров подключения базы.
+  - **Учёт при запуске**: при запуске «1С:Предприятие» применяется `EnterpriseAuth`, при запуске Конфигуратора — `ConfiguratorAuth` ([`OneCLauncher`](Configuration Management/Services/OneCLauncher.cs)). Для баз, сохранённых до появления этих настроек (без отдельной авторизации), используется авторизация информационной базы (обратная совместимость).
+  - **Исправлено сохранение при редактировании**: при изменении свойств существующей базы настройки авторизации Предприятия ([`Infobase.EnterpriseAuth`](Configuration Management/Models/Infobase.cs)), Конфигуратора ([`Infobase.ConfiguratorAuth`](Configuration Management/Models/Infobase.cs)) и хранилища ([`Infobase.Repository`](Configuration Management/Models/Infobase.cs)) теперь корректно сохраняются ([`EditInfobase`](Configuration Management/ViewModels/MainViewModel.cs)). Ранее они не копировались из диалога в базу, из-за чего авторизации могли путаться или теряться.
+  - **Исправлено сохранение режима авторизации Предприятия**: выбранный режим «Запрашивать имя и пароль» в авторизации «1С:Предприятие» больше не перезаписывается на «Вход автоматически» при повторном открытии. Причина — устаревшая логика миграции применялась при каждой загрузке к уже сохранённой отдельной настройке ([`ConnectionSettingsViewModel.LoadFrom`](Configuration Management/ViewModels/ConnectionSettingsViewModel.cs)). Теперь миграция старого формата применяется только для баз без сохранённой `EnterpriseAuth` (обратная совместимость).
+
 ## [0.2.5.7.16] — 2026-08-19
 
 ### Изменено

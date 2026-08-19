@@ -10,8 +10,8 @@
         Title="Настройки подключения"
         Icon="{StaticResource AppIcon}"
         Width="760"
-        MinHeight="600" MinWidth="680"
-        Height="720"
+        MinHeight="680" MinWidth="680"
+        Height="780"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI"
@@ -364,103 +364,243 @@
                 </GroupBox>
             </TabItem>
 
-            <!-- Аутентификация -->
+            <!-- Хранилище конфигурации -->
             <TabItem Style="{StaticResource ConnTabItem}">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="AccountKey" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Аутентификация" VerticalAlignment="Center"/>
+                        <materialDesign:PackIcon Kind="SourceBranch" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Хранилище" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="AccountKey" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
-                            <TextBlock Text="Аутентификация" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <materialDesign:PackIcon Kind="SourceBranch" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
+                            <TextBlock Text="Хранилище конфигурации" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </GroupBox.Header>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Режим:" VerticalAlignment="Top" Margin="0,4"/>
-                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0">
-                            <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsAuthPrompt}" Value="True">
-                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                                                <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <RadioButton GroupName="AuthMode" Cursor="Hand"
-                                             IsChecked="{Binding IsAuthPrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                                    <StackPanel>
-                                        <TextBlock Text="Запрашивать имя и пароль" FontWeight="SemiBold" FontSize="12"/>
-                                        <TextBlock Text="Платформа покажет диалог входа при запуске." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
-                                    </StackPanel>
-                                </RadioButton>
-                            </Border>
-                            <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsAuthCredentials}" Value="True">
-                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                                                <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <RadioButton GroupName="AuthMode" Cursor="Hand"
-                                             IsChecked="{Binding IsAuthCredentials, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                                    <StackPanel>
-                                        <TextBlock Text="Вход автоматически" FontWeight="SemiBold" FontSize="12"/>
-                                        <TextBlock Text="Сохранённые пользователь и пароль без запроса." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
-                                    </StackPanel>
-                                </RadioButton>
-                            </Border>
-                            <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsAuthWindows}" Value="True">
-                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                                                <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <RadioButton GroupName="AuthMode" Cursor="Hand"
-                                             IsChecked="{Binding IsAuthWindows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                                    <StackPanel>
-                                        <TextBlock Text="Аутентификация ОС" FontWeight="SemiBold" FontSize="12"/>
-                                        <TextBlock Text="Вход под учётной записью Windows." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
-                                    </StackPanel>
-                                </RadioButton>
-                            </Border>
-                        </StackPanel>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Пользователь:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding User, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Пароль:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                        <PasswordBox x:Name="PasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,3" Padding="6,4"
-                                     VerticalContentAlignment="Center"
-                                     PasswordChanged="OnPasswordBox_PasswordChanged"
-                                     Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                    </Grid>
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Адрес сервера:" VerticalAlignment="Center" Margin="0,3"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RepositoryServer, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"
+                                     ToolTip="Адрес сервера хранилища конфигурации, например tcp://server или tcp://server:1542"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Имя хранилища:" VerticalAlignment="Center" Margin="0,3"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RepositoryName, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"
+                                     ToolTip="Имя хранилища конфигурации на сервере"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Логин:" VerticalAlignment="Center" Margin="0,3"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RepositoryUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"
+                                     ToolTip="Логин пользователя хранилища конфигурации"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Пароль:" VerticalAlignment="Center" Margin="0,3"/>
+                            <PasswordBox x:Name="RepositoryPasswordBox" Grid.Row="3" Grid.Column="1" Margin="0,3" Padding="6,4"
+                                         VerticalContentAlignment="Center"
+                                         PasswordChanged="OnRepositoryPasswordBox_PasswordChanged"
+                                         ToolTip="Пароль пользователя хранилища конфигурации"/>
+                        </Grid>
+                        <TextBlock Text="Адрес, имя хранилища, логин и пароль для подключения к хранилищу конфигурации 1С. Отдельные учётные данные авторизации для запуска Конфигуратора задаются на вкладке «Авторизация»."
+                                   FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    </StackPanel>
                 </GroupBox>
+            </TabItem>
+
+            <!-- Авторизация -->
+            <TabItem Style="{StaticResource ConnTabItem}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="AccountKey" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Авторизация" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <StackPanel>
+                    <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
+                        <GroupBox.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="AccountKey" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
+                                <TextBlock Text="Авторизация в 1С:Предприятие" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </GroupBox.Header>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Режим:" VerticalAlignment="Top" Margin="0,4"/>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0">
+                                <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsAuthPrompt}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <RadioButton GroupName="AuthMode" Cursor="Hand"
+                                                 IsChecked="{Binding IsAuthPrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                        <StackPanel>
+                                            <TextBlock Text="Запрашивать имя и пароль" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="Платформа покажет диалог входа при запуске." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                </Border>
+                                <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsAuthCredentials}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <RadioButton GroupName="AuthMode" Cursor="Hand"
+                                                 IsChecked="{Binding IsAuthCredentials, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                        <StackPanel>
+                                            <TextBlock Text="Вход автоматически" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="Сохранённые пользователь и пароль без запроса." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                </Border>
+                                <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsAuthWindows}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <RadioButton GroupName="AuthMode" Cursor="Hand"
+                                                 IsChecked="{Binding IsAuthWindows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                        <StackPanel>
+                                            <TextBlock Text="Аутентификация ОС" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="Вход под учётной записью Windows." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Пользователь:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding User, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Пароль:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <PasswordBox x:Name="PasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,3" Padding="6,4"
+                                         VerticalContentAlignment="Center"
+                                         PasswordChanged="OnPasswordBox_PasswordChanged"
+                                         Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                        </Grid>
+                    </GroupBox>
+
+                    <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
+                        <GroupBox.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ApplicationEditOutline" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
+                                <TextBlock Text="Авторизация в Конфигураторе" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </GroupBox.Header>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Режим:" VerticalAlignment="Top" Margin="0,4"/>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0">
+                                <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsConfiguratorAuthPrompt}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <RadioButton GroupName="ConfigAuthMode" Cursor="Hand"
+                                                 IsChecked="{Binding IsConfiguratorAuthPrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                        <StackPanel>
+                                            <TextBlock Text="Запрашивать имя и пароль" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="Платформа покажет диалог входа при запуске Конфигуратора." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                </Border>
+                                <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsConfiguratorAuthCredentials}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <RadioButton GroupName="ConfigAuthMode" Cursor="Hand"
+                                                 IsChecked="{Binding IsConfiguratorAuthCredentials, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                        <StackPanel>
+                                            <TextBlock Text="Вход автоматически" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="Сохранённые пользователь и пароль без запроса." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                </Border>
+                                <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsConfiguratorAuthWindows}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                    <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <RadioButton GroupName="ConfigAuthMode" Cursor="Hand"
+                                                 IsChecked="{Binding IsConfiguratorAuthWindows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                        <StackPanel>
+                                            <TextBlock Text="Аутентификация ОС" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="Вход под учётной записью Windows." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Пользователь:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ConfiguratorUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Пароль:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <PasswordBox x:Name="ConfiguratorPasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,3" Padding="6,4"
+                                         VerticalContentAlignment="Center"
+                                         PasswordChanged="OnConfiguratorPasswordBox_PasswordChanged"
+                                         Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                        </Grid>
+                    </GroupBox>
+                </StackPanel>
             </TabItem>
 
             <!-- Запуск -->

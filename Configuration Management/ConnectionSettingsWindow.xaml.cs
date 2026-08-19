@@ -29,7 +29,12 @@ namespace Configuration_Management
             IEnumerable<string>? availableServers = null, IEnumerable<int>? availablePorts = null)
         {
             InitializeComponent();
-            Loaded += (_, _) => SyncPasswordBoxFromViewModel();
+            Loaded += (_, _) =>
+            {
+                SyncPasswordBoxFromViewModel();
+                SyncRepositoryPasswordBoxFromViewModel();
+                SyncConfiguratorPasswordBoxFromViewModel();
+            };
             _viewModel = new ConnectionSettingsViewModel(groups);
             _viewModel.SetInstalledPlatformVersions(installedPlatformVersions ?? new List<string>());
             _viewModel.SetAvailableServers(availableServers);
@@ -57,6 +62,10 @@ namespace Configuration_Management
             {
                 if (e.PropertyName == nameof(ConnectionSettingsViewModel.Password))
                     SyncPasswordBoxFromViewModel();
+                else if (e.PropertyName == nameof(ConnectionSettingsViewModel.RepositoryPassword))
+                    SyncRepositoryPasswordBoxFromViewModel();
+                else if (e.PropertyName == nameof(ConnectionSettingsViewModel.ConfiguratorPassword))
+                    SyncConfiguratorPasswordBoxFromViewModel();
             };
         }
 
@@ -230,6 +239,8 @@ namespace Configuration_Management
         }
 
         private bool _isSyncingPassword;
+        private bool _isSyncingRepositoryPassword;
+        private bool _isSyncingConfiguratorPassword;
 
         /// <summary>Заполняет PasswordBox из ViewModel без рекурсии событий.</summary>
         private void SyncPasswordBoxFromViewModel()
@@ -244,6 +255,54 @@ namespace Configuration_Management
             finally
             {
                 _isSyncingPassword = false;
+            }
+        }
+
+        /// <summary>Синхронизация PasswordBox хранилища → ViewModel (пароль не биндится напрямую).</summary>
+        private void OnRepositoryPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel is null || sender is not PasswordBox pb) return;
+            if (_isSyncingRepositoryPassword) return;
+            _viewModel.RepositoryPassword = pb.Password;
+        }
+
+        /// <summary>Заполняет PasswordBox хранилища из ViewModel без рекурсии событий.</summary>
+        private void SyncRepositoryPasswordBoxFromViewModel()
+        {
+            if (RepositoryPasswordBox is null || _viewModel is null) return;
+            _isSyncingRepositoryPassword = true;
+            try
+            {
+                if (RepositoryPasswordBox.Password != (_viewModel.RepositoryPassword ?? string.Empty))
+                    RepositoryPasswordBox.Password = _viewModel.RepositoryPassword ?? string.Empty;
+            }
+            finally
+            {
+                _isSyncingRepositoryPassword = false;
+            }
+        }
+
+        /// <summary>Синхронизация PasswordBox Конфигуратора → ViewModel (пароль не биндится напрямую).</summary>
+        private void OnConfiguratorPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel is null || sender is not PasswordBox pb) return;
+            if (_isSyncingConfiguratorPassword) return;
+            _viewModel.ConfiguratorPassword = pb.Password;
+        }
+
+        /// <summary>Заполняет PasswordBox Конфигуратора из ViewModel без рекурсии событий.</summary>
+        private void SyncConfiguratorPasswordBoxFromViewModel()
+        {
+            if (ConfiguratorPasswordBox is null || _viewModel is null) return;
+            _isSyncingConfiguratorPassword = true;
+            try
+            {
+                if (ConfiguratorPasswordBox.Password != (_viewModel.ConfiguratorPassword ?? string.Empty))
+                    ConfiguratorPasswordBox.Password = _viewModel.ConfiguratorPassword ?? string.Empty;
+            }
+            finally
+            {
+                _isSyncingConfiguratorPassword = false;
             }
         }
     }

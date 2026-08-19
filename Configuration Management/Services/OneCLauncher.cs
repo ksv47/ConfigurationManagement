@@ -338,10 +338,36 @@ public static class OneCLauncher
         // Prompt — не передаём /N /P (платформа сама запросит);
         // Credentials — /N и /P с сохранёнными данными;
         // Windows — /WA+ (аутентификация ОС).
-        string authArg = conn.AuthenticationMode switch
+        //
+        // «1С:Предприятие» использует отдельную авторизацию (EnterpriseAuth), если она
+        // задана; «Конфигуратор» — отдельную авторизацию (ConfiguratorAuth), если она
+        // задана; иначе — авторизацию информационной базы (Connection, обратная совместимость).
+        AuthenticationMode authMode;
+        string authUser;
+        string authPassword;
+        if (mode == OneCLaunchMode.Enterprise && infobase.EnterpriseAuth is { } entAuth)
         {
-            AuthenticationMode.Credentials when !string.IsNullOrWhiteSpace(conn.User)
-                => $" /N\"{conn.User}\" /P\"{conn.Password}\"",
+            authMode = entAuth.AuthenticationMode;
+            authUser = entAuth.User;
+            authPassword = entAuth.Password;
+        }
+        else if (mode == OneCLaunchMode.Configurator && infobase.ConfiguratorAuth is { } cfgAuth)
+        {
+            authMode = cfgAuth.AuthenticationMode;
+            authUser = cfgAuth.User;
+            authPassword = cfgAuth.Password;
+        }
+        else
+        {
+            authMode = conn.AuthenticationMode;
+            authUser = conn.User;
+            authPassword = conn.Password;
+        }
+
+        string authArg = authMode switch
+        {
+            AuthenticationMode.Credentials when !string.IsNullOrWhiteSpace(authUser)
+                => $" /N\"{authUser}\" /P\"{authPassword}\"",
             AuthenticationMode.Windows
                 => " /WA+",
             _ => ""

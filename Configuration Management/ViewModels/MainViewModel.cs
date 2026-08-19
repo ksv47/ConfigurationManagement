@@ -2083,6 +2083,9 @@ public class MainViewModel : ViewModelBase
             target.Tags = dialog.Result.Tags;
             target.MetadataRoot = dialog.Result.MetadataRoot;
             target.Connection = dialog.Result.Connection;
+            target.EnterpriseAuth = dialog.Result.EnterpriseAuth;
+            target.ConfiguratorAuth = dialog.Result.ConfiguratorAuth;
+            target.Repository = dialog.Result.Repository;
             if (!string.IsNullOrWhiteSpace(dialog.Result.LaunchMode))
                 target.LaunchMode = dialog.Result.LaunchMode;
 
