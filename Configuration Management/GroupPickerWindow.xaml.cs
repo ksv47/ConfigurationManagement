@@ -11,6 +11,11 @@ namespace Configuration_Management
     public partial class GroupPickerWindow : Window
     {
         private readonly IReadOnlyList<Group> _groups;
+        private readonly List<Group> _allowed;
+        private readonly string _currentGroupId;
+        private readonly bool _allowNone;
+        private readonly string _noneLabel;
+        private bool _sortAscending = true; // по умолчанию — по возрастанию (А→Я)
         private GroupNodeViewModel? _selectedNode;
 
         /// <param name="groups">Список групп.</param>
@@ -27,29 +32,47 @@ namespace Configuration_Management
         {
             InitializeComponent();
             _groups = groups.ToList();
+            _currentGroupId = currentGroupId ?? string.Empty;
+            _allowNone = allowNone;
+            _noneLabel = noneLabel;
 
-            var allowed = string.IsNullOrEmpty(excludeGroupId)
+            // IsAncestorOrSelf(g.Id, excludeId) = exclude is ancestor of g → g is under exclude.
+            // Also exclude the group itself via Id check.
+            _allowed = string.IsNullOrEmpty(excludeGroupId)
                 ? _groups.ToList()
                 : _groups.Where(g =>
                         !string.Equals(g.Id, excludeGroupId, StringComparison.OrdinalIgnoreCase)
                         && !GroupHierarchyHelper.IsAncestorOrSelf(g.Id, excludeGroupId, _groups))
                     .ToList();
 
-            // IsAncestorOrSelf(g.Id, excludeId) = exclude is ancestor of g → g is under exclude.
-            // Also exclude the group itself via Id check.
+            RefreshTree();
+        }
 
-            var roots = GroupNodeViewModel.BuildTree(allowed);
+        /// <summary>
+        /// Перестраивает дерево с учётом текущего направления сортировки (по наименованию).
+        /// </summary>
+        private void RefreshTree()
+        {
+            var roots = GroupNodeViewModel.BuildTree(_allowed);
+
+            // Сортировка групп по наименованию, как в основном дереве (по возрастанию/убыванию).
+            var groupComparer = StringComparer.OrdinalIgnoreCase;
+            roots.Sort(_sortAscending
+                ? (a, b) => groupComparer.Compare(a.DisplayName, b.DisplayName)
+                : (a, b) => groupComparer.Compare(b.DisplayName, a.DisplayName));
+            foreach (var root in roots)
+                root.SortChildrenRecursive(_sortAscending);
 
             var items = new List<GroupNodeViewModel>();
-            if (allowNone)
-                items.Add(new GroupNodeViewModel(null, displayName: noneLabel));
+            if (_allowNone)
+                items.Add(new GroupNodeViewModel(null, displayName: _noneLabel));
 
             items.AddRange(roots);
             GroupsTree.ItemsSource = items;
 
-            if (!string.IsNullOrEmpty(currentGroupId))
-                SelectById(items, currentGroupId);
-            else if (allowNone && items.Count > 0)
+            if (!string.IsNullOrEmpty(_currentGroupId))
+                SelectById(items, _currentGroupId);
+            else if (_allowNone && items.Count > 0)
             {
                 _selectedNode = items[0];
                 SelectButton.IsEnabled = true;
@@ -58,6 +81,22 @@ namespace Configuration_Management
             {
                 SelectButton.IsEnabled = false;
             }
+        }
+
+        private void OnSortAsc_Click(object sender, RoutedEventArgs e)
+        {
+            _sortAscending = true;
+            SortAsc.IsChecked = true;
+            SortDesc.IsChecked = false;
+            RefreshTree();
+        }
+
+        private void OnSortDesc_Click(object sender, RoutedEventArgs e)
+        {
+            _sortAscending = false;
+            SortDesc.IsChecked = true;
+            SortAsc.IsChecked = false;
+            RefreshTree();
         }
 
         /// <summary>Выбранная группа; null — без группы / корень.</summary>

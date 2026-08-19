@@ -190,15 +190,12 @@
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBox x:Name="NameBox" Grid.Row="0" Grid.Column="1" Margin="0,4" Padding="4,3"
                                      Style="{DynamicResource ModernTextBox}"/>
-                            <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4">
-                                <TextBlock Text="Родительская группа:" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <controls:HelpLink Margin="4,0,0,0"
-                                                   HelpText="Группа, внутри которой будет находиться данная группа (вложенность «группа в группе»).&#10;&#10;• Кнопка «Выбрать…» открывает окно выбора родительской группы в виде дерева (у каждой группы виден её цвет и иконка).&#10;• Пункт «Корневая группа» делает группу корневой (без родителя).&#10;• Поле пустое — группа корневая.&#10;• У служебного узла «Без группы» это поле заблокировано."/>
-                            </StackPanel>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Родительская группа:" VerticalAlignment="Center" Margin="0,4"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <Grid Grid.Row="1" Grid.Column="1" Margin="0,4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="ParentPathBox" Grid.Column="0" IsReadOnly="True" Padding="4,3"
@@ -213,6 +210,8 @@
                                         <TextBlock Text="Выбрать…" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
+                                <controls:HelpLink Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                   HelpText="Группа, внутри которой будет находиться данная группа (вложенность «группа в группе»).&#10;&#10;• Кнопка «Выбрать…» открывает окно выбора родительской группы в виде дерева (у каждой группы виден её цвет и иконка).&#10;• Пункт «Корневая группа» делает группу корневой (без родителя).&#10;• Поле пустое — группа корневая.&#10;• У служебного узла «Без группы» это поле заблокировано."/>
                             </Grid>
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="Описание:" VerticalAlignment="Center" Margin="0,4"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>

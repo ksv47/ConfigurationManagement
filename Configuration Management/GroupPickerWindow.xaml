@@ -27,6 +27,36 @@
             <Setter Property="IsExpanded" Value="True"/>
             <Setter Property="Padding" Value="2,1"/>
         </Style>
+        <Style x:Key="SortToggle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4" Padding="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="14">
@@ -36,14 +66,32 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Подсказка -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-            <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       Text="Выберите группу в дереве. Двойной щелчок — подтверждение. «Корневая группа» — верхний уровень (без родителя)."/>
-            <controls:HelpLink Margin="6,0,0,0" VerticalAlignment="Center"
-                               HelpText="Выбор родительской группы (куда будет помещена группа).&#10;&#10;• Дерево показывает иерархию групп; у каждой группы видны её цвет и иконка.&#10;• Клик по группе — выделение; двойной щелчок — выбор и подтверждение.&#10;• Зелёная кнопка «Выбрать» подтверждает выбор, «Отмена» (с красной обводкой) закрывает окно.&#10;• «Корневая группа» размещает группу на верхнем уровне (без родителя)."/>
-        </StackPanel>
+        <!-- Подсказка + сортировка по наименованию (как в главном окне) -->
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Text="Выберите группу в дереве. Двойной щелчок — подтверждение. «Корневая группа» — верхний уровень (без родителя)."/>
+                <controls:HelpLink Margin="6,0,0,0" VerticalAlignment="Center"
+                                   HelpText="Выбор родительской группы (куда будет помещена группа).&#10;&#10;• Дерево показывает иерархию групп; у каждой группы видны её цвет и иконка.&#10;• Клик по группе — выделение; двойной щелчок — выбор и подтверждение.&#10;• Зелёная кнопка «Выбрать» подтверждает выбор, «Отмена» (с красной обводкой) закрывает окно.&#10;• «Корневая группа» размещает группу на верхнем уровне (без родителя).&#10;• Кнопки A→Z / Z→A сортируют группы по наименованию (по умолчанию — по возрастанию)."/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                <ToggleButton x:Name="SortAsc" Style="{StaticResource SortToggle}" IsChecked="True"
+                              Click="OnSortAsc_Click" ToolTip="Сортировать группы по возрастанию (А→Я)">
+                    <materialDesign:PackIcon Kind="SortAscending" Width="16" Height="16"
+                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                </ToggleButton>
+                <ToggleButton x:Name="SortDesc" Style="{StaticResource SortToggle}"
+                              Click="OnSortDesc_Click" ToolTip="Сортировать группы по убыванию (Я→А)">
+                    <materialDesign:PackIcon Kind="SortDescending" Width="16" Height="16"
+                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                </ToggleButton>
+            </StackPanel>
+        </Grid>
 
         <!-- Дерево групп: цвет и иконка каждой группы, как в настройках -->
         <Border Grid.Row="1" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"

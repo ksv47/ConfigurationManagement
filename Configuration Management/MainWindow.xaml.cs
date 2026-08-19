@@ -11,6 +11,7 @@ using System.Windows.Media.Imaging;
 using System.IO;
 using MaterialDesignThemes.Wpf;
 using Configuration_Management.Models;
+using Configuration_Management.Services;
 using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
 using Drawing = System.Drawing;
@@ -36,7 +37,7 @@ namespace Configuration_Management
             InitializeComponent();
 
             // Выводим версию программы в заголовок окна (информационная версия,
-            // чтобы показать точное значение «0.2.5.7.15»).
+            // чтобы показать точное значение «0.2.7.15»).
             var infoVersion = System.Reflection.Assembly.GetExecutingAssembly()
                 .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion;
             Title = $"{Title} v{infoVersion}";
@@ -1569,10 +1570,19 @@ namespace Configuration_Management
                 return;
 
             var selected = dialog.Result?.Trim() ?? string.Empty;
-            if (string.Equals(ib.PlatformVersion, selected, StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(selected))
                 return;
 
-            ib.PlatformVersion = selected;
+            // Разбираем выбранный вариант: суффикс разрядности «(32)/(64)» выносим
+            // в отдельное поле Architecture, а в PlatformVersion сохраняем чистую версию.
+            PlatformVersionService.ParseVariant(selected, out var cleanVersion, out var arch);
+            var newVersion = string.IsNullOrWhiteSpace(cleanVersion) ? selected : cleanVersion;
+            if (string.Equals(ib.PlatformVersion, newVersion, StringComparison.Ordinal))
+                return;
+
+            ib.PlatformVersion = newVersion;
+            if (arch == "32" || arch == "64")
+                ib.Architecture = arch;
             _viewModel.PersistInfobasesAfterInlineEdit();
         }
 

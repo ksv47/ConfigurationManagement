@@ -98,6 +98,10 @@ public static class IbasesV8iImporter
                     existing.Id = entry.Id;
                 if (!string.IsNullOrWhiteSpace(imported.PlatformVersion))
                     existing.PlatformVersion = imported.PlatformVersion;
+                // Разрядность переносим в отдельное поле базы, если в файле она была
+                // явно указана суффиксом версии «(32)/(64)».
+                if (imported.Architecture is "32" or "64")
+                    existing.Architecture = imported.Architecture;
                 if (!string.IsNullOrWhiteSpace(imported.LaunchMode))
                     existing.LaunchMode = imported.LaunchMode;
                 if (!string.IsNullOrWhiteSpace(imported.LaunchParameters))
@@ -542,17 +546,36 @@ public static class IbasesV8iImporter
 
         /// <summary>
         /// Преобразует запись в модель Infobase, разбирая строку подключения.
+        /// Версия очищается от суффикса разрядности «(32)/(64)», а разрядность
+        /// сохраняется в отдельное поле Architecture.
         /// </summary>
         public Infobase ToInfobase()
         {
             var connection = ParseConnection(Connect);
+
+            var version = Version;
+            var architecture = "32-priority";
+            var end = Version.LastIndexOf(')');
+            var start = Version.LastIndexOf('(');
+            if (end >= 0 && start >= 0 && start < end)
+            {
+                var arch = Version.Substring(start + 1, end - start - 1).Trim();
+                if (arch == "32" || arch == "64")
+                {
+                    architecture = arch;
+                    var clean = Version.Substring(0, start).Trim();
+                    if (!string.IsNullOrWhiteSpace(clean))
+                        version = clean;
+                }
+            }
 
             return new Infobase
             {
                 Name = Name,
                 Group = NormalizeGroupPath(Group),
                 Connection = connection,
-                PlatformVersion = Version,
+                PlatformVersion = version,
+                Architecture = architecture,
                 LaunchMode = MapLaunchMode(App, DefaultApp),
                 LaunchParameters = AdditionalParameters,
                 Description = string.Empty,

@@ -345,12 +345,22 @@ namespace Configuration_Management
                 return;
             }
 
+            // Разрядность, выбранная суффиксом версии «(32)/(64)», сохраняется
+            // в отдельное поле Architecture, а PlatformVersion — чистая версия
+            // (без встроенной разрядности, чтобы она не попадала в ibases.v8i).
+            PlatformVersionService.ParseVariant(platform, out var cleanPlatform, out var platformArch);
+            var storedPlatform = string.IsNullOrWhiteSpace(cleanPlatform) ? platform : cleanPlatform;
+            var storedArchitecture = platformArch == "32" || platformArch == "64"
+                ? platformArch
+                : "32-priority";
+
             Result = new Infobase
             {
                 Id = Guid.NewGuid().ToString(),
                 Name = name,
                 Group = string.IsNullOrWhiteSpace(_selectedGroupPath) ? string.Empty : _selectedGroupPath,
-                PlatformVersion = platform,
+                PlatformVersion = storedPlatform,
+                Architecture = storedArchitecture,
                 Connection = isFile
                     ? new ConnectionSettings
                     {

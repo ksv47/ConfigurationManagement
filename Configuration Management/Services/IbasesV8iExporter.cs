@@ -219,6 +219,10 @@ public static class IbasesV8iExporter
             }
         }
 
+        // Версия записывается без суффикса разрядности «(32)/(64)»: разрядность хранится
+        // в отдельном поле базы (Architecture) и в ibases.v8i не должна попадать в Version.
+        var platformVersion = CleanPlatformVersion(infobase.PlatformVersion);
+
         return new IbaseEntry
         {
             Name = infobase.Name,
@@ -226,11 +230,24 @@ public static class IbasesV8iExporter
             Group = groupPath,
             Enabled = true,
             Id = infobase.Id,
-            Version = infobase.PlatformVersion,
+            Version = platformVersion,
             AdditionalParameters = infobase.LaunchParameters,
             App = MapLaunchModeBack(infobase.LaunchMode),
             DefaultApp = MapLaunchModeBack(infobase.LaunchMode)
         };
+    }
+
+    /// <summary>
+    /// Убирает суффикс разрядности из строки версии платформы:
+    /// «8.3.27.1688 (64)» → «8.3.27.1688». Версия без суффикса возвращается без изменений.
+    /// </summary>
+    private static string CleanPlatformVersion(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+            return version;
+
+        PlatformVersionService.ParseVariant(version, out var cleanVersion, out _);
+        return string.IsNullOrWhiteSpace(cleanVersion) ? version : cleanVersion;
     }
 
     /// <summary>
