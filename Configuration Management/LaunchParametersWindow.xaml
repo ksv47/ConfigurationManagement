@@ -9,9 +9,9 @@
         Title="Конфигуратор параметров запуска"
         Icon="{StaticResource AppIcon}"
         Width="800"
-        Height="680"
+        Height="640"
         MinWidth="720"
-        MinHeight="600"
+        MinHeight="480"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI"
@@ -23,173 +23,57 @@
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
-        <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}"/>
-        <Style TargetType="CheckBox" BasedOn="{StaticResource ModernMaterialCheckBox}">
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
+        <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}">
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
         </Style>
     </Window.Resources>
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- ============ Параметры-флаги -->
-        <GroupBox Grid.Row="0" Margin="0,0,0,12" Padding="12">
+        <!-- ============ Параметры (окно ввода) -->
+        <GroupBox Grid.Row="0" Padding="12" Margin="0,0,0,12">
             <GroupBox.Header>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Параметры-флаги" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text="Параметры" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <controls:HelpLink Margin="6,0,0,0"
-                                       HelpText="Визуальный конфигуратор ключей командной строки запуска 1С.&#10;&#10;• «Параметры-флаги» — простые переключатели (например /Debug, /DisableSplash), включаются/выключаются галочкой.&#10;• «Параметры с аргументами» — включаются галочкой, рядом заполняется значение (например /UC — код разрешения, /L — язык).&#10;• Результирующая строка параметров собирается автоматически и добавляется к запуску базы."/>
+                                       HelpText="Строка параметров командной строки 1С.&#10;&#10;Параметры можно ввести вручную или подставить двойным кликом по строке в справочнике ниже.&#10;Итоговая строка добавляется к запуску базы."/>
                 </StackPanel>
             </GroupBox.Header>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                    <CheckBox x:Name="ChkDisableStartupMessages" Margin="0,4">
-                        <TextBlock Text="/DisableStartupMessages — отключить сообщения при запуске" TextWrapping="Wrap"/>
-                    </CheckBox>
-                    <CheckBox x:Name="ChkDisableStartupDialogs" Margin="0,4">
-                        <TextBlock Text="/DisableStartupDialogs — отключить диалоги при запуске" TextWrapping="Wrap"/>
-                    </CheckBox>
-                    <CheckBox x:Name="ChkDisableSplash" Margin="0,4">
-                        <TextBlock Text="/DisableSplash — отключить заставку" TextWrapping="Wrap"/>
-                    </CheckBox>
-                    <CheckBox x:Name="ChkWait" Margin="0,4">
-                        <TextBlock Text="/WA- — не ждать завершения" TextWrapping="Wrap"/>
-                    </CheckBox>
-                    <CheckBox x:Name="ChkDebug" Margin="0,4">
-                        <TextBlock Text="/Debug — режим отладки" TextWrapping="Wrap"/>
-                    </CheckBox>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                    <CheckBox x:Name="ChkAllowScheduledJobs" Margin="0,4">
-                        <TextBlock Text="/AllowExecuteScheduledJobs — регламентные задания" TextWrapping="Wrap"/>
-                    </CheckBox>
-                    <CheckBox x:Name="ChkRunManaged" Margin="0,4">
-                        <TextBlock Text="/RunModeManagedApplication — тонкий клиент" TextWrapping="Wrap"/>
-                    </CheckBox>
-                    <CheckBox x:Name="ChkRunOrdinary" Margin="0,4">
-                        <TextBlock Text="/RunModeOrdinaryApplication — толстый клиент" TextWrapping="Wrap"/>
-                    </CheckBox>
-                    <CheckBox x:Name="ChkUpdateCfg" Margin="0,4">
-                        <TextBlock Text="/UpdateCfg — обновление конфигурации" TextWrapping="Wrap"/>
-                    </CheckBox>
-                    <CheckBox x:Name="ChkTestServer" Margin="0,4">
-                        <TextBlock Text="/TestServer — тестирование сервера" TextWrapping="Wrap"/>
-                    </CheckBox>
-                </StackPanel>
-            </Grid>
-        </GroupBox>
-
-        <!-- ============ Параметры с аргументами -->
-        <GroupBox Grid.Row="1" Header="Параметры с аргументами" Padding="12" Margin="0,0,0,12">
-            <Grid Grid.IsSharedSizeScope="True">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <Grid Grid.Row="0" Grid.Column="0" Margin="0,4,12,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="ParamCheckBox"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="ChkUC" Content="/UC" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox x:Name="TxtUC" Grid.Column="1" Padding="6,4" VerticalContentAlignment="Center"
-                             ToolTip="Код разрешения запуска"/>
-                </Grid>
-                <Grid Grid.Row="0" Grid.Column="1" Margin="12,4,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="ParamCheckBox"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="ChkLang" Content="/L" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox x:Name="TxtLang" Grid.Column="1" Padding="6,4" VerticalContentAlignment="Center"
-                             ToolTip="Язык интерфейса (например, ru)"/>
-                </Grid>
-
-                <Grid Grid.Row="1" Grid.Column="0" Margin="0,4,12,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="ParamCheckBox"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="ChkOut" Content="/Out" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox x:Name="TxtOut" Grid.Column="1" Padding="6,4" VerticalContentAlignment="Center"
-                             ToolTip="Путь к файлу вывода служебных сообщений"/>
-                </Grid>
-                <Grid Grid.Row="1" Grid.Column="1" Margin="12,4,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="ParamCheckBox"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="ChkC" Content="/C" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox x:Name="TxtC" Grid.Column="1" Padding="6,4" VerticalContentAlignment="Center"
-                             ToolTip="Строка параметров запуска"/>
-                </Grid>
-
-                <Grid Grid.Row="2" Grid.Column="0" Margin="0,4,12,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="ParamCheckBox"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="ChkExecute" Content="/Execute" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox x:Name="TxtExecute" Grid.Column="1" Padding="6,4" VerticalContentAlignment="Center"
-                             ToolTip="Путь к внешней обработке для выполнения"/>
-                </Grid>
-                <Grid Grid.Row="2" Grid.Column="1" Margin="12,4,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="ParamCheckBox"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="ChkDumpResult" Content="/DumpResult" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox x:Name="TxtDumpResult" Grid.Column="1" Padding="6,4" VerticalContentAlignment="Center"
-                             ToolTip="Путь к файлу выгрузки результата"/>
-                </Grid>
-
-                <Grid Grid.Row="3" Grid.Column="0" Margin="0,4,12,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="ParamCheckBox"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="ChkUser" Content="/N" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox x:Name="TxtUser" Grid.Column="1" Padding="6,4" VerticalContentAlignment="Center"
-                             ToolTip="Имя пользователя"/>
-                </Grid>
-                <Grid Grid.Row="3" Grid.Column="1" Margin="12,4,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="ParamCheckBox"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="ChkPwd" Content="/P" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <PasswordBox x:Name="TxtPwd" Grid.Column="1" Padding="6,4" VerticalContentAlignment="Center"
-                                 ToolTip="Пароль пользователя"/>
-                </Grid>
-            </Grid>
-        </GroupBox>
-
-        <!-- ============ Произвольные параметры -->
-        <GroupBox Grid.Row="2" Header="Произвольные параметры" Padding="12" Margin="0,0,0,12">
-            <TextBox x:Name="TxtCustom" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="80"
-                     Padding="6,4" VerticalScrollBarVisibility="Auto"
+            <TextBox x:Name="TxtCustom" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="110"
+                     Padding="6,6" VerticalScrollBarVisibility="Auto"
                      ToolTip="Дополнительные параметры командной строки 1С"/>
         </GroupBox>
 
+        <!-- ============ Справочник параметров -->
+        <GroupBox Grid.Row="1" Padding="12" Margin="0,0,0,12">
+            <GroupBox.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Справочник параметров" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <controls:HelpLink Margin="6,0,0,0"
+                                       HelpText="Полный список ключей командной строки 1С с описанием, что делает параметр.&#10;Двойной клик по строке подставляет параметр в окно «Параметры» вверху.&#10;Для параметров с аргументом после подстановки допишите значение."/>
+                </StackPanel>
+            </GroupBox.Header>
+            <ListView x:Name="LstReference"
+                      MouseDoubleClick="OnReferenceDoubleClick"
+                      SelectionMode="Single"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListView.View>
+                    <GridView AllowsColumnReorder="False">
+                        <GridViewColumn Header="Параметр" Width="220" DisplayMemberBinding="{Binding Key}"/>
+                        <GridViewColumn Header="Описание" Width="430" DisplayMemberBinding="{Binding Description}"/>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </GroupBox>
+
         <!-- ============ Кнопки -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
             <Button Width="140" Height="36" Margin="0,0,10,0" IsDefault="True" Click="OnOk_Click"
                     Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">
                 <Button.Template>

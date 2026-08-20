@@ -1,12 +1,12 @@
-using System.Text;
 using System.Windows;
+using System.Windows.Input;
 
 namespace Configuration_Management
 {
     /// <summary>
     /// Диалог-конфигуратор параметров запуска платформы 1С.
-    /// Позволяет выбрать параметры командной строки из документации
-    /// (флаги и параметры с аргументами) и собрать итоговую строку.
+    /// Состоит из поля ввода параметров и справочника ключей командной строки,
+    /// из которого параметр подставляется в поле двойным кликом.
     /// </summary>
     public partial class LaunchParametersWindow : Window
     {
@@ -17,7 +17,8 @@ namespace Configuration_Management
         public LaunchParametersWindow(string currentParameters)
         {
             InitializeComponent();
-            ParseParameters(currentParameters);
+            TxtCustom.Text = currentParameters ?? string.Empty;
+            LstReference.ItemsSource = BuildReferenceCatalog();
         }
 
         /// <summary>
@@ -26,201 +27,120 @@ namespace Configuration_Management
         public string Result { get; private set; } = string.Empty;
 
         /// <summary>
-        /// Разбирает строку параметров и заполняет элементы управления.
+        /// Строит каталог всех ключей командной строки 1С с описаниями
+        /// для справочника в нижней части окна.
         /// </summary>
-        private void ParseParameters(string parameters)
+        private static List<ParamRef> BuildReferenceCatalog()
         {
-            if (string.IsNullOrWhiteSpace(parameters))
+            var list = new List<ParamRef>();
+
+            void Add(string key, string description) => list.Add(new ParamRef(key, description));
+
+            // Параметры-флаги.
+            Add("/DisableStartupMessages", "Отключить стартовые сообщения");
+            Add("/DisableStartupDialogs", "Отключить стартовые диалоги");
+            Add("/DisableSplash", "Отключить стартовую заставку");
+            Add("/WA-", "Не ждать завершения (запуск в фоне)");
+            Add("/Debug", "Режим отладки");
+            Add("/AllowExecuteScheduledJobs", "Разрешить выполнение регламентных заданий");
+            Add("/RunModeManagedApplication", "Запустить в режиме тонкого клиента (управляемое приложение)");
+            Add("/RunModeOrdinaryApplication", "Запустить в режиме толстого клиента (обычное приложение)");
+            Add("/UpdateCfg", "Обновить конфигурацию базы");
+            Add("/TestServer", "Проверить работоспособность кластера серверов");
+            Add("/RestoreIB", "Восстановить информационную базу из выгрузки (.dt)");
+            Add("/DumpIB", "Выгрузить информационную базу в файл (.dt)");
+            Add("/DumpCfg", "Выгрузить конфигурацию в файл (.cf)");
+            Add("/LoadCfg", "Загрузить конфигурацию из файла (.cf)");
+            Add("/CheckConfig", "Проверить конфигурацию");
+            Add("/UpdateConfigDumpCfg", "Обновить конфигурацию и выгрузить её в файл (.cf)");
+            Add("/CreateInfobase", "Создать информационную базу по файлу выгрузки");
+            Add("/Command", "Выполнить команду после запуска");
+            Add("/ManagedClient", "Запустить тонкий клиент (управляемое приложение)");
+            Add("/ThickClient", "Запустить толстый клиент");
+            Add("/UpdateConfiguration", "Обновить конфигурацию базы");
+
+            // Параметры с аргументами.
+            Add("/UC", "Код разрешения запуска");
+            Add("/L", "Язык интерфейса (например ru, en)");
+            Add("/Out", "Путь к файлу вывода служебных сообщений");
+            Add("/C", "Строка параметров запуска (передаётся в приложение)");
+            Add("/Execute", "Путь к внешней обработке или отчёту для выполнения");
+            Add("/DumpResult", "Путь к файлу выгрузки результата (например, после /Execute)");
+            Add("/N", "Имя пользователя");
+            Add("/P", "Пароль пользователя");
+            Add("/S", "Адрес сервера 1С:Предприятия");
+            Add("/F", "Путь к файловой информационной базе");
+            Add("/Ref", "Имя информационной базы на сервере");
+            Add("/Server", "Имя сервера 1С:Предприятия");
+            Add("/Srvr", "Имя сервера 1С:Предприятия (синоним /S)");
+            Add("/IBName", "Имя информационной базы в списке баз");
+            Add("/DBMS", "Тип СУБД (MSSQLServer, PostgreSQL, Oracle, IBMDB2)");
+            Add("/DBSrvr", "Имя сервера СУБД");
+            Add("/DBUID", "Имя пользователя СУБД");
+            Add("/DBPwd", "Пароль пользователя СУБД");
+            Add("/App", "Выбор приложения (Designer / Enterprise)");
+            Add("/ConfigurationRepository", "Имя хранилища конфигурации");
+            Add("/ConfigurationRepositoryUser", "Пользователь хранилища конфигурации");
+            Add("/ConfigurationRepositoryPwd", "Пароль пользователя хранилища конфигурации");
+            Add("/DisplayAllFunctions", "Отображать все функции (для запуска тонкого клиента)");
+            Add("/WSNamespace", "Пространство имён веб-сервиса");
+            Add("/IBSecurity", "Ключ безопасности информационной базы");
+            Add("/CPUSecurity", "Ключ безопасности сеанса");
+            Add("/SaveAgent", "Сохранить кэш агента сервера");
+            Add("/ConfigurationName", "Имя конфигурации для запуска");
+            Add("/RegisterExternalDataSource", "Зарегистрировать внешний источник данных");
+            Add("/UnregisterExternalDataSource", "Снять регистрацию внешнего источника данных");
+            Add("/SqlDump", "Сброс SQL-запросов в файл");
+
+            return list;
+        }
+
+        /// <summary>
+        /// Подставляет параметр из справочника в поле «Параметры» по двойному клику.
+        /// </summary>
+        private void OnReferenceDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (LstReference.SelectedItem is ParamRef item)
+                InsertCustomText(item.Key);
+        }
+
+        /// <summary>
+        /// Добавляет текст в поле «Параметры», разделяя пробелом.
+        /// </summary>
+        private void InsertCustomText(string text)
+        {
+            var insert = (text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(insert))
                 return;
 
-            var tokens = Tokenize(parameters);
-
-            foreach (var token in tokens)
-            {
-                var key = token.Key;
-                var value = token.Value;
-
-                // Сопоставляем параметры без учёта регистра.
-                switch (key.ToUpperInvariant())
-                {
-                    case "/DISABLESTARTUPMESSAGES": ChkDisableStartupMessages.IsChecked = true; break;
-                    case "/DISABLESTARTUPDIALOGS": ChkDisableStartupDialogs.IsChecked = true; break;
-                    case "/DISABLESPLASH": ChkDisableSplash.IsChecked = true; break;
-                    case "/WA-": ChkWait.IsChecked = true; break;
-                    case "/DEBUG": ChkDebug.IsChecked = true; break;
-                    case "/ALLOWEXECUTESCHEDULEDJOBS": ChkAllowScheduledJobs.IsChecked = true; break;
-                    case "/RUNMODEMANAGEDAPPLICATION": ChkRunManaged.IsChecked = true; break;
-                    case "/RUNMODEORDINARYAPPLICATION": ChkRunOrdinary.IsChecked = true; break;
-                    case "/UPDATECFG": ChkUpdateCfg.IsChecked = true; break;
-                    case "/TESTSERVER": ChkTestServer.IsChecked = true; break;
-                    case "/UC": ChkUC.IsChecked = true; TxtUC.Text = value; break;
-                    case "/L": ChkLang.IsChecked = true; TxtLang.Text = value; break;
-                    case "/OUT": ChkOut.IsChecked = true; TxtOut.Text = value; break;
-                    case "/C": ChkC.IsChecked = true; TxtC.Text = value; break;
-                    case "/EXECUTE": ChkExecute.IsChecked = true; TxtExecute.Text = value; break;
-                    case "/DUMPRESULT": ChkDumpResult.IsChecked = true; TxtDumpResult.Text = value; break;
-                    case "/N": ChkUser.IsChecked = true; TxtUser.Text = value; break;
-                    case "/P": ChkPwd.IsChecked = true; TxtPwd.Password = value; break;
-                    default:
-                        // Неизвестный параметр добавляем в произвольные.
-                        AppendCustom(token.Raw);
-                        break;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Разбивает строку параметров на токены (ключ + значение).
-        /// </summary>
-        private static List<ParamToken> Tokenize(string parameters)
-        {
-            var result = new List<ParamToken>();
-            var parts = SplitCommandLine(parameters);
-
-            for (int i = 0; i < parts.Count; i++)
-            {
-                var part = parts[i];
-                if (!part.StartsWith('/'))
-                {
-                    // Значение без ключа — добавляем как произвольный параметр.
-                    result.Add(new ParamToken(part, string.Empty, part));
-                    continue;
-                }
-
-                // Определяем, есть ли у параметра значение (следующий токен без '/').
-                string value = string.Empty;
-                if (i + 1 < parts.Count && !parts[i + 1].StartsWith('/'))
-                {
-                    value = parts[i + 1].Trim('"');
-                    i++;
-                }
-
-                result.Add(new ParamToken(part, value, value.Length > 0 ? $"{part} \"{value}\"" : part));
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Разбивает строку командной строки на токены, учитывая кавычки.
-        /// Значения в кавычках (включая пробелы) считаются одним токеном.
-        /// Это позволяет корректно сопоставлять параметры с аргументами,
-        /// содержащими пробелы (например, пути к файлам).
-        /// </summary>
-        private static List<string> SplitCommandLine(string input)
-        {
-            var tokens = new List<string>();
-            var current = new StringBuilder();
-            bool inQuotes = false;
-
-            foreach (var ch in input)
-            {
-                if (ch == '"')
-                {
-                    inQuotes = !inQuotes;
-                    current.Append(ch);
-                }
-                else if (ch == ' ' && !inQuotes)
-                {
-                    if (current.Length > 0)
-                    {
-                        tokens.Add(current.ToString());
-                        current.Clear();
-                    }
-                }
-                else
-                {
-                    current.Append(ch);
-                }
-            }
-
-            if (current.Length > 0)
-                tokens.Add(current.ToString());
-
-            return tokens;
-        }
-
-        /// <summary>
-        /// Добавляет произвольный параметр в поле ручного ввода.
-        /// </summary>
-        private void AppendCustom(string raw)
-        {
             if (string.IsNullOrWhiteSpace(TxtCustom.Text))
-                TxtCustom.Text = raw;
+                TxtCustom.Text = insert;
             else
-                TxtCustom.Text += " " + raw;
-        }
+                TxtCustom.Text = TxtCustom.Text.TrimEnd() + " " + insert;
 
-        /// <summary>
-        /// Собирает итоговую строку параметров из выбранных элементов.
-        /// </summary>
-        private string BuildParameters()
-        {
-            var sb = new StringBuilder();
-
-            void AddFlag(string flag)
-            {
-                if (sb.Length > 0) sb.Append(' ');
-                sb.Append(flag);
-            }
-
-            void AddValue(string key, string value)
-            {
-                if (string.IsNullOrWhiteSpace(value)) return;
-                if (sb.Length > 0) sb.Append(' ');
-                sb.Append(key).Append(" \"").Append(value.Trim()).Append('"');
-            }
-
-            if (ChkDisableStartupMessages.IsChecked == true) AddFlag("/DisableStartupMessages");
-            if (ChkDisableStartupDialogs.IsChecked == true) AddFlag("/DisableStartupDialogs");
-            if (ChkDisableSplash.IsChecked == true) AddFlag("/DisableSplash");
-            if (ChkWait.IsChecked == true) AddFlag("/WA-");
-            if (ChkDebug.IsChecked == true) AddFlag("/Debug");
-            if (ChkAllowScheduledJobs.IsChecked == true) AddFlag("/AllowExecuteScheduledJobs");
-            if (ChkRunManaged.IsChecked == true) AddFlag("/RunModeManagedApplication");
-            if (ChkRunOrdinary.IsChecked == true) AddFlag("/RunModeOrdinaryApplication");
-            if (ChkUpdateCfg.IsChecked == true) AddFlag("/UpdateCfg");
-            if (ChkTestServer.IsChecked == true) AddFlag("/TestServer");
-
-            if (ChkUC.IsChecked == true) AddValue("/UC", TxtUC.Text);
-            if (ChkLang.IsChecked == true) AddValue("/L", TxtLang.Text);
-            if (ChkOut.IsChecked == true) AddValue("/Out", TxtOut.Text);
-            if (ChkC.IsChecked == true) AddValue("/C", TxtC.Text);
-            if (ChkExecute.IsChecked == true) AddValue("/Execute", TxtExecute.Text);
-            if (ChkDumpResult.IsChecked == true) AddValue("/DumpResult", TxtDumpResult.Text);
-            if (ChkUser.IsChecked == true) AddValue("/N", TxtUser.Text);
-            if (ChkPwd.IsChecked == true) AddValue("/P", TxtPwd.Password);
-
-            if (!string.IsNullOrWhiteSpace(TxtCustom.Text))
-            {
-                if (sb.Length > 0) sb.Append(' ');
-                sb.Append(TxtCustom.Text.Trim());
-            }
-
-            return sb.ToString();
+            TxtCustom.CaretIndex = TxtCustom.Text.Length;
+            TxtCustom.Focus();
         }
 
         private void OnOk_Click(object sender, RoutedEventArgs e)
         {
-            Result = BuildParameters();
+            Result = (TxtCustom.Text ?? string.Empty).Trim();
             DialogResult = true;
         }
 
         /// <summary>
-        /// Токен параметра командной строки.
+        /// Запись справочника параметров командной строки 1С.
         /// </summary>
-        private sealed class ParamToken
+        private sealed class ParamRef
         {
-            public ParamToken(string key, string value, string raw)
+            public ParamRef(string key, string description)
             {
                 Key = key;
-                Value = value;
-                Raw = raw;
+                Description = description;
             }
 
             public string Key { get; }
-            public string Value { get; }
-            public string Raw { get; }
+            public string Description { get; }
         }
     }
 }
