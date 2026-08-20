@@ -936,6 +936,20 @@
                                                     </materialDesign:PackIcon.Style>
                                                 </materialDesign:PackIcon>
                                             </Button>
+                                            <!-- Иконка статуса базы: тип подключения (файловая / веб-сервер /
+                                                 клиент-серверная) или «недоступна». Цвет зависит от статуса:
+                                                 янтарный — файловая, синий — веб, фиолетовый — клиент-сервер,
+                                                 красный — недоступна. -->
+                                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0"
+                                                  VerticalAlignment="Center"
+                                                  Data="{Binding StatusIconKey, Converter={StaticResource IconKeyToGeometryConverter}}"
+                                                  ToolTip="{Binding StatusDisplay}">
+                                                <Path.Fill>
+                                                    <MultiBinding Converter="{StaticResource GroupColorConverter}">
+                                                        <Binding Path="StatusColorHex"/>
+                                                    </MultiBinding>
+                                                </Path.Fill>
+                                            </Path>
                                             <TextBlock x:Name="NameText" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
                                                        Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"/>

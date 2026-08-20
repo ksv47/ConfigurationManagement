@@ -560,13 +560,10 @@ namespace Configuration_Management
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            // Иконка типа подключения слева (папка / сеть) в аккуратном «аватаре».
-            var connectionIconKey = ib.Connection.Type switch
-            {
-                ConnectionType.File => "IconFolder",
-                ConnectionType.ClientServer => "IconNetwork",
-                _ => "IconNetwork" // WebServer → сеть/веб
-            };
+            // Иконка статуса базы слева: тип подключения (папка / глобус / сеть)
+            // или «недоступна». Цвет зависит от статуса: янтарный — файловая,
+            // синий — веб, фиолетовый — клиент-сервер, красный — недоступна.
+            var connectionIconKey = ib.StatusIconKey;
 
             var iconBox = new Border
             {
@@ -576,11 +573,21 @@ namespace Configuration_Management
                 BorderThickness = new Thickness(1),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 0, 10, 0)
+                Margin = new Thickness(0, 0, 10, 0),
+                ToolTip = ib.StatusDisplay
             };
             ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush");
             ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush");
-            iconBox.Child = IconHelper.MakeIcon(connectionIconKey, 20, "AccentBrush");
+            iconBox.Child = new Avalonia.Controls.Shapes.Path
+            {
+                Width = 20,
+                Height = 20,
+                Data = IconHelper.Geometry(connectionIconKey),
+                Stretch = Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Fill = new SolidColorBrush(Color.Parse(ib.StatusColorHex))
+            };
 
             grid.Children.Add(iconBox);
             Grid.SetColumn(iconBox, 0);

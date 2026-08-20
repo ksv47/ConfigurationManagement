@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 
 namespace Configuration_Management.Models;
@@ -297,6 +298,64 @@ public class Infobase : INotifyPropertyChanged
         ConnectionType.WebServer => "Веб-сервер",
         _ => "Клиент-серверная"
     };
+
+    /// <summary>
+    /// Доступность базы. Для файловых баз — наличие каталога/файла на диске.
+    /// Для клиент-серверных и веб-баз реальная доступность удалённо не проверяется
+    /// (чтобы не блокировать интерфейс сетевыми запросами); недоступными считаются
+    /// базы с незаполненными параметрами подключения.
+    /// </summary>
+    public bool IsAvailable => Connection.Type switch
+    {
+        ConnectionType.File => !string.IsNullOrWhiteSpace(Connection.FilePath)
+            && (Directory.Exists(Connection.FilePath) || File.Exists(Connection.FilePath)),
+        ConnectionType.WebServer => !string.IsNullOrWhiteSpace(Connection.WebUrl),
+        _ => !string.IsNullOrWhiteSpace(Connection.Server)
+            || !string.IsNullOrWhiteSpace(Connection.DatabaseName)
+    };
+
+    /// <summary>
+    /// Ключ иконки статуса базы для списка баз (геометрия из Icons.xaml / Icons.axaml):
+    /// файловая — папка, веб-сервер — глобус, клиент-серверная — сеть, недоступная — ошибка.
+    /// Передаётся в IconKeyToGeometryConverter для отрисовки Path.
+    /// </summary>
+    public string StatusIconKey => !IsAvailable
+        ? "IconError"
+        : Connection.Type switch
+        {
+            ConnectionType.File => "IconFolder",
+            ConnectionType.WebServer => "IconWeb",
+            _ => "IconNetwork"
+        };
+
+    /// <summary>Подпись статуса базы для подсказки к иконке в списке.</summary>
+    public string StatusDisplay => !IsAvailable
+        ? Connection.Type switch
+        {
+            ConnectionType.File => "Недоступна: каталог файловой базы не найден на диске",
+            ConnectionType.WebServer => "Недоступна: не указан адрес веб-публикации",
+            _ => "Недоступна: не указан сервер или имя базы"
+        }
+        : Connection.Type switch
+        {
+            ConnectionType.File => "Файловая база",
+            ConnectionType.WebServer => "База на веб-сервере",
+            _ => "Клиент-серверная база"
+        };
+
+    /// <summary>
+    /// Цвет иконки статуса базы (ARGB-строка) в зависимости от типа подключения
+    /// и доступности: файловая — янтарный, веб-сервер — синий, клиент-серверная —
+    /// фиолетовый, недоступная — красный.
+    /// </summary>
+    public string StatusColorHex => !IsAvailable
+        ? "#E53935"
+        : Connection.Type switch
+        {
+            ConnectionType.File => "#E8A33D",
+            ConnectionType.WebServer => "#3B82F6",
+            _ => "#8B5CF6"
+        };
 
     /// <summary>
     /// Режим запуска для отображения. Используется в колонке «Режим запуска».
