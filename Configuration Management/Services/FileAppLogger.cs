@@ -16,10 +16,9 @@ public sealed class FileAppLogger : IAppLogger
 
     public FileAppLogger(string? logDirectory = null)
     {
-        _logDirectory = logDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "ConfigurationManagement",
-            "logs");
+        // Windows: %APPDATA%\ConfigurationManagement\logs
+        // Linux:   ~/.config/ConfigurationManagement/logs
+        _logDirectory = logDirectory ?? PlatformPaths.LogDirectory;
         Directory.CreateDirectory(_logDirectory);
         CleanupOldLogs();
     }

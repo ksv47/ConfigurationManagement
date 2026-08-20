@@ -1,0 +1,57 @@
+<!-- Avalonia-версия светлой темы (Linux). Палитра ресурсов, соответствуют ключам
+     ColorScheme.Definitions. Используется как базовая палитра; актуальные цвета накладываются
+     ThemeManager.ApplyScheme на Application.Resources. -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="AccentColor">#FDBF00</Color>
+    <Color x:Key="AccentHoverColor">#E0A800</Color>
+    <Color x:Key="AccentPressedColor">#C49400</Color>
+    <Color x:Key="SidebarColor">#1E293B</Color>
+    <Color x:Key="SidebarHoverColor">#273549</Color>
+    <Color x:Key="SidebarSelectedColor">#FDBF00</Color>
+    <Color x:Key="ContentBackgroundColor">#F1F5F9</Color>
+    <Color x:Key="CardBackgroundColor">#FFFFFF</Color>
+    <Color x:Key="BorderColor">#E2E8F0</Color>
+    <Color x:Key="TextPrimaryColor">#000000</Color>
+    <Color x:Key="TextSecondaryColor">#64748B</Color>
+    <Color x:Key="TextOnAccentColor">#FFFFFF</Color>
+    <Color x:Key="ButtonTextColor">#000000</Color>
+    <Color x:Key="FavoriteColor">#F59E0B</Color>
+    <Color x:Key="ItemHoverColor">#FFF3CD</Color>
+    <Color x:Key="ItemSelectedColor">#FFE69C</Color>
+    <Color x:Key="AvatarBackgroundColor">#FFF3CD</Color>
+    <Color x:Key="AvatarTextColor">#8A6D00</Color>
+    <Color x:Key="SecondaryButtonBackgroundColor">#FFF3CD</Color>
+    <Color x:Key="SecondaryButtonHoverColor">#FFE69C</Color>
+    <Color x:Key="SecondaryButtonPressedColor">#FFD54D</Color>
+    <Color x:Key="TreeHoverColor">#FFF9E6</Color>
+    <Color x:Key="TreeSelectedColor">#FFD54D</Color>
+    <Color x:Key="ScrollTrackBrush">#E8EDF3</Color>
+    <Color x:Key="ScrollThumbBrush">#B6C2D2</Color>
+    <Color x:Key="ScrollThumbHoverBrush">#94A3B8</Color>
+    <Color x:Key="ScrollThumbPressedBrush">#7C8BA0</Color>
+
+    <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{DynamicResource AccentHoverColor}"/>
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="{DynamicResource AccentPressedColor}"/>
+    <SolidColorBrush x:Key="SidebarBrush" Color="{DynamicResource SidebarColor}"/>
+    <SolidColorBrush x:Key="SidebarHoverBrush" Color="{DynamicResource SidebarHoverColor}"/>
+    <SolidColorBrush x:Key="SidebarSelectedBrush" Color="{DynamicResource SidebarSelectedColor}"/>
+    <SolidColorBrush x:Key="ContentBackgroundBrush" Color="{DynamicResource ContentBackgroundColor}"/>
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="{DynamicResource CardBackgroundColor}"/>
+    <SolidColorBrush x:Key="BorderBrushColor" Color="{DynamicResource BorderColor}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource TextPrimaryColor}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="TextOnAccentBrush" Color="{DynamicResource TextOnAccentColor}"/>
+    <SolidColorBrush x:Key="ButtonTextBrush" Color="{DynamicResource ButtonTextColor}"/>
+    <SolidColorBrush x:Key="FavoriteBrush" Color="{DynamicResource FavoriteColor}"/>
+    <SolidColorBrush x:Key="ItemHoverBrush" Color="{DynamicResource ItemHoverColor}"/>
+    <SolidColorBrush x:Key="ItemSelectedBrush" Color="{DynamicResource ItemSelectedColor}"/>
+    <SolidColorBrush x:Key="AvatarBackgroundBrush" Color="{DynamicResource AvatarBackgroundColor}"/>
+    <SolidColorBrush x:Key="AvatarTextBrush" Color="{DynamicResource AvatarTextColor}"/>
+    <SolidColorBrush x:Key="SecondaryButtonBackgroundBrush" Color="{DynamicResource SecondaryButtonBackgroundColor}"/>
+    <SolidColorBrush x:Key="SecondaryButtonHoverBrush" Color="{DynamicResource SecondaryButtonHoverColor}"/>
+    <SolidColorBrush x:Key="SecondaryButtonPressedBrush" Color="{DynamicResource SecondaryButtonPressedColor}"/>
+    <SolidColorBrush x:Key="TreeHoverBrush" Color="{DynamicResource TreeHoverColor}"/>
+    <SolidColorBrush x:Key="TreeSelectedBrush" Color="{DynamicResource TreeSelectedColor}"/>
+</ResourceDictionary>

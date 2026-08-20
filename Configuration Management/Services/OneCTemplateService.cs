@@ -1,6 +1,8 @@
 using System.IO;
 using System.Text.RegularExpressions;
+#if WINDOWS
 using Microsoft.Win32;
+#endif
 
 namespace Configuration_Management.Services;
 
@@ -99,6 +101,21 @@ public static class OneCTemplateService
     /// </summary>
     public static string GetDefaultTemplatePath()
     {
+#if LINUX
+        // Linux: ~/.local/share/1C/1cv8/tmplts (с учётом XDG_DATA_HOME).
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var xdgData = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+        var dataBase = !string.IsNullOrWhiteSpace(xdgData)
+            ? xdgData
+            : string.IsNullOrEmpty(home)
+                ? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
+                : Path.Combine(home, ".local", "share");
+        if (!string.IsNullOrEmpty(dataBase))
+            return Path.Combine(dataBase, "1C", "1cv8", "tmplts");
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "1C", "1cv8", "tmplts");
+#else
         var publicDir = Environment.GetEnvironmentVariable("PUBLIC");
         if (!string.IsNullOrEmpty(publicDir))
         {
@@ -113,6 +130,7 @@ public static class OneCTemplateService
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "1C", "1cv8", "tmplts");
+#endif
     }
 
     /// <summary>
@@ -161,12 +179,33 @@ public static class OneCTemplateService
         foreach (var p in EnumerateConfiguredTemplatePaths())
             Add(p);
 
-        // 2) Путь по умолчанию у 1С (Public\Documents\...) — даже если пока пуст, показываем как основной
+        // 2) Путь по умолчанию у 1С (Public\Documents\... или ~/.local/share/1C/1cv8/tmplts) —
+        //    даже если пока пуст, показываем как основной
         var def = GetDefaultTemplatePath();
         if (Directory.Exists(def))
             Add(def);
         else
             Add(def, requireExists: false); // для подсказки в UI
+
+#if LINUX
+        // 2.5) Linux: системные каталоги шаблонов — /opt/1cv8/<версия>/tmplts, /usr/share/1cv8/tmplts
+        foreach (var root in new[]
+                 {
+                     "/opt/1cv8",
+                     "/opt/1C/1cv8",
+                     "/usr/share/1cv8",
+                     "/usr/share/1C/1cv8"
+                 })
+        {
+            Add(Path.Combine(root, "tmplts"));
+        }
+        try
+        {
+            foreach (var vdir in Directory.EnumerateDirectories("/opt/1cv8"))
+                Add(Path.Combine(vdir, "tmplts"));
+        }
+        catch { /* каталога может не быть */ }
+#endif
 
         // 3) Дополнительные типичные расположения
         var commonDocs = Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments);
@@ -217,7 +256,8 @@ public static class OneCTemplateService
             }
         }
 
-        // Реестр стартера
+#if WINDOWS
+        // Реестр стартера (только Windows; на Linux реестра нет).
         foreach (var sub in new[]
                  {
                      @"Software\1C\1cv8\1cestart",
@@ -239,21 +279,34 @@ public static class OneCTemplateService
             }
             catch { /* ignore */ }
         }
+#endif
 
-        // Файлы конфигурации стартера
+        // Файлы конфигурации стартера (1cestart.cfg).
+        var cfgCandidates = new List<string>();
+#if LINUX
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrEmpty(home))
+        {
+            cfgCandidates.Add(Path.Combine(home, ".1cv8", "1CEStart", "1cestart.cfg"));
+            cfgCandidates.Add(Path.Combine(home, ".local", "share", "1cv8", "1CEStart", "1cestart.cfg"));
+        }
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        if (!string.IsNullOrEmpty(appData))
+            cfgCandidates.Add(Path.Combine(appData, "1C", "1CEStart", "1cestart.cfg"));
+#else
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         if (!string.IsNullOrEmpty(appData))
         {
-            foreach (var cfg in new[]
-                     {
-                         Path.Combine(appData, "1C", "1CEStart", "1cestart.cfg"),
-                         Path.Combine(appData, "1C", "1cestart", "1cestart.cfg"),
-                         Path.Combine(appData, "1C", "1cv8", "1cestart.cfg")
-                     })
-            {
-                foreach (var linePath in ReadPathsFromCfg(cfg))
-                    Consider(linePath);
-            }
+            cfgCandidates.Add(Path.Combine(appData, "1C", "1CEStart", "1cestart.cfg"));
+            cfgCandidates.Add(Path.Combine(appData, "1C", "1cestart", "1cestart.cfg"));
+            cfgCandidates.Add(Path.Combine(appData, "1C", "1cv8", "1cestart.cfg"));
+        }
+#endif
+
+        foreach (var cfg in cfgCandidates)
+        {
+            foreach (var linePath in ReadPathsFromCfg(cfg))
+                Consider(linePath);
         }
 
         return found;
@@ -268,8 +321,12 @@ public static class OneCTemplateService
         try { lines = File.ReadAllLines(cfgPath); }
         catch { yield break; }
 
-        // строки вида Key=C:\path  или просто путь
+        // Строки вида Key=C:\path (Windows) или Key=/home/.../path (Linux).
+#if LINUX
+        var pathRx = new Regex(@"\/[^\r\n"";=]+", RegexOptions.Compiled);
+#else
         var pathRx = new Regex(@"[A-Za-z]:\\[^\r\n""]+", RegexOptions.Compiled);
+#endif
         foreach (var line in lines)
         {
             if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))

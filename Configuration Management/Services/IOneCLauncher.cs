@@ -9,6 +9,9 @@ public interface IOneCLauncher
     bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode, OneCArchitecture architecture, bool runAsAdmin = false);
 }
 
+// Адаптер ссылается на Windows-only статический класс OneCLauncher, поэтому
+// в Linux-сборке исключается (см. Services/LinuxStubs.cs — временная заглушка).
+#if WINDOWS
 public sealed class OneCLauncherService : IOneCLauncher
 {
     public bool Launch(Infobase infobase, OneCLaunchMode mode, bool runAsAdmin = false) =>
@@ -20,3 +23,4 @@ public sealed class OneCLauncherService : IOneCLauncher
     public bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode, OneCArchitecture architecture, bool runAsAdmin = false) =>
         OneCLauncher.Launch(infobase, mode, clientType, runMode, architecture, runAsAdmin);
 }
+#endif

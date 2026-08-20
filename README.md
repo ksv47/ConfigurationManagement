@@ -1,10 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.2.7.34-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![WPF](https://img.shields.io/badge/WPF-4B8BBE) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.1.1-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.2.7.34**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.1.1**
 
-**Управление конфигурациями 1С** — это настольное приложение на платформе **.NET (WPF)**, которое заменяет стандартный список баз 1С и предоставляет современный интерфейс для работы с информационными базами: запуск в режимах «1С:Предприятие» и «Конфигуратор», вкладки **Все базы / Избранное / Недавние**, иерархические группы, избранное с `Alt+1…9`, мультифильтр по тегам, очистка кеша, синхронизация с `ibases.v8i`, системный трей, светлая и тёмная темы.
+**Управление конфигурациями 1С** — это кроссплатформенное настольное приложение на платформе **.NET** (**WPF** на Windows и **Avalonia 11** на Linux), которое заменяет стандартный список баз 1С и предоставляет современный интерфейс для работы с информационными базами: запуск в режимах «1С:Предприятие» и «Конфигуратор», вкладки **Все базы / Избранное / Недавние**, иерархические группы, избранное с `Alt+1…9`, мультифильтр по тегам, очистка кеша, синхронизация с `ibases.v8i`, системный трей, светлая и тёмная темы. Одна кодовая база собирается под обе ОС: `net10.0-windows` (WPF) на Windows и `net10.0` (Avalonia) на Linux.
 
 [![Infostart](https://infostart.ru/bitrix/templates/sandbox_empty/assets/tpl/abo/img/logo.svg)](https://infostart.ru/1c/articles/2764888/)
 
@@ -36,7 +36,7 @@
 - **Окно выбора версии платформы** как в стартере 1С: дерево **полностью разворачивается** при открытии, свежие версии **по умолчанию сверху** (сортировка по убыванию, переключение иконками как в главном окне), **текущая версия базы подсвечивается жирным** и автоматически позиционируется. Если у базы указана **частичная версия** (`8.3`, `8.3.19` или с разрядностью `8.3 (64)`), выбирается **максимальная доступная сборка** — как это делает сам лаунчер 1С.
 - **Дополнительные папки платформ** (Настройки → Платформы): версии из нестандартных/портативных каталогов установки (произвольная вложенность без обязательного подкаталога `1cv8`) находятся, показываются в списке и **корректно запускаются** — и для конкретной версии базы, и при выборе новейшей установленной версии, и в приоритетных режимах разрядности.
 - **«Перейти по ссылке»** в правой панели — аналог одноимённой функции стандартного загрузчика 1С: вставьте ссылку на базу (`e1c://...`, `C:\1C\База`, `server\База`, `http://server/base`) и запустите её в «1С:Предприятие».
-- **Конфигуратор параметров запуска** — визуальный выбор ключей командной строки (`/UC`, `/DisableStartupMessages`, `/Debug` и др.).
+- **Конфигуратор параметров запуска** — окно «Параметры запуска» устроено как **поле ввода + справочник**: вверху — поле ввода параметров командной строки, ниже — справочник всех ключей запуска 1С с описанием, что делает параметр. Двойной клик по строке справочника подставляет параметр в поле ввода (`/UC`, `/DisableStartupMessages`, `/Debug` и др.).
 
 ### 🗂️ Управление списком баз
 - **Вкладки фильтра**: **Все базы**, **Избранное**, **Недавние** (по дате последнего запуска).
@@ -132,20 +132,101 @@
 
 | Технология | Назначение |
 |------------|------------|
-| **.NET 10** | Платформа разработки |
-| **WPF (Windows Presentation Foundation)** | Графический интерфейс |
+| **.NET 10** | Платформа разработки (`net10.0-windows` / `net10.0`) |
+| **WPF (Windows Presentation Foundation)** | Графический интерфейс (Windows) |
+| **Avalonia 11.3** | Графический интерфейс (Linux): `Avalonia`, `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, `Avalonia.Fonts.Inter` |
 | **MVVM** | Архитектурный паттерн |
-| **Microsoft.Extensions.DependencyInjection** | Dependency Injection |
-| **MaterialDesignThemes 5.2.1** | Иконки и современный интерфейс (PackIcon) |
+| **Microsoft.Extensions.DependencyInjection 9.0** | Dependency Injection |
+| **MaterialDesignThemes 5.2.1** | Иконки и современный интерфейс (PackIcon, только Windows) |
 | **System.Text.Json** | Хранение данных в JSON-файлах |
+| **System.Management 8.0** | WMI `Win32_Process` (проверка блокировки конфигуратора, только Windows) |
+| **Linux CLI (`1cv8`, `readelf`, `xdg-open`, `/proc`)** | Сервисы платформы 1С и файловый менеджер (только Linux) |
 
 ---
 
 ## 📦 Требования
 
+### Windows
 - **Windows 10 / 11**
 - **.NET 10 SDK** (для сборки из исходного кода)
 - Установленная платформа **1С:Предприятие 8.3** (для запуска баз)
+
+### Linux
+- **.NET 10 SDK** (для сборки из исходного кода; self-contained публикация не требует установки runtime)
+- Установленная платформа **1С:Предприятие 8.3 для Linux** (клиент `1cv8`, например `/opt/1cv8/<версия>/bin/1cv8`) — для запуска баз
+- Зависимости пакета: GTK3, glib2, `xdg-utils` (для открытия каталогов/ссылок). Для трея на GNOME Shell может потребоваться расширение **AppIndicator**
+
+---
+
+## 🐧 Поддержка Linux (портирование)
+
+> **Статус: Linux-порт выполнен (Этапы 0–8).** Реализованы инфраструктура csproj, Avalonia UI (окна `*.Avalonia.cs`, конвертеры `Converters/Avalonia/`, темы `*.axaml`), пути/хранилище (`PlatformPaths.cs`), сервисы платформы 1С (`*.Linux.cs`), ярлыки/файловый менеджер/трей, сборка и упаковка (AppImage, `.deb`). Windows-сборка не сломана (0 ошибок). Остаётся **прогон тестов на Linux-хосте** по чек-листу [`Configuration Management/LINUX_TESTING.md`](Configuration Management/LINUX_TESTING.md). Подробности — в [`Configuration Management/LINUX_PORT.md`](Configuration Management/LINUX_PORT.md) и [`PLAN_LINUX.md`](PLAN_LINUX.md).
+
+### Целевые дистрибутивы и разрядность
+
+| Дистрибутив | Семейство | Архитектура |
+|-------------|-----------|-------------|
+| **Ubuntu LTS** (22.04+, 24.04+) | Debian (`.deb`) | `x64` (amd64) |
+| **Debian** (12+) | Debian (`.deb`) | `x64` (amd64) |
+| **ALT Linux** (10, 9) | RPM/ALT (`.rpm`) | `x64` |
+| **Astra Linux** (SE 1.7+, Смоленск 1.7+) | Debian (`.deb`) | `x64` |
+
+- Сборка — **64-разрядная** (`linux-x64` / `amd64`); 32-разрядная не поддерживается.
+- Минимальная версия: **.NET 10 SDK**; self-contained публикация не требует установки runtime.
+
+### Сборка на Linux
+
+```bash
+# Только сборка (Avalonia, net10.0)
+./build.sh
+
+# Сборка + публикация self-contained single-file linux-x64
+./build.sh Release publish
+```
+
+Результат публикации: `publish/linux-x64/` — один исполняемый файл `ConfigurationManagement` (self-contained, не требует установки .NET Runtime).
+
+> На Linux проект собирается как **Avalonia** (`net10.0`); на Windows — как **WPF** (`net10.0-windows`). Целевой TFM и RID выбираются автоматически по ОС. `build.sh` собирает/публикует и Windows (`win-x64`), и Linux (`linux-x64`).
+
+### 📦 Установка на Linux
+
+Готовые пакеты собираются из single-file публикации и включают `.desktop`-файл и иконку приложения.
+
+#### AppImage (переносимый)
+
+```bash
+# 1) Сборка single-file
+./build.sh Release publish
+
+# 2) Упаковка в AppImage (нужен appimagetool в PATH)
+./package/linux/appimage.sh
+```
+
+Результат: `package/linux/out/ConfigurationManagement-x86_64.AppImage`. Запуск:
+```bash
+chmod +x package/linux/out/ConfigurationManagement-x86_64.AppImage
+./package/linux/out/ConfigurationManagement-x86_64.AppImage
+```
+
+#### .deb (Debian/Ubuntu/Astra)
+
+```bash
+# 1) Сборка single-file
+./build.sh Release publish
+
+# 2) Упаковка в .deb (нужен dpkg-deb)
+./package/linux/deb/build-deb.sh
+```
+
+Результат: `package/linux/deb/out/configuration-management_<версия>_amd64.deb`. Установка/удаление:
+```bash
+sudo dpkg -i package/linux/deb/out/configuration-management_*_amd64.deb
+sudo apt remove configuration-management   # удаление
+```
+
+#### .rpm / snap (необязательно)
+
+Формат `.rpm` (для ALT Linux, Fedora) и `snap` поддерживаются на уровне структуры пакета, но скрипты сборки для них пока не реализованы. `.deb`-пакет может быть пересобран для `.rpm` через `alien` при необходимости.
 
 ---
 
@@ -181,77 +262,108 @@ dotnet publish "Configuration Management/Configuration Management.csproj" -c Rel
 
 ## 📁 Структура проекта
 
+> Проект — **одна кодовая база** с разделением по ОС. WPF-файлы (`.xaml`, `.xaml.cs`) используются на Windows; на Linux вместо них компилируются Avalonia-версии (`*.Avalonia.cs`, `.axaml`, `Converters/Avalonia/`, `Services/*.Linux.cs`). Выбор целевого TFM и файлов выполняется в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj) по ОС.
+
 ```
 Configuration Management/
-├── App.xaml / App.xaml.cs          # Точка входа приложения (обработка ошибок, один экземпляр, тема)
+├── App.axaml / App.axaml.cs        # Точка входа Avalonia (Linux)
+├── App.xaml / App.xaml.cs          # Точка входа WPF (Windows): ошибки, один экземпляр, тема
+├── Program.cs                      # Точка входа .NET (Avalonia, Linux)
 ├── AppServices.cs                  # DI-контейнер (Microsoft.Extensions.DependencyInjection)
-├── app.ico                         # Иконка приложения
-├── MainWindow.xaml(.cs)            # Главное окно
-├── SettingsWindow.xaml             # Окно настроек (платформы, отображение, цветовое оформление, клавиши, ibases.v8i, базы, о программе)
+├── app.ico / app_icon_preview.png  # Иконки приложения (ICO для Windows, PNG для Linux/трея)
+├── tray.ico / tray_icon_preview.png# Иконки системного трея
+├── MainWindow.xaml(.cs)            # Главное окно (Windows)
+├── MainWindow.Avalonia.cs          # Главное окно (Linux)
+├── SettingsWindow.xaml             # Окно настроек (Windows)
+├── SettingsWindow.Avalonia.cs      # Окно настроек (Linux)
 ├── AddEditWindow.xaml              # Мастер добавления (база или группа)
 ├── ConnectionSettingsWindow.xaml   # Диалог настройки подключения к базе
+├── ConnectionStringInputWindow.xaml# Окно ввода строки подключения
+├── CacheCleanWindow.xaml           # Очистка кэша 1С (тип кэша + набор баз)
 ├── CreateInfobaseWindow.xaml       # Создание ИБ (пустая или из шаблона .cf/.dt)
 ├── DeleteInfobaseWindow.xaml       # Удаление ИБ (в т.ч. физическое удаление каталога)
-├── GroupEditWindow.xaml            # Диалог создания/редактирования группы (с выбором родителя)
-├── GroupPickerWindow.xaml          # Выбор группы в виде дерева
+├── GroupEditWindow.xaml            # Создание/редактирование группы (Основные/Цвет/Иконка)
+├── GroupPickerWindow.xaml          # Выбор родительской группы в виде дерева
+├── GroupSettingsWindow.xaml        # Настройки группы (цвет/иконка)
 ├── ColorPickerWindow.xaml          # Диалог выбора цвета (RGB/HEX)
 ├── TagInputWindow.xaml             # Диалог ввода тега
+├── NameInputWindow.xaml            # Ввод названия темы/группы
+├── LinkInputWindow.xaml            # Ввод ссылки на базу («Перейти по ссылке»)
 ├── LaunchParametersWindow.xaml     # Конфигуратор параметров запуска 1С
-├── PlatformVersionPickerWindow.xaml # Окно выбора установленной версии платформы
-├── Models/                         # Модели данных
-│   ├── Infobase.cs                 # Информационная база
+├── PlatformVersionPickerWindow.xaml# Выбор установленной версии платформы
+├── ModalWindowBase.cs              # База модальных окон (обе платформы)
+├── Models/                         # Модели данных (чистый .NET, обе платформы)
+│   ├── Infobase.cs                 # Информационная база (+ EnterpriseAuth/ConfiguratorAuth/Repository)
 │   ├── ConnectionSettings.cs       # Настройки подключения
-│   ├── Group.cs                    # Группа баз (в т.ч. иерархия через ParentId)
+│   ├── InfobaseAuthSettings.cs     # Отдельная авторизация Предприятия/Конфигуратора
+│   ├── RepositorySettings.cs       # Настройки хранилища конфигурации
+│   ├── Group.cs                    # Группа баз (иерархия через ParentId)
 │   ├── GroupHierarchyHelper.cs     # Вспомогательные методы для иерархии групп
 │   ├── MetadataNode.cs             # Дерево метаданных конфигурации
+│   ├── OneCConfigInfo.cs           # Информация о конфигурации (наименование, версия)
+│   ├── OneCComConnection.cs        # Параметры COM-подключения
 │   ├── PlatformVersionGroup.cs     # Группа установленных версий платформы
-│   ├── PlatformVersionInfo.cs      # Установленная версия платформы (с путём и разрядностью)
+│   ├── PlatformVersionInfo.cs      # Установленная версия платформы (путь, разрядность)
 │   ├── IbasesSyncMode.cs           # Режим синхронизации с ibases.v8i
 │   ├── IbasesSyncTrigger.cs        # Триггер синхронизации (старт/интервал/расписание)
 │   ├── LaunchKind.cs               # Вид запуска (Предприятие / Конфигуратор)
 │   ├── SessionLaunchModes.cs       # Режимы клиента и разрядности текущей сессии
 │   ├── ListViewMode.cs             # Вкладки списка (Все / Избранное / Недавние)
 │   ├── LaunchHistoryEntry.cs       # Запись истории запусков
-│   ├── AppSettings.cs              # Настройки интерфейса (в т.ч. ширина колонок, размер окна, активная цветовая схема)
-│   ├── ColorScheme.cs              # Цветовая схема (тема): набор цветов, встроенные схемы, экспорт/импорт
+│   ├── ElementFontSettings.cs      # Настройки шрифта по областям интерфейса
+│   ├── AppSettings.cs              # Настройки интерфейса (колонки, окно, цветовая схема, шрифты, синхронизация)
+│   ├── ColorScheme.cs              # Цветовая схема (тема): цвета, встроенные схемы, экспорт/импорт
 │   └── InfobaseExportData.cs       # Контейнер экспорта/импорта
 ├── Themes/                         # Темы оформления
-│   ├── ThemeManager.cs             # Применение тем/цветовых схем, пользовательские темы, экспорт/импорт
-│   ├── LightTheme.xaml             # Светлая тема (ресурсы цветов и стили)
-│   ├── DarkTheme.xaml              # Тёмная тема (ресурсы цветов и стили)
-│   └── Icons.xaml                  # Иконки (Geometry)
+│   ├── ThemeManager.cs             # Применение тем/цветовых схем и шрифтов (Windows)
+│   ├── ThemeManager.Avalonia.cs    # То же для Avalonia (Linux)
+│   ├── LightTheme.xaml / LightTheme.axaml
+│   ├── DarkTheme.xaml / DarkTheme.axaml
+│   ├── ModernTheme.xaml            # Базовая тема Material Design (Windows)
+│   └── Icons.xaml / Icons.axaml    # Иконки (Geometry)
 ├── Services/                       # Сервисы
-│   ├── OneCLauncher.cs             # Запуск платформы 1С
-│   ├── OneCCacheCleaner.cs         # Очистка кеша 1С
+│   ├── OneCLauncher.cs / OneCLauncher.Linux.cs  # Запуск платформы 1С (WPF / CLI `1cv8`)
+│   ├── OneCCacheCleaner.cs         # Очистка кэша 1С (программный/пользовательский, по GUID)
 │   ├── OneCTemplateService.cs      # Шаблоны конфигураций (разбор 1cv8.mft)
-│   ├── IbasesV8iImporter.cs        # Импорт из ibases.v8i и поиск ID базы
-│   ├── IbasesV8iExporter.cs        # Экспорт в ibases.v8i
+│   ├── IbasesV8iImporter.cs / IbasesV8iExporter.cs # Импорт/экспорт ibases.v8i
 │   ├── IbasesBackupService.cs      # Резервные копии ibases.v8i
-│   ├── InfobaseRepository.cs       # Хранение данных в JSON (атомарная запись)
-│   ├── InfobaseMaintenanceService.cs # Обслуживание баз (выгрузка .dt/.cf, тест, ярлык)
-│   ├── PlatformVersionService.cs   # Поиск установленных версий платформы
+│   ├── IbasesV8iExporter.cs
+│   ├── IIbasesSyncService.cs       # Интерфейс синхронизации с ibases.v8i
+│   ├── InfobaseRepository.cs / IInfobaseRepository.cs # Хранение в JSON (атомарная запись)
+│   ├── InfobaseMaintenanceService.cs / .Linux.cs # Выгрузка .dt/.cf, тест, ярлык (.lnk / .desktop)
+│   ├── PlatformVersionService.cs / .Linux.cs # Поиск версий (Program Files / /opt/1cv8, readelf)
+│   ├── PlatformPaths.cs            # Пути данных/кэша/шаблонов (Windows и Linux/XDG)
+│   ├── OneCComConnector.cs / .Linux.cs  # COM-коннектор 1С (Windows) / эвристика+DESIGNER (Linux)
+│   ├── OneCComConnectorRegistrar.cs # Регистрация COM-компонента (только Windows)
+│   ├── ConfigurationInfoService.cs # Запрос информации о конфигурации
+│   ├── LinuxProcess.cs             # Чтение командной строки из /proc/<pid>/cmdline (Linux)
+│   ├── IOneCLauncher.cs / IPlatformVersionService.cs / IAppLogger.cs / IDialogService.cs
 │   ├── FileAppLogger.cs            # Файловое логирование с ротацией
-│   └── WpfDialogService.cs         # Диалоги через MVVM (без MessageBox в ViewModel)
+│   ├── WpfDialogService.cs         # Диалоги через MVVM (Windows, без MessageBox в ViewModel)
+│   └── AvaloniaDialogService.cs    # Диалоги + StorageProvider (Linux)
 ├── ViewModels/                     # ViewModel (MVVM)
-│   ├── MainViewModel.cs            # Главная ViewModel (фасад)
-│   ├── LaunchViewModel.cs          # Логика запуска (единый LaunchCommand)
+│   ├── MainViewModel.cs / MainViewModel.Avalonia.cs # Главная ViewModel (фасад)
+│   ├── LaunchViewModel.cs / LaunchViewModel.Avalonia.cs # Логика запуска (LaunchCommand)
 │   ├── ConnectionSettingsViewModel.cs
-│   ├── GroupNodeViewModel.cs       # Узел дерева групп
-│   ├── ViewModelBase.cs
-│   └── RelayCommand.cs
-├── Controls/                       # Переиспользуемые элементы
+│   ├── GroupNodeViewModel.cs / GroupNodeViewModel.Avalonia.cs # Узел дерева групп
+│   ├── MetadataNodeViewModel.cs
+│   ├── ViewModelBase.cs / ViewModelBase.Avalonia.cs
+│   └── RelayCommand.cs / RelayCommand.Avalonia.cs
+├── Controls/                       # Переиспользуемые элементы (WPF + *.Avalonia.cs)
 │   ├── GroupTreeView.xaml(.cs)     # Дерево групп
-│   └── InfobaseListView.xaml(.cs)  # Список информационных баз
-├── Converters/                     # Конвертеры WPF
-│   ├── DoubleToGridLengthConverter.cs
-│   ├── GroupColorConverter.cs
-│   ├── GroupTextColorConverter.cs  # Контрастный цвет текста группы
-│   └── IconKeyToGeometryConverter.cs
-└── Themes/                         # Темы оформления (включая стили DataGrid и кастомный ScrollBar)
-    ├── ThemeManager.cs
-    ├── LightTheme.xaml
-    ├── DarkTheme.xaml
-    └── Icons.xaml                  # Набор векторных иконок
+│   ├── InfobaseListView.xaml(.cs)  # Список информационных баз
+│   └── HelpLink.xaml(.cs)          # Гиперссылка-подсказка «?»
+├── Converters/                     # Конвертеры WPF (Windows)
+├── Converters/Avalonia/            # Конвертеры Avalonia (Linux) — 18 шт.
+├── build.sh / build-linux-single-file.sh / build.ps1  # Скрипты сборки
+├── Configuration Management.csproj # Единый csproj с условной компиляцией по ОС
+
+package/
+└── linux/
+    ├── appimage.sh                 # Упаковка в AppImage
+    ├── configuration-management.desktop
+    ├── app.png                     # Иконка приложения для пакетов
+    └── deb/                        # Сборка .deb пакета (DEBIAN/control)
 
 tools/
 └── GenerateIcon/                   # Утилита генерации иконки приложения
@@ -263,13 +375,14 @@ tools/
 
 ## 💾 Хранение данных
 
-Данные приложения сохраняются в каталоге `%APPDATA%\ConfigurationManagement`:
+Данные приложения сохраняются в каталоге `%APPDATA%\ConfigurationManagement` (на Linux — `~/.config/ConfigurationManagement`, путь определяется в [`PlatformPaths.cs`](Configuration%20Management/Services/PlatformPaths.cs)):
 
 | Файл | Содержимое |
 |------|------------|
 | `infobases.json` | Список информационных баз |
 | `groups.json` | Список групп с цветами |
-| `settings.json` | Настройки интерфейса (тема, избранное, группировка, ширина колонок, размер и позиция окна, режим синхронизации с `ibases.v8i`) |
+| `settings.json` | Настройки интерфейса (тема, избранное, группировка, ширина колонок, размер и позиция окна, активная цветовая схема, шрифты, режим синхронизации с `ibases.v8i`) |
+| `ColorSchemes/` | Пользовательские цветовые схемы (JSON) |
 | `logs/` | Журнал приложения (`app-YYYYMMDD.log`, ротация 14 дней / 5 МБ) |
 
 ## 🔗 Работа с файлом `ibases.v8i`
@@ -331,7 +444,7 @@ dotnet build "Configuration Management.csproj" -c Release
 dotnet publish "Configuration Management.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o .\publish\win-x64
 ```
 
-> На Linux/macOS сборка не поддерживается (проект WPF `net10.0-windows`). Для публикации используйте Windows или GitHub Actions (`.github/workflows/`).
+> На Windows проект собирается как WPF (`net10.0-windows`); на Linux — как Avalonia (`net10.0`). Целевой TFM и набор компилируемых файлов выбираются автоматически по ОС в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj). Для Linux доступны скрипты `./build.sh`, `./build-linux-single-file.sh` и упаковка в AppImage / `.deb` (см. раздел «🐧 Поддержка Linux»).
 
 ### Автоматическая сборка (GitHub Actions)
 
@@ -343,12 +456,12 @@ dotnet publish "Configuration Management.csproj" -c Release -r win-x64 --self-co
 Создание релиза:
 
 ```bash
-git tag v0.2.5.83
-git push origin v0.2.5.83
+git tag v0.3.1.1
+git push origin v0.3.1.1
 ```
 
-Артефакт `ConfigurationManagement-v0.2.5.83-win-x64.zip` появится в Releases.
+Артефакт `ConfigurationManagement-v0.3.1.1-win-x64.zip` (и `-linux-x64`, при включённом Linux-джобе) появится в Releases.
 
-> Требуется Windows-раннер (`windows-latest`): проект WPF (`net10.0-windows`).
+> Для WPF-сборки требуется Windows-раннер (`windows-latest`); для Linux-сборки Avalonia — `ubuntu-latest`.
 
 

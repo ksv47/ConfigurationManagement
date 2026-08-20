@@ -1,0 +1,20 @@
+<!-- Avalonia-версия приложения (Linux). Включается только в Linux-конфигурации.
+     Windows использует WPF App.xaml. -->
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Configuration_Management.App"
+             RequestedThemeVariant="Default">
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+
+    <Application.Resources>
+        <!-- Векторные иконки (Linux): StreamGeometry-ресурсы для Path.Data.
+             Светлая/тёмная палитра накладывается динамически ThemeManager.ApplyScheme. -->
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://ConfigurationManagement/Themes/Icons.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -162,6 +162,32 @@ public static class OneCCacheCleaner
     {
         var roots = new List<string>();
 
+#if LINUX
+        // Linux: программный кеш — ~/.cache/1cv8 (XDG_CACHE_HOME) и ~/.1cv8/1cv8;
+        // пользовательский — ~/.local/share/1cv8/1cv8 (XDG_DATA_HOME) и ~/.1cv8/1cv8.
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        if (kind.HasFlag(OneCCacheKind.Program))
+        {
+            var xdgCache = Environment.GetEnvironmentVariable("XDG_CACHE_HOME");
+            if (!string.IsNullOrWhiteSpace(xdgCache))
+                roots.Add(Path.Combine(xdgCache, "1cv8"));
+            else if (!string.IsNullOrEmpty(home))
+                roots.Add(Path.Combine(home, ".cache", "1cv8"));
+        }
+
+        if (kind.HasFlag(OneCCacheKind.User))
+        {
+            var xdgData = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+            if (!string.IsNullOrWhiteSpace(xdgData))
+                roots.Add(Path.Combine(xdgData, "1cv8"));
+            else if (!string.IsNullOrEmpty(home))
+                roots.Add(Path.Combine(home, ".local", "share", "1cv8"));
+            // Общая для всех версий каталог кэша в профиле 1С.
+            if (!string.IsNullOrEmpty(home))
+                roots.Add(Path.Combine(home, ".1cv8", "1cv8"));
+        }
+#else
         // Программный кеш — %LOCALAPPDATA%\1C\1cv8.
         if (kind.HasFlag(OneCCacheKind.Program))
         {
@@ -177,6 +203,7 @@ public static class OneCCacheCleaner
             if (!string.IsNullOrEmpty(appData))
                 roots.Add(Path.Combine(appData, "1C", "1cv8"));
         }
+#endif
 
         return roots;
     }

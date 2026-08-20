@@ -1,61 +1,183 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
+  <!-- ======================================================================
+       Windows-конфигурация (WPF): net10.0-windows
+       TFM net10.0-windows автоматически определяет символ условной
+       компиляции WINDOWS (и WINDOWS10_0_*), поэтому #if WINDOWS работает
+       на Windows без дополнительной настройки.
+       ====================================================================== -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- ======================================================================
+       Linux-конфигурация (Avalonia): net10.0 (без суффикса -windows)
+       UseWPF / UseWindowsForms / System.Management / MaterialDesignThemes
+       здесь не подключаются (нет WPF на Linux).
+       ====================================================================== -->
+  <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- Символ LINUX для директив #if LINUX / #if !WINDOWS -->
+    <DefineConstants>$(DefineConstants);LINUX</DefineConstants>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- Общие свойства (применяются к обеим конфигурациям) -->
+  <PropertyGroup>
     <!-- AssemblyName без пробела: иначе при single-file publish WPF не находит
          ресурс «app.xaml» (System.IO.IOException при запуске). -->
     <AssemblyName>ConfigurationManagement</AssemblyName>
     <RootNamespace>Configuration_Management</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyTitle>Управление конфигурациями 1С</AssemblyTitle>
     <Product>Управление конфигурациями 1С</Product>
     <!-- Примечание: .NET/NuGet поддерживают не более 4 числовых частей версии,
          поэтому AssemblyVersion/FileVersion/Version ограничены 4 частями, а точная
-         пользовательская версия «0.2.7.13» задаётся через InformationalVersion
+         пользовательская версия «0.3.1.1» задаётся через InformationalVersion
          и выводится в заголовок окна. -->
-    <Version>0.2.7</Version>
-    <AssemblyVersion>0.2.7</AssemblyVersion>
-    <FileVersion>0.2.7</FileVersion>
-    <InformationalVersion>0.2.7.35</InformationalVersion>
-    <ApplicationIcon>app.ico</ApplicationIcon>
+    <Version>0.3.1</Version>
+    <AssemblyVersion>0.3.1</AssemblyVersion>
+    <FileVersion>0.3.1</FileVersion>
+    <InformationalVersion>0.3.1.1</InformationalVersion>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>
   </PropertyGroup>
 
+  <!-- Публикация self-contained single-file; RID зависит от ОС -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and $([MSBuild]::IsOSPlatform('Windows'))">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and !$([MSBuild]::IsOSPlatform('Windows'))">
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+  </PropertyGroup>
 
-  <ItemGroup>
-    <!-- WPF pack URI + embedded для single-file трея (без копирования рядом с exe,
-         чтобы в результате публикации был только один файл) -->
+  <!-- WPF-ресурсы иконок (embedded, только Windows) -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <Resource Include="app.ico" />
     <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
     <Resource Include="tray.ico" />
     <EmbeddedResource Include="tray.ico" LogicalName="tray.ico" />
   </ItemGroup>
 
+  <!-- Пакеты: общие для обеих платформ -->
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+  </ItemGroup>
+
+  <!-- Пакеты: только Windows (WPF). System.Management (Win32_Process) и
+       MaterialDesignThemes (PackIcon) — Windows-only, для Linux исключены. -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <PackageReference Include="MaterialDesignThemes" Version="5.2.1" />
     <!-- Для чтения командной строки процессов 1cv8.exe (Win32_Process) при проверке
          блокировки запуска конфигуратора перед выгрузкой .dt / .cf. -->
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
-  <!-- Не импортировать WinForms/Drawing глобально — иначе конфликт с типами WPF -->
-  <ItemGroup>
+  <!-- Пакеты: только Linux (Avalonia). На этапе 1 подключаются как замена WPF;
+       MaterialDesignThemes для Linux не подключается (полная замена иконок — позже). -->
+  <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <PackageReference Include="Avalonia" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.20">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Иконки для трея (Linux): PNG встраиваются в сборку, чтобы трей имел иконку
+       независимо от рабочего каталога. Загрузка через WindowIcon без System.Drawing. -->
+  <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <EmbeddedResource Include="tray_icon_preview.png" LogicalName="tray_icon_preview.png" />
+    <EmbeddedResource Include="app_icon_preview.png" LogicalName="app_icon_preview.png" />
+  </ItemGroup>
+
+  <!-- Не импортировать WinForms/Drawing глобально на Windows — иначе конфликт с типами WPF -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <!-- ======================================================================
+       Linux (Avalonia): исключаем WPF/Windows-only файлы из компиляции.
+       Окна, контролы, конвертеры, темы и Windows-сервисы портируются на
+       более поздних этапах (Этапы 3 и 5). Для Linux остаются: App.axaml/.cs,
+       Program.cs, MainWindow.Avalonia.cs (заглушка), чистые .NET-модели и
+       сервисы, а также Services/LinuxStubs.cs (временные заглушки DI).
+       .xaml-файлы здесь не компилируются (нет UseWPF/Avalonia для .xaml),
+       поэтому достаточно удалить их code-behind (.cs).
+       ====================================================================== -->
+  <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <!-- WPF App (вместо него — App.axaml/.cs) -->
+    <Compile Remove="App.xaml.cs" />
+    <!-- Окна (код за разметкой; разметка .xaml в Linux не компилируется) -->
+    <Compile Remove="MainWindow.xaml.cs" />
+    <Compile Remove="AddEditWindow.xaml.cs" />
+    <Compile Remove="CacheCleanWindow.xaml.cs" />
+    <Compile Remove="ColorPickerWindow.xaml.cs" />
+    <Compile Remove="ConnectionSettingsWindow.xaml.cs" />
+    <Compile Remove="ConnectionStringInputWindow.xaml.cs" />
+    <Compile Remove="CreateInfobaseWindow.xaml.cs" />
+    <Compile Remove="DeleteInfobaseWindow.xaml.cs" />
+    <Compile Remove="GroupEditWindow.xaml.cs" />
+    <Compile Remove="GroupPickerWindow.xaml.cs" />
+    <Compile Remove="GroupSettingsWindow.xaml.cs" />
+    <Compile Remove="LaunchParametersWindow.xaml.cs" />
+    <Compile Remove="LinkInputWindow.xaml.cs" />
+    <Compile Remove="NameInputWindow.xaml.cs" />
+    <Compile Remove="PlatformVersionPickerWindow.xaml.cs" />
+    <Compile Remove="SettingsWindow.xaml.cs" />
+    <Compile Remove="TagInputWindow.xaml.cs" />
+    <!-- Кастомные контролы (WPF) исключаем, но возвращаем Avalonia-версии (*.Avalonia.cs) -->
+    <Compile Remove="Controls\**\*.cs" />
+    <Compile Include="Controls\*.Avalonia.cs" />
+    <!-- Конвертеры (WPF) исключаем, но возвращаем Avalonia-версии (Converters/Avalonia/*) -->
+    <Compile Remove="Converters\**\*.cs" />
+    <Compile Include="Converters\Avalonia\*.cs" />
+    <!-- Темы (WPF) исключаем; также старую заглушку ThemeManager.Linux.cs —
+         вместо неё полный ThemeManager.Avalonia.cs (подключается автоматически) -->
+    <Compile Remove="Themes\ThemeManager.cs" />
+    <Compile Remove="Themes\ThemeManager.Linux.cs" />
+    <!-- ViewModels: подключаем Avalonia-версии (*.Avalonia.cs) и чистые .NET (без WPF-зависимостей).
+         WPF-зависимые ViewModel (MainViewModel.cs, GroupNodeViewModel.cs, RelayCommand.cs и др.) исключаются. -->
+    <Compile Remove="ViewModels\**\*.cs" />
+    <Compile Include="ViewModels\*.Avalonia.cs" />
+    <Compile Include="ViewModels\ConnectionSettingsViewModel.cs" />
+    <Compile Include="ViewModels\MetadataNodeViewModel.cs" />
+    <!-- Windows-only сервисы — Этап 5 -->
+    <Compile Remove="Services\WpfDialogService.cs" />
+    <Compile Remove="Services\OneCLauncher.cs" />
+    <Compile Remove="Services\OneCComConnector.cs" />
+    <Compile Remove="Services\OneCComConnectorRegistrar.cs" />
+    <Compile Remove="Services\PlatformVersionService.cs" />
+    <Compile Remove="Services\InfobaseMaintenanceService.cs" />
+    <!-- OneCTemplateService портирован на Linux (Этап 4): пути tmplts, чтение
+         1cestart.cfg вместо реестра; реестр обёрнут в #if WINDOWS. -->
+    <!-- Окна (Этап 3): портированные Avalonia-версии (*.Avalonia.cs) в коде.
+         Remove затем Include — чтобы не было конфликта с дефолтным глобом SDK. -->
+    <Compile Remove="*Window.Avalonia.cs" />
+    <Compile Include="*Window.Avalonia.cs" />
+    <Compile Remove="ModalWindowBase.cs" />
+    <Compile Include="ModalWindowBase.cs" />
+    <!-- Этап 5: полноценные Linux-реализации сервисов 1С (*.Linux.cs включаются
+         автоматически дефолтным глобом; WPF-файлы исключены выше).
+         Старые временные заглушки (Этап 2/3) больше не компилируются. -->
+    <Compile Remove="Services\LinuxStubs.cs" />
+    <Compile Remove="Services\LinuxOneCServiceShims.cs" />
   </ItemGroup>
 
 </Project>

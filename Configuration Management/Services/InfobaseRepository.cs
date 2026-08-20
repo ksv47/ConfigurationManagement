@@ -25,9 +25,7 @@ public class InfobaseRepository : IInfobaseRepository
     {
         var directory = filePath != null
             ? Path.GetDirectoryName(filePath)
-            : Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "ConfigurationManagement");
+            : PlatformPaths.AppDataDirectory;
 
         _filePath = filePath ?? Path.Combine(directory!, "infobases.json");
         _groupsFilePath = Path.Combine(directory!, "groups.json");

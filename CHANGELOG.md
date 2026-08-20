@@ -5,6 +5,20 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.1.1] — 2026-08-20
+
+### Добавлено (Linux-порт, Этапы 0–8)
+
+- **Полный порт «Управление конфигурациями 1С» на Linux (Avalonia 11.3)**. Проект разделён на две конфигурации по ОС: Windows — WPF (`net10.0-windows`), Linux — Avalonia (`net10.0`). Windows-сборка не сломана. Детали и статус — в [`Configuration Management/LINUX_PORT.md`](Configuration Management/LINUX_PORT.md) и [`PLAN_LINUX.md`](PLAN_LINUX.md). Реализовано по этапам:
+  - **Этап 0–1 (инфраструктура/csproj):** подключение Avalonia, исключение WPF/`System.Management`/`MaterialDesignThemes` из Linux-ветки, `DefineConstants=LINUX`, RID `linux-x64`/`win-x64` по ОС.
+  - **Этап 2 (инфраструктура приложения):** Avalonia-`App` ([`App.axaml.cs`](Configuration Management/App.axaml.cs)), точка входа ([`Program.cs`](Configuration Management/Program.cs)), один экземпляр через файловый lock (`configuration-management.lock`) и активация через файл-сигнал `activate` (вместо `Mutex`/`user32`), обработка необработанных ошибок.
+  - **Этап 3 (окна/контролы/конвертеры/темы):** порт окон на Avalonia (`*.Avalonia.cs`), контролы (GroupTreeView, LeveledTreeView, HotkeyBox и др.), конвертеры (`Converters/Avalonia/`), темы ([`ThemeManager.Avalonia.cs`](Configuration Management/Themes/ThemeManager.Avalonia.cs)); файловые диалоги через `StorageProvider` ([`AvaloniaDialogService.cs`](Configuration Management/Services/AvaloniaDialogService.cs)).
+  - **Этап 4 (пути/хранилище):** общий [`PlatformPaths.cs`](Configuration Management/Services/PlatformPaths.cs) (`~/.config/ConfigurationManagement`), поиск `ibases.v8i` в `~/.1cv8/1CEStart/` и XDG-путях, кэш 1С (`~/.cache/1cv8`, `~/.local/share/1cv8`), шаблоны из `tmplts`/`1cestart.cfg`.
+  - **Этап 5 (сервисы платформы 1С):** [`PlatformVersionService.Linux.cs`](Configuration Management/Services/PlatformVersionService.Linux.cs) (поиск `1cv8` в `/opt/1cv8` и др., разрядность через `readelf`), [`OneCLauncher.Linux.cs`](Configuration Management/Services/OneCLauncher.Linux.cs) (запуск `ENTERPRISE`/`DESIGNER`, пакетные операции, `CREATEINFOBASE`), [`InfobaseMaintenanceService.Linux.cs`](Configuration Management/Services/InfobaseMaintenanceService.Linux.cs), [`OneCComConnector.Linux.cs`](Configuration Management/Services/OneCComConnector.Linux.cs) (без COM — чтение конфигурации через `DESIGNER`/эвристику), чтение командной строки из `/proc/<pid>/cmdline` ([`LinuxProcess.cs`](Configuration Management/Services/LinuxProcess.cs)).
+  - **Этап 6 (ярлыки/файловый менеджер/трей):** `.desktop`-ярлык вместо `.lnk`, открытие/выделение каталога через `xdg-open`/`nautilus`/`dolphin`, `xdg-open` для ссылок, `1cestart` вместо `1CEStart.exe`, трей через `TrayIcon`+`NativeMenu` без `System.Drawing`.
+  - **Этап 7 (сборка/упаковка):** [`build.sh`](Configuration Management/build.sh) (single-file `linux-x64`), AppImage ([`package/linux/appimage.sh`](package/linux/appimage.sh)) и `.deb` ([`package/linux/deb/build-deb.sh`](package/linux/deb/build-deb.sh)).
+  - **Этап 8 (тестирование):** подготовлен исчерпывающий чек-лист прогона на Linux-хосте — [`Configuration Management/LINUX_TESTING.md`](Configuration Management/LINUX_TESTING.md). Реальное тестирование на Linux требуется выполнить на целевой машине (на Windows-хосте недоступны Linux SDK и Linux-версия 1С).
+
 ## [0.2.7.35] — 2026-08-20
 
 ### Изменено

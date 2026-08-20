@@ -1,0 +1,17 @@
+Package: configuration-management
+Version: 0.3.1.1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Configuration Management Team <support@example.com>
+Installed-Size: 120000
+Depends: libc6 (>= 2.31), libgtk-3-0, libglib2.0-0
+Recommends: xdg-utils
+Description: Управление конфигурациями 1С
+ Десктопное приложение для управления информационными базами
+ 1С:Предприятие 8.3: запуск в режимах «1С:Предприятие» и «Конфигуратор»,
+ иерархические группы, избранное, мультифильтр по тегам, очистка кеша,
+ синхронизация с ibases.v8i, системный трей, светлая и тёмная темы.
+ .
+ Пакет является self-contained single-file сборкой (.NET 10, Avalonia),
+ поэтому не требует установки .NET Runtime.

@@ -327,6 +327,22 @@ public static class IbasesV8iImporter
     {
         var candidates = new List<string>();
 
+#if LINUX
+        // Linux: платформа 1С хранит список баз в ~/.1cv8/1CEStart/ibases.v8i,
+        // а также (в зависимости от версии/дистрибутива) в ~/.local/share/1cv8/1CEStart/.
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrEmpty(home))
+        {
+            candidates.Add(Path.Combine(home, ".1cv8", "1CEStart", "ibases.v8i"));
+            candidates.Add(Path.Combine(home, ".local", "share", "1cv8", "1CEStart", "ibases.v8i"));
+            candidates.Add(Path.Combine(home, ".local", "share", "1C", "1CEStart", "ibases.v8i"));
+        }
+
+        // Учитываем явно заданный XDG_DATA_HOME.
+        var xdgData = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+        if (!string.IsNullOrWhiteSpace(xdgData))
+            candidates.Add(Path.Combine(xdgData, "1cv8", "1CEStart", "ibases.v8i"));
+#else
         // Основной путь: %APPDATA%\1C\1CEStart\ibases.v8i
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         if (!string.IsNullOrEmpty(appData))
@@ -340,6 +356,7 @@ public static class IbasesV8iImporter
         {
             candidates.Add(Path.Combine(localAppData, "1C", "1CEStart", "ibases.v8i"));
         }
+#endif
 
         return candidates.FirstOrDefault(File.Exists);
     }

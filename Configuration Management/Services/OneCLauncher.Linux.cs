@@ -1,0 +1,960 @@
+#if LINUX
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
+using Configuration_Management.Models;
+
+namespace Configuration_Management.Services
+{
+    // ========================================================================
+    // Режимы/типы запуска (общие для обеих платформ; в Windows определены в
+    // OneCLauncher.cs, в Linux — здесь, т.к. WPF-файл исключён из сборки).
+    // ========================================================================
+
+    /// <summary>Режим запуска платформы 1С.</summary>
+    public enum OneCLaunchMode
+    {
+        /// <summary>Режим «1С:Предприятие» (клиент).</summary>
+        Enterprise,
+        /// <summary>Режим «Конфигуратор» (разработка).</summary>
+        Configurator
+    }
+
+    /// <summary>Тип клиента 1С:Предприятие.</summary>
+    public enum OneCClientType
+    {
+        /// <summary>Тонкий клиент (управляемое приложение).</summary>
+        Thin,
+        /// <summary>Толстый клиент (обычное приложение).</summary>
+        Thick
+    }
+
+    /// <summary>Режим форм приложения 1С:Предприятие.</summary>
+    public enum OneCRunMode
+    {
+        /// <summary>Управляемые формы (/RunModeManagedApplication).</summary>
+        Managed,
+        /// <summary>Обычные формы (/RunModeOrdinaryApplication).</summary>
+        Ordinary
+    }
+
+    /// <summary>Разрядность исполняемого файла платформы 1С.</summary>
+    public enum OneCArchitecture
+    {
+        /// <summary>32-битная версия.</summary>
+        x86,
+        /// <summary>64-битная версия.</summary>
+        x64
+    }
+
+    /// <summary>
+    /// Сервис запуска платформы 1С:Предприятие на Linux.
+    /// Запуск — через /opt/1cv8/<вер>/bin/1cv8 (или 1cv8c) через Process.Start
+    /// без UseShellExecute. Командная строка 1С совместима с Windows.
+    /// </summary>
+    public static class OneCLauncher
+    {
+        /// <summary>Глобальная разрядность по умолчанию (Настройки → Платформы).</summary>
+        public static OneCArchitecture DefaultArchitecture { get; set; } = OneCArchitecture.x64;
+
+        private static readonly ConcurrentDictionary<string, Process> _activeBatchProcesses =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Возникает при запуске пакетной операции DESIGNER.</summary>
+        public static event EventHandler<DesignerBatchInfo>? DesignerBatchStarted;
+
+        /// <summary>Возникает при завершении пакетной операции DESIGNER.</summary>
+        public static event EventHandler<DesignerBatchInfo>? DesignerBatchCompleted;
+
+        // ====================================================================
+        // Запуск базы
+        // ====================================================================
+
+        public static bool Launch(Infobase infobase, OneCLaunchMode mode, bool runAsAdmin = false)
+        {
+            if (mode == OneCLaunchMode.Configurator)
+                return Launch(infobase, mode, OneCClientType.Thin, GetArchitecture(infobase), runAsAdmin);
+
+            if (string.Equals(infobase.LaunchMode, "Веб-клиент", StringComparison.OrdinalIgnoreCase))
+                return LaunchWebClient(infobase);
+
+            if (string.Equals(infobase.LaunchMode, "Автоматический", StringComparison.OrdinalIgnoreCase))
+                return Launch(infobase, mode, null, GetArchitecture(infobase), runAsAdmin);
+
+            if (string.Equals(infobase.LaunchMode, "Толстый клиент (обычные формы)", StringComparison.OrdinalIgnoreCase))
+                return Launch(infobase, mode, OneCClientType.Thick, OneCRunMode.Ordinary, GetArchitecture(infobase), runAsAdmin);
+
+            if (string.Equals(infobase.LaunchMode, "Толстый клиент", StringComparison.OrdinalIgnoreCase))
+                return Launch(infobase, mode, OneCClientType.Thick, OneCRunMode.Managed, GetArchitecture(infobase), runAsAdmin);
+
+            return Launch(infobase, mode, OneCClientType.Thin, OneCRunMode.Managed, GetArchitecture(infobase), runAsAdmin);
+        }
+
+        public static bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture, bool runAsAdmin = false)
+            => Launch(infobase, mode, clientType, null, architecture, runAsAdmin);
+
+        public static bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode, OneCArchitecture architecture, bool runAsAdmin = false)
+        {
+            var exePath = FindExecutable(infobase.PlatformVersion, architecture, clientType, mode);
+            if (string.IsNullOrEmpty(exePath))
+            {
+                var archLabel = architecture == OneCArchitecture.x64 ? "64-бит" : "32-бит";
+                var versionHint = string.IsNullOrWhiteSpace(infobase.PlatformVersion)
+                    ? "Укажите версию платформы в настройках базы или установите 1С."
+                    : $"Запрошена версия: {infobase.PlatformVersion}";
+                var logger = GetLogger();
+                logger?.Warn($"Не удалось найти платформу 1С ({archLabel}). {versionHint}");
+                return false;
+            }
+
+            var arguments = BuildArguments(infobase, mode, clientType, runMode);
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    WorkingDirectory = Path.GetDirectoryName(exePath) ?? ""
+                };
+                Process.Start(psi);
+                infobase.LastLaunchDate = DateTime.Now;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                GetLogger()?.Error($"Не удалось запустить платформу 1С.\n{ex.Message}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>Определяет режим форм по режиму запуска базы.</summary>
+        public static OneCRunMode? GetRunModeFromLaunchMode(string? launchMode)
+        {
+            if (string.Equals(launchMode, "Толстый клиент (обычные формы)", StringComparison.OrdinalIgnoreCase))
+                return OneCRunMode.Ordinary;
+            if (string.Equals(launchMode, "Толстый клиент", StringComparison.OrdinalIgnoreCase))
+                return OneCRunMode.Managed;
+            if (string.Equals(launchMode, "Тонкий клиент", StringComparison.OrdinalIgnoreCase))
+                return OneCRunMode.Managed;
+            return null;
+        }
+
+        private static OneCArchitecture GetArchitecture(Infobase infobase)
+            => ResolveArchitecture(infobase.Architecture, infobase.PlatformVersion);
+
+        /// <summary>Выбор разрядности по правилам 1С:Предприятие.</summary>
+        public static OneCArchitecture ResolveArchitecture(string? architectureSetting, string? platformVersion)
+        {
+            var mode = (architectureSetting ?? string.Empty).Trim().ToLowerInvariant();
+
+            PlatformVersionService.ParseVariant(platformVersion ?? string.Empty, out var cleanVersion, out var versionArch);
+            if (!string.IsNullOrWhiteSpace(cleanVersion) && (versionArch == "32" || versionArch == "64"))
+                return versionArch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86;
+
+            if (mode is "64" or "x64" or "x86-64" or "x86_64")
+                return OneCArchitecture.x64;
+            if (mode is "32" or "x86")
+                return OneCArchitecture.x86;
+
+            if (string.IsNullOrWhiteSpace(mode))
+                return DefaultArchitecture;
+
+            var prefer64 = mode is "64-priority" or "priority64" or "x86-64-priority";
+            var v32 = FindBestVersionDir("32", cleanVersion);
+            var v64 = FindBestVersionDir("64", cleanVersion);
+
+            if (v32 is null && v64 is null)
+                return prefer64 ? OneCArchitecture.x64 : OneCArchitecture.x86;
+            if (v32 is null)
+                return OneCArchitecture.x64;
+            if (v64 is null)
+                return OneCArchitecture.x86;
+
+            var cmp = PlatformVersionService.CompareVersionStrings(v32, v64);
+            if (cmp > 0)
+                return OneCArchitecture.x86;
+            if (cmp < 0)
+                return OneCArchitecture.x64;
+            return prefer64 ? OneCArchitecture.x64 : OneCArchitecture.x86;
+        }
+
+        private static string? FindBestVersionDir(string archKey, string preferredVersion)
+        {
+            var entries = PlatformVersionService.FindPlatformVersionDirs(archKey);
+            string? best = null;
+            foreach (var (version, _) in entries)
+            {
+                if (!string.IsNullOrWhiteSpace(preferredVersion) &&
+                    string.Equals(version, preferredVersion, StringComparison.OrdinalIgnoreCase))
+                    return version;
+                if (best is null || PlatformVersionService.CompareVersionStrings(version, best) > 0)
+                    best = version;
+            }
+            return best;
+        }
+
+        /// <summary>Формирует аргументы командной строки для запуска 1С.</summary>
+        private static string BuildArguments(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode)
+        {
+            var modeArg = mode switch
+            {
+                OneCLaunchMode.Enterprise => "ENTERPRISE",
+                _ => "DESIGNER"
+            };
+
+            var clientArg = mode == OneCLaunchMode.Enterprise && (runMode.HasValue || clientType.HasValue)
+                ? (runMode ?? (clientType == OneCClientType.Thin ? OneCRunMode.Managed : OneCRunMode.Ordinary)) switch
+                {
+                    OneCRunMode.Managed => " /RunModeManagedApplication",
+                    _ => " /RunModeOrdinaryApplication"
+                }
+                : "";
+
+            var conn = infobase.Connection;
+            string connectionArg = conn.Type switch
+            {
+                ConnectionType.File => $" /F \"{conn.FilePath}\"",
+                ConnectionType.WebServer => $" /WS \"{conn.WebUrl}\"",
+                _ => $" /S \"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
+            };
+
+            AuthenticationMode authMode;
+            string authUser;
+            string authPassword;
+            if (mode == OneCLaunchMode.Enterprise && infobase.EnterpriseAuth is { } entAuth)
+            {
+                authMode = entAuth.AuthenticationMode;
+                authUser = entAuth.User;
+                authPassword = entAuth.Password;
+            }
+            else if (mode == OneCLaunchMode.Configurator && infobase.ConfiguratorAuth is { } cfgAuth)
+            {
+                authMode = cfgAuth.AuthenticationMode;
+                authUser = cfgAuth.User;
+                authPassword = cfgAuth.Password;
+            }
+            else
+            {
+                authMode = conn.AuthenticationMode;
+                authUser = conn.User;
+                authPassword = conn.Password;
+            }
+
+            string authArg = authMode switch
+            {
+                AuthenticationMode.Credentials when !string.IsNullOrWhiteSpace(authUser)
+                    => $" /N\"{authUser}\" /P\"{authPassword}\"",
+                AuthenticationMode.Windows
+                    => " /WA+",
+                _ => ""
+            };
+
+            var extraArg = string.IsNullOrWhiteSpace(infobase.LaunchParameters)
+                ? ""
+                : " " + infobase.LaunchParameters.Trim();
+
+            return $"{modeArg}{clientArg}{connectionArg}{authArg}{extraArg}";
+        }
+
+        private static bool LaunchWebClient(Infobase infobase)
+        {
+            var conn = infobase.Connection;
+            string url;
+            if (conn.Type == ConnectionType.WebServer)
+            {
+                if (string.IsNullOrWhiteSpace(conn.WebUrl))
+                    return false;
+                url = conn.WebUrl;
+            }
+            else if (conn.Type == ConnectionType.ClientServer)
+            {
+                url = $"http://{conn.Server}/{conn.DatabaseName}";
+            }
+            else
+            {
+                return false;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo { FileName = "xdg-open", UseShellExecute = false, ArgumentList = { url } });
+                infobase.LastLaunchDate = DateTime.Now;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // ====================================================================
+        // Поиск исполняемого файла
+        // ====================================================================
+
+        /// <summary>Имена бинарников 1С на Linux (без .exe).</summary>
+        private static string[] GetBinaryNames(OneCArchitecture architecture, OneCClientType? clientType, OneCLaunchMode mode)
+        {
+            if (mode == OneCLaunchMode.Configurator)
+                return new[] { "1cv8" };
+            if (clientType == OneCClientType.Thin)
+                return new[] { "1cv8c", "1cv8" };
+            return new[] { "1cv8" };
+        }
+
+        /// <summary>Ищет исполняемый файл 1cv8/1cv8c нужной версии и разрядности.</summary>
+        private static string? FindExecutable(
+            string version,
+            OneCArchitecture architecture,
+            OneCClientType? clientType = null,
+            OneCLaunchMode mode = OneCLaunchMode.Enterprise)
+        {
+            PlatformVersionService.ParseVariant(version ?? string.Empty, out var cleanVersion, out _);
+            if (string.IsNullOrWhiteSpace(cleanVersion))
+                cleanVersion = string.Empty;
+
+            var archKey = architecture == OneCArchitecture.x64 ? "64" : "32";
+            var exeNames = GetBinaryNames(architecture, clientType, mode);
+
+            // 1. Конкретная версия в bin\.
+            if (!string.IsNullOrWhiteSpace(cleanVersion))
+            {
+                var versionBinDir = PlatformVersionService.ResolveVersionBinDirectory(cleanVersion, archKey);
+                if (versionBinDir != null)
+                {
+                    foreach (var exeName in exeNames)
+                    {
+                        var candidate = Path.Combine(versionBinDir, exeName);
+                        if (File.Exists(candidate))
+                            return candidate;
+                    }
+                }
+            }
+
+            // 2. Любая установленная версия нужной разрядности (новейшая).
+            string? best = null;
+            string bestDir = string.Empty;
+            foreach (var (verName, binDir) in PlatformVersionService.FindPlatformVersionDirs(archKey))
+            {
+                string? chosen = null;
+                foreach (var exeName in exeNames)
+                {
+                    var candidate = Path.Combine(binDir, exeName);
+                    if (File.Exists(candidate))
+                    {
+                        chosen = candidate;
+                        break;
+                    }
+                }
+                if (chosen is null)
+                    continue;
+                if (best is null || PlatformVersionService.CompareVersionStrings(verName, bestDir) > 0)
+                {
+                    best = chosen;
+                    bestDir = verName;
+                }
+            }
+
+            if (best != null)
+                return best;
+
+            // 3. Симлинк /usr/bin/1cv8 или ~/.1cv8/1cv8.
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            foreach (var dir in new[] { "/usr/bin", string.IsNullOrEmpty(home) ? null : Path.Combine(home, ".1cv8") })
+            {
+                if (dir is null)
+                    continue;
+                foreach (var exeName in exeNames)
+                {
+                    var path = Path.Combine(dir, exeName);
+                    if (File.Exists(path))
+                        return path;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>Путь к 1cv8 (толстый клиент) для ярлыка / пакетных операций.</summary>
+        public static string? ResolveThickClientExe(Infobase infobase)
+        {
+            var arch = ResolveArchitecture(infobase.Architecture, infobase.PlatformVersion);
+            return FindExecutable(infobase.PlatformVersion, arch, OneCClientType.Thick, OneCLaunchMode.Enterprise)
+                ?? FindExecutable(infobase.PlatformVersion, arch, null, OneCLaunchMode.Configurator);
+        }
+
+        // ====================================================================
+        // Пакетные операции DESIGNER
+        // ====================================================================
+
+        /// <summary>Операции DESIGNER без интерактивного UI (выгрузка, тест).</summary>
+        public enum DesignerBatchOperation
+        {
+            DumpIB,
+            DumpCfg,
+            TestAndRepair
+        }
+
+        /// <summary>Информация о запущенной пакетной операции DESIGNER.</summary>
+        public sealed class DesignerBatchInfo
+        {
+            public DesignerBatchInfo(DesignerBatchOperation operation, string infobaseName, string? outputPath,
+                string? logPath = null, string? commandLine = null)
+            {
+                Operation = operation;
+                InfobaseName = infobaseName;
+                OutputPath = outputPath;
+                LogPath = logPath;
+                CommandLine = commandLine;
+            }
+
+            public DesignerBatchOperation Operation { get; }
+            public string InfobaseName { get; }
+            public string? OutputPath { get; }
+            public string? LogPath { get; }
+            public string? CommandLine { get; }
+            public int ExitCode { get; set; } = -1;
+            public bool Success { get; set; }
+            public string? ErrorMessage { get; set; }
+
+            public string OperationLabel => Operation switch
+            {
+                DesignerBatchOperation.DumpIB => "Выгрузка ИБ (.dt)",
+                DesignerBatchOperation.DumpCfg => "Выгрузка конфигурации (.cf)",
+                DesignerBatchOperation.TestAndRepair => "Тестирование ИБ",
+                _ => "Пакетная операция конфигуратора"
+            };
+        }
+
+        /// <summary>Запускает конфигуратор в пакетном режиме (выгрузка .dt/.cf или тест).</summary>
+        public static bool RunDesignerBatch(Infobase infobase, DesignerBatchOperation operation, string? outputPath = null)
+        {
+            var arch = ResolveArchitecture(infobase.Architecture, infobase.PlatformVersion);
+            var exePath = FindExecutable(infobase.PlatformVersion, arch, null, OneCLaunchMode.Configurator);
+            if (string.IsNullOrEmpty(exePath))
+            {
+                var otherArch = arch == OneCArchitecture.x64 ? OneCArchitecture.x86 : OneCArchitecture.x64;
+                exePath = FindExecutable(infobase.PlatformVersion, otherArch, null, OneCLaunchMode.Configurator);
+            }
+            if (string.IsNullOrEmpty(exePath))
+                return false;
+
+            if (IsDesignerBlocked(infobase, out _))
+                return false;
+
+            if (operation is DesignerBatchOperation.DumpIB or DesignerBatchOperation.DumpCfg)
+            {
+                if (string.IsNullOrWhiteSpace(outputPath))
+                    return false;
+                var dir = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    try { Directory.CreateDirectory(dir); }
+                    catch { return false; }
+                }
+            }
+
+            var connectionArg = BuildConnectionArgument(infobase);
+            var authArg = BuildAuthArgument(infobase);
+
+            string opArg = operation switch
+            {
+                DesignerBatchOperation.DumpIB => $"/DumpIB\"{outputPath}\"",
+                DesignerBatchOperation.DumpCfg => $"/DumpCfg\"{outputPath}\"",
+                DesignerBatchOperation.TestAndRepair => "/IBCheckAndRepair -TestOnly",
+                _ => ""
+            };
+            if (string.IsNullOrEmpty(opArg))
+                return false;
+
+            var outLog = Path.Combine(Path.GetTempPath(), $"1c_batch_{Guid.NewGuid():N}.log");
+            var arguments = $"DESIGNER {connectionArg}{authArg} {opArg} /DisableStartupDialogs /DisableStartupMessages /Out\"{outLog}\"";
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    WorkingDirectory = Path.GetDirectoryName(exePath) ?? ""
+                };
+                var process = Process.Start(psi);
+                var info = new DesignerBatchInfo(operation, infobase.Name, outputPath, outLog, $"{exePath} {arguments}");
+                RegisterBatchProcess(infobase, process, info);
+                DesignerBatchStarted?.Invoke(null, info);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                GetLogger()?.Error($"Не удалось запустить операцию.\n{ex.Message}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>Токен подключения базы для сопоставления с командной строкой процесса.</summary>
+        public static string GetBaseConnectionToken(Infobase infobase)
+        {
+            var conn = infobase.Connection;
+            return conn.Type switch
+            {
+                ConnectionType.File => (conn.FilePath ?? string.Empty).Trim().TrimEnd('\\', '/'),
+                ConnectionType.WebServer => (conn.WebUrl ?? string.Empty).Trim(),
+                _ => $"{conn.GetServerWithPort()}\\{conn.DatabaseName}".Trim()
+            };
+        }
+
+        private static void RegisterBatchProcess(Infobase infobase, Process? process, DesignerBatchInfo info)
+        {
+            var token = GetBaseConnectionToken(infobase);
+            if (process is null || string.IsNullOrWhiteSpace(token))
+                return;
+
+            _activeBatchProcesses[token] = process;
+            try
+            {
+                process.EnableRaisingEvents = true;
+                process.Exited += (_, _) =>
+                {
+                    _activeBatchProcesses.TryRemove(token, out _);
+                    try { CompleteDesignerBatch(process, info); }
+                    catch { }
+                    DesignerBatchCompleted?.Invoke(null, info);
+                };
+            }
+            catch
+            {
+                // процесс мог уже завершиться
+            }
+        }
+
+        private static void CompleteDesignerBatch(Process process, DesignerBatchInfo info)
+        {
+            try { info.ExitCode = process.HasExited ? process.ExitCode : -1; }
+            catch { info.ExitCode = -1; }
+
+            var logText = ReadLogFile(info.LogPath);
+
+            bool ok = info.ExitCode == 0;
+            if (ok && info.Operation is DesignerBatchOperation.DumpIB or DesignerBatchOperation.DumpCfg)
+            {
+                ok = !string.IsNullOrWhiteSpace(info.OutputPath) &&
+                     File.Exists(info.OutputPath) &&
+                     new FileInfo(info.OutputPath).Length > 0;
+            }
+
+            info.Success = ok;
+            if (ok)
+                return;
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"Операция «{info.OperationLabel}» завершилась неудачно.");
+            sb.AppendLine($"Код возврата 1cv8: {info.ExitCode}.");
+            if (!string.IsNullOrWhiteSpace(info.OutputPath))
+                sb.AppendLine($"Файл: {info.OutputPath}");
+            if (!string.IsNullOrWhiteSpace(logText))
+            {
+                sb.AppendLine();
+                sb.AppendLine("--- Сообщение 1С ---");
+                sb.Append(TruncateLogTail(logText, 3000));
+            }
+            info.ErrorMessage = sb.ToString();
+        }
+
+        private static string ReadLogFile(string? logPath)
+        {
+            if (string.IsNullOrWhiteSpace(logPath))
+                return string.Empty;
+            for (var i = 0; i < 30; i++)
+            {
+                try
+                {
+                    if (!File.Exists(logPath))
+                        break;
+                    var f = new FileInfo(logPath);
+                    if (f.Length > 0)
+                    {
+                        var len1 = f.Length;
+                        Thread.Sleep(120);
+                        var len2 = new FileInfo(logPath).Length;
+                        if (len1 == len2)
+                            break;
+                    }
+                }
+                catch
+                {
+                    break;
+                }
+                Thread.Sleep(80);
+            }
+            try
+            {
+                if (File.Exists(logPath))
+                    return File.ReadAllText(logPath);
+            }
+            catch
+            {
+                // занят
+            }
+            finally
+            {
+                try { File.Delete(logPath); } catch { }
+            }
+            return string.Empty;
+        }
+
+        private static string TruncateLogTail(string text, int maxChars)
+        {
+            text = (text ?? string.Empty).Trim();
+            if (text.Length <= maxChars)
+                return text;
+            return "…" + text.Substring(text.Length - maxChars);
+        }
+
+        /// <summary>Проверяет блокировку запуска конфигуратора перед пакетной операцией.</summary>
+        public static bool IsDesignerBlocked(Infobase infobase, out string? reason)
+        {
+            reason = null;
+            PruneDeadBatchProcesses();
+
+            if (_activeBatchProcesses.Count > 0)
+            {
+                var otherName = _activeBatchProcesses.First().Value?.ProcessName ?? "1cv8";
+                reason = "Уже запущена другая выгрузка или операция конфигуратора " +
+                         $"(процесс {otherName}).\nДождитесь её завершения.";
+                return true;
+            }
+
+            var token = GetBaseConnectionToken(infobase);
+            if (!string.IsNullOrWhiteSpace(token) && IsConfiguratorRunningForBase(token))
+            {
+                reason = "Конфигуратор этой базы уже запущен.\nЗакройте окно конфигуратора перед выгрузкой .dt / .cf.";
+                return true;
+            }
+
+            return false;
+        }
+
+        private static void PruneDeadBatchProcesses()
+        {
+            foreach (var kvp in _activeBatchProcesses)
+            {
+                if (kvp.Value == null || kvp.Value.HasExited)
+                    _activeBatchProcesses.TryRemove(kvp.Key, out _);
+            }
+        }
+
+        /// <summary>Ищет запущенный конфигуратор (1cv8) для базы по командной строке из /proc.</summary>
+        private static bool IsConfiguratorRunningForBase(string baseToken)
+        {
+            try
+            {
+                foreach (var (_, name, cmd) in LinuxProc.Enumerate1C())
+                {
+                    var n = name ?? string.Empty;
+                    if (!n.StartsWith("1cv8", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    var c = cmd ?? string.Empty;
+                    if (c.Contains("DESIGNER", StringComparison.OrdinalIgnoreCase) &&
+                        c.Contains(baseToken, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+            catch
+            {
+                // /proc недоступен
+            }
+            return false;
+        }
+
+        // ====================================================================
+        // Аргументы подключения / авторизации
+        // ====================================================================
+
+        public static string BuildConnectionArgument(Infobase infobase)
+        {
+            var conn = infobase.Connection;
+            return conn.Type switch
+            {
+                ConnectionType.File => $"/F\"{conn.FilePath.Trim().TrimEnd('\\', '/')}\"",
+                ConnectionType.WebServer => $"/WS\"{conn.WebUrl}\"",
+                _ => $"/S\"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
+            };
+        }
+
+        public static string BuildAuthArgument(Infobase infobase)
+        {
+            if (infobase.ConfiguratorAuth is { } cfgAuth &&
+                cfgAuth.AuthenticationMode == AuthenticationMode.Credentials &&
+                !string.IsNullOrWhiteSpace(cfgAuth.User))
+            {
+                var cAuth = $" /N\"{cfgAuth.User}\"";
+                if (!string.IsNullOrEmpty(cfgAuth.Password))
+                    cAuth += $" /P\"{cfgAuth.Password}\"";
+                return cAuth;
+            }
+
+            var conn = infobase.Connection;
+            if (conn.AuthenticationMode != AuthenticationMode.Credentials ||
+                string.IsNullOrWhiteSpace(conn.User))
+                return "";
+            var auth = $" /N\"{conn.User}\"";
+            if (!string.IsNullOrEmpty(conn.Password))
+                auth += $" /P\"{conn.Password}\"";
+            return auth;
+        }
+
+        /// <summary>Аргументы командной строки для ярлыка «как у стартера 1С».</summary>
+        public static string BuildEnterpriseShortcutArguments(Infobase infobase)
+        {
+            var args = $"ENTERPRISE {BuildConnectionArgument(infobase)}{BuildAuthArgument(infobase)}";
+            if (!string.IsNullOrWhiteSpace(infobase.LaunchParameters))
+                args += " " + infobase.LaunchParameters.Trim();
+            return args;
+        }
+
+        // ====================================================================
+        // Запуск по ссылке / открытие URL
+        // ====================================================================
+
+        /// <summary>
+        /// Запускает 1С по ссылке на информационную базу (аналог «Перейти по ссылке»).
+        /// Поддерживаемые форматы:
+        /// <list type="bullet">
+        /// <item>Ссылка-протокол «e1c://…» — открывается системным обработчиком (xdg-open);</item>
+        /// <item>Веб-клиент «http(s)://…» — в браузере по умолчанию (xdg-open);</item>
+        /// <item>Файловая база «/path» или «File="/path"» — через платформу 1cv8;</item>
+        /// <item>Клиент-сервер «server\База» или «Srvr="...";Ref="..."» — через 1cv8.</item>
+        /// </list>
+        /// </summary>
+        /// <param name="link">Ссылка на информационную базу.</param>
+        /// <returns>true, если запуск успешно инициирован.</returns>
+        public static bool LaunchByLink(string link)
+        {
+            var value = (link ?? string.Empty).Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            // Веб-ссылки и ссылки-протоколы обрабатывает системный обработчик (xdg-open).
+            if (value.StartsWith("e1c:", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return OpenUrl(value);
+            }
+
+            // Файловая / клиент-серверная база — запускаем через платформу 1С.
+            var args = ParseLinkArguments(value);
+            if (args is null)
+                return false;
+
+            var exe = FindExecutable(string.Empty, OneCArchitecture.x64, OneCClientType.Thick, OneCLaunchMode.Enterprise)
+                      ?? FindExecutable(string.Empty, OneCArchitecture.x86, OneCClientType.Thick, OneCLaunchMode.Enterprise);
+            if (string.IsNullOrEmpty(exe))
+                return false;
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = $"ENTERPRISE {args}",
+                    UseShellExecute = false,
+                    WorkingDirectory = Path.GetDirectoryName(exe) ?? ""
+                });
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>Открывает URL в приложении по умолчанию (xdg-open).</summary>
+        public static bool OpenUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return false;
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "xdg-open",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    ArgumentList = { url }
+                });
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Разбирает ссылку на файловую/клиент-серверную базу в аргументы командной
+        /// строки 1С (/F /S). Возвращает null, если формат не распознан.
+        /// </summary>
+        private static string? ParseLinkArguments(string value)
+        {
+            // 1. Строка подключения: Srvr="...";Ref="..."
+            var srvr = Regex.Match(value, @"Srvr\s*=\s*""(?<s>[^""]*)""", RegexOptions.IgnoreCase);
+            if (srvr.Success)
+            {
+                var re = Regex.Match(value, @"Ref\s*=\s*""(?<r>[^""]*)""", RegexOptions.IgnoreCase);
+                var server = srvr.Groups["s"].Value.Trim();
+                var db = re.Success ? re.Groups["r"].Value.Trim() : string.Empty;
+                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(db))
+                    return null;
+                return $"/S \"{server}\\{db}\"";
+            }
+
+            // 2. Файловая база: File="..." или File=...
+            var file = Regex.Match(value, @"File\s*=\s*""?(?<f>[^"";]*)""?", RegexOptions.IgnoreCase);
+            if (file.Success)
+            {
+                var path = file.Groups["f"].Value.Trim();
+                if (string.IsNullOrWhiteSpace(path))
+                    return null;
+                return $"/F \"{path}\"";
+            }
+
+            // 3. Клиент-серверная: server\База (обратный слэш, но не существующий каталог).
+            if (value.Contains('\\'))
+            {
+                if (Directory.Exists(value))
+                    return $"/F \"{value}\"";
+                var sep = value.IndexOf('\\');
+                var server = value.Substring(0, sep).Trim();
+                var db = value.Substring(sep + 1).Trim();
+                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(db))
+                    return null;
+                return $"/S \"{server}\\{db}\"";
+            }
+
+            // 4. Простой путь к существующему каталогу файловой базы.
+            if (Directory.Exists(value))
+                return $"/F \"{value}\"";
+
+            return null;
+        }
+
+        // ====================================================================
+        // Создание информационной базы
+        // ====================================================================
+
+        public static (bool Ok, string? Error) CreateInfoBase(
+            string platformVersion,
+            bool isFile,
+            string? filePath,
+            string? server,
+            string? databaseName,
+            string? templatePath = null)
+        {
+            PlatformVersionService.ParseVariant(platformVersion, out var version, out var arch);
+            var exe = FindExecutable(version, arch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86,
+                OneCClientType.Thick, OneCLaunchMode.Configurator);
+            if (string.IsNullOrEmpty(exe))
+                return (false, "Не найден исполняемый файл 1cv8 для указанной версии платформы.");
+
+            string connectionString;
+            if (isFile)
+            {
+                var path = (filePath ?? "").Trim().TrimEnd('\\', '/');
+                if (string.IsNullOrEmpty(path))
+                    return (false, "Не указан каталог файловой базы.");
+                try
+                {
+                    if (!Directory.Exists(path))
+                        Directory.CreateDirectory(path);
+                }
+                catch (Exception ex)
+                {
+                    return (false, $"Не удалось создать каталог:\n{path}\n{ex.Message}");
+                }
+                connectionString = $"File=\"{path}\"";
+            }
+            else
+            {
+                var srv = (server ?? "").Trim();
+                var db = (databaseName ?? "").Trim();
+                if (string.IsNullOrEmpty(srv) || string.IsNullOrEmpty(db))
+                    return (false, "Не указаны сервер или имя базы.");
+                connectionString = $"Srvr=\"{srv}\";Ref=\"{db}\"";
+            }
+
+            var args = new List<string> { "CREATEINFOBASE", connectionString };
+            if (!string.IsNullOrWhiteSpace(templatePath))
+            {
+                if (!File.Exists(templatePath))
+                    return (false, $"Файл шаблона не найден:\n{templatePath}");
+                args.Add($"/UseTemplate\"{templatePath}\"");
+            }
+            args.Add("/DisableStartupDialogs");
+            args.Add("/DisableStartupMessages");
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exe,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WorkingDirectory = Path.GetDirectoryName(exe) ?? ""
+                };
+                foreach (var a in args)
+                    psi.ArgumentList.Add(a);
+
+                using var proc = Process.Start(psi);
+                if (proc is null)
+                    return (false, "Не удалось запустить процесс 1cv8.");
+
+                if (!proc.WaitForExit(5 * 60 * 1000))
+                {
+                    try { proc.Kill(entireProcessTree: true); } catch { }
+                    return (false, "Превышено время ожидания создания базы (5 мин).");
+                }
+
+                if (proc.ExitCode != 0)
+                {
+                    var err = "";
+                    try { err = proc.StandardError.ReadToEnd(); } catch { }
+                    return (false, $"1cv8 завершился с кодом {proc.ExitCode}.\n{err}\n\nКоманда:\n{exe}\n{string.Join(" ", args)}");
+                }
+
+                return (true, null);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"{ex.Message}\n\nКоманда:\n{exe}\n{string.Join(" ", args)}");
+            }
+        }
+
+        /// <summary>Логгер из DI (без создания жёсткой зависимости).</summary>
+        private static IAppLogger? GetLogger()
+        {
+            try { return AppServices.GetRequiredService<IAppLogger>(); }
+            catch { return null; }
+        }
+    }
+
+    /// <summary>Реализация <see cref="IOneCLauncher"/> для Linux.</summary>
+    public sealed class OneCLauncherService : IOneCLauncher
+    {
+        public bool Launch(Infobase infobase, OneCLaunchMode mode, bool runAsAdmin = false)
+            => OneCLauncher.Launch(infobase, mode, runAsAdmin);
+
+        public bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCArchitecture architecture, bool runAsAdmin = false)
+            => OneCLauncher.Launch(infobase, mode, clientType, architecture, runAsAdmin);
+
+        public bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode, OneCArchitecture architecture, bool runAsAdmin = false)
+            => OneCLauncher.Launch(infobase, mode, clientType, runMode, architecture, runAsAdmin);
+    }
+}
+#endif
