@@ -97,10 +97,10 @@ namespace Configuration_Management
 
             // Кнопки управления
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0), Spacing = 8 };
-            actions.Children.Add(MakeButton("＋ Корневая", OnAddRoot_Click));
-            actions.Children.Add(MakeButton("＋ Подгруппа", OnAddSubgroup_Click));
-            actions.Children.Add(MakeButton("✎ Изменить", OnEdit_Click));
-            actions.Children.Add(MakeButton("🗑 Удалить", OnDelete_Click));
+            actions.Children.Add(MakeButton("Корневая", "IconAdd", OnAddRoot_Click));
+            actions.Children.Add(MakeButton("Подгруппа", "IconAdd", OnAddSubgroup_Click));
+            actions.Children.Add(MakeButton("Изменить", "IconEdit", OnEdit_Click));
+            actions.Children.Add(MakeButton("Удалить", "IconDelete", OnDelete_Click));
             Grid.SetRow(actions, 2);
             grid.Children.Add(actions);
 
@@ -119,9 +119,9 @@ namespace Configuration_Management
             return grid;
         }
 
-        private static Button MakeButton(string text, Action onClick)
+        private static Button MakeButton(string text, string iconKey, Action onClick)
         {
-            var button = new Button { Content = text };
+            var button = new Button { Content = IconHelper.IconAndText(iconKey, text) };
             button.Click += (_, _) => onClick();
             return button;
         }

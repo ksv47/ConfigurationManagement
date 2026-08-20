@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Themes;
 
 namespace Configuration_Management
 {
@@ -165,7 +166,8 @@ namespace Configuration_Management
             grid.Children.Add(slider);
 
             Grid.SetColumn(value, 2);
-            value.Foreground = new SolidColorBrush(ParseColor("#9CA3AF"));
+            // Значения RGB — вторичный текст из темы.
+            ThemeBrushes.Bind(value, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
             grid.Children.Add(value);
 
             Grid.SetRow(grid, row);

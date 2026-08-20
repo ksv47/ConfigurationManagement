@@ -46,7 +46,7 @@ public class ColorScheme
         ("TextSecondaryColor", "Вторичный текст"),
         ("TextOnAccentColor", "Текст на акцентном фоне"),
         ("ButtonTextColor", "Текст кнопок"),
-        ("FavoriteColor", "Избранное (★)"),
+        ("FavoriteColor", "Избранное"),
         ("ItemHoverColor", "Строка списка (наведение)"),
         ("ItemSelectedColor", "Строка списка (выбранная)"),
         ("AvatarBackgroundColor", "Аватар (фон)"),

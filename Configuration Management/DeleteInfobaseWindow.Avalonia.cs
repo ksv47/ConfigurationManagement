@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
+using Configuration_Management.Themes;
 
 namespace Configuration_Management
 {
@@ -98,7 +99,8 @@ namespace Configuration_Management
                     _existsText.Text = string.IsNullOrEmpty(dir)
                         ? "каталог не указан или не найден"
                         : $"каталог не найден: {dir}";
-                    _existsText.Foreground = new SolidColorBrush(Color.Parse("#6B7280"));
+                    // Серый статус «каталог не найден» — вторичный текст из темы.
+                    ThemeBrushes.Bind(_existsText, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
                     _physicalDeleteCheck.IsEnabled = false;
                     _physicalDeleteCheck.IsChecked = false;
                     _physicalHint.Text = "Физическое удаление недоступно: каталог базы на диске не найден.";
@@ -109,7 +111,7 @@ namespace Configuration_Management
             else
             {
                 _existsText.Text = "клиент-серверная / веб — только из списка";
-                _existsText.Foreground = new SolidColorBrush(Color.Parse("#6B7280"));
+                ThemeBrushes.Bind(_existsText, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
             }
 
             Grid.SetRow(_physicalPanel, 2);
@@ -127,7 +129,16 @@ namespace Configuration_Management
             buttons.Children.Add(cancel);
             var delete = new Button
             {
-                Content = "🗑 Удалить",
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        IconHelper.MakeIcon("IconDelete", 16, "TextOnAccentColorBrush"),
+                        new TextBlock { Text = "Удалить", VerticalAlignment = VerticalAlignment.Center }
+                    }
+                },
                 MinWidth = 120,
                 IsDefault = true,
                 Background = new SolidColorBrush(Color.Parse("#DC2626")),

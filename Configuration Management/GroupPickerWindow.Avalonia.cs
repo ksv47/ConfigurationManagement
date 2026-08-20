@@ -151,8 +151,8 @@ namespace Configuration_Management
             if (item is GroupNodeViewModel node)
             {
                 var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 2) };
-                var icon = new TextBlock { Text = node.Group is null ? "∅" : "▸", VerticalAlignment = VerticalAlignment.Center };
-                panel.Children.Add(icon);
+                var iconKey = node.Group is null ? "IconRootGroup" : "IconChevronRight";
+                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14));
                 var text = new TextBlock { Text = node.DisplayName, VerticalAlignment = VerticalAlignment.Center };
                 panel.Children.Add(text);
                 return panel;

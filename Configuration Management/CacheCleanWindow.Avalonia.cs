@@ -127,9 +127,9 @@ namespace Configuration_Management
                 Spacing = 12,
                 Margin = new Thickness(8, 2, 8, 4)
             };
-            var selectAll = new Button { Content = "☑ Выбрать все", Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+            var selectAll = new Button { Content = IconHelper.IconAndText("IconCheck", "Выбрать все"), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
             selectAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = true; UpdateCount(); UpdateCleanEnabled(); };
-            var clearAll = new Button { Content = "☐ Снять все", Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+            var clearAll = new Button { Content = IconHelper.IconAndText("IconUncheck", "Снять все"), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
             clearAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = false; UpdateCount(); UpdateCleanEnabled(); };
             toolbar.Children.Add(selectAll);
             toolbar.Children.Add(clearAll);
@@ -171,7 +171,7 @@ namespace Configuration_Management
                 Spacing = 6,
                 Children =
                 {
-                    new TextBlock { Text = "🗑", VerticalAlignment = VerticalAlignment.Center },
+                    IconHelper.MakeIcon("IconDelete", 16),
                     new TextBlock { Text = "Очистить кэш", VerticalAlignment = VerticalAlignment.Center }
                 }
             };

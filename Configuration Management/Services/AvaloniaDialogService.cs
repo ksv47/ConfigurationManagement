@@ -218,12 +218,12 @@ namespace Configuration_Management.Services
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             SystemDecorations = SystemDecorations.Full;
 
-            var iconText = kind switch
+            var iconKey = kind switch
             {
-                MessageWindowKind.Info => "ℹ️",
-                MessageWindowKind.Warning => "⚠️",
-                MessageWindowKind.Error => "❌",
-                _ => "❓"
+                MessageWindowKind.Info => "IconInfo",
+                MessageWindowKind.Warning => "IconWarning",
+                MessageWindowKind.Error => "IconError",
+                _ => "IconUnknown"
             };
 
             var messageBlock = new TextBlock
@@ -241,7 +241,7 @@ namespace Configuration_Management.Services
                 Margin = new Thickness(4, 8, 4, 8),
                 Children =
                 {
-                    new TextBlock { Text = iconText, FontSize = 28, VerticalAlignment = VerticalAlignment.Top },
+                    Configuration_Management.IconHelper.MakeIcon(iconKey, 28),
                     messageBlock
                 }
             };

@@ -46,13 +46,13 @@ namespace Configuration_Management
 
             var options = new StackPanel();
 
-            options.Children.Add(BuildOption("📋", "Существующая база",
+            options.Children.Add(BuildOption("IconList", "Существующая база",
                 "Добавить в список уже созданную информационную базу 1С.", "Infobase", true));
-            options.Children.Add(BuildOption("💾", "Создать пустую базу",
+            options.Children.Add(BuildOption("IconSave", "Создать пустую базу",
                 "Создать новую пустую ИБ (файловую или на сервере) через CREATEINFOBASE.", "CreateEmpty"));
-            options.Children.Add(BuildOption("📦", "Создать из шаблона",
+            options.Children.Add(BuildOption("IconPackage", "Создать из шаблона",
                 "Создать базу из шаблона (.cf / .dt) — как в стандартном стартере 1С.", "CreateFromTemplate"));
-            options.Children.Add(BuildOption("📁", "Группа",
+            options.Children.Add(BuildOption("IconFolder", "Группа",
                 "Создать группу для объединения информационных баз по категориям.", "Group"));
 
             Grid.SetRow(options, 1);
@@ -71,7 +71,16 @@ namespace Configuration_Management
 
             var next = new Button
             {
-                Content = "Далее →",
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        new TextBlock { Text = "Далее", VerticalAlignment = VerticalAlignment.Center },
+                        IconHelper.MakeIcon("IconArrowRight", 16, "TextOnAccentColorBrush")
+                    }
+                },
                 MinWidth = 110,
                 Background = new SolidColorBrush(Color.Parse("#16A34A")),
                 Foreground = Brushes.White,
@@ -86,7 +95,7 @@ namespace Configuration_Management
             return grid;
         }
 
-        private RadioButton BuildOption(string icon, string title, string description, string tag, bool isChecked = false)
+        private RadioButton BuildOption(string iconKey, string title, string description, string tag, bool isChecked = false)
         {
             var radio = new RadioButton
             {
@@ -100,12 +109,7 @@ namespace Configuration_Management
             content.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(36)));
             content.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
 
-            var iconBlock = new TextBlock
-            {
-                Text = icon,
-                FontSize = 24,
-                VerticalAlignment = VerticalAlignment.Center
-            };
+            var iconBlock = IconHelper.MakeIcon(iconKey, 26);
             Grid.SetColumn(iconBlock, 0);
             content.Children.Add(iconBlock);
 

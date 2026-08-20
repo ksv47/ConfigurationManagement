@@ -6,7 +6,8 @@ using Avalonia.Data.Converters;
 namespace Configuration_Management.Converters
 {
     /// <summary>
-    /// Avalonia-версия: значок в зависимости от типа клиента 1С.
+    /// Avalonia-версия: ключ иконки (имя Geometry из Icons.axaml) в зависимости
+    /// от типа клиента 1С. Возвращаемое значение передаётся в IconKeyToGeometryConverter.
     /// </summary>
     public class ClientTypeToIconConverter : IValueConverter
     {
@@ -16,12 +17,12 @@ namespace Configuration_Management.Converters
             {
                 return clientType switch
                 {
-                    "Тонкий" => "📱",
-                    "Толстый" => "💻",
-                    _ => "❓"
+                    "Тонкий" => "IconPhone",
+                    "Толстый" => "IconMonitor",
+                    _ => "IconUnknown"
                 };
             }
-            return "❓";
+            return "IconUnknown";
         }
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

@@ -278,14 +278,7 @@ namespace Configuration_Management
 
                 if (string.IsNullOrEmpty(key))
                 {
-                    btn.Content = new TextBlock
-                    {
-                        Text = "∅",
-                        FontSize = 14,
-                        Foreground = Brushes.White,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        VerticalAlignment = VerticalAlignment.Center
-                    };
+                    btn.Content = IconHelper.MakeIcon("IconClose", 16, "TextOnAccentColorBrush");
                 }
                 else
                 {

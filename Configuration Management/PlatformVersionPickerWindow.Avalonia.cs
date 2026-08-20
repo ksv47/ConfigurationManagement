@@ -159,8 +159,8 @@ namespace Configuration_Management
             if (item is PlatformVersionGroup node)
             {
                 var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 2) };
-                var icon = node.IsLeaf ? "⚙" : (node.Kind == PlatformNodeKind.Line ? "▸" : "•");
-                panel.Children.Add(new TextBlock { Text = icon, VerticalAlignment = VerticalAlignment.Center });
+                var iconKey = node.IsLeaf ? "IconConfiguration" : (node.Kind == PlatformNodeKind.Line ? "IconChevronRight" : "IconBullet");
+                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14));
                 var text = new TextBlock
                 {
                     Text = node.Name,

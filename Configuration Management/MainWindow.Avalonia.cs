@@ -1,5 +1,6 @@
 #if LINUX
 using System;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -7,14 +8,18 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
+using Avalonia.Controls.Shapes;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Configuration_Management.Controls;
 using Configuration_Management.Models;
+using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
 
 namespace Configuration_Management
@@ -32,6 +37,12 @@ namespace Configuration_Management
         private TextBlock _statusInfo = null!;
         private TextBlock _syncMessage = null!;
         private LeveledTreeView _tree = null!;
+
+        // Поля empty-state (заглушка пустого списка / «ничего не найдено»).
+        private Border _emptyState = null!;
+        private Path _emptyIcon = null!;
+        private TextBlock _emptyTitle = null!;
+        private TextBlock _emptyHint = null!;
 
         /// <summary>
         /// Если true — закрытие окна уводит приложение в трей (а не завершает).
@@ -76,6 +87,9 @@ namespace Configuration_Management
             grid.Children.Add(topBar);
             grid.Children.Add(mainArea);
             grid.Children.Add(statusBar);
+
+            // Фон рабочей области окна следует теме (перекрашивается при смене схемы).
+            ThemeBrushes.Bind(grid, Panel.BackgroundProperty, "ContentBackgroundColorBrush");
             return grid;
         }
 
@@ -83,52 +97,143 @@ namespace Configuration_Management
         {
             var grid = new Grid { Margin = new Thickness(12, 10) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 200 });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 180 });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Слева: кнопки групп/тегов
-            var left = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
-
-            var groupByToggle = new ToggleButton
+            // Слева: сегментные переключатели групп и тегов (с иконками и состояниями).
+            var left = new StackPanel
             {
-                Content = "⇶",
-                ToolTip = new ToolTip { Content = "Показывать / скрывать группы" },
-                Margin = new Thickness(0, 0, 2, 0),
-                IsChecked = true
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0),
+                Spacing = 2
             };
+
+            var groupByToggle = MakeSegmentToggle("IconGroups", "Показывать / скрывать группы");
+            groupByToggle.IsChecked = _vm?.GroupByGroup ?? true;
             groupByToggle.Click += (_, _) => { if (_vm is not null) _vm.GroupByGroup = groupByToggle.IsChecked == true; };
             left.Children.Add(groupByToggle);
 
-            var tagsToggle = new ToggleButton
-            {
-                Content = "#",
-                ToolTip = new ToolTip { Content = "Показывать / скрывать теги" },
-                IsChecked = true
-            };
+            var tagsToggle = MakeSegmentToggle("IconTag", "Показывать / скрывать теги");
+            tagsToggle.IsChecked = _vm?.ShowTagFilterPanel ?? true;
             tagsToggle.Click += (_, _) => { if (_vm is not null) _vm.ShowTagFilterPanel = tagsToggle.IsChecked == true; };
             left.Children.Add(tagsToggle);
 
             grid.Children.Add(left);
             Grid.SetColumn(left, 0);
 
-            // Поиск
-            var searchBorder = new Border
+            // Поиск: скруглённое поле с иконкой слева, кнопкой очистки справа и hover-подсветкой.
+            var search = BuildSearchBox();
+            grid.Children.Add(search);
+            Grid.SetColumn(search, 1);
+
+            // Сегментированный контроль «Все / Избранное / Недавние» в общем контейнере.
+            var tabs = BuildListModeSegments();
+            grid.Children.Add(tabs);
+            Grid.SetColumn(tabs, 2);
+
+            // Справа: добавить базу, синхронизация, тема, настройки — иконки + подписи, состояния.
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Spacing = 6
+            };
+
+            var addBtn = TopBarPrimaryButton("IconAdd", "Добавить", "Добавить новую базу");
+            addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
+            actions.Children.Add(addBtn);
+
+            var syncBtn = TopBarSecondaryButton("IconSync", "Синхронизация", "Синхронизация с ibases.v8i");
+            syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
+            actions.Children.Add(syncBtn);
+
+            var themeBtn = TopBarIconButton("IconTheme", "Переключить тему");
+            themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
+            actions.Children.Add(themeBtn);
+
+            var settingsBtn = TopBarSecondaryButton("IconSettings", "Настройки", "Настройки приложения");
+            settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
+            actions.Children.Add(settingsBtn);
+
+            grid.Children.Add(actions);
+            Grid.SetColumn(actions, 3);
+
+            var topBarBorder = new Border
+            {
+                Child = grid,
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(12, 10)
+            };
+            // Нижняя граница TopBar из темы.
+            ThemeBrushes.Bind(topBarBorder, Border.BorderBrushProperty, "BorderColorBrush");
+            return topBarBorder;
+        }
+
+        /// <summary>Сегментный переключатель (например «группы»/«теги») с иконкой и состояниями.</summary>
+        private SegmentButton MakeSegmentToggle(string iconKey, string tooltip)
+        {
+            return new SegmentButton(iconKey, string.Empty, "ItemHoverBrush", "ItemSelectedBrush", lockOn: false)
+            {
+                ToolTip = new ToolTip { Content = tooltip },
+                IsChecked = true
+            };
+        }
+
+        /// <summary>Сегментированный контроль фильтра списка: Все / Избранное / Недавние.</summary>
+        private Control BuildListModeSegments()
+        {
+            var container = new Border
+            {
+                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
+                Padding = new Thickness(3),
+                BorderThickness = new Thickness(1),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 12, 0)
+            };
+            ThemeBrushes.Bind(container, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(container, Border.BorderBrushProperty, "BorderColorBrush");
+            UiMetrics.AddBrushTransition(container);
+
+            var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
+
+            var allSeg = new SegmentButton("IconList", "Все", "ItemHoverBrush", "ItemSelectedBrush");
+            allSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeAll") { Mode = BindingMode.TwoWay });
+            panel.Children.Add(allSeg);
+
+            var favSeg = new SegmentButton("IconFavorite", "Избранное", "ItemHoverBrush", "ItemSelectedBrush");
+            favSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeFavorites") { Mode = BindingMode.TwoWay });
+            panel.Children.Add(favSeg);
+
+            var recSeg = new SegmentButton("IconRecent", "Недавние", "ItemHoverBrush", "ItemSelectedBrush");
+            recSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeRecent") { Mode = BindingMode.TwoWay });
+            panel.Children.Add(recSeg);
+
+            container.Child = panel;
+            return container;
+        }
+
+        /// <summary>Поле поиска: скруглённая рамка, иконка слева, кнопка очистки справа, hover-подсветка.</summary>
+        private Border BuildSearchBox()
+        {
+            var border = new Border
             {
                 CornerRadius = new CornerRadius(10),
                 Padding = new Thickness(8, 4),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 12, 0),
-                BorderThickness = new Thickness(1),
-                Background = Brushes.Transparent
+                BorderThickness = new Thickness(1)
             };
-            var searchGrid = new Grid();
-            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var searchIcon = new TextBlock { Text = "🔍", Margin = new Thickness(2, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
-            searchGrid.Children.Add(searchIcon);
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var searchIcon = IconHelper.MakeIcon("IconSearch", 16, "TextSecondaryBrush");
+            searchIcon.Margin = new Thickness(2, 0, 6, 0);
+            grid.Children.Add(searchIcon);
             Grid.SetColumn(searchIcon, 0);
 
             _searchBox = new TextBox
@@ -140,60 +245,98 @@ namespace Configuration_Management
                 Watermark = "Поиск по базам, конфигурациям, серверу…"
             };
             _searchBox.Bind(TextBox.TextProperty, new Binding("SearchText") { Mode = BindingMode.TwoWay });
-            searchGrid.Children.Add(_searchBox);
+            grid.Children.Add(_searchBox);
             Grid.SetColumn(_searchBox, 1);
 
-            var clearBtn = new Button { Content = "✕", Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(6, 0) };
+            var clearBtn = new Button
+            {
+                Content = IconHelper.MakeIcon("IconClose", 14, "TextSecondaryBrush"),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(6, 0),
+                Cursor = new Cursor(StandardCursorType.Hand),
+                ToolTip = new ToolTip { Content = "Очистить поиск" }
+            };
             clearBtn.Bind(Button.CommandProperty, new Binding("ClearSearchCommand"));
-            searchGrid.Children.Add(clearBtn);
+            grid.Children.Add(clearBtn);
             Grid.SetColumn(clearBtn, 2);
 
-            searchBorder.Child = searchGrid;
-            grid.Children.Add(searchBorder);
-            Grid.SetColumn(searchBorder, 1);
+            border.Child = grid;
 
-            // Вкладки Все / Избранное / Недавние
-            var tabs = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
+            // Hover-состояние: фон и граница подсвечиваются из ресурсов темы (без жёстких цветов).
+            var baseBg = Brushes.Transparent;
+            var hoverBg = Brushes.Transparent;
+            var baseBorder = Brushes.Transparent;
+            var hoverBorder = Brushes.Transparent;
+            var accentBorder = Brushes.Transparent;
+            var hovered = false;
+            var focused = false;
 
-            var allTab = new RadioButton { GroupName = "ListMode", Content = "Все", Margin = new Thickness(0, 0, 4, 0) };
-            allTab.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeAll") { Mode = BindingMode.TwoWay });
-            tabs.Children.Add(allTab);
-
-            var favTab = new RadioButton { GroupName = "ListMode", Content = "★ Избранное", Margin = new Thickness(0, 0, 4, 0) };
-            favTab.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeFavorites") { Mode = BindingMode.TwoWay });
-            tabs.Children.Add(favTab);
-
-            var recTab = new RadioButton { GroupName = "ListMode", Content = "⌛ Недавние" };
-            recTab.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeRecent") { Mode = BindingMode.TwoWay });
-            tabs.Children.Add(recTab);
-
-            grid.Children.Add(tabs);
-            Grid.SetColumn(tabs, 2);
-
-            // Справа: синхронизация, тема, настройки
-            var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-
-            var syncBtn = new Button { Content = "⟳", ToolTip = new ToolTip { Content = "Синхронизация с ibases.v8i" }, Margin = new Thickness(0, 0, 2, 0) };
-            syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
-            actions.Children.Add(syncBtn);
-
-            var themeBtn = new Button { Content = "◐", ToolTip = new ToolTip { Content = "Переключить тему" }, Margin = new Thickness(0, 0, 2, 0) };
-            themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
-            actions.Children.Add(themeBtn);
-
-            var settingsBtn = new Button { Content = "⚙", ToolTip = new ToolTip { Content = "Настройки приложения" } };
-            settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
-            actions.Children.Add(settingsBtn);
-
-            grid.Children.Add(actions);
-            Grid.SetColumn(actions, 3);
-
-            return new Border
+            void Refresh()
             {
-                Child = grid,
-                BorderBrush = Brushes.Gray,
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(12, 10)
+                border.Background = (hovered || focused) ? hoverBg : baseBg;
+                border.BorderBrush = focused ? accentBorder : (hovered ? hoverBorder : baseBorder);
+                border.BorderThickness = focused ? new Thickness(2) : new Thickness(1);
+            }
+
+            if (Application.Current is { } app)
+            {
+                app.GetResourceObservable("CardBackgroundColorBrush").Subscribe(new BrushObserver(b => baseBg = b, Refresh));
+                app.GetResourceObservable("ItemHoverBrush").Subscribe(new BrushObserver(b => hoverBg = b, Refresh));
+                app.GetResourceObservable("BorderColorBrush").Subscribe(new BrushObserver(b => baseBorder = b, Refresh));
+                app.GetResourceObservable("AccentBrush").Subscribe(new BrushObserver(b => { hoverBorder = b; accentBorder = b; }, Refresh));
+            }
+
+            border.PointerEntered += (_, _) => { hovered = true; Refresh(); };
+            border.PointerExited += (_, _) => { hovered = false; Refresh(); };
+            // Фокус-ринг поля поиска (клавиатурная навигация) акцентным цветом темы.
+            _searchBox.GetObservable(TextBox.IsKeyboardFocusWithinProperty)
+                .Subscribe(new BoolObserver(v => { focused = v; Refresh(); }));
+            UiMetrics.AddBrushTransition(border);
+            return border;
+        }
+
+        /// <summary>Primary-кнопка топ-бара: акцентный фон, иконка + подпись цветом «на акценте».</summary>
+        private static PanelButton TopBarPrimaryButton(string iconKey, string text, string tooltip)
+        {
+            return new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush")
+            {
+                Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", 15, centered: false),
+                ToolTip = new ToolTip { Content = tooltip },
+                Padding = new Thickness(12, 7),
+                HorizontalContentAlignment = HorizontalAlignment.Center
+            };
+        }
+
+        /// <summary>Secondary-кнопка топ-бара: приглушённый фон, иконка + подпись, hover/pressed.</summary>
+        private static PanelButton TopBarSecondaryButton(string iconKey, string text, string tooltip)
+        {
+            return new PanelButton(
+                "SecondaryButtonBackgroundBrush",
+                "SecondaryButtonHoverBrush",
+                "SecondaryButtonPressedBrush",
+                "BorderColorBrush")
+            {
+                Content = ThemedIconAndText(iconKey, text, "TextPrimaryBrush", 15, centered: false),
+                ToolTip = new ToolTip { Content = tooltip },
+                Padding = new Thickness(12, 7),
+                HorizontalContentAlignment = HorizontalAlignment.Center
+            };
+        }
+
+        /// <summary>Компактная иконко-кнопка топ-бара (например тема) с состояниями из темы.</summary>
+        private static PanelButton TopBarIconButton(string iconKey, string tooltip)
+        {
+            return new PanelButton(
+                "SecondaryButtonBackgroundBrush",
+                "SecondaryButtonHoverBrush",
+                "SecondaryButtonPressedBrush",
+                "BorderColorBrush")
+            {
+                Content = IconHelper.MakeIcon(iconKey, 16, "TextPrimaryBrush"),
+                ToolTip = new ToolTip { Content = tooltip },
+                Padding = new Thickness(10, 7),
+                HorizontalContentAlignment = HorizontalAlignment.Center
             };
         }
 
@@ -205,30 +348,54 @@ namespace Configuration_Management
 
             _tree = new LeveledTreeView
             {
-                Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0)
             };
+            // Фон списка баз — фон рабочей области из темы.
+            ThemeBrushes.Bind(_tree, Control.BackgroundProperty, "ContentBackgroundColorBrush");
             _tree.Bind(TreeView.ItemsSourceProperty, new Binding("GroupNodes"));
             _tree.SelectionMode = SelectionMode.Single;
+
+            // Убираем стандартную подсветку контейнера TreeViewItem — карточка строки
+            // сама рисует hover/выделение из ресурсов темы (без жёстких цветов).
+            var tviStyle = new Style(x => x.OfType<LeveledTreeViewItem>());
+            tviStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+            _tree.Styles.Add(tviStyle);
+
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 BuildTreeRow,
                 item => item is GroupNodeViewModel g ? g.Items : null);
             _tree.SelectionChanged += OnTreeSelectionChanged;
 
+            // Дерево само предоставляет ScrollViewer и штатную виртуализацию
+            // (VirtualizingStackPanel). Внешний ScrollViewer здесь не нужен — он давал бы дереву
+            // бесконечную высоту и отключал бы виртуализацию, поэтому убран.
+            _emptyState = BuildEmptyState();
+            var leftInner = new Grid();
+            leftInner.Children.Add(_tree);
+            leftInner.Children.Add(_emptyState);
+
             var leftPanel = new Border
             {
-                Child = new ScrollViewer
-                {
-                    Content = _tree,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Padding = new Thickness(8, 8)
-                },
-                Margin = new Thickness(12, 12, 8, 12)
+                Child = leftInner,
+                Margin = new Thickness(12, 12, 8, 12),
+                Padding = new Thickness(8, 8)
             };
 
             grid.Children.Add(leftPanel);
             Grid.SetColumn(leftPanel, 0);
+
+            // Показываем/скрываем заглушку при любых изменениях списка и поиска.
+            if (_vm is not null)
+            {
+                _vm.GroupNodes.CollectionChanged += (_, _) => UpdateEmptyState();
+                _vm.FlatItems.CollectionChanged += (_, _) => UpdateEmptyState();
+                _vm.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName == nameof(MainViewModel.SearchText))
+                        UpdateEmptyState();
+                };
+            }
+            UpdateEmptyState();
 
             var rightPanel = new ScrollViewer
             {
@@ -246,6 +413,112 @@ namespace Configuration_Management
             return grid;
         }
 
+        /// <summary>
+        /// Строит карточку-заглушку пустого списка: иконка, заголовок, подсказка и кнопка
+        /// «Добавить базу». Иконка/тексты меняются в <see cref="UpdateEmptyState"/> в зависимости
+        /// от того, пуст ли список баз вообще или фильтр ничего не нашёл.
+        /// </summary>
+        private Border BuildEmptyState()
+        {
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(UiMetrics.RadiusXl),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(30, 34),
+                MaxWidth = 380,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsVisible = false
+            };
+            ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
+            UiMetrics.AddSoftShadow(card);
+            UiMetrics.AddBrushTransition(card);
+            UiMetrics.AddOpacityTransition(card);
+
+            var stack = new StackPanel
+            {
+                Spacing = 6,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+
+            _emptyIcon = IconHelper.MakeIcon("IconDatabase", 44, "TextSecondaryBrush");
+            _emptyIcon.HorizontalAlignment = HorizontalAlignment.Center;
+            _emptyIcon.Margin = new Thickness(0, 0, 0, 6);
+            stack.Children.Add(_emptyIcon);
+
+            _emptyTitle = new TextBlock
+            {
+                FontSize = 15,
+                FontWeight = FontWeight.SemiBold,
+                TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            ThemeBrushes.Bind(_emptyTitle, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            stack.Children.Add(_emptyTitle);
+
+            _emptyHint = new TextBlock
+            {
+                FontSize = 12,
+                Opacity = 0.85,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+                MaxWidth = 320,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            ThemeBrushes.Bind(_emptyHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            stack.Children.Add(_emptyHint);
+
+            var addBtn = TopBarPrimaryButton("IconAdd", "Добавить базу", "Добавить новую базу");
+            addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
+            addBtn.HorizontalAlignment = HorizontalAlignment.Center;
+            addBtn.Margin = new Thickness(0, 10, 0, 0);
+            stack.Children.Add(addBtn);
+
+            card.Child = stack;
+            return card;
+        }
+
+        /// <summary>
+        /// Обновляет заглушку пустого списка: показывает её, когда нет ни одного элемента
+        /// (GroupNodes и FlatItems пусты), и подбирает иконку/текст под контекст (нет баз вообще
+        /// либо фильтр/поиск не дал результатов).
+        /// </summary>
+        private void UpdateEmptyState()
+        {
+            if (_vm is null)
+                return;
+
+            var hasItems = _vm.GroupNodes.Count > 0 || _vm.FlatItems.Count > 0;
+            if (hasItems)
+            {
+                _emptyState.IsVisible = false;
+                return;
+            }
+
+            var searching = !string.IsNullOrWhiteSpace(_vm.SearchText)
+                            || _vm.HasActiveTagFilter
+                            || !_vm.IsListModeAll;
+
+            if (searching)
+            {
+                _emptyIcon.Data = IconHelper.Geometry("IconSearch");
+                _emptyTitle.Text = "Ничего не найдено";
+                _emptyHint.Text = "Попробуйте изменить запрос или сбросить фильтры.";
+            }
+            else
+            {
+                _emptyIcon.Data = IconHelper.Geometry("IconDatabase");
+                _emptyTitle.Text = "Список баз пуст";
+                _emptyHint.Text = "Добавьте первую базу или синхронизируйтесь с ibases.v8i.";
+            }
+
+            // Плавное появление заглушки.
+            _emptyState.Opacity = 0;
+            _emptyState.IsVisible = true;
+            _emptyState.Opacity = 1;
+        }
+
         /// <summary>Строит строку дерева: заголовок группы или карточку базы.</summary>
         private Control BuildTreeRow(object? item)
         {
@@ -260,7 +533,7 @@ namespace Configuration_Management
         {
             var header = new Border
             {
-                CornerRadius = new CornerRadius(6),
+                CornerRadius = new CornerRadius(UiMetrics.RadiusSm),
                 Padding = new Thickness(6, 3),
                 Margin = new Thickness(0, 1)
             };
@@ -278,25 +551,110 @@ namespace Configuration_Management
 
         private Control BuildInfobaseRow(Infobase ib)
         {
-            var panel = new StackPanel { Margin = new Thickness(6, 2) };
-            var name = new TextBlock { Text = ib.Name, FontWeight = FontWeight.SemiBold };
-            panel.Children.Add(name);
+            // Карточка с фоном/границей из темы; hover и выделение отслеживает сама
+            // (см. InfobaseRowCard): обычное → CardBackgroundBrush, hover → ItemHoverBrush,
+            // выделено → ItemSelectedBrush + AccentBrush-граница.
+            var card = new InfobaseRowCard();
 
-            var details = new TextBlock
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            // Иконка типа подключения слева (папка / сеть) в аккуратном «аватаре».
+            var connectionIconKey = ib.Connection.Type switch
             {
-                Text = $"{ib.ServerDatabaseDisplay}  •  {ib.ConnectionTypeDisplay}",
-                FontSize = 11,
-                Opacity = 0.7,
-                TextTrimming = TextTrimming.CharacterEllipsis
+                ConnectionType.File => "IconFolder",
+                ConnectionType.ClientServer => "IconNetwork",
+                _ => "IconNetwork" // WebServer → сеть/веб
             };
-            panel.Children.Add(details);
 
-            if (ib.IsFavorite || ib.IsPinned)
+            var iconBox = new Border
             {
-                var marks = new TextBlock { FontSize = 10, Text = (ib.IsFavorite ? "★ " : "") + (ib.IsPinned ? "📌" : "") };
-                panel.Children.Add(marks);
-            }
-            return panel;
+                Width = 38,
+                Height = 38,
+                CornerRadius = new CornerRadius(UiMetrics.RadiusMd),
+                BorderThickness = new Thickness(1),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 0, 10, 0)
+            };
+            ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush");
+            iconBox.Child = IconHelper.MakeIcon(connectionIconKey, 20, "AccentBrush");
+
+            grid.Children.Add(iconBox);
+            Grid.SetColumn(iconBox, 0);
+
+            // Правая колонка: имя (крупно) + строки вторичной информации.
+            var content = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+
+            // Строка имени с маркерами избранного/закрепления.
+            var nameRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            var name = new TextBlock
+            {
+                Text = ib.Name,
+                FontSize = 14,
+                FontWeight = FontWeight.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            nameRow.Children.Add(name);
+            if (ib.IsFavorite)
+                nameRow.Children.Add(IconHelper.MakeIcon("IconFavorite", 13, "FavoriteBrush"));
+            if (ib.IsPinned)
+                nameRow.Children.Add(IconHelper.MakeIcon("IconPin", 13, "TextSecondaryBrush"));
+            content.Children.Add(nameRow);
+
+            // Версия платформы + конфигурация (название (версия)).
+            var versionLine = JoinSegments(ib.PlatformVersion, ib.ConfigurationDisplay);
+            if (!string.IsNullOrWhiteSpace(versionLine))
+                content.Children.Add(SecondaryText(versionLine));
+
+            // Тип подключения + сервер/путь (для веб — URL публикации).
+            var location = ib.Connection.Type switch
+            {
+                ConnectionType.WebServer => ib.Connection.WebUrl,
+                _ => ib.ServerDatabaseDisplay
+            };
+            var serverLine = JoinSegments(ib.ConnectionTypeDisplay, location);
+            if (!string.IsNullOrWhiteSpace(serverLine))
+                content.Children.Add(SecondaryText(serverLine));
+
+            // Режим запуска (тонкий/толстый/веб-клиент) + последний запуск.
+            var launchLine = JoinSegments(ib.ParsedLaunchMode, ib.LastLaunchDisplay);
+            if (!string.IsNullOrWhiteSpace(launchLine))
+                content.Children.Add(SecondaryText(launchLine));
+
+            grid.Children.Add(content);
+            Grid.SetColumn(content, 1);
+
+            card.Child = grid;
+            return card;
+        }
+
+        /// <summary>Объединяет непустые фрагменты в одну строку с разделителем «•».</summary>
+        private static string JoinSegments(params string?[] parts)
+        {
+            var nonEmpty = parts
+                .Select(p => (p ?? string.Empty).Trim())
+                .Where(p => p.Length > 0 && p != "—")
+                .ToList();
+            return nonEmpty.Count == 0 ? string.Empty : string.Join("  •  ", nonEmpty);
+        }
+
+        /// <summary>Строка вторичной информации: приглушённый текст из темы с подсказкой по полному значению.</summary>
+        private static TextBlock SecondaryText(string text)
+        {
+            var block = new TextBlock
+            {
+                Text = text,
+                FontSize = 11,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                ToolTip = text
+            };
+            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            return block;
         }
 
         private Control BuildRightPanel()
@@ -310,71 +668,139 @@ namespace Configuration_Management
             var groupBlock = new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
             groupBlock.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.GroupDisplay"));
 
-            var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10), Spacing = 10 };
-            header.Children.Add(new TextBlock { Text = "🗄", FontSize = 26 });
-            var headerText = new StackPanel();
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12), Spacing = 10 };
+            header.Children.Add(IconHelper.MakeIcon("IconDatabase", 28));
+            var headerText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             headerText.Children.Add(nameBlock);
             headerText.Children.Add(groupBlock);
             header.Children.Add(headerText);
             panel.Children.Add(header);
 
-            // Информация о подключении
-            panel.Children.Add(SectionLabel("Информация о подключении"));
-            panel.Children.Add(DetailRow("Тип", new Binding("SelectedInfobase.ConnectionTypeDisplay")));
-            panel.Children.Add(DetailRow("Сервер / путь", new Binding("SelectedInfobase.ConnectionPathDisplay")));
-            panel.Children.Add(DetailRow("Строка", new Binding("SelectedInfobase.ConnectionStringDisplay")));
-            panel.Children.Add(DetailRow("Платформа", new Binding("SelectedInfobase.PlatformVersion")));
-            panel.Children.Add(DetailRow("Режим запуска", new Binding("SelectedInfobase.ParsedLaunchMode")));
-            panel.Children.Add(DetailRow("Разрядность", new Binding("SelectedInfobase.ArchitectureDisplay")));
-            panel.Children.Add(DetailRow("Последний запуск", new Binding("SelectedInfobase.LastLaunchDisplay")));
+            // Основное действие (primary) — крупная акцентная кнопка вверху.
+            panel.Children.Add(PrimaryActionButton("IconPlay", "Запустить 1С:Предприятие", "LaunchEnterpriseCommand"));
 
-            // Описание
-            panel.Children.Add(SectionLabel("Описание"));
-            var desc = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
+            // Секции secondary-действий, сгруппированные по смыслу.
+            panel.Children.Add(SectionCard("Конфигуратор", "IconConfiguration",
+                SecondaryActionButton("IconWrench", "Открыть конфигуратор", "LaunchConfiguratorCommand")));
+
+            panel.Children.Add(SectionCard("Обслуживание", "IconWrench",
+                SecondaryActionButton("IconEdit", "Изменить настройки", "EditInfobaseCommand"),
+                SecondaryActionButton("IconOpen", "Открыть папку базы", "OpenInfobaseFolderCommand"),
+                SecondaryActionButton("IconKeyboard", "Запустить стартер 1С", "OpenNativeStarterCommand")));
+
+            panel.Children.Add(SectionCard("Список баз", "IconList",
+                SecondaryActionButton("IconAdd", "Добавить базу / группу", "AddInfobaseCommand"),
+                SecondaryActionButton("IconShortcut", "Ярлык на рабочем столе", "CreateDesktopShortcutCommand"),
+                SecondaryActionButton("IconDelete", "Удалить", "DeleteInfobaseCommand")));
+
+            panel.Children.Add(SectionCard("Отметки", "IconStar",
+                SecondaryActionButton("IconFavorite", "В избранное", "ToggleFavoriteCommand"),
+                SecondaryActionButton("IconPin", "Закрепить", "TogglePinCommand")));
+
+            // Информация о подключении.
+            panel.Children.Add(SectionCard("Информация о подключении", "IconInfo",
+                DetailRow("Тип", new Binding("SelectedInfobase.ConnectionTypeDisplay")),
+                DetailRow("Сервер / путь", new Binding("SelectedInfobase.ConnectionPathDisplay")),
+                DetailRow("Строка", new Binding("SelectedInfobase.ConnectionStringDisplay")),
+                DetailRow("Платформа", new Binding("SelectedInfobase.PlatformVersion")),
+                DetailRow("Режим запуска", new Binding("SelectedInfobase.ParsedLaunchMode")),
+                DetailRow("Разрядность", new Binding("SelectedInfobase.ArchitectureDisplay")),
+                DetailRow("Последний запуск", new Binding("SelectedInfobase.LastLaunchDisplay"))));
+
+            // Описание.
+            var desc = new TextBlock { TextWrapping = TextWrapping.Wrap };
             desc.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.Description"));
-            panel.Children.Add(desc);
+            panel.Children.Add(SectionCard("Описание", "IconInfo", desc));
 
-            // Действия
-            panel.Children.Add(SectionLabel("Действия"));
-
-            var launchBtn = ActionButton("▶ 1С:Предприятие", "LaunchEnterpriseCommand");
-            var configBtn = ActionButton("🔧 Конфигуратор", "LaunchConfiguratorCommand");
-            var editBtn = ActionButton("✎ Изменить настройки", "EditInfobaseCommand");
-            var favBtn = ActionButton("★ Избранное", "ToggleFavoriteCommand");
-            var pinBtn = ActionButton("📌 Закрепить", "TogglePinCommand");
-            var addBtn = ActionButton("＋ Добавить базу / группу", "AddInfobaseCommand");
-            var delBtn = ActionButton("🗑 Удалить", "DeleteInfobaseCommand");
-
-            var openFolderBtn = ActionButton("🗁 Открыть папку базы", "OpenInfobaseFolderCommand");
-            var shortcutBtn = ActionButton("⌗ Ярлык на рабочем столе", "CreateDesktopShortcutCommand");
-            var starterBtn = ActionButton("⌨ Запустить стартер 1С", "OpenNativeStarterCommand");
-
-            panel.Children.Add(launchBtn);
-            panel.Children.Add(configBtn);
-            panel.Children.Add(editBtn);
-            panel.Children.Add(favBtn);
-            panel.Children.Add(pinBtn);
-            panel.Children.Add(addBtn);
-            panel.Children.Add(delBtn);
-            panel.Children.Add(openFolderBtn);
-            panel.Children.Add(shortcutBtn);
-            panel.Children.Add(starterBtn);
-
-            var exitBtn = ActionButton("✕ Выход", "ExitCommand");
-            panel.Children.Add(new Separator() { Margin = new Thickness(0, 6, 0, 6) });
-            panel.Children.Add(exitBtn);
+            panel.Children.Add(SecondaryActionButton("IconExit", "Выход", "ExitCommand"));
 
             return panel;
         }
 
-        private static TextBlock SectionLabel(string text) => new()
+        /// <summary>Карточка-секция: скруглённый фон/граница из темы + заголовок с иконкой и вложенные элементы.</summary>
+        private static Control SectionCard(string title, string iconKey, params Control[] children)
         {
-            Text = text,
-            FontWeight = FontWeight.SemiBold,
-            FontSize = 12,
-            Opacity = 0.7,
-            Margin = new Thickness(0, 0, 0, 8)
-        };
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(UiMetrics.RadiusXl),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(UiMetrics.PaddingSection),
+                Margin = new Thickness(0, 0, 0, 12),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
+            // Мягкая тень и плавные переходы цвета у секций-карточек.
+            UiMetrics.AddSoftShadow(card);
+            UiMetrics.AddBrushTransition(card);
+
+            var content = new StackPanel { Spacing = 8 };
+
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 2) };
+            header.Children.Add(IconHelper.MakeIcon(iconKey, 16, "TextSecondaryBrush"));
+            var titleBlock = new TextBlock { Text = title, FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            header.Children.Add(titleBlock);
+            content.Children.Add(header);
+
+            foreach (var child in children)
+                content.Children.Add(child);
+
+            card.Child = content;
+            return card;
+        }
+
+        /// <summary>Крупная primary-кнопка на акцентном фоне с контрастным текстом/иконкой.</summary>
+        private static Control PrimaryActionButton(string iconKey, string text, string commandPath)
+        {
+            var btn = new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush")
+            {
+                Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", 18, centered: true),
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 0, 12),
+                Padding = new Thickness(12, 12)
+            };
+            btn.Bind(Button.CommandProperty, new Binding(commandPath));
+            return btn;
+        }
+
+        /// <summary>Secondary-кнопка с приглушённым фоном и hover/pressed из ресурсов темы.</summary>
+        private static Control SecondaryActionButton(string iconKey, string text, string commandPath)
+        {
+            var btn = new PanelButton(
+                "SecondaryButtonBackgroundBrush",
+                "SecondaryButtonHoverBrush",
+                "SecondaryButtonPressedBrush",
+                "BorderColorBrush")
+            {
+                Content = ThemedIconAndText(iconKey, text, "TextPrimaryBrush", 16, centered: false),
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 0, 2)
+            };
+            btn.Bind(Button.CommandProperty, new Binding(commandPath));
+            return btn;
+        }
+
+        /// <summary>Содержимое кнопки: иконка + подпись, окрашенные кистью ресурса темы.</summary>
+        private static Control ThemedIconAndText(string iconKey, string text, string brushKey, double iconSize, bool centered)
+        {
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            if (centered)
+                sp.HorizontalAlignment = HorizontalAlignment.Center;
+            sp.Children.Add(IconHelper.MakeIcon(iconKey, iconSize, brushKey));
+            var tb = new TextBlock
+            {
+                Text = text,
+                FontSize = 13,
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+            sp.Children.Add(tb);
+            return sp;
+        }
 
         private Control DetailRow(string label, Binding binding)
         {
@@ -393,18 +819,309 @@ namespace Configuration_Management
             return grid;
         }
 
-        private static Button ActionButton(string text, string commandPath)
+        /// <summary>
+        /// Кнопка-панель со скруглением и состояниями «обычное / hover / pressed»,
+        /// кисти которых берутся из ресурсов темы (перекрашиваются при смене схемы).
+        /// Используется для primary- и secondary-кнопок правой панели.
+        /// </summary>
+        private sealed class PanelButton : Button
         {
-            var btn = new Button
+            private readonly List<IDisposable> _subs = new();
+            private IBrush _baseBg = Brushes.Transparent;
+            private IBrush _hoverBg = Brushes.Transparent;
+            private IBrush _pressedBg = Brushes.Transparent;
+            private IBrush _border = Brushes.Transparent;
+            private IBrush _accent = Brushes.Transparent;
+            private bool _hovered;
+            private bool _pressed;
+            private bool _focused;
+
+            public PanelButton(string baseBgKey, string hoverBgKey, string pressedBgKey, string borderKey)
             {
-                Content = new TextBlock { Text = text, FontSize = 12, FontWeight = FontWeight.SemiBold },
-                HorizontalContentAlignment = HorizontalAlignment.Left,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                Padding = new Thickness(10, 10),
-                Margin = new Thickness(0, 0, 0, 8)
-            };
-            btn.Bind(Button.CommandProperty, new Binding(commandPath));
-            return btn;
+                HorizontalContentAlignment = HorizontalAlignment.Center;
+                VerticalContentAlignment = VerticalAlignment.Center;
+                Padding = new Thickness(10, 9);
+                BorderThickness = new Thickness(1);
+                Cursor = new Cursor(StandardCursorType.Hand);
+
+                // Кастомный шаблон: скруглённый Border + ContentPresenter (без Fluent-хрома).
+                Theme = new ControlTheme(typeof(Button))
+                {
+                    Template = new FuncControlTemplate<PanelButton>((_, _) =>
+                    {
+                        var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusLg), BorderThickness = new Thickness(1) };
+                        border.Bind(Border.BackgroundProperty, new TemplateBinding(Control.BackgroundProperty));
+                        border.Bind(Border.BorderBrushProperty, new TemplateBinding(Control.BorderBrushProperty));
+                        border.Bind(Border.BorderThicknessProperty, new TemplateBinding(Control.BorderThicknessProperty));
+                        border.Bind(Border.PaddingProperty, new TemplateBinding(Control.PaddingProperty));
+                        UiMetrics.AddBrushTransition(border);
+
+                        var presenter = new ContentPresenter();
+                        presenter.Bind(ContentPresenter.ContentProperty, new TemplateBinding(ContentControl.ContentProperty));
+                        presenter.Bind(ContentPresenter.HorizontalContentAlignmentProperty, new TemplateBinding(ContentControl.HorizontalContentAlignmentProperty));
+                        presenter.Bind(ContentPresenter.VerticalContentAlignmentProperty, new TemplateBinding(ContentControl.VerticalContentAlignmentProperty));
+                        border.Child = presenter;
+                        return border;
+                    })
+                };
+
+                Subscribe(baseBgKey, v => _baseBg = v);
+                Subscribe(hoverBgKey, v => _hoverBg = v);
+                Subscribe(pressedBgKey, v => _pressedBg = v);
+                Subscribe(borderKey, v => _border = v);
+                Subscribe("AccentBrush", v => _accent = v);
+
+                PointerEntered += (_, _) => { _hovered = true; ApplyState(); };
+                PointerExited += (_, _) => { _hovered = false; _pressed = false; ApplyState(); };
+                PointerPressed += (_, _) => { _pressed = true; ApplyState(); };
+                PointerReleased += (_, _) => { _pressed = false; ApplyState(); };
+                PointerCaptureLost += (_, _) => { _pressed = false; ApplyState(); };
+
+                GetObservable(IsEnabledProperty).Subscribe(new BoolObserver(_ => ApplyState()));
+                GetObservable(IsKeyboardFocusWithinProperty).Subscribe(new BoolObserver(v => { _focused = v; ApplyState(); }));
+                ApplyState();
+            }
+
+            private void Subscribe(string key, Action<IBrush> setter)
+            {
+                if (Application.Current is not { } app)
+                    return;
+                _subs.Add(app.GetResourceObservable(key).Subscribe(new BrushSlot(setter, ApplyState)));
+            }
+
+            /// <summary>Применяет состояние к фону/границе/прозрачности кнопки.</summary>
+            private void ApplyState()
+            {
+                if (!IsEnabled)
+                {
+                    Opacity = 0.55;
+                    Background = _baseBg;
+                    BorderBrush = _border;
+                    BorderThickness = new Thickness(1);
+                    return;
+                }
+
+                Opacity = 1.0;
+                Background = _pressed ? _pressedBg : (_hovered ? _hoverBg : _baseBg);
+                if (_focused)
+                {
+                    // Видимый focus-ринг акцентным цветом темы для клавиатурной навигации.
+                    BorderBrush = _accent;
+                    BorderThickness = new Thickness(2);
+                }
+                else
+                {
+                    BorderBrush = _border;
+                    BorderThickness = new Thickness(1);
+                }
+            }
+
+            /// <summary>Передаёт текущее значение ресурса-кисти в слот и перерисовывает состояние.</summary>
+            private sealed class BrushSlot : IObserver<object?>
+            {
+                private readonly Action<IBrush> _setter;
+                private readonly Action _onChanged;
+
+                public BrushSlot(Action<IBrush> setter, Action onChanged)
+                {
+                    _setter = setter;
+                    _onChanged = onChanged;
+                }
+
+                public void OnCompleted() { }
+                public void OnError(Exception error) { }
+                public void OnNext(object? value)
+                {
+                    if (value is IBrush brush)
+                        _setter(brush);
+                    _onChanged();
+                }
+            }
+
+        }
+
+        /// <summary>
+        /// Простой наблюдатель ресурса-кисти темы: передаёт текущее значение в setter и
+        /// при изменении (в т.ч. при смене схемы) вызывает onChanged.
+        /// </summary>
+        private sealed class BrushObserver : IObserver<object?>
+        {
+            private readonly Action<IBrush> _setter;
+            private readonly Action _onChanged;
+
+            public BrushObserver(Action<IBrush> setter, Action onChanged)
+            {
+                _setter = setter;
+                _onChanged = onChanged;
+            }
+
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(object? value)
+            {
+                if (value is IBrush brush)
+                    _setter(brush);
+                _onChanged();
+            }
+        }
+
+        /// <summary>Простой наблюдатель bool (для IsEnabled / клавиатурного фокуса).</summary>
+        private sealed class BoolObserver : IObserver<bool>
+        {
+            private readonly Action<bool> _onNext;
+            public BoolObserver(Action<bool> onNext) => _onNext = onNext;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(bool value) => _onNext(value);
+        }
+
+        /// <summary>
+        /// Сегментная кнопка переключателя (для сегментированного контроля): у выбранного
+        /// сегмента акцентная заливка, а иконка/текст — цветом «на акценте»; у невыбранных —
+        /// прозрачный фон с приглушённым текстом и hover/pressed-состояниями. Все кисти
+        /// берутся из ресурсов темы (перекрашиваются при смене схемы). Если lockOn == true,
+        /// активный сегмент нельзя «снять» кликом (поведение как у RadioButton).
+        /// </summary>
+        private sealed class SegmentButton : ToggleButton
+        {
+            private readonly List<IDisposable> _subs = new();
+            private readonly string _iconKey;
+            private readonly string _text;
+            private readonly double _iconSize;
+            private readonly bool _lockOn;
+
+            private IBrush _hoverBg = Brushes.Transparent;
+            private IBrush _pressedBg = Brushes.Transparent;
+            private IBrush _accent = Brushes.Transparent;
+            private IBrush _accentHover = Brushes.Transparent;
+            private IBrush _accentPressed = Brushes.Transparent;
+
+            private bool _hovered;
+            private bool _pressed;
+            private bool _focused;
+
+            public SegmentButton(string iconKey, string text, string hoverBgKey, string pressedBgKey, bool lockOn = true)
+            {
+                _iconKey = iconKey;
+                _text = text;
+                _iconSize = 15;
+                _lockOn = lockOn;
+
+                HorizontalContentAlignment = HorizontalAlignment.Center;
+                VerticalContentAlignment = VerticalAlignment.Center;
+                Cursor = new Cursor(StandardCursorType.Hand);
+                MinHeight = 30;
+                Padding = new Thickness(12, 5);
+                BorderThickness = new Thickness(0);
+
+                // Кастомный шаблон: скруглённый Border + ContentPresenter (без Fluent-хрома).
+                Theme = new ControlTheme(typeof(ToggleButton))
+                {
+                    Template = new FuncControlTemplate<SegmentButton>((_, _) =>
+                    {
+                        var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusSm), BorderThickness = new Thickness(0) };
+                        border.Bind(Border.BackgroundProperty, new TemplateBinding(Control.BackgroundProperty));
+                        border.Bind(Border.BorderBrushProperty, new TemplateBinding(Control.BorderBrushProperty));
+                        border.Bind(Border.BorderThicknessProperty, new TemplateBinding(Control.BorderThicknessProperty));
+                        UiMetrics.AddBrushTransition(border);
+                        var presenter = new ContentPresenter();
+                        presenter.Bind(ContentPresenter.ContentProperty, new TemplateBinding(ContentControl.ContentProperty));
+                        presenter.Bind(ContentPresenter.HorizontalContentAlignmentProperty, new TemplateBinding(ContentControl.HorizontalContentAlignmentProperty));
+                        presenter.Bind(ContentPresenter.VerticalContentAlignmentProperty, new TemplateBinding(ContentControl.VerticalContentAlignmentProperty));
+                        border.Child = presenter;
+                        return border;
+                    })
+                };
+
+                Subscribe(hoverBgKey, v => _hoverBg = v);
+                Subscribe(pressedBgKey, v => _pressedBg = v);
+                Subscribe("AccentBrush", v => _accent = v);
+                Subscribe("AccentHoverBrush", v => _accentHover = v);
+                Subscribe("AccentPressedBrush", v => _accentPressed = v);
+
+                PointerEntered += (_, _) => { _hovered = true; ApplyState(); };
+                PointerExited += (_, _) => { _hovered = false; _pressed = false; ApplyState(); };
+                PointerPressed += (_, _) => { _pressed = true; ApplyState(); };
+                PointerReleased += (_, _) => { _pressed = false; ApplyState(); };
+                PointerCaptureLost += (_, _) => { _pressed = false; ApplyState(); };
+
+                GetObservable(IsCheckedProperty).Subscribe(new BoolObserver(_ => { UpdateContent(); ApplyState(); }));
+                GetObservable(IsEnabledProperty).Subscribe(new BoolObserver(_ => ApplyState()));
+                GetObservable(IsKeyboardFocusWithinProperty).Subscribe(new BoolObserver(v => { _focused = v; ApplyState(); }));
+
+                UpdateContent();
+                ApplyState();
+            }
+
+            /// <summary>Не даём снимать уже активный сегмент (как RadioButton), когда это требуется.</summary>
+            protected override void OnToggle()
+            {
+                if (_lockOn && IsChecked == true)
+                    return;
+                base.OnToggle();
+            }
+
+            private void Subscribe(string key, Action<IBrush> setter)
+            {
+                if (Application.Current is not { } app)
+                    return;
+                _subs.Add(app.GetResourceObservable(key).Subscribe(new BrushObserver(setter, ApplyState)));
+            }
+
+            /// <summary>Собирает содержимое «иконка + текст» с цветом по состоянию выбора.</summary>
+            private void UpdateContent()
+            {
+                var brushKey = IsChecked == true ? "TextOnAccentBrush" : "TextPrimaryBrush";
+                var sp = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                sp.Children.Add(IconHelper.MakeIcon(_iconKey, _iconSize, brushKey));
+                if (!string.IsNullOrEmpty(_text))
+                {
+                    var tb = new TextBlock
+                    {
+                        Text = _text,
+                        FontSize = 13,
+                        FontWeight = FontWeight.SemiBold,
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+                    sp.Children.Add(tb);
+                }
+                Content = sp;
+            }
+
+            private void ApplyState()
+            {
+                if (!IsEnabled)
+                {
+                    Opacity = 0.55;
+                    Background = Brushes.Transparent;
+                    BorderBrush = Brushes.Transparent;
+                    BorderThickness = new Thickness(0);
+                    return;
+                }
+
+                Opacity = 1.0;
+                if (IsChecked == true)
+                    Background = _pressed ? _accentPressed : (_hovered ? _accentHover : _accent);
+                else
+                    Background = _pressed ? _pressedBg : (_hovered ? _hoverBg : Brushes.Transparent);
+
+                if (_focused)
+                {
+                    BorderBrush = _accent;
+                    BorderThickness = new Thickness(2);
+                }
+                else
+                {
+                    BorderBrush = Brushes.Transparent;
+                    BorderThickness = new Thickness(0);
+                }
+            }
         }
 
         private Control BuildStatusBar()
@@ -424,7 +1141,7 @@ namespace Configuration_Management
             grid.Children.Add(_syncMessage);
             Grid.SetColumn(_syncMessage, 1);
 
-            var toggleBtn = new Button { Content = "◧", ToolTip = new ToolTip { Content = "Правая панель" }, Margin = new Thickness(4, 0, 0, 0) };
+            var toggleBtn = new Button { Content = IconHelper.MakeIcon("IconPanel", 16), ToolTip = new ToolTip { Content = "Правая панель" }, Margin = new Thickness(4, 0, 0, 0) };
             toggleBtn.Bind(Button.CommandProperty, new Binding("ToggleRightPanelDetailsCommand"));
             grid.Children.Add(toggleBtn);
             Grid.SetColumn(toggleBtn, 2);
@@ -492,22 +1209,22 @@ namespace Configuration_Management
                 // Запуск выбранной базы: Предприятие / Конфигуратор.
                 if (_vm?.SelectedInfobase is { } sel)
                 {
-                    var ent = new NativeMenuItem($"▶ Предприятие: {sel.Name}");
+                    var ent = new NativeMenuItem($"Предприятие: {sel.Name}");
                     ent.Click += (_, _) => _vm.LaunchEnterpriseCommand.Execute(null);
                     menu.Add(ent);
 
-                    var cfg = new NativeMenuItem($"🔧 Конфигуратор: {sel.Name}");
+                    var cfg = new NativeMenuItem($"Конфигуратор: {sel.Name}");
                     cfg.Click += (_, _) => _vm.LaunchConfiguratorCommand.Execute(null);
                     menu.Add(cfg);
                     menu.Add(new NativeMenuItemSeparator());
                 }
 
                 // Синхронизация и настройки.
-                var sync = new NativeMenuItem("⟳ Синхронизация с ibases.v8i");
+                var sync = new NativeMenuItem("Синхронизация с ibases.v8i");
                 sync.Click += (_, _) => _vm?.SynchronizeWithIbasesCommand.Execute(null);
                 menu.Add(sync);
 
-                var settings = new NativeMenuItem("⚙ Настройки");
+                var settings = new NativeMenuItem("Настройки");
                 settings.Click += (_, _) => _vm?.OpenSettingsCommand.Execute(null);
                 menu.Add(settings);
                 menu.Add(new NativeMenuItemSeparator());

@@ -34,6 +34,13 @@ namespace Configuration_Management
         private Forms.NotifyIcon? _trayIcon;
         private bool _forceClose;
 
+        /// <summary>
+        /// Состояние нижней кнопки тегов (<see cref="MainViewModel.ShowTags"/>), запомненное
+        /// в момент выключения верхней кнопки «теги», чтобы восстановить его при повторном
+        /// включении (вместо принудительного включения нижней кнопки).
+        /// </summary>
+        private bool? _savedTagsStateBeforeTopOff;
+
         public MainWindow(ViewModels.MainViewModel? viewModel = null)
         {
             InitializeComponent();
@@ -1392,12 +1399,29 @@ namespace Configuration_Management
 
         /// <summary>
         /// Верхняя кнопка «теги»: помимо переключения панели быстрого отбора тегов
-        /// (привязка ShowTagFilterPanel) синхронно включает/выключает и теги в списке баз.
+        /// (привязка ShowTagFilterPanel) синхронно управляет и тегами в списке баз.
+        /// При выключении запоминает текущее состояние нижней кнопки тегов, а при
+        /// повторном включении восстанавливает его (не включает нижнюю кнопку принудительно).
         /// </summary>
         private void OnTopTagsToggle_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is ToggleButton toggle && DataContext is MainViewModel vm)
-                vm.ShowTags = toggle.IsChecked == true;
+            if (sender is not ToggleButton toggle || DataContext is not MainViewModel vm)
+                return;
+
+            if (toggle.IsChecked == true)
+            {
+                // Включение: возвращаем нижней кнопке состояние, которое было до выключения
+                // верхней кнопкой (либо оставляем текущее, если ранее не выключали).
+                if (_savedTagsStateBeforeTopOff is bool saved)
+                    vm.ShowTags = saved;
+                _savedTagsStateBeforeTopOff = null;
+            }
+            else
+            {
+                // Выключение: запоминаем состояние нижней кнопки и выключаем теги в списке.
+                _savedTagsStateBeforeTopOff = vm.ShowTags;
+                vm.ShowTags = false;
+            }
         }
 
         /// <summary>

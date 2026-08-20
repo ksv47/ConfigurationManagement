@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Themes;
 
 namespace Configuration_Management.Controls
 {
@@ -55,30 +56,26 @@ namespace Configuration_Management.Controls
                 MaxWidth = 460,
                 Margin = new Thickness(0, 6, 0, 0)
             };
-            var popupContent = new StackPanel
+            var titleBlock = new TextBlock
             {
-                Children =
-                {
-                    new TextBlock
-                    {
-                        Text = "Подсказка",
-                        FontWeight = FontWeight.SemiBold,
-                        FontSize = 12,
-                        Foreground = new SolidColorBrush(Color.Parse("#FDBF00"))
-                    },
-                    _helpBody
-                }
+                Text = "Подсказка",
+                FontWeight = FontWeight.SemiBold,
+                FontSize = 12
             };
+            // Заголовок — акцентный цвет темы.
+            ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "AccentColorBrush");
+            var popupContent = new StackPanel { Children = { titleBlock, _helpBody } };
             var popupBorder = new Border
             {
                 Child = popupContent,
-                Background = new SolidColorBrush(Color.Parse("#FFFFFF")),
-                BorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0")),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(12),
                 Margin = new Thickness(0, 6, 0, 0)
             };
+            // Фон и граница подсказки — карточка и граница из темы.
+            ThemeBrushes.Bind(popupBorder, Border.BackgroundProperty, "CardBackgroundColorBrush");
+            ThemeBrushes.Bind(popupBorder, Border.BorderBrushProperty, "BorderColorBrush");
             _helpPopup.Child = popupBorder;
             _helpPopup.PlacementTarget = _helpToggle;
             _helpPopup.Placement = PlacementMode.Bottom;

@@ -79,7 +79,7 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        new TextBlock { Text = "✖", VerticalAlignment = VerticalAlignment.Center },
+                        IconHelper.MakeIcon("IconClose", 14),
                         new TextBlock { Text = "Отмена", VerticalAlignment = VerticalAlignment.Center }
                     }
                 },
@@ -97,7 +97,7 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        new TextBlock { Text = "✔", VerticalAlignment = VerticalAlignment.Center },
+                        IconHelper.MakeIcon("IconOk", 14),
                         new TextBlock { Text = okText, VerticalAlignment = VerticalAlignment.Center }
                     }
                 },

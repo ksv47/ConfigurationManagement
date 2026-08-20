@@ -7,7 +7,8 @@ using Configuration_Management.Models;
 namespace Configuration_Management.Converters
 {
     /// <summary>
-    /// Avalonia-версия: значок в зависимости от типа подключения базы.
+    /// Avalonia-версия: ключ иконки (имя Geometry из Icons.axaml) в зависимости
+    /// от типа подключения базы. Возвращаемое значение передаётся в IconKeyToGeometryConverter.
     /// </summary>
     public class ConnectionTypeToIconConverter : IValueConverter
     {
@@ -17,12 +18,12 @@ namespace Configuration_Management.Converters
             {
                 return connectionType switch
                 {
-                    ConnectionType.File => "📁",
-                    ConnectionType.ClientServer => "🌐",
-                    _ => "❓"
+                    ConnectionType.File => "IconFolder",
+                    ConnectionType.ClientServer => "IconNetwork",
+                    _ => "IconUnknown"
                 };
             }
-            return "❓";
+            return "IconUnknown";
         }
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
