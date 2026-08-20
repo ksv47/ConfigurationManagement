@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Management;
+using System.Text;
+using System.Threading;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services;
@@ -586,11 +588,14 @@ public static class OneCLauncher
     /// </summary>
     public sealed class DesignerBatchInfo
     {
-        public DesignerBatchInfo(DesignerBatchOperation operation, string infobaseName, string? outputPath)
+        public DesignerBatchInfo(DesignerBatchOperation operation, string infobaseName, string? outputPath,
+            string? logPath = null, string? commandLine = null)
         {
             Operation = operation;
             InfobaseName = infobaseName;
             OutputPath = outputPath;
+            LogPath = logPath;
+            CommandLine = commandLine;
         }
 
         /// <summary>Тип выполняемой операции.</summary>
@@ -601,6 +606,21 @@ public static class OneCLauncher
 
         /// <summary>Путь к файлу выгрузки (.dt/.cf); может быть пустым для тестирования.</summary>
         public string? OutputPath { get; }
+
+        /// <summary>Путь к временному файлу лога операции (/Out), заполняется по завершении.</summary>
+        public string? LogPath { get; }
+
+        /// <summary>Командная строка запуска 1cv8 (для диагностики).</summary>
+        public string? CommandLine { get; }
+
+        /// <summary>Код возврата процесса 1cv8 (заполняется по завершении).</summary>
+        public int ExitCode { get; set; } = -1;
+
+        /// <summary>Успешно ли завершилась операция (код 0 и файл создан).</summary>
+        public bool Success { get; set; }
+
+        /// <summary>Сообщение об ошибке с текстом лога 1С (при неуспехе).</summary>
+        public string? ErrorMessage { get; set; }
 
         /// <summary>Человекочитаемое название операции для индикатора и подсказки.</summary>
         public string OperationLabel => Operation switch
@@ -706,7 +726,7 @@ public static class OneCLauncher
                 WorkingDirectory = Path.GetDirectoryName(exePath) ?? ""
             };
             var process = Process.Start(psi);
-            var info = new DesignerBatchInfo(operation, infobase.Name, outputPath);
+            var info = new DesignerBatchInfo(operation, infobase.Name, outputPath, outLog, $"{exePath} {arguments}");
             RegisterBatchProcess(infobase, process, info);
             DesignerBatchStarted?.Invoke(null, info);
             return true;
@@ -748,6 +768,9 @@ public static class OneCLauncher
             process.Exited += (_, _) =>
             {
                 _activeBatchProcesses.TryRemove(token, out _);
+                // Читаем лог, определяем успех операции и формируем сообщение об ошибке.
+                try { CompleteDesignerBatch(process, info); }
+                catch { /* не должны ронять поток обработчика */ }
                 // Оповещаем об окончании операции (индикатор выгрузки в главном окне).
                 DesignerBatchCompleted?.Invoke(null, info);
             };
@@ -756,6 +779,107 @@ public static class OneCLauncher
         {
             /* процесс мог уже завершиться */
         }
+    }
+
+    /// <summary>
+    /// По завершении процесса 1cv8 читает лог /Out, определяет успех операции
+    /// (код возврата 0 и наличие файла выгрузки) и заполняет <paramref name="info"/>.
+    /// При неуспехе формирует человекочитаемое сообщение с текстом лога 1С.
+    /// </summary>
+    private static void CompleteDesignerBatch(Process process, DesignerBatchInfo info)
+    {
+        try { info.ExitCode = process.HasExited ? process.ExitCode : -1; }
+        catch { info.ExitCode = -1; }
+
+        // Читаем лог операции (файл мог ещё дописываться — ждём стабилизации размера).
+        var logText = ReadLogFile(info.LogPath);
+
+        // Успех: код возврата 0 и (для выгрузки) создан и не пуст файл назначения.
+        bool ok = info.ExitCode == 0;
+        if (ok && info.Operation is DesignerBatchOperation.DumpIB or DesignerBatchOperation.DumpCfg)
+        {
+            ok = !string.IsNullOrWhiteSpace(info.OutputPath) &&
+                 File.Exists(info.OutputPath) &&
+                 new FileInfo(info.OutputPath).Length > 0;
+        }
+
+        info.Success = ok;
+        if (ok)
+            return;
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"Операция «{info.OperationLabel}» завершилась неудачно.");
+        sb.AppendLine($"Код возврата 1cv8: {info.ExitCode}.");
+        if (!string.IsNullOrWhiteSpace(info.OutputPath))
+            sb.AppendLine($"Файл: {info.OutputPath}");
+        if (!string.IsNullOrWhiteSpace(logText))
+        {
+            sb.AppendLine();
+            sb.AppendLine("--- Сообщение 1С ---");
+            sb.Append(TruncateLogTail(logText, 3000));
+        }
+        if (!string.IsNullOrWhiteSpace(info.CommandLine))
+        {
+            sb.AppendLine();
+            sb.AppendLine("--- Командная строка ---");
+            sb.AppendLine(info.CommandLine);
+        }
+        info.ErrorMessage = sb.ToString();
+    }
+
+    /// <summary>Читает содержимое временного лога 1С и удаляет файл.</summary>
+    private static string ReadLogFile(string? logPath)
+    {
+        if (string.IsNullOrWhiteSpace(logPath))
+            return string.Empty;
+
+        // Ждём, пока файл перестанет расти (1С дописывает лог даже после выхода процесса).
+        for (var i = 0; i < 30; i++)
+        {
+            try
+            {
+                if (!File.Exists(logPath))
+                    break;
+                var f = new FileInfo(logPath);
+                if (f.Length > 0)
+                {
+                    var len1 = f.Length;
+                    Thread.Sleep(120);
+                    var len2 = new FileInfo(logPath).Length;
+                    if (len1 == len2)
+                        break; // размер стабилен — можно читать
+                }
+            }
+            catch
+            {
+                break;
+            }
+            Thread.Sleep(80);
+        }
+
+        try
+        {
+            if (File.Exists(logPath))
+                return File.ReadAllText(logPath);
+        }
+        catch
+        {
+            /* занят другим процессом — пропускаем */
+        }
+        finally
+        {
+            try { File.Delete(logPath); } catch { /* ignore */ }
+        }
+        return string.Empty;
+    }
+
+    /// <summary>Возвращает хвост текста (последние <paramref name="maxChars"/> символов).</summary>
+    private static string TruncateLogTail(string text, int maxChars)
+    {
+        text = (text ?? string.Empty).Trim();
+        if (text.Length <= maxChars)
+            return text;
+        return "…" + text.Substring(text.Length - maxChars);
     }
 
     /// <summary>Удаляет завершившиеся процессы из реестра активных операций.</summary>
@@ -836,6 +960,18 @@ public static class OneCLauncher
     /// <summary>Аргументы /N /P при режиме Credentials.</summary>
     public static string BuildAuthArgument(Infobase infobase)
     {
+        // Для пакетных операций конфигуратора (выгрузка .dt/.cf) в приоритете
+        // отдельная авторизация конфигуратора, если она задана.
+        if (infobase.ConfiguratorAuth is { } cfgAuth &&
+            cfgAuth.AuthenticationMode == AuthenticationMode.Credentials &&
+            !string.IsNullOrWhiteSpace(cfgAuth.User))
+        {
+            var cAuth = $" /N\"{cfgAuth.User}\"";
+            if (!string.IsNullOrEmpty(cfgAuth.Password))
+                cAuth += $" /P\"{cfgAuth.Password}\"";
+            return cAuth;
+        }
+
         var conn = infobase.Connection;
         if (conn.AuthenticationMode != AuthenticationMode.Credentials ||
             string.IsNullOrWhiteSpace(conn.User))

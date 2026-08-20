@@ -4704,9 +4704,21 @@ public string HotkeyEnterprise
     {
         Application.Current?.Dispatcher.BeginInvoke(() =>
         {
-            _logger.Info($"Пакетная операция завершена: {e.OperationLabel}, база «{e.InfobaseName}»");
+            _logger.Info($"Пакетная операция завершена: {e.OperationLabel}, база «{e.InfobaseName}»" +
+                         (e.Success ? "" : $" (код {e.ExitCode}, ошибка)"));
             IsExporting = false;
             ExportIndicatorTooltip = string.Empty;
+
+            // При неуспехе показываем реальную причину (лог 1С из /Out и код возврата).
+            if (!e.Success)
+            {
+                _logger.Error($"Ошибка пакетной операции: {e.ErrorMessage}");
+                System.Windows.MessageBox.Show(
+                    e.ErrorMessage ?? "Операция завершилась с ошибкой.",
+                    "Ошибка операции 1С",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            }
         });
     }
 
