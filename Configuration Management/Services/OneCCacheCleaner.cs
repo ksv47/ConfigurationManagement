@@ -413,8 +413,11 @@ public static class OneCCacheCleaner
         var roots = new List<string>();
 
 #if LINUX
-        // Linux: программный кеш — ~/.cache/1cv8 (XDG_CACHE_HOME) и ~/.1cv8/1cv8;
-        // пользовательский — ~/.local/share/1cv8/1cv8 (XDG_DATA_HOME) и ~/.1cv8/1cv8.
+        // Linux: пользовательский кеш баз платформа держит в ~/.1cv8/1C/1cv8,
+        // каталоги баз по GUID лежат прямо в нём (проверено на 8.3.27).
+        // ~/.cache/1cv8 и ~/.local/share/1cv8 это данные встроенного браузера,
+        // а не кеш баз; оставлены как были, вместе с прежним ~/.1cv8/1cv8
+        // на случай других раскладок дистрибутива.
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
         if (kind.HasFlag(OneCCacheKind.Program))
@@ -435,7 +438,10 @@ public static class OneCCacheCleaner
                 roots.Add(Path.Combine(home, ".local", "share", "1cv8"));
             // Общая для всех версий каталог кэша в профиле 1С.
             if (!string.IsNullOrEmpty(home))
+            {
+                roots.Add(Path.Combine(home, ".1cv8", "1C", "1cv8"));
                 roots.Add(Path.Combine(home, ".1cv8", "1cv8"));
+            }
         }
 #else
         // Программный кеш — %LOCALAPPDATA%\1C\1cv8.

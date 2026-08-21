@@ -321,7 +321,7 @@ namespace Configuration_Management
                 "SecondaryButtonPressedBrush",
                 "BorderColorBrush")
             {
-                Content = ThemedIconAndText(iconKey, text, "TextPrimaryBrush", UiMetrics.Scaled(15), centered: false),
+                Content = ThemedIconAndText(iconKey, text, "ButtonTextBrush", UiMetrics.Scaled(15), centered: false),
                 Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
@@ -338,7 +338,7 @@ namespace Configuration_Management
                 "SecondaryButtonPressedBrush",
                 "BorderColorBrush")
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(16), "TextPrimaryBrush"),
+                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(16), "ButtonTextBrush"),
                 Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
@@ -792,7 +792,7 @@ namespace Configuration_Management
                 "SecondaryButtonPressedBrush",
                 "BorderColorBrush")
             {
-                Content = ThemedIconAndText(iconKey, text, "TextPrimaryBrush", 16, centered: false),
+                Content = ThemedIconAndText(iconKey, text, "ButtonTextBrush", 16, centered: false),
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Margin = new Thickness(0, 0, 0, 2)
@@ -818,7 +818,7 @@ namespace Configuration_Management
                 "BorderColorBrush",
                 new CornerRadius(radius, 0, 0, radius))
             {
-                Content = ThemedIconAndText("IconDelete", LocalizationManager.T("Main.ClearCache"), "TextPrimaryBrush", 16, centered: false),
+                Content = ThemedIconAndText("IconDelete", LocalizationManager.T("Main.ClearCache"), "ButtonTextBrush", 16, centered: false),
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Margin = new Thickness(0, 0, 0, 2)
@@ -847,17 +847,19 @@ namespace Configuration_Management
                 "BorderColorBrush",
                 new CornerRadius(0, radius, radius, 0))
             {
-                Content = new TextBlock
-                {
-                    Text = "▾",
-                    FontSize = UiMetrics.Scaled(14),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Center
-                },
                 Width = 36,
                 Padding = new Thickness(0),
                 Margin = new Thickness(0, 0, 0, 2)
             };
+            var arrowGlyph = new TextBlock
+            {
+                Text = "▾",
+                FontSize = UiMetrics.Scaled(14),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            ThemeBrushes.Bind(arrowGlyph, TextBlock.ForegroundProperty, "ButtonTextBrush");
+            arrow.Content = arrowGlyph;
             ToolTip.SetTip(arrow, LocalizationManager.T("Main.ClearCacheTooltip"));
             arrow.ContextMenu = menu;
             arrow.Click += (_, _) => menu.Open(arrow);
