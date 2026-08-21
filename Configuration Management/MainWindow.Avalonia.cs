@@ -368,7 +368,8 @@ namespace Configuration_Management
             _tree.Styles.Add(tviStyle);
 
             _tree.ItemTemplate = new FuncTreeDataTemplate(
-                BuildTreeRow,
+                typeof(object),
+                (item, _) => BuildTreeRow(item),
                 item => item is GroupNodeViewModel g ? g.Items : null);
             _tree.SelectionChanged += OnTreeSelectionChanged;
 
@@ -938,7 +939,9 @@ namespace Configuration_Management
                 // Кастомный шаблон: скруглённый Border + ContentPresenter (без Fluent-хрома).
                 Theme = new ControlTheme(typeof(Button))
                 {
-                    Template = new FuncControlTemplate<PanelButton>((_, _) =>
+                    Setters =
+                    {
+                        new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<PanelButton>((_, _) =>
                     {
                         var border = new Border { CornerRadius = _radius, BorderThickness = new Thickness(1) };
                         border.Bind(Border.BackgroundProperty, new TemplateBinding(TemplatedControl.BackgroundProperty));
@@ -953,7 +956,8 @@ namespace Configuration_Management
                         presenter.Bind(ContentPresenter.VerticalContentAlignmentProperty, new TemplateBinding(ContentControl.VerticalContentAlignmentProperty));
                         border.Child = presenter;
                         return border;
-                    })
+                    }))
+                    }
                 };
 
                 Subscribe(baseBgKey, v => _baseBg = v);
@@ -1108,7 +1112,9 @@ namespace Configuration_Management
                 // Кастомный шаблон: скруглённый Border + ContentPresenter (без Fluent-хрома).
                 Theme = new ControlTheme(typeof(ToggleButton))
                 {
-                    Template = new FuncControlTemplate<SegmentButton>((_, _) =>
+                    Setters =
+                    {
+                        new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<SegmentButton>((_, _) =>
                     {
                         var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusSm), BorderThickness = new Thickness(0) };
                         border.Bind(Border.BackgroundProperty, new TemplateBinding(TemplatedControl.BackgroundProperty));
@@ -1121,7 +1127,8 @@ namespace Configuration_Management
                         presenter.Bind(ContentPresenter.VerticalContentAlignmentProperty, new TemplateBinding(ContentControl.VerticalContentAlignmentProperty));
                         border.Child = presenter;
                         return border;
-                    })
+                    }))
+                    }
                 };
 
                 Subscribe(hoverBgKey, v => _hoverBg = v);
@@ -1346,7 +1353,8 @@ namespace Configuration_Management
                     ToolTipText = LocalizationManager.T("App.Title"),
                     Menu = menu
                 };
-                TrayIcon.SetIcons(this, new TrayIcons { tray });
+                if (Application.Current is { } app)
+                    TrayIcon.SetIcons(app, new TrayIcons { tray });
             }
             catch
             {

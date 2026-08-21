@@ -182,7 +182,6 @@ namespace Configuration_Management.Services
             if (owner is not null)
             {
                 window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                window.Owner = owner;
             }
             else
             {
@@ -192,7 +191,10 @@ namespace Configuration_Management.Services
             bool result = true;
             window.Closed += (_, _) => result = window is MessageWindow mw ? mw.Result : true;
 
-            window.Show();
+            if (owner is not null)
+                window.Show(owner);
+            else
+                window.Show();
 
             while (window.IsVisible)
             {
