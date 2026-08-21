@@ -142,6 +142,18 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Завершает приложение. У Avalonia Application нет метода Shutdown,
+        /// выход выполняет desktop-lifetime.
+        /// </summary>
+        private void Shutdown(int exitCode = 0)
+        {
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                desktop.Shutdown(exitCode);
+            else
+                Environment.Exit(exitCode);
+        }
+
+        /// <summary>
         /// Захватывает исключительный файловый lock (один экземпляр на Linux).
         /// Файл-блокировка в каталоге данных с FileShare.None.
         /// </summary>

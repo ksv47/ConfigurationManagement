@@ -176,11 +176,12 @@ namespace Configuration_Management
         /// <summary>Сегментный переключатель (например «группы»/«теги») с иконкой и состояниями.</summary>
         private SegmentButton MakeSegmentToggle(string iconKey, string tooltip)
         {
-            return new SegmentButton(iconKey, string.Empty, "ItemHoverBrush", "ItemSelectedBrush", lockOn: false)
+            var segment = new SegmentButton(iconKey, string.Empty, "ItemHoverBrush", "ItemSelectedBrush", lockOn: false)
             {
-                ToolTip = new ToolTip { Content = tooltip },
                 IsChecked = true
             };
+            ToolTip.SetTip(segment, tooltip);
+            return segment;
         }
 
         /// <summary>Сегментированный контроль фильтра списка: Все / Избранное / Недавние.</summary>
@@ -256,9 +257,9 @@ namespace Configuration_Management
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(6, 0),
-                Cursor = new Cursor(StandardCursorType.Hand),
-                ToolTip = new ToolTip { Content = LocalizationManager.T("Main.ClearSearch") }
+                Cursor = new Cursor(StandardCursorType.Hand)
             };
+            ToolTip.SetTip(clearBtn, LocalizationManager.T("Main.ClearSearch"));
             clearBtn.Bind(Button.CommandProperty, new Binding("ClearSearchCommand"));
             grid.Children.Add(clearBtn);
             Grid.SetColumn(clearBtn, 2);
@@ -301,45 +302,48 @@ namespace Configuration_Management
         /// <summary>Primary-кнопка топ-бара: акцентный фон, иконка + подпись цветом «на акценте».</summary>
         private static PanelButton TopBarPrimaryButton(string iconKey, string text, string tooltip)
         {
-            return new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush")
+            var button = new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush")
             {
                 Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", UiMetrics.Scaled(15), centered: false),
-                ToolTip = new ToolTip { Content = tooltip },
                 Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
+            ToolTip.SetTip(button, tooltip);
+            return button;
         }
 
         /// <summary>Secondary-кнопка топ-бара: приглушённый фон, иконка + подпись, hover/pressed.</summary>
         private static PanelButton TopBarSecondaryButton(string iconKey, string text, string tooltip)
         {
-            return new PanelButton(
+            var button = new PanelButton(
                 "SecondaryButtonBackgroundBrush",
                 "SecondaryButtonHoverBrush",
                 "SecondaryButtonPressedBrush",
                 "BorderColorBrush")
             {
                 Content = ThemedIconAndText(iconKey, text, "TextPrimaryBrush", UiMetrics.Scaled(15), centered: false),
-                ToolTip = new ToolTip { Content = tooltip },
                 Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
+            ToolTip.SetTip(button, tooltip);
+            return button;
         }
 
         /// <summary>Компактная иконко-кнопка топ-бара (например тема) с состояниями из темы.</summary>
         private static PanelButton TopBarIconButton(string iconKey, string tooltip)
         {
-            return new PanelButton(
+            var button = new PanelButton(
                 "SecondaryButtonBackgroundBrush",
                 "SecondaryButtonHoverBrush",
                 "SecondaryButtonPressedBrush",
                 "BorderColorBrush")
             {
                 Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(16), "TextPrimaryBrush"),
-                ToolTip = new ToolTip { Content = tooltip },
                 Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
+            ToolTip.SetTip(button, tooltip);
+            return button;
         }
 
         private Control BuildMainArea()
@@ -576,9 +580,9 @@ namespace Configuration_Management
                 BorderThickness = new Thickness(1),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 0, 10, 0),
-                ToolTip = ib.StatusDisplay
+                Margin = new Thickness(0, 0, 10, 0)
             };
+            ToolTip.SetTip(iconBox, ib.StatusDisplay);
             ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush");
             ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush");
             iconBox.Child = new Avalonia.Controls.Shapes.Path
@@ -662,9 +666,9 @@ namespace Configuration_Management
             {
                 Text = text,
                 FontSize = UiMetrics.RowSecondaryFont,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                ToolTip = text
+                TextTrimming = TextTrimming.CharacterEllipsis
             };
+            ToolTip.SetTip(block, text);
             ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             return block;
         }
@@ -851,9 +855,9 @@ namespace Configuration_Management
                 },
                 Width = 36,
                 Padding = new Thickness(0),
-                Margin = new Thickness(0, 0, 0, 2),
-                ToolTip = new ToolTip { Content = LocalizationManager.T("Main.ClearCacheTooltip") }
+                Margin = new Thickness(0, 0, 0, 2)
             };
+            ToolTip.SetTip(arrow, LocalizationManager.T("Main.ClearCacheTooltip"));
             arrow.ContextMenu = menu;
             arrow.Click += (_, _) => menu.Open(arrow);
 
@@ -1228,7 +1232,8 @@ namespace Configuration_Management
             grid.Children.Add(_syncMessage);
             Grid.SetColumn(_syncMessage, 1);
 
-            var toggleBtn = new Button { Content = IconHelper.MakeIcon("IconPanel", 16), ToolTip = new ToolTip { Content = LocalizationManager.T("Main.RightPanel") }, Margin = new Thickness(4, 0, 0, 0) };
+            var toggleBtn = new Button { Content = IconHelper.MakeIcon("IconPanel", 16), Margin = new Thickness(4, 0, 0, 0) };
+            ToolTip.SetTip(toggleBtn, LocalizationManager.T("Main.RightPanel"));
             toggleBtn.Bind(Button.CommandProperty, new Binding("ToggleRightPanelDetailsCommand"));
             grid.Children.Add(toggleBtn);
             Grid.SetColumn(toggleBtn, 2);
@@ -1372,7 +1377,7 @@ namespace Configuration_Management
                 {
                     foreach (var dir in new[] { AppContext.BaseDirectory, Environment.CurrentDirectory })
                     {
-                        var path = Path.Combine(dir, name);
+                        var path = System.IO.Path.Combine(dir, name);
                         if (File.Exists(path))
                             return new WindowIcon(new Bitmap(path));
                     }

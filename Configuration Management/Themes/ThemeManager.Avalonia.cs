@@ -5,8 +5,11 @@ using System.Linq;
 using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Themes;
+using Avalonia.VisualTree;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
@@ -111,9 +114,9 @@ namespace Configuration_Management.Themes
         public static void ApplyFontToAllWindows(
             string fontFamily, double fontSize, string fontWeight, string fontStyle)
         {
-            if (Application.Current is null)
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
                 return;
-            foreach (Window window in Application.Current.Windows)
+            foreach (Window window in desktop.Windows)
                 ApplyFont(window, fontFamily, fontSize, fontWeight, fontStyle);
         }
 
