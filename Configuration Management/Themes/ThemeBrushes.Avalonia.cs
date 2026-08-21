@@ -1,6 +1,7 @@
 #if LINUX
 using System;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 
 namespace Configuration_Management.Themes
