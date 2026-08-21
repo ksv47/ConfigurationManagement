@@ -36,3 +36,5 @@ packages/
 Thumbs.db
 Desktop.ini
 .DS_Store
+## Артефакты порта (локальные, наружу не выносим)
+_port/
