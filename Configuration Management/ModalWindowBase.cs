@@ -41,23 +41,21 @@ namespace Configuration_Management
         /// <returns>True, если пользователь подтвердил действие (DialogResult == true).</returns>
         public bool ShowDialogSync(Window? owner = null)
         {
+            var frame = new DispatcherFrame();
+            Closed += (_, _) => frame.Continue = false;
+
             if (owner is not null)
             {
                 WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                Owner = owner;
+                _ = ShowDialog(owner);
             }
             else
             {
                 WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                Show();
             }
 
-            Show();
-
-            while (IsVisible)
-            {
-                Dispatcher.UIThread.RunJobs();
-                Thread.Sleep(10);
-            }
+            Dispatcher.UIThread.PushFrame(frame);
 
             return DialogResult;
         }
