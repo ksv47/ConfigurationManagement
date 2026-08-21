@@ -276,7 +276,7 @@ namespace Configuration_Management.Services
             var content = new StackPanel
             {
                 Spacing = 16,
-                Padding = new Thickness(16),
+                Margin = new Thickness(16),
                 Children = { body, buttonsPanel }
             };
             Content = content;

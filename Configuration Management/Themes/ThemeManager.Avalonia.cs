@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Documents;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Themes;
@@ -95,12 +96,12 @@ namespace Configuration_Management.Themes
             {
                 var family = string.IsNullOrWhiteSpace(fontFamily) ? DefaultFontFamily : fontFamily;
                 var size = fontSize > 0 ? fontSize : DefaultFontSize;
-                target.FontFamily = new FontFamily(family);
-                target.FontSize = size;
-                target.FontWeight = string.Equals(fontWeight, "Bold", StringComparison.OrdinalIgnoreCase)
-                    ? FontWeight.Bold : FontWeight.Normal;
-                target.FontStyle = string.Equals(fontStyle, "Italic", StringComparison.OrdinalIgnoreCase)
-                    ? FontStyle.Italic : FontStyle.Normal;
+                TextElement.SetFontFamily(target, new FontFamily(family));
+                TextElement.SetFontSize(target, size);
+                TextElement.SetFontWeight(target, string.Equals(fontWeight, "Bold", StringComparison.OrdinalIgnoreCase)
+                    ? FontWeight.Bold : FontWeight.Normal);
+                TextElement.SetFontStyle(target, string.Equals(fontStyle, "Italic", StringComparison.OrdinalIgnoreCase)
+                    ? FontStyle.Italic : FontStyle.Normal);
             }
             catch
             {

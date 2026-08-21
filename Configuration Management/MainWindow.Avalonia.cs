@@ -267,11 +267,11 @@ namespace Configuration_Management
             border.Child = grid;
 
             // Hover-состояние: фон и граница подсвечиваются из ресурсов темы (без жёстких цветов).
-            var baseBg = Brushes.Transparent;
-            var hoverBg = Brushes.Transparent;
-            var baseBorder = Brushes.Transparent;
-            var hoverBorder = Brushes.Transparent;
-            var accentBorder = Brushes.Transparent;
+            IBrush baseBg = Brushes.Transparent;
+            IBrush hoverBg = Brushes.Transparent;
+            IBrush baseBorder = Brushes.Transparent;
+            IBrush hoverBorder = Brushes.Transparent;
+            IBrush accentBorder = Brushes.Transparent;
             var hovered = false;
             var focused = false;
 
@@ -357,14 +357,14 @@ namespace Configuration_Management
                 BorderThickness = new Thickness(0)
             };
             // Фон списка баз — фон рабочей области из темы.
-            ThemeBrushes.Bind(_tree, Control.BackgroundProperty, "ContentBackgroundColorBrush");
+            ThemeBrushes.Bind(_tree, TemplatedControl.BackgroundProperty, "ContentBackgroundColorBrush");
             _tree.Bind(TreeView.ItemsSourceProperty, new Binding("GroupNodes"));
             _tree.SelectionMode = SelectionMode.Single;
 
             // Убираем стандартную подсветку контейнера TreeViewItem — карточка строки
             // сама рисует hover/выделение из ресурсов темы (без жёстких цветов).
             var tviStyle = new Style(x => x.OfType<LeveledTreeViewItem>());
-            tviStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+            tviStyle.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent));
             _tree.Styles.Add(tviStyle);
 
             _tree.ItemTemplate = new FuncTreeDataTemplate(
@@ -941,10 +941,10 @@ namespace Configuration_Management
                     Template = new FuncControlTemplate<PanelButton>((_, _) =>
                     {
                         var border = new Border { CornerRadius = _radius, BorderThickness = new Thickness(1) };
-                        border.Bind(Border.BackgroundProperty, new TemplateBinding(Control.BackgroundProperty));
-                        border.Bind(Border.BorderBrushProperty, new TemplateBinding(Control.BorderBrushProperty));
-                        border.Bind(Border.BorderThicknessProperty, new TemplateBinding(Control.BorderThicknessProperty));
-                        border.Bind(Border.PaddingProperty, new TemplateBinding(Control.PaddingProperty));
+                        border.Bind(Border.BackgroundProperty, new TemplateBinding(TemplatedControl.BackgroundProperty));
+                        border.Bind(Border.BorderBrushProperty, new TemplateBinding(TemplatedControl.BorderBrushProperty));
+                        border.Bind(Border.BorderThicknessProperty, new TemplateBinding(TemplatedControl.BorderThicknessProperty));
+                        border.Bind(Border.PaddingProperty, new TemplateBinding(TemplatedControl.PaddingProperty));
                         UiMetrics.AddBrushTransition(border);
 
                         var presenter = new ContentPresenter();
@@ -968,8 +968,8 @@ namespace Configuration_Management
                 PointerReleased += (_, _) => { _pressed = false; ApplyState(); };
                 PointerCaptureLost += (_, _) => { _pressed = false; ApplyState(); };
 
-                GetObservable(IsEnabledProperty).Subscribe(new BoolObserver(_ => ApplyState()));
-                GetObservable(IsKeyboardFocusWithinProperty).Subscribe(new BoolObserver(v => { _focused = v; ApplyState(); }));
+                this.GetObservable(IsEnabledProperty).Subscribe(new BoolObserver(_ => ApplyState()));
+                this.GetObservable(IsKeyboardFocusWithinProperty).Subscribe(new BoolObserver(v => { _focused = v; ApplyState(); }));
                 ApplyState();
             }
 
@@ -1111,9 +1111,9 @@ namespace Configuration_Management
                     Template = new FuncControlTemplate<SegmentButton>((_, _) =>
                     {
                         var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusSm), BorderThickness = new Thickness(0) };
-                        border.Bind(Border.BackgroundProperty, new TemplateBinding(Control.BackgroundProperty));
-                        border.Bind(Border.BorderBrushProperty, new TemplateBinding(Control.BorderBrushProperty));
-                        border.Bind(Border.BorderThicknessProperty, new TemplateBinding(Control.BorderThicknessProperty));
+                        border.Bind(Border.BackgroundProperty, new TemplateBinding(TemplatedControl.BackgroundProperty));
+                        border.Bind(Border.BorderBrushProperty, new TemplateBinding(TemplatedControl.BorderBrushProperty));
+                        border.Bind(Border.BorderThicknessProperty, new TemplateBinding(TemplatedControl.BorderThicknessProperty));
                         UiMetrics.AddBrushTransition(border);
                         var presenter = new ContentPresenter();
                         presenter.Bind(ContentPresenter.ContentProperty, new TemplateBinding(ContentControl.ContentProperty));
@@ -1136,9 +1136,9 @@ namespace Configuration_Management
                 PointerReleased += (_, _) => { _pressed = false; ApplyState(); };
                 PointerCaptureLost += (_, _) => { _pressed = false; ApplyState(); };
 
-                GetObservable(IsCheckedProperty).Subscribe(new BoolObserver(_ => { UpdateContent(); ApplyState(); }));
-                GetObservable(IsEnabledProperty).Subscribe(new BoolObserver(_ => ApplyState()));
-                GetObservable(IsKeyboardFocusWithinProperty).Subscribe(new BoolObserver(v => { _focused = v; ApplyState(); }));
+                this.GetObservable(IsCheckedProperty, v => v == true).Subscribe(new BoolObserver(_ => { UpdateContent(); ApplyState(); }));
+                this.GetObservable(IsEnabledProperty).Subscribe(new BoolObserver(_ => ApplyState()));
+                this.GetObservable(IsKeyboardFocusWithinProperty).Subscribe(new BoolObserver(v => { _focused = v; ApplyState(); }));
 
                 UpdateContent();
                 ApplyState();
@@ -1217,7 +1217,7 @@ namespace Configuration_Management
 
         private Control BuildStatusBar()
         {
-            var grid = new Grid { Padding = new Thickness(UiMetrics.TopBarH, 6) };
+            var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -1238,7 +1238,7 @@ namespace Configuration_Management
             grid.Children.Add(toggleBtn);
             Grid.SetColumn(toggleBtn, 2);
 
-            return new Border { Child = grid, Name = "StatusBarBorder" };
+            return new Border { Child = grid, Name = "StatusBarBorder", Padding = new Thickness(UiMetrics.TopBarH, 6) };
         }
 
         // ======================= Обработчики =======================
