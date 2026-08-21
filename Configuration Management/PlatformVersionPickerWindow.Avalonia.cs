@@ -30,8 +30,8 @@ namespace Configuration_Management
         private readonly RadioButton _filterAll = new() { Content = LocalizationManager.T("Common.All"), IsChecked = true, GroupName = "Arch" };
         private readonly RadioButton _filterX32 = new() { Content = "x32", GroupName = "Arch" };
         private readonly RadioButton _filterX64 = new() { Content = "x64", GroupName = "Arch" };
-        private readonly RadioButton _sortAsc = new() { Content = "А → Я" };
-        private readonly RadioButton _sortDesc = new() { Content = "Я → А", IsChecked = true };
+        private readonly RadioButton _sortAsc = new() { Content = LocalizationManager.T("Common.SortAsc") };
+        private readonly RadioButton _sortDesc = new() { Content = LocalizationManager.T("Common.SortDesc"), IsChecked = true };
 
         public PlatformVersionPickerWindow(IEnumerable<string> installedPlatformVersions, string currentVersion)
         {

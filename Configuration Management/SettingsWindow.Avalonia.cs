@@ -84,6 +84,21 @@ namespace Configuration_Management
                 Opacity = 0.7
             });
 
+            // Компактный режим интерфейса.
+            var compactToggle = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.CompactMode"),
+                IsChecked = _viewModel.CompactMode,
+                Margin = new Thickness(0, 8, 0, 4)
+            };
+            compactToggle.IsCheckedChanged += (_, _) =>
+            {
+                var value = compactToggle.IsChecked == true;
+                _viewModel.CompactMode = value;
+                _viewModel.ApplyCompactMode(value);
+            };
+            settings.Children.Add(compactToggle);
+
             // Параметры текущей сессии
             settings.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.DefaultClientLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
             var clientPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
@@ -96,7 +111,7 @@ namespace Configuration_Management
 
             settings.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.DefaultArch"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
             var archPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-            archPanel.Children.Add(Radio("SessionArch", "IsSessionArchAuto", "Авто"));
+            archPanel.Children.Add(Radio("SessionArch", "IsSessionArchAuto", LocalizationManager.T("Main.SessionClientAuto")));
             archPanel.Children.Add(Radio("SessionArch", "IsSessionArch32", "32"));
             archPanel.Children.Add(Radio("SessionArch", "IsSessionArch64", "64"));
             settings.Children.Add(archPanel);

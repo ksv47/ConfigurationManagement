@@ -26,28 +26,28 @@
                        Foreground="{DynamicResource TextPrimaryBrush}"
                        Text="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"/>
             <controls:HelpLink Margin="8,0,0,0" VerticalAlignment="Center"
-                               HelpText="Создание информационной базы через CREATEINFOBASE.&#10;&#10;• Файловая — укажите каталог, в котором будет размещена база (будет создан 1Cv8.1CD).&#10;• Клиент-серверная — укажите сервер 1С, имя базы на сервере и (опционально) порт.&#10;• «Создать из шаблона» — выберите конфигурацию из установленных шаблонов (.cf / .dt) либо укажите файл вручную.&#10;• Пустую базу или базу из шаблона можно создать; после создания она появится в списке баз."/>
+                               HelpText="{loc:Loc CreateInfobase.HelpText}"/>
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                       Padding="0,0,4,0">
         <StackPanel>
-            <TextBlock Text="Наименование:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+            <TextBlock Text="{loc:Loc CreateInfobase.NameLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
             <TextBox x:Name="NameBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12"
                      Padding="6,4"/>
 
-            <TextBlock Text="Тип базы:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+            <TextBlock Text="{loc:Loc CreateInfobase.TypeLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
             <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                <RadioButton x:Name="FileTypeRadio" Content="Файловая" IsChecked="True"
+                <RadioButton x:Name="FileTypeRadio" Content="{loc:Loc CreateInfobase.FileType}" IsChecked="True"
                              GroupName="DbType" Margin="0,0,16,0" Checked="OnType_Changed"
                              Foreground="{DynamicResource TextPrimaryBrush}"/>
-                <RadioButton x:Name="ServerTypeRadio" Content="Клиент-серверная"
+                <RadioButton x:Name="ServerTypeRadio" Content="{loc:Loc CreateInfobase.ServerType}"
                              GroupName="DbType" Checked="OnType_Changed"
                              Foreground="{DynamicResource TextPrimaryBrush}"/>
             </StackPanel>
 
             <StackPanel x:Name="FilePanel">
-                <TextBlock Text="Каталог базы:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                <TextBlock Text="{loc:Loc CreateInfobase.DirLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
                 <Grid Margin="0,0,0,12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -56,20 +56,20 @@
                     <TextBox x:Name="FilePathBox" Style="{DynamicResource ModernTextBox}" Padding="6,4"/>
                     <Button Grid.Column="1" Margin="8,0,0,0" Padding="10,4"
                             Style="{DynamicResource SecondaryButton}" Click="OnBrowseFolder_Click"
-                            Content="Обзор…"/>
+                            Content="{loc:Loc Common.Browse}"/>
                 </Grid>
             </StackPanel>
 
             <StackPanel x:Name="ServerPanel" Visibility="Collapsed">
-                <TextBlock Text="Сервер 1С:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                <TextBlock Text="{loc:Loc CreateInfobase.ServerLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
                 <TextBox x:Name="ServerBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,8" Padding="6,4"
-                         ToolTip="Имя сервера, например Server1C или Server1C:1541"/>
-                <TextBlock Text="Имя базы (Ref):" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                         ToolTip="{loc:Loc CreateInfobase.ServerTooltip}"/>
+                <TextBlock Text="{loc:Loc CreateInfobase.RefLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
                 <TextBox x:Name="RefBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12" Padding="6,4"/>
             </StackPanel>
 
             <StackPanel x:Name="TemplatePanel" Visibility="Collapsed">
-                <TextBlock Text="Шаблоны из манифестов 1cv8.mft (как в стартере 1С) — дерево по полю Catalog:"
+                <TextBlock Text="{loc:Loc CreateInfobase.TemplateManifestsLabel}"
                            Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap"/>
                 <TextBlock x:Name="TemplateRootsHint" FontSize="11" Margin="0,0,0,6" TextWrapping="Wrap"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -105,17 +105,17 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="TemplateBox" Style="{DynamicResource ModernTextBox}" Padding="6,4"
-                             ToolTip="Путь к файлу шаблона (.cf / .dt)"/>
+                             ToolTip="{loc:Loc CreateInfobase.TemplatePathTooltip}"/>
                     <Button Grid.Column="1" Margin="8,0,0,0" Padding="10,4"
                             Style="{DynamicResource SecondaryButton}" Click="OnRefreshTemplates_Click"
-                            Content="Обновить" ToolTip="Повторно просканировать каталоги tmplts"/>
+                            Content="{loc:Loc CreateInfobase.Refresh}" ToolTip="{loc:Loc CreateInfobase.RefreshTooltip}"/>
                     <Button Grid.Column="2" Margin="8,0,0,0" Padding="10,4"
                             Style="{DynamicResource SecondaryButton}" Click="OnBrowseTemplate_Click"
-                            Content="Файл…" ToolTip="Выбрать файл шаблона вручную"/>
+                            Content="{loc:Loc CreateInfobase.File}" ToolTip="{loc:Loc CreateInfobase.FileTooltip}"/>
                 </Grid>
             </StackPanel>
 
-            <TextBlock Text="Версия платформы:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+            <TextBlock Text="{loc:Loc CreateInfobase.PlatformVersionLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
             <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -124,16 +124,16 @@
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="PlatformBox" Style="{DynamicResource ModernTextBox}" Padding="6,4"
                          IsReadOnly="True"
-                         ToolTip="Выбранная версия платформы 1С"/>
+                         ToolTip="{loc:Loc CreateInfobase.SelectedPlatformTooltip}"/>
                 <Button Grid.Column="1" Margin="8,0,0,0" Padding="10,4"
                         Style="{DynamicResource SecondaryButton}" Click="OnPickPlatform_Click"
-                        Content="Список…" ToolTip="Выбрать из установленных версий"/>
+                        Content="{loc:Loc CreateInfobase.List}" ToolTip="{loc:Loc CreateInfobase.ListTooltip}"/>
                 <Button Grid.Column="2" Margin="6,0,0,0" Padding="10,4"
                         Style="{DynamicResource SecondaryButton}" Click="OnEditPlatformPaths_Click"
-                        Content="Пути…" ToolTip="Дополнительные каталоги поиска платформ"/>
+                        Content="{loc:Loc CreateInfobase.Paths}" ToolTip="{loc:Loc CreateInfobase.PathsTooltip}"/>
             </Grid>
 
-            <TextBlock Text="Группа в списке:" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+            <TextBlock Text="{loc:Loc CreateInfobase.GroupLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
             <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -141,10 +141,10 @@
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="GroupPathBox" IsReadOnly="True" Style="{DynamicResource ModernTextBox}"
                          Padding="6,4"
-                         ToolTip="Группа, в которую будет добавлена база после создания"/>
+                         ToolTip="{loc:Loc CreateInfobase.GroupTooltip}"/>
                 <Button Grid.Column="1" Margin="8,0,0,0" Padding="10,4"
                         Style="{DynamicResource SecondaryButton}" Click="OnPickGroup_Click"
-                        Content="Выбрать…" ToolTip="Выбрать группу из списка"/>
+                        Content="{loc:Loc CreateInfobase.ChooseGroup}" ToolTip="{loc:Loc CreateInfobase.ChooseGroupTooltip}"/>
             </Grid>
             <TextBlock x:Name="HintText" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -172,7 +172,7 @@
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="DatabasePlus" Width="16" Height="16" Margin="0,0,8,0"
                                              VerticalAlignment="Center" Foreground="White"/>
-                    <TextBlock Text="Создать" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc CreateInfobase.Create}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
             <Button Width="130" Height="36" IsCancel="True"
@@ -196,7 +196,7 @@
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444"
                                              Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
         </StackPanel>

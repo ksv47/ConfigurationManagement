@@ -1,5 +1,6 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:loc="clr-namespace:Configuration_Management.Localization">
 
     <!-- ===================== Р¦РІРµС‚РѕРІР°СЏ РїР°Р»РёС‚СЂР° (С‚С‘РјРЅР°СЏ С‚РµРјР°) ===================== -->
     <Color x:Key="AccentColor">#FFB300</Color>
@@ -507,7 +508,7 @@
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="8,0,0,0" VerticalAlignment="Center"
                                    IsHitTestVisible="False"/>
-                        <TextBlock x:Name="Watermark" Text="РџРѕРёСЃРє РїРѕ РєРѕРЅС„РёРіСѓСЂР°С†РёРёвЂ¦"
+                        <TextBlock x:Name="Watermark" Text="{loc:Loc Main.SearchPlaceholder}"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="36,0,28,0" VerticalAlignment="Center"
                                    IsHitTestVisible="False"

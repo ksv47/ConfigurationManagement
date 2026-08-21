@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
@@ -46,11 +47,11 @@ namespace Configuration_Management
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             {
                 if (args.ExceptionObject is Exception ex)
-                    ShowFatalError("Критическая ошибка", ex);
+                    ShowFatalError(LocalizationManager.T("App.Fatal.Critical"), ex);
             };
             TaskScheduler.UnobservedTaskException += (_, args) =>
             {
-                ShowFatalError("Ошибка фоновой задачи", args.Exception);
+                ShowFatalError(LocalizationManager.T("App.Fatal.BackgroundTask"), args.Exception);
                 args.SetObserved();
             };
 
@@ -109,6 +110,10 @@ namespace Configuration_Management
                                 ? ThemeManager.LightThemeName
                                 : settings.Theme);
 
+                    // Компактный режим интерфейса (влияет на метрики отступов/иконок,
+                    // должен быть установлен до построения главного окна).
+                    UiMetrics.Compact = settings.CompactMode;
+
                     var mainWindow = AppServices.GetRequiredService<MainWindow>();
 
                     // Версия в заголовке (информационная версия, напр. «0.3.1.1»).
@@ -117,13 +122,19 @@ namespace Configuration_Management
                     var versionText = string.IsNullOrWhiteSpace(infoVersion) ? "" : $" v{infoVersion}";
                     mainWindow.Title = $"{LocalizationManager.T("App.Title")}{versionText}";
 
+                    // Применяем сохранённые настройки шрифта интерфейса и отдельных областей
+                    // (дерево групп, кнопки, поля ввода, правая панель, статус-бар).
+                    ThemeManager.ApplyFont(mainWindow,
+                        settings.FontFamily, settings.FontSize, settings.FontWeight, settings.FontStyle);
+                    ThemeManager.ApplyElementFonts(mainWindow, settings.ElementFonts);
+
                     desktop.MainWindow = mainWindow;
                     mainWindow.Show();
                 }
             }
             catch (Exception ex)
             {
-                ShowFatalError("Не удалось запустить приложение", ex);
+                ShowFatalError(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
                 Shutdown(1);
             }
 

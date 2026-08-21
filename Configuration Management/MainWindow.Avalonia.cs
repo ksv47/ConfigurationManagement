@@ -96,7 +96,7 @@ namespace Configuration_Management
 
         private Control BuildTopBar()
         {
-            var grid = new Grid { Margin = new Thickness(12, 10) };
+            var grid = new Grid { Margin = new Thickness(UiMetrics.TopBarH, UiMetrics.TopBarV) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 180 });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -165,7 +165,7 @@ namespace Configuration_Management
             {
                 Child = grid,
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(12, 10)
+                Padding = new Thickness(UiMetrics.TopBarH, UiMetrics.TopBarV)
             };
             // Нижняя граница TopBar из темы.
             ThemeBrushes.Bind(topBarBorder, Border.BorderBrushProperty, "BorderColorBrush");
@@ -302,9 +302,9 @@ namespace Configuration_Management
         {
             return new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush")
             {
-                Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", 15, centered: false),
+                Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", UiMetrics.Scaled(15), centered: false),
                 ToolTip = new ToolTip { Content = tooltip },
-                Padding = new Thickness(12, 7),
+                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
         }
@@ -318,9 +318,9 @@ namespace Configuration_Management
                 "SecondaryButtonPressedBrush",
                 "BorderColorBrush")
             {
-                Content = ThemedIconAndText(iconKey, text, "TextPrimaryBrush", 15, centered: false),
+                Content = ThemedIconAndText(iconKey, text, "TextPrimaryBrush", UiMetrics.Scaled(15), centered: false),
                 ToolTip = new ToolTip { Content = tooltip },
-                Padding = new Thickness(12, 7),
+                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
         }
@@ -334,9 +334,9 @@ namespace Configuration_Management
                 "SecondaryButtonPressedBrush",
                 "BorderColorBrush")
             {
-                Content = IconHelper.MakeIcon(iconKey, 16, "TextPrimaryBrush"),
+                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(16), "TextPrimaryBrush"),
                 ToolTip = new ToolTip { Content = tooltip },
-                Padding = new Thickness(10, 7),
+                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
         }
@@ -378,8 +378,8 @@ namespace Configuration_Management
             var leftPanel = new Border
             {
                 Child = leftInner,
-                Margin = new Thickness(12, 12, 8, 12),
-                Padding = new Thickness(8, 8)
+                Margin = new Thickness(UiMetrics.TopBarH, UiMetrics.TopBarV, 8, UiMetrics.TopBarV),
+                Padding = new Thickness(UiMetrics.Scaled(8), UiMetrics.Scaled(8))
             };
 
             grid.Children.Add(leftPanel);
@@ -400,12 +400,13 @@ namespace Configuration_Management
 
             var rightPanel = new ScrollViewer
             {
+                Name = "RightPanelBorder",
                 Content = BuildRightPanel(),
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Padding = new Thickness(16, 14),
-                MinWidth = 300,
-                MaxWidth = 380
+                Padding = new Thickness(UiMetrics.Scaled(16), UiMetrics.Scaled(14)),
+                MinWidth = UiMetrics.RightPanelMin,
+                MaxWidth = UiMetrics.RightPanelMax
             };
 
             grid.Children.Add(rightPanel);
@@ -568,8 +569,8 @@ namespace Configuration_Management
 
             var iconBox = new Border
             {
-                Width = 38,
-                Height = 38,
+                Width = UiMetrics.RowIconBox,
+                Height = UiMetrics.RowIconBox,
                 CornerRadius = new CornerRadius(UiMetrics.RadiusMd),
                 BorderThickness = new Thickness(1),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -581,8 +582,8 @@ namespace Configuration_Management
             ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush");
             iconBox.Child = new Avalonia.Controls.Shapes.Path
             {
-                Width = 20,
-                Height = 20,
+                Width = UiMetrics.RowIcon,
+                Height = UiMetrics.RowIcon,
                 Data = IconHelper.Geometry(connectionIconKey),
                 Stretch = Stretch.Uniform,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -601,7 +602,6 @@ namespace Configuration_Management
             var name = new TextBlock
             {
                 Text = ib.Name,
-                FontSize = 14,
                 FontWeight = FontWeight.SemiBold,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
@@ -657,7 +657,6 @@ namespace Configuration_Management
             var block = new TextBlock
             {
                 Text = text,
-                FontSize = 11,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 ToolTip = text
             };
@@ -732,8 +731,8 @@ namespace Configuration_Management
             {
                 CornerRadius = new CornerRadius(UiMetrics.RadiusXl),
                 BorderThickness = new Thickness(1),
-                Padding = new Thickness(UiMetrics.PaddingSection),
-                Margin = new Thickness(0, 0, 0, 12),
+                Padding = new Thickness(UiMetrics.SectionPad),
+                Margin = new Thickness(0, 0, 0, UiMetrics.SectionMarginBottom),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
             ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundBrush");
@@ -742,7 +741,7 @@ namespace Configuration_Management
             UiMetrics.AddSoftShadow(card);
             UiMetrics.AddBrushTransition(card);
 
-            var content = new StackPanel { Spacing = 8 };
+            var content = new StackPanel { Spacing = UiMetrics.Gap };
 
             var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 2) };
             header.Children.Add(IconHelper.MakeIcon(iconKey, 16, "TextSecondaryBrush"));
@@ -763,11 +762,11 @@ namespace Configuration_Management
         {
             var btn = new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush")
             {
-                Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", 18, centered: true),
+                Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", UiMetrics.Scaled(18), centered: true),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Margin = new Thickness(0, 0, 0, 12),
-                Padding = new Thickness(12, 12)
+                Margin = new Thickness(0, 0, 0, UiMetrics.SectionMarginBottom),
+                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV)
             };
             btn.Bind(Button.CommandProperty, new Binding(commandPath));
             return btn;
@@ -801,7 +800,7 @@ namespace Configuration_Management
             var tb = new TextBlock
             {
                 Text = text,
-                FontSize = 13,
+                FontSize = UiMetrics.Scaled(13),
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -848,7 +847,7 @@ namespace Configuration_Management
             {
                 HorizontalContentAlignment = HorizontalAlignment.Center;
                 VerticalContentAlignment = VerticalAlignment.Center;
-                Padding = new Thickness(10, 9);
+                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV);
                 BorderThickness = new Thickness(1);
                 Cursor = new Cursor(StandardCursorType.Hand);
 
@@ -1134,7 +1133,7 @@ namespace Configuration_Management
 
         private Control BuildStatusBar()
         {
-            var grid = new Grid { Padding = new Thickness(12, 6) };
+            var grid = new Grid { Padding = new Thickness(UiMetrics.TopBarH, 6) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -1154,7 +1153,7 @@ namespace Configuration_Management
             grid.Children.Add(toggleBtn);
             Grid.SetColumn(toggleBtn, 2);
 
-            return new Border { Child = grid };
+            return new Border { Child = grid, Name = "StatusBarBorder" };
         }
 
         // ======================= Обработчики =======================
@@ -1163,6 +1162,16 @@ namespace Configuration_Management
         {
             _vm?.Initialize();
             SetupTray();
+        }
+
+        /// <summary>
+        /// Применяет компактный режим интерфейса: пересобирает главное окно с уменьшенными
+        /// отступами, иконками и расстояниями. Вызывается из окна настроек при переключении.
+        /// </summary>
+        public void ApplyCompactMode(bool compact)
+        {
+            UiMetrics.Compact = compact;
+            Content = BuildRoot();
         }
 
         private void OnTreeSelectionChanged(object? sender, SelectionChangedEventArgs e)

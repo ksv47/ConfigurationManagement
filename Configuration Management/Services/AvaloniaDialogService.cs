@@ -11,6 +11,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management.Services
 {
@@ -22,29 +23,33 @@ namespace Configuration_Management.Services
     /// </summary>
     public sealed class AvaloniaDialogService : IDialogService
     {
-        public void ShowInfo(string message, string title = "Информация")
-            => ShowMessage(message, title, MessageWindowKind.Info);
+        public void ShowInfo(string message, string title = "")
+            => ShowMessage(message, DefaultTitle(title, "Common.Information"), MessageWindowKind.Info);
 
-        public void ShowWarning(string message, string title = "Внимание")
-            => ShowMessage(message, title, MessageWindowKind.Warning);
+        public void ShowWarning(string message, string title = "")
+            => ShowMessage(message, DefaultTitle(title, "Common.Warning"), MessageWindowKind.Warning);
 
-        public void ShowError(string message, string title = "Ошибка")
-            => ShowMessage(message, title, MessageWindowKind.Error);
+        public void ShowError(string message, string title = "")
+            => ShowMessage(message, DefaultTitle(title, "Common.Error"), MessageWindowKind.Error);
 
-        public bool Confirm(string message, string title = "Подтверждение")
+        public bool Confirm(string message, string title = "")
         {
-            var win = new MessageWindow(message, title, MessageWindowKind.Question);
+            var win = new MessageWindow(message, DefaultTitle(title, "Common.Confirm"), MessageWindowKind.Question);
             return ShowModalSync(win);
         }
 
-        public string? OpenFileDialog(string title = "Открыть файл", string filter = "", string? initialDirectory = null)
-            => RunSync(() => PickFileAsync(title, filter, initialDirectory));
+        public string? OpenFileDialog(string title = "", string filter = "", string? initialDirectory = null)
+            => RunSync(() => PickFileAsync(DefaultTitle(title, "Dialog.OpenFile"), filter, initialDirectory));
 
-        public string? SaveFileDialog(string title = "Сохранить файл", string defaultFileName = "", string filter = "", string? initialDirectory = null)
-            => RunSync(() => PickSaveFileAsync(title, defaultFileName, filter, initialDirectory));
+        public string? SaveFileDialog(string title = "", string defaultFileName = "", string filter = "", string? initialDirectory = null)
+            => RunSync(() => PickSaveFileAsync(DefaultTitle(title, "Dialog.SaveFile"), defaultFileName, filter, initialDirectory));
 
-        public string? OpenFolderDialog(string title = "Выбор папки", string? initialDirectory = null)
-            => RunSync(() => PickFolderAsync(title, initialDirectory));
+        public string? OpenFolderDialog(string title = "", string? initialDirectory = null)
+            => RunSync(() => PickFolderAsync(DefaultTitle(title, "Dialog.SelectFolder"), initialDirectory));
+
+        /// <summary>Подставляет локализованный заголовок по умолчанию, если переданный пуст.</summary>
+        private static string DefaultTitle(string title, string fallbackKey) =>
+            string.IsNullOrWhiteSpace(title) ? LocalizationManager.T(fallbackKey) : title;
 
         // ---- Файловые диалоги через Avalonia StorageProvider ----
 
@@ -137,6 +142,10 @@ namespace Configuration_Management.Services
                 var patterns = parts[i + 1]
                     .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .ToList();
+                // Для фильтра «все файлы» (*.*) показываем локализованное название,
+                // сам паттерн (расширения) не трогаем.
+                if (patterns.Any(p => p.Trim() == "*.*"))
+                    label = LocalizationManager.T("Common.AllFiles");
                 result.Add(new FilePickerFileType(label) { Patterns = patterns });
             }
             if (result.Count == 0)
@@ -259,7 +268,7 @@ namespace Configuration_Management.Services
 
             if (kind == MessageWindowKind.Question)
             {
-                Button cancelButton = new() { Content = "Отмена", MinWidth = 90, IsCancel = true };
+                Button cancelButton = new() { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 90, IsCancel = true };
                 cancelButton.Click += (_, _) => { Result = false; Close(); };
                 buttonsPanel.Children.Insert(0, cancelButton);
             }

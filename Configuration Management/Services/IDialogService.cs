@@ -6,19 +6,19 @@ namespace Configuration_Management.Services;
 public interface IDialogService
 {
     /// <summary>Показывает информационное сообщение.</summary>
-    void ShowInfo(string message, string title = "Информация");
+    void ShowInfo(string message, string title = "");
 
     /// <summary>Показывает предупреждение.</summary>
-    void ShowWarning(string message, string title = "Внимание");
+    void ShowWarning(string message, string title = "");
 
     /// <summary>Показывает ошибку.</summary>
-    void ShowError(string message, string title = "Ошибка");
+    void ShowError(string message, string title = "");
 
     /// <summary>
     /// Запрашивает подтверждение у пользователя.
     /// </summary>
     /// <returns>True, если пользователь подтвердил действие.</returns>
-    bool Confirm(string message, string title = "Подтверждение");
+    bool Confirm(string message, string title = "");
 
     /// <summary>
     /// Открывает диалог выбора одного файла.
@@ -27,7 +27,7 @@ public interface IDialogService
     /// <param name="filter">Фильтр файлов (например "Конфигурация (*.cf)|*.cf"). Пустая строка — все файлы.</param>
     /// <param name="initialDirectory">Начальный каталог. Пустая строка — по умолчанию.</param>
     /// <returns>Полный путь выбранного файла или null при отмене.</returns>
-    string? OpenFileDialog(string title = "Открыть файл", string filter = "", string? initialDirectory = null);
+    string? OpenFileDialog(string title = "", string filter = "", string? initialDirectory = null);
 
     /// <summary>
     /// Открывает диалог сохранения файла.
@@ -37,7 +37,7 @@ public interface IDialogService
     /// <param name="filter">Фильтр файлов. Пустая строка — все файлы.</param>
     /// <param name="initialDirectory">Начальный каталог. Пустая строка — по умолчанию.</param>
     /// <returns>Полный путь для сохранения или null при отмене.</returns>
-    string? SaveFileDialog(string title = "Сохранить файл", string defaultFileName = "", string filter = "", string? initialDirectory = null);
+    string? SaveFileDialog(string title = "", string defaultFileName = "", string filter = "", string? initialDirectory = null);
 
     /// <summary>
     /// Открывает диалог выбора каталога.
@@ -45,5 +45,5 @@ public interface IDialogService
     /// <param name="title">Заголовок диалога.</param>
     /// <param name="initialDirectory">Начальный каталог. Пустая строка — по умолчанию.</param>
     /// <returns>Полный путь выбранного каталога или null при отмене.</returns>
-    string? OpenFolderDialog(string title = "Выбор папки", string? initialDirectory = null);
+    string? OpenFolderDialog(string title = "", string? initialDirectory = null);
 }

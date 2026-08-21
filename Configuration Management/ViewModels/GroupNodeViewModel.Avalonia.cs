@@ -2,6 +2,7 @@
 using System.Collections.ObjectModel;
 using Avalonia.Media;
 using Configuration_Management.Converters;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.ViewModels;
@@ -34,7 +35,7 @@ public class GroupNodeViewModel : ViewModelBase
         Group = group;
         Parent = parent;
         DisplayName = displayName
-            ?? (group is null ? "Без группы" : (string.IsNullOrWhiteSpace(group.Name) ? "Без названия" : group.Name));
+            ?? (group is null ? LocalizationManager.T("Group.NoGroup") : (string.IsNullOrWhiteSpace(group.Name) ? LocalizationManager.T("Group.NoName") : group.Name));
         Children = new ObservableCollection<GroupNodeViewModel>();
         Infobases = new ObservableCollection<Infobase>();
         Items = new ObservableCollection<object>();
@@ -114,6 +115,10 @@ public class GroupNodeViewModel : ViewModelBase
             if (!string.IsNullOrWhiteSpace(_icon))
                 return _icon;
 
+            // ВАЖНО: «Закреплённые» / «Все базы» — внутренние маркеры, которые задаются
+            // явно при создании специальных узлов в MainViewModel (displayName). Они не
+            // локализуются и используются как ключи логики и для выбора иконки, поэтому
+            // их нельзя переводить, иначе сломается сопоставление с именами служебных узлов.
             return DisplayName switch
             {
                 "Закреплённые" => "IconPin",

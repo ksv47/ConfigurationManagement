@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management.Controls
 {
@@ -28,7 +29,7 @@ namespace Configuration_Management.Controls
         {
             IsReadOnly = true;
             Text = FormatValue(Value);
-            ToolTip.SetTip(this, "Установите курсор и нажмите сочетание клавиш. Backspace/Delete — сбросить, Esc — отмена.");
+            ToolTip.SetTip(this, LocalizationManager.T("Hotkey.Tooltip"));
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -63,7 +64,7 @@ namespace Configuration_Management.Controls
             {
                 e.Handled = true;
                 Value = string.Empty; // сброс назначения
-                Text = "Нет";
+                Text = LocalizationManager.T("Common.None");
                 return;
             }
 
@@ -143,7 +144,7 @@ namespace Configuration_Management.Controls
         }
 
         private static string FormatValue(string? value)
-            => string.IsNullOrWhiteSpace(value) ? "Нет" : value.Trim();
+            => string.IsNullOrWhiteSpace(value) ? LocalizationManager.T("Common.None") : value.Trim();
     }
 }
 #endif

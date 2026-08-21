@@ -2,6 +2,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Avalonia.Threading;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.Themes;
@@ -44,11 +45,31 @@ public class MainViewModel : ViewModelBase
     private bool _showRightPanelDetails = true;
 
     // ---- Строка состояния ----
-    private string _statusBarInfo = "Готово";
+    private string _statusBarInfo = LocalizationManager.T("Main.Ready");
     private string _syncMessage = string.Empty;
 
     // ---- Тема ----
     private string _themeName = ThemeManager.LightThemeName;
+
+    // ---- Компактный режим интерфейса ----
+    private bool _compactMode;
+    /// <summary>Компактный режим интерфейса (уменьшенные иконки, отступы, расстояния).</summary>
+    public bool CompactMode
+    {
+        get => _compactMode;
+        set
+        {
+            if (SetProperty(ref _compactMode, value))
+            {
+                _settings.CompactMode = value;
+                SaveSettingsSilently();
+                OnCompactModeChanged?.Invoke(value);
+            }
+        }
+    }
+
+    /// <summary>Событие изменения компактного режима (для перестроения главного окна).</summary>
+    public event Action<bool>? OnCompactModeChanged;
 
     // ---- Текущая сессия ----
     private string _sessionClient = "Авто";
@@ -264,8 +285,8 @@ public class MainViewModel : ViewModelBase
     }
 
     public string RightPanelToggleTooltip => _showRightPanelDetails
-        ? "Свернуть правую панель в компактный режим"
-        : "Развернуть правую панель";
+        ? LocalizationManager.T("Main.CollapseRightPanel")
+        : LocalizationManager.T("Main.ExpandRightPanel");
 
     public string StatusBarInfo
     {
@@ -364,6 +385,7 @@ public class MainViewModel : ViewModelBase
             _showEmptyGroups = _settings.ShowEmptyGroups;
             _showTagFilterPanel = _settings.ShowTagFilterPanel;
             _themeName = _settings.Theme;
+            _compactMode = _settings.CompactMode;
 
             OnPropertyChanged(nameof(GroupByGroup));
             OnPropertyChanged(nameof(ShowEmptyGroups));
@@ -372,7 +394,7 @@ public class MainViewModel : ViewModelBase
             NotifySessionSettings();
 
             RebuildTree();
-            UpdateStatus($"Загружено баз: {_allInfobases.Count}");
+            UpdateStatus(string.Format(LocalizationManager.T("Main.LoadedBases"), _allInfobases.Count));
 
             // Применяем сохранённую тему, если активная схема не задана.
             if (_settings.ActiveColorScheme is { Colors.Count: > 0 })
@@ -383,7 +405,7 @@ public class MainViewModel : ViewModelBase
         catch (Exception ex)
         {
             _logger.Error("Ошибка загрузки данных главного окна", ex);
-            _dialog.ShowError($"Не удалось загрузить список баз: {ex.Message}");
+            _dialog.ShowError(string.Format(LocalizationManager.T("Main.ErrLoadBases"), ex.Message));
         }
     }
 
@@ -564,7 +586,7 @@ public class MainViewModel : ViewModelBase
     {
         if (SelectedInfobase is not null)
         {
-            SelectedInfobase.AddLaunchHistory("Запуск");
+            SelectedInfobase.AddLaunchHistory(LocalizationManager.T("Main.LaunchAction"));
             SaveSilently();
         }
     }
@@ -574,12 +596,12 @@ public class MainViewModel : ViewModelBase
         var ib = SelectedInfobase;
         if (ib is null)
             return;
-        _dialog.ShowInfo($"Редактирование базы «{ib.Name}»\n\n(Окно настроек подключения — в разработке Этапа 3/4.)");
+        _dialog.ShowInfo(string.Format(LocalizationManager.T("Main.EditBaseInfo"), ib.Name));
     }
 
     private void AddInfobase()
     {
-        _dialog.ShowInfo("Добавление базы или группы.\n\n(Мастер добавления — в разработке Этапа 3/4.)");
+        _dialog.ShowInfo(LocalizationManager.T("Main.AddBaseInfo"));
     }
 
     private void DeleteInfobase()
@@ -587,7 +609,7 @@ public class MainViewModel : ViewModelBase
         var ib = SelectedInfobase;
         if (ib is null)
             return;
-        if (_dialog.Confirm($"Удалить базу «{ib.Name}» из списка?"))
+        if (_dialog.Confirm(string.Format(LocalizationManager.T("Main.ConfirmDeleteBase"), ib.Name)))
         {
             _allInfobases.Remove(ib);
             SaveSilently();
@@ -643,12 +665,37 @@ public class MainViewModel : ViewModelBase
 
     private void OpenSettings()
     {
-        _dialog.ShowInfo("Настройки приложения.\n\n(Окно настроек — в разработке Этапа 3/4.)");
+        var settings = new Configuration_Management.SettingsWindow(this);
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var owner = desktop.MainWindow;
+            if (owner is not null)
+                settings.ShowDialog(owner);
+            else
+                settings.Show();
+        }
+        else
+        {
+            settings.Show();
+        }
+    }
+
+    /// <summary>
+    /// Применяет компактный режим к главному окну (пересобирает UI с уменьшенными
+    /// метриками). Вызывается из окна настроек при переключении переключателя.
+    /// </summary>
+    public void ApplyCompactMode(bool compact)
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            && desktop.MainWindow is Configuration_Management.MainWindow main)
+            main.ApplyCompactMode(compact);
     }
 
     private void RefreshAllConfigurationInfo()
     {
-        _dialog.ShowInfo("Запрос информации о конфигурации по всем базам.\n\n(Реализация — Этап 5, сервисы платформы 1С.)");
+        _dialog.ShowInfo(LocalizationManager.T("Main.RefreshConfigInfoMsg"));
     }
 
     // ======================= Этап 6: папки / ярлыки / стартер =======================
@@ -668,7 +715,7 @@ public class MainViewModel : ViewModelBase
         if (ib is null)
             return;
         if (!InfobaseMaintenanceService.OpenInfobaseFolder(ib))
-            _dialog.ShowError("Не удалось открыть каталог файловой базы.");
+            _dialog.ShowError(LocalizationManager.T("Main.ErrOpenBaseFolder"));
     }
 
     /// <summary>Создать ярлык .desktop на рабочем столе для запуска базы.</summary>
@@ -678,25 +725,23 @@ public class MainViewModel : ViewModelBase
         if (ib is null)
             return;
         if (InfobaseMaintenanceService.CreateDesktopShortcut(ib))
-            _dialog.ShowInfo($"Ярлык для базы «{ib.Name}» создан на рабочем столе.");
+            _dialog.ShowInfo(string.Format(LocalizationManager.T("Main.ShortcutCreated"), ib.Name));
         else
-            _dialog.ShowError($"Не удалось создать ярлык для базы «{ib.Name}».\n" +
-                              "Проверьте, что установлена платформа 1С и доступен рабочий стол.");
+            _dialog.ShowError(string.Format(LocalizationManager.T("Main.ErrShortcutCreate"), ib.Name));
     }
 
     /// <summary>Запустить родной стартер 1С (1cestart).</summary>
     private void OpenNativeStarter()
     {
         if (!InfobaseMaintenanceService.OpenNativeStarter())
-            _dialog.ShowError("Не удалось найти и запустить стартер 1С (1cestart).\n" +
-                              "Ожидаемые пути: /opt/1cv8/<вер>/common/1cestart, /usr/bin/1cestart.");
+            _dialog.ShowError(LocalizationManager.T("Main.ErrStartStarter"));
     }
 
     private void SynchronizeWithIbases()
     {
         var path = _dialog.OpenFileDialog(
-            "Выберите файл ibases.v8i для синхронизации",
-            "Список баз 1С (ibases.v8i)|*.v8i|Все файлы (*.*)|*.*");
+            LocalizationManager.T("Sync.ChooseIbasesFile"),
+            LocalizationManager.T("Sync.IbasesFilter"));
         if (string.IsNullOrWhiteSpace(path))
             return;
 
@@ -705,15 +750,15 @@ public class MainViewModel : ViewModelBase
             var importResult = _sync.Import(path, _allInfobases, _groups);
             SaveSilently();
             RebuildTree();
-            SyncMessage = "Синхронизация завершена";
-            StatusBarInfo = $"Импортировано из ibases.v8i: баз {_allInfobases.Count}, групп {_groups.Count}";
+            SyncMessage = LocalizationManager.T("Sync.Completed");
+            StatusBarInfo = string.Format(LocalizationManager.T("Sync.ImportedCount"), _allInfobases.Count, _groups.Count);
             _logger.Info($"Синхронизация с ibases.v8i: {path}");
         }
         catch (Exception ex)
         {
             _logger.Error("Ошибка синхронизации с ibases.v8i", ex);
-            _dialog.ShowError($"Не удалось синхронизировать с ibases.v8i: {ex.Message}");
-            SyncMessage = "Ошибка синхронизации";
+            _dialog.ShowError(string.Format(LocalizationManager.T("Sync.ErrSyncFailed"), ex.Message));
+            SyncMessage = LocalizationManager.T("Sync.Failed");
         }
     }
 
@@ -774,11 +819,12 @@ public class MainViewModel : ViewModelBase
         if (message is not null)
             StatusBarInfo = message;
         else if (SelectedInfobase is not null)
-            StatusBarInfo = $"База: {SelectedInfobase.Name} — {SelectedInfobase.ServerDatabaseDisplay}";
+            StatusBarInfo = string.Format(LocalizationManager.T("Main.StatusBase"),
+                SelectedInfobase.Name, SelectedInfobase.ServerDatabaseDisplay);
         else if (SelectedGroupNode is not null)
-            StatusBarInfo = $"Группа: {SelectedGroupNode.FullPath}";
+            StatusBarInfo = string.Format(LocalizationManager.T("Main.StatusGroup"), SelectedGroupNode.FullPath);
         else
-            StatusBarInfo = "Готово";
+            StatusBarInfo = LocalizationManager.T("Main.Ready");
     }
 
     private void RaiseCommandCanExecuteChanged()

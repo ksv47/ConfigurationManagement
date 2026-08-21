@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Input;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management.Controls
 {
@@ -45,12 +46,12 @@ namespace Configuration_Management.Controls
         {
             IsReadOnly = true;
             Text = FormatValue(Value);
-            ToolTip = "Установите курсор и нажмите сочетание клавиш. Backspace/Delete — сбросить, Esc — отмена.";
+            ToolTip = LocalizationManager.T("Hotkey.Tooltip");
         }
 
         private static string FormatValue(string? value)
         {
-            return string.IsNullOrWhiteSpace(value) ? "Нет" : value.Trim();
+            return string.IsNullOrWhiteSpace(value) ? LocalizationManager.T("Common.None") : value.Trim();
         }
 
         protected override void OnPreviewKeyDown(KeyEventArgs e)
@@ -78,7 +79,7 @@ namespace Configuration_Management.Controls
             {
                 e.Handled = true;
                 Value = string.Empty; // сброс назначения
-                Text = "Нет";
+                Text = LocalizationManager.T("Common.None");
                 return;
             }
 

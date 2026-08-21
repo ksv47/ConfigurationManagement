@@ -9,6 +9,7 @@ using System.Windows.Threading;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Win32;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 
@@ -103,6 +104,7 @@ public class MainViewModel : ViewModelBase
     private bool _syncTimerRunning;
     private bool _closeToTray;
     private bool _showTrayIcon = true;
+    private bool _compactMode;
     private bool _escapeToTray = true;
     private List<string> _templateCatalogPaths = new();
     private string _hotkeyEnterprise = "F3";
@@ -254,6 +256,7 @@ public class MainViewModel : ViewModelBase
         _closeToTray = settings.CloseToTray;
         _showTrayIcon = settings.ShowTrayIcon;
         _escapeToTray = settings.EscapeToTray;
+        _compactMode = settings.CompactMode;
         _templateCatalogPaths = settings.TemplateCatalogPaths?.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
             ?? new List<string>();
         OneCTemplateService.SetUserTemplatePaths(_templateCatalogPaths);
@@ -828,14 +831,14 @@ public class MainViewModel : ViewModelBase
             }
 
             var result = _ibasesSync.Export(filePath, Infobases, Groups);
-            var text = BuildSyncMessage("Выгружено в файл", result);
+            var text = BuildSyncMessage(LocalizationManager.T("Sync.PrefixExported"), result);
             if (!string.IsNullOrEmpty(text))
                 SyncMessage = $"{DateTime.Now:HH:mm:ss} — {text}";
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Экспорт ibases после правки: {ex}");
-            SyncMessage = $"Ошибка экспорта: {ex.Message}";
+            SyncMessage = string.Format(LocalizationManager.T("Sync.ExportError"), ex.Message);
         }
     }
 
@@ -881,7 +884,7 @@ public class MainViewModel : ViewModelBase
                 }
 
                 var result = _ibasesSync.Export(filePath, Infobases, Groups);
-                var exportText = BuildSyncMessage("Выгружено в файл", result);
+                var exportText = BuildSyncMessage(LocalizationManager.T("Sync.PrefixExported"), result);
                 if (!string.IsNullOrEmpty(exportText))
                 {
                     message = string.IsNullOrEmpty(message)
@@ -892,7 +895,7 @@ public class MainViewModel : ViewModelBase
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Авто-экспорт ibases.v8i: {ex}");
-                var err = $"Ошибка экспорта: {ex.Message}";
+                var err = string.Format(LocalizationManager.T("Sync.ExportError"), ex.Message);
                 SyncMessage = string.IsNullOrEmpty(SyncMessage) ? err : SyncMessage + "; " + err;
             }
         }
@@ -908,7 +911,7 @@ public class MainViewModel : ViewModelBase
                 Save();
                 SaveGroups();
                 RebuildGroupTree();
-                var importText = BuildSyncMessage("Загружено из файла", result);
+                var importText = BuildSyncMessage(LocalizationManager.T("Sync.PrefixImported"), result);
                 if (!string.IsNullOrEmpty(importText))
                 {
                     message = string.IsNullOrEmpty(message)
@@ -919,7 +922,7 @@ public class MainViewModel : ViewModelBase
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Авто-импорт ibases.v8i: {ex}");
-                SyncMessage = $"Ошибка импорта: {ex.Message}";
+                SyncMessage = string.Format(LocalizationManager.T("Sync.ImportError"), ex.Message);
             }
         }
 
@@ -952,18 +955,18 @@ public class MainViewModel : ViewModelBase
 
         if (result is IbasesImportResult import)
         {
-            if (import.Added > 0) parts.Add($"добавлено баз: {import.Added}");
-            if (import.Updated > 0) parts.Add($"обновлено баз: {import.Updated}");
-            if (import.Removed > 0) parts.Add($"удалено баз: {import.Removed}");
-            if (import.Skipped > 0) parts.Add($"пропущено: {import.Skipped}");
-            if (import.GroupsCreated > 0) parts.Add($"создано групп: {import.GroupsCreated}");
+            if (import.Added > 0) parts.Add(string.Format(LocalizationManager.T("Sync.AddedBases"), import.Added));
+            if (import.Updated > 0) parts.Add(string.Format(LocalizationManager.T("Sync.UpdatedBases"), import.Updated));
+            if (import.Removed > 0) parts.Add(string.Format(LocalizationManager.T("Sync.RemovedBases"), import.Removed));
+            if (import.Skipped > 0) parts.Add(string.Format(LocalizationManager.T("Sync.Skipped"), import.Skipped));
+            if (import.GroupsCreated > 0) parts.Add(string.Format(LocalizationManager.T("Sync.GroupsCreated"), import.GroupsCreated));
         }
         else if (result is IbasesExportResult export)
         {
-            if (export.Added > 0) parts.Add($"добавлено баз: {export.Added}");
-            if (export.Updated > 0) parts.Add($"обновлено баз: {export.Updated}");
-            if (export.Removed > 0) parts.Add($"удалено баз: {export.Removed}");
-            if (export.GroupsCreated > 0) parts.Add($"создано групп: {export.GroupsCreated}");
+            if (export.Added > 0) parts.Add(string.Format(LocalizationManager.T("Sync.AddedBases"), export.Added));
+            if (export.Updated > 0) parts.Add(string.Format(LocalizationManager.T("Sync.UpdatedBases"), export.Updated));
+            if (export.Removed > 0) parts.Add(string.Format(LocalizationManager.T("Sync.RemovedBases"), export.Removed));
+            if (export.GroupsCreated > 0) parts.Add(string.Format(LocalizationManager.T("Sync.GroupsCreated"), export.GroupsCreated));
         }
 
         return parts.Count == 0 ? string.Empty : $"{prefix}: {string.Join(", ", parts)}";
@@ -1640,9 +1643,9 @@ public class MainViewModel : ViewModelBase
                     parts.Add(path);
             }
             if (_statusShowPort && ib.Connection.Type == ConnectionType.ClientServer && ib.Connection.Port > 0)
-                parts.Add($"порт {ib.Connection.Port}");
+                parts.Add($"{LocalizationManager.T("Main.StatusPort")} {ib.Connection.Port}");
             if (_statusShowPlatformVersion && !string.IsNullOrWhiteSpace(ib.PlatformVersion))
-                parts.Add($"платформа {ib.PlatformVersion}");
+                parts.Add($"{LocalizationManager.T("Main.StatusPlatform")} {ib.PlatformVersion}");
             if (_statusShowArchitecture)
                 parts.Add(ib.ArchitectureDisplay);
             if (_statusShowLaunchMode)
@@ -1650,7 +1653,7 @@ public class MainViewModel : ViewModelBase
             if (_statusShowClientType && !string.IsNullOrWhiteSpace(ib.ClientType))
                 parts.Add(ib.ClientType);
             if (_statusShowUser && !string.IsNullOrWhiteSpace(ib.Connection.User))
-                parts.Add($"пользователь {ib.Connection.User}");
+                parts.Add($"{LocalizationManager.T("Main.StatusUser")} {ib.Connection.User}");
             if (_statusShowId && !string.IsNullOrWhiteSpace(ib.Id))
                 parts.Add($"ID {ib.Id}");
 
@@ -1765,6 +1768,20 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Запоминать размер, позицию, состояние окна и монитор при закрытии.</summary>
     public bool RememberWindowLayout => _rememberWindowLayout;
+
+    /// <summary>Компактный режим интерфейса (уменьшенные иконки, отступы, расстояния).</summary>
+    public bool CompactMode
+    {
+        get => _compactMode;
+        set { if (SetProperty(ref _compactMode, value)) SaveSettings(); }
+    }
+
+    /// <summary>Применяет компактный режим к главному окну (масштабирует отступы/шрифты/высоты).</summary>
+    public void ApplyCompactMode(bool compact)
+    {
+        CompactMode = compact;
+        Themes.ThemeManager.ApplyCompact(compact);
+    }
 
     /// <summary>
     /// Сохраняет размер, позицию и состояние окна приложения.
@@ -3279,6 +3296,7 @@ public string HotkeyEnterprise
             CloseToTray = _closeToTray,
             ShowTrayIcon = _showTrayIcon,
             EscapeToTray = _escapeToTray,
+            CompactMode = _compactMode,
             TemplateCatalogPaths = _templateCatalogPaths.ToList(),
             HotkeyEnterprise = _hotkeyEnterprise,
             HotkeyConfigurator = _hotkeyConfigurator,

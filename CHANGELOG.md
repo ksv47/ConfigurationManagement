@@ -5,6 +5,104 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.2.9] — 2026-08-21
+
+### Добавлено
+
+- **Вынесены в локализацию оставшиеся жёстко прописанные русские строки в моделях данных, отображаемые пользователю** (статусы базы, типы подключения, режимы запуска, разрядность, размер, группы и названия цветов). Внутренние технические значения (поля `_launchMode`, `ClientType`, `Architecture`, enum-маркеры подключения) не изменены — локализованы только отображаемые геттеры через `LocalizationManager.T(...)`.
+  - **Модель базы** ([`Infobase.cs`](Configuration Management/Models/Infobase.cs)): разрядность `ArchitectureDisplay` (`Infobase.ArchX64/X86/Priority64/Priority32`), группа «Без группы» / «Закреплённые» (`Group.NoGroup`, переиспользован `Main.Pinned`), тип подключения `ConnectionTypeDisplay` (`Infobase.Type.File/WebServer/ClientServer`), статус базы `StatusDisplay` и причины недоступности (`Infobase.Status.*` / `Infobase.Unavailable.*`), режим запуска `ParsedLaunchMode` (`Infobase.LaunchMode.Auto`), дата последнего запуска «Не запускалась» (`Infobase.LastLaunch.Never`), история запусков «Нет записей» и формат `{0} зап., посл.: {1}` (`Infobase.History.Empty/Summary`).
+  - **Единицы размера** в `FormatSize` теперь берутся из общего локализованного механизма `CacheClean.SizeUnits` («Б,КБ,МБ,ГБ,ТБ» / «B,KB,MB,GB,TB») — вместо зашитых русских Б/КБ/МБ/ГБ.
+  - **Дерево групп** ([`GroupNodeViewModel.cs`](Configuration Management/ViewModels/GroupNodeViewModel.cs) и [`GroupNodeViewModel.Avalonia.cs`](Configuration Management/ViewModels/GroupNodeViewModel.Avalonia.cs)): плейсхолдеры «Без группы» / «Без названия» (`Group.NoGroup` / `Group.NoName`). Внутренние маркеры специальных узлов «Закреплённые» / «Все базы» (задаются явно при создании узлов в `MainViewModel` и используются для выбора иконки и логики) сохранены без изменений, чтобы иконки и сравнения не сломались.
+  - **Названия цветов в редакторе тем** ([`ColorScheme.cs`](Configuration Management/Models/ColorScheme.cs)): `Definitions`/`GetLabel` теперь возвращают локализованные подписи через ключи `Color.*`; технические ключи ресурсов (напр. `AccentColor`) не переведены. Имена встроенных схем «Светлая»/«Тёмная» остаются внутренними идентификаторами и уже отображаются через `Theme.Light`/`Theme.Dark`.
+  - Добавлены новые ключи `Infobase.*`, `Group.*`, `Color.*` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и английские переводы в [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Изменено
+
+- **Версия обновлена до 0.3.2.9** (`InformationalVersion` в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj), бейдж и заголовок в [`README.md`](README.md)).
+
+## [0.3.2.8] — 2026-08-21
+
+### Добавлено
+
+- **Вынесены в локализацию оставшиеся жёстко прописанные русские строки в ViewModels главного окна — строка состояния, сообщения диалогов и тултипы.** Теперь эти тексты переключаются вместе с языком интерфейса.
+  - **Avalonia/Linux** ([`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)): строка состояния (`Готово`, `База: … — …`, `Группа: …`, `Загружено баз: N`) через ключи `Main.Ready` / `Main.StatusBase` / `Main.StatusGroup` / `Main.LoadedBases`; тултип кнопки правой панели через ключи `Main.CollapseRightPanel` / `Main.ExpandRightPanel`; запись истории запуска через ключ `Main.LaunchAction`.
+  - **Сообщения диалогов** (`_dialog.*`) в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs): редактирование/добавление базы (`Main.EditBaseInfo` / `Main.AddBaseInfo`), подтверждение удаления базы (`Main.ConfirmDeleteBase`), запрос информации о конфигурации (`Main.RefreshConfigInfoMsg`), ошибка открытия каталога (`Main.ErrOpenBaseFolder`), создание/ошибка ярлыка на рабочем столе (`Main.ShortcutCreated` / `Main.ErrShortcutCreate`), ошибка стартера 1С (`Main.ErrStartStarter`), ошибка загрузки списка баз (`Main.ErrLoadBases`).
+  - **Синхронизация с ibases.v8i**: заголовок и фильтр файлового диалога (`Sync.ChooseIbasesFile` / `Sync.IbasesFilter`), статус и импорт (`Sync.Completed` / `Sync.ImportedCount`), ошибка синхронизации (`Sync.ErrSyncFailed` / `Sync.Failed`).
+  - **WPF** ([`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs)): слова строки состояния (`порт`, `платформа`, `пользователь`) через ключи `Main.StatusPort` / `Main.StatusPlatform` / `Main.StatusUser`; сообщения синхронизации (`Sync.PrefixExported` / `Sync.PrefixImported` / `Sync.ExportError` / `Sync.ImportError` / `Sync.AddedBases` / `Sync.UpdatedBases` / `Sync.RemovedBases` / `Sync.Skipped` / `Sync.GroupsCreated`).
+  - Внутренние технические значения сессии (`SessionClient`, `SessionArch`, строки сравнений) не затрагивались — локализовано только отображение. Логи (`_logger.*`) оставлены без изменений.
+  - Добавлены новые ключи в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и английские переводы в [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Изменено
+
+- **Версия обновлена до 0.3.2.8** (`InformationalVersion` в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj), бейдж и заголовок в [`README.md`](README.md)).
+
+## [0.3.2.7] — 2026-08-21
+
+### Добавлено
+
+- **Вынесены в локализацию оставшиеся жёстко прописанные русские строки в диалоговых сервисах и точках входа приложения.** Теперь заголовки диалогов и фатальные сообщения переключаются вместе с языком интерфейса.
+  - **Диалоговые сервисы** ([`IDialogService.cs`](Configuration Management/Services/IDialogService.cs), [`WpfDialogService.cs`](Configuration Management/Services/WpfDialogService.cs), [`AvaloniaDialogService.cs`](Configuration Management/Services/AvaloniaDialogService.cs)): заголовки информационных/предупреждающих/ошибочных сообщений через общие ключи `Common.Information` / `Common.Warning` / `Common.Error`; подтверждение — через новый ключ `Common.Confirm`; заголовки файловых диалогов «Открыть файл», «Сохранить файл», «Выбор папки» — через новые ключи `Dialog.OpenFile` / `Dialog.SaveFile` / `Dialog.SelectFolder`.
+  - Фильтр «Все файлы (*.*)» в [`WpfDialogService.cs`](Configuration Management/Services/WpfDialogService.cs) (`BuildFilter`) и в разборе фильтра [`AvaloniaDialogService.cs`](Configuration Management/Services/AvaloniaDialogService.cs) (`BuildFileTypes`) через существующий ключ `Common.AllFiles`; кнопка «Отмена» окна сообщения Avalonia через существующий ключ `Common.Cancel`. Паттерны фильтров (расширения) не затрагивались.
+  - **Точки входа приложения**: фатальные сообщения в [`App.xaml.cs`](Configuration Management/App.xaml.cs) («Ошибка интерфейса», «Критическая ошибка», «Ошибка фоновой задачи», «Не удалось запустить приложение», «Внутренняя ошибка:», заголовок окна) и [`App.axaml.cs`](Configuration Management/App.axaml.cs) — через общие ключи `App.Fatal.Interface` / `App.Fatal.Critical` / `App.Fatal.BackgroundTask` / `App.Fatal.StartupFailed` / `App.Fatal.InternalError` / `App.Fatal.Title`.
+  - Значения по умолчанию параметров интерфейса `IDialogService` переведены на пустые строки (значения параметров — константы времени компиляции, в них нельзя вызывать `LocalizationManager.T`); локализованный заголовок подставляется в реализациях, если переданный параметр пуст, при этом явно переданный пользователем заголовок уважается.
+  - Добавлены новые ключи в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и английские переводы в [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Изменено
+
+- **Версия обновлена до 0.3.2.7** (`InformationalVersion` в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj), бейдж и заголовок в [`README.md`](README.md)).
+
+## [0.3.2.6] — 2026-08-21
+
+### Добавлено
+
+- **Вынесены в настройки перевода (локализацию) оставшиеся жёстко прописанные русские строки в Avalonia-контролах и код-бихайндах окон настроек.** Теперь эти элементы переключаются вместе с языком интерфейса.
+  - **Компонент `?`-подсказки** ([`HelpLink.Avalonia.cs`](Configuration Management/Controls/HelpLink.Avalonia.cs)): всплывающая подсказка кнопки и заголовок «Подсказка» через ключи `HelpLink.Tooltip` / `HelpLink.Title` (те же, что в WPF-версии).
+  - **Поле горячей клавиши** ([`HotkeyBox.cs`](Configuration Management/Controls/HotkeyBox.cs) и [`HotkeyBox.Avalonia.cs`](Configuration Management/Controls/HotkeyBox.Avalonia.cs)): тултип через новый ключ `Hotkey.Tooltip`; отображаемое значение «Нет» для неназначенной клавиши — через существующий ключ `Common.None`. Внутренняя логика (сброс по пустой строке, сопоставление в `ReadHotkeyBox`) не менялась.
+  - **Окно «Выбор группы»** ([`GroupPickerWindow.Avalonia.cs`](Configuration Management/GroupPickerWindow.Avalonia.cs)) и **«Выбор версии платформы»** ([`PlatformVersionPickerWindow.Avalonia.cs`](Configuration Management/PlatformVersionPickerWindow.Avalonia.cs)): радио сортировки «А → Я» / «Я → А» через общие ключи `Common.SortAsc` / `Common.SortDesc`.
+  - **Окно настроек (Avalonia)** ([`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs)): подпись разрядности сессии «Авто» через ключ `Main.SessionClientAuto`.
+  - **Окно настроек (WPF)** ([`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs)): отображаемые названия начертаний шрифта («Обычный», «Полужирный», «Курсив», «Полужирный курсив») через ключи `Settings.Font.StyleNormal/Bold/Italic/BoldItalic` (технические значения `Weight`/`Style` не локализуются); отображаемые имена встроенных тем «Светлая»/«Тёмная» через ключи `Theme.Light` / `Theme.Dark` (внутренний идентификатор схемы сохранён — логика сохранения/загрузки не изменена).
+  - Добавлены новые ключи в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и английские переводы в [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Изменено
+
+- **Версия обновлена до 0.3.2.6** (`InformationalVersion` в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj), бейдж и заголовок в [`README.md`](README.md)).
+
+## [0.3.2.5] — 2026-08-21
+
+### Добавлено
+
+- **Вынесены в настройки перевода (локализацию) оставшиеся жёстко прописанные русские строки** в WPF-XAML-разметке (окно `CreateInfobaseWindow.xaml`, `DeleteInfobaseWindow.xaml`, компонент `HelpLink.xaml`, остатки главного окна и тексты-заглушки поля поиска во всех темах). Теперь эти элементы переключаются вместе с языком интерфейса.
+  - **Окно «Создание информационной базы»** ([`CreateInfobaseWindow.xaml`](Configuration Management/CreateInfobaseWindow.xaml)): длинная подсказка `HelpLink`, подписи «Наименование:», «Тип базы:», радио «Файловая»/«Клиент-серверная», «Каталог базы:», «Обзор…», «Сервер 1С:» (с `ToolTip`), «Имя базы (Ref):», подпись шаблонов из манифестов, «Обновить»/«Файл…» (с `ToolTip`), «Версия платформы:», «Список…»/«Пути…» (с `ToolTip`), «Группа в списке:», «Выбрать…» (с `ToolTip`), кнопки «Создать» и «Отмена».
+  - **Окно «Удаление информационной базы»** ([`DeleteInfobaseWindow.xaml`](Configuration Management/DeleteInfobaseWindow.xaml)): заголовок и подписи «Наименование:», «Тип:», «Путь / сервер:», «Группа:», «Платформа:», «На диске:».
+  - **Компонент `?`-подсказки** ([`HelpLink.xaml`](Configuration Management/Controls/HelpLink.xaml)): всплывающая подсказка кнопки и заголовок «Подсказка».
+  - **Остатки главного окна** ([`MainWindow.xaml`](Configuration Management/MainWindow.xaml)): три длинные подсказки `HelpLink` (список баз, панель тегов, блок «Текущая сессия») и строка «Нет выбора» (заменён `TargetNullValue` на стиль-триггер с локализованным значением).
+  - **Текст-заглушка поля поиска** во всех темах ([`DarkTheme.xaml`](Configuration Management/Themes/DarkTheme.xaml), [`LightTheme.xaml`](Configuration Management/Themes/LightTheme.xaml), [`ModernTheme.xaml`](Configuration Management/Themes/ModernTheme.xaml)) привязан к ключу `Main.SearchPlaceholder` (в тёмной и светлой темах исправлена повреждённая кодировка текста).
+  - Добавлены ключи `HelpLink.*`, `DeleteInfobase.*`, `CreateInfobase.*`, `Main.*` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и английские переводы в [`en.json`](Configuration Management/Localization/Languages/en.json); использованы существующие общие ключи (`Common.Browse`, `Common.Cancel`, `CreateInfobase.FileType/ServerType/DirLabel/RefLabel/Refresh/File/List/Paths/ChooseGroup/Create` и др.).
+
+### Изменено
+
+- **Версия обновлена до 0.3.2.5** (`InformationalVersion` в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj), бейдж и заголовок в [`README.md`](README.md)).
+
+## [0.3.2.4] — 2026-08-21
+
+### Добавлено
+
+- **Компактный режим интерфейса** (обе платформы: **WPF** и **Avalonia/Linux**). Новая настройка «Компактный режим» уменьшает размер иконок и кнопок, сокращает отступы, внутренние поля секций-карточек, расстояния между элементами и ширину правой панели, убирая избыточное пустое пространство. Включить можно двумя способами: переключателем **в правом верхнем углу главного окна** (кнопка с иконкой сжатия рядом с настройками) и во вкладке «Настройки» окна настроек. Значение хранится в [`AppSettings.CompactMode`](Configuration Management/Models/AppSettings.cs) и применяется при запуске и сразу при переключении.
+  - **WPF (Windows)**: [`ThemeManager.ApplyCompact`](Configuration Management/Themes/ThemeManager.cs) масштабирует отступы/поля/шрифты/высоты элементов главного окна на 0.8 (с сохранением исходных значений для возврата к обычному виду); применяется из [`SettingsWindow`](Configuration Management/SettingsWindow.xaml.cs) (переключатель `CompactModeCheck`) и при старте ([`App.xaml.cs`](Configuration Management/App.xaml.cs)).
+  - **Avalonia (Linux)**: все метрики централизованы в [`UiMetrics`](Configuration Management/Controls/UiMetrics.Avalonia.cs) (флаг `Compact` и масштабируемые свойства `Scaled`, `SectionPad`, `ButtonPadH/V`, `RowIconBox`, `RightPanelMin/Max` и др.); переключатель — в [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs).
+  - Добавлен ключ `Settings.CompactMode` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Изменено
+
+- **Настройка языка интерфейса перенесена из вкладки «Цветовое оформление» во вкладку «Настройки»** (WPF-окно [`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml)): теперь выбор языка находится рядом с поведением приложения и компактным режимом.
+
+### Исправлено
+
+- **Изменение шрифта теперь применяется к группам и списку баз** (Avalonia/Linux). Раньше сохранённые настройки шрифта вовсе не применялись при запуске Linux-версии, а строки дерева групп и баз задавали собственный жёсткий `FontSize`, перекрывающий унаследованный шрифт. Теперь:
+  - при старте применяется общий шрифт интерфейса и шрифты отдельных областей ([`ThemeManager.ApplyElementFonts`](Configuration Management/Themes/ThemeManager.Avalonia.cs) с обходом визуального дерева по типам/именам: кнопки, поля ввода, дерево групп, правая панель `RightPanelBorder`, статус-бар `StatusBarBorder`);
+  - у строк дерева убраны жёсткие размеры шрифта — они наследуют применяемый шрифт;
+  - уменьшено избыточное пустое пространство (переработаны отступы и метрики).
+
 ## [0.3.2.3] — 2026-08-21
 
 ### Добавлено

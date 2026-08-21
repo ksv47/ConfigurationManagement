@@ -116,6 +116,57 @@ namespace Configuration_Management.Themes
                 ApplyFont(window, fontFamily, fontSize, fontWeight, fontStyle);
         }
 
+        /// <summary>
+        /// Применяет индивидуальные настройки шрифта отдельных областей интерфейса
+        /// к главному окну (Avalonia): базовый шрифт всего окна + по типам/именам
+        /// областей (кнопки, поля ввода, дерево групп, правая панель, статус-бар).
+        /// Порождает те же области, что и WPF-версия <see cref="ThemeManager"/>.
+        /// </summary>
+        public static void ApplyElementFonts(MainWindow window, Dictionary<string, ElementFontSettings>? elementFonts)
+        {
+            if (window is null)
+                return;
+            elementFonts ??= new Dictionary<string, ElementFontSettings>();
+
+            // «По умолчанию» распространяется на всё окно (наследуется дочерними элементами).
+            var def = GetScope(elementFonts, FontDefault);
+            if (def is not null && def.FontSize > 0)
+                ApplyFont(window, def.FontFamily, def.FontSize, def.FontWeight, def.FontStyle);
+
+            ApplyFontToType(window, typeof(Avalonia.Controls.Button), GetScope(elementFonts, FontButtons));
+            ApplyFontToType(window, typeof(Avalonia.Controls.TextBox), GetScope(elementFonts, FontInputs));
+            ApplyFontToType(window, typeof(Configuration_Management.Controls.LeveledTreeView), GetScope(elementFonts, FontList));
+            ApplyFontToNamed(window, "RightPanelBorder", GetScope(elementFonts, FontRightPanel));
+            ApplyFontToNamed(window, "StatusBarBorder", GetScope(elementFonts, FontStatusBar));
+        }
+
+        private static ElementFontSettings? GetScope(Dictionary<string, ElementFontSettings> dict, string key)
+            => dict.TryGetValue(key, out var fs) ? fs : null;
+
+        /// <summary>Применяет шрифт области ко всем элементам заданного типа в дереве визуальных элементов.</summary>
+        private static void ApplyFontToType(Control root, Type type, ElementFontSettings? fs)
+        {
+            if (fs is null || fs.FontSize <= 0)
+                return;
+            if (type.IsInstanceOfType(root))
+                ApplyFont(root, fs.FontFamily, fs.FontSize, fs.FontWeight, fs.FontStyle);
+            foreach (var child in root.GetVisualChildren())
+                if (child is Control c)
+                    ApplyFontToType(c, type, fs);
+        }
+
+        /// <summary>Применяет шрифт области к элементу с заданным именем (и его потомкам).</summary>
+        private static void ApplyFontToNamed(Control root, string name, ElementFontSettings? fs)
+        {
+            if (fs is null || fs.FontSize <= 0)
+                return;
+            if (string.Equals(root.Name, name, StringComparison.Ordinal))
+                ApplyFont(root, fs.FontFamily, fs.FontSize, fs.FontWeight, fs.FontStyle);
+            foreach (var child in root.GetVisualChildren())
+                if (child is Control c)
+                    ApplyFontToNamed(c, name, fs);
+        }
+
         // ---- Настройки шрифта отдельных областей интерфейса ----
 
         public const string FontDefault = "Default";

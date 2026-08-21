@@ -24,17 +24,17 @@ namespace Configuration_Management
             // Показываем любые необработанные ошибки — иначе окно просто не появляется.
             DispatcherUnhandledException += (_, args) =>
             {
-                ShowFatalError("Ошибка интерфейса", args.Exception);
+                ShowFatalError(LocalizationManager.T("App.Fatal.Interface"), args.Exception);
                 args.Handled = true;
             };
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             {
                 if (args.ExceptionObject is Exception ex)
-                    ShowFatalError("Критическая ошибка", ex);
+                    ShowFatalError(LocalizationManager.T("App.Fatal.Critical"), ex);
             };
             TaskScheduler.UnobservedTaskException += (_, args) =>
             {
-                ShowFatalError("Ошибка фоновой задачи", args.Exception);
+                ShowFatalError(LocalizationManager.T("App.Fatal.BackgroundTask"), args.Exception);
                 args.SetObserved();
             };
 
@@ -113,11 +113,14 @@ namespace Configuration_Management
                 // Применяем индивидуальные настройки шрифта отдельных областей.
                 ThemeManager.ApplyElementFonts(mainWindow, settings.ElementFonts);
 
+                // Применяем компактный режим интерфейса (если включён).
+                ThemeManager.ApplyCompact(settings.CompactMode);
+
                 mainWindow.Show();
             }
             catch (Exception ex)
             {
-                ShowFatalError("Не удалось запустить приложение", ex);
+                ShowFatalError(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
                 Shutdown(1);
             }
         }
@@ -133,7 +136,7 @@ namespace Configuration_Management
                 if (ex.InnerException != null)
                 {
                     sb.AppendLine();
-                    sb.AppendLine("Внутренняя ошибка:");
+                    sb.AppendLine(LocalizationManager.T("App.Fatal.InternalError"));
                     sb.AppendLine(ex.InnerException.Message);
                 }
                 sb.AppendLine();
@@ -144,7 +147,7 @@ namespace Configuration_Management
                     stack = stack[..1200] + "…";
                 sb.AppendLine(stack);
 
-                MessageBox.Show(sb.ToString(), "Управление конфигурациями 1С — ошибка",
+                MessageBox.Show(sb.ToString(), LocalizationManager.T("App.Fatal.Title"),
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch

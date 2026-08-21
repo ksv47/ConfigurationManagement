@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management.Models;
 
@@ -219,11 +220,11 @@ public class Infobase : INotifyPropertyChanged
     /// <summary>Человекочитаемая разрядность для UI (как в лаунчере 1С).</summary>
     public string ArchitectureDisplay => (Architecture ?? string.Empty).Trim().ToLowerInvariant() switch
     {
-        "64" or "x64" => "64 (x86-64)",
-        "32" or "x86" => "32 (x86)",
-        "64-priority" => "Приоритет 64",
-        "32-priority" => "Приоритет 32",
-        _ => string.IsNullOrWhiteSpace(Architecture) ? "Приоритет 32" : Architecture
+        "64" or "x64" => LocalizationManager.T("Infobase.ArchX64"),
+        "32" or "x86" => LocalizationManager.T("Infobase.ArchX86"),
+        "64-priority" => LocalizationManager.T("Infobase.ArchPriority64"),
+        "32-priority" => LocalizationManager.T("Infobase.ArchPriority32"),
+        _ => string.IsNullOrWhiteSpace(Architecture) ? LocalizationManager.T("Infobase.ArchPriority32") : Architecture
     };
 
     /// <summary>Тип клиента (тонкий или толстый).</summary>
@@ -266,13 +267,13 @@ public class Infobase : INotifyPropertyChanged
     /// <summary>
     /// Название группы для отображения. Базы без группы отображаются в группе «Без группы».
     /// </summary>
-    public string GroupDisplay => string.IsNullOrWhiteSpace(Group) ? "Без группы" : Group;
+    public string GroupDisplay => string.IsNullOrWhiteSpace(Group) ? LocalizationManager.T("Group.NoGroup") : Group;
 
     /// <summary>
     /// Группа, в которой отображается база в общем списке. Закреплённые базы
     /// выводятся в отдельной группе «Закреплённые» вверху таблицы, независимо от их группы.
     /// </summary>
-    public string DisplayGroup => IsPinned ? "Закреплённые" : GroupDisplay;
+    public string DisplayGroup => IsPinned ? LocalizationManager.T("Main.Pinned") : GroupDisplay;
 
     /// <summary>
     /// Порядок группы для сортировки: закреплённые базы всегда идут первыми.
@@ -294,9 +295,9 @@ public class Infobase : INotifyPropertyChanged
     /// </summary>
     public string ConnectionTypeDisplay => Connection.Type switch
     {
-        ConnectionType.File => "Файловая",
-        ConnectionType.WebServer => "Веб-сервер",
-        _ => "Клиент-серверная"
+        ConnectionType.File => LocalizationManager.T("Infobase.Type.File"),
+        ConnectionType.WebServer => LocalizationManager.T("Infobase.Type.WebServer"),
+        _ => LocalizationManager.T("Infobase.Type.ClientServer")
     };
 
     /// <summary>
@@ -332,15 +333,15 @@ public class Infobase : INotifyPropertyChanged
     public string StatusDisplay => !IsAvailable
         ? Connection.Type switch
         {
-            ConnectionType.File => "Недоступна: каталог файловой базы не найден на диске",
-            ConnectionType.WebServer => "Недоступна: не указан адрес веб-публикации",
-            _ => "Недоступна: не указан сервер или имя базы"
+            ConnectionType.File => LocalizationManager.T("Infobase.Unavailable.File"),
+            ConnectionType.WebServer => LocalizationManager.T("Infobase.Unavailable.Web"),
+            _ => LocalizationManager.T("Infobase.Unavailable.ClientServer")
         }
         : Connection.Type switch
         {
-            ConnectionType.File => "Файловая база",
-            ConnectionType.WebServer => "База на веб-сервере",
-            _ => "Клиент-серверная база"
+            ConnectionType.File => LocalizationManager.T("Infobase.Status.File"),
+            ConnectionType.WebServer => LocalizationManager.T("Infobase.Status.Web"),
+            _ => LocalizationManager.T("Infobase.Status.ClientServer")
         };
 
     /// <summary>
@@ -361,7 +362,7 @@ public class Infobase : INotifyPropertyChanged
     /// Режим запуска для отображения. Используется в колонке «Режим запуска».
     /// </summary>
     public string ParsedLaunchMode => string.IsNullOrWhiteSpace(LaunchMode)
-        ? "Автоматический"
+        ? LocalizationManager.T("Infobase.LaunchMode.Auto")
         : LaunchMode;
 
     /// <summary>
@@ -384,7 +385,7 @@ public class Infobase : INotifyPropertyChanged
     public string LastLaunchDisplay =>
         LastLaunchDate.HasValue
             ? LastLaunchDate.Value.ToString("dd.MM.yyyy HH:mm")
-            : "Не запускалась";
+            : LocalizationManager.T("Infobase.LastLaunch.Never");
 
     /// <summary>История запусков (до 30 последних записей).</summary>
     private List<LaunchHistoryEntry> _launchHistory = new();
@@ -403,8 +404,11 @@ public class Infobase : INotifyPropertyChanged
     /// <summary>Краткий текст для UI: число записей / последний.</summary>
     public string LaunchHistoryDisplay =>
         _launchHistory.Count == 0
-            ? "Нет записей"
-            : $"{_launchHistory.Count} зап., посл.: {_launchHistory[0].Timestamp:dd.MM HH:mm}";
+            ? LocalizationManager.T("Infobase.History.Empty")
+            : string.Format(
+                LocalizationManager.T("Infobase.History.Summary"),
+                _launchHistory.Count,
+                _launchHistory[0].Timestamp.ToString("dd.MM HH:mm"));
 
     /// <summary>Добавить запись в историю (новые сверху, максимум 30).</summary>
     public void AddLaunchHistory(string mode, string details = "")
@@ -455,13 +459,23 @@ public class Infobase : INotifyPropertyChanged
 
     public static string FormatSize(long bytes)
     {
-        if (bytes < 1024) return $"{bytes} Б";
-        double kb = bytes / 1024.0;
-        if (kb < 1024) return $"{kb:0.#} КБ";
-        double mb = kb / 1024.0;
-        if (mb < 1024) return $"{mb:0.#} МБ";
-        double gb = mb / 1024.0;
-        return $"{gb:0.##} ГБ";
+        // Локализованные единицы размера берём из общего механизма (CacheClean.SizeUnits):
+        // «Б,КБ,МБ,ГБ,ТБ» для русского и «B,KB,MB,GB,TB» для английского.
+        var units = LocalizationManager.T("CacheClean.SizeUnits")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (units.Length == 0)
+            units = new[] { "Б", "КБ", "МБ", "ГБ", "ТБ" };
+
+        double value = bytes;
+        var index = 0;
+        while (value >= 1024 && index < units.Length - 1)
+        {
+            value /= 1024;
+            index++;
+        }
+
+        var number = index == 0 ? value.ToString("0") : value.ToString("0.0");
+        return $"{number} {units[index]}";
     }
 
     /// <summary>

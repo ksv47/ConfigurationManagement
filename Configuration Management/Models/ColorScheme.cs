@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management.Models;
 
@@ -28,47 +29,55 @@ public class ColorScheme
     public string BaseThemeName => IsDark ? "Dark" : "Light";
 
     /// <summary>
-    /// Возвращает упорядоченное описание редактируемых цветов:
-    /// ключ ресурса и человекочитаемая подпись для редактора в настройках.
+    /// Ключи ресурсов цветов и соответствующие им ключи локализации подписей
+    /// для редактора в настройках. Технический ключ ресурса (первый элемент)
+    /// хранится и сравнивается — его НЕ переводим; переводится только подпись.
     /// </summary>
-    public static IReadOnlyList<(string Key, string Label)> Definitions { get; } = new (string, string)[]
+    private static readonly (string Key, string LabelKey)[] _definitionKeys = new (string, string)[]
     {
-        ("AccentColor", "Акцентный цвет"),
-        ("AccentHoverColor", "Акцент (наведение)"),
-        ("AccentPressedColor", "Акцент (нажатие)"),
-        ("SidebarColor", "Боковая панель (фон)"),
-        ("SidebarHoverColor", "Боковая панель (наведение)"),
-        ("SidebarSelectedColor", "Боковая панель (выбранный)"),
-        ("ContentBackgroundColor", "Фон рабочей области"),
-        ("CardBackgroundColor", "Фон карточек"),
-        ("BorderColor", "Цвет границ"),
-        ("TextPrimaryColor", "Основной текст"),
-        ("TextSecondaryColor", "Вторичный текст"),
-        ("TextOnAccentColor", "Текст на акцентном фоне"),
-        ("ButtonTextColor", "Текст кнопок"),
-        ("FavoriteColor", "Избранное"),
-        ("ItemHoverColor", "Строка списка (наведение)"),
-        ("ItemSelectedColor", "Строка списка (выбранная)"),
-        ("AvatarBackgroundColor", "Аватар (фон)"),
-        ("AvatarTextColor", "Аватар (текст)"),
-        ("SecondaryButtonBackgroundColor", "Вторичная кнопка (фон)"),
-        ("SecondaryButtonHoverColor", "Вторичная кнопка (наведение)"),
-        ("SecondaryButtonPressedColor", "Вторичная кнопка (нажатие)"),
-        ("TreeHoverColor", "Дерево (наведение)"),
-        ("TreeSelectedColor", "Дерево (выбранный)"),
-        ("ScrollTrackBrush", "Полоса прокрутки (трек)"),
-        ("ScrollThumbBrush", "Полоса прокрутки (бегунок)"),
-        ("ScrollThumbHoverBrush", "Полоса прокрутки (наведение)"),
-        ("ScrollThumbPressedBrush", "Полоса прокрутки (нажатие)")
+        ("AccentColor", "Color.Accent"),
+        ("AccentHoverColor", "Color.AccentHover"),
+        ("AccentPressedColor", "Color.AccentPressed"),
+        ("SidebarColor", "Color.Sidebar"),
+        ("SidebarHoverColor", "Color.SidebarHover"),
+        ("SidebarSelectedColor", "Color.SidebarSelected"),
+        ("ContentBackgroundColor", "Color.ContentBackground"),
+        ("CardBackgroundColor", "Color.CardBackground"),
+        ("BorderColor", "Color.Border"),
+        ("TextPrimaryColor", "Color.TextPrimary"),
+        ("TextSecondaryColor", "Color.TextSecondary"),
+        ("TextOnAccentColor", "Color.TextOnAccent"),
+        ("ButtonTextColor", "Color.ButtonText"),
+        ("FavoriteColor", "Color.Favorite"),
+        ("ItemHoverColor", "Color.ItemHover"),
+        ("ItemSelectedColor", "Color.ItemSelected"),
+        ("AvatarBackgroundColor", "Color.AvatarBackground"),
+        ("AvatarTextColor", "Color.AvatarText"),
+        ("SecondaryButtonBackgroundColor", "Color.SecondaryButtonBackground"),
+        ("SecondaryButtonHoverColor", "Color.SecondaryButtonHover"),
+        ("SecondaryButtonPressedColor", "Color.SecondaryButtonPressed"),
+        ("TreeHoverColor", "Color.TreeHover"),
+        ("TreeSelectedColor", "Color.TreeSelected"),
+        ("ScrollTrackBrush", "Color.ScrollTrack"),
+        ("ScrollThumbBrush", "Color.ScrollThumb"),
+        ("ScrollThumbHoverBrush", "Color.ScrollThumbHover"),
+        ("ScrollThumbPressedBrush", "Color.ScrollThumbPressed")
     };
 
-    /// <summary>Возвращает подпись для ключа цвета (если ключ неизвестен — сам ключ).</summary>
+    /// <summary>
+    /// Возвращает упорядоченное описание редактируемых цветов:
+    /// ключ ресурса и локализованная человекочитаемая подпись для редактора в настройках.
+    /// </summary>
+    public static IReadOnlyList<(string Key, string Label)> Definitions =>
+        _definitionKeys.Select(d => (d.Key, LocalizationManager.T(d.LabelKey))).ToArray();
+
+    /// <summary>Возвращает локализованную подпись для ключа цвета (если ключ неизвестен — сам ключ).</summary>
     public static string GetLabel(string key)
     {
-        foreach (var (k, label) in Definitions)
+        foreach (var (k, labelKey) in _definitionKeys)
         {
             if (string.Equals(k, key, StringComparison.OrdinalIgnoreCase))
-                return label;
+                return LocalizationManager.T(labelKey);
         }
         return key;
     }

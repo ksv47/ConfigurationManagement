@@ -257,6 +257,93 @@ namespace Configuration_Management.Themes
                 ApplyFontToType(VisualTreeHelper.GetChild(root, i), type, fs);
         }
 
+        // ---- Компактный режим (уменьшенная плотность интерфейса) ----
+        // Исходные значения метрик сохраняются при первом применении, чтобы
+        // переключение компактного режима обратно восстанавливало обычные размеры.
+        private static readonly Dictionary<FrameworkElement, Thickness> _compactMargin = new();
+        private static readonly Dictionary<Control, Thickness> _compactPadding = new();
+        private static readonly Dictionary<DependencyObject, double> _compactFont = new();
+        private static readonly Dictionary<ColumnDefinition, double> _compactColumn = new();
+
+        /// <summary>
+        /// Применяет компактный режим к главному окну: уменьшает отступы, внутренние поля,
+        /// шрифты (в т.ч. унаследованные — заголовки колонок, строки списка) и ширины
+        /// фиксированных колонок на коэффициент 0.7 (восстанавливает при выключении).
+        /// Высоты и минимальные размеры не трогаются, чтобы не создавать артефакты-разделители.
+        /// Вызывается из настроек при переключении и при запуске приложения.
+        /// </summary>
+        public static void ApplyCompact(bool compact)
+        {
+            var window = Application.Current?.MainWindow;
+            if (window is null)
+                return;
+            var factor = compact ? 0.7 : 1.0;
+            ApplyCompactElement(window, factor);
+        }
+
+        private static void ApplyCompactElement(DependencyObject d, double factor)
+        {
+            if (d is null)
+                return;
+
+            if (d is FrameworkElement fe)
+            {
+                if (!_compactMargin.TryGetValue(fe, out var origMargin))
+                {
+                    origMargin = fe.Margin;
+                    _compactMargin[fe] = origMargin;
+                }
+                fe.Margin = ScaleThickness(origMargin, factor);
+            }
+
+            if (d is Control c)
+            {
+                if (!_compactPadding.TryGetValue(c, out var origPadding))
+                {
+                    origPadding = c.Padding;
+                    _compactPadding[c] = origPadding;
+                }
+                c.Padding = ScaleThickness(origPadding, factor);
+            }
+
+            // Шрифт: масштабируем только явно заданные значения (включая базовый шрифт
+            // окна и заголовки). Унаследованные элементы автоматически следуют за предком,
+            // поэтому после масштабирования базы все заголовки/строки уменьшаются.
+            var localFont = d.ReadLocalValue(TextElement.FontSizeProperty);
+            if (localFont is double fontVal && fontVal > 0)
+            {
+                if (!_compactFont.TryGetValue(d, out var origFont))
+                {
+                    origFont = fontVal;
+                    _compactFont[d] = origFont;
+                }
+                d.SetValue(TextElement.FontSizeProperty, Math.Max(origFont * factor, 8));
+            }
+
+            // Уменьшаем фиксированные ширины колонок Grid (заголовки колонок идут за содержимым).
+            if (d is Grid grid)
+            {
+                foreach (var cd in grid.ColumnDefinitions)
+                {
+                    if (cd.Width.IsStar || cd.Width.IsAuto)
+                        continue;
+                    if (!_compactColumn.TryGetValue(cd, out var origWidth))
+                    {
+                        origWidth = cd.Width.Value;
+                        _compactColumn[cd] = origWidth;
+                    }
+                    cd.Width = new GridLength(Math.Max(origWidth * factor, 32));
+                }
+            }
+
+            int count = VisualTreeHelper.GetChildrenCount(d);
+            for (int i = 0; i < count; i++)
+                ApplyCompactElement(VisualTreeHelper.GetChild(d, i), factor);
+        }
+
+        private static Thickness ScaleThickness(Thickness t, double factor)
+            => new(t.Left * factor, t.Top * factor, t.Right * factor, t.Bottom * factor);
+
         /// <summary>Возвращает встроенную схему по имени темы («Light»/«Dark») или null.</summary>
         public static ColorScheme? GetBuiltInScheme(string themeName)
         {

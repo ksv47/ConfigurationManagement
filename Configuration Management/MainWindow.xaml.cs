@@ -60,6 +60,10 @@ namespace Configuration_Management
 
             UpdateThemeButton();
 
+            // Компактный режим: синхронизируем состояние кнопки на верхней панели.
+            if (CompactModeButton != null)
+                CompactModeButton.IsChecked = _viewModel.CompactMode;
+
             // Применяем сохранённые ширины колонок списка баз.
             ApplySavedColumnWidths();
 
@@ -1364,6 +1368,14 @@ namespace Configuration_Management
             var next = ThemeManager.ToggleTheme();
             UpdateThemeButton();
             _viewModel.ApplyTheme(next);
+        }
+
+        /// <summary>Переключатель компактного режима на верхней панели: применяет сразу и сохраняет.</summary>
+        private void OnCompactMode_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (CompactModeButton is null || _viewModel is null)
+                return;
+            _viewModel.ApplyCompactMode(CompactModeButton.IsChecked == true);
         }
 
         /// <summary>

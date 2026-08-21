@@ -269,7 +269,7 @@
                 <!-- Синхронизация + тема + настройки (добавление — в правой панели и контекстном меню) -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                     <controls:HelpLink Margin="0,0,4,0"
-                                       HelpText="Центральный список информационных баз 1С.&#10;&#10;• Чтобы запустить базу, выберите её и нажмите «1С:Предприятие» или «Конфигуратор» в правой панели (или дважды щёлкните по строке).&#10;• Группы раскрываются/сворачиваются стрелкой ◂, а также клавишами ←/→ при выделенной группе.&#10;• Стрелки ↑/↓ перемещают выделение по строкам.&#10;• ★ добавляет базу в «Избранное» (быстрый запуск Alt+1…Alt+9), 📌 закрепляет её вверху списка.&#10;• Ширину любой колонки можно менять, перетаскивая разделитель на её правой границе.&#10;• Клик по заголовку «Название» или «Последний запуск» сортирует список."/>
+                                       HelpText="{loc:Loc Main.BaseListHelp}"/>
                     <!-- Индикатор выгрузки .dt/.cf: появляется при запуске пакетной операции,
                          анимируется (стрелка вверх подпрыгивает) и скрывается по её завершении.
                          При наведении показывает сводку о текущей выгрузке. -->
@@ -300,6 +300,13 @@
                         <Path x:Name="ThemeToggleIcon" Width="18" Height="18" Stretch="Uniform"
                               Data="{StaticResource IconMoon}" Fill="#8B5CF6"/>
                     </Button>
+                    <!-- Компактный режим: быстрый переключатель плотности интерфейса -->
+                    <ToggleButton x:Name="CompactModeButton" Click="OnCompactMode_Toggled"
+                            Style="{DynamicResource ToolbarToggleButton}" Margin="0,0,2,0"
+                            ToolTip="{loc:Loc Main.CompactModeTooltip}">
+                        <materialDesign:PackIcon Kind="Compress" Width="18" Height="18"
+                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                    </ToggleButton>
                     <Button Command="{Binding OpenSettingsCommand}" Style="{DynamicResource IconButton}"
                             ToolTip="{loc:Loc Main.SettingsTooltip}">
                         <materialDesign:PackIcon Kind="Cog" Width="18" Height="18" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -358,7 +365,7 @@
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                VerticalAlignment="Center"/>
                                     <controls:HelpLink Margin="6,0,0,0"
-                                                       HelpText="Панель быстрого отбора по тегам.&#10;&#10;• Нажмите на тег — список баз отфильтруется по этому тегу (выбранный тег подсвечивается).&#10;• Можно выбрать несколько тегов сразу — будет показаны базы, у которых есть все выбранные теги (мультифильтр).&#10;• Повторный клик по выбранному тегу снимает его из фильтра.&#10;• Кнопка «Очистить» (справа) сбрасывает все выбранные теги.&#10;• Во время отбора по тегу группы и закреплённые базы временно скрываются — показывается единый плоский список найденных баз."/>
+                                                       HelpText="{loc:Loc Main.TagFilterHelp}"/>
                                 </StackPanel>
                                 <Button Grid.Column="2" Command="{Binding ClearTagFiltersCommand}"
                                         Style="{DynamicResource HeaderIconButton}" Padding="4,2"
@@ -1498,9 +1505,19 @@
                                       Fill="{Binding SelectedGroupNode.IconBrush}"
                                       Data="{Binding SelectedGroupNode.Icon, Converter={StaticResource IconKeyToGeometryConverter}}"/>
                                 <StackPanel>
-                                    <TextBlock Text="{Binding SelectedGroupNode.DisplayName, TargetNullValue=Нет выбора}"
-                                               FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextPrimaryBrush}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{Binding SelectedGroupNode.DisplayName}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedGroupNode.DisplayName}" Value="{x:Null}">
+                                                        <Setter Property="Text" Value="{loc:Loc Main.NoSelection}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <TextBlock Text="{Binding SelectedGroupNode.FullPath}" FontSize="12"
                                                Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
@@ -1769,7 +1786,7 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                     <controls:HelpLink Margin="6,0,0,4"
-                                                       HelpText="Блок «Текущая сессия» задаёт режим клиента и разрядность только для следующего запуска 1С:Предприятие, не изменяя сохранённые настройки базы.&#10;&#10;• Режим клиента: Авто / Обычный / Толстый (управляемые формы, /RunModeManagedApplication) / Толстый (обычные формы, /RunModeOrdinaryApplication) / Тонкий.&#10;• Разрядность: Авто / 32 / 64.&#10;• Выбранные значения применяются к очередному запуску; настройки базы в свойствах остаются прежними."/>
+                                                       HelpText="{loc:Loc Main.CurrentSessionHelp}"/>
                                 </StackPanel>
                                 <TextBlock Text="{loc:Loc Main.SessionOnceHint}"
                                            FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"

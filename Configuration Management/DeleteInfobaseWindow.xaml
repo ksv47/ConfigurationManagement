@@ -37,7 +37,7 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,14">
             <materialDesign:PackIcon Kind="AlertCircleOutline" Width="28" Height="28"
                                      Foreground="#EF4444" VerticalAlignment="Center" Margin="0,0,12,0"/>
-            <TextBlock Text="Удаление информационной базы" FontSize="16" FontWeight="SemiBold"
+            <TextBlock Text="{loc:Loc DeleteInfobase.Title}" FontSize="16" FontWeight="SemiBold"
                        VerticalAlignment="Center"/>
         </StackPanel>
 
@@ -58,27 +58,27 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Наименование:" FontWeight="SemiBold"
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc DeleteInfobase.NameLabel}" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,6"/>
                 <TextBlock Grid.Row="0" Grid.Column="1" x:Name="NameText" TextWrapping="Wrap" Margin="0,0,0,6"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Тип:" FontWeight="SemiBold"
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc DeleteInfobase.TypeLabel}" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,6"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TypeText" Margin="0,0,0,6"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Путь / сервер:" FontWeight="SemiBold"
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc DeleteInfobase.PathLabel}" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,6"/>
                 <TextBlock Grid.Row="2" Grid.Column="1" x:Name="PathText" TextWrapping="Wrap" Margin="0,0,0,6"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Группа:" FontWeight="SemiBold"
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc DeleteInfobase.GroupLabel}" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,6"/>
                 <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GroupText" Margin="0,0,0,6"/>
 
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Платформа:" FontWeight="SemiBold"
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc DeleteInfobase.PlatformLabel}" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,6"/>
                 <TextBlock Grid.Row="4" Grid.Column="1" x:Name="PlatformText" Margin="0,0,0,6"/>
 
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="На диске:" FontWeight="SemiBold"
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc DeleteInfobase.OnDiskLabel}" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,0"/>
                 <TextBlock Grid.Row="5" Grid.Column="1" x:Name="ExistsText"/>
             </Grid>

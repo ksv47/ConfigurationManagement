@@ -91,6 +91,14 @@ namespace Configuration_Management
             }
         }
 
+        /// <summary>Переключатель компактного режима: применяет изменение сразу и сохраняет.</summary>
+        private void OnCompactMode_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (CompactModeCheck is null)
+                return;
+            _viewModel.ApplyCompactMode(CompactModeCheck.IsChecked == true);
+        }
+
         // ===================== Цветовое оформление =====================
 
         /// <summary>
@@ -138,9 +146,22 @@ namespace Configuration_Management
             var all = _viewModel.AvailableColorSchemes();
             for (int i = 0; i < all.Count; i++)
             {
-                items.Add(new SchemeComboItem { Name = all[i].Name, IsBuiltIn = i < 2 });
+                items.Add(new SchemeComboItem { Name = all[i].Name, IsBuiltIn = i < 2, DisplayName = LocalizedBuiltInName(all[i].Name) });
             }
             return items;
+        }
+
+        /// <summary>
+        /// Возвращает локализованное отображаемое имя встроенной темы.
+        /// Идентификатор схемы (<c>Name</c>) остаётся неизменным, поэтому сохранение/загрузка и сравнения не ломаются.
+        /// </summary>
+        private static string LocalizedBuiltInName(string name)
+        {
+            if (string.Equals(name, BuiltInLightName, StringComparison.OrdinalIgnoreCase))
+                return LocalizationManager.T("Theme.Light");
+            if (string.Equals(name, BuiltInDarkName, StringComparison.OrdinalIgnoreCase))
+                return LocalizationManager.T("Theme.Dark");
+            return name;
         }
 
         /// <summary>Обновляет список редактируемых цветов из текущей схемы.</summary>
@@ -377,8 +398,9 @@ namespace Configuration_Management
         private sealed class SchemeComboItem
         {
             public string Name { get; set; } = string.Empty;
+            public string? DisplayName { get; set; }
             public bool IsBuiltIn { get; set; }
-            public override string ToString() => Name;
+            public override string ToString() => string.IsNullOrEmpty(DisplayName) ? Name : DisplayName;
         }
 
         /// <summary>Элемент редактора цветов: подпись, ключ, HEX и кисть-образец.</summary>
@@ -591,6 +613,8 @@ namespace Configuration_Management
                 EscapeToTrayCheck.IsChecked = _viewModel.EscapeToTray;
             if (RememberWindowLayoutCheck != null)
                 RememberWindowLayoutCheck.IsChecked = _viewModel.RememberWindowLayout;
+            if (CompactModeCheck != null)
+                CompactModeCheck.IsChecked = _viewModel.CompactMode;
 
             GroupByGroupCheck.IsChecked = _viewModel.GroupByGroup;
             ShowFavoritesOnlyCheck.IsChecked = _viewModel.ShowFavoritesOnly;
@@ -630,19 +654,19 @@ namespace Configuration_Management
         /// <summary>Элемент списка начертаний шрифта.</summary>
         private sealed class FontFaceItem
         {
-            public string Name { get; init; } = string.Empty;
+            public string Key { get; init; } = string.Empty;
             public string Weight { get; init; } = "Normal";
             public string Style { get; init; } = "Normal";
-            public override string ToString() => Name;
+            public override string ToString() => LocalizationManager.T(Key);
         }
 
-        /// <summary>Доступные начертания шрифта.</summary>
+        /// <summary>Доступные начертания шрифта. Технические Weight/Style не локализуются.</summary>
         private static readonly FontFaceItem[] FontFaces =
         {
-            new() { Name = "Обычный", Weight = "Normal", Style = "Normal" },
-            new() { Name = "Полужирный", Weight = "Bold", Style = "Normal" },
-            new() { Name = "Курсив", Weight = "Normal", Style = "Italic" },
-            new() { Name = "Полужирный курсив", Weight = "Bold", Style = "Italic" }
+            new() { Key = "Settings.Font.StyleNormal", Weight = "Normal", Style = "Normal" },
+            new() { Key = "Settings.Font.StyleBold", Weight = "Bold", Style = "Normal" },
+            new() { Key = "Settings.Font.StyleItalic", Weight = "Normal", Style = "Italic" },
+            new() { Key = "Settings.Font.StyleBoldItalic", Weight = "Bold", Style = "Italic" }
         };
 
         /// <summary>Элемент списка областей интерфейса для выбора шрифта.</summary>

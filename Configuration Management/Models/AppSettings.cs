@@ -319,6 +319,12 @@ public class AppSettings
     public string FontStyle { get; set; } = "Normal";
 
     /// <summary>
+    /// Компактный режим интерфейса: уменьшает размеры иконок, шрифтов, отступов и
+    /// расстояний между элементами, убирая лишнее пустое пространство.
+    /// </summary>
+    public bool CompactMode { get; set; }
+
+    /// <summary>
     /// Индивидуальные настройки шрифта для отдельных областей интерфейса
     /// (список баз, заголовки, правая панель, строка состояния, вкладки, кнопки, поля ввода).
     /// Ключи — из <see cref="Themes.ThemeManager.FontDefault"/>, <see cref="Themes.ThemeManager.FontList"/> и т.д.

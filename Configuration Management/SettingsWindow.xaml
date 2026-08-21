@@ -762,22 +762,6 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="4,12,4,0" Padding="0,0,4,0">
                     <StackPanel>
-                        <GroupBox Header="{loc:Loc Settings.Language}" Padding="8" Margin="0,0,0,12">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{loc:Loc Settings.LanguageLabel}" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <ComboBox x:Name="LanguageComboBox" Width="280" Height="34" Margin="10,0,0,0"
-                                              VerticalAlignment="Center"
-                                              Style="{StaticResource ModernComboBox}"
-                                              SelectionChanged="OnLanguage_Changed"/>
-                                </StackPanel>
-                                <TextBlock Text="{loc:Loc Settings.Language.AppliedHint}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
-                                           TextWrapping="Wrap" Margin="0,8,0,0"/>
-                            </StackPanel>
-                        </GroupBox>
-
                         <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8" Margin="0,0,0,12">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
@@ -1042,6 +1026,22 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="4,12,4,0" Padding="0,0,4,0">
                     <StackPanel>
+                        <GroupBox Header="{loc:Loc Settings.Language}" Padding="8" Margin="0,0,0,12">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{loc:Loc Settings.LanguageLabel}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <ComboBox x:Name="LanguageComboBox" Width="280" Height="34" Margin="10,0,0,0"
+                                              VerticalAlignment="Center"
+                                              Style="{StaticResource ModernComboBox}"
+                                              SelectionChanged="OnLanguage_Changed"/>
+                                </StackPanel>
+                                <TextBlock Text="{loc:Loc Settings.Language.AppliedHint}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </GroupBox>
+
                         <TextBlock Text="{loc:Loc Settings.General.Behavior}"
                                    FontWeight="SemiBold" Margin="0,0,0,8"
                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -1073,6 +1073,13 @@
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Monitor" Width="16" Height="16" Foreground="#EC4899" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="{loc:Loc Settings.General.RememberWindowLayout}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </ToggleButton>
+                        <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="CompactModeCheck" Margin="0,12,0,0"
+                                      Checked="OnCompactMode_Toggled" Unchecked="OnCompactMode_Toggled">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Compress" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.CompactMode}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
                     </StackPanel>

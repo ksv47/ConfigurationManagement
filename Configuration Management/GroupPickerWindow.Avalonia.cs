@@ -29,8 +29,8 @@ namespace Configuration_Management
 
         private readonly TreeView _tree = new();
         private readonly Button _selectButton = new() { Content = LocalizationManager.T("Common.Select"), MinWidth = 110, IsDefault = true };
-        private readonly RadioButton _sortAsc = new() { Content = "А → Я", IsChecked = true };
-        private readonly RadioButton _sortDesc = new() { Content = "Я → А" };
+        private readonly RadioButton _sortAsc = new() { Content = LocalizationManager.T("Common.SortAsc"), IsChecked = true };
+        private readonly RadioButton _sortDesc = new() { Content = LocalizationManager.T("Common.SortDesc") };
 
         /// <param name="groups">Список групп.</param>
         /// <param name="currentGroupId">Текущая выбранная группа (для подсветки).</param>

@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Themes;
 
 namespace Configuration_Management.Controls
@@ -46,7 +47,7 @@ namespace Configuration_Management.Controls
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            ToolTip.SetTip(_helpToggle, "Что это? Нажмите, чтобы открыть подсказку");
+            ToolTip.SetTip(_helpToggle, LocalizationManager.T("HelpLink.Tooltip"));
             _helpToggle.IsCheckedChanged += (_, _) => OnToggleChanged();
 
             // Всплывающая подсказка.
@@ -58,7 +59,7 @@ namespace Configuration_Management.Controls
             };
             var titleBlock = new TextBlock
             {
-                Text = "Подсказка",
+                Text = LocalizationManager.T("HelpLink.Title"),
                 FontWeight = FontWeight.SemiBold,
                 FontSize = 12
             };
