@@ -209,7 +209,7 @@ public static class OneCCacheCleaner
     {
         var protectedNames = BuildProtectedNames(allBases);
 
-        foreach (var root in GetCacheRoots(kind))
+        foreach (var root in GetCacheRoots(kind, forOrphanScan: true))
         {
             if (!Directory.Exists(root))
                 continue;
@@ -408,7 +408,12 @@ public static class OneCCacheCleaner
     /// <summary>
     /// Возвращает корневые каталоги, где 1С хранит кеш, с учётом выбранного типа кеша.
     /// </summary>
-    private static IEnumerable<string> GetCacheRoots(OneCCacheKind kind)
+    /// <param name="forOrphanScan">
+    /// True, если корни запрашиваются для поиска «осиротевшего» кеша. В этом режиме
+    /// удаляется всё, что не принадлежит известным базам, поэтому корни, где рядом
+    /// с кешем баз лежат служебные каталоги платформы, в него не отдаются.
+    /// </param>
+    private static IEnumerable<string> GetCacheRoots(OneCCacheKind kind, bool forOrphanScan = false)
     {
         var roots = new List<string>();
 
@@ -439,7 +444,14 @@ public static class OneCCacheCleaner
             // Общая для всех версий каталог кэша в профиле 1С.
             if (!string.IsNullOrEmpty(home))
             {
-                roots.Add(Path.Combine(home, ".1cv8", "1C", "1cv8"));
+                // В ~/.1cv8/1C/1cv8 рядом с кешем баз платформа держит свои служебные
+                // каталоги (conf, logs, ExtCompT, STT, standalone-server), а каталоги
+                // кеша серверных баз называются Srvr__<сервер>__Ref__<база>__, то есть
+                // не совпадают с именами из BuildProtectedNames. Поиск осиротевшего кеша
+                // принял бы всё это за остатки удалённых баз, поэтому корень отдаётся
+                // только для точечной очистки по конкретной базе.
+                if (!forOrphanScan)
+                    roots.Add(Path.Combine(home, ".1cv8", "1C", "1cv8"));
                 roots.Add(Path.Combine(home, ".1cv8", "1cv8"));
             }
         }
