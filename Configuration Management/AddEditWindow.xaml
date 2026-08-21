@@ -5,8 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:controls="clr-namespace:Configuration_Management.Controls"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         mc:Ignorable="d"
-        Title="Добавление в список"
+        Title="{loc:Loc AddEdit.Title}"
         Icon="{StaticResource AppIcon}"
         Width="480"
         SizeToContent="Height"
@@ -62,9 +63,9 @@
 
         <!-- Заголовок -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="Что добавить в список?" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="{loc:Loc AddEdit.Question}" FontSize="15" FontWeight="SemiBold"/>
             <controls:HelpLink Margin="8,0,0,0" VerticalAlignment="Center"
-                               HelpText="Выберите, что добавить в список информационных баз:&#10;&#10;• «Существующая база» — добавить уже созданную ИБ 1С, указав её строку подключения.&#10;• «Создать пустую базу» — создать новую пустую ИБ (файловую или на сервере) через CREATEINFOBASE.&#10;• «Создать из шаблона» — создать базу из шаблона (.cf / .dt), как в стандартном стартере 1С.&#10;• «Новая группа» — создать группу для упорядочивания баз в дереве.&#10;&#10;После выбора нажмите «Далее» — откроется соответствующее окно настройки."/>
+                               HelpText="{loc:Loc AddEdit.HelpText}"/>
         </StackPanel>
 
         <!-- Варианты выбора -->
@@ -80,8 +81,8 @@
                     <TextBlock Grid.Column="0" Text="📋" FontSize="24" VerticalAlignment="Center"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="Существующая база" FontWeight="SemiBold" FontSize="14"/>
-                        <TextBlock Text="Добавить в список уже созданную информационную базу 1С."
+                        <TextBlock Text="{loc:Loc AddEdit.ExistingBase}" FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Text="{loc:Loc AddEdit.ExistingBaseDescription}"
                                    TextWrapping="Wrap" FontSize="12"
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
@@ -99,8 +100,8 @@
                     <TextBlock Grid.Column="0" Text="💾" FontSize="24" VerticalAlignment="Center"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="Создать пустую базу" FontWeight="SemiBold" FontSize="14"/>
-                        <TextBlock Text="Создать новую пустую ИБ (файловую или на сервере) через CREATEINFOBASE."
+                        <TextBlock Text="{loc:Loc AddEdit.CreateEmpty}" FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Text="{loc:Loc AddEdit.CreateEmptyDescription}"
                                    TextWrapping="Wrap" FontSize="12"
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
@@ -118,8 +119,8 @@
                     <TextBlock Grid.Column="0" Text="📦" FontSize="24" VerticalAlignment="Center"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="Создать из шаблона" FontWeight="SemiBold" FontSize="14"/>
-                        <TextBlock Text="Создать базу из шаблона (.cf / .dt) — как в стандартном стартере 1С."
+                        <TextBlock Text="{loc:Loc AddEdit.CreateFromTemplate}" FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Text="{loc:Loc AddEdit.CreateFromTemplateDescription}"
                                    TextWrapping="Wrap" FontSize="12"
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
@@ -137,8 +138,8 @@
                     <TextBlock Grid.Column="0" Text="📁" FontSize="24" VerticalAlignment="Center"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="Группа" FontWeight="SemiBold" FontSize="14"/>
-                        <TextBlock Text="Создать группу для объединения информационных баз по категориям."
+                        <TextBlock Text="{loc:Loc AddEdit.Group}" FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Text="{loc:Loc AddEdit.GroupDescription}"
                                    TextWrapping="Wrap" FontSize="12"
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
@@ -168,7 +169,7 @@
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="ArrowRight" Width="16" Height="16" Foreground="White"
                                              Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Далее" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc AddEdit.Next}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
             <Button Width="130" Height="36" IsCancel="True"
@@ -192,7 +193,7 @@
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444"
                                              Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
         </StackPanel>

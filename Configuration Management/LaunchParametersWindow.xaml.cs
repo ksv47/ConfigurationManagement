@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management
 {
@@ -34,63 +35,68 @@ namespace Configuration_Management
         {
             var list = new List<ParamRef>();
 
-            void Add(string key, string description) => list.Add(new ParamRef(key, description));
+            // Ключ перевода описания параметра по его ключу командной строки.
+            void Add(string key)
+            {
+                var locKey = "LaunchParams.Ref." + key.Trim('/').Replace("-", "");
+                list.Add(new ParamRef(key, LocalizationManager.T(locKey)));
+            }
 
             // Параметры-флаги.
-            Add("/DisableStartupMessages", "Отключить стартовые сообщения");
-            Add("/DisableStartupDialogs", "Отключить стартовые диалоги");
-            Add("/DisableSplash", "Отключить стартовую заставку");
-            Add("/WA-", "Не ждать завершения (запуск в фоне)");
-            Add("/Debug", "Режим отладки");
-            Add("/AllowExecuteScheduledJobs", "Разрешить выполнение регламентных заданий");
-            Add("/RunModeManagedApplication", "Запустить в режиме тонкого клиента (управляемое приложение)");
-            Add("/RunModeOrdinaryApplication", "Запустить в режиме толстого клиента (обычное приложение)");
-            Add("/UpdateCfg", "Обновить конфигурацию базы");
-            Add("/TestServer", "Проверить работоспособность кластера серверов");
-            Add("/RestoreIB", "Восстановить информационную базу из выгрузки (.dt)");
-            Add("/DumpIB", "Выгрузить информационную базу в файл (.dt)");
-            Add("/DumpCfg", "Выгрузить конфигурацию в файл (.cf)");
-            Add("/LoadCfg", "Загрузить конфигурацию из файла (.cf)");
-            Add("/CheckConfig", "Проверить конфигурацию");
-            Add("/UpdateConfigDumpCfg", "Обновить конфигурацию и выгрузить её в файл (.cf)");
-            Add("/CreateInfobase", "Создать информационную базу по файлу выгрузки");
-            Add("/Command", "Выполнить команду после запуска");
-            Add("/ManagedClient", "Запустить тонкий клиент (управляемое приложение)");
-            Add("/ThickClient", "Запустить толстый клиент");
-            Add("/UpdateConfiguration", "Обновить конфигурацию базы");
+            Add("/DisableStartupMessages");
+            Add("/DisableStartupDialogs");
+            Add("/DisableSplash");
+            Add("/WA-");
+            Add("/Debug");
+            Add("/AllowExecuteScheduledJobs");
+            Add("/RunModeManagedApplication");
+            Add("/RunModeOrdinaryApplication");
+            Add("/UpdateCfg");
+            Add("/TestServer");
+            Add("/RestoreIB");
+            Add("/DumpIB");
+            Add("/DumpCfg");
+            Add("/LoadCfg");
+            Add("/CheckConfig");
+            Add("/UpdateConfigDumpCfg");
+            Add("/CreateInfobase");
+            Add("/Command");
+            Add("/ManagedClient");
+            Add("/ThickClient");
+            Add("/UpdateConfiguration");
 
             // Параметры с аргументами.
-            Add("/UC", "Код разрешения запуска");
-            Add("/L", "Язык интерфейса (например ru, en)");
-            Add("/Out", "Путь к файлу вывода служебных сообщений");
-            Add("/C", "Строка параметров запуска (передаётся в приложение)");
-            Add("/Execute", "Путь к внешней обработке или отчёту для выполнения");
-            Add("/DumpResult", "Путь к файлу выгрузки результата (например, после /Execute)");
-            Add("/N", "Имя пользователя");
-            Add("/P", "Пароль пользователя");
-            Add("/S", "Адрес сервера 1С:Предприятия");
-            Add("/F", "Путь к файловой информационной базе");
-            Add("/Ref", "Имя информационной базы на сервере");
-            Add("/Server", "Имя сервера 1С:Предприятия");
-            Add("/Srvr", "Имя сервера 1С:Предприятия (синоним /S)");
-            Add("/IBName", "Имя информационной базы в списке баз");
-            Add("/DBMS", "Тип СУБД (MSSQLServer, PostgreSQL, Oracle, IBMDB2)");
-            Add("/DBSrvr", "Имя сервера СУБД");
-            Add("/DBUID", "Имя пользователя СУБД");
-            Add("/DBPwd", "Пароль пользователя СУБД");
-            Add("/App", "Выбор приложения (Designer / Enterprise)");
-            Add("/ConfigurationRepository", "Имя хранилища конфигурации");
-            Add("/ConfigurationRepositoryUser", "Пользователь хранилища конфигурации");
-            Add("/ConfigurationRepositoryPwd", "Пароль пользователя хранилища конфигурации");
-            Add("/DisplayAllFunctions", "Отображать все функции (для запуска тонкого клиента)");
-            Add("/WSNamespace", "Пространство имён веб-сервиса");
-            Add("/IBSecurity", "Ключ безопасности информационной базы");
-            Add("/CPUSecurity", "Ключ безопасности сеанса");
-            Add("/SaveAgent", "Сохранить кэш агента сервера");
-            Add("/ConfigurationName", "Имя конфигурации для запуска");
-            Add("/RegisterExternalDataSource", "Зарегистрировать внешний источник данных");
-            Add("/UnregisterExternalDataSource", "Снять регистрацию внешнего источника данных");
-            Add("/SqlDump", "Сброс SQL-запросов в файл");
+            Add("/UC");
+            Add("/L");
+            Add("/Out");
+            Add("/C");
+            Add("/Execute");
+            Add("/DumpResult");
+            Add("/N");
+            Add("/P");
+            Add("/S");
+            Add("/F");
+            Add("/Ref");
+            Add("/Server");
+            Add("/Srvr");
+            Add("/IBName");
+            Add("/DBMS");
+            Add("/DBSrvr");
+            Add("/DBUID");
+            Add("/DBPwd");
+            Add("/App");
+            Add("/ConfigurationRepository");
+            Add("/ConfigurationRepositoryUser");
+            Add("/ConfigurationRepositoryPwd");
+            Add("/DisplayAllFunctions");
+            Add("/WSNamespace");
+            Add("/IBSecurity");
+            Add("/CPUSecurity");
+            Add("/SaveAgent");
+            Add("/ConfigurationName");
+            Add("/RegisterExternalDataSource");
+            Add("/UnregisterExternalDataSource");
+            Add("/SqlDump");
 
             return list;
         }

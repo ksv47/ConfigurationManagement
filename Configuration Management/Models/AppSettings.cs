@@ -27,6 +27,12 @@ public class AppSettings
     public string Theme { get; set; } = string.Empty;
 
     /// <summary>
+    /// Код языка интерфейса, например "ru", "en", "de". Пусто — язык определяется
+    /// автоматически (по языку операционной системы, если он доступен, иначе русский).
+    /// </summary>
+    public string Language { get; set; } = string.Empty;
+
+    /// <summary>
     /// Активная цветовая схема (тема оформления). Если задана — применяется при запуске.
     /// Если отсутствует — используется встроенная светлая/тёмная схема по свойству
     /// <see cref="Theme"/>.
@@ -127,6 +133,15 @@ public class AppSettings
 
     /// <summary>Ширина колонки «Размер» (0 — по умолчанию).</summary>
     public double SizeColumnWidth { get; set; }
+
+    /// <summary>Ширина колонки «База» в окне «Очистка кэша» (0 — растягивается).</summary>
+    public double CacheCleanBaseColumnWidth { get; set; }
+
+    /// <summary>Ширина колонки «Программный» в окне «Очистка кэша» (0 — по умолчанию).</summary>
+    public double CacheCleanProgramColumnWidth { get; set; }
+
+    /// <summary>Ширина колонки «Пользовательский» в окне «Очистка кэша» (0 — по умолчанию).</summary>
+    public double CacheCleanUserColumnWidth { get; set; }
 
     /// <summary>Сохранённая ширина окна приложения (0 — по умолчанию).</summary>
     public double WindowWidth { get; set; }

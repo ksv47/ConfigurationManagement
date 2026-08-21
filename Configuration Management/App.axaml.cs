@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.Themes;
@@ -70,6 +71,18 @@ namespace Configuration_Management
                 try { settings = repository.LoadSettings(); }
                 catch { settings = new AppSettings(); }
 
+                // Инициализируем локализацию: выбранный или системный язык, а также
+                // загружаем внешние языки (.json) из папок Languages (рядом с приложением
+                // и в каталоге данных).
+                try
+                {
+                    LocalizationManager.Instance.Initialize(settings.Language, DataDirectory);
+                }
+                catch
+                {
+                    // Локализация не должна блокировать запуск приложения.
+                }
+
                 if (!settings.AllowMultipleInstances)
                 {
                     if (!TryAcquireSingleInstanceLock())
@@ -102,7 +115,7 @@ namespace Configuration_Management
                     var infoVersion = Assembly.GetExecutingAssembly()
                         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
                     var versionText = string.IsNullOrWhiteSpace(infoVersion) ? "" : $" v{infoVersion}";
-                    mainWindow.Title = $"Управление конфигурациями 1С{versionText}";
+                    mainWindow.Title = $"{LocalizationManager.T("App.Title")}{versionText}";
 
                     desktop.MainWindow = mainWindow;
                     mainWindow.Show();

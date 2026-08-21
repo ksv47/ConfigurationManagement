@@ -2,9 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 
@@ -18,20 +21,45 @@ namespace Configuration_Management
     {
         private readonly List<Infobase> _infobases;
         private readonly Dictionary<CheckBox, Infobase> _baseChecks = new();
+        private readonly Dictionary<CheckBox, Grid> _baseRows = new();
+        private readonly Dictionary<Infobase, TextBlock> _programSizeTexts = new();
+        private readonly Dictionary<Infobase, TextBlock> _userSizeTexts = new();
 
-        private readonly CheckBox _programCacheCheck = new() { Content = "Программный кэш" };
-        private readonly CheckBox _userCacheCheck = new() { Content = "Пользовательский кэш" };
-        private readonly TextBox _searchBox = new() { Padding = new Thickness(10, 7), Watermark = "Поиск базы…" };
+        private readonly TextBlock _programCacheSizeText = new();
+        private readonly TextBlock _userCacheSizeText = new();
+        private readonly CheckBox _programCacheCheck = new();
+        private readonly CheckBox _userCacheCheck = new();
+        private readonly TextBox _searchBox = new() { Padding = new Thickness(10, 7), Watermark = LocalizationManager.T("CacheClean.SearchBase") };
         private readonly StackPanel _basesPanel = new();
         private readonly TextBlock _basesCountText = new();
         private readonly Button _cleanButton = new() { IsDefault = true };
+
+        // Ширина изменяемых колонок списка.
+        private const double DefaultProgramWidth = 130;
+        private const double DefaultUserWidth = 130;
+        private const double MinColumnWidth = 40;
+
+        private readonly Services.IInfobaseRepository _repository =
+            AppServices.GetRequiredService<Services.IInfobaseRepository>();
+
+        private double _nameColumnWidth;             // 0 — колонка «База» растягивается
+        private double _programColumnWidth = DefaultProgramWidth;
+        private double _userColumnWidth = DefaultUserWidth;
+        private Grid? _headerGrid;
+        private readonly List<Grid> _rows = new();
+
+        // Состояние перетаскивания разделителя (как в главном окне).
+        private bool _isResizing;
+        private int _resizeColumn = -1;
+        private double _resizeStartWidth;
+        private double _resizeStartX;
 
         /// <param name="infobases">Все доступные информационные базы.</param>
         /// <param name="initialKind">Изначально выбранный тип кэша.</param>
         /// <param name="defaultSelected">База, выбранная по умолчанию (например, выделенная в главном окне).</param>
         public CacheCleanWindow(IEnumerable<Infobase> infobases, OneCCacheKind initialKind, Infobase? defaultSelected = null)
         {
-            Title = "Очистка кэша 1С";
+            Title = LocalizationManager.T("CacheClean.Title");
             Width = 580;
             Height = 540;
             MinWidth = 480;
@@ -39,6 +67,9 @@ namespace Configuration_Management
             CanResize = true;
 
             _infobases = infobases.ToList();
+
+            _programCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.ProgramCache"), _programCacheSizeText);
+            _userCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.UserCache"), _userCacheSizeText);
 
             _programCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.Program);
             _userCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.User);
@@ -48,11 +79,51 @@ namespace Configuration_Management
             _userCacheCheck.Unchecked += (_, _) => UpdateCleanEnabled();
             _searchBox.TextChanged += (_, _) => OnSearchTextChanged();
 
+            LoadColumnWidths();
+
             BuildBasesList(defaultSelected);
             UpdateCount();
             UpdateCleanEnabled();
 
             Content = BuildRoot();
+
+            Opened += (_, _) => RefreshCacheSizes();
+            Closing += (_, _) => SaveColumnWidths();
+        }
+
+        /// <summary>Загружает сохранённые ширины колонок из настроек приложения.</summary>
+        private void LoadColumnWidths()
+        {
+            try
+            {
+                var settings = _repository.LoadSettings();
+                _nameColumnWidth = settings.CacheCleanBaseColumnWidth;
+                if (settings.CacheCleanProgramColumnWidth > 0)
+                    _programColumnWidth = settings.CacheCleanProgramColumnWidth;
+                if (settings.CacheCleanUserColumnWidth > 0)
+                    _userColumnWidth = settings.CacheCleanUserColumnWidth;
+            }
+            catch
+            {
+                // Игнорируем ошибки загрузки — используем значения по умолчанию.
+            }
+        }
+
+        /// <summary>Сохраняет текущие ширины колонок в настройки приложения.</summary>
+        private void SaveColumnWidths()
+        {
+            try
+            {
+                var settings = _repository.LoadSettings();
+                settings.CacheCleanBaseColumnWidth = _nameColumnWidth;
+                settings.CacheCleanProgramColumnWidth = _programColumnWidth;
+                settings.CacheCleanUserColumnWidth = _userColumnWidth;
+                _repository.SaveSettings(settings);
+            }
+            catch
+            {
+                // Игнорируем ошибки сохранения.
+            }
         }
 
         /// <summary>Тип кэша, выбранный пользователем.</summary>
@@ -60,6 +131,77 @@ namespace Configuration_Management
 
         /// <summary>Список баз, выбранных для очистки.</summary>
         public IReadOnlyList<Infobase> SelectedInfobases { get; private set; } = Array.Empty<Infobase>();
+
+        /// <summary>
+        /// Формирует содержимое чекбокса типа кеша: название и поле текущего размера.
+        /// </summary>
+        private static Control BuildCacheTypeContent(string name, TextBlock sizeText)
+        {
+            sizeText.VerticalAlignment = VerticalAlignment.Center;
+            sizeText.FontSize = 12;
+            sizeText.Foreground = Brushes.Gray;
+            sizeText.Text = "…";
+
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                Children =
+                {
+                    new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center },
+                    sizeText
+                }
+            };
+            return panel;
+        }
+
+        /// <summary>
+        /// Вычисляет и отображает размеры программного и пользовательского кеша.
+        /// Расчёт выполняется в фоновом потоке, чтобы не блокировать интерфейс.
+        /// </summary>
+        private async void RefreshCacheSizes()
+        {
+            _programCacheSizeText.Text = "…";
+            _userCacheSizeText.Text = "…";
+            foreach (var t in _programSizeTexts.Values) t.Text = "…";
+            foreach (var t in _userSizeTexts.Values) t.Text = "…";
+
+            var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program));
+            var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User));
+
+            _programCacheSizeText.Text = FormatSize(program);
+            _userCacheSizeText.Text = FormatSize(user);
+
+            foreach (var ib in _infobases)
+            {
+                var p = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.Program));
+                var u = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.User));
+                if (_programSizeTexts.TryGetValue(ib, out var pt)) pt.Text = FormatSize(p);
+                if (_userSizeTexts.TryGetValue(ib, out var ut)) ut.Text = FormatSize(u);
+            }
+        }
+
+        /// <summary>
+        /// Форматирует размер в байтах в человекочитаемый вид с локализованными единицами.
+        /// </summary>
+        private static string FormatSize(long bytes)
+        {
+            var units = LocalizationManager.T("CacheClean.SizeUnits")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (units.Length == 0)
+                units = new[] { "Б", "КБ", "МБ", "ГБ", "ТБ" };
+
+            double value = bytes;
+            var index = 0;
+            while (value >= 1024 && index < units.Length - 1)
+            {
+                value /= 1024;
+                index++;
+            }
+
+            var number = index == 0 ? value.ToString("0") : value.ToString("0.0");
+            return $"{number} {units[index]}";
+        }
 
         private Control BuildRoot()
         {
@@ -73,7 +215,7 @@ namespace Configuration_Management
 
             var title = new TextBlock
             {
-                Text = "Очистка кэша 1С: выбор типа кэша и баз",
+                Text = LocalizationManager.T("CacheClean.TitleHeader"),
                 FontSize = 15,
                 FontWeight = FontWeight.SemiBold
             };
@@ -82,7 +224,7 @@ namespace Configuration_Management
 
             var description = new TextBlock
             {
-                Text = "Программный и пользовательский кэш — разные данные и по-разному влияют на информационные базы. Выберите, какой кэш очистить и для каких баз.",
+                Text = LocalizationManager.T("CacheClean.Subtitle"),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 6, 0, 0)
@@ -92,7 +234,7 @@ namespace Configuration_Management
 
             var typeLabel = new TextBlock
             {
-                Text = "Тип очищаемого кэша",
+                Text = LocalizationManager.T("CacheClean.CacheTypeLabel"),
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 16, 0, 6)
             };
@@ -127,21 +269,26 @@ namespace Configuration_Management
                 Spacing = 12,
                 Margin = new Thickness(8, 2, 8, 4)
             };
-            var selectAll = new Button { Content = IconHelper.IconAndText("IconCheck", "Выбрать все"), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+            var selectAll = new Button { Content = IconHelper.IconAndText("IconCheck", LocalizationManager.T("CacheClean.SelectAll")), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
             selectAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = true; UpdateCount(); UpdateCleanEnabled(); };
-            var clearAll = new Button { Content = IconHelper.IconAndText("IconUncheck", "Снять все"), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+            var clearAll = new Button { Content = IconHelper.IconAndText("IconUncheck", LocalizationManager.T("CacheClean.ClearAll")), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
             clearAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = false; UpdateCount(); UpdateCleanEnabled(); };
             toolbar.Children.Add(selectAll);
             toolbar.Children.Add(clearAll);
             DockPanel.SetDock(toolbar, Dock.Top);
             dock.Children.Add(toolbar);
 
+            // Закреплённая шапка списка (остаётся вверху при прокрутке).
+            _headerGrid = BuildHeaderGrid();
+            DockPanel.SetDock(_headerGrid, Dock.Top);
+            dock.Children.Add(_headerGrid);
+
             var basesScroll = new ScrollViewer
             {
                 Content = _basesPanel,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Padding = new Thickness(8, 4)
+                Padding = new Thickness(8, 2)
             };
             dock.Children.Add(basesScroll);
 
@@ -159,7 +306,7 @@ namespace Configuration_Management
             _basesCountText.VerticalAlignment = VerticalAlignment.Center;
             bottom.Children.Add(_basesCountText);
 
-            var cancel = new Button { Content = "Отмена", MinWidth = 100, IsCancel = true };
+            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
             cancel.Click += (_, _) => Close();
             Grid.SetColumn(cancel, 1);
             cancel.Margin = new Thickness(0, 0, 8, 0);
@@ -172,7 +319,7 @@ namespace Configuration_Management
                 Children =
                 {
                     IconHelper.MakeIcon("IconDelete", 16),
-                    new TextBlock { Text = "Очистить кэш", VerticalAlignment = VerticalAlignment.Center }
+                    new TextBlock { Text = LocalizationManager.T("CacheClean.Clean"), VerticalAlignment = VerticalAlignment.Center }
                 }
             };
             _cleanButton.MinWidth = 130;
@@ -186,18 +333,140 @@ namespace Configuration_Management
             return grid;
         }
 
+        /// <summary>
+        /// Возвращает GridLength для колонки: «База» (индекс 0) при нулевой ширине
+        /// растягивается на всё свободное место, остальные — фиксированной ширины.
+        /// </summary>
+        private static GridLength ColLength(int column, double width)
+            => column == 0 && width <= 0 ? new GridLength(1, GridUnitType.Star) : new GridLength(width);
+
+        /// <summary>
+        /// Применяет к сетке общую раскладку колонок: 0 — имя базы, 1 — программный, 2 — пользовательский.
+        /// </summary>
+        private void ApplyColumns(Grid grid)
+        {
+            grid.ColumnDefinitions.Clear();
+            grid.ColumnDefinitions.Add(new ColumnDefinition(ColLength(0, _nameColumnWidth)) { MinWidth = MinColumnWidth });
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(_programColumnWidth)) { MinWidth = MinColumnWidth });
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(_userColumnWidth)) { MinWidth = MinColumnWidth });
+        }
+
+        /// <summary>Строит закреплённую шапку списка с зонами захвата для изменения ширины колонок.</summary>
+        private Grid BuildHeaderGrid()
+        {
+            var grid = new Grid { Margin = new Thickness(8, 0, 8, 4) };
+            ApplyColumns(grid);
+
+            grid.Children.Add(BuildHeaderText(LocalizationManager.T("CacheClean.ColumnBase"), HorizontalAlignment.Left, 0));
+            grid.Children.Add(BuildHeaderText(LocalizationManager.T("CacheClean.ColumnProgramSize"), HorizontalAlignment.Right, 1));
+            grid.Children.Add(BuildHeaderText(LocalizationManager.T("CacheClean.ColumnUserSize"), HorizontalAlignment.Right, 2));
+
+            // Зоны захвата для изменения ширины каждой колонки (как в главном окне).
+            for (var col = 0; col < 3; col++)
+                grid.Children.Add(BuildResizeGrip(col));
+
+            return grid;
+        }
+
+        /// <summary>Создаёт зону захвата на правой границе колонки (тонкая полоса + широкий захват).</summary>
+        private Border BuildResizeGrip(int column)
+        {
+            var grip = new Border
+            {
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Width = 8,
+                ZIndex = 1,
+                Background = Brushes.Transparent,
+                Cursor = new Cursor(StandardCursorType.SizeWestEast),
+                ToolTip = new ToolTip { Content = LocalizationManager.T("CacheClean.ResizeColumnTooltip") }
+            };
+            Grid.SetColumn(grip, column);
+            grip.PointerPressed += OnResize_PointerPressed;
+            grip.PointerMoved += OnResize_PointerMoved;
+            grip.PointerReleased += OnResize_PointerReleased;
+            return grip;
+        }
+
+        private void OnResize_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is not Border grip || _headerGrid is null)
+                return;
+
+            var column = Grid.GetColumn(grip);
+            if (column < 0 || column >= _headerGrid.ColumnDefinitions.Count)
+                return;
+
+            _resizeColumn = column;
+            _resizeStartWidth = _headerGrid.ColumnDefinitions[column].ActualWidth;
+            _resizeStartX = e.GetPosition(this).X;
+            _isResizing = true;
+            grip.CapturePointer(e.Pointer);
+            e.Handled = true;
+        }
+
+        private void OnResize_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (!_isResizing || _resizeColumn < 0 || _headerGrid is null)
+                return;
+
+            var newWidth = _resizeStartWidth + (e.GetPosition(this).X - _resizeStartX);
+            if (newWidth < MinColumnWidth)
+                newWidth = MinColumnWidth;
+
+            SetColumnWidth(_resizeColumn, newWidth);
+        }
+
+        private void OnResize_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (sender is Border grip)
+                grip.ReleasePointerCapture(e.Pointer);
+
+            if (_isResizing)
+            {
+                _isResizing = false;
+                _resizeColumn = -1;
+                SaveColumnWidths();
+            }
+        }
+
+        /// <summary>
+        /// Применяет новую ширину только к целевой колонке — и в шапке, и во всех строках
+        /// (заголовок и данные изменяются синхронно, как в главном окне).
+        /// </summary>
+        private void SetColumnWidth(int column, double width)
+        {
+            width = Math.Max(MinColumnWidth, width);
+
+            if (column == 0) _nameColumnWidth = width;
+            else if (column == 1) _programColumnWidth = width;
+            else if (column == 2) _userColumnWidth = width;
+
+            if (_headerGrid is not null)
+                _headerGrid.ColumnDefinitions[column].Width = ColLength(column, width);
+
+            foreach (var row in _rows)
+                row.ColumnDefinitions[column].Width = ColLength(column, width);
+        }
+
         private void BuildBasesList(Infobase? defaultSelected)
         {
             _basesPanel.Children.Clear();
             _baseChecks.Clear();
+            _baseRows.Clear();
+            _programSizeTexts.Clear();
+            _userSizeTexts.Clear();
+            _rows.Clear();
 
             foreach (var ib in _infobases)
             {
+                var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+                ApplyColumns(row);
+
                 var check = new CheckBox
                 {
                     Content = ib.Name,
                     IsChecked = ReferenceEquals(ib, defaultSelected),
-                    Margin = new Thickness(0, 4, 0, 4),
                     VerticalContentAlignment = VerticalAlignment.Center,
                     ToolTip = new ToolTip
                     {
@@ -206,9 +475,57 @@ namespace Configuration_Management
                 };
                 check.Checked += (_, _) => OnBaseChecked();
                 check.Unchecked += (_, _) => OnBaseChecked();
+                Grid.SetColumn(check, 0);
+                row.Children.Add(check);
+
+                var programSize = BuildSizeText();
+                Grid.SetColumn(programSize, 1);
+                row.Children.Add(programSize);
+
+                var userSize = BuildSizeText();
+                Grid.SetColumn(userSize, 2);
+                row.Children.Add(userSize);
+
                 _baseChecks[check] = ib;
-                _basesPanel.Children.Add(check);
+                _baseRows[check] = row;
+                _programSizeTexts[ib] = programSize;
+                _userSizeTexts[ib] = userSize;
+                _rows.Add(row);
+                _basesPanel.Children.Add(row);
             }
+        }
+
+        /// <summary>Формирует заголовок колонки списка баз.</summary>
+        private static TextBlock BuildHeaderText(string text, HorizontalAlignment align, int column)
+        {
+            var block = new TextBlock
+            {
+                Text = text,
+                FontSize = 12,
+                FontWeight = FontWeight.SemiBold,
+                Foreground = Brushes.Gray,
+                HorizontalAlignment = align,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 8, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            Grid.SetColumn(block, column);
+            return block;
+        }
+
+        /// <summary>Формирует поле отображения размера кеша базы.</summary>
+        private static TextBlock BuildSizeText()
+        {
+            return new TextBlock
+            {
+                Text = "…",
+                FontSize = 12,
+                Foreground = Brushes.Gray,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 8, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
         }
 
         private void OnSearchTextChanged()
@@ -219,7 +536,8 @@ namespace Configuration_Management
                 var visible = query.Length == 0
                     || kv.Value.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
                     || (kv.Value.ConnectionPathDisplay?.Contains(query, StringComparison.OrdinalIgnoreCase) == true);
-                kv.Key.IsVisible = visible;
+                if (_baseRows.TryGetValue(kv.Key, out var row))
+                    row.IsVisible = visible;
             }
         }
 
@@ -233,7 +551,7 @@ namespace Configuration_Management
         {
             var selected = _baseChecks.Count(kv => kv.Key.IsChecked == true);
             var total = _baseChecks.Count;
-            _basesCountText.Text = $"Выбрано: {selected} из {total}";
+            _basesCountText.Text = string.Format(LocalizationManager.T("CacheClean.CountSelected"), selected, total);
         }
 
         private void UpdateCleanEnabled()

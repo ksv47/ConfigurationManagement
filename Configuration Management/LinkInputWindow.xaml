@@ -4,8 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         mc:Ignorable="d"
-        Title="Перейти по ссылке"
+        Title="{loc:Loc LinkInput.Title}"
         Icon="{StaticResource AppIcon}"
         Height="210" Width="460"
         WindowStartupLocation="CenterOwner"
@@ -32,12 +33,12 @@
         </Grid.RowDefinitions>
 
         <!-- ============ Подпись ============ -->
-        <TextBlock Grid.Row="0" Text="Ссылка на информационную базу:"
+        <TextBlock Grid.Row="0" Text="{loc:Loc LinkInput.Label}"
                    Margin="0,0,0,6"/>
         <TextBlock Grid.Row="1" TextWrapping="Wrap" FontSize="11"
                    Foreground="{DynamicResource TextSecondaryBrush}"
                    Margin="0,0,0,8"
-                   Text="Примеры: e1c://...  •  C:\1C\База  •  server\База  •  http://server/base"/>
+                   Text="{loc:Loc LinkInput.Hint}"/>
 
         <!-- ============ Поле ввода ============ -->
         <TextBox x:Name="LinkBox" Grid.Row="2" Padding="8,6"
@@ -72,7 +73,7 @@
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="ArrowRightBoldCircle" Width="16" Height="16"
                                              Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Перейти" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc LinkInput.Go}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
             <Button Width="140" Height="38" IsCancel="True"
@@ -96,7 +97,7 @@
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444"
                                              Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
         </StackPanel>

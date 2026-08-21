@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.ViewModels;
@@ -66,6 +67,28 @@ namespace Configuration_Management
             InitializeFavoriteHotkeys();
             InitializeExportTimestampSettings();
             InitializeColorSchemes();
+            InitializeLanguage();
+        }
+
+        /// <summary>Заполняет список доступных языков интерфейса и выбирает текущий.</summary>
+        private void InitializeLanguage()
+        {
+            if (LanguageComboBox == null)
+                return;
+
+            LanguageComboBox.ItemsSource = LocalizationManager.Instance.AvailableLanguages.ToList();
+            LanguageComboBox.DisplayMemberPath = "Name";
+            LanguageComboBox.SelectedItem = LocalizationManager.Instance.AvailableLanguages
+                .FirstOrDefault(l => l.Code == LocalizationManager.Instance.CurrentLanguage);
+        }
+
+        private void OnLanguage_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (LanguageComboBox?.SelectedItem is LanguageInfo li &&
+                !string.Equals(li.Code, LocalizationManager.Instance.CurrentLanguage, StringComparison.OrdinalIgnoreCase))
+            {
+                _viewModel.ApplyLanguage(li.Code);
+            }
         }
 
         // ===================== Цветовое оформление =====================
@@ -188,14 +211,14 @@ namespace Configuration_Management
         /// <summary>Создаёт собственную тему на основе текущих цветов.</summary>
         private void OnCreateScheme_Click(object sender, RoutedEventArgs e)
         {
-            var name = PromptForName("Создать тему", $"{_colorScheme.Name} — копия");
+            var name = PromptForName(LocalizationManager.T("Settings.CreateTheme"), string.Format(LocalizationManager.T("Settings.CopyOf"), _colorScheme.Name));
             if (string.IsNullOrWhiteSpace(name))
                 return;
             name = name.Trim();
             if (IsReservedName(name))
             {
-                MessageBox.Show("Такое имя занято встроенной темой или уже существует. Выберите другое имя.",
-                    "Создать тему", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(LocalizationManager.T("Settings.ReservedName"),
+                    LocalizationManager.T("Settings.CreateTheme"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -212,19 +235,19 @@ namespace Configuration_Management
         {
             if (SchemeComboBox.SelectedItem is not SchemeComboItem item || item.IsBuiltIn)
             {
-                MessageBox.Show("Встроенные темы переименовать нельзя.",
-                    "Переименовать тему", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.T("Settings.CannotRenameBuiltIn"),
+                    LocalizationManager.T("Settings.RenameThemeTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            var name = PromptForName("Переименовать тему", item.Name);
+            var name = PromptForName(LocalizationManager.T("Settings.Rename"), item.Name);
             if (string.IsNullOrWhiteSpace(name) || string.Equals(name.Trim(), item.Name, StringComparison.OrdinalIgnoreCase))
                 return;
             name = name.Trim();
             if (IsReservedName(name))
             {
-                MessageBox.Show("Такое имя занято встроенной темой или уже существует. Выберите другое имя.",
-                    "Переименовать тему", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(LocalizationManager.T("Settings.ReservedName"),
+                    LocalizationManager.T("Settings.RenameThemeTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -248,13 +271,13 @@ namespace Configuration_Management
         {
             if (SchemeComboBox.SelectedItem is not SchemeComboItem item || item.IsBuiltIn)
             {
-                MessageBox.Show("Встроенные темы удалить нельзя.",
-                    "Удалить тему", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.T("Settings.CannotDeleteBuiltIn"),
+                    LocalizationManager.T("Settings.DeleteThemeTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            var result = MessageBox.Show($"Удалить тему «{item.Name}»?",
-                "Удалить тему", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            var result = MessageBox.Show(string.Format(LocalizationManager.T("Settings.DeleteThemeConfirm"), item.Name),
+                LocalizationManager.T("Settings.DeleteThemeTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result != MessageBoxResult.Yes)
                 return;
 
@@ -283,8 +306,8 @@ namespace Configuration_Management
         {
             var dialog = new SaveFileDialog
             {
-                Title = "Выгрузить цветовую схему",
-                Filter = "Цветовая схема (*.json)|*.json|Все файлы (*.*)|*.*",
+                Title = LocalizationManager.T("Settings.ExportSchemeTitle"),
+                Filter = $"{LocalizationManager.T("Settings.ColorSchemeFilter")}|*.json|{LocalizationManager.T("Common.AllFiles")}|*.*",
                 FileName = _colorScheme.Name + ".json",
                 DefaultExt = ".json",
                 AddExtension = true
@@ -295,13 +318,13 @@ namespace Configuration_Management
             try
             {
                 _viewModel.ExportColorScheme(_colorScheme, dialog.FileName);
-                MessageBox.Show("Цветовая схема выгружена в файл:\n" + dialog.FileName,
-                    "Выгрузить схему", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(string.Format(LocalizationManager.T("Settings.ExportedOk"), dialog.FileName),
+                    LocalizationManager.T("Settings.ExportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Не удалось выгрузить схему.\n{ex.Message}",
-                    "Выгрузить схему", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(string.Format(LocalizationManager.T("Settings.ExportFailed"), ex.Message),
+                    LocalizationManager.T("Settings.ExportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -310,8 +333,8 @@ namespace Configuration_Management
         {
             var dialog = new OpenFileDialog
             {
-                Title = "Загрузить цветовую схему",
-                Filter = "Цветовая схема (*.json)|*.json|Все файлы (*.*)|*.*",
+                Title = LocalizationManager.T("Settings.ImportSchemeTitle"),
+                Filter = $"{LocalizationManager.T("Settings.ColorSchemeFilter")}|*.json|{LocalizationManager.T("Common.AllFiles")}|*.*",
                 CheckFileExists = true,
                 Multiselect = false
             };
@@ -321,8 +344,8 @@ namespace Configuration_Management
             var scheme = _viewModel.ImportColorScheme(dialog.FileName);
             if (scheme is null || scheme.Colors.Count == 0)
             {
-                MessageBox.Show("Не удалось загрузить цветовую схему из файла. Проверьте файл.",
-                    "Загрузить схему", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(LocalizationManager.T("Settings.ImportFailed"),
+                    LocalizationManager.T("Settings.ImportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -330,8 +353,8 @@ namespace Configuration_Management
             _colorScheme = scheme;
             RefreshSchemeComboBox();
             RefreshColorItems();
-            MessageBox.Show($"Цветовая схема «{scheme.Name}» загружена.",
-                "Загрузить схему", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(string.Format(LocalizationManager.T("Settings.ImportedOk"), scheme.Name),
+                LocalizationManager.T("Settings.ImportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private static bool IsReservedName(string name)
@@ -346,7 +369,7 @@ namespace Configuration_Management
         /// </summary>
         private string? PromptForName(string title, string initial)
         {
-            var dialog = new NameInputWindow(title, "Название темы:", "ОК", initial) { Owner = this };
+            var dialog = new NameInputWindow(title, LocalizationManager.T("NameInput.Prompt"), LocalizationManager.T("Common.Ok"), initial) { Owner = this };
             return dialog.ShowDialog() == true ? dialog.Result : null;
         }
 
@@ -406,8 +429,8 @@ namespace Configuration_Management
         private void InitializeDefaultArchitecture()
         {
             DefaultArchComboBox.Items.Clear();
-            DefaultArchComboBox.Items.Add("64 бит (рекомендуется)");
-            DefaultArchComboBox.Items.Add("32 бит");
+            DefaultArchComboBox.Items.Add(LocalizationManager.T("Settings.Arch64Recommended"));
+            DefaultArchComboBox.Items.Add(LocalizationManager.T("Settings.Arch32"));
             DefaultArchComboBox.SelectedIndex =
                 string.Equals(_viewModel.DefaultArchitecture, "X64", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
         }
@@ -467,18 +490,18 @@ namespace Configuration_Management
             var format = ExportTimestampFormatComboBox.Text?.Trim();
             if (string.IsNullOrWhiteSpace(format))
             {
-                ExportTimestampPreview.Text = "Укажите шаблон даты и времени (например yyyyMMdd_HHmmss).";
+                ExportTimestampPreview.Text = LocalizationManager.T("Settings.TimestampSpecifyHint");
                 return;
             }
 
             try
             {
-                var preview = $"База_{DateTime.Now.ToString(format)}.dt";
-                ExportTimestampPreview.Text = $"Пример: «{preview}»";
+                var preview = string.Format(LocalizationManager.T("Settings.TimestampBasePrefix"), DateTime.Now.ToString(format));
+                ExportTimestampPreview.Text = string.Format(LocalizationManager.T("Settings.TimestampExample"), preview);
             }
             catch (FormatException)
             {
-                ExportTimestampPreview.Text = "Недопустимый шаблон. Используйте стандартные спецификаторы .NET (например yyyyMMdd_HHmmss).";
+                ExportTimestampPreview.Text = LocalizationManager.T("Settings.TimestampInvalid");
             }
         }
 
@@ -813,15 +836,15 @@ namespace Configuration_Management
             _syncIntervalMinutes = _viewModel.IbasesSyncIntervalMinutes;
             _syncScheduleTime = _viewModel.IbasesSyncScheduleTime;
 
-            SyncModeComboBox.Items.Add("Отключена");
-            SyncModeComboBox.Items.Add("Только загрузка (из файла в приложение)");
-            SyncModeComboBox.Items.Add("Только выгрузка (из приложения в файл)");
-            SyncModeComboBox.Items.Add("Двусторонняя (загрузка и выгрузка)");
+            SyncModeComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.SyncModeDisabled"));
+            SyncModeComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.SyncModeImport"));
+            SyncModeComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.SyncModeExport"));
+            SyncModeComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.SyncModeBoth"));
             SyncModeComboBox.SelectedIndex = (int)_syncMode;
 
-            SyncTriggerComboBox.Items.Add("Только при запуске приложения");
-            SyncTriggerComboBox.Items.Add("Через заданный интервал");
-            SyncTriggerComboBox.Items.Add("По расписанию");
+            SyncTriggerComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.TriggerStartup"));
+            SyncTriggerComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.TriggerInterval"));
+            SyncTriggerComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.TriggerSchedule"));
             SyncTriggerComboBox.SelectedIndex = (int)_syncTrigger;
 
             SyncFilePathTextBox.Text = _syncFilePath;
@@ -863,27 +886,27 @@ namespace Configuration_Management
             var path = ResolveDisplayPath();
             if (!enabled)
             {
-                SyncStatusText.Text = "Синхронизация отключена.";
+                SyncStatusText.Text = LocalizationManager.T("Settings.Ibases.StatusDisabled");
             }
             else if (string.IsNullOrWhiteSpace(path))
             {
-                SyncStatusText.Text = "Файл ibases.v8i не найден. Укажите путь вручную.";
+                SyncStatusText.Text = LocalizationManager.T("Settings.Ibases.StatusFileNotFound");
             }
             else
             {
                 var modeText = _syncMode switch
                 {
-                    IbasesSyncMode.Import => "только загрузка",
-                    IbasesSyncMode.Export => "только выгрузка",
-                    _ => "двусторонняя"
+                    IbasesSyncMode.Import => LocalizationManager.T("Settings.Ibases.ModeImportShort"),
+                    IbasesSyncMode.Export => LocalizationManager.T("Settings.Ibases.ModeExportShort"),
+                    _ => LocalizationManager.T("Settings.Ibases.ModeBothShort")
                 };
                 var triggerText = _syncTrigger switch
                 {
-                    IbasesSyncTrigger.Interval => $"автоматически каждые {_syncIntervalMinutes} мин.",
-                    IbasesSyncTrigger.Schedule => $"автоматически по расписанию в {_syncScheduleTime}.",
-                    _ => "автоматически при запуске."
+                    IbasesSyncTrigger.Interval => string.Format(LocalizationManager.T("Settings.Ibases.TriggerIntervalShort"), _syncIntervalMinutes),
+                    IbasesSyncTrigger.Schedule => string.Format(LocalizationManager.T("Settings.Ibases.TriggerScheduleShort"), _syncScheduleTime),
+                    _ => LocalizationManager.T("Settings.Ibases.TriggerStartupShort")
                 };
-                SyncStatusText.Text = $"Файл: {path}\nРежим: {modeText}. Запуск: {triggerText}";
+                SyncStatusText.Text = string.Format(LocalizationManager.T("Settings.Ibases.StatusFormat"), path, modeText, triggerText);
             }
         }
 
@@ -940,8 +963,8 @@ namespace Configuration_Management
         {
             var dialog = new OpenFileDialog
             {
-                Title = "Выберите файл списка баз 1С (ibases.v8i)",
-                Filter = "Файл списка баз 1С (*.v8i)|*.v8i|Все файлы (*.*)|*.*",
+                Title = LocalizationManager.T("Settings.Ibases.FileDialogTitle"),
+                Filter = $"{LocalizationManager.T("Settings.Ibases.FileFilter")}|*.v8i|{LocalizationManager.T("Common.AllFiles")}|*.*",
                 CheckFileExists = true,
                 Multiselect = false
             };
@@ -960,8 +983,8 @@ namespace Configuration_Management
             if (filePath is null || !System.IO.File.Exists(filePath))
             {
                 MessageBox.Show(
-                    "Файл ibases.v8i не найден. Укажите путь к файлу вручную.",
-                    "Импорт из ibases.v8i",
+                    LocalizationManager.T("Settings.Ibases.ImportFileNotFound"),
+                    LocalizationManager.T("Settings.Ibases.ImportTitle"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
                 return;
@@ -972,13 +995,13 @@ namespace Configuration_Management
             var ok = _viewModel.ImportFromIbases();
             if (ok)
             {
-                MessageBox.Show("Импорт из файла ibases.v8i выполнен успешно.",
-                    "Импорт из ibases.v8i", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.T("Settings.Ibases.ImportOk"),
+                    LocalizationManager.T("Settings.Ibases.ImportTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             else
             {
-                MessageBox.Show("Не удалось выполнить импорт. Проверьте, что файл ibases.v8i существует и доступен.",
-                    "Ошибка импорта", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(LocalizationManager.T("Settings.Ibases.ImportFailed"),
+                    LocalizationManager.T("Settings.Ibases.ImportErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
 
             RefreshGroupsAfterDataChange();
@@ -990,8 +1013,8 @@ namespace Configuration_Management
             if (filePath is null)
             {
                 MessageBox.Show(
-                    "Не удалось определить путь к файлу ibases.v8i. Укажите путь вручную.",
-                    "Экспорт в ibases.v8i",
+                    LocalizationManager.T("Settings.Ibases.ExportNoPath"),
+                    LocalizationManager.T("Settings.Ibases.ExportTitle"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
                 return;
@@ -1000,13 +1023,13 @@ namespace Configuration_Management
             try
             {
                 IbasesV8iExporter.Export(filePath, _viewModel.Infobases, _viewModel.Groups);
-                MessageBox.Show("Экспорт в файл ibases.v8i выполнен успешно.",
-                    "Экспорт в ibases.v8i", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.T("Settings.Ibases.ExportOk"),
+                    LocalizationManager.T("Settings.Ibases.ExportTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Не удалось выполнить экспорт.\n{ex.Message}",
-                    "Ошибка экспорта", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(string.Format(LocalizationManager.T("Settings.Ibases.ExportFailed"), ex.Message),
+                    LocalizationManager.T("Settings.Ibases.ExportErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -1030,7 +1053,7 @@ namespace Configuration_Management
         {
             using var dialog = new System.Windows.Forms.FolderBrowserDialog
             {
-                Description = "Выберите папку с установкой платформы 1С (корень, 1cv8 или папка версии)",
+                Description = LocalizationManager.T("Settings.ChoosePlatformFolder"),
                 UseDescriptionForTitle = true,
                 ShowNewFolderButton = false
             };
@@ -1044,8 +1067,8 @@ namespace Configuration_Management
 
             if (_additionalPlatformPaths.Any(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show("Этот путь уже добавлен в список.",
-                    "Дополнительные пути", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.T("Settings.PathAlreadyAdded"),
+                    LocalizationManager.T("Settings.AdditionalPathsTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -1059,14 +1082,14 @@ namespace Configuration_Management
             var selected = AdditionalPathsList?.SelectedItem as string;
             if (string.IsNullOrEmpty(selected))
             {
-                MessageBox.Show("Выберите путь для изменения.",
-                    "Дополнительные пути", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.T("Settings.SelectPathToEdit"),
+                    LocalizationManager.T("Settings.AdditionalPathsTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             using var dialog = new System.Windows.Forms.FolderBrowserDialog
             {
-                Description = "Выберите новый путь (корень, 1cv8 или папка версии)",
+                Description = LocalizationManager.T("Settings.ChooseNewPlatformFolder"),
                 UseDescriptionForTitle = true,
                 ShowNewFolderButton = false,
                 SelectedPath = selected
@@ -1083,8 +1106,8 @@ namespace Configuration_Management
                     !string.Equals(p, selected, StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(p, path, StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show("Этот путь уже добавлен в список.",
-                    "Дополнительные пути", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.T("Settings.PathAlreadyAdded"),
+                    LocalizationManager.T("Settings.AdditionalPathsTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -1102,8 +1125,8 @@ namespace Configuration_Management
             var selected = AdditionalPathsList?.SelectedItem as string;
             if (string.IsNullOrEmpty(selected))
             {
-                MessageBox.Show("Выберите путь для удаления.",
-                    "Дополнительные пути", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.T("Settings.SelectPathToRemove"),
+                    LocalizationManager.T("Settings.AdditionalPathsTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -1125,7 +1148,7 @@ namespace Configuration_Management
 
             if (infos.Count == 0)
             {
-                StatusText.Text = "Версии платформы 1С не найдены. Нажмите «Обновить список».";
+                StatusText.Text = LocalizationManager.T("Settings.PlatformsNotFound");
                 return;
             }
 
@@ -1133,7 +1156,7 @@ namespace Configuration_Management
             foreach (var node in tree)
                 PlatformsTree.Items.Add(node);
 
-            StatusText.Text = $"Найдено версий: {infos.Count} (группировка: 8.3 → 8.3.27 → сборка)";
+            StatusText.Text = string.Format(LocalizationManager.T("Settings.PlatformsFound"), infos.Count);
 
             // Разворачиваем линии 8.x, чтобы группировка была видна сразу
             Dispatcher.BeginInvoke(new Action(() => ExpandPlatformTreeGroups(PlatformsTree)),
@@ -1208,22 +1231,22 @@ namespace Configuration_Management
 
             if (string.IsNullOrWhiteSpace(filePath))
             {
-                MessageBox.Show("Не указан путь к файлу ibases.v8i.", "Восстановление", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(LocalizationManager.T("Settings.Ibases.RestoreNoPath"), LocalizationManager.T("Settings.Ibases.RestoreTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             var backups = Services.IbasesBackupService.ListBackups(filePath);
             if (backups.Count == 0)
             {
-                MessageBox.Show("Резервные копии не найдены рядом с файлом:\n" + filePath,
-                    "Восстановление", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(string.Format(LocalizationManager.T("Settings.Ibases.RestoreNoBackups"), filePath),
+                    LocalizationManager.T("Settings.Ibases.RestoreTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             var latest = backups[0];
             var result = MessageBox.Show(
-                $"Восстановить файл ibases.v8i из копии?\n\n{System.IO.Path.GetFileName(latest)}\n\nТекущий файл будет перезаписан.",
-                "Восстановление из резервной копии",
+                string.Format(LocalizationManager.T("Settings.Ibases.RestoreConfirm"), System.IO.Path.GetFileName(latest)),
+                LocalizationManager.T("Settings.Ibases.RestoreConfirmTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
@@ -1233,13 +1256,13 @@ namespace Configuration_Management
             try
             {
                 Services.IbasesBackupService.RestoreBackup(latest, filePath);
-                MessageBox.Show("Файл ibases.v8i успешно восстановлен из резервной копии.",
-                    "Восстановление", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.T("Settings.Ibases.RestoreOk"),
+                    LocalizationManager.T("Settings.Ibases.RestoreTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Не удалось восстановить файл.\n{ex.Message}",
-                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(string.Format(LocalizationManager.T("Settings.Ibases.RestoreFailed"), ex.Message),
+                    LocalizationManager.T("Common.Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -1305,17 +1328,17 @@ namespace Configuration_Management
             // Проверка: одна клавиша — одно действие (пустые «Нет» не учитываются).
             var assigned = new (string Name, string Key)[]
             {
-                ("1С:Предприятие", hkEnterprise),
-                ("Конфигуратор", hkConfigurator),
-                ("Избранное", hkFavorite),
-                ("Изменить", hkEdit),
-                ("Удалить", hkDelete),
-                ("Очистить кэш", hkClearCache),
-                ("Добавить базу", hkAdd),
-                ("Закрепить", hkPin),
-                ("Показать все базы", hkShowAll),
-                ("Показать избранное", hkShowFavorites),
-                ("Показать недавние", hkShowRecent)
+                (LocalizationManager.T("Main.Enterprise"), hkEnterprise),
+                (LocalizationManager.T("Main.SectionConfigurator"), hkConfigurator),
+                (LocalizationManager.T("Main.Favorites"), hkFavorite),
+                (LocalizationManager.T("Main.EditShort"), hkEdit),
+                (LocalizationManager.T("Common.Delete"), hkDelete),
+                (LocalizationManager.T("Main.ClearCache"), hkClearCache),
+                (LocalizationManager.T("Main.AddBase"), hkAdd),
+                (LocalizationManager.T("Main.Pin"), hkPin),
+                (LocalizationManager.T("Main.AllBasesTooltip"), hkShowAll),
+                (LocalizationManager.T("Main.FavoritesTooltip"), hkShowFavorites),
+                (LocalizationManager.T("Main.RecentTooltip"), hkShowRecent)
             };
             var duplicates = assigned
                 .Where(a => !string.IsNullOrEmpty(a.Key))
@@ -1325,10 +1348,11 @@ namespace Configuration_Management
             if (duplicates.Count > 0)
             {
                 var msg = string.Join("\n", duplicates.Select(g =>
-                    $"«{g.Key}» назначена для: {string.Join(", ", g.Select(x => x.Name))}"));
+                    string.Format(LocalizationManager.T("Settings.Hotkeys.AssignedTo"), g.Key,
+                        string.Join(", ", g.Select(x => x.Name)))));
                 MessageBox.Show(
-                    "Одна и та же клавиша не может быть назначена разным действиям:\n\n" + msg,
-                    "Горячие клавиши",
+                    string.Format(LocalizationManager.T("Settings.Hotkeys.DuplicateMsg"), msg),
+                    LocalizationManager.T("Settings.Hotkeys.DuplicateTitle"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 return;
@@ -1382,7 +1406,7 @@ namespace Configuration_Management
         {
             using var dlg = new System.Windows.Forms.FolderBrowserDialog
             {
-                Description = "Каталог шаблонов конфигураций 1С",
+                Description = LocalizationManager.T("Settings.Bases.AddTemplateFolderDesc"),
                 UseDescriptionForTitle = true
             };
             if (dlg.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
@@ -1405,7 +1429,7 @@ namespace Configuration_Management
 
             using var dlg = new System.Windows.Forms.FolderBrowserDialog
             {
-                Description = "Изменить каталог шаблонов конфигураций 1С",
+                Description = LocalizationManager.T("Settings.Bases.EditTemplateFolderDesc"),
                 UseDescriptionForTitle = true,
                 SelectedPath = currentPath
             };

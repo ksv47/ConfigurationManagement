@@ -3,8 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         mc:Ignorable="d"
-        Title="Добавить тег"
+        Title="{loc:Loc TagInput.Title}"
         Icon="{StaticResource AppIcon}"
         Height="180" Width="360"
         WindowStartupLocation="CenterOwner"
@@ -30,7 +31,7 @@
         </Grid.RowDefinitions>
 
         <!-- ============ Подпись ============ -->
-        <TextBlock Grid.Row="0" Text="Введите название тега:" Margin="0,0,0,8"/>
+        <TextBlock Grid.Row="0" Text="{loc:Loc TagInput.Prompt}" Margin="0,0,0,8"/>
 
         <!-- ============ Поле ввода ============ -->
         <TextBox x:Name="TagBox" Grid.Row="1" Padding="8,6"
@@ -46,7 +47,7 @@
                     Foreground="{DynamicResource TextPrimaryBrush}">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="✖" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
             <Button x:Name="OkButton" Width="110"
@@ -55,7 +56,7 @@
                     Click="OnOk_Click">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="➕" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Добавить" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Common.Add}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
         </StackPanel>

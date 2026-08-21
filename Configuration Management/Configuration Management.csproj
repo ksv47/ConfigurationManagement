@@ -41,10 +41,10 @@
          поэтому AssemblyVersion/FileVersion/Version ограничены 4 частями, а точная
          пользовательская версия «0.3.1.1» задаётся через InformationalVersion
          и выводится в заголовок окна. -->
-    <Version>0.3.1</Version>
-    <AssemblyVersion>0.3.1</AssemblyVersion>
-    <FileVersion>0.3.1</FileVersion>
-    <InformationalVersion>0.3.1.2</InformationalVersion>
+    <Version>0.3.2</Version>
+    <AssemblyVersion>0.3.2</AssemblyVersion>
+    <FileVersion>0.3.2</FileVersion>
+    <InformationalVersion>0.3.2.3</InformationalVersion>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>
@@ -75,6 +75,19 @@
   <!-- Пакеты: общие для обеих платформ -->
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+  </ItemGroup>
+
+  <!-- ======================================================================
+       Локализация: встроенные языки (ru, en) загружаются из ресурсов сборки
+       на обеих платформах. Внешние языки (.json) подгружаются из папки
+       Languages рядом с приложением и/или из каталога данных.
+       ====================================================================== -->
+  <ItemGroup>
+    <EmbeddedResource Include="Localization\Languages\*.json"
+                      LogicalName="cm_lang_%(Filename)%(Extension)" />
+    <None Update="Localization\Languages\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <!-- Пакеты: только Windows (WPF). System.Management (Win32_Process) и

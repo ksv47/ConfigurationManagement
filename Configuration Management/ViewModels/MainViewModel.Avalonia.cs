@@ -724,6 +724,30 @@ public class MainViewModel : ViewModelBase
         SaveSettingsSilently();
     }
 
+    /// <summary>
+    /// Применяет выбранный язык интерфейса и сохраняет его в настройках.
+    /// Локализация применяется сразу (обновляются окна с привязками Loc) и
+    /// восстанавливается при следующем запуске.
+    /// </summary>
+    /// <param name="code">Код языка, например "ru", "en" или загруженного внешнего.</param>
+    public void ApplyLanguage(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return;
+
+        _settings.Language = code;
+        SaveSettingsSilently();
+
+        try
+        {
+            Configuration_Management.Localization.LocalizationManager.Instance.SetLanguage(code);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Не удалось применить язык интерфейса", ex);
+        }
+    }
+
     private void ExitApplication()
     {
         SaveSettingsSilently();

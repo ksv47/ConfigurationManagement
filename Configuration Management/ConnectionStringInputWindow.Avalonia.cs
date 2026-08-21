@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management
 {
@@ -24,7 +25,7 @@ namespace Configuration_Management
         /// <param name="initialValue">Текущее значение строки подключения базы (может быть пустым).</param>
         public ConnectionStringInputWindow(string? initialValue = null)
         {
-            Title = "Ввод строки подключения";
+            Title = LocalizationManager.T("ConnectionStringInput.Title");
             Width = 520;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
@@ -44,7 +45,7 @@ namespace Configuration_Management
 
             var title = new TextBlock
             {
-                Text = "Строка подключения к информационной базе 1С",
+                Text = LocalizationManager.T("ConnectionStringInput.Header"),
                 FontSize = 15,
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 0, 0, 8)
@@ -54,7 +55,7 @@ namespace Configuration_Management
 
             var hint = new TextBlock
             {
-                Text = "Вставьте строку подключения (например, srvr=\"SERVER\";ref=\"BASE\") или выберите её из буфера обмена.",
+                Text = LocalizationManager.T("ConnectionStringInput.HintText"),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Margin = new Thickness(0, 0, 0, 8)
@@ -69,7 +70,7 @@ namespace Configuration_Management
             _inputBox.HorizontalAlignment = HorizontalAlignment.Stretch;
             inputArea.Children.Add(_inputBox);
 
-            var pasteButton = new Button { Content = "Вставить из буфера", MinWidth = 130, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
+            var pasteButton = new Button { Content = LocalizationManager.T("ConnectionStringInput.Paste"), MinWidth = 130, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
             pasteButton.Click += (_, _) => OnPasteClipboard_Click();
             Grid.SetColumn(pasteButton, 1);
             inputArea.Children.Add(pasteButton);
@@ -84,10 +85,10 @@ namespace Configuration_Management
                 Spacing = 8,
                 Margin = new Thickness(0, 16, 0, 0)
             };
-            var cancel = new Button { Content = "Отмена", MinWidth = 100, IsCancel = true };
+            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
             cancel.Click += (_, _) => Close();
             buttons.Children.Add(cancel);
-            _okButton = new Button { Content = "Применить", MinWidth = 120, IsDefault = true };
+            _okButton = new Button { Content = LocalizationManager.T("Common.Apply"), MinWidth = 120, IsDefault = true };
             _okButton.Click += (_, _) => OnOk_Click();
             buttons.Children.Add(_okButton);
             Grid.SetRow(buttons, 3);
@@ -169,7 +170,7 @@ namespace Configuration_Management
             var clipboard = Clipboard;
             if (clipboard is null)
             {
-                _dialogs.ShowWarning("Не удалось получить доступ к буферу обмена.", "Вставка строки подключения");
+                _dialogs.ShowWarning(LocalizationManager.T("ConnectionStringInput.ClipboardAccessError"), LocalizationManager.T("ConnectionStringInput.PasteTitle"));
                 return;
             }
 
@@ -180,13 +181,13 @@ namespace Configuration_Management
             }
             catch
             {
-                _dialogs.ShowWarning("Не удалось прочитать буфер обмена.", "Вставка строки подключения");
+                _dialogs.ShowWarning(LocalizationManager.T("ConnectionStringInput.ClipboardReadError"), LocalizationManager.T("ConnectionStringInput.PasteTitle"));
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(text))
             {
-                _dialogs.ShowInfo("Буфер обмена пуст или не содержит текста.", "Вставка строки подключения");
+                _dialogs.ShowInfo(LocalizationManager.T("ConnectionStringInput.ClipboardEmpty"), LocalizationManager.T("ConnectionStringInput.PasteTitle"));
                 return;
             }
 

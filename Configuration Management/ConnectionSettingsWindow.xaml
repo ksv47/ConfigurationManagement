@@ -6,8 +6,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="clr-namespace:Configuration_Management.Models"
         xmlns:controls="clr-namespace:Configuration_Management.Controls"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         mc:Ignorable="d"
-        Title="Настройки подключения"
+        Title="{loc:Loc ConnectionSettings.Title}"
         Icon="{StaticResource AppIcon}"
         Width="760"
         MinHeight="680" MinWidth="680"
@@ -172,9 +173,9 @@
                                              Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Настройки подключения" FontSize="18" FontWeight="SemiBold"
+                    <TextBlock Text="{loc:Loc Connection.HeaderTitle}" FontSize="18" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="Параметры информационной базы 1С:Предприятие"
+                    <TextBlock Text="{loc:Loc Connection.HeaderSubtitle}"
                                FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0"/>
                 </StackPanel>
             </StackPanel>
@@ -187,14 +188,14 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Database" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="База" VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Connection.Tab.Base}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Database" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
-                            <TextBlock Text="Информационная база" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Connection.GroupBase}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </GroupBox.Header>
                     <Grid>
@@ -207,9 +208,9 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Наименование:" VerticalAlignment="Center" Margin="0,3"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Connection.NameLabel}" VerticalAlignment="Center" Margin="0,3"/>
                         <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Группа:" VerticalAlignment="Center" Margin="0,3"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.GroupLabel}" VerticalAlignment="Center" Margin="0,3"/>
                         <Grid Grid.Row="1" Grid.Column="1" Margin="0,3">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -219,11 +220,11 @@
                             <Button Grid.Column="1" Margin="6,0,0,0" Padding="10,4" Style="{DynamicResource SecondaryButton}" Click="OnSelectGroup_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="FolderOutline" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Выбрать…" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Connection.ChooseGroup}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </Grid>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Описание:" VerticalAlignment="Center" Margin="0,3"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.DescriptionLabel}" VerticalAlignment="Center" Margin="0,3"/>
                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"/>
                     </Grid>
                 </GroupBox>
@@ -234,7 +235,7 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="LanConnect" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Подключение" VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Connection.Tab.Connection}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
                 <StackPanel>
@@ -242,7 +243,7 @@
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ServerNetwork" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
-                            <TextBlock Text="Тип и параметры подключения" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Connection.GroupConnectionType}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </GroupBox.Header>
                     <Grid>
@@ -257,7 +258,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Тип:" VerticalAlignment="Top" Margin="0,4"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Connection.TypeLabel}" VerticalAlignment="Top" Margin="0,4"/>
                         <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0">
                             <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
                                 <Border.Style>
@@ -274,8 +275,8 @@
                                 <RadioButton GroupName="ConnType" Cursor="Hand"
                                              IsChecked="{Binding IsClientServer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                     <StackPanel>
-                                        <TextBlock Text="Сервер 1С:Предприятия" FontWeight="SemiBold" FontSize="12"/>
-                                        <TextBlock Text="Клиент-серверный вариант (Srvr / Ref)." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                        <TextBlock Text="{loc:Loc Connection.TypeServer}" FontWeight="SemiBold" FontSize="12"/>
+                                        <TextBlock Text="{loc:Loc Connection.TypeServerHint}" FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
                                     </StackPanel>
                                 </RadioButton>
                             </Border>
@@ -294,8 +295,8 @@
                                 <RadioButton GroupName="ConnType" Cursor="Hand"
                                              IsChecked="{Binding IsFile, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                     <StackPanel>
-                                        <TextBlock Text="Файловая база" FontWeight="SemiBold" FontSize="12"/>
-                                        <TextBlock Text="Каталог информационной базы на диске (File)." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                        <TextBlock Text="{loc:Loc Connection.TypeFile}" FontWeight="SemiBold" FontSize="12"/>
+                                        <TextBlock Text="{loc:Loc Connection.TypeFileHint}" FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
                                     </StackPanel>
                                 </RadioButton>
                             </Border>
@@ -314,13 +315,13 @@
                                 <RadioButton GroupName="ConnType" Cursor="Hand"
                                              IsChecked="{Binding IsWebServer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                     <StackPanel>
-                                        <TextBlock Text="Веб-сервер" FontWeight="SemiBold" FontSize="12"/>
-                                        <TextBlock Text="Публикация на веб-сервере (WS)." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                        <TextBlock Text="{loc:Loc Connection.TypeWeb}" FontWeight="SemiBold" FontSize="12"/>
+                                        <TextBlock Text="{loc:Loc Connection.TypeWebHint}" FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
                                     </StackPanel>
                                 </RadioButton>
                             </Border>
                         </StackPanel>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Сервер:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.ServerLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,3"
                                   Style="{StaticResource ModernComboBox}"
                                   IsEditable="True"
@@ -328,11 +329,11 @@
                                   StaysOpenOnEdit="True"
                                   ItemsSource="{Binding AvailableServers}"
                                   Text="{Binding Server, UpdateSourceTrigger=PropertyChanged}"
-                                  ToolTip="Имя сервера 1С. Можно выбрать из списка или ввести вручную."
+                                  ToolTip="{loc:Loc Connection.ServerTooltip}"
                                   Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Имя базы:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.DatabaseNameLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DatabaseName, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Порт сервера:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Connection.PortLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,3"
                                   Style="{StaticResource ModernComboBox}"
                                   IsEditable="True"
@@ -340,9 +341,9 @@
                                   StaysOpenOnEdit="True"
                                   ItemsSource="{Binding AvailablePorts}"
                                   Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}"
-                                  ToolTip="Порт сервера 1С. Можно выбрать из списка или ввести вручную."
+                                  ToolTip="{loc:Loc Connection.PortTooltip}"
                                   Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Путь к файлу:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.FilePathLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}"/>
                         <Grid Grid.Row="1" Grid.Column="1" Visibility="{Binding IsFile, Converter={StaticResource BoolToVis}}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -352,14 +353,14 @@
                             <Button Grid.Column="1" Margin="6,3,0,3" Padding="10,4"
                                     Style="{DynamicResource SecondaryButton}"
                                     Click="OnBrowseFilePath_Click"
-                                    ToolTip="Выбрать каталог информационной базы на диске">
+                                    ToolTip="{loc:Loc Connection.BrowseFileTooltip}">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="FolderOpen" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Обзор…" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Common.Browse}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </Grid>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="URL публикации:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.WebUrlLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WebUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"/>
                     </Grid>
                     </GroupBox>
@@ -369,13 +370,13 @@
                         <Button Height="36" Padding="12,0" Margin="0,0,6,0"
                                 Style="{DynamicResource SecondaryButton}"
                                 Click="OnPasteConnectionString_Click"
-                                ToolTip="Вставить строку подключения из буфера обмена с разбивкой по полям">
+                                ToolTip="{loc:Loc Connection.PasteStringTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ContentPaste" Width="15" Height="15" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Вставить строку подключения" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock Text="{loc:Loc Connection.PasteString}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
-                        <controls:HelpLink HelpText="Кнопка доступна на вкладке «Подключение» и при создании, и при правке базы.&#10;&#10;• Открывает окно ввода строки подключения; если в буфере обмена есть ссылка на базу 1С (строка с Srvr/Ref/File/WS, e1c://, http(s)://, путь к файловой базе или server\base), она подставится автоматически.&#10;• «Применить» разбивает строку по полям: тип подключения, сервер/порт, имя базы, путь или URL, пользователь и пароль.&#10;• Если наименование базы не задано, подставляется имя базы (Ref) или каталога файловой базы."/>
+                        <controls:HelpLink HelpText="{loc:Loc Connection.PasteStringHelp}"/>
                     </StackPanel>
                 </StackPanel>
             </TabItem>
@@ -385,14 +386,14 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="SourceBranch" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Хранилище" VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Connection.Tab.Repository}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="SourceBranch" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
-                            <TextBlock Text="Хранилище конфигурации" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Connection.GroupRepository}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </GroupBox.Header>
                     <StackPanel>
@@ -407,22 +408,22 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Адрес сервера:" VerticalAlignment="Center" Margin="0,3"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Connection.RepositoryServerLabel}" VerticalAlignment="Center" Margin="0,3"/>
                             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RepositoryServer, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"
-                                     ToolTip="Адрес сервера хранилища конфигурации, например tcp://server или tcp://server:1542"/>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Имя хранилища:" VerticalAlignment="Center" Margin="0,3"/>
+                                     ToolTip="{loc:Loc Connection.RepositoryServerTooltip}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.RepositoryNameLabel}" VerticalAlignment="Center" Margin="0,3"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RepositoryName, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"
-                                     ToolTip="Имя хранилища конфигурации на сервере"/>
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Логин:" VerticalAlignment="Center" Margin="0,3"/>
+                                     ToolTip="{loc:Loc Connection.RepositoryNameTooltip}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.RepositoryLoginLabel}" VerticalAlignment="Center" Margin="0,3"/>
                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RepositoryUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"
-                                     ToolTip="Логин пользователя хранилища конфигурации"/>
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Пароль:" VerticalAlignment="Center" Margin="0,3"/>
+                                     ToolTip="{loc:Loc Connection.RepositoryUserTooltip}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Connection.RepositoryPasswordLabel}" VerticalAlignment="Center" Margin="0,3"/>
                             <PasswordBox x:Name="RepositoryPasswordBox" Grid.Row="3" Grid.Column="1" Margin="0,3" Padding="6,4"
                                          VerticalContentAlignment="Center"
                                          PasswordChanged="OnRepositoryPasswordBox_PasswordChanged"
-                                         ToolTip="Пароль пользователя хранилища конфигурации"/>
+                                         ToolTip="{loc:Loc Connection.RepositoryPasswordTooltip}"/>
                         </Grid>
-                        <TextBlock Text="Адрес, имя хранилища, логин и пароль для подключения к хранилищу конфигурации 1С. Отдельные учётные данные авторизации для запуска Конфигуратора задаются на вкладке «Авторизация»."
+                        <TextBlock Text="{loc:Loc Connection.RepositoryDescription}"
                                    FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                     </StackPanel>
                 </GroupBox>
@@ -433,7 +434,7 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="AccountKey" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Авторизация" VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Connection.Tab.Auth}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
                 <StackPanel>
@@ -441,7 +442,7 @@
                         <GroupBox.Header>
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="AccountKey" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
-                                <TextBlock Text="Авторизация в 1С:Предприятие" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Connection.GroupAuthEnterprise}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </StackPanel>
                         </GroupBox.Header>
                         <Grid>
@@ -454,7 +455,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Режим:" VerticalAlignment="Top" Margin="0,4"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Connection.ModeLabel}" VerticalAlignment="Top" Margin="0,4"/>
                             <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0">
                                 <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
                                     <Border.Style>
@@ -471,8 +472,8 @@
                                     <RadioButton GroupName="AuthMode" Cursor="Hand"
                                                  IsChecked="{Binding IsAuthPrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                         <StackPanel>
-                                            <TextBlock Text="Запрашивать имя и пароль" FontWeight="SemiBold" FontSize="12"/>
-                                            <TextBlock Text="Платформа покажет диалог входа при запуске." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthPrompt}" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthPromptHint}" FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
                                         </StackPanel>
                                     </RadioButton>
                                 </Border>
@@ -491,8 +492,8 @@
                                     <RadioButton GroupName="AuthMode" Cursor="Hand"
                                                  IsChecked="{Binding IsAuthCredentials, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                         <StackPanel>
-                                            <TextBlock Text="Вход автоматически" FontWeight="SemiBold" FontSize="12"/>
-                                            <TextBlock Text="Сохранённые пользователь и пароль без запроса." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthAuto}" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthAutoHint}" FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
                                         </StackPanel>
                                     </RadioButton>
                                 </Border>
@@ -511,15 +512,15 @@
                                     <RadioButton GroupName="AuthMode" Cursor="Hand"
                                                  IsChecked="{Binding IsAuthWindows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                         <StackPanel>
-                                            <TextBlock Text="Аутентификация ОС" FontWeight="SemiBold" FontSize="12"/>
-                                            <TextBlock Text="Вход под учётной записью Windows." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthOs}" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthOsHint}" FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
                                         </StackPanel>
                                     </RadioButton>
                                 </Border>
                             </StackPanel>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Пользователь:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.UserLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding User, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Пароль:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.PasswordLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                             <PasswordBox x:Name="PasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,3" Padding="6,4"
                                          VerticalContentAlignment="Center"
                                          PasswordChanged="OnPasswordBox_PasswordChanged"
@@ -531,7 +532,7 @@
                         <GroupBox.Header>
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ApplicationEditOutline" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
-                                <TextBlock Text="Авторизация в Конфигураторе" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Connection.GroupAuthConfigurator}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </StackPanel>
                         </GroupBox.Header>
                         <Grid>
@@ -544,7 +545,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Режим:" VerticalAlignment="Top" Margin="0,4"/>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Connection.ModeLabel}" VerticalAlignment="Top" Margin="0,4"/>
                             <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0">
                                 <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
                                     <Border.Style>
@@ -561,8 +562,8 @@
                                     <RadioButton GroupName="ConfigAuthMode" Cursor="Hand"
                                                  IsChecked="{Binding IsConfiguratorAuthPrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                         <StackPanel>
-                                            <TextBlock Text="Запрашивать имя и пароль" FontWeight="SemiBold" FontSize="12"/>
-                                            <TextBlock Text="Платформа покажет диалог входа при запуске Конфигуратора." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthPrompt}" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthConfiguratorPromptHint}" FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
                                         </StackPanel>
                                     </RadioButton>
                                 </Border>
@@ -581,8 +582,8 @@
                                     <RadioButton GroupName="ConfigAuthMode" Cursor="Hand"
                                                  IsChecked="{Binding IsConfiguratorAuthCredentials, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                         <StackPanel>
-                                            <TextBlock Text="Вход автоматически" FontWeight="SemiBold" FontSize="12"/>
-                                            <TextBlock Text="Сохранённые пользователь и пароль без запроса." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthAuto}" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthAutoHint}" FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
                                         </StackPanel>
                                     </RadioButton>
                                 </Border>
@@ -601,15 +602,15 @@
                                     <RadioButton GroupName="ConfigAuthMode" Cursor="Hand"
                                                  IsChecked="{Binding IsConfiguratorAuthWindows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                         <StackPanel>
-                                            <TextBlock Text="Аутентификация ОС" FontWeight="SemiBold" FontSize="12"/>
-                                            <TextBlock Text="Вход под учётной записью Windows." FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthOs}" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{loc:Loc Connection.AuthOsHint}" FontSize="11" Opacity="0.75" Margin="0,1,0,0"/>
                                         </StackPanel>
                                     </RadioButton>
                                 </Border>
                             </StackPanel>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Пользователь:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.UserLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ConfiguratorUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Пароль:" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.PasswordLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                             <PasswordBox x:Name="ConfiguratorPasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,3" Padding="6,4"
                                          VerticalContentAlignment="Center"
                                          PasswordChanged="OnConfiguratorPasswordBox_PasswordChanged"
@@ -624,14 +625,14 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="PlayCircleOutline" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Запуск" VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Connection.Tab.Launch}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ApplicationOutline" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
-                            <TextBlock Text="Режим запуска клиента" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Connection.GroupLaunchMode}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </GroupBox.Header>
                     <StackPanel>
@@ -652,8 +653,8 @@
                         <RadioButton GroupName="LaunchMode" Cursor="Hand"
                                      IsChecked="{Binding IsAutoMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                             <StackPanel>
-                                <TextBlock Text="Автоматический" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="Режим выбирает платформа 1С по настройкам информационной базы (как в стандартном списке баз)." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                                <TextBlock Text="{loc:Loc Connection.LaunchAuto}" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.LaunchAutoHint}" FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </Border>
@@ -675,8 +676,8 @@
                         <RadioButton GroupName="LaunchMode" Cursor="Hand"
                                      IsChecked="{Binding IsThinClient, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                             <StackPanel>
-                                <TextBlock Text="Тонкий клиент" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="Управляемое приложение (1cv8c). Меньше ресурсов, типичный режим для пользователей." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                                <TextBlock Text="{loc:Loc Connection.LaunchThin}" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.LaunchThinHint}" FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </Border>
@@ -698,8 +699,8 @@
                         <RadioButton GroupName="LaunchMode" Cursor="Hand"
                                      IsChecked="{Binding IsThickClient, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                             <StackPanel>
-                                <TextBlock Text="Толстый клиент (управляемые формы)" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="Полный клиент 1cv8 в управляемых формах (/RunModeManagedApplication)." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                                <TextBlock Text="{loc:Loc Connection.LaunchThickManaged}" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.LaunchThickManagedHint}" FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </Border>
@@ -721,8 +722,8 @@
                         <RadioButton GroupName="LaunchMode" Cursor="Hand"
                                      IsChecked="{Binding IsThickOrdinaryClient, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                             <StackPanel>
-                                <TextBlock Text="Толстый клиент (обычные формы)" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="Полный клиент 1cv8 в обычных формах (/RunModeOrdinaryApplication)." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                                <TextBlock Text="{loc:Loc Connection.LaunchThickOrdinary}" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.LaunchThickOrdinaryHint}" FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </Border>
@@ -749,8 +750,8 @@
                                      IsEnabled="{Binding IsWebClientAllowed}"
                                      IsChecked="{Binding IsWebClient, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                             <StackPanel>
-                                <TextBlock Text="Веб-клиент" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="Открытие в браузере. Нужна веб-публикация базы на сервере." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                                <TextBlock Text="{loc:Loc Connection.LaunchWeb}" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.LaunchWebHint}" FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </Border>
@@ -765,14 +766,14 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Chip" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Разрядность" VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Connection.Tab.Bitness}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Chip" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
-                            <TextBlock Text="Разрядность клиента" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Connection.GroupBitness}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </GroupBox.Header>
                     <StackPanel>
@@ -793,8 +794,8 @@
                         <RadioButton GroupName="Arch" Cursor="Hand"
                                      IsChecked="{Binding IsArchitecture32Priority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                             <StackPanel>
-                                <TextBlock Text="Приоритет 32 (x86)" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="По умолчанию в 1С. Предпочтение 32-битному; более новая 64-битная версия побеждает." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                                <TextBlock Text="{loc:Loc Connection.Arch32Priority}" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.Arch32PriorityHint}" FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </Border>
@@ -816,8 +817,8 @@
                         <RadioButton GroupName="Arch" Cursor="Hand"
                                      IsChecked="{Binding IsArchitecture64Priority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                             <StackPanel>
-                                <TextBlock Text="Приоритет 64 (x86-64)" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="Предпочтение 64-битному клиенту (больше памяти). Более новая 32-битная версия побеждает." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                                <TextBlock Text="{loc:Loc Connection.Arch64Priority}" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.Arch64PriorityHint}" FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </Border>
@@ -839,8 +840,8 @@
                         <RadioButton GroupName="Arch" Cursor="Hand"
                                      IsChecked="{Binding IsArchitecture32, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                             <StackPanel>
-                                <TextBlock Text="Только 32 (x86)" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="Всегда 32-разрядный клиент. 64-битные установки игнорируются." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                                <TextBlock Text="{loc:Loc Connection.ArchOnly32}" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.ArchOnly32Hint}" FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </Border>
@@ -867,21 +868,19 @@
                                      IsEnabled="{Binding IsOs64Bit}"
                                      IsChecked="{Binding IsArchitecture64, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                             <StackPanel>
-                                <TextBlock Text="Только 64 (x86-64)" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="Всегда 64-разрядный клиент. Нужна 64-битная Windows." FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
+                                <TextBlock Text="{loc:Loc Connection.ArchOnly64}" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.ArchOnly64Hint}" FontSize="11" TextWrapping="Wrap" Opacity="0.75" Margin="0,2,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </Border>
 
                     <TextBlock Text="{Binding ArchitectureHint}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="2,6,0,0"/>
-                    <TextBlock FontSize="11" Margin="2,2,0,0" TextWrapping="Wrap">
+                    <TextBlock x:Name="OsArchitectureHintText" FontSize="11" Margin="2,2,0,0" TextWrapping="Wrap">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                                <Setter Property="Text" Value="ОС: 64-разрядная Windows — доступны все варианты."/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsOs64Bit}" Value="False">
-                                        <Setter Property="Text" Value="ОС: 32-разрядная Windows — доступен только 32-битный клиент."/>
                                         <Setter Property="Foreground" Value="#DC2626"/>
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -897,14 +896,14 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="CubeOutline" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Платформа" VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Connection.Tab.Platform}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="CubeOutline" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
-                            <TextBlock Text="Версия платформы и параметры" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Connection.GroupPlatform}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </GroupBox.Header>
                     <Grid>
@@ -917,7 +916,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Версия:" VerticalAlignment="Center" Margin="0,3"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Connection.VersionLabel}" VerticalAlignment="Center" Margin="0,3"/>
                         <Grid Grid.Row="0" Grid.Column="1" Margin="0,3">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -926,18 +925,18 @@
                             <TextBox Grid.Column="0"
                                      Text="{Binding PlatformVersion, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" VerticalContentAlignment="Center"
-                                     ToolTip="Версия платформы, например 8.3.24.1774"/>
+                                     ToolTip="{loc:Loc Connection.PlatformVersionTooltip}"/>
                             <Button Grid.Column="1" Margin="6,0,0,0" Padding="8,3"
                                     Style="{DynamicResource SecondaryButton}"
                                     Click="OnPlatformSettings_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="CubeOutline" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Выбрать…" VerticalAlignment="Center" FontSize="12"/>
+                                    <TextBlock Text="{loc:Loc Connection.ChoosePlatform}" VerticalAlignment="Center" FontSize="12"/>
                                 </StackPanel>
                             </Button>
                         </Grid>
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Конфигурация:" VerticalAlignment="Center" Margin="0,6,0,3"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.ConfigurationLabel}" VerticalAlignment="Center" Margin="0,6,0,3"/>
                         <Grid Grid.Row="1" Grid.Column="1" Margin="0,6,0,3">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="2*"/>
@@ -947,14 +946,14 @@
                             <TextBox Grid.Column="0"
                                      Text="{Binding ConfigurationName, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" VerticalContentAlignment="Center"
-                                     ToolTip="Название конфигурации 1С"/>
+                                     ToolTip="{loc:Loc Connection.ConfigurationNameTooltip}"/>
                             <TextBox Grid.Column="2"
                                      Text="{Binding ConfigurationVersion, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" VerticalContentAlignment="Center"
-                                     ToolTip="Версия конфигурации, например 3.0.142.32"/>
+                                     ToolTip="{loc:Loc Connection.ConfigurationVersionTooltip}"/>
                         </Grid>
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Параметры:" VerticalAlignment="Center" Margin="0,3"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.ParametersLabel}" VerticalAlignment="Center" Margin="0,3"/>
                         <Grid Grid.Row="2" Grid.Column="1" Margin="0,3">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -964,7 +963,7 @@
                             <Button Grid.Column="1" Margin="6,0,0,0" Padding="8,3" Style="{DynamicResource SecondaryButton}" Click="OnLaunchParameters_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="Tune" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Параметры" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Connection.Parameters}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </Grid>
@@ -977,33 +976,33 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Identifier" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Идентификатор" VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Connection.Tab.Id}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
                 <StackPanel Margin="8,12,8,8" VerticalAlignment="Top">
-                    <TextBlock Text="ID информационной базы (из ibases.v8i или сгенерированный)."
+                    <TextBlock Text="{loc:Loc Connection.IdDescription}"
                                FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                                TextWrapping="Wrap" Margin="0,0,0,10"/>
-                    <TextBlock Text="ID" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"
+                    <TextBlock Text="{loc:Loc Connection.IdLabel}" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <TextBox Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}"
                              Padding="6,4" MinHeight="28" FontSize="12"
                              VerticalContentAlignment="Center"
-                             ToolTip="Идентификатор базы 1С"/>
+                             ToolTip="{loc:Loc Connection.IdTooltip}"/>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                         <Button Padding="10,5" Margin="0,0,8,0" Style="{DynamicResource SecondaryButton}"
-                                Click="OnGenerateId_Click" ToolTip="Создать новый уникальный ID">
+                                Click="OnGenerateId_Click" ToolTip="{loc:Loc Connection.GenerateIdTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
                                                          Foreground="#22C55E"/>
-                                <TextBlock Text="Сгенерировать" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.GenerateId}" VerticalAlignment="Center" FontSize="12"/>
                             </StackPanel>
                         </Button>
                         <Button Padding="10,5" Style="{DynamicResource SecondaryButton}"
-                                Click="OnCopyId_Click" ToolTip="Копировать ID в буфер обмена">
+                                Click="OnCopyId_Click" ToolTip="{loc:Loc Connection.CopyIdTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ContentCopy" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Копировать" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Text="{loc:Loc Connection.CopyId}" VerticalAlignment="Center" FontSize="12"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -1047,7 +1046,7 @@
                     </Button.Template>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Сохранить" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:Loc Common.Save}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                     </StackPanel>
                 </Button>
                 <Button Width="140" Height="36" IsCancel="True" Click="OnCancel_Click"
@@ -1070,7 +1069,7 @@
                     </Button.Template>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                     </StackPanel>
                 </Button>
                 </StackPanel>

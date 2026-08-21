@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management
@@ -23,49 +24,22 @@ namespace Configuration_Management
         private bool _colorTabInitialized;
         private bool _iconTabInitialized;
 
-        private static readonly (string Key, string Label)[] AvailableIcons =
+        private static readonly string[] AvailableIconKeys =
         {
-            ("", "По умолчанию"),
-            ("IconFolder", "Папка"),
-            ("IconDatabase", "База"),
-            ("IconServices", "Сервер"),
-            ("IconStar", "Звезда"),
-            ("IconTag", "Тег"),
-            ("IconPin", "Закрепить"),
-            ("IconInfo", "Инфо"),
-            ("IconPlay", "Запуск"),
-            ("IconSettings", "Настройки"),
-            ("IconSearch", "Поиск"),
-            ("IconAdd", "Добавить"),
-            ("IconUsers", "Пользователи"),
-            ("IconHistory", "История"),
-            ("IconSync", "Синхронизация"),
-            ("IconBackup", "Резервная копия"),
-            ("IconConfiguration", "Конфигурация"),
-            ("IconPublish", "Публикация"),
-            ("IconMonitoring", "Мониторинг"),
-            ("IconScheduler", "Планировщик"),
-            ("IconLogs", "Журнал"),
-            ("IconRights", "Права"),
-            ("IconExtension", "Расширение"),
-            ("IconImport", "Импорт"),
-            ("IconExport", "Экспорт"),
-            ("IconFilter", "Фильтр"),
-            ("IconCopy", "Копия"),
-            ("IconEdit", "Редактирование"),
-            ("IconSave", "Сохранение"),
-            ("IconRefresh", "Обновление"),
-            ("IconOpen", "Открыть"),
-            ("IconWarning", "Внимание"),
-            ("IconOk", "ОК"),
-            ("IconError", "Ошибка"),
-            ("IconAutostart", "Автозапуск"),
-            ("IconTheme", "Тема"),
-            ("IconSun", "Солнце"),
-            ("IconMoon", "Луна"),
-            ("IconCompare", "Сравнение"),
-            ("IconMerge", "Объединение"),
+            "",
+            "IconFolder", "IconDatabase", "IconServices", "IconStar", "IconTag",
+            "IconPin", "IconInfo", "IconPlay", "IconSettings", "IconSearch",
+            "IconAdd", "IconUsers", "IconHistory", "IconSync", "IconBackup",
+            "IconConfiguration", "IconPublish", "IconMonitoring", "IconScheduler",
+            "IconLogs", "IconRights", "IconExtension", "IconImport", "IconExport",
+            "IconFilter", "IconCopy", "IconEdit", "IconSave", "IconRefresh",
+            "IconOpen", "IconWarning", "IconOk", "IconError", "IconAutostart",
+            "IconTheme", "IconSun", "IconMoon", "IconCompare", "IconMerge",
         };
+
+        // Ключ перевода подписи иконки в ToolTip.
+        private static string IconLabelKey(string iconKey) =>
+            "GroupEdit.Icon." + (string.IsNullOrEmpty(iconKey) ? "Default" : iconKey.Substring("Icon".Length));
 
         public GroupEditWindow(IEnumerable<Group> groups, Group? parent = null)
             : this(groups, parent?.Id ?? string.Empty, editingGroup: null)
@@ -113,10 +87,10 @@ namespace Configuration_Management
                 // Служебный узел «Без группы»: наименование и родительскую группу
                 // менять нельзя — показываем те же вкладки, что у обычной группы,
                 // но поля имени/родителя/описания заблокированы.
-                NameBox.Text = "Без группы";
+                NameBox.Text = LocalizationManager.T("GroupEdit.NoGroup");
                 NameBox.IsEnabled = false;
                 DescriptionBox.IsEnabled = false;
-                ParentPathBox.Text = "— Корневая группа —";
+                ParentPathBox.Text = LocalizationManager.T("GroupEdit.RootGroup");
                 ParentPathBox.IsEnabled = false;
                 SelectParentButton.IsEnabled = false;
 
@@ -152,14 +126,14 @@ namespace Configuration_Management
         {
             if (string.IsNullOrEmpty(_parentId))
             {
-                ParentPathBox.Text = "— Корневая группа —";
+                ParentPathBox.Text = LocalizationManager.T("GroupEdit.RootGroup");
                 return;
             }
 
             var parent = _groups.FirstOrDefault(g =>
                 string.Equals(g.Id, _parentId, StringComparison.OrdinalIgnoreCase));
             ParentPathBox.Text = parent is null
-                ? "— Корневая группа —"
+                ? LocalizationManager.T("GroupEdit.RootGroup")
                 : GroupHierarchyHelper.GetFullPath(parent, _groups);
         }
 
@@ -170,7 +144,7 @@ namespace Configuration_Management
                 currentGroupId: _parentId,
                 excludeGroupId: _editingGroup?.Id,
                 allowNone: true,
-                noneLabel: "— Корневая группа —")
+                noneLabel: LocalizationManager.T("GroupEdit.RootGroup"))
             {
                 Owner = this
             };
@@ -200,13 +174,13 @@ namespace Configuration_Management
         {
             IconPickerPanel.Children.Clear();
             var iconBrush = new SolidColorBrush(ParseColor(_iconColor));
-            foreach (var (key, label) in AvailableIcons)
+            foreach (var key in AvailableIconKeys)
             {
                 var btn = new Button
                 {
                     Style = (Style)FindResource("IconPickButton"),
                     Tag = key,
-                    ToolTip = label
+                    ToolTip = LocalizationManager.T(IconLabelKey(key))
                 };
 
                 if (string.IsNullOrEmpty(key))
@@ -375,7 +349,7 @@ namespace Configuration_Management
             else
             {
                 // Служебный узел «Без группы»: имя зафиксировано, цвет/иконка берутся из вкладок.
-                Result.Name = "Без группы";
+                Result.Name = LocalizationManager.T("GroupEdit.NoGroup");
             }
 
             Result.Color = _color;

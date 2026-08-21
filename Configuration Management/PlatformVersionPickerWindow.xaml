@@ -5,8 +5,9 @@
         xmlns:models="clr-namespace:Configuration_Management.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         mc:Ignorable="d"
-        Title="Выбор версии платформы"
+        Title="{loc:Loc PlatformVersionPicker.Title}"
         Icon="{StaticResource AppIcon}"
         Width="520" Height="560"
         MinHeight="400" MinWidth="400"
@@ -82,7 +83,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <RadioButton x:Name="FilterAll" Content="Все" Style="{StaticResource ArchRadio}"
+                    <RadioButton x:Name="FilterAll" Content="{loc:Loc Common.All}" Style="{StaticResource ArchRadio}"
                                  GroupName="ArchFilter" IsChecked="True"
                                  Checked="OnArchFilter_Changed"/>
                     <RadioButton x:Name="FilterX32" Content="x32" Style="{StaticResource ArchRadio}"
@@ -94,13 +95,13 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <ToggleButton x:Name="SortAsc" Style="{StaticResource SortToggle}"
-                                  ToolTip="Сортировка по возрастанию (A→Z)"
+                                  ToolTip="{loc:Loc PlatformVersionPicker.SortAscTooltip}"
                                   Click="OnSortAsc_Click">
                         <materialDesign:PackIcon Kind="SortAscending" Width="16" Height="16"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>
                     <ToggleButton x:Name="SortDesc" Style="{StaticResource SortToggle}"
-                                  IsChecked="True" ToolTip="Сортировка по убыванию (Z→A)"
+                                  IsChecked="True" ToolTip="{loc:Loc PlatformVersionPicker.SortDescTooltip}"
                                   Click="OnSortDesc_Click">
                         <materialDesign:PackIcon Kind="SortDescending" Width="16" Height="16"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
@@ -208,7 +209,7 @@
                 </Button.Template>
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Check" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Выбрать" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc Common.Select}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
             <Button Width="140" Height="36" IsCancel="True"
@@ -231,7 +232,7 @@
                 </Button.Template>
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
         </StackPanel>

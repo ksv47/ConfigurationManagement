@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.ViewModels;
 
@@ -66,8 +67,8 @@ namespace Configuration_Management
             if (parent is null)
             {
                 MessageBox.Show(
-                    "Выберите группу, внутри которой нужно создать подгруппу.",
-                    "Внимание",
+                    LocalizationManager.T("GroupSettings.NoGroupSelected"),
+                    LocalizationManager.T("Common.Warning"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
                 return;
@@ -117,16 +118,16 @@ namespace Configuration_Management
             var subgroupCount = _groups.Count(g =>
                 string.Equals(g.ParentId, group.Id, StringComparison.OrdinalIgnoreCase));
 
-            var message = $"Удалить группу «{group.Name}»?";
+            var message = string.Format(LocalizationManager.T("GroupSettings.DeleteConfirm"), group.Name);
             if (subgroupCount > 0)
             {
-                message += $"\n\nВнутри группы находится подгрупп: {subgroupCount}.\n" +
-                           "Они также будут удалены.";
+                message += "\n\n" + string.Format(
+                    LocalizationManager.T("GroupSettings.DeleteHasSubgroups"), subgroupCount);
             }
 
             var result = MessageBox.Show(
                 message,
-                "Подтверждение удаления",
+                LocalizationManager.T("GroupSettings.DeleteConfirmTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 

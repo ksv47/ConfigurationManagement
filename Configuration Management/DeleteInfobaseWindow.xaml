@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:controls="clr-namespace:Configuration_Management.Controls"
-        Title="Удаление информационной базы"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
+        Title="{loc:Loc DeleteInfobase.Title}"
         Icon="{StaticResource AppIcon}"
         Width="520" MinWidth="460" Height="Auto" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
@@ -83,7 +84,7 @@
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="2" Text="По умолчанию база удаляется только из списка программы (и из ibases.v8i при синхронизации). Файлы на диске не затрагиваются."
+        <TextBlock Grid.Row="2" Text="{loc:Loc DeleteInfobase.Note}"
                    Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
         <Border Grid.Row="3" x:Name="PhysicalPanel" Background="#FEF2F2"
@@ -91,14 +92,14 @@
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
                     <CheckBox x:Name="PhysicalDeleteCheck"
-                              Content="Физически удалить каталог базы с диска"
+                              Content="{loc:Loc DeleteInfobase.PhysicalDelete}"
                               FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <controls:HelpLink Margin="6,0,0,0"
-                                       HelpText="Опция доступна только для файловых информационных баз.&#10;&#10;• При включении будет удалён каталог файловой базы вместе с 1Cv8.1CD и всеми файлами на диске.&#10;• Действие необратимо, потребуется дополнительное подтверждение.&#10;• Без этой опции база удаляется только из списка приложения, файлы на диске сохраняются."/>
+                                       HelpText="{loc:Loc DeleteInfobase.PhysicalHelp}"/>
                 </StackPanel>
                 <TextBlock x:Name="PhysicalHint" Margin="24,6,0,0" FontSize="12"
                            Foreground="#B91C1C" TextWrapping="Wrap"
-                           Text="Будет удалён каталог файловой базы вместе с 1Cv8.1CD и всеми файлами. Действие необратимо."/>
+                           Text="{loc:Loc DeleteInfobase.PhysicalHint}"/>
             </StackPanel>
         </Border>
 
@@ -119,7 +120,7 @@
                 </Button.Template>
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Удалить" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc DeleteInfobase.Delete}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
             <Button Width="140" Height="36" IsCancel="True" Click="OnCancel_Click"
@@ -144,7 +145,7 @@
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
                                              Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc DeleteInfobase.Cancel}" VerticalAlignment="Center" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
         </StackPanel>

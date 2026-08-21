@@ -5,8 +5,9 @@
         xmlns:controls="clr-namespace:Configuration_Management.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         mc:Ignorable="d"
-        Title="Конфигуратор параметров запуска"
+        Title="{loc:Loc LaunchParams.Title}"
         Icon="{StaticResource AppIcon}"
         Width="800"
         Height="640"
@@ -39,23 +40,23 @@
         <GroupBox Grid.Row="0" Padding="12" Margin="0,0,0,12">
             <GroupBox.Header>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Параметры" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Main.Parameters}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <controls:HelpLink Margin="6,0,0,0"
-                                       HelpText="Строка параметров командной строки 1С.&#10;&#10;Параметры можно ввести вручную или подставить двойным кликом по строке в справочнике ниже.&#10;Итоговая строка добавляется к запуску базы."/>
+                                       HelpText="{loc:Loc LaunchParams.InputHelp}"/>
                 </StackPanel>
             </GroupBox.Header>
             <TextBox x:Name="TxtCustom" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="110"
                      Padding="6,6" VerticalScrollBarVisibility="Auto"
-                     ToolTip="Дополнительные параметры командной строки 1С"/>
+                     ToolTip="{loc:Loc LaunchParams.InputTooltip}"/>
         </GroupBox>
 
         <!-- ============ Справочник параметров -->
         <GroupBox Grid.Row="1" Padding="12" Margin="0,0,0,12">
             <GroupBox.Header>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Справочник параметров" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc LaunchParams.Reference}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <controls:HelpLink Margin="6,0,0,0"
-                                       HelpText="Полный список ключей командной строки 1С с описанием, что делает параметр.&#10;Двойной клик по строке подставляет параметр в окно «Параметры» вверху.&#10;Для параметров с аргументом после подстановки допишите значение."/>
+                                       HelpText="{loc:Loc LaunchParams.ReferenceHelp}"/>
                 </StackPanel>
             </GroupBox.Header>
             <ListView x:Name="LstReference"
@@ -65,8 +66,8 @@
                       ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListView.View>
                     <GridView AllowsColumnReorder="False">
-                        <GridViewColumn Header="Параметр" Width="220" DisplayMemberBinding="{Binding Key}"/>
-                        <GridViewColumn Header="Описание" Width="430" DisplayMemberBinding="{Binding Description}"/>
+                        <GridViewColumn Header="{loc:Loc LaunchParams.Parameter}" Width="220" DisplayMemberBinding="{Binding Key}"/>
+                        <GridViewColumn Header="{loc:Loc LaunchParams.Description}" Width="430" DisplayMemberBinding="{Binding Description}"/>
                     </GridView>
                 </ListView.View>
             </ListView>
@@ -93,7 +94,7 @@
                 </Button.Template>
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Check" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="ОК" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc Common.Ok}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
             <Button Width="140" Height="36" IsCancel="True"
@@ -116,7 +117,7 @@
                 </Button.Template>
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
         </StackPanel>

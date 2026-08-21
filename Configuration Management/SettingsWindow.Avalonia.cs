@@ -1,11 +1,13 @@
 #if LINUX
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
@@ -29,7 +31,7 @@ namespace Configuration_Management
         /// <param name="viewModel">Главная модель представления приложения.</param>
         public SettingsWindow(MainViewModel viewModel)
         {
-            Title = "Настройки приложения";
+            Title = LocalizationManager.T("Settings.Title");
             Width = 720;
             Height = 580;
             MinWidth = 640;
@@ -51,27 +53,48 @@ namespace Configuration_Management
             var settings = new StackPanel { Spacing = 14 };
 
             // Тема оформления
-            var themeLabel = new TextBlock { Text = "Тема оформления:", FontWeight = FontWeight.SemiBold };
+            var themeLabel = new TextBlock { Text = LocalizationManager.T("Settings.ThemeLabel"), FontWeight = FontWeight.SemiBold };
             settings.Children.Add(themeLabel);
             var themePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            var lightTheme = new RadioButton { Content = "Светлая", GroupName = "Theme", IsChecked = !ThemeManager.CurrentScheme.IsDark };
-            var darkTheme = new RadioButton { Content = "Тёмная", GroupName = "Theme", IsChecked = ThemeManager.CurrentScheme.IsDark };
+            var lightTheme = new RadioButton { Content = LocalizationManager.T("Main.LightTheme"), GroupName = "Theme", IsChecked = !ThemeManager.CurrentScheme.IsDark };
+            var darkTheme = new RadioButton { Content = LocalizationManager.T("Main.DarkTheme"), GroupName = "Theme", IsChecked = ThemeManager.CurrentScheme.IsDark };
             ThemeChanged(lightTheme, darkTheme);
             themePanel.Children.Add(lightTheme);
             themePanel.Children.Add(darkTheme);
             settings.Children.Add(themePanel);
 
+            // Язык интерфейса
+            settings.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Language") + ":",
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 8, 0, 4)
+            });
+            var langBox = new ComboBox { MinWidth = 220, HorizontalAlignment = HorizontalAlignment.Left };
+            langBox.ItemsSource = LocalizationManager.Instance.AvailableLanguages;
+            langBox.DisplayMemberBinding = new Avalonia.Data.Binding("Name");
+            langBox.SelectedItem = LocalizationManager.Instance.AvailableLanguages
+                .FirstOrDefault(l => l.Code == LocalizationManager.Instance.CurrentLanguage);
+            settings.Children.Add(langBox);
+            settings.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.LanguageHint"),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.7
+            });
+
             // Параметры текущей сессии
-            settings.Children.Add(new TextBlock { Text = "Клиент по умолчанию:", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
+            settings.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.DefaultClientLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
             var clientPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientAuto", "Авто"));
-            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThin", "Тонкий"));
-            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThick", "Толстый"));
-            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThickOrdinary", "Толстый (обычные)"));
-            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientOrdinary", "Обычный"));
+            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientAuto", LocalizationManager.T("Main.SessionClientAuto")));
+            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThin", LocalizationManager.T("Main.SessionClientThin")));
+            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThick", LocalizationManager.T("Main.SessionClientThickManaged")));
+            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThickOrdinary", LocalizationManager.T("Main.SessionClientThickOrdinary")));
+            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientOrdinary", LocalizationManager.T("Main.SessionClientOrdinary")));
             settings.Children.Add(clientPanel);
 
-            settings.Children.Add(new TextBlock { Text = "Разрядность по умолчанию:", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
+            settings.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.DefaultArch"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
             var archPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
             archPanel.Children.Add(Radio("SessionArch", "IsSessionArchAuto", "Авто"));
             archPanel.Children.Add(Radio("SessionArch", "IsSessionArch32", "32"));
@@ -80,50 +103,50 @@ namespace Configuration_Management
 
             settings.Children.Add(new TextBlock
             {
-                Text = "Вкладки «Отображение», «Платформы», «ibases.v8i», «Базы» и редактор цветовых схем будут доступны после добавления публичного API сохранения настроек в Avalonia-версию MainViewModel.",
+                Text = LocalizationManager.T("Settings.AvaloniaPendingTabs"),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.7
             });
 
-            tabs.Items.Add(new TabItem { Header = "Настройки", Content = new ScrollViewer { Content = settings, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabGeneral"), Content = new ScrollViewer { Content = settings, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== Клавиши =====
             var hotkeys = new StackPanel { Spacing = 10 };
             hotkeys.Children.Add(new TextBlock
             {
-                Text = "Горячие клавиши приложения:",
+                Text = LocalizationManager.T("Settings.Hotkeys.Title"),
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 0, 0, 6)
             });
 
             var rows = new (string Action, string Key)[]
             {
-                ("Запуск 1С:Предприятие", _viewModel.HotkeyEnterprise),
-                ("Конфигуратор", _viewModel.HotkeyConfigurator),
-                ("Изменить настройки базы", _viewModel.HotkeyEdit),
-                ("Добавить базу / группу", _viewModel.HotkeyAdd),
-                ("Избранное", _viewModel.HotkeyFavorite),
-                ("Закрепить", _viewModel.HotkeyPin),
-                ("Удалить", _viewModel.HotkeyDelete),
-                ("Очистить кэш", _viewModel.HotkeyClearCache)
+                (LocalizationManager.T("Main.LaunchEnterprise"), _viewModel.HotkeyEnterprise),
+                (LocalizationManager.T("Main.SectionConfigurator"), _viewModel.HotkeyConfigurator),
+                (LocalizationManager.T("Main.EditSettings"), _viewModel.HotkeyEdit),
+                (LocalizationManager.T("Main.AddBaseOrGroup"), _viewModel.HotkeyAdd),
+                (LocalizationManager.T("Main.Favorites"), _viewModel.HotkeyFavorite),
+                (LocalizationManager.T("Main.Pin"), _viewModel.HotkeyPin),
+                (LocalizationManager.T("Common.Delete"), _viewModel.HotkeyDelete),
+                (LocalizationManager.T("Main.ClearCache"), _viewModel.HotkeyClearCache)
             };
             foreach (var (action, key) in rows)
                 hotkeys.Children.Add(BuildHotkeyRow(action, key));
 
             hotkeys.Children.Add(new TextBlock
             {
-                Text = "Изменение назначения клавиш (переназначение) отложено — доступен справочный список текущих сочетаний.",
+                Text = LocalizationManager.T("Settings.AvaloniaHotkeysPending"),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.7
             });
 
-            tabs.Items.Add(new TabItem { Header = "Клавиши", Content = new ScrollViewer { Content = hotkeys, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabHotkeys"), Content = new ScrollViewer { Content = hotkeys, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== О программе =====
             var about = BuildAboutTab();
-            tabs.Items.Add(new TabItem { Header = "О программе", Content = new ScrollViewer { Content = about, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabAbout"), Content = new ScrollViewer { Content = about, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             Grid.SetRow(tabs, 0);
             grid.Children.Add(tabs);
@@ -134,8 +157,17 @@ namespace Configuration_Management
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Spacing = 8
             };
-            var ok = new Button { Content = "ОК", MinWidth = 110, IsDefault = true };
-            ok.Click += (_, _) => { DialogResult = true; Close(); };
+            var ok = new Button { Content = LocalizationManager.T("Common.Ok"), MinWidth = 110, IsDefault = true };
+            ok.Click += (_, _) =>
+            {
+                if (langBox.SelectedItem is LanguageInfo li &&
+                    !string.Equals(li.Code, LocalizationManager.Instance.CurrentLanguage, StringComparison.Ordinal))
+                {
+                    _viewModel.ApplyLanguage(li.Code);
+                }
+                DialogResult = true;
+                Close();
+            };
             buttons.Children.Add(ok);
             Grid.SetRow(buttons, 1);
             grid.Children.Add(buttons);
@@ -196,7 +228,7 @@ namespace Configuration_Management
             var asm = Assembly.GetExecutingAssembly();
             var infoVersion = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                               ?? asm.GetName().Version?.ToString() ?? "";
-            var title = asm.GetCustomAttribute<AssemblyTitleAttribute>()?.Title ?? "Управление конфигурациями 1С";
+            var title = asm.GetCustomAttribute<AssemblyTitleAttribute>()?.Title ?? LocalizationManager.T("App.Title");
 
             panel.Children.Add(new TextBlock
             {
@@ -207,22 +239,21 @@ namespace Configuration_Management
 
             panel.Children.Add(new TextBlock
             {
-                Text = $"Версия: v{infoVersion}",
+                Text = string.Format(LocalizationManager.T("Settings.About.Version"), infoVersion),
                 FontSize = 14
             });
 
             panel.Children.Add(new TextBlock
             {
-                Text = "Приложение для управления списком информационных баз 1С:Предприятие.\n" +
-                       "Портируемая версия для Linux (Avalonia) — Этап 3: диалоговые окна.",
+                Text = LocalizationManager.T("Settings.About.AvaloniaText"),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 13
             });
 
             panel.Children.Add(new TextBlock
             {
-                Text = $"Платформа: {Environment.OSVersion} | {Environment.Is64BitOperatingSystem}\n" +
-                       $"Каталог данных: {Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)}/ConfigurationManagement",
+                Text = string.Format(LocalizationManager.T("Settings.About.RuntimeInfo"), Environment.OSVersion, Environment.Is64BitOperatingSystem) + "\n" +
+                       string.Format(LocalizationManager.T("Settings.About.DataDir"), Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.7

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management
 {
@@ -105,15 +106,15 @@ namespace Configuration_Management
             }
             catch
             {
-                MessageBox.Show("Не удалось прочитать буфер обмена.",
-                    "Вставка строки подключения", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(LocalizationManager.T("ConnectionStringInput.ClipboardReadError"),
+                    LocalizationManager.T("ConnectionStringInput.PasteTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(text))
             {
-                MessageBox.Show("Буфер обмена пуст или не содержит текста.",
-                    "Вставка строки подключения", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.T("ConnectionStringInput.ClipboardEmpty"),
+                    LocalizationManager.T("ConnectionStringInput.PasteTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 

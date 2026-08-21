@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Microsoft.Win32;
@@ -35,17 +36,17 @@ namespace Configuration_Management
             _selectedGroupPath = defaultGroupPath ?? string.Empty;
 
             Title = fromTemplate
-                ? "Создание информационной базы из шаблона"
-                : "Создание пустой информационной базы";
+                ? LocalizationManager.T("CreateInfobase.TitleFromTemplate")
+                : LocalizationManager.T("CreateInfobase.TitleEmpty");
 
             TemplatePanel.Visibility = fromTemplate ? Visibility.Visible : Visibility.Collapsed;
             GroupPathBox.Text = string.IsNullOrWhiteSpace(_selectedGroupPath)
-                ? "— Без группы —"
+                ? LocalizationManager.T("Connection.NoGroup")
                 : _selectedGroupPath;
 
             HintText.Text = fromTemplate
-                ? "Выберите шаблон из списка установленных (каталоги tmplts) или укажите файл .cf/.dt вручную. Создание — через CREATEINFOBASE /UseTemplate."
-                : "Будет выполнена команда CREATEINFOBASE без шаблона. После создания база добавится в список программы.";
+                ? LocalizationManager.T("CreateInfobase.HintTemplate")
+                : LocalizationManager.T("CreateInfobase.HintEmpty");
 
             RefreshPlatformList();
 
@@ -62,7 +63,7 @@ namespace Configuration_Management
                 _groups,
                 currentGroupId: null,
                 allowNone: true,
-                noneLabel: "— Без группы —")
+                noneLabel: LocalizationManager.T("Connection.NoGroup"))
             {
                 Owner = this
             };
@@ -72,7 +73,7 @@ namespace Configuration_Management
                     ? string.Empty
                     : dialog.ResultFullPath;
                 GroupPathBox.Text = string.IsNullOrWhiteSpace(_selectedGroupPath)
-                    ? "— Без группы —"
+                    ? LocalizationManager.T("Connection.NoGroup")
                     : _selectedGroupPath;
             }
         }
@@ -109,9 +110,8 @@ namespace Configuration_Management
             else
             {
                 MessageBox.Show(
-                    "Добавьте каталоги платформ в Настройки → дополнительные пути поиска (например E:\\1cPlatform),\n" +
-                    "затем обновите список версий.",
-                    "Пути к платформам",
+                    LocalizationManager.T("CreateInfobase.NoPlatformsPathsMsg"),
+                    LocalizationManager.T("CreateInfobase.PlatformPathsTitle"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
             }
@@ -124,11 +124,12 @@ namespace Configuration_Management
             var primaryExists = Directory.Exists(primary);
 
             TemplateRootsHint.Text =
-                $"Каталог шаблонов 1С (по умолчанию): {primary}" +
-                (primaryExists ? "" : " — папка ещё не создана") +
+                string.Format(LocalizationManager.T("CreateInfobase.TemplateRootsDefault"), primary) +
+                (primaryExists ? "" : LocalizationManager.T("CreateInfobase.FolderNotCreated")) +
                 (roots.Count > 1
-                    ? "\nТакже проверены: " + string.Join("; ", roots.Where(r =>
-                        !r.Equals(primary, StringComparison.OrdinalIgnoreCase)))
+                    ? string.Format(LocalizationManager.T("CreateInfobase.AlsoChecked"),
+                        string.Join("; ", roots.Where(r =>
+                            !r.Equals(primary, StringComparison.OrdinalIgnoreCase))))
                     : "");
 
             var templates = OneCTemplateService.FindInstalledTemplates();
@@ -149,7 +150,7 @@ namespace Configuration_Management
             {
                 TemplateBox.Text = "";
                 TemplateRootsHint.Text +=
-                    "\nШаблоны не найдены. Установите конфигурации через стартер 1С или укажите файл .cf/.dt вручную (кнопка «Файл…»).";
+                    LocalizationManager.T("CreateInfobase.NoTemplates");
             }
         }
 
@@ -238,7 +239,7 @@ namespace Configuration_Management
         {
             using var dlg = new WinForms.FolderBrowserDialog
             {
-                Description = "Каталог для новой файловой базы 1С",
+                Description = LocalizationManager.T("CreateInfobase.ChooseFolderDescription"),
                 UseDescriptionForTitle = true
             };
             if (dlg.ShowDialog() == WinForms.DialogResult.OK)
@@ -249,8 +250,8 @@ namespace Configuration_Management
         {
             var dlg = new OpenFileDialog
             {
-                Title = "Шаблон конфигурации или выгрузки",
-                Filter = "Шаблоны 1С (*.cf;*.dt)|*.cf;*.dt|Конфигурация (*.cf)|*.cf|Выгрузка (*.dt)|*.dt|Все файлы (*.*)|*.*"
+                Title = LocalizationManager.T("CreateInfobase.TemplateDialogTitle"),
+                Filter = $"{LocalizationManager.T("CreateInfobase.FilterTemplates")}|*.cf;*.dt|{LocalizationManager.T("CreateInfobase.FilterConfig")}|*.cf|{LocalizationManager.T("CreateInfobase.FilterDump")}|*.dt|{LocalizationManager.T("Common.AllFiles")}|*.*"
             };
             if (dlg.ShowDialog() == true)
                 TemplateBox.Text = dlg.FileName;
@@ -261,7 +262,7 @@ namespace Configuration_Management
             var name = NameBox.Text?.Trim() ?? "";
             if (string.IsNullOrWhiteSpace(name))
             {
-                MessageBox.Show("Укажите наименование базы.", "Создание ИБ",
+                MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterName"), LocalizationManager.T("CreateInfobase.CreateTitle"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -276,7 +277,7 @@ namespace Configuration_Management
                 filePath = FilePathBox.Text?.Trim() ?? "";
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
-                    MessageBox.Show("Укажите каталог файловой базы.", "Создание ИБ",
+                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterFilePath"), LocalizationManager.T("CreateInfobase.CreateTitle"),
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -287,7 +288,7 @@ namespace Configuration_Management
                 refName = RefBox.Text?.Trim() ?? "";
                 if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(refName))
                 {
-                    MessageBox.Show("Укажите сервер и имя базы (Ref).", "Создание ИБ",
+                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterServerAndRef"), LocalizationManager.T("CreateInfobase.CreateTitle"),
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -299,7 +300,7 @@ namespace Configuration_Management
                 templatePath = TemplateBox.Text?.Trim() ?? "";
                 if (string.IsNullOrWhiteSpace(templatePath) || !File.Exists(templatePath))
                 {
-                    MessageBox.Show("Укажите существующий файл шаблона (.cf или .dt).", "Создание ИБ",
+                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterTemplateFile"), LocalizationManager.T("CreateInfobase.CreateTitle"),
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -311,8 +312,8 @@ namespace Configuration_Management
             if (string.IsNullOrWhiteSpace(platform))
             {
                 MessageBox.Show(
-                    "Не найдена установленная платформа 1С.\nУкажите версию через «Список…» или пути в настройках.",
-                    "Создание ИБ",
+                    LocalizationManager.T("CreateInfobase.NoPlatform"),
+                    LocalizationManager.T("CreateInfobase.CreateTitle"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -339,8 +340,8 @@ namespace Configuration_Management
             if (!ok)
             {
                 MessageBox.Show(
-                    "Не удалось создать информационную базу.\n" + (error ?? ""),
-                    "Создание ИБ",
+                    string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""),
+                    LocalizationManager.T("CreateInfobase.CreateTitle"),
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }

@@ -156,6 +156,129 @@ public static class OneCCacheCleaner
     }
 
     /// <summary>
+    /// Вычисляет суммарный размер кеша указанного типа (программного и/или пользовательского)
+    /// во всех корневых каталогах. Размер вычисляется без учёта размера самой файловой системы
+    /// и может быть неточным, если файлы кеша заняты запущенной 1С.
+    /// </summary>
+    /// <param name="kind">Тип кеша (программный и/или пользовательский).</param>
+    /// <returns>Суммарный размер в байтах.</returns>
+    public static long GetSize(OneCCacheKind kind)
+    {
+        long total = 0;
+        if (kind == OneCCacheKind.None)
+            return total;
+
+        foreach (var root in GetCacheRoots(kind))
+        {
+            if (!Directory.Exists(root))
+                continue;
+            total += GetDirectorySize(root);
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// Вычисляет суммарный размер кеша указанного типа для одной информационной базы.
+    /// Учитываются только реально существующие каталоги кеша этой базы.
+    /// </summary>
+    /// <param name="infobase">Информационная база, для которой вычисляется размер кеша.</param>
+    /// <param name="kind">Тип кеша (программный и/или пользовательский).</param>
+    /// <returns>Суммарный размер кеша базы в байтах.</returns>
+    public static long GetSize(Infobase infobase, OneCCacheKind kind)
+    {
+        if (infobase is null || kind == OneCCacheKind.None)
+            return 0;
+
+        long total = 0;
+        foreach (var dir in EnumerateCacheDirectories(infobase, kind))
+            total += GetDirectorySize(dir);
+
+        return total;
+    }
+
+    /// <summary>
+    /// Перечисляет реально существующие каталоги кеша указанной информационной базы
+    /// для заданного типа кеша. Логика поиска соответствует <see cref="ClearSingle"/>:
+    /// каталог по ID базы, по ID в нижнем регистре, затем по имени базы (в подкаталогах
+    /// версий и в корне каталога кеша).
+    /// </summary>
+    private static IEnumerable<string> EnumerateCacheDirectories(Infobase infobase, OneCCacheKind kind)
+    {
+        foreach (var root in GetCacheRoots(kind))
+        {
+            if (!Directory.Exists(root))
+                continue;
+
+            // Если известен ID базы — каталог кеша называется по ID базы.
+            if (!string.IsNullOrWhiteSpace(infobase.Id))
+            {
+                var idDir = Path.Combine(root, infobase.Id);
+                if (Directory.Exists(idDir))
+                {
+                    yield return idDir;
+                    continue;
+                }
+
+                // ID может храниться в нижнем регистре.
+                var idDirLower = Path.Combine(root, infobase.Id.ToLowerInvariant());
+                if (Directory.Exists(idDirLower))
+                {
+                    yield return idDirLower;
+                    continue;
+                }
+            }
+
+            // Если ID неизвестен — ищем каталог по имени базы.
+            var cacheName = GetCacheName(infobase);
+            if (string.IsNullOrWhiteSpace(cacheName))
+                continue;
+
+            // Каталоги кеша в подкаталогах версий (1cv8\<версия>\<имя>).
+            foreach (var versionDir in Directory.GetDirectories(root))
+            {
+                var cacheDir = Path.Combine(versionDir, cacheName);
+                if (Directory.Exists(cacheDir))
+                    yield return cacheDir;
+            }
+
+            // Прямой каталог кеша в корне (без версии).
+            var directCacheDir = Path.Combine(root, cacheName);
+            if (Directory.Exists(directCacheDir))
+                yield return directCacheDir;
+        }
+    }
+
+    /// <summary>
+    /// Рекурсивно вычисляет суммарный размер всех файлов в каталоге (в байтах).
+    /// Ошибки доступа к отдельным файлам игнорируются.
+    /// </summary>
+    private static long GetDirectorySize(string path)
+    {
+        long total = 0;
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    total += new FileInfo(file).Length;
+                }
+                catch
+                {
+                    // Игнорируем недоступные файлы (могут быть заняты запущенной 1С).
+                }
+            }
+        }
+        catch
+        {
+            // Игнорируем ошибки перечисления (каталог может исчезнуть или быть недоступен).
+        }
+
+        return total;
+    }
+
+    /// <summary>
     /// Возвращает корневые каталоги, где 1С хранит кеш, с учётом выбранного типа кеша.
     /// </summary>
     private static IEnumerable<string> GetCacheRoots(OneCCacheKind kind)

@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management
 {
@@ -21,7 +22,7 @@ namespace Configuration_Management
         /// </summary>
         public LinkInputWindow()
         {
-            Title = "Перейти по ссылке";
+            Title = LocalizationManager.T("LinkInput.Title");
             Width = 460;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
@@ -38,7 +39,7 @@ namespace Configuration_Management
 
             var prompt = new TextBlock
             {
-                Text = "Ссылка на информационную базу:",
+                Text = LocalizationManager.T("LinkInput.Label"),
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 8)
             };
@@ -64,7 +65,7 @@ namespace Configuration_Management
                     Children =
                     {
                         IconHelper.MakeIcon("IconClose", 14),
-                        new TextBlock { Text = "Отмена", VerticalAlignment = VerticalAlignment.Center }
+                        new TextBlock { Text = LocalizationManager.T("Common.Cancel"), VerticalAlignment = VerticalAlignment.Center }
                     }
                 },
                 MinWidth = 110,
@@ -82,7 +83,7 @@ namespace Configuration_Management
                     Children =
                     {
                         IconHelper.MakeIcon("IconOk", 14),
-                        new TextBlock { Text = "ОК", VerticalAlignment = VerticalAlignment.Center }
+                        new TextBlock { Text = LocalizationManager.T("Common.Ok"), VerticalAlignment = VerticalAlignment.Center }
                     }
                 },
                 MinWidth = 130,

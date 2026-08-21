@@ -3,8 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         mc:Ignorable="d"
-        Title="Выбор цвета"
+        Title="{loc:Loc ColorPicker.Title}"
         Icon="{StaticResource AppIcon}"
         Height="520" Width="380"
         WindowStartupLocation="CenterOwner"
@@ -60,7 +61,7 @@
                 BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"/>
 
         <!-- ============ Палитра предустановленных цветов ============ -->
-        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="Палитра:" FontWeight="SemiBold"
+        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{loc:Loc ColorPicker.Palette}" FontWeight="SemiBold"
                    Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6"/>
         <UniformGrid x:Name="PaletteGrid" Grid.Row="2" Grid.ColumnSpan="2" Rows="2" Columns="8"
                      Margin="0,0,0,12">
@@ -128,13 +129,13 @@
             <Button Width="90" Style="{DynamicResource ModernButton}" Margin="0,0,8,0" IsDefault="True" Click="OnOk_Click">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="✔" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="OK" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Common.Ok}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
             <Button Width="90" Style="{DynamicResource SecondaryButton}" IsCancel="True">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="✖" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
         </StackPanel>

@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 
@@ -25,8 +26,8 @@ namespace Configuration_Management
         private string _archFilter = "all";
 
         private readonly TreeView _tree = new();
-        private readonly Button _selectButton = new() { Content = "Выбрать", MinWidth = 110, IsDefault = true };
-        private readonly RadioButton _filterAll = new() { Content = "Все", IsChecked = true, GroupName = "Arch" };
+        private readonly Button _selectButton = new() { Content = LocalizationManager.T("Common.Select"), MinWidth = 110, IsDefault = true };
+        private readonly RadioButton _filterAll = new() { Content = LocalizationManager.T("Common.All"), IsChecked = true, GroupName = "Arch" };
         private readonly RadioButton _filterX32 = new() { Content = "x32", GroupName = "Arch" };
         private readonly RadioButton _filterX64 = new() { Content = "x64", GroupName = "Arch" };
         private readonly RadioButton _sortAsc = new() { Content = "А → Я" };
@@ -34,7 +35,7 @@ namespace Configuration_Management
 
         public PlatformVersionPickerWindow(IEnumerable<string> installedPlatformVersions, string currentVersion)
         {
-            Title = "Выбор версии платформы 1С";
+            Title = LocalizationManager.T("PlatformVersionPicker.Title");
             Width = 560;
             Height = 580;
             MinWidth = 480;
@@ -77,7 +78,7 @@ namespace Configuration_Management
             // Панель фильтров/сортировки
             var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 0, 0, 8), VerticalAlignment = VerticalAlignment.Center };
             var filterPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-            filterPanel.Children.Add(new TextBlock { Text = "Фильтр:", VerticalAlignment = VerticalAlignment.Center });
+            filterPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("PlatformVersionPicker.FilterLabel"), VerticalAlignment = VerticalAlignment.Center });
             _filterAll.Checked += (_, _) => { _archFilter = "all"; RefreshTree(); };
             _filterX32.Checked += (_, _) => { _archFilter = "x32"; RefreshTree(); };
             _filterX64.Checked += (_, _) => { _archFilter = "x64"; RefreshTree(); };
@@ -87,7 +88,7 @@ namespace Configuration_Management
             top.Children.Add(filterPanel);
 
             var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-            sortPanel.Children.Add(new TextBlock { Text = "Сортировка:", VerticalAlignment = VerticalAlignment.Center });
+            sortPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("Common.SortLabel"), VerticalAlignment = VerticalAlignment.Center });
             _sortAsc.Checked += (_, _) => { _sortAscending = true; _sortDesc.IsChecked = false; RefreshTree(); };
             _sortDesc.Checked += (_, _) => { _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree(); };
             sortPanel.Children.Add(_sortAsc);
@@ -143,7 +144,7 @@ namespace Configuration_Management
                 Spacing = 8,
                 Margin = new Thickness(0, 12, 0, 0)
             };
-            var cancel = new Button { Content = "Отмена", MinWidth = 100, IsCancel = true };
+            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
             cancel.Click += (_, _) => Close();
             buttons.Children.Add(cancel);
             _selectButton.Click += (_, _) => OnSelect_Click();

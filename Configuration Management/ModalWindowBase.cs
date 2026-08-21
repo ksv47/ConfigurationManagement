@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Threading;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management
 {
@@ -17,6 +18,18 @@ namespace Configuration_Management
     /// </summary>
     public abstract class ModalWindowBase : Window
     {
+        /// <summary>
+        /// Источник локализации для привязок XAML: <c>{Binding Loc[Key]}</c>.
+        /// При смене языка открытые окна автоматически обновляют текст.
+        /// </summary>
+        public LocalizationSource Loc => LocalizationManager.Instance.Source;
+
+        // Поля для живого обновления текста кнопок «Отмена»/«ОК» при смене языка.
+        private TextBlock? _lastCancelText;
+        private TextBlock? _lastOkText;
+        private string _lastOkRaw = "ОК";
+        private bool _languageSubscribed;
+
         /// <summary>Результат диалога: true — подтверждён (ОК), false — отменён.</summary>
         public bool DialogResult { get; protected set; }
 
@@ -71,6 +84,9 @@ namespace Configuration_Management
                 Spacing = 8
             };
 
+            var cancelText = new TextBlock { Text = LocalizationManager.T("Common.Cancel"), VerticalAlignment = VerticalAlignment.Center };
+            var okTextBlock = new TextBlock { Text = ResolveOkText(okText), VerticalAlignment = VerticalAlignment.Center };
+
             var cancel = new Button
             {
                 Content = new StackPanel
@@ -80,7 +96,7 @@ namespace Configuration_Management
                     Children =
                     {
                         IconHelper.MakeIcon("IconClose", 14),
-                        new TextBlock { Text = "Отмена", VerticalAlignment = VerticalAlignment.Center }
+                        cancelText
                     }
                 },
                 MinWidth = 110,
@@ -98,7 +114,7 @@ namespace Configuration_Management
                     Children =
                     {
                         IconHelper.MakeIcon("IconOk", 14),
-                        new TextBlock { Text = okText, VerticalAlignment = VerticalAlignment.Center }
+                        okTextBlock
                     }
                 },
                 MinWidth = okWidth,
@@ -112,7 +128,33 @@ namespace Configuration_Management
             };
             panel.Children.Add(ok);
 
+            // Живое обновление кнопок при смене языка.
+            _lastCancelText = cancelText;
+            _lastOkText = okTextBlock;
+            _lastOkRaw = okText;
+            EnsureLanguageSubscription();
+
             return panel;
+        }
+
+        /// <summary>Возвращает локализованный текст кнопки подтверждения.</summary>
+        private static string ResolveOkText(string okText) =>
+            okText == "ОК" ? LocalizationManager.T("Common.Ok") : okText;
+
+        private void EnsureLanguageSubscription()
+        {
+            if (_languageSubscribed)
+                return;
+            _languageSubscribed = true;
+            LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            if (_lastCancelText is not null)
+                _lastCancelText.Text = LocalizationManager.T("Common.Cancel");
+            if (_lastOkText is not null)
+                _lastOkText.Text = ResolveOkText(_lastOkRaw);
         }
     }
 }

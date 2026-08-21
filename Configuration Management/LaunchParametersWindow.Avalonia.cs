@@ -6,6 +6,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management
 {
@@ -25,7 +26,7 @@ namespace Configuration_Management
         /// <param name="currentParameters">Текущая строка параметров для предзаполнения.</param>
         public LaunchParametersWindow(string currentParameters)
         {
-            Title = "Параметры запуска 1С";
+            Title = LocalizationManager.T("LaunchParams.Title");
             Width = 620;
             Height = 560;
             MinWidth = 540;
@@ -37,7 +38,7 @@ namespace Configuration_Management
                 Padding = new Thickness(8, 6),
                 AcceptsReturn = true,
                 MinHeight = 90,
-                Watermark = "Например: /DisableStartupMessages /DisableSplash"
+                Watermark = LocalizationManager.T("LaunchParams.InputWatermark")
             };
 
             Content = BuildRoot();
@@ -57,7 +58,7 @@ namespace Configuration_Management
 
             var title = new TextBlock
             {
-                Text = "Параметры запуска платформы 1С",
+                Text = LocalizationManager.T("LaunchParams.Header"),
                 FontSize = 15,
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 0, 0, 8)
@@ -67,7 +68,7 @@ namespace Configuration_Management
 
             var hint = new TextBlock
             {
-                Text = "Введите параметры командной строки или выберите их из справочника ниже двойным кликом.",
+                Text = LocalizationManager.T("LaunchParams.Hint"),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 8)
@@ -79,7 +80,7 @@ namespace Configuration_Management
             grid.Children.Add(_txtCustom);
 
             // Справочник параметров
-            var refLabel = new TextBlock { Text = "Справочник ключей командной строки:", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 12, 0, 6) };
+            var refLabel = new TextBlock { Text = LocalizationManager.T("LaunchParams.ReferenceTitle"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 12, 0, 6) };
             Grid.SetRow(refLabel, 3);
             grid.Children.Add(refLabel);
 
@@ -132,10 +133,10 @@ namespace Configuration_Management
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Spacing = 8
             };
-            var cancel = new Button { Content = "Отмена", MinWidth = 100, IsCancel = true };
+            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
             cancel.Click += (_, _) => Close();
             buttons.Children.Add(cancel);
-            var ok = new Button { Content = "ОК", MinWidth = 110, IsDefault = true };
+            var ok = new Button { Content = LocalizationManager.T("Common.Ok"), MinWidth = 110, IsDefault = true };
             ok.Click += (_, _) => OnOk_Click();
             buttons.Children.Add(ok);
             Grid.SetRow(buttons, 5);
@@ -176,60 +177,60 @@ namespace Configuration_Management
             void Add(string key, string description) => list.Add(new ParamRef(key, description));
 
             // Параметры-флаги.
-            Add("/DisableStartupMessages", "Отключить стартовые сообщения");
-            Add("/DisableStartupDialogs", "Отключить стартовые диалоги");
-            Add("/DisableSplash", "Отключить стартовую заставку");
-            Add("/WA-", "Не ждать завершения (запуск в фоне)");
-            Add("/Debug", "Режим отладки");
-            Add("/AllowExecuteScheduledJobs", "Разрешить выполнение регламентных заданий");
-            Add("/RunModeManagedApplication", "Запустить в режиме тонкого клиента (управляемое приложение)");
-            Add("/RunModeOrdinaryApplication", "Запустить в режиме толстого клиента (обычное приложение)");
-            Add("/UpdateCfg", "Обновить конфигурацию базы");
-            Add("/TestServer", "Проверить работоспособность кластера серверов");
-            Add("/RestoreIB", "Восстановить информационную базу из выгрузки (.dt)");
-            Add("/DumpIB", "Выгрузить информационную базу в файл (.dt)");
-            Add("/DumpCfg", "Выгрузить конфигурацию в файл (.cf)");
-            Add("/LoadCfg", "Загрузить конфигурацию из файла (.cf)");
-            Add("/CheckConfig", "Проверить конфигурацию");
-            Add("/UpdateConfigDumpCfg", "Обновить конфигурацию и выгрузить её в файл (.cf)");
-            Add("/CreateInfobase", "Создать информационную базу по файлу выгрузки");
-            Add("/Command", "Выполнить команду после запуска");
-            Add("/ManagedClient", "Запустить тонкий клиент (управляемое приложение)");
-            Add("/ThickClient", "Запустить толстый клиент");
-            Add("/UpdateConfiguration", "Обновить конфигурацию базы");
+            Add("/DisableStartupMessages", LocalizationManager.T("LaunchParams.Ref.DisableStartupMessages"));
+            Add("/DisableStartupDialogs", LocalizationManager.T("LaunchParams.Ref.DisableStartupDialogs"));
+            Add("/DisableSplash", LocalizationManager.T("LaunchParams.Ref.DisableSplash"));
+            Add("/WA-", LocalizationManager.T("LaunchParams.Ref.WA"));
+            Add("/Debug", LocalizationManager.T("LaunchParams.Ref.Debug"));
+            Add("/AllowExecuteScheduledJobs", LocalizationManager.T("LaunchParams.Ref.AllowExecuteScheduledJobs"));
+            Add("/RunModeManagedApplication", LocalizationManager.T("LaunchParams.Ref.RunModeManagedApplication"));
+            Add("/RunModeOrdinaryApplication", LocalizationManager.T("LaunchParams.Ref.RunModeOrdinaryApplication"));
+            Add("/UpdateCfg", LocalizationManager.T("LaunchParams.Ref.UpdateCfg"));
+            Add("/TestServer", LocalizationManager.T("LaunchParams.Ref.TestServer"));
+            Add("/RestoreIB", LocalizationManager.T("LaunchParams.Ref.RestoreIB"));
+            Add("/DumpIB", LocalizationManager.T("LaunchParams.Ref.DumpIB"));
+            Add("/DumpCfg", LocalizationManager.T("LaunchParams.Ref.DumpCfg"));
+            Add("/LoadCfg", LocalizationManager.T("LaunchParams.Ref.LoadCfg"));
+            Add("/CheckConfig", LocalizationManager.T("LaunchParams.Ref.CheckConfig"));
+            Add("/UpdateConfigDumpCfg", LocalizationManager.T("LaunchParams.Ref.UpdateConfigDumpCfg"));
+            Add("/CreateInfobase", LocalizationManager.T("LaunchParams.Ref.CreateInfobase"));
+            Add("/Command", LocalizationManager.T("LaunchParams.Ref.Command"));
+            Add("/ManagedClient", LocalizationManager.T("LaunchParams.Ref.ManagedClient"));
+            Add("/ThickClient", LocalizationManager.T("LaunchParams.Ref.ThickClient"));
+            Add("/UpdateConfiguration", LocalizationManager.T("LaunchParams.Ref.UpdateConfiguration"));
 
             // Параметры с аргументами.
-            Add("/UC", "Код разрешения запуска");
-            Add("/L", "Язык интерфейса (например ru, en)");
-            Add("/Out", "Путь к файлу вывода служебных сообщений");
-            Add("/C", "Строка параметров запуска (передаётся в приложение)");
-            Add("/Execute", "Путь к внешней обработке или отчёту для выполнения");
-            Add("/DumpResult", "Путь к файлу выгрузки результата (например, после /Execute)");
-            Add("/N", "Имя пользователя");
-            Add("/P", "Пароль пользователя");
-            Add("/S", "Адрес сервера 1С:Предприятия");
-            Add("/F", "Путь к файловой информационной базе");
-            Add("/Ref", "Имя информационной базы на сервере");
-            Add("/Server", "Имя сервера 1С:Предприятия");
-            Add("/Srvr", "Имя сервера 1С:Предприятия (синоним /S)");
-            Add("/IBName", "Имя информационной базы в списке баз");
-            Add("/DBMS", "Тип СУБД (MSSQLServer, PostgreSQL, Oracle, IBMDB2)");
-            Add("/DBSrvr", "Имя сервера СУБД");
-            Add("/DBUID", "Имя пользователя СУБД");
-            Add("/DBPwd", "Пароль пользователя СУБД");
-            Add("/App", "Выбор приложения (Designer / Enterprise)");
-            Add("/ConfigurationRepository", "Имя хранилища конфигурации");
-            Add("/ConfigurationRepositoryUser", "Пользователь хранилища конфигурации");
-            Add("/ConfigurationRepositoryPwd", "Пароль пользователя хранилища конфигурации");
-            Add("/DisplayAllFunctions", "Отображать все функции (для запуска тонкого клиента)");
-            Add("/WSNamespace", "Пространство имён веб-сервиса");
-            Add("/IBSecurity", "Ключ безопасности информационной базы");
-            Add("/CPUSecurity", "Ключ безопасности сеанса");
-            Add("/SaveAgent", "Сохранить кэш агента сервера");
-            Add("/ConfigurationName", "Имя конфигурации для запуска");
-            Add("/RegisterExternalDataSource", "Зарегистрировать внешний источник данных");
-            Add("/UnregisterExternalDataSource", "Снять регистрацию внешнего источника данных");
-            Add("/SqlDump", "Сброс SQL-запросов в файл");
+            Add("/UC", LocalizationManager.T("LaunchParams.Ref.UC"));
+            Add("/L", LocalizationManager.T("LaunchParams.Ref.L"));
+            Add("/Out", LocalizationManager.T("LaunchParams.Ref.Out"));
+            Add("/C", LocalizationManager.T("LaunchParams.Ref.C"));
+            Add("/Execute", LocalizationManager.T("LaunchParams.Ref.Execute"));
+            Add("/DumpResult", LocalizationManager.T("LaunchParams.Ref.DumpResult"));
+            Add("/N", LocalizationManager.T("LaunchParams.Ref.N"));
+            Add("/P", LocalizationManager.T("LaunchParams.Ref.P"));
+            Add("/S", LocalizationManager.T("LaunchParams.Ref.S"));
+            Add("/F", LocalizationManager.T("LaunchParams.Ref.F"));
+            Add("/Ref", LocalizationManager.T("LaunchParams.Ref.Ref"));
+            Add("/Server", LocalizationManager.T("LaunchParams.Ref.Server"));
+            Add("/Srvr", LocalizationManager.T("LaunchParams.Ref.Srvr"));
+            Add("/IBName", LocalizationManager.T("LaunchParams.Ref.IBName"));
+            Add("/DBMS", LocalizationManager.T("LaunchParams.Ref.DBMS"));
+            Add("/DBSrvr", LocalizationManager.T("LaunchParams.Ref.DBSrvr"));
+            Add("/DBUID", LocalizationManager.T("LaunchParams.Ref.DBUID"));
+            Add("/DBPwd", LocalizationManager.T("LaunchParams.Ref.DBPwd"));
+            Add("/App", LocalizationManager.T("LaunchParams.Ref.App"));
+            Add("/ConfigurationRepository", LocalizationManager.T("LaunchParams.Ref.ConfigurationRepository"));
+            Add("/ConfigurationRepositoryUser", LocalizationManager.T("LaunchParams.Ref.ConfigurationRepositoryUser"));
+            Add("/ConfigurationRepositoryPwd", LocalizationManager.T("LaunchParams.Ref.ConfigurationRepositoryPwd"));
+            Add("/DisplayAllFunctions", LocalizationManager.T("LaunchParams.Ref.DisplayAllFunctions"));
+            Add("/WSNamespace", LocalizationManager.T("LaunchParams.Ref.WSNamespace"));
+            Add("/IBSecurity", LocalizationManager.T("LaunchParams.Ref.IBSecurity"));
+            Add("/CPUSecurity", LocalizationManager.T("LaunchParams.Ref.CPUSecurity"));
+            Add("/SaveAgent", LocalizationManager.T("LaunchParams.Ref.SaveAgent"));
+            Add("/ConfigurationName", LocalizationManager.T("LaunchParams.Ref.ConfigurationName"));
+            Add("/RegisterExternalDataSource", LocalizationManager.T("LaunchParams.Ref.RegisterExternalDataSource"));
+            Add("/UnregisterExternalDataSource", LocalizationManager.T("LaunchParams.Ref.UnregisterExternalDataSource"));
+            Add("/SqlDump", LocalizationManager.T("LaunchParams.Ref.SqlDump"));
 
             return list;
         }

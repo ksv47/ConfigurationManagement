@@ -3,6 +3,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management
 {
@@ -18,7 +19,7 @@ namespace Configuration_Management
 
         public AddEditWindow()
         {
-            Title = "Добавление в список";
+            Title = LocalizationManager.T("AddEdit.Title");
             Width = 480;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
@@ -36,7 +37,7 @@ namespace Configuration_Management
 
             var header = new TextBlock
             {
-                Text = "Что добавить в список?",
+                Text = LocalizationManager.T("AddEdit.Question"),
                 FontSize = 15,
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 0, 0, 12)
@@ -46,14 +47,14 @@ namespace Configuration_Management
 
             var options = new StackPanel();
 
-            options.Children.Add(BuildOption("IconList", "Существующая база",
-                "Добавить в список уже созданную информационную базу 1С.", "Infobase", true));
-            options.Children.Add(BuildOption("IconSave", "Создать пустую базу",
-                "Создать новую пустую ИБ (файловую или на сервере) через CREATEINFOBASE.", "CreateEmpty"));
-            options.Children.Add(BuildOption("IconPackage", "Создать из шаблона",
-                "Создать базу из шаблона (.cf / .dt) — как в стандартном стартере 1С.", "CreateFromTemplate"));
-            options.Children.Add(BuildOption("IconFolder", "Группа",
-                "Создать группу для объединения информационных баз по категориям.", "Group"));
+            options.Children.Add(BuildOption("IconList", LocalizationManager.T("AddEdit.ExistingBase"),
+                LocalizationManager.T("AddEdit.ExistingBaseDescription"), "Infobase", true));
+            options.Children.Add(BuildOption("IconSave", LocalizationManager.T("AddEdit.CreateEmpty"),
+                LocalizationManager.T("AddEdit.CreateEmptyDescription"), "CreateEmpty"));
+            options.Children.Add(BuildOption("IconPackage", LocalizationManager.T("AddEdit.CreateFromTemplate"),
+                LocalizationManager.T("AddEdit.CreateFromTemplateDescription"), "CreateFromTemplate"));
+            options.Children.Add(BuildOption("IconFolder", LocalizationManager.T("AddEdit.Group"),
+                LocalizationManager.T("AddEdit.GroupDescription"), "Group"));
 
             Grid.SetRow(options, 1);
             grid.Children.Add(options);
@@ -65,7 +66,7 @@ namespace Configuration_Management
                 Spacing = 8,
                 Margin = new Thickness(0, 12, 0, 0)
             };
-            var cancel = new Button { Content = "Отмена", MinWidth = 100, IsCancel = true };
+            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
             cancel.Click += (_, _) => Close();
             buttons.Children.Add(cancel);
 
@@ -77,7 +78,7 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        new TextBlock { Text = "Далее", VerticalAlignment = VerticalAlignment.Center },
+                        new TextBlock { Text = LocalizationManager.T("AddEdit.Next"), VerticalAlignment = VerticalAlignment.Center },
                         IconHelper.MakeIcon("IconArrowRight", 16, "TextOnAccentColorBrush")
                     }
                 },

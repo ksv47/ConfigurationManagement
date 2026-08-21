@@ -12,6 +12,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.IO;
 using MaterialDesignThemes.Wpf;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.Themes;
@@ -299,7 +300,7 @@ namespace Configuration_Management
 
                 _trayIcon = new Forms.NotifyIcon
                 {
-                    Text = "Управление конфигурациями 1С",
+                    Text = LocalizationManager.T("App.Title"),
                     Icon = icon,
                     Visible = false
                 };
@@ -333,7 +334,7 @@ namespace Configuration_Management
                 {
                     _trayIcon = new Forms.NotifyIcon
                     {
-                        Text = "Управление конфигурациями 1С",
+                        Text = LocalizationManager.T("App.Title"),
                         Icon = Drawing.SystemIcons.Application,
                         Visible = true
                     };
@@ -466,18 +467,18 @@ namespace Configuration_Management
         {
             menu.Items.Clear();
 
-            menu.Items.Add(CreateTrayItem("Открыть программу", TrayIconKind.Open, (_, _) => RestoreFromTray()));
+            menu.Items.Add(CreateTrayItem(LocalizationManager.T("Main.TrayOpen"), TrayIconKind.Open, (_, _) => RestoreFromTray()));
 
             // Недавние базы (по дате последнего запуска)
             var recent = _viewModel.GetRecentInfobases(7).ToList();
             if (recent.Count > 0)
             {
                 menu.Items.Add(new Forms.ToolStripSeparator());
-                menu.Items.Add(CreateTrayHeader("Недавние базы"));
+                menu.Items.Add(CreateTrayHeader(LocalizationManager.T("Main.RecentBases")));
 
                 foreach (var ib in recent)
                 {
-                    var name = string.IsNullOrWhiteSpace(ib.Name) ? "(без имени)" : ib.Name;
+                    var name = string.IsNullOrWhiteSpace(ib.Name) ? LocalizationManager.T("Main.NoName") : ib.Name;
                     if (name.Length > 48)
                         name = name.Substring(0, 45) + "…";
 
@@ -491,9 +492,9 @@ namespace Configuration_Management
             else if (_viewModel.SelectedInfobase != null)
             {
                 menu.Items.Add(new Forms.ToolStripSeparator());
-                menu.Items.Add(CreateTrayHeader("Выбранная база"));
+                menu.Items.Add(CreateTrayHeader(LocalizationManager.T("Main.SelectedBase")));
                 var selName = _viewModel.SelectedInfobase.Name;
-                if (string.IsNullOrWhiteSpace(selName)) selName = "(выбранная база)";
+                if (string.IsNullOrWhiteSpace(selName)) selName = LocalizationManager.T("Main.SelectedBaseNoName");
                 var selId = _viewModel.SelectedInfobase.Id;
                 var selItem = CreateTrayItem(selName, TrayIconKind.Database, null);
                 AttachLaunchSubmenu(selItem, menu, selId);
@@ -501,20 +502,20 @@ namespace Configuration_Management
             }
 
             menu.Items.Add(new Forms.ToolStripSeparator());
-            menu.Items.Add(CreateTrayItem("Синхронизация с ibases.v8i", TrayIconKind.Sync, (_, _) =>
+            menu.Items.Add(CreateTrayItem(LocalizationManager.T("Main.SyncWithIbases"), TrayIconKind.Sync, (_, _) =>
             {
                 RestoreFromTray();
                 if (_viewModel.SynchronizeWithIbasesCommand.CanExecute(null))
                     _viewModel.SynchronizeWithIbasesCommand.Execute(null);
             }));
-            menu.Items.Add(CreateTrayItem("Настройки…", TrayIconKind.Settings, (_, _) =>
+            menu.Items.Add(CreateTrayItem(LocalizationManager.T("Main.Settings"), TrayIconKind.Settings, (_, _) =>
             {
                 RestoreFromTray();
                 if (_viewModel.OpenSettingsCommand.CanExecute(null))
                     _viewModel.OpenSettingsCommand.Execute(null);
             }));
             menu.Items.Add(new Forms.ToolStripSeparator());
-            menu.Items.Add(CreateTrayItem("Выход", TrayIconKind.Exit, (_, _) =>
+            menu.Items.Add(CreateTrayItem(LocalizationManager.T("Main.Exit"), TrayIconKind.Exit, (_, _) =>
             {
                 _forceClose = true;
                 Close();
@@ -526,9 +527,9 @@ namespace Configuration_Management
         /// </summary>
         private void AttachLaunchSubmenu(Forms.ToolStripMenuItem parent, Forms.ContextMenuStrip ownerMenu, string infobaseId)
         {
-            parent.DropDownItems.Add(CreateTrayItem("1С:Предприятие", TrayIconKind.Enterprise, (_, _) =>
+            parent.DropDownItems.Add(CreateTrayItem(LocalizationManager.T("Main.Enterprise"), TrayIconKind.Enterprise, (_, _) =>
                 _viewModel.LaunchInfobaseById(infobaseId, isConfigurator: false)));
-            parent.DropDownItems.Add(CreateTrayItem("Конфигуратор", TrayIconKind.Configurator, (_, _) =>
+            parent.DropDownItems.Add(CreateTrayItem(LocalizationManager.T("Main.SectionConfigurator"), TrayIconKind.Configurator, (_, _) =>
                 _viewModel.LaunchInfobaseById(infobaseId, isConfigurator: true)));
 
             var dd = parent.DropDown;
@@ -2134,7 +2135,7 @@ namespace Configuration_Management
 
             // В тёмной теме кнопка предлагает перейти на светлую (иконка солнца), и наоборот.
             var isDark = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName;
-            ThemeToggleButton.ToolTip = isDark ? "Светлая тема" : "Тёмная тема";
+            ThemeToggleButton.ToolTip = isDark ? LocalizationManager.T("Main.LightTheme") : LocalizationManager.T("Main.DarkTheme");
 
             if (ThemeToggleIcon is not null)
             {
@@ -2381,7 +2382,7 @@ namespace Configuration_Management
 
             if (payload is Infobase infobase && targetGroup is not null)
             {
-                if (targetGroup.DisplayName == "Закреплённые")
+                if (targetGroup.DisplayName == LocalizationManager.T("Main.Pinned"))
                 {
                     _viewModel.MoveInfobaseToGroup(infobase, infobase.Group ?? string.Empty, insertBefore);
                 }

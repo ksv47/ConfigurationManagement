@@ -9,9 +9,10 @@
         xmlns:models="clr-namespace:Configuration_Management.Models"
         xmlns:conv="clr-namespace:Configuration_Management.Converters"
         xmlns:controls="clr-namespace:Configuration_Management.Controls"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
-        Title="Управление конфигурациями 1С"
+        Title="{loc:Loc App.Title}"
         Icon="{StaticResource AppIcon}"
         Height="760" Width="1200"
         MinWidth="900" MinHeight="600"
@@ -171,7 +172,7 @@
                                   Click="OnGroupByToggle_Click"
                                   Style="{DynamicResource ToolbarToggleButton}"
                                   Margin="0,0,2,0"
-                                  ToolTip="Показывать / скрывать группы">
+                                  ToolTip="{loc:Loc Main.ToggleGroups}">
                         <Path Width="18" Height="18" Stretch="Uniform"
                               Data="{StaticResource IconFolder}"
                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
@@ -179,7 +180,7 @@
                     <ToggleButton IsChecked="{Binding ShowEmptyGroups}"
                                   Style="{DynamicResource ToolbarToggleButton}"
                                   Margin="0,0,2,0"
-                                  ToolTip="Показывать пустые группы (без баз)"
+                                  ToolTip="{loc:Loc Settings.Panels.ShowEmptyGroups}"
                                   Visibility="{Binding GroupByGroup, Converter={StaticResource BoolToVis}}">
                         <materialDesign:PackIcon Kind="FolderOutline" Width="18" Height="18"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
@@ -189,7 +190,7 @@
                                   Click="OnTopTagsToggle_Click"
                                   Style="{DynamicResource ToolbarToggleButton}"
                                   Margin="0,0,2,0"
-                                  ToolTip="Показывать / скрывать теги (и панель тегов сверху, и теги в списке баз)">
+                                  ToolTip="{loc:Loc Main.ToggleTagsFull}">
                         <Path Width="18" Height="18" Stretch="Uniform"
                               Data="{StaticResource IconTag}"
                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
@@ -215,10 +216,10 @@
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  CaretBrush="{DynamicResource TextPrimaryBrush}"
                                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="Поиск по базам, конфигурациям, серверу…"/>
+                                 ToolTip="{loc:Loc Main.SearchPlaceholder}"/>
                         <Button Grid.Column="2" Command="{Binding ClearSearchCommand}"
                                 Background="Transparent" BorderThickness="0" Padding="6,0" Cursor="Hand"
-                                ToolTip="Очистить поиск" VerticalAlignment="Center">
+                                ToolTip="{loc:Loc Main.ClearSearch}" VerticalAlignment="Center">
                             <materialDesign:PackIcon Kind="Close" Width="12" Height="12"
                                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </Button>
@@ -230,36 +231,36 @@
                     <RadioButton GroupName="ListMode"
                                  IsChecked="{Binding IsListModeAll, Mode=TwoWay}"
                                  Style="{DynamicResource SegmentRadioButton}" Margin="0,0,4,0"
-                                 ToolTip="Все базы">
+                                 ToolTip="{loc:Loc Main.AllBasesTooltip}">
                         <StackPanel Orientation="Horizontal">
                             <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"
                                   Data="{StaticResource IconDatabase}"
                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                            <TextBlock Text="Все" VerticalAlignment="Center"
+                            <TextBlock Text="{loc:Loc Main.AllBases}" VerticalAlignment="Center"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton GroupName="ListMode"
                                  IsChecked="{Binding IsListModeFavorites, Mode=TwoWay}"
                                  Style="{DynamicResource SegmentRadioButton}" Margin="0,0,4,0"
-                                 ToolTip="Избранные базы">
+                                 ToolTip="{loc:Loc Main.FavoritesTooltip}">
                         <StackPanel Orientation="Horizontal">
                             <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"
                                   Data="{StaticResource IconStar}"
                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                            <TextBlock Text="Избранное" VerticalAlignment="Center"
+                            <TextBlock Text="{loc:Loc Main.Favorites}" VerticalAlignment="Center"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton GroupName="ListMode"
                                  IsChecked="{Binding IsListModeRecent, Mode=TwoWay}"
                                  Style="{DynamicResource SegmentRadioButton}"
-                                 ToolTip="Недавно запускавшиеся">
+                                 ToolTip="{loc:Loc Main.RecentTooltip}">
                         <StackPanel Orientation="Horizontal">
                             <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"
                                   Data="{StaticResource IconHistory}"
                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                            <TextBlock Text="Недавние" VerticalAlignment="Center"
+                            <TextBlock Text="{loc:Loc Main.Recent}" VerticalAlignment="Center"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                         </StackPanel>
                     </RadioButton>
@@ -286,21 +287,21 @@
                     </Button>
                     <Button Command="{Binding SynchronizeWithIbasesCommand}"
                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                            ToolTip="Синхронизация с ibases.v8i по режиму из настроек">
+                            ToolTip="{loc:Loc Main.SyncDetailedTooltip}">
                         <materialDesign:PackIcon Kind="Sync" Width="18" Height="18" Foreground="#14B8A6"/>
                     </Button>
                     <Button Command="{Binding RefreshAllConfigurationInfoCommand}"
                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                            ToolTip="Запросить информацию о конфигурации по всем базам 1С">
+                            ToolTip="{loc:Loc Main.RefreshAllConfigInfo}">
                         <materialDesign:PackIcon Kind="CloudDownload" Width="18" Height="18" Foreground="#0EA5E9"/>
                     </Button>
                     <Button x:Name="ThemeToggleButton" Click="OnToggleTheme_Click"
-                            Style="{DynamicResource IconButton}" Margin="0,0,2,0" ToolTip="Переключить тему">
+                            Style="{DynamicResource IconButton}" Margin="0,0,2,0" ToolTip="{loc:Loc Main.Theme}">
                         <Path x:Name="ThemeToggleIcon" Width="18" Height="18" Stretch="Uniform"
                               Data="{StaticResource IconMoon}" Fill="#8B5CF6"/>
                     </Button>
                     <Button Command="{Binding OpenSettingsCommand}" Style="{DynamicResource IconButton}"
-                            ToolTip="Настройки приложения">
+                            ToolTip="{loc:Loc Main.SettingsTooltip}">
                         <materialDesign:PackIcon Kind="Cog" Width="18" Height="18" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
                 </StackPanel>
@@ -352,7 +353,7 @@
                                       Data="{StaticResource IconTag}"
                                       Fill="{DynamicResource TextSecondaryBrush}"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="Теги — нажмите, чтобы добавить в фильтр"
+                                    <TextBlock Text="{loc:Loc Main.TagFilterTitle}"
                                                FontWeight="SemiBold" FontSize="12"
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                VerticalAlignment="Center"/>
@@ -361,13 +362,13 @@
                                 </StackPanel>
                                 <Button Grid.Column="2" Command="{Binding ClearTagFiltersCommand}"
                                         Style="{DynamicResource HeaderIconButton}" Padding="4,2"
-                                        ToolTip="Сбросить выбранные теги"
+                                        ToolTip="{loc:Loc Main.ClearTagFilters}"
                                         Visibility="{Binding HasActiveTagFilter, Converter={StaticResource BoolToVis}}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Close" Width="12" Height="12"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"
                                                                  Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Очистить" FontSize="11"
+                                        <TextBlock Text="{loc:Loc Common.Clear}" FontSize="11"
                                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
@@ -383,8 +384,14 @@
                                     <DataTemplate>
                                         <Button Margin="0,0,6,4" Padding="7,2" Cursor="Hand"
                                                 Command="{Binding DataContext.SearchByTagCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding Name}"
-                                                ToolTip="{Binding Name, StringFormat=Отбор по тегу: {0}}">
+                                                CommandParameter="{Binding Name}">
+                                            <Button.ToolTip>
+                                                <MultiBinding StringFormat="{}{0}: {1}">
+                                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
+                                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.FilterByTagLabel"/>
+                                                    <Binding Path="Name"/>
+                                                </MultiBinding>
+                                            </Button.ToolTip>
                                             <Button.Style>
                                                 <Style TargetType="Button">
                                                     <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
@@ -526,25 +533,25 @@
                                             Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                     <Button Command="{Binding DataContext.ExpandAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                                            ToolTip="Развернуть все группы в списке">
+                                            ToolTip="{loc:Loc Main.ExpandAllGroups}">
                                         <materialDesign:PackIcon Kind="ExpandAll" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.CollapseAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}" Margin="0,0,4,0"
-                                            ToolTip="Свернуть все группы в списке">
+                                            ToolTip="{loc:Loc Main.CollapseAllGroups}">
                                         <materialDesign:PackIcon Kind="CollapseAll" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.SortGroupsAscendingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                                            ToolTip="Сортировать группы по возрастанию (А→Я)">
+                                            ToolTip="{loc:Loc Main.SortGroupsAscending}">
                                         <materialDesign:PackIcon Kind="SortAscending" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.SortGroupsDescendingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}"
-                                            ToolTip="Сортировать группы по убыванию (Я→А)">
+                                            ToolTip="{loc:Loc Main.SortGroupsDescending}">
                                         <materialDesign:PackIcon Kind="SortDescending" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
@@ -556,7 +563,7 @@
                                               Style="{DynamicResource ToolbarToggleButton}"
                                               VerticalAlignment="Center" HorizontalAlignment="Center"
                                               Margin="0,0,0,4"
-                                              ToolTip="Показывать / скрывать теги в списке баз (не влияет на панель тегов сверху)">
+                                              ToolTip="{loc:Loc Main.ToggleListTags}">
                                     <Path Width="14" Height="14" Stretch="Uniform"
                                           Data="{StaticResource IconTag}"
                                           Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
@@ -565,42 +572,42 @@
                                                          VerticalAlignment="Center" HorizontalAlignment="Center"
                                                          Margin="0,0,0,4"
                                                          Foreground="{DynamicResource TextSecondaryBrush}"
-                                                         ToolTip="Закреплённые"
+                                                         ToolTip="{loc:Loc Main.Pinned}"
                                                          Visibility="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
 
-                                <TextBlock Grid.Column="4" Text="Название" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="4" Text="{loc:Loc Column.Name}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="0,0,8,4"
-                                           Cursor="Hand" Tag="Name" ToolTip="Сортировка по наименованию (клик)"
+                                           Cursor="Hand" Tag="Name" ToolTip="{loc:Loc Main.ColumnNameSortTooltip}"
                                            MouseLeftButtonUp="OnColumnHeader_Click"/>
-                                <TextBlock Grid.Column="5" Text="Версия платформы" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="5" Text="{loc:Loc Column.Version}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="6" Text="Конфигурация" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="6" Text="{loc:Loc Column.Configuration}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           ToolTip="Название и версия конфигурации 1С"/>
-                                <TextBlock Grid.Column="7" Text="Режим запуска" FontWeight="SemiBold" FontSize="12"
+                                           ToolTip="{loc:Loc Main.ColumnNameTooltip}"/>
+                                <TextBlock Grid.Column="7" Text="{loc:Loc Column.LaunchMode}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="8" Text="Сервер/База" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="8" Text="{loc:Loc Column.ServerBase}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="9" Text="Последний запуск" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="9" Text="{loc:Loc Column.LastLaunch}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           Cursor="Hand" Tag="LastLaunchDate" ToolTip="Сортировка по дате последнего запуска (клик)"
+                                           Cursor="Hand" Tag="LastLaunchDate" ToolTip="{loc:Loc Main.ColumnLastLaunchSortTooltip}"
                                            MouseLeftButtonUp="OnColumnHeader_Click"/>
-                                <TextBlock Grid.Column="10" Text="Размер" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="10" Text="{loc:Loc Column.Size}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           ToolTip="Размер файловой информационной базы"/>
+                                           ToolTip="{loc:Loc Main.ColumnSizeTooltip}"/>
 
                                 <!-- Современные разделители колонок: тонкая линия + широкая зона захвата -->
                                 <Border x:Name="NameSplitter" Grid.Column="4"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
-                                        ToolTip="Изменить ширину колонки"
+                                        ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
                                         MouseLeftButtonUp="OnColumnResize_MouseUp">
@@ -611,7 +618,7 @@
                                 <Border x:Name="VersionSplitter" Grid.Column="5"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
-                                        ToolTip="Изменить ширину колонки"
+                                        ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
                                         Visibility="{Binding DataContext.ShowVersionColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
@@ -623,7 +630,7 @@
                                 <Border x:Name="ConfigurationSplitter" Grid.Column="6"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
-                                        ToolTip="Изменить ширину колонки"
+                                        ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
                                         Visibility="{Binding DataContext.ShowConfigurationColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
@@ -635,7 +642,7 @@
                                 <Border x:Name="LaunchModeSplitter" Grid.Column="7"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
-                                        ToolTip="Изменить ширину колонки"
+                                        ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
                                         Visibility="{Binding DataContext.ShowLaunchModeColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
@@ -647,7 +654,7 @@
                                 <Border x:Name="ServerSplitter" Grid.Column="8"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
-                                        ToolTip="Изменить ширину колонки"
+                                        ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
                                         Visibility="{Binding DataContext.ShowServerColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
@@ -659,7 +666,7 @@
                                 <Border x:Name="LastLaunchSplitter" Grid.Column="9"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
-                                        ToolTip="Изменить ширину колонки"
+                                        ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
                                         Visibility="{Binding DataContext.ShowLastLaunchColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
@@ -671,7 +678,7 @@
                                 <Border x:Name="SizeSplitter" Grid.Column="10"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
-                                        ToolTip="Изменить ширину колонки"
+                                        ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
                                         Visibility="{Binding DataContext.ShowSizeColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
@@ -872,7 +879,7 @@
                                                     Cursor="Hand" Padding="0,0,2,0"
                                                     MinWidth="0" MinHeight="0"
                                                     VerticalAlignment="Center"
-                                                    ToolTip="Добавить/убрать из избранного (Alt+N — быстрый запуск)">
+                                                    ToolTip="{loc:Loc Main.ToggleFavoriteTooltip}">
                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                     <materialDesign:PackIcon Kind="Star" Width="14" Height="14" VerticalAlignment="Center">
                                                         <materialDesign:PackIcon.Style>
@@ -922,7 +929,7 @@
                                                     Cursor="Hand" Padding="0,0,4,0"
                                                     MinWidth="0" MinHeight="0"
                                                     VerticalAlignment="Center"
-                                                    ToolTip="Закрепить/открепить базу вверху списка">
+                                                    ToolTip="{loc:Loc Main.TogglePinTooltip}">
                                                 <materialDesign:PackIcon Kind="Pin" Width="14" Height="14" VerticalAlignment="Center">
                                                     <materialDesign:PackIcon.Style>
                                                         <Style TargetType="materialDesign:PackIcon">
@@ -960,7 +967,7 @@
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"
                                                    Tag="PlatformVersion"
                                                    Cursor="Hand"
-                                                   ToolTip="Двойной щелчок — выбрать версию платформы"/>
+                                                   ToolTip="{loc:Loc Main.PlatformVersionTooltip}"/>
 
                                         <TextBlock Grid.Column="5" Text="{Binding ConfigurationDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
@@ -1012,7 +1019,7 @@
                                                                         Background="Transparent" BorderThickness="0"
                                                                         Padding="0" Margin="0" Height="14" Width="Auto"
                                                                         MinHeight="0" MinWidth="0" MaxHeight="14"
-                                                                        Cursor="Hand" ToolTip="Показать базы с этим тегом"
+                                                                        Cursor="Hand" ToolTip="{loc:Loc Main.ShowTagBases}"
                                                                         VerticalAlignment="Center" HorizontalAlignment="Left">
                                                                     <Button.Template>
                                                                         <ControlTemplate TargetType="Button">
@@ -1027,7 +1034,7 @@
                                                                         Background="Transparent" BorderThickness="0"
                                                                         Padding="0" Margin="2,0,0,0" Height="12" Width="12"
                                                                         MinHeight="0" MinWidth="0" MaxHeight="12"
-                                                                        Cursor="Hand" ToolTip="Удалить тег"
+                                                                        Cursor="Hand" ToolTip="{loc:Loc Main.RemoveTag}"
                                                                         VerticalAlignment="Center">
                                                                     <Button.Template>
                                                                         <ControlTemplate TargetType="Button">
@@ -1047,12 +1054,12 @@
                                                     Click="OnAddTagInline_Click"
                                                     Background="Transparent" BorderThickness="0" Padding="2,0"
                                                     Cursor="Hand" Height="16" MinHeight="0" VerticalAlignment="Center" Margin="2,0,0,0"
-                                                    ToolTip="Добавить тег к базе">
+                                                    ToolTip="{loc:Loc Main.AddTag}">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Path Width="11" Height="11" Stretch="Uniform" Margin="0,0,3,0"
                                                           VerticalAlignment="Center" Data="{StaticResource IconTag}"
                                                           Fill="{DynamicResource TextSecondaryBrush}"/>
-                                                    <TextBlock Text="+ тег" FontSize="11" VerticalAlignment="Center"
+                                                    <TextBlock Text="{loc:Loc Main.AddTagShort}" FontSize="11" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 </StackPanel>
                                             </Button>
@@ -1066,7 +1073,7 @@
                                                      CaretBrush="{DynamicResource TextPrimaryBrush}"
                                                      KeyDown="OnInlineTagBox_KeyDown"
                                                      LostFocus="OnInlineTagBox_LostFocus"
-                                                     ToolTip="Введите тег и нажмите Enter"/>
+                                                     ToolTip="{loc:Loc Main.EnterTagHint}"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
@@ -1117,7 +1124,7 @@
                                                             Width="26" Height="26"
                                                             Background="Transparent" BorderThickness="0"
                                                             Cursor="Hand"
-                                                            ToolTip="Свернуть / развернуть группу">
+                                                            ToolTip="{loc:Loc Main.ExpandCollapseGroup}">
                                                         <Button.Margin>
                                                             <MultiBinding Converter="{StaticResource LevelToThickness}">
                                                                 <Binding Path="(controls:LeveledTreeView.Level)"
@@ -1126,10 +1133,10 @@
                                                         </Button.Margin>
                                                         <Button.Style>
                                                             <Style TargetType="Button">
-                                                                <Setter Property="ToolTip" Value="Свернуть группу"/>
+                                                                <Setter Property="ToolTip" Value="{loc:Loc Main.CollapseGroup}"/>
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="False">
-                                                                        <Setter Property="ToolTip" Value="Развернуть группу"/>
+                                                                        <Setter Property="ToolTip" Value="{loc:Loc Main.ExpandGroup}"/>
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -1236,59 +1243,59 @@
                         <!-- Контекстное меню по правой кнопке мыши для выбранной базы -->
                         <controls:LeveledTreeView.ContextMenu>
                             <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                                <MenuItem Header="Запустить 1С:Предприятие" Command="{Binding LaunchEnterpriseCommand}" InputGestureText="{Binding HotkeyEnterprise}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.LaunchEnterprise}" Command="{Binding LaunchEnterpriseCommand}" InputGestureText="{Binding HotkeyEnterprise}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Play" Width="16" Height="16" Foreground="#22C55E"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Запустить Конфигуратор" Command="{Binding LaunchConfiguratorCommand}" InputGestureText="{Binding HotkeyConfigurator}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.LaunchConfigurator}" Command="{Binding LaunchConfiguratorCommand}" InputGestureText="{Binding HotkeyConfigurator}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Cog" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Изменить настройки" Command="{Binding EditInfobaseCommand}" InputGestureText="{Binding HotkeyEdit}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.EditSettings}" Command="{Binding EditInfobaseCommand}" InputGestureText="{Binding HotkeyEdit}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Обновить информацию о конфигурации" Command="{Binding RefreshConfigurationInfoCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.RefreshConfigInfo}" Command="{Binding RefreshConfigurationInfoCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="CloudDownload" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Зарегистрировать COM-коннектор 1С" Command="{Binding RegisterComConnectorCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.RegisterComConnector}" Command="{Binding RegisterComConnectorCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Key" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
                                 </MenuItem>
                                 <Separator/>
-                                <MenuItem Header="Избранное" Command="{Binding ToggleFavoriteCommand}" InputGestureText="{Binding HotkeyFavorite}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.ToFavorites}" Command="{Binding ToggleFavoriteCommand}" InputGestureText="{Binding HotkeyFavorite}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Star" Width="16" Height="16" Foreground="#FBBF24"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Закрепить" Command="{Binding TogglePinCommand}" InputGestureText="{Binding HotkeyPin}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.Pin}" Command="{Binding TogglePinCommand}" InputGestureText="{Binding HotkeyPin}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Pin" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Очистить кеш" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.ClearCache}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
-                                    <MenuItem Header="Программный кеш" Command="{Binding ClearProgramCacheCommand}" InputGestureText="{Binding HotkeyClearCache}" Style="{DynamicResource ModernMenuItem}"/>
-                                    <MenuItem Header="Пользовательский кеш" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}"/>
+                                    <MenuItem Header="{loc:Loc Main.ClearProgramCache}" Command="{Binding ClearProgramCacheCommand}" InputGestureText="{Binding HotkeyClearCache}" Style="{DynamicResource ModernMenuItem}"/>
+                                    <MenuItem Header="{loc:Loc Main.ClearUserCache}" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}"/>
                                     <Separator/>
-                                    <MenuItem Header="Программный и пользовательский" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}"/>
+                                    <MenuItem Header="{loc:Loc Main.ClearCacheBoth}" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}"/>
                                 </MenuItem>
-                                <MenuItem Header="Копировать строку подключения" Command="{Binding CopyConnectionStringCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.CopyConnectionString}" Command="{Binding CopyConnectionStringCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" Foreground="#06B6D4"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Открыть каталог" Command="{Binding OpenInfobaseFolderCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.OpenCatalog}" Command="{Binding OpenInfobaseFolderCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="FolderOpen" Width="16" Height="16" Foreground="#0EA5E9"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Ярлык на рабочем столе" Command="{Binding CreateDesktopShortcutCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.DesktopShortcut}" Command="{Binding CreateDesktopShortcutCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="DesktopClassic" Width="16" Height="16" Foreground="#6366F1"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Добавить..." Command="{Binding AddInfobaseCommand}" InputGestureText="{Binding HotkeyAdd}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.AddBase}" Command="{Binding AddInfobaseCommand}" InputGestureText="{Binding HotkeyAdd}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Plus" Width="16" Height="16" Foreground="#22C55E"/></MenuItem.Icon>
                                 </MenuItem>
                                 <Separator/>
-                                <MenuItem Header="Выгрузить в .dt" Command="{Binding DumpInfobaseDtCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.DumpToDt}" Command="{Binding DumpInfobaseDtCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="DatabaseExport" Width="16" Height="16" Foreground="#0EA5E9"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Выгрузить конфигурацию .cf" Command="{Binding DumpConfigurationCfCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.DumpConfigToCf}" Command="{Binding DumpConfigurationCfCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="FileExport" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="История запусков" Command="{Binding ShowLaunchHistoryCommand}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.LaunchHistory}" Command="{Binding ShowLaunchHistoryCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="History" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
                                 </MenuItem>
                                 <Separator/>
-                                <MenuItem Header="Удалить" Command="{Binding DeleteInfobaseCommand}" InputGestureText="{Binding HotkeyDelete}" Style="{DynamicResource ModernMenuItem}">
+                                <MenuItem Header="{loc:Loc Main.Delete}" Command="{Binding DeleteInfobaseCommand}" InputGestureText="{Binding HotkeyDelete}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444"/></MenuItem.Icon>
                                 </MenuItem>
                             </ContextMenu>
@@ -1366,8 +1373,15 @@
                                 <StackPanel>
                                     <TextBlock Text="{Binding SelectedInfobase.Name}" FontSize="16" FontWeight="SemiBold"
                                                Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                                    <TextBlock Text="{Binding SelectedInfobase.GroupDisplay, StringFormat=Группа: {0}}"
-                                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0"/>
+                                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0">
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="{}{0}: {1}">
+                                                <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
+                                                         Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.GroupLabel"/>
+                                                <Binding Path="SelectedInfobase.GroupDisplay"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
                                 </StackPanel>
                             </StackPanel>
 
@@ -1376,19 +1390,27 @@
                                         Visibility="{Binding SelectedInfobase.IsFavorite, Converter={StaticResource BoolToVis}}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Star" Width="12" Height="12" Foreground="#F59E0B" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding SelectedInfobase.FavoriteHotkeyDisplay, StringFormat=Избранное {0}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource FavoriteBrush}"/>
+                                        <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource FavoriteBrush}">
+                                            <TextBlock.Text>
+                                                <MultiBinding StringFormat="{}{0} {1}">
+                                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
+                                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.Favorites"/>
+                                                    <Binding Path="SelectedInfobase.FavoriteHotkeyDisplay"/>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
                                     </StackPanel>
                                 </Border>
                                 <Border Background="#EDE9FE" CornerRadius="8" Padding="8,3" Margin="0,0,6,4"
                                         Visibility="{Binding SelectedInfobase.IsPinned, Converter={StaticResource BoolToVis}}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Pin" Width="12" Height="12" Foreground="#8B5CF6" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Закреплено" FontSize="11" Foreground="#5B21B6"/>
+                                        <TextBlock Text="{loc:Loc Main.PinnedLabel}" FontSize="11" Foreground="#5B21B6"/>
                                     </StackPanel>
                                 </Border>
                             </WrapPanel>
 
-                            <TextBlock Text="Информация о подключении" FontWeight="SemiBold" FontSize="12"
+                            <TextBlock Text="{loc:Loc Main.SectionConnInfo}" FontWeight="SemiBold" FontSize="12"
                                        Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
                             <Grid Margin="0,0,0,12">
                                 <Grid.ColumnDefinitions>
@@ -1401,29 +1423,29 @@
                                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Тип" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Main.Type}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionTypeDisplay}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Сервер / путь" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Main.ServerPath}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionPathDisplay}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Сервер/База" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Column.ServerBase}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedInfobase.ServerDatabaseDisplay}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Строка" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Main.ConnectionString}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionStringDisplay}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Платформа" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc Main.Platform}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedInfobase.PlatformVersion}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Режим запуска" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc Main.LaunchMode}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedInfobase.ParsedLaunchMode}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="6" Grid.Column="0" Text="Клиент" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="{loc:Loc Main.Client}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding SelectedInfobase.ClientType}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="7" Grid.Column="0" Text="Разрядность" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="7" Grid.Column="0" Text="{loc:Loc Main.Bitness}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding SelectedInfobase.ArchitectureDisplay}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="8" Grid.Column="0" Text="Параметры" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="8" Grid.Column="0" Text="{loc:Loc Main.Parameters}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding SelectedInfobase.LaunchParameters}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="9" Grid.Column="0" Text="Последний запуск" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="9" Grid.Column="0" Text="{loc:Loc Main.LastLaunch}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding SelectedInfobase.LastLaunchDisplay}" FontSize="12" Margin="0,0,0,5"/>
                             </Grid>
 
-                            <TextBlock Text="Описание" FontWeight="SemiBold" FontSize="12"
+                            <TextBlock Text="{loc:Loc Main.Description}" FontWeight="SemiBold" FontSize="12"
                                        Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4"/>
                             <TextBlock Text="{Binding SelectedInfobase.Description}" FontSize="12" TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,10"/>
@@ -1431,7 +1453,7 @@
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                 <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center"
                                       Data="{StaticResource IconTag}" Fill="{DynamicResource TextSecondaryBrush}"/>
-                                <TextBlock Text="Теги" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Text="{loc:Loc Main.Tags}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                             </StackPanel>
                             <ItemsControl ItemsSource="{Binding SelectedInfobase.Tags}" Margin="0,0,0,12">
@@ -1483,7 +1505,7 @@
                                                Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </StackPanel>
-                            <TextBlock Text="Выберите информационную базу в списке, чтобы увидеть параметры подключения, запуск и теги."
+                            <TextBlock Text="{loc:Loc Main.NoSelectionHint}"
                                        FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12"/>
                         </StackPanel>
 
@@ -1491,7 +1513,7 @@
                                 Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
 
                         <!-- Действия -->
-                        <TextBlock Text="Действия" FontWeight="SemiBold" FontSize="12"
+                        <TextBlock Text="{loc:Loc Main.Actions}" FontWeight="SemiBold" FontSize="12"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="0,0,0,10"
                                    Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
@@ -1516,9 +1538,15 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <Button Grid.Column="0" Command="{Binding LaunchEnterpriseCommand}"
-                                        ToolTip="{Binding HotkeyEnterprise, StringFormat=Запустить 1С:Предприятие ({0})}"
                                         Cursor="Hand" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
                                         Background="Transparent" BorderThickness="0" Padding="10,12,4,12" MinHeight="40">
+                                    <Button.ToolTip>
+                                        <MultiBinding StringFormat="{}{0} ({1})">
+                                            <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
+                                                     Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.LaunchEnterpriseShort"/>
+                                            <Binding Path="HotkeyEnterprise"/>
+                                        </MultiBinding>
+                                    </Button.ToolTip>
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}">
@@ -1538,14 +1566,14 @@
                                         <materialDesign:PackIcon Kind="Play" Width="16" Height="16" Margin="0,0,6,0"
                                                                  Foreground="White" VerticalAlignment="Center"/>
                                         <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="White"
-                                                   Text="1С:Предприятие" TextTrimming="None"
+                                                   Text="{loc:Loc Main.Enterprise}" TextTrimming="None"
                                                    LineHeight="20" LineStackingStrategy="BlockLineHeight"
                                                    Padding="0,1,0,2"/>
                                     </StackPanel>
                                 </Button>
                                 <Border Grid.Column="1" Width="1" Background="#55FFFFFF" Margin="0,8"/>
                                 <Button Grid.Column="2" x:Name="EnterpriseMenuButton" Width="28" MinWidth="28" Cursor="Hand"
-                                        Click="OnEnterpriseMenuClick" ToolTip="Дополнительные варианты запуска"
+                                        Click="OnEnterpriseMenuClick" ToolTip="{loc:Loc Main.MoreLaunchOptions}"
                                         Background="Transparent" BorderThickness="0" Padding="0">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
@@ -1562,20 +1590,20 @@
                                     </Button.Template>
                                     <Button.ContextMenu>
                                         <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                                            <MenuItem Header="Запустить с выбором параметров" Command="{Binding LaunchEnterpriseWithParamsCommand}"
+                                            <MenuItem Header="{loc:Loc Main.LaunchWithParams}" Command="{Binding LaunchEnterpriseWithParamsCommand}"
                                                       Style="{DynamicResource ModernMenuItem}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="Tune" Width="18" Height="18" Foreground="#0EA5E9"/>
                                                 </MenuItem.Icon>
                                             </MenuItem>
-                                            <MenuItem Header="Запустить с аутентификацией" Command="{Binding LaunchEnterpriseWithAuthCommand}"
+                                            <MenuItem Header="{loc:Loc Main.LaunchWithAuth}" Command="{Binding LaunchEnterpriseWithAuthCommand}"
                                                       Style="{DynamicResource ModernMenuItem}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="AccountKey" Width="18" Height="18" Foreground="#8B5CF6"/>
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <Separator/>
-                                            <MenuItem Header="Запустить от имени администратора" Command="{Binding LaunchEnterpriseAsAdminCommand}"
+                                            <MenuItem Header="{loc:Loc Main.LaunchAsAdmin}" Command="{Binding LaunchEnterpriseAsAdminCommand}"
                                                       Style="{DynamicResource ModernMenuItem}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="ShieldAccount" Width="18" Height="18" Foreground="#F59E0B"/>
@@ -1607,9 +1635,15 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <Button Grid.Column="0" Command="{Binding LaunchConfiguratorCommand}"
-                                        ToolTip="{Binding HotkeyConfigurator, StringFormat=Запустить Конфигуратор ({0})}"
                                         Cursor="Hand" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
                                         Background="Transparent" BorderThickness="0" Padding="10,12,4,12" MinHeight="40">
+                                    <Button.ToolTip>
+                                        <MultiBinding StringFormat="{}{0} ({1})">
+                                            <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
+                                                     Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.LaunchConfiguratorShort"/>
+                                            <Binding Path="HotkeyConfigurator"/>
+                                        </MultiBinding>
+                                    </Button.ToolTip>
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}">
@@ -1626,7 +1660,7 @@
                                         <materialDesign:PackIcon Kind="Wrench" Width="16" Height="16" Margin="0,0,6,0"
                                                                  Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                         <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" Text="Конфигуратор"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" Text="{loc:Loc Main.SectionConfigurator}"
                                                    TextTrimming="None"
                                                    LineHeight="20" LineStackingStrategy="BlockLineHeight"
                                                    Padding="0,1,0,2"/>
@@ -1634,7 +1668,7 @@
                                 </Button>
                                 <Border Grid.Column="1" Width="1" Background="{DynamicResource BorderBrushColor}" Margin="0,8"/>
                                 <Button Grid.Column="2" x:Name="ConfiguratorMenuButton" Width="28" MinWidth="28" Cursor="Hand"
-                                        Click="OnConfiguratorMenuClick" ToolTip="Дополнительные варианты запуска"
+                                        Click="OnConfiguratorMenuClick" ToolTip="{loc:Loc Main.MoreLaunchOptions}"
                                         Background="Transparent" BorderThickness="0" Padding="0">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
@@ -1652,14 +1686,14 @@
                                     </Button.Template>
                                     <Button.ContextMenu>
                                         <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                                            <MenuItem Header="Запустить с выбором параметров" Command="{Binding LaunchConfiguratorWithParamsCommand}"
+                                            <MenuItem Header="{loc:Loc Main.LaunchWithParams}" Command="{Binding LaunchConfiguratorWithParamsCommand}"
                                                       Style="{DynamicResource ModernMenuItem}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="Tune" Width="18" Height="18" Foreground="#0EA5E9"/>
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <Separator/>
-                                            <MenuItem Header="Запустить от имени администратора" Command="{Binding LaunchConfiguratorAsAdminCommand}"
+                                            <MenuItem Header="{loc:Loc Main.LaunchAsAdmin}" Command="{Binding LaunchConfiguratorAsAdminCommand}"
                                                       Style="{DynamicResource ModernMenuItem}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="ShieldAccount" Width="18" Height="18" Foreground="#F59E0B"/>
@@ -1673,7 +1707,7 @@
 
                         <!-- Родной стартер 1С (1CEStart.exe) для сверки списка -->
                         <Button Command="{Binding LaunchNativeStarterCommand}"
-                                ToolTip="Открыть стандартный стартер 1С (1CEStart.exe)"
+                                ToolTip="{loc:Loc Main.NativeStarterTooltip}"
                                 HorizontalContentAlignment="Left">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
@@ -1692,7 +1726,7 @@
                                                          Foreground="#F59E0B" VerticalAlignment="Center"/>
                                 <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
                                            Foreground="{DynamicResource ButtonTextBrush}"
-                                           Text="1С:Стартер" TextTrimming="None"/>
+                                           Text="{loc:Loc Main.NativeStarter}" TextTrimming="None"/>
                             </StackPanel>
                         </Button>
 
@@ -1719,7 +1753,7 @@
                             </Border.Style>
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Текущая сессия" FontWeight="SemiBold"
+                                    <TextBlock Text="{loc:Loc Main.CurrentSession}" FontWeight="SemiBold"
                                                Foreground="{DynamicResource TextPrimaryBrush}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
@@ -1737,44 +1771,44 @@
                                     <controls:HelpLink Margin="6,0,0,4"
                                                        HelpText="Блок «Текущая сессия» задаёт режим клиента и разрядность только для следующего запуска 1С:Предприятие, не изменяя сохранённые настройки базы.&#10;&#10;• Режим клиента: Авто / Обычный / Толстый (управляемые формы, /RunModeManagedApplication) / Толстый (обычные формы, /RunModeOrdinaryApplication) / Тонкий.&#10;• Разрядность: Авто / 32 / 64.&#10;• Выбранные значения применяются к очередному запуску; настройки базы в свойствах остаются прежними."/>
                                 </StackPanel>
-                                <TextBlock Text="Только для следующего запуска 1С:Предприятие."
+                                <TextBlock Text="{loc:Loc Main.SessionOnceHint}"
                                            FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
 
-                                <TextBlock Text="Режим клиента" FontSize="11" FontWeight="SemiBold"
+                                <TextBlock Text="{loc:Loc Main.ClientMode}" FontSize="11" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4"
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                                 <StackPanel Margin="0,0,0,8">
-                                    <RadioButton Content="Авто" GroupName="SessionClient"
+                                    <RadioButton Content="{loc:Loc Main.SessionClientAuto}" GroupName="SessionClient"
                                                  IsChecked="{Binding IsSessionClientAuto, Mode=TwoWay}"
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <RadioButton Content="Обычный" GroupName="SessionClient"
+                                    <RadioButton Content="{loc:Loc Main.SessionClientOrdinary}" GroupName="SessionClient"
                                                  IsChecked="{Binding IsSessionClientOrdinary, Mode=TwoWay}"
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <RadioButton Content="Толстый (управляемые формы)" GroupName="SessionClient"
+                                    <RadioButton Content="{loc:Loc Main.SessionClientThickManaged}" GroupName="SessionClient"
                                                  IsChecked="{Binding IsSessionClientThick, Mode=TwoWay}"
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
-                                                 ToolTip="Полный клиент 1cv8 в управляемых формах (/RunModeManagedApplication)"
+                                                 ToolTip="{loc:Loc Main.SessionThickManagedTooltip}"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <RadioButton Content="Толстый (обычные формы)" GroupName="SessionClient"
+                                    <RadioButton Content="{loc:Loc Main.SessionClientThickOrdinary}" GroupName="SessionClient"
                                                  IsChecked="{Binding IsSessionClientThickOrdinary, Mode=TwoWay}"
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
-                                                 ToolTip="Полный клиент 1cv8 в обычных формах (/RunModeOrdinaryApplication)"
+                                                 ToolTip="{loc:Loc Main.SessionThickOrdinaryTooltip}"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <RadioButton Content="Тонкий" GroupName="SessionClient"
+                                    <RadioButton Content="{loc:Loc Main.SessionClientThin}" GroupName="SessionClient"
                                                  IsChecked="{Binding IsSessionClientThin, Mode=TwoWay}"
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 </StackPanel>
 
-                                <TextBlock Text="Разрядность" FontSize="11" FontWeight="SemiBold"
+                                <TextBlock Text="{loc:Loc Main.Bitness}" FontSize="11" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4"
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                                 <StackPanel Orientation="Horizontal">
-                                    <RadioButton Content="Авто" GroupName="SessionArch"
+                                    <RadioButton Content="{loc:Loc Main.SessionClientAuto}" GroupName="SessionArch"
                                                  IsChecked="{Binding IsSessionArchAuto, Mode=TwoWay}"
                                                  Margin="0,2,10,2" Cursor="Hand" FontSize="12"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -1790,8 +1824,14 @@
                             </StackPanel>
                         </Border>
 
-                        <Button Command="{Binding EditInfobaseCommand}"
-                                ToolTip="{Binding HotkeyEdit, StringFormat=Изменить настройки базы ({0})}">
+                        <Button Command="{Binding EditInfobaseCommand}">
+                            <Button.ToolTip>
+                                <MultiBinding StringFormat="{}{0} ({1})">
+                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
+                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.EditBaseTooltip"/>
+                                    <Binding Path="HotkeyEdit"/>
+                                </MultiBinding>
+                            </Button.ToolTip>
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
@@ -1816,10 +1856,10 @@
                                                Foreground="{DynamicResource ButtonTextBrush}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Изменить настройки"/>
+                                                <Setter Property="Text" Value="{loc:Loc Main.EditSettings}"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                        <Setter Property="Text" Value="Изменить"/>
+                                                        <Setter Property="Text" Value="{loc:Loc Main.EditShort}"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -1833,8 +1873,14 @@
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                             </Grid>
                         </Button>
-                        <Button Command="{Binding AddInfobaseCommand}"
-                                ToolTip="{Binding HotkeyAdd, StringFormat=Добавить базу или группу ({0})}">
+                        <Button Command="{Binding AddInfobaseCommand}">
+                            <Button.ToolTip>
+                                <MultiBinding StringFormat="{}{0} ({1})">
+                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
+                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.AddBaseOrGroupTooltip"/>
+                                    <Binding Path="HotkeyAdd"/>
+                                </MultiBinding>
+                            </Button.ToolTip>
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
@@ -1859,10 +1905,10 @@
                                                Foreground="{DynamicResource ButtonTextBrush}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Добавить базу / группу"/>
+                                                <Setter Property="Text" Value="{loc:Loc Main.AddBaseOrGroup}"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                        <Setter Property="Text" Value="Добавить"/>
+                                                        <Setter Property="Text" Value="{loc:Loc Main.AddShort}"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -1876,8 +1922,14 @@
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                             </Grid>
                         </Button>
-                        <Button Command="{Binding ToggleFavoriteCommand}"
-                                ToolTip="{Binding HotkeyFavorite, StringFormat=Избранное ({0})}">
+                        <Button Command="{Binding ToggleFavoriteCommand}">
+                            <Button.ToolTip>
+                                <MultiBinding StringFormat="{}{0} ({1})">
+                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
+                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.FavoritesTooltipShort"/>
+                                    <Binding Path="HotkeyFavorite"/>
+                                </MultiBinding>
+                            </Button.ToolTip>
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
@@ -1897,7 +1949,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                     <materialDesign:PackIcon Kind="Star" Width="16" Height="16" Foreground="#B45309" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Избранное" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="#B45309"/>
+                                    <TextBlock Text="{loc:Loc Main.Favorites}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="#B45309"/>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding HotkeyFavorite}"
                                            VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
@@ -1905,8 +1957,14 @@
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                             </Grid>
                         </Button>
-                        <Button Command="{Binding TogglePinCommand}"
-                                ToolTip="{Binding HotkeyPin, StringFormat=Закрепить базу ({0})}">
+                        <Button Command="{Binding TogglePinCommand}">
+                            <Button.ToolTip>
+                                <MultiBinding StringFormat="{}{0} ({1})">
+                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
+                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.PinBaseTooltip"/>
+                                    <Binding Path="HotkeyPin"/>
+                                </MultiBinding>
+                            </Button.ToolTip>
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
@@ -1926,7 +1984,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                     <materialDesign:PackIcon Kind="Pin" Width="16" Height="16" Foreground="#6D28D9" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Закрепить" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                    <TextBlock Text="{loc:Loc Main.Pin}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
                                                Foreground="{DynamicResource ButtonTextBrush}"/>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding HotkeyPin}"
@@ -1936,7 +1994,7 @@
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                             </Grid>
                         </Button>
-                        <Button x:Name="ClearCacheMenuButton" Click="OnClearCacheMenuClick" ToolTip="Очистить кэш 1С">
+                        <Button x:Name="ClearCacheMenuButton" Click="OnClearCacheMenuClick" ToolTip="{loc:Loc Main.ClearCacheTooltip}">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
@@ -1958,7 +2016,7 @@
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.Column="0">
                                     <materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Margin="0,0,4,0"
                                                              Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Очистить кэш" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                    <TextBlock Text="{loc:Loc Main.ClearCache}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
                                                Foreground="{DynamicResource ButtonTextBrush}"/>
                                 </StackPanel>
                                 <materialDesign:PackIcon Grid.Column="1" Kind="ChevronDown" Width="14" Height="14"
@@ -1971,14 +2029,14 @@
                             </Grid>
                             <Button.ContextMenu>
                                 <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                                    <MenuItem Header="Очистка программного кэша" Command="{Binding ClearProgramCacheCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem Header="{loc:Loc Main.ClearProgramCacheTitle}" Command="{Binding ClearProgramCacheCommand}" Style="{DynamicResource ModernMenuItem}">
                                         <MenuItem.Icon><materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
                                     </MenuItem>
-                                    <MenuItem Header="Очистка пользовательского кэша" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem Header="{loc:Loc Main.ClearUserCacheTitle}" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}">
                                         <MenuItem.Icon><materialDesign:PackIcon Kind="Account" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
                                     </MenuItem>
                                     <Separator/>
-                                    <MenuItem Header="Очистить программный и пользовательский кэш" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem Header="{loc:Loc Main.ClearBothCaches}" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}">
                                         <MenuItem.Icon><materialDesign:PackIcon Kind="DeleteSweep" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
                                     </MenuItem>
                                 </ContextMenu>
@@ -1987,8 +2045,14 @@
                         <Border Height="1" Background="{DynamicResource BorderBrushColor}" Margin="0,6,0,8"
                                 Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
 
-                        <Button Command="{Binding DeleteInfobaseCommand}"
-                                ToolTip="{Binding HotkeyDelete, StringFormat=Удалить ({0})}">
+                        <Button Command="{Binding DeleteInfobaseCommand}">
+                            <Button.ToolTip>
+                                <MultiBinding StringFormat="{}{0} ({1})">
+                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
+                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.DeleteTooltip"/>
+                                    <Binding Path="HotkeyDelete"/>
+                                </MultiBinding>
+                            </Button.ToolTip>
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
@@ -2008,7 +2072,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                     <materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#DC2626" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Удалить" VerticalAlignment="Center" Foreground="#DC2626" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center" Foreground="#DC2626" FontSize="12" FontWeight="SemiBold"/>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding HotkeyDelete}"
                                            VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
@@ -2032,7 +2096,7 @@
                         </Border>
 
                         <Button Command="{Binding OpenInfobaseByLinkCommand}"
-                                ToolTip="Ввести ссылку на информационную базу и запустить её (как в стандартном загрузчике 1С)">
+                                ToolTip="{loc:Loc Main.OpenLinkTooltip}">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
@@ -2057,10 +2121,10 @@
                                                Foreground="{DynamicResource ButtonTextBrush}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Перейти по ссылке"/>
+                                                <Setter Property="Text" Value="{loc:Loc LinkInput.Title}"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                        <Setter Property="Text" Value="По ссылке"/>
+                                                        <Setter Property="Text" Value="{loc:Loc Main.OpenByLinkShort}"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -2091,7 +2155,7 @@
                         </Border>
 
                         <Button Click="OnExitApplicationClick"
-                                ToolTip="Полностью завершить работу приложения (игнорируя настройку «Закрывать в трей»)">
+                                ToolTip="{loc:Loc Main.ExitTooltip}">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
@@ -2111,7 +2175,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                     <materialDesign:PackIcon Kind="ExitToApp" Width="16" Height="16" Foreground="#DC2626" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Выход" VerticalAlignment="Center" Foreground="#DC2626" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{loc:Loc Main.Exit}" VerticalAlignment="Center" Foreground="#DC2626" FontSize="12" FontWeight="SemiBold"/>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="✕"
                                            VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
@@ -2139,7 +2203,7 @@
                            ToolTip="{Binding StatusBarInfo}">
                     <TextBlock.ContextMenu>
                         <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                            <MenuItem Header="Копировать путь"
+                            <MenuItem Header="{loc:Loc Main.CopyPath}"
                                       Command="{Binding CopyConnectionStringCommand}"
                                       Style="{DynamicResource ModernMenuItem}">
                                 <MenuItem.Icon>
@@ -2153,7 +2217,7 @@
                            Foreground="{DynamicResource TextOnAccentBrush}" FontSize="12"
                            VerticalAlignment="Center" Margin="16,0,8,0"
                            TextTrimming="CharacterEllipsis"
-                           ToolTip="Результат последней синхронизации с файлом ibases.v8i"/>
+                           ToolTip="{loc:Loc Main.SyncResultTooltip}"/>
                 <Button Grid.Column="2" Command="{Binding ToggleRightPanelDetailsCommand}"
                         Style="{DynamicResource StatusBarIconButton}"
                         Margin="4,0,0,0"

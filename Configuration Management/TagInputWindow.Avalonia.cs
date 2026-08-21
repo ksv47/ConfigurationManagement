@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management
 {
@@ -19,7 +20,7 @@ namespace Configuration_Management
         /// </summary>
         public TagInputWindow()
         {
-            Title = "Название тега";
+            Title = LocalizationManager.T("TagInput.Title");
             Width = 420;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
@@ -33,7 +34,7 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            var prompt = new TextBlock { Text = "Название тега:", Margin = new Thickness(0, 0, 0, 8) };
+            var prompt = new TextBlock { Text = LocalizationManager.T("TagInput.Prompt"), Margin = new Thickness(0, 0, 0, 8) };
             Grid.SetRow(prompt, 0);
 
             Grid.SetRow(_tagBox, 1);

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.ViewModels;
@@ -66,7 +67,23 @@ namespace Configuration_Management
                     SyncRepositoryPasswordBoxFromViewModel();
                 else if (e.PropertyName == nameof(ConnectionSettingsViewModel.ConfiguratorPassword))
                     SyncConfiguratorPasswordBoxFromViewModel();
+                else if (e.PropertyName == nameof(ConnectionSettingsViewModel.IsOs64Bit))
+                    UpdateOsArchitectureHint();
             };
+            LocalizationManager.Instance.LanguageChanged += (_, _) => UpdateOsArchitectureHint();
+            UpdateOsArchitectureHint();
+        }
+
+        /// <summary>
+        /// Обновляет текст подсказки о разрядности ОС. Управляется в коде,
+        /// т.к. внутри Style.Triggers нельзя использовать привязки ({loc:Loc}).
+        /// </summary>
+        private void UpdateOsArchitectureHint()
+        {
+            if (OsArchitectureHintText is null || _viewModel is null) return;
+            OsArchitectureHintText.Text = _viewModel.IsOs64Bit
+                ? LocalizationManager.T("Connection.Os64Text")
+                : LocalizationManager.T("Connection.Os32Text");
         }
 
         /// <summary>
@@ -78,7 +95,7 @@ namespace Configuration_Management
                 _viewModel.Groups,
                 currentGroupId: _viewModel.SelectedGroup?.Id,
                 allowNone: true,
-                noneLabel: "— Без группы —")
+                noneLabel: LocalizationManager.T("Connection.NoGroup"))
             {
                 Owner = this
             };
@@ -97,7 +114,7 @@ namespace Configuration_Management
         {
             var dialog = new Microsoft.Win32.OpenFolderDialog
             {
-                Title = "Выберите каталог информационной базы 1С",
+                Title = LocalizationManager.T("Connection.ChooseFolderTitle"),
                 Multiselect = false
             };
             var current = _viewModel.FilePath;
@@ -142,8 +159,9 @@ namespace Configuration_Management
             // чтобы оно совпадало с применённым значением.
             _viewModel.ConnectionString = dialog.Result ?? string.Empty;
 
-            MessageBox.Show("Строка подключения успешно разобрана и заполнена по полям.",
-                "Вставка строки подключения", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(LocalizationManager.T("Connection.PasteSuccess"),
+                LocalizationManager.T("Connection.PasteSuccessTitle"),
+                MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         /// <summary>

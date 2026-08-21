@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Themes;
 
 namespace Configuration_Management
@@ -40,7 +41,7 @@ namespace Configuration_Management
         /// <param name="initialColor">Начальный цвет в формате #RRGGBB.</param>
         public ColorPickerWindow(string? initialColor = null)
         {
-            Title = "Выбор цвета";
+            Title = LocalizationManager.T("ColorPicker.Title");
             Width = 380;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
@@ -80,7 +81,7 @@ namespace Configuration_Management
             // Палитра
             var paletteLabel = new TextBlock
             {
-                Text = "Палитра:",
+                Text = LocalizationManager.T("ColorPicker.Palette"),
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 0, 0, 6)
             };

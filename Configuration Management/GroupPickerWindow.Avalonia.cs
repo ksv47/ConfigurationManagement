@@ -7,6 +7,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.ViewModels;
 
@@ -27,7 +28,7 @@ namespace Configuration_Management
         private GroupNodeViewModel? _selectedNode;
 
         private readonly TreeView _tree = new();
-        private readonly Button _selectButton = new() { Content = "Выбрать", MinWidth = 110, IsDefault = true };
+        private readonly Button _selectButton = new() { Content = LocalizationManager.T("Common.Select"), MinWidth = 110, IsDefault = true };
         private readonly RadioButton _sortAsc = new() { Content = "А → Я", IsChecked = true };
         private readonly RadioButton _sortDesc = new() { Content = "Я → А" };
 
@@ -41,9 +42,9 @@ namespace Configuration_Management
             string? currentGroupId = null,
             string? excludeGroupId = null,
             bool allowNone = true,
-            string noneLabel = "— Без группы —")
+            string noneLabel = "")
         {
-            Title = "Выбор группы";
+            Title = LocalizationManager.T("GroupPicker.Title");
             Width = 480;
             Height = 520;
             MinWidth = 420;
@@ -52,7 +53,7 @@ namespace Configuration_Management
             _groups = groups.ToList();
             _currentGroupId = currentGroupId ?? string.Empty;
             _allowNone = allowNone;
-            _noneLabel = noneLabel;
+            _noneLabel = string.IsNullOrEmpty(noneLabel) ? LocalizationManager.T("Connection.NoGroup") : noneLabel;
 
             _allowed = string.IsNullOrEmpty(excludeGroupId)
                 ? _groups.ToList()
@@ -90,7 +91,7 @@ namespace Configuration_Management
             _sortDesc.GroupName = "Sort";
             _sortAsc.Checked += (_, _) => { _sortAscending = true; _sortDesc.IsChecked = false; RefreshTree(); };
             _sortDesc.Checked += (_, _) => { _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree(); };
-            sortPanel.Children.Add(new TextBlock { Text = "Сортировка:", VerticalAlignment = VerticalAlignment.Center });
+            sortPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("Common.SortLabel"), VerticalAlignment = VerticalAlignment.Center });
             sortPanel.Children.Add(_sortAsc);
             sortPanel.Children.Add(_sortDesc);
             Grid.SetRow(sortPanel, 0);
@@ -135,7 +136,7 @@ namespace Configuration_Management
                 Spacing = 8,
                 Margin = new Thickness(0, 12, 0, 0)
             };
-            var cancel = new Button { Content = "Отмена", MinWidth = 100, IsCancel = true };
+            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
             cancel.Click += (_, _) => Close();
             buttons.Children.Add(cancel);
             _selectButton.Click += (_, _) => OnSelect_Click();

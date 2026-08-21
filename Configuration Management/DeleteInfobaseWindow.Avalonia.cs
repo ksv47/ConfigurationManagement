@@ -3,6 +3,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.Themes;
@@ -17,7 +18,7 @@ namespace Configuration_Management
     {
         private readonly Infobase _infobase;
         private readonly IDialogService _dialogs;
-        private readonly CheckBox _physicalDeleteCheck = new() { Content = "Физически удалить каталог базы с диска" };
+        private readonly CheckBox _physicalDeleteCheck = new() { Content = LocalizationManager.T("DeleteInfobase.PhysicalDelete") };
         private readonly StackPanel _physicalPanel = new() { Spacing = 6 };
         private readonly TextBlock _existsText = new();
         private readonly TextBlock _physicalHint = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
@@ -30,7 +31,7 @@ namespace Configuration_Management
 
         public DeleteInfobaseWindow(Infobase infobase)
         {
-            Title = "Удаление информационной базы";
+            Title = LocalizationManager.T("DeleteInfobase.Title");
             Width = 520;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
@@ -54,7 +55,7 @@ namespace Configuration_Management
 
             var title = new TextBlock
             {
-                Text = "Удаление информационной базы",
+                Text = LocalizationManager.T("DeleteInfobase.Title"),
                 FontSize = 15,
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 0, 0, 12)
@@ -63,13 +64,13 @@ namespace Configuration_Management
             grid.Children.Add(title);
 
             var details = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 0, 12) };
-            details.Children.Add(DetailRow("Наименование", string.IsNullOrWhiteSpace(_infobase.Name) ? "—" : _infobase.Name));
-            details.Children.Add(DetailRow("Тип", _infobase.ConnectionTypeDisplay));
-            details.Children.Add(DetailRow("Сервер / путь", string.IsNullOrWhiteSpace(_infobase.ServerDatabaseDisplay)
+            details.Children.Add(DetailRow(LocalizationManager.T("DeleteInfobase.DetailName"), string.IsNullOrWhiteSpace(_infobase.Name) ? "—" : _infobase.Name));
+            details.Children.Add(DetailRow(LocalizationManager.T("Main.Type"), _infobase.ConnectionTypeDisplay));
+            details.Children.Add(DetailRow(LocalizationManager.T("Main.ServerPath"), string.IsNullOrWhiteSpace(_infobase.ServerDatabaseDisplay)
                 ? (_infobase.ConnectionStringDisplay ?? "—")
                 : _infobase.ServerDatabaseDisplay));
-            details.Children.Add(DetailRow("Группа", string.IsNullOrWhiteSpace(_infobase.Group) ? "— Без группы —" : _infobase.Group));
-            details.Children.Add(DetailRow("Платформа", string.IsNullOrWhiteSpace(_infobase.PlatformVersion) ? "—" : _infobase.PlatformVersion));
+            details.Children.Add(DetailRow(LocalizationManager.T("Main.GroupLabel"), string.IsNullOrWhiteSpace(_infobase.Group) ? LocalizationManager.T("Connection.NoGroup") : _infobase.Group));
+            details.Children.Add(DetailRow(LocalizationManager.T("Main.Platform"), string.IsNullOrWhiteSpace(_infobase.PlatformVersion) ? "—" : _infobase.PlatformVersion));
             Grid.SetRow(details, 1);
             grid.Children.Add(details);
 
@@ -77,9 +78,9 @@ namespace Configuration_Management
 
             // Панель физического удаления
             _physicalPanel.Margin = new Thickness(0, 0, 0, 12);
-            _physicalPanel.Children.Add(new TextBlock { Text = "Физическое удаление файловой базы:", FontWeight = FontWeight.SemiBold });
+            _physicalPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("DeleteInfobase.PhysicalHeader"), FontWeight = FontWeight.SemiBold });
             var existsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            existsRow.Children.Add(new TextBlock { Text = "Каталог на диске:" });
+            existsRow.Children.Add(new TextBlock { Text = LocalizationManager.T("DeleteInfobase.DirLabel") });
             existsRow.Children.Add(_existsText);
             _physicalPanel.Children.Add(existsRow);
 
@@ -89,28 +90,28 @@ namespace Configuration_Management
                 var exists = InfobaseMaintenanceService.FileBaseExists(_infobase);
                 if (exists && !string.IsNullOrEmpty(dir))
                 {
-                    _existsText.Text = $"да — {dir}";
+                    _existsText.Text = string.Format(LocalizationManager.T("DeleteInfobase.ExistsYes"), dir);
                     _existsText.Foreground = new SolidColorBrush(Color.Parse("#2E8B57"));
                     _physicalDeleteCheck.IsEnabled = true;
-                    _physicalHint.Text = $"Будет удалён каталог:\n{dir}\nвместе с 1Cv8.1CD и всеми файлами. Действие необратимо.";
+                    _physicalHint.Text = string.Format(LocalizationManager.T("DeleteInfobase.PhysicalHintDynamic"), dir);
                 }
                 else
                 {
                     _existsText.Text = string.IsNullOrEmpty(dir)
-                        ? "каталог не указан или не найден"
-                        : $"каталог не найден: {dir}";
+                        ? LocalizationManager.T("DeleteInfobase.DirNotSpecified")
+                        : string.Format(LocalizationManager.T("DeleteInfobase.DirNotFound"), dir);
                     // Серый статус «каталог не найден» — вторичный текст из темы.
                     ThemeBrushes.Bind(_existsText, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
                     _physicalDeleteCheck.IsEnabled = false;
                     _physicalDeleteCheck.IsChecked = false;
-                    _physicalHint.Text = "Физическое удаление недоступно: каталог базы на диске не найден.";
+                    _physicalHint.Text = LocalizationManager.T("DeleteInfobase.PhysicalUnavailable");
                 }
                 _physicalPanel.Children.Add(_physicalDeleteCheck);
                 _physicalPanel.Children.Add(_physicalHint);
             }
             else
             {
-                _existsText.Text = "клиент-серверная / веб — только из списка";
+                _existsText.Text = LocalizationManager.T("DeleteInfobase.NonFileOnlyFromList");
                 ThemeBrushes.Bind(_existsText, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
             }
 
@@ -124,7 +125,7 @@ namespace Configuration_Management
                 Spacing = 8,
                 Margin = new Thickness(0, 12, 0, 0)
             };
-            var cancel = new Button { Content = "Отмена", MinWidth = 100, IsCancel = true };
+            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
             cancel.Click += (_, _) => Close();
             buttons.Children.Add(cancel);
             var delete = new Button
@@ -136,7 +137,7 @@ namespace Configuration_Management
                     Children =
                     {
                         IconHelper.MakeIcon("IconDelete", 16, "TextOnAccentColorBrush"),
-                        new TextBlock { Text = "Удалить", VerticalAlignment = VerticalAlignment.Center }
+                        new TextBlock { Text = LocalizationManager.T("DeleteInfobase.Delete"), VerticalAlignment = VerticalAlignment.Center }
                     }
                 },
                 MinWidth = 120,
@@ -178,8 +179,8 @@ namespace Configuration_Management
             {
                 var dir = InfobaseMaintenanceService.GetFileBaseDirectory(_infobase) ?? "";
                 var confirm = _dialogs.Confirm(
-                    $"Подтвердите физическое удаление каталога базы:\n\n{dir}\n\nВсе файлы будут уничтожены безвозвратно.",
-                    "Физическое удаление");
+                    string.Format(LocalizationManager.T("DeleteInfobase.PhysicalConfirm"), dir),
+                    LocalizationManager.T("DeleteInfobase.PhysicalDeleteTitle"));
                 if (!confirm)
                     return;
             }

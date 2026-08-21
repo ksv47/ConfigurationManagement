@@ -1,6 +1,7 @@
 #if LINUX
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management.ViewModels;
 
@@ -10,6 +11,12 @@ namespace Configuration_Management.ViewModels;
 /// </summary>
 public abstract class ViewModelBase : INotifyPropertyChanged
 {
+    /// <summary>
+    /// Источник локализации для привязок XAML: <c>{Binding Loc[Key]}</c>.
+    /// При смене языка открытые окна автоматически обновляют текст.
+    /// </summary>
+    public LocalizationSource Loc => LocalizationManager.Instance.Source;
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)

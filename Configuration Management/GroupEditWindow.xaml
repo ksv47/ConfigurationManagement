@@ -5,8 +5,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:controls="clr-namespace:Configuration_Management.Controls"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         mc:Ignorable="d"
-        Title="Настройка группы"
+        Title="{loc:Loc GroupEdit.Title}"
         Icon="{StaticResource AppIcon}"
         Width="540"
         MinWidth="460"
@@ -165,7 +166,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="TextBox" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                        <TextBlock Text="Основные" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc GroupEdit.TabMain}" VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -173,7 +174,7 @@
                               HorizontalScrollBarVisibility="Disabled"
                               Padding="2,8,2,4"
                               CanContentScroll="False">
-                    <GroupBox Header="Основные параметры" Padding="10" Margin="0,0,0,12"
+                    <GroupBox Header="{loc:Loc GroupEdit.BasicParams}" Padding="10" Margin="0,0,0,12"
                               BorderBrush="{DynamicResource BorderBrushColor}"
                               Background="{DynamicResource CardBackgroundBrush}">
                         <Grid>
@@ -186,11 +187,11 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Наименование:" VerticalAlignment="Center" Margin="0,4"
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc GroupEdit.NameLabel}" VerticalAlignment="Center" Margin="0,4"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBox x:Name="NameBox" Grid.Row="0" Grid.Column="1" Margin="0,4" Padding="4,3"
                                      Style="{DynamicResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Родительская группа:" VerticalAlignment="Center" Margin="0,4"
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc GroupEdit.ParentGroupLabel}" VerticalAlignment="Center" Margin="0,4"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <Grid Grid.Row="1" Grid.Column="1" Margin="0,4">
                                 <Grid.ColumnDefinitions>
@@ -201,19 +202,19 @@
                                 <TextBox x:Name="ParentPathBox" Grid.Column="0" IsReadOnly="True" Padding="4,3"
                                          Style="{DynamicResource ModernTextBox}"
                                          VerticalContentAlignment="Center"
-                                         ToolTip="Группа, внутри которой будет находиться данная группа. Пусто — корневая (без родителя)."/>
+                                         ToolTip="{loc:Loc GroupEdit.ParentTooltip}"/>
                                 <Button x:Name="SelectParentButton" Grid.Column="1" Margin="6,0,0,0" Padding="10,4"
                                         Style="{DynamicResource SecondaryButton}"
-                                        Click="OnSelectParent_Click" ToolTip="Выбрать родительскую группу в дереве">
+                                        Click="OnSelectParent_Click" ToolTip="{loc:Loc GroupEdit.SelectParentTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="📁" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Выбрать…" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc GroupEdit.SelectParent}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <controls:HelpLink Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center"
-                                                   HelpText="Группа, внутри которой будет находиться данная группа (вложенность «группа в группе»).&#10;&#10;• Кнопка «Выбрать…» открывает окно выбора родительской группы в виде дерева (у каждой группы виден её цвет и иконка).&#10;• Пункт «Корневая группа» делает группу корневой (без родителя).&#10;• Поле пустое — группа корневая.&#10;• У служебного узла «Без группы» это поле заблокировано."/>
+                                                   HelpText="{loc:Loc GroupEdit.ParentHelp}"/>
                             </Grid>
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Описание:" VerticalAlignment="Center" Margin="0,4"
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc GroupEdit.DescriptionLabel}" VerticalAlignment="Center" Margin="0,4"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBox x:Name="DescriptionBox" Grid.Row="2" Grid.Column="1" Margin="0,4" Padding="4,3"
                                      Style="{DynamicResource ModernTextBox}"/>
@@ -228,7 +229,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                        <TextBlock Text="Цвет" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc GroupEdit.TabColor}" VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -238,11 +239,11 @@
                               HorizontalScrollBarVisibility="Disabled"
                               Padding="2,8,2,4"
                               CanContentScroll="False">
-                    <GroupBox Header="Цвет заголовка" Padding="10" Margin="0,0,0,12"
+                    <GroupBox Header="{loc:Loc GroupEdit.TitleColor}" Padding="10" Margin="0,0,0,12"
                               BorderBrush="{DynamicResource BorderBrushColor}"
                               Background="{DynamicResource CardBackgroundBrush}">
                         <StackPanel>
-                            <TextBlock Text="Фон строки группы в списке баз."
+                            <TextBlock Text="{loc:Loc GroupEdit.ColorHint}"
                                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"
                                        TextWrapping="Wrap"/>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -251,16 +252,16 @@
                                 <TextBlock x:Name="ColorHexText" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" FontFamily="Consolas"/>
                                 <Button Margin="16,0,0,0" Padding="10,4" Style="{DynamicResource SecondaryButton}"
-                                        Click="OnPickHeaderColor_Click" ToolTip="Полная палитра для цвета заголовка">
+                                        Click="OnPickHeaderColor_Click" ToolTip="{loc:Loc GroupEdit.FullPaletteTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
                                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock Text="Палитра…" VerticalAlignment="Center"
+                                        <TextBlock Text="{loc:Loc GroupEdit.PaletteButton}" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
-                            <TextBlock Text="Быстрый выбор:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                            <TextBlock Text="{loc:Loc GroupEdit.QuickPick}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
                             <UniformGrid x:Name="HeaderPaletteGrid" Rows="2" Columns="8">
                                 <Button Style="{StaticResource PaletteColorButton}" Tag="#EF4444" Click="OnHeaderPalette_Click"/>
                                 <Button Style="{StaticResource PaletteColorButton}" Tag="#F97316" Click="OnHeaderPalette_Click"/>
@@ -290,7 +291,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Shape" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                        <TextBlock Text="Иконка" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc GroupEdit.TabIcon}" VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -300,11 +301,11 @@
                               HorizontalScrollBarVisibility="Disabled"
                               Padding="2,8,2,4"
                               CanContentScroll="False">
-                    <GroupBox Header="Иконка и её цвет" Padding="10" Margin="0,0,0,12"
+                    <GroupBox Header="{loc:Loc GroupEdit.IconAndColor}" Padding="10" Margin="0,0,0,12"
                               BorderBrush="{DynamicResource BorderBrushColor}"
                               Background="{DynamicResource CardBackgroundBrush}">
                         <StackPanel>
-                            <TextBlock Text="Цвет только для иконки (независим от фона заголовка)."
+                            <TextBlock Text="{loc:Loc GroupEdit.IconColorHint}"
                                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"
                                        TextWrapping="Wrap"/>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -313,16 +314,16 @@
                                 <TextBlock x:Name="IconColorHexText" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" FontFamily="Consolas"/>
                                 <Button Margin="16,0,0,0" Padding="10,4" Style="{DynamicResource SecondaryButton}"
-                                        Click="OnPickIconColor_Click" ToolTip="Полная палитра для цвета иконки">
+                                        Click="OnPickIconColor_Click" ToolTip="{loc:Loc GroupEdit.IconFullPaletteTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
                                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock Text="Палитра…" VerticalAlignment="Center"
+                                        <TextBlock Text="{loc:Loc GroupEdit.PaletteButton}" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
-                            <TextBlock Text="Быстрый выбор цвета иконки:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                            <TextBlock Text="{loc:Loc GroupEdit.IconQuickPick}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
                             <UniformGrid x:Name="IconPaletteGrid" Rows="2" Columns="8" Margin="0,0,0,12">
                                 <Button Style="{StaticResource PaletteColorButton}" Tag="#EF4444" Click="OnIconPalette_Click"/>
                                 <Button Style="{StaticResource PaletteColorButton}" Tag="#F97316" Click="OnIconPalette_Click"/>
@@ -341,7 +342,7 @@
                                 <Button Style="{StaticResource PaletteColorButton}" Tag="#A855F7" Click="OnIconPalette_Click"/>
                                 <Button Style="{StaticResource PaletteColorButton}" Tag="#D946EF" Click="OnIconPalette_Click"/>
                             </UniformGrid>
-                            <TextBlock Text="Иконка:"
+                            <TextBlock Text="{loc:Loc GroupEdit.IconLabel}"
                                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"/>
                             <WrapPanel x:Name="IconPickerPanel"/>
                         </StackPanel>
@@ -374,7 +375,7 @@
                     <StackPanel Orientation="Horizontal">
                         <Path Data="{StaticResource IconSave}" Fill="White" Width="16" Height="16"
                               Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Сохранить" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:Loc Common.Save}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                     </StackPanel>
                 </Button>
                 <Button Width="120" Height="36" IsCancel="True"
@@ -398,7 +399,7 @@
                     <StackPanel Orientation="Horizontal">
                         <Path Data="{StaticResource IconClear}" Fill="#EF4444" Width="14" Height="14"
                               Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                     </StackPanel>
                 </Button>
             </StackPanel>

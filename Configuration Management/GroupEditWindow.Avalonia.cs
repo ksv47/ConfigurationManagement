@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.ViewModels;
 
@@ -37,15 +38,15 @@ namespace Configuration_Management
 
         private static readonly (string Key, string Label)[] AvailableIcons =
         {
-            ("", "По умолчанию"), ("IconFolder", "Папка"), ("IconDatabase", "База"),
-            ("IconServices", "Сервер"), ("IconStar", "Звезда"), ("IconTag", "Тег"),
-            ("IconPin", "Закрепить"), ("IconInfo", "Инфо"), ("IconPlay", "Запуск"),
-            ("IconSettings", "Настройки"), ("IconSearch", "Поиск"), ("IconAdd", "Добавить"),
-            ("IconUsers", "Пользователи"), ("IconHistory", "История"), ("IconSync", "Синхронизация"),
-            ("IconBackup", "Резервная копия"), ("IconConfiguration", "Конфигурация"),
-            ("IconEdit", "Редактирование"), ("IconSave", "Сохранение"), ("IconRefresh", "Обновление"),
-            ("IconWarning", "Внимание"), ("IconError", "Ошибка"), ("IconTheme", "Тема"),
-            ("IconCompare", "Сравнение"), ("IconMerge", "Объединение")
+            ("", LocalizationManager.T("GroupEdit.Icon.Default")), ("IconFolder", LocalizationManager.T("GroupEdit.Icon.Folder")), ("IconDatabase", LocalizationManager.T("GroupEdit.Icon.Database")),
+            ("IconServices", LocalizationManager.T("GroupEdit.Icon.Services")), ("IconStar", LocalizationManager.T("GroupEdit.Icon.Star")), ("IconTag", LocalizationManager.T("GroupEdit.Icon.Tag")),
+            ("IconPin", LocalizationManager.T("GroupEdit.Icon.Pin")), ("IconInfo", LocalizationManager.T("GroupEdit.Icon.Info")), ("IconPlay", LocalizationManager.T("GroupEdit.Icon.Play")),
+            ("IconSettings", LocalizationManager.T("GroupEdit.Icon.Settings")), ("IconSearch", LocalizationManager.T("GroupEdit.Icon.Search")), ("IconAdd", LocalizationManager.T("GroupEdit.Icon.Add")),
+            ("IconUsers", LocalizationManager.T("GroupEdit.Icon.Users")), ("IconHistory", LocalizationManager.T("GroupEdit.Icon.History")), ("IconSync", LocalizationManager.T("GroupEdit.Icon.Sync")),
+            ("IconBackup", LocalizationManager.T("GroupEdit.Icon.Backup")), ("IconConfiguration", LocalizationManager.T("GroupEdit.Icon.Configuration")),
+            ("IconEdit", LocalizationManager.T("GroupEdit.Icon.Edit")), ("IconSave", LocalizationManager.T("GroupEdit.Icon.Save")), ("IconRefresh", LocalizationManager.T("GroupEdit.Icon.Refresh")),
+            ("IconWarning", LocalizationManager.T("GroupEdit.Icon.Warning")), ("IconError", LocalizationManager.T("GroupEdit.Icon.Error")), ("IconTheme", LocalizationManager.T("GroupEdit.Icon.Theme")),
+            ("IconCompare", LocalizationManager.T("GroupEdit.Icon.Compare")), ("IconMerge", LocalizationManager.T("GroupEdit.Icon.Merge"))
         };
 
         private static readonly string[] HeaderPalette =
@@ -87,7 +88,7 @@ namespace Configuration_Management
             string? noGroupIconColor,
             string? noGroupIcon)
         {
-            Title = "Настройка группы";
+            Title = LocalizationManager.T("GroupEdit.Title");
             Width = 540;
             MinWidth = 460;
             MinHeight = 520;
@@ -102,10 +103,10 @@ namespace Configuration_Management
 
             if (noGroupMode)
             {
-                _nameBox.Text = "Без группы";
+                _nameBox.Text = LocalizationManager.T("GroupEdit.NoGroup");
                 _nameBox.IsEnabled = false;
                 _descriptionBox.IsEnabled = false;
-                _parentPathBox.Text = "— Корневая группа —";
+                _parentPathBox.Text = LocalizationManager.T("GroupEdit.RootGroup");
                 _color = !string.IsNullOrWhiteSpace(noGroupColor) ? noGroupColor : "#2D6CDF";
                 _iconColor = !string.IsNullOrWhiteSpace(noGroupIconColor) ? noGroupIconColor : "#FFFFFF";
                 _icon = noGroupIcon ?? string.Empty;
@@ -134,14 +135,14 @@ namespace Configuration_Management
         {
             if (string.IsNullOrEmpty(_parentId))
             {
-                _parentPathBox.Text = "— Корневая группа —";
+                _parentPathBox.Text = LocalizationManager.T("GroupEdit.RootGroup");
                 return;
             }
 
             var parent = _groups.FirstOrDefault(g =>
                 string.Equals(g.Id, _parentId, StringComparison.OrdinalIgnoreCase));
             _parentPathBox.Text = parent is null
-                ? "— Корневая группа —"
+                ? LocalizationManager.T("GroupEdit.RootGroup")
                 : GroupHierarchyHelper.GetFullPath(parent, _groups);
         }
 
@@ -156,11 +157,11 @@ namespace Configuration_Management
             // ===== Вкладка «Общие» =====
             var general = new StackPanel { Spacing = 10 };
 
-            var nameLabel = new TextBlock { Text = "Наименование:" };
+            var nameLabel = new TextBlock { Text = LocalizationManager.T("GroupEdit.NameLabel") };
             general.Children.Add(nameLabel);
             general.Children.Add(_nameBox);
 
-            var parentLabel = new TextBlock { Text = "Родительская группа:" };
+            var parentLabel = new TextBlock { Text = LocalizationManager.T("GroupEdit.ParentGroupLabel") };
             general.Children.Add(parentLabel);
             var parentRow = new Grid();
             parentRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
@@ -168,18 +169,18 @@ namespace Configuration_Management
             _parentPathBox.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(_parentPathBox, 0);
             parentRow.Children.Add(_parentPathBox);
-            var selectParent = new Button { Content = "Выбрать…", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var selectParent = new Button { Content = LocalizationManager.T("GroupEdit.SelectParent"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
             selectParent.IsEnabled = !_noGroupMode;
             selectParent.Click += (_, _) => OnSelectParent_Click();
             Grid.SetColumn(selectParent, 1);
             parentRow.Children.Add(selectParent);
             general.Children.Add(parentRow);
 
-            var descLabel = new TextBlock { Text = "Описание:" };
+            var descLabel = new TextBlock { Text = LocalizationManager.T("GroupEdit.DescriptionLabel") };
             general.Children.Add(descLabel);
             general.Children.Add(_descriptionBox);
 
-            tabs.Items.Add(new TabItem { Header = "Общие", Content = new ScrollViewer { Content = general, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("GroupEdit.TabMain"), Content = new ScrollViewer { Content = general, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== Вкладка «Цвет» =====
             var colorTab = new StackPanel { Spacing = 10 };
@@ -188,16 +189,16 @@ namespace Configuration_Management
             headerColorRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             Grid.SetColumn(_headerColorPreview, 0);
             headerColorRow.Children.Add(_headerColorPreview);
-            var pickHeader = new Button { Content = "Выбрать…", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var pickHeader = new Button { Content = LocalizationManager.T("Common.Choose"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
             pickHeader.Click += (_, _) => OnPickHeaderColor_Click();
             Grid.SetColumn(pickHeader, 1);
             headerColorRow.Children.Add(pickHeader);
-            colorTab.Children.Add(new TextBlock { Text = "Цвет заголовка группы:" });
+            colorTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.TitleColor") });
             colorTab.Children.Add(headerColorRow);
             colorTab.Children.Add(_colorHexText);
-            colorTab.Children.Add(new TextBlock { Text = "Палитра:", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
+            colorTab.Children.Add(new TextBlock { Text = LocalizationManager.T("ColorPicker.Palette"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
             colorTab.Children.Add(BuildPalette(HeaderPalette, hex => { _color = hex; UpdateHeaderColorPreview(); }));
-            tabs.Items.Add(new TabItem { Header = "Цвет", Content = new ScrollViewer { Content = colorTab, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("GroupEdit.TabColor"), Content = new ScrollViewer { Content = colorTab, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== Вкладка «Иконка» =====
             var iconTab = new StackPanel { Spacing = 10 };
@@ -207,16 +208,16 @@ namespace Configuration_Management
             Grid.SetColumn(_iconColorPreview, 0);
             _iconColorPreview.HorizontalAlignment = HorizontalAlignment.Left;
             iconColorRow.Children.Add(_iconColorPreview);
-            var pickIcon = new Button { Content = "Выбрать…", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var pickIcon = new Button { Content = LocalizationManager.T("Common.Choose"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
             pickIcon.Click += (_, _) => OnPickIconColor_Click();
             Grid.SetColumn(pickIcon, 1);
             iconColorRow.Children.Add(pickIcon);
-            iconTab.Children.Add(new TextBlock { Text = "Цвет иконки:" });
+            iconTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.IconColorLabel") });
             iconTab.Children.Add(iconColorRow);
             iconTab.Children.Add(_iconColorHexText);
-            iconTab.Children.Add(new TextBlock { Text = "Палитра иконки:", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
+            iconTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.IconPaletteLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
             iconTab.Children.Add(BuildPalette(IconPalette, hex => { _iconColor = hex; UpdateIconColorPreview(); }));
-            iconTab.Children.Add(new TextBlock { Text = "Иконка:", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
+            iconTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.IconLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
             BuildIconPicker();
             var iconScroll = new ScrollViewer
             {
@@ -226,12 +227,12 @@ namespace Configuration_Management
                 MaxHeight = 300
             };
             iconTab.Children.Add(iconScroll);
-            tabs.Items.Add(new TabItem { Header = "Иконка", Content = iconTab });
+            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("GroupEdit.TabIcon"), Content = iconTab });
 
             Grid.SetRow(tabs, 0);
             grid.Children.Add(tabs);
 
-            var buttons = BuildButtons("Сохранить", 140, OnSave_Click);
+            var buttons = BuildButtons(LocalizationManager.T("Common.Save"), 140, OnSave_Click);
             Grid.SetRow(buttons, 1);
             grid.Children.Add(buttons);
 
@@ -345,7 +346,7 @@ namespace Configuration_Management
                 currentGroupId: _parentId,
                 excludeGroupId: _editingGroup?.Id,
                 allowNone: true,
-                noneLabel: "— Корневая группа —");
+                noneLabel: LocalizationManager.T("GroupEdit.RootGroup"));
             if (dialog.ShowDialogSync(this))
             {
                 _parentId = dialog.ResultGroupId;
@@ -382,7 +383,7 @@ namespace Configuration_Management
             }
             else
             {
-                Result.Name = "Без группы";
+                Result.Name = LocalizationManager.T("GroupEdit.NoGroup");
             }
 
             Result.Color = _color;

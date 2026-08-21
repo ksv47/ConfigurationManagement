@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.ViewModels;
 
@@ -28,13 +29,15 @@ namespace Configuration_Management
             string? currentGroupId = null,
             string? excludeGroupId = null,
             bool allowNone = true,
-            string noneLabel = "— Без группы —")
+            string noneLabel = "")
         {
             InitializeComponent();
             _groups = groups.ToList();
             _currentGroupId = currentGroupId ?? string.Empty;
             _allowNone = allowNone;
-            _noneLabel = noneLabel;
+            _noneLabel = string.IsNullOrEmpty(noneLabel)
+                ? LocalizationManager.T("Connection.NoGroup")
+                : noneLabel;
 
             // IsAncestorOrSelf(g.Id, excludeId) = exclude is ancestor of g → g is under exclude.
             // Also exclude the group itself via Id check.

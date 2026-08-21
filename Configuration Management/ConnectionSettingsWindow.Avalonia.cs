@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.ViewModels;
@@ -43,7 +44,7 @@ namespace Configuration_Management
             IEnumerable<string>? installedPlatformVersions = null, string? defaultGroupPath = null,
             IEnumerable<string>? availableServers = null, IEnumerable<int>? availablePorts = null)
         {
-            Title = "Настройка информационной базы";
+            Title = LocalizationManager.T("ConnectionSettings.Title");
             Width = 720;
             Height = 620;
             MinWidth = 620;
@@ -171,10 +172,10 @@ namespace Configuration_Management
                 Spacing = 8,
                 Margin = new Thickness(0, 12, 0, 0)
             };
-            var cancel = new Button { Content = "Отмена", MinWidth = 100, IsCancel = true };
+            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
             cancel.Click += (_, _) => Close();
             buttons.Children.Add(cancel);
-            var save = new Button { Content = "Сохранить", MinWidth = 120, IsDefault = true };
+            var save = new Button { Content = LocalizationManager.T("Common.Save"), MinWidth = 120, IsDefault = true };
             save.Click += (_, _) => OnSave_Click();
             buttons.Children.Add(save);
             Grid.SetRow(buttons, 2);
@@ -188,28 +189,28 @@ namespace Configuration_Management
             var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 12), Spacing = 10 };
 
             // Наименование
-            panel.Children.Add(Field("Наименование:", Tb("Name")));
+            panel.Children.Add(Field(LocalizationManager.T("Connection.NameLabel"), Tb("Name")));
 
             // Группа
             var groupRow = new Grid();
             groupRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
             groupRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             groupRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var groupLabel = new TextBlock { Text = "Группа:", VerticalAlignment = VerticalAlignment.Center };
+            var groupLabel = new TextBlock { Text = LocalizationManager.T("Connection.GroupLabel"), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(groupLabel, 0);
             groupRow.Children.Add(groupLabel);
             var groupText = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
             groupText.Bind(TextBlock.TextProperty, new Binding("GroupDisplayPath"));
             Grid.SetColumn(groupText, 1);
             groupRow.Children.Add(groupText);
-            var selectGroup = new Button { Content = "Выбрать…", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var selectGroup = new Button { Content = LocalizationManager.T("Connection.ChooseGroup"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
             selectGroup.Click += (_, _) => OnSelectGroup_Click();
             Grid.SetColumn(selectGroup, 2);
             groupRow.Children.Add(selectGroup);
             panel.Children.Add(groupRow);
 
             // Описание
-            panel.Children.Add(Field("Описание:", Tb("Description", null, true)));
+            panel.Children.Add(Field(LocalizationManager.T("Connection.DescriptionLabel"), Tb("Description", null, true)));
 
             // ID
             var idRow = new Grid();
@@ -217,18 +218,18 @@ namespace Configuration_Management
             idRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             idRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             idRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var idLabel = new TextBlock { Text = "Идентификатор:", VerticalAlignment = VerticalAlignment.Center };
+            var idLabel = new TextBlock { Text = LocalizationManager.T("ConnectionSettings.IdLabel"), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(idLabel, 0);
             idRow.Children.Add(idLabel);
             var idText = new TextBox { Padding = new Thickness(8, 5), IsReadOnly = true };
             idText.Bind(TextBox.TextProperty, new Binding("Id") { Mode = BindingMode.TwoWay });
             Grid.SetColumn(idText, 1);
             idRow.Children.Add(idText);
-            var copyId = new Button { Content = "Копировать", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var copyId = new Button { Content = LocalizationManager.T("Connection.CopyId"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
             copyId.Click += (_, _) => OnCopyId_Click();
             Grid.SetColumn(copyId, 2);
             idRow.Children.Add(copyId);
-            var genId = new Button { Content = "Сгенерировать", MinWidth = 110, Margin = new Thickness(8, 0, 0, 0) };
+            var genId = new Button { Content = LocalizationManager.T("Connection.GenerateId"), MinWidth = 110, Margin = new Thickness(8, 0, 0, 0) };
             genId.Click += (_, _) => _viewModel.Id = Guid.NewGuid().ToString("D");
             Grid.SetColumn(genId, 3);
             idRow.Children.Add(genId);
@@ -239,14 +240,14 @@ namespace Configuration_Management
             csRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
             csRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             csRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var csLabel = new TextBlock { Text = "Строка подключения:", VerticalAlignment = VerticalAlignment.Center };
+            var csLabel = new TextBlock { Text = LocalizationManager.T("ConnectionSettings.ConnectionStringLabel"), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(csLabel, 0);
             csRow.Children.Add(csLabel);
             var csText = new TextBox { Padding = new Thickness(8, 5), AcceptsReturn = true, MinHeight = 60 };
             csText.Bind(TextBox.TextProperty, new Binding("ConnectionString") { Mode = BindingMode.TwoWay });
             Grid.SetColumn(csText, 1);
             csRow.Children.Add(csText);
-            var pasteCs = new Button { Content = "Вставить…", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
+            var pasteCs = new Button { Content = LocalizationManager.T("ConnectionSettings.PasteButton"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
             pasteCs.Click += (_, _) => OnPasteConnectionString_Click();
             Grid.SetColumn(pasteCs, 2);
             csRow.Children.Add(pasteCs);
@@ -263,48 +264,48 @@ namespace Configuration_Management
             var conn = new StackPanel();
 
             var connType = RadioGroup(
-                Radio("ConnectionType", "IsClientServer", "Клиент-сервер"),
-                Radio("ConnectionType", "IsFile", "Файловая"),
-                Radio("ConnectionType", "IsWebServer", "Веб-сервер"));
-            conn.Children.Add(Field("Тип подключения:", connType));
+                Radio("ConnectionType", "IsClientServer", LocalizationManager.T("Connection.TypeServer")),
+                Radio("ConnectionType", "IsFile", LocalizationManager.T("Connection.TypeFile")),
+                Radio("ConnectionType", "IsWebServer", LocalizationManager.T("Connection.TypeWeb")));
+            conn.Children.Add(Field(LocalizationManager.T("ConnectionSettings.ConnectionTypeLabel"), connType));
 
-            conn.Children.Add(Field("Сервер:", Tb("Server", "Имя сервера 1С")));
-            conn.Children.Add(Field("Имя базы:", Tb("DatabaseName", "Имя базы на сервере")));
-            conn.Children.Add(Field("Порт:", EditableCombo("PortText", "AvailablePorts")));
+            conn.Children.Add(Field(LocalizationManager.T("Connection.ServerLabel"), Tb("Server", LocalizationManager.T("ConnectionSettings.ServerWatermark"))));
+            conn.Children.Add(Field(LocalizationManager.T("Connection.DatabaseNameLabel"), Tb("DatabaseName", LocalizationManager.T("ConnectionSettings.DatabaseNameWatermark"))));
+            conn.Children.Add(Field(LocalizationManager.T("Connection.PortLabel"), EditableCombo("PortText", "AvailablePorts")));
 
             var filePathRow = new Grid();
             filePathRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
             filePathRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             filePathRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var fileLabel = new TextBlock { Text = "Каталог базы:", VerticalAlignment = VerticalAlignment.Center };
+            var fileLabel = new TextBlock { Text = LocalizationManager.T("CreateInfobase.DirLabel"), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(fileLabel, 0);
             filePathRow.Children.Add(fileLabel);
-            var fileText = Tb("FilePath", "Путь к каталогу файловой базы");
+            var fileText = Tb("FilePath", LocalizationManager.T("ConnectionSettings.FilePathWatermark"));
             Grid.SetColumn(fileText, 1);
             filePathRow.Children.Add(fileText);
-            var browse = new Button { Content = "Обзор…", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var browse = new Button { Content = LocalizationManager.T("Common.Browse"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
             browse.Click += (_, _) => OnBrowseFilePath_Click();
             Grid.SetColumn(browse, 2);
             filePathRow.Children.Add(browse);
             conn.Children.Add(Field("", filePathRow));
 
-            conn.Children.Add(Field("URL публикации:", Tb("WebUrl", "https://…")));
+            conn.Children.Add(Field(LocalizationManager.T("Connection.WebUrlLabel"), Tb("WebUrl", "https://…")));
 
             // Аутентификация
             var auth = RadioGroup(
-                Radio("Auth", "IsAuthPrompt", "Запрашивать"),
-                Radio("Auth", "IsAuthCredentials", "Автовход"),
-                Radio("Auth", "IsAuthWindows", "ОС"));
-            conn.Children.Add(Field("Аутентификация:", auth));
-            conn.Children.Add(Field("Пользователь:", Tb("User")));
+                Radio("Auth", "IsAuthPrompt", LocalizationManager.T("ConnectionSettings.AuthPromptShort")),
+                Radio("Auth", "IsAuthCredentials", LocalizationManager.T("ConnectionSettings.AuthAutoShort")),
+                Radio("Auth", "IsAuthWindows", LocalizationManager.T("ConnectionSettings.AuthOsShort")));
+            conn.Children.Add(Field(LocalizationManager.T("ConnectionSettings.AuthLabel"), auth));
+            conn.Children.Add(Field(LocalizationManager.T("Connection.UserLabel"), Tb("User")));
             _passwordBox.PasswordChanged += (_, _) =>
             {
                 if (_isSyncingPassword) return;
                 _viewModel.Password = _passwordBox.Password;
             };
-            conn.Children.Add(Field("Пароль:", _passwordBox));
+            conn.Children.Add(Field(LocalizationManager.T("Connection.PasswordLabel"), _passwordBox));
 
-            tabs.Items.Add(new TabItem { Header = "Подключение", Content = new ScrollViewer { Content = conn, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Connection.Tab.Connection"), Content = new ScrollViewer { Content = conn, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== Платформа и запуск =====
             var platform = new StackPanel();
@@ -313,7 +314,7 @@ namespace Configuration_Management
             platRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
             platRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             platRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var platLabel = new TextBlock { Text = "Версия платформы:", VerticalAlignment = VerticalAlignment.Center };
+            var platLabel = new TextBlock { Text = LocalizationManager.T("Connection.VersionLabel"), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(platLabel, 0);
             platform.Children.Add(platRow);
             platRow.Children.Add(platLabel);
@@ -322,73 +323,73 @@ namespace Configuration_Management
             platCombo.Bind(ComboBox.SelectedItemProperty, new Binding("PlatformVersion") { Mode = BindingMode.TwoWay });
             Grid.SetColumn(platCombo, 1);
             platRow.Children.Add(platCombo);
-            var platBtn = new Button { Content = "Выбрать…", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var platBtn = new Button { Content = LocalizationManager.T("Connection.ChoosePlatform"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
             platBtn.Click += (_, _) => OnPlatformSettings_Click();
             Grid.SetColumn(platBtn, 2);
             platRow.Children.Add(platBtn);
 
-            platform.Children.Add(Field("Разрядность:", RadioGroup(
+            platform.Children.Add(Field(LocalizationManager.T("ConnectionSettings.ArchLabel"), RadioGroup(
                 Radio("Arch", "IsArchitecture32", "32"),
                 Radio("Arch", "IsArchitecture64", "64"),
-                Radio("Arch", "IsArchitecture32Priority", "32 (приоритет)"),
-                Radio("Arch", "IsArchitecture64Priority", "64 (приоритет)"))));
+                Radio("Arch", "IsArchitecture32Priority", LocalizationManager.T("ConnectionSettings.Arch32PriorityShort")),
+                Radio("Arch", "IsArchitecture64Priority", LocalizationManager.T("ConnectionSettings.Arch64PriorityShort")))));
 
-            platform.Children.Add(Field("Режим запуска:", RadioGroup(
-                Radio("LaunchMode", "IsAutoMode", "Авто"),
-                Radio("LaunchMode", "IsThinClient", "Тонкий"),
-                Radio("LaunchMode", "IsThickClient", "Толстый"),
-                Radio("LaunchMode", "IsThickOrdinaryClient", "Толстый (обычные)"),
-                Radio("LaunchMode", "IsWebClient", "Веб-клиент"))));
+            platform.Children.Add(Field(LocalizationManager.T("ConnectionSettings.LaunchModeLabel"), RadioGroup(
+                Radio("LaunchMode", "IsAutoMode", LocalizationManager.T("Main.SessionClientAuto")),
+                Radio("LaunchMode", "IsThinClient", LocalizationManager.T("Main.SessionClientThin")),
+                Radio("LaunchMode", "IsThickClient", LocalizationManager.T("ConnectionSettings.LaunchThickShort")),
+                Radio("LaunchMode", "IsThickOrdinaryClient", LocalizationManager.T("ConnectionSettings.LaunchThickOrdinaryShort")),
+                Radio("LaunchMode", "IsWebClient", LocalizationManager.T("Connection.LaunchWeb")))));
 
             var launchRow = new Grid();
             launchRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
             launchRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             launchRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var launchLabel = new TextBlock { Text = "Параметры запуска:", VerticalAlignment = VerticalAlignment.Center };
+            var launchLabel = new TextBlock { Text = LocalizationManager.T("ConnectionSettings.LaunchParametersLabel"), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(launchLabel, 0);
             launchRow.Children.Add(launchLabel);
             var launchText = new TextBox { Padding = new Thickness(8, 5), AcceptsReturn = true, MinHeight = 60 };
             launchText.Bind(TextBox.TextProperty, new Binding("LaunchParameters") { Mode = BindingMode.TwoWay });
             Grid.SetColumn(launchText, 1);
             launchRow.Children.Add(launchText);
-            var launchBtn = new Button { Content = "Настроить…", MinWidth = 100, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
+            var launchBtn = new Button { Content = LocalizationManager.T("ConnectionSettings.ConfigureButton"), MinWidth = 100, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
             launchBtn.Click += (_, _) => OnLaunchParameters_Click();
             Grid.SetColumn(launchBtn, 2);
             launchRow.Children.Add(launchBtn);
             platform.Children.Add(Field("", launchRow));
 
-            platform.Children.Add(Field("Имя конфигурации:", Tb("ConfigurationName")));
-            platform.Children.Add(Field("Версия конфигурации:", Tb("ConfigurationVersion")));
+            platform.Children.Add(Field(LocalizationManager.T("Connection.ConfigurationLabel"), Tb("ConfigurationName")));
+            platform.Children.Add(Field(LocalizationManager.T("ConnectionSettings.ConfigurationVersionLabel"), Tb("ConfigurationVersion")));
 
-            tabs.Items.Add(new TabItem { Header = "Платформа и запуск", Content = new ScrollViewer { Content = platform, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("ConnectionSettings.TabPlatformAndLaunch"), Content = new ScrollViewer { Content = platform, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== Репозиторий =====
             var repo = new StackPanel();
-            repo.Children.Add(Field("Сервер хранилища:", Tb("RepositoryServer")));
-            repo.Children.Add(Field("Имя хранилища:", Tb("RepositoryName")));
-            repo.Children.Add(Field("Пользователь:", Tb("RepositoryUser")));
+            repo.Children.Add(Field(LocalizationManager.T("Connection.RepositoryServerLabel"), Tb("RepositoryServer")));
+            repo.Children.Add(Field(LocalizationManager.T("Connection.RepositoryNameLabel"), Tb("RepositoryName")));
+            repo.Children.Add(Field(LocalizationManager.T("Connection.UserLabel"), Tb("RepositoryUser")));
             _repositoryPasswordBox.PasswordChanged += (_, _) =>
             {
                 if (_isSyncingRepositoryPassword) return;
                 _viewModel.RepositoryPassword = _repositoryPasswordBox.Password;
             };
-            repo.Children.Add(Field("Пароль:", _repositoryPasswordBox));
-            tabs.Items.Add(new TabItem { Header = "Репозиторий", Content = new ScrollViewer { Content = repo, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            repo.Children.Add(Field(LocalizationManager.T("Connection.RepositoryPasswordLabel"), _repositoryPasswordBox));
+            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Connection.Tab.Repository"), Content = new ScrollViewer { Content = repo, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== Конфигуратор =====
             var config = new StackPanel();
-            config.Children.Add(Field("Аутентификация:", RadioGroup(
-                Radio("ConfigAuth", "IsConfiguratorAuthPrompt", "Запрашивать"),
-                Radio("ConfigAuth", "IsConfiguratorAuthCredentials", "Автовход"),
-                Radio("ConfigAuth", "IsConfiguratorAuthWindows", "ОС"))));
-            config.Children.Add(Field("Пользователь:", Tb("ConfiguratorUser")));
+            config.Children.Add(Field(LocalizationManager.T("ConnectionSettings.AuthLabel"), RadioGroup(
+                Radio("ConfigAuth", "IsConfiguratorAuthPrompt", LocalizationManager.T("ConnectionSettings.AuthPromptShort")),
+                Radio("ConfigAuth", "IsConfiguratorAuthCredentials", LocalizationManager.T("ConnectionSettings.AuthAutoShort")),
+                Radio("ConfigAuth", "IsConfiguratorAuthWindows", LocalizationManager.T("ConnectionSettings.AuthOsShort")))));
+            config.Children.Add(Field(LocalizationManager.T("Connection.UserLabel"), Tb("ConfiguratorUser")));
             _configuratorPasswordBox.PasswordChanged += (_, _) =>
             {
                 if (_isSyncingConfiguratorPassword) return;
                 _viewModel.ConfiguratorPassword = _configuratorPasswordBox.Password;
             };
-            config.Children.Add(Field("Пароль:", _configuratorPasswordBox));
-            tabs.Items.Add(new TabItem { Header = "Конфигуратор", Content = new ScrollViewer { Content = config, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            config.Children.Add(Field(LocalizationManager.T("Connection.PasswordLabel"), _configuratorPasswordBox));
+            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("ConnectionSettings.TabConfigurator"), Content = new ScrollViewer { Content = config, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             return tabs;
         }
@@ -401,7 +402,7 @@ namespace Configuration_Management
                 _viewModel.Groups,
                 currentGroupId: _viewModel.SelectedGroup?.Id,
                 allowNone: true,
-                noneLabel: "— Без группы —");
+                noneLabel: LocalizationManager.T("Connection.NoGroup"));
             if (dialog.ShowDialogSync(this))
             {
                 _viewModel.SelectedGroup = dialog.ResultGroup;
@@ -413,7 +414,7 @@ namespace Configuration_Management
         private void OnBrowseFilePath_Click()
         {
             var current = _viewModel.FilePath;
-            var path = _dialogs.OpenFolderDialog("Выберите каталог информационной базы 1С",
+            var path = _dialogs.OpenFolderDialog(LocalizationManager.T("Connection.ChooseFolderTitle"),
                 !string.IsNullOrWhiteSpace(current) && Directory.Exists(current) ? current : null);
             if (!string.IsNullOrWhiteSpace(path))
                 _viewModel.FilePath = path;
@@ -435,7 +436,7 @@ namespace Configuration_Management
 
             _viewModel.ApplyConnectionString(dialog.Result);
             _viewModel.ConnectionString = dialog.Result ?? string.Empty;
-            _dialogs.ShowInfo("Строка подключения успешно разобрана и заполнена по полям.", "Вставка строки подключения");
+            _dialogs.ShowInfo(LocalizationManager.T("Connection.PasteSuccess"), LocalizationManager.T("Connection.PasteSuccessTitle"));
         }
 
         private void OnLaunchParameters_Click()

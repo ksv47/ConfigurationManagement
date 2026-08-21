@@ -4,8 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:Configuration_Management.ViewModels"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         mc:Ignorable="d"
-        Title="Управление группами"
+        Title="{loc:Loc GroupSettings.Title}"
         Icon="{StaticResource AppIcon}"
         Width="600"
         MinWidth="520"
@@ -25,7 +26,7 @@
         </Grid.RowDefinitions>
 
         <!-- ============ Список групп ============ -->
-        <GroupBox Grid.Row="0" Header="Группы информационных баз" Padding="8" Margin="0,0,0,12">
+        <GroupBox Grid.Row="0" Header="{loc:Loc GroupSettings.GroupsHeader}" Padding="8" Margin="0,0,0,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -68,28 +69,28 @@
                             Margin="0,0,0,8" Click="OnAddRoot_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="➕" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="Добавить" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Common.Add}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button Style="{DynamicResource SecondaryButton}" Width="120"
                             Margin="0,0,0,8" Click="OnAddSubgroup_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="➕" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="Подгруппу" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc GroupSettings.AddSubgroup}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button Style="{DynamicResource SecondaryButton}" Width="120"
                             Margin="0,0,0,8" Click="OnEdit_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="✎" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="Изменить" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Common.Edit}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button Style="{DynamicResource SecondaryButton}" Width="120"
                             Click="OnDelete_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🗑" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="Удалить" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -102,13 +103,13 @@
                     Margin="0,0,10,0" IsDefault="True" Click="OnDone_Click">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="✔" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Готово" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc GroupSettings.Done}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
             <Button Width="120" Height="34" Style="{DynamicResource SecondaryButton}" IsCancel="True">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="✖" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
         </StackPanel>

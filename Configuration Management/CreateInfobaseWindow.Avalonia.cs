@@ -6,6 +6,7 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 
@@ -26,8 +27,8 @@ namespace Configuration_Management
         private readonly TextBox _nameBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBlock _groupPathBox = new() { VerticalAlignment = VerticalAlignment.Center };
         private readonly TextBox _platformBox = new() { Padding = new Thickness(8, 5) };
-        private readonly RadioButton _fileTypeRadio = new() { Content = "Файловая", GroupName = "CreateType" };
-        private readonly RadioButton _serverTypeRadio = new() { Content = "На сервере", GroupName = "CreateType", IsChecked = true };
+        private readonly RadioButton _fileTypeRadio = new() { Content = LocalizationManager.T("CreateInfobase.FileType"), GroupName = "CreateType" };
+        private readonly RadioButton _serverTypeRadio = new() { Content = LocalizationManager.T("CreateInfobase.ServerType"), GroupName = "CreateType", IsChecked = true };
         private readonly TextBox _filePathBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBox _serverBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBox _refBox = new() { Padding = new Thickness(8, 5) };
@@ -50,15 +51,15 @@ namespace Configuration_Management
             _dialogs = AppServices.GetRequiredService<IDialogService>();
 
             Title = fromTemplate
-                ? "Создание информационной базы из шаблона"
-                : "Создание пустой информационной базы";
+                ? LocalizationManager.T("CreateInfobase.TitleFromTemplate")
+                : LocalizationManager.T("CreateInfobase.TitleEmpty");
             Width = 560;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
             SystemDecorations = SystemDecorations.Full;
 
             _groupPathBox.Text = string.IsNullOrWhiteSpace(_selectedGroupPath)
-                ? "— Без группы —"
+                ? LocalizationManager.T("Connection.NoGroup")
                 : _selectedGroupPath;
 
             Content = BuildRoot();
@@ -67,8 +68,8 @@ namespace Configuration_Management
         }
 
         private string HintText => _fromTemplate
-            ? "Выберите шаблон .cf/.dt вручную. Создание — через CREATEINFOBASE /UseTemplate."
-            : "Будет выполнена команда CREATEINFOBASE без шаблона. После создания база добавится в список программы.";
+            ? LocalizationManager.T("CreateInfobase.HintTemplate")
+            : LocalizationManager.T("CreateInfobase.HintEmpty");
 
         private Control BuildRoot()
         {
@@ -82,7 +83,7 @@ namespace Configuration_Management
 
             var title = new TextBlock
             {
-                Text = _fromTemplate ? "Создание из шаблона" : "Создание пустой ИБ",
+                Text = _fromTemplate ? LocalizationManager.T("CreateInfobase.HeaderTemplate") : LocalizationManager.T("CreateInfobase.HeaderEmpty"),
                 FontSize = 15,
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 0, 0, 4)
@@ -103,19 +104,19 @@ namespace Configuration_Management
             var fields = new StackPanel { Spacing = 10 };
 
             // Наименование
-            fields.Children.Add(Field("Наименование:", _nameBox));
+            fields.Children.Add(Field(LocalizationManager.T("Connection.NameLabel"), _nameBox));
 
             // Группа
             var groupRow = new Grid();
             groupRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(150)));
             groupRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             groupRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var gl = new TextBlock { Text = "Группа:", VerticalAlignment = VerticalAlignment.Center };
+            var gl = new TextBlock { Text = LocalizationManager.T("Connection.GroupLabel"), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(gl, 0);
             groupRow.Children.Add(gl);
             Grid.SetColumn(_groupPathBox, 1);
             groupRow.Children.Add(_groupPathBox);
-            var pickGroup = new Button { Content = "Выбрать…", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var pickGroup = new Button { Content = LocalizationManager.T("Connection.ChooseGroup"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
             pickGroup.Click += (_, _) => OnPickGroup_Click();
             Grid.SetColumn(pickGroup, 2);
             groupRow.Children.Add(pickGroup);
@@ -126,12 +127,12 @@ namespace Configuration_Management
             platRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(150)));
             platRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             platRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var pl = new TextBlock { Text = "Версия платформы:", VerticalAlignment = VerticalAlignment.Center };
+            var pl = new TextBlock { Text = LocalizationManager.T("Connection.VersionLabel"), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(pl, 0);
             platRow.Children.Add(pl);
             Grid.SetColumn(_platformBox, 1);
             platRow.Children.Add(_platformBox);
-            var pickPlatform = new Button { Content = "Список…", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var pickPlatform = new Button { Content = LocalizationManager.T("CreateInfobase.List"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
             pickPlatform.Click += (_, _) => OnPickPlatform_Click();
             Grid.SetColumn(pickPlatform, 2);
             platRow.Children.Add(pickPlatform);
@@ -143,10 +144,10 @@ namespace Configuration_Management
             _serverTypeRadio.IsCheckedChanged += (_, _) => UpdateTypePanels();
             typePanel.Children.Add(_fileTypeRadio);
             typePanel.Children.Add(_serverTypeRadio);
-            fields.Children.Add(Field("Тип:", typePanel));
+            fields.Children.Add(Field(LocalizationManager.T("Connection.TypeLabel"), typePanel));
 
             // Файловая
-            var browseFile = new Button { Content = "Обзор…", MinWidth = 90 };
+            var browseFile = new Button { Content = LocalizationManager.T("Common.Browse"), MinWidth = 90 };
             browseFile.Click += (_, _) => OnBrowseFolder_Click();
             var fileRow = new Grid();
             fileRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
@@ -156,11 +157,11 @@ namespace Configuration_Management
             Grid.SetColumn(browseFile, 1);
             browseFile.Margin = new Thickness(8, 0, 0, 0);
             fileRow.Children.Add(browseFile);
-            _filePanel.Children.Add(Field("Каталог базы:", fileRow));
+            _filePanel.Children.Add(Field(LocalizationManager.T("CreateInfobase.DirLabel"), fileRow));
 
             // Серверная
-            _serverPanel.Children.Add(Field("Сервер:", _serverBox));
-            _serverPanel.Children.Add(Field("Имя базы (Ref):", _refBox));
+            _serverPanel.Children.Add(Field(LocalizationManager.T("Connection.ServerLabel"), _serverBox));
+            _serverPanel.Children.Add(Field(LocalizationManager.T("CreateInfobase.RefLabel"), _refBox));
 
             fields.Children.Add(_filePanel);
             fields.Children.Add(_serverPanel);
@@ -168,7 +169,7 @@ namespace Configuration_Management
             // Шаблон
             if (_fromTemplate)
             {
-                var browseTemplate = new Button { Content = "Файл…", MinWidth = 90 };
+                var browseTemplate = new Button { Content = LocalizationManager.T("CreateInfobase.File"), MinWidth = 90 };
                 browseTemplate.Click += (_, _) => OnBrowseTemplate_Click();
                 var tplRow = new Grid();
                 tplRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
@@ -178,7 +179,7 @@ namespace Configuration_Management
                 Grid.SetColumn(browseTemplate, 1);
                 browseTemplate.Margin = new Thickness(8, 0, 0, 0);
                 tplRow.Children.Add(browseTemplate);
-                fields.Children.Add(Field("Файл шаблона (.cf/.dt):", tplRow));
+                fields.Children.Add(Field(LocalizationManager.T("CreateInfobase.TemplateLabel"), tplRow));
             }
 
             Grid.SetRow(fields, 2);
@@ -191,12 +192,12 @@ namespace Configuration_Management
                 Spacing = 8,
                 Margin = new Thickness(0, 16, 0, 0)
             };
-            var cancel = new Button { Content = "Отмена", MinWidth = 100, IsCancel = true };
+            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
             cancel.Click += (_, _) => Close();
             buttons.Children.Add(cancel);
             var create = new Button
             {
-                Content = "Создать",
+                Content = LocalizationManager.T("CreateInfobase.Create"),
                 MinWidth = 120,
                 IsDefault = true,
                 Background = new SolidColorBrush(Color.Parse("#16A34A")),
@@ -239,14 +240,14 @@ namespace Configuration_Management
                 _groups,
                 currentGroupId: null,
                 allowNone: true,
-                noneLabel: "— Без группы —");
+                noneLabel: LocalizationManager.T("Connection.NoGroup"));
             if (dialog.ShowDialogSync(this))
             {
                 _selectedGroupPath = string.IsNullOrWhiteSpace(dialog.ResultFullPath)
                     ? string.Empty
                     : dialog.ResultFullPath;
                 _groupPathBox.Text = string.IsNullOrWhiteSpace(_selectedGroupPath)
-                    ? "— Без группы —"
+                    ? LocalizationManager.T("Connection.NoGroup")
                     : _selectedGroupPath;
             }
         }
@@ -277,15 +278,15 @@ namespace Configuration_Management
 
         private void OnBrowseFolder_Click()
         {
-            var path = _dialogs.OpenFolderDialog("Каталог для новой файловой базы 1С");
+            var path = _dialogs.OpenFolderDialog(LocalizationManager.T("CreateInfobase.ChooseFolderDescription"));
             if (!string.IsNullOrWhiteSpace(path))
                 _filePathBox.Text = path;
         }
 
         private void OnBrowseTemplate_Click()
         {
-            var path = _dialogs.OpenFileDialog("Шаблон конфигурации или выгрузки",
-                "Шаблоны 1С (*.cf;*.dt)|*.cf;*.dt|Конфигурация (*.cf)|*.cf|Выгрузка (*.dt)|*.dt|Все файлы (*.*)|*.*");
+            var path = _dialogs.OpenFileDialog(LocalizationManager.T("CreateInfobase.TemplateDialogTitle"),
+                $"{LocalizationManager.T("CreateInfobase.FilterTemplates")}|*.cf;*.dt|{LocalizationManager.T("CreateInfobase.FilterConfig")}|*.cf|{LocalizationManager.T("CreateInfobase.FilterDump")}|*.dt|{LocalizationManager.T("Common.AllFiles")}|*.*");
             if (!string.IsNullOrWhiteSpace(path))
                 _templateBox.Text = path;
         }
@@ -295,7 +296,7 @@ namespace Configuration_Management
             var name = _nameBox.Text?.Trim() ?? "";
             if (string.IsNullOrWhiteSpace(name))
             {
-                _dialogs.ShowWarning("Укажите наименование базы.", "Создание ИБ");
+                _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterName"), LocalizationManager.T("CreateInfobase.CreateTitle"));
                 return;
             }
 
@@ -309,7 +310,7 @@ namespace Configuration_Management
                 filePath = _filePathBox.Text?.Trim() ?? "";
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
-                    _dialogs.ShowWarning("Укажите каталог файловой базы.", "Создание ИБ");
+                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterFilePath"), LocalizationManager.T("CreateInfobase.CreateTitle"));
                     return;
                 }
             }
@@ -319,7 +320,7 @@ namespace Configuration_Management
                 refName = _refBox.Text?.Trim() ?? "";
                 if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(refName))
                 {
-                    _dialogs.ShowWarning("Укажите сервер и имя базы (Ref).", "Создание ИБ");
+                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterServerAndRef"), LocalizationManager.T("CreateInfobase.CreateTitle"));
                     return;
                 }
             }
@@ -330,7 +331,7 @@ namespace Configuration_Management
                 templatePath = _templateBox.Text?.Trim() ?? "";
                 if (string.IsNullOrWhiteSpace(templatePath) || !File.Exists(templatePath))
                 {
-                    _dialogs.ShowWarning("Укажите существующий файл шаблона (.cf или .dt).", "Создание ИБ");
+                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterTemplateFile"), LocalizationManager.T("CreateInfobase.CreateTitle"));
                     return;
                 }
             }
@@ -339,8 +340,8 @@ namespace Configuration_Management
             if (string.IsNullOrWhiteSpace(platform))
             {
                 _dialogs.ShowWarning(
-                    "Не найдена установленная платформа 1С.\nУкажите версию через «Список…» или пути в настройках.",
-                    "Создание ИБ");
+                    LocalizationManager.T("CreateInfobase.NoPlatform"),
+                    LocalizationManager.T("CreateInfobase.CreateTitle"));
                 return;
             }
 
@@ -354,7 +355,7 @@ namespace Configuration_Management
 
             if (!ok)
             {
-                _dialogs.ShowError("Не удалось создать информационную базу.\n" + (error ?? ""), "Создание ИБ");
+                _dialogs.ShowError(string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""), LocalizationManager.T("CreateInfobase.CreateTitle"));
                 return;
             }
 

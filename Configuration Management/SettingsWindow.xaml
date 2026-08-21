@@ -6,9 +6,10 @@
         xmlns:models="clr-namespace:Configuration_Management.Models"
         xmlns:vm="clr-namespace:Configuration_Management.ViewModels"
         xmlns:controls="clr-namespace:Configuration_Management.Controls"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
-        Title="Настройки"
+        Title="{loc:Loc Settings.Title}"
         Icon="{StaticResource AppIcon}"
         Width="880"
         MinWidth="760"
@@ -262,7 +263,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Server" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                        <TextBlock Text="Платформы" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc Settings.TabPlatforms}" VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -275,7 +276,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="Установленные версии платформы 1С:Предприятие."
+                    <TextBlock Grid.Row="0" Text="{loc:Loc Settings.Platforms.Intro}"
                                Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
                                TextWrapping="Wrap"/>
 
@@ -290,7 +291,7 @@
                                   BorderThickness="1"
                                   Padding="6,4"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                  ToolTip="Линия (8.3) → разрядность → сборка с путём">
+                                  ToolTip="{loc:Loc Settings.Platforms.TreeTooltip}">
                             <TreeView.ItemTemplate>
                                 <HierarchicalDataTemplate DataType="{x:Type models:PlatformVersionGroup}"
                                                           ItemsSource="{Binding Children}">
@@ -356,10 +357,10 @@
                                 VerticalAlignment="Top"
                                 Style="{DynamicResource SecondaryButton}"
                                 Click="OnRefreshPlatforms_Click"
-                                ToolTip="Обновить список установленных версий платформы (стандартные и дополнительные пути)">
+                                ToolTip="{loc:Loc Settings.Platforms.RefreshTooltip}">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Обновить список" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.Platforms.Refresh}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                     </Grid>
@@ -369,7 +370,7 @@
                                TextWrapping="Wrap" Margin="0,0,0,12"/>
 
                     <!-- Дополнительные пути поиска -->
-                    <GroupBox Grid.Row="3" Header="Дополнительные пути поиска" Padding="10,8" Margin="0,0,0,8">
+                    <GroupBox Grid.Row="3" Header="{loc:Loc Settings.AdditionalPaths}" Padding="10,8" Margin="0,0,0,8">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -377,7 +378,7 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0"
-                                       Text="Укажите папки, в которых установлены платформы 1С вне стандартных каталогов Program Files. Можно указать корень установки, каталог 1cv8 или папку конкретной версии."
+                                       Text="{loc:Loc Settings.AdditionalPaths.Hint}"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <ListBox x:Name="AdditionalPathsList" Grid.Row="1"
@@ -387,33 +388,33 @@
                                      BorderThickness="1"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                                      SelectionMode="Single"
-                                     ToolTip="Дополнительные каталоги для поиска версий платформы"/>
+                                     ToolTip="{loc:Loc Settings.AdditionalPaths.ListTooltip}"/>
                             <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Padding="10,6" Margin="0,0,8,0"
                                         Style="{DynamicResource SecondaryButton}"
                                         Click="OnAddPlatformPath_Click"
-                                        ToolTip="Добавить папку для поиска платформы 1С">
+                                        ToolTip="{loc:Loc Settings.AdditionalPaths.AddTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FolderPlus" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Добавить папку" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.AdditionalPaths.Add}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Padding="10,6" Margin="0,0,8,0"
                                         Style="{DynamicResource SecondaryButton}"
                                         Click="OnEditPlatformPath_Click"
-                                        ToolTip="Изменить выбранную папку">
+                                        ToolTip="{loc:Loc Settings.AdditionalPaths.EditTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FolderEdit" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Изменить" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Common.Edit}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Padding="10,6"
                                         Style="{DynamicResource SecondaryButton}"
                                         Click="OnRemovePlatformPath_Click"
-                                        ToolTip="Удалить выбранную папку из списка">
+                                        ToolTip="{loc:Loc Settings.AdditionalPaths.RemoveTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FolderRemove" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Удалить" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -421,14 +422,14 @@
                     </GroupBox>
 
                     <!-- Разрядность по умолчанию -->
-                    <GroupBox Grid.Row="4" Header="Разрядность по умолчанию" Padding="10,8" Margin="0,0,0,8">
+                    <GroupBox Grid.Row="4" Header="{loc:Loc Settings.DefaultArch}" Padding="10,8" Margin="0,0,0,8">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0"
-                                       Text="Если у базы не указана разрядность:"/>
+                                       Text="{loc:Loc Settings.DefaultArch.Hint}"/>
                             <ComboBox x:Name="DefaultArchComboBox" Grid.Column="1" Width="200"
                                       HorizontalAlignment="Left" VerticalAlignment="Center"/>
                         </Grid>
@@ -442,7 +443,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Eye" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                        <TextBlock Text="Отображение" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc Settings.TabDisplay}" VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -453,37 +454,37 @@
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="StarOutline" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                                <TextBlock Text="Значки" VerticalAlignment="Center" ToolTip="Значки и кнопки"
+                                <TextBlock Text="{loc:Loc Settings.Subtab.Icons}" VerticalAlignment="Center" ToolTip="{loc:Loc Settings.Subtab.IconsTooltip}"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                             </StackPanel>
                         </TabItem.Header>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,4,4,4">
                             <StackPanel>
-                                <TextBlock Text="Какие элементы управления показывать в строках списка баз."
+                                <TextBlock Text="{loc:Loc Settings.Icons.Description}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,10"/>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowFavoritesButtonCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Star" Width="16" Height="16" Foreground="#FBBF24" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Кнопка «Избранное»" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Icons.FavoritesButton}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowPinnedButtonCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Pin" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Кнопка «Закрепить»" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Icons.PinButton}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowTagsCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="TagOutline" Width="16" Height="16" Foreground="#EC4899" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Теги у баз в списке" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Icons.Tags}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowTagFilterPanelCheck">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FilterVariant" Width="16" Height="16" Foreground="#EC4899" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Панель быстрого отбора по тегам" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Icons.TagFilterPanel}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                             </StackPanel>
@@ -496,55 +497,55 @@
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ViewColumn" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                                <TextBlock Text="Колонки" VerticalAlignment="Center" ToolTip="Колонки списка"
+                                <TextBlock Text="{loc:Loc Settings.Subtab.Columns}" VerticalAlignment="Center" ToolTip="{loc:Loc Settings.Subtab.ColumnsTooltip}"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                             </StackPanel>
                         </TabItem.Header>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,4,4,4">
                             <StackPanel>
-                                <TextBlock Text="Видимые колонки в таблице информационных баз."
+                                <TextBlock Text="{loc:Loc Settings.Columns.Description}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,10"/>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowNameColumnCheck" IsChecked="True" IsEnabled="False" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FormatTitle" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Название" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Column.Name}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowVersionColumnCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="CubeOutline" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Версия платформы" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Column.Version}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowConfigurationColumnCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FileDocumentOutline" Width="16" Height="16" Foreground="#EC4899" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Конфигурация (название и версия)" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Columns.Configuration}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowLaunchModeColumnCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="PlayCircleOutline" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Режим запуска" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Column.LaunchMode}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowServerColumnCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Server" Width="16" Height="16" Foreground="#14B8A6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Сервер/База" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Column.ServerBase}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowLastLaunchColumnCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="ClockOutline" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Последний запуск" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Column.LastLaunch}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowSizeColumnCheck">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Harddisk" Width="16" Height="16" Foreground="#64748B" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Размер (файловые ИБ)" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Columns.Size}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                             </StackPanel>
@@ -557,50 +558,50 @@
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="PageLayoutSidebarRight" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                                <TextBlock Text="Панели" VerticalAlignment="Center" ToolTip="Панели"
+                                <TextBlock Text="{loc:Loc Settings.Subtab.Panels}" VerticalAlignment="Center" ToolTip="{loc:Loc Settings.Subtab.PanelsTooltip}"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                             </StackPanel>
                         </TabItem.Header>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,4,4,4">
                             <StackPanel>
-                                <TextBlock Text="Правая панель действий и связанные опции."
+                                <TextBlock Text="{loc:Loc Settings.Panels.Description}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,10"/>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowRightPanelDetailsCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="PageLayoutSidebarRight" Width="16" Height="16" Foreground="#14B8A6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Подробности в правой панели (имя, подключение, теги)" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Panels.RightPanelDetails}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
-                                <TextBlock Text="Если выключено — остаются только кнопки. Переключить можно и кнопкой справа внизу главного окна."
+                                <TextBlock Text="{loc:Loc Settings.Panels.RightPanelDetailsHint}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="24,0,0,12"/>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowSessionLaunchPanelCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Monitor" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Блок «Текущая сессия» (режим клиента и разрядность)" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Panels.SessionLaunchPanel}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
-                                <TextBlock Text="Показывается в полном и компактном режиме правой панели. Не меняет настройки базы — только следующий запуск."
+                                <TextBlock Text="{loc:Loc Settings.Panels.SessionLaunchPanelHint}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="24,0,0,12"/>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="GroupByGroupCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FolderMultiple" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Группировать базы по группам" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Panels.GroupByGroups}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowFavoritesOnlyCheck">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="StarCircle" Width="16" Height="16" Foreground="#FBBF24" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Показывать только избранные базы" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Panels.ShowFavoritesOnly}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowEmptyGroupsCheck" Margin="0,6,0,0">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FolderOutline" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Показывать пустые группы (без баз)" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Panels.ShowEmptyGroups}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
-                                <TextBlock Text="Пустые группы отображаются в дереве в своей иерархии — внутри своей родительской группы."
+                                <TextBlock Text="{loc:Loc Settings.Panels.ShowEmptyGroupsHint}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="24,0,0,12"/>
                             </StackPanel>
                         </ScrollViewer>
@@ -612,67 +613,67 @@
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="DockBottom" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                                <TextBlock Text="Статус" VerticalAlignment="Center" ToolTip="Нижняя панель (строка состояния)"
+                                <TextBlock Text="{loc:Loc Settings.Subtab.Status}" VerticalAlignment="Center" ToolTip="{loc:Loc Settings.Subtab.StatusTooltip}"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                             </StackPanel>
                         </TabItem.Header>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,4,4,4">
                             <StackPanel>
-                                <TextBlock Text="Какие сведения о выбранной базе показывать в строке состояния."
+                                <TextBlock Text="{loc:Loc Settings.Status.Description}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,10"/>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="StatusShowConnectionPathCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FolderOutline" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Путь / сервер и имя базы" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Status.ConnectionPath}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="StatusShowPortCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Lan" Width="16" Height="16" Foreground="#6366F1" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Порт" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Status.Port}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="StatusShowArchitectureCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Chip" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Разрядность (32/64)" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Status.Architecture}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="StatusShowPlatformVersionCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="CubeOutline" Width="16" Height="16" Foreground="#A855F7" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Версия платформы" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Column.Version}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="StatusShowLaunchModeCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="PlayCircleOutline" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Режим запуска" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Column.LaunchMode}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="StatusShowClientTypeCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Monitor" Width="16" Height="16" Foreground="#EC4899" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Тип клиента" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Status.ClientType}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="StatusShowConnectionTypeCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Database" Width="16" Height="16" Foreground="#6366F1" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Тип подключения" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Status.ConnectionType}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="StatusShowUserCheck" Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Account" Width="16" Height="16" Foreground="#94A3B8" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Пользователь подключения" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Status.User}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                                 <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="StatusShowIdCheck">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Identifier" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="ID информационной базы" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Status.Id}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
                             </StackPanel>
@@ -685,16 +686,16 @@
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="FormatFont" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
                                                          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                                <TextBlock Text="Шрифт" VerticalAlignment="Center" ToolTip="Шрифт интерфейса"
+                                <TextBlock Text="{loc:Loc Settings.Subtab.Font}" VerticalAlignment="Center" ToolTip="{loc:Loc Settings.Subtab.FontTooltip}"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                             </StackPanel>
                         </TabItem.Header>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,4,4,4">
                             <StackPanel>
-                                <TextBlock Text="Настройка шрифта интерфейса: семейство, размер и начертание. Изменения применяются к главному окну по кнопке «Применить» и сохраняются кнопкой «Сохранить»."
+                                <TextBlock Text="{loc:Loc Settings.Font.Description}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,12"/>
-                                <TextBlock Text="Элемент интерфейса:" Margin="0,0,0,6"
+                                <TextBlock Text="{loc:Loc Settings.Font.Element}" Margin="0,0,0,6"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <ComboBox x:Name="ElementComboBox" Height="34" Margin="0,0,0,12"
                                           Style="{StaticResource ModernComboBox}"
@@ -709,19 +710,19 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Семейство шрифта:" VerticalAlignment="Center"
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Settings.Font.Family}" VerticalAlignment="Center"
                                                Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <ComboBox Grid.Row="0" Grid.Column="1" x:Name="FontFamilyComboBox" Height="34"
                                               VerticalAlignment="Center" Style="{StaticResource ModernComboBox}"
                                               SelectionChanged="OnFontCombo_Changed"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Размер:" VerticalAlignment="Center" Margin="0,8,0,0"
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Settings.Font.Size}" VerticalAlignment="Center" Margin="0,8,0,0"
                                                Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <ComboBox Grid.Row="1" Grid.Column="1" x:Name="FontSizeComboBox" Height="34"
                                               VerticalAlignment="Center" Margin="0,8,0,0" Style="{StaticResource ModernComboBox}"
                                               IsEditable="True"
                                               KeyUp="OnFontSize_KeyUp"
                                               SelectionChanged="OnFontCombo_Changed"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Начертание:" VerticalAlignment="Center" Margin="0,8,0,0"
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Settings.Font.Style}" VerticalAlignment="Center" Margin="0,8,0,0"
                                                Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <ComboBox Grid.Row="2" Grid.Column="1" x:Name="FontStyleComboBox" Height="34"
                                               VerticalAlignment="Center" Margin="0,8,0,0" Style="{StaticResource ModernComboBox}"
@@ -729,15 +730,15 @@
                                 </Grid>
                                 <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderBrushColor}"
                                         BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
-                                    <TextBlock x:Name="FontPreviewText" Text="Образец текста: Управление конфигурациями 1С"
+                                    <TextBlock x:Name="FontPreviewText" Text="{loc:Loc Settings.Font.Preview}"
                                                Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
                                 </Border>
                                 <Button Style="{DynamicResource ModernButton}" Padding="12,6" HorizontalAlignment="Left"
                                         Click="OnFontApply_Click"
-                                        ToolTip="Применить выбранный шрифт к главному окну сразу (предпросмотр)">
+                                        ToolTip="{loc:Loc Settings.Font.ApplyTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FormatFont" Width="16" Height="16" Foreground="{DynamicResource ButtonTextBrush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Применить" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Common.Apply}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -754,87 +755,103 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Palette" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                        <TextBlock Text="Цветовое оформление" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc Settings.TabAppearance}" VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="4,12,4,0" Padding="0,0,4,0">
                     <StackPanel>
-                        <GroupBox Header="Тема оформления" Padding="8" Margin="0,0,0,12">
+                        <GroupBox Header="{loc:Loc Settings.Language}" Padding="8" Margin="0,0,0,12">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{loc:Loc Settings.LanguageLabel}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <ComboBox x:Name="LanguageComboBox" Width="280" Height="34" Margin="10,0,0,0"
+                                              VerticalAlignment="Center"
+                                              Style="{StaticResource ModernComboBox}"
+                                              SelectionChanged="OnLanguage_Changed"/>
+                                </StackPanel>
+                                <TextBlock Text="{loc:Loc Settings.Language.AppliedHint}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8" Margin="0,0,0,12">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <TextBlock Text="Тема:" VerticalAlignment="Center"
+                                    <TextBlock Text="{loc:Loc Settings.ThemeLabel}" VerticalAlignment="Center"
                                                Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <ComboBox x:Name="SchemeComboBox" Width="280" Height="34" Margin="10,0,0,0"
                                               VerticalAlignment="Center"
                                               Style="{StaticResource ModernComboBox}"
                                               SelectionChanged="OnSchemeCombo_SelectionChanged"/>
-                                    <Button x:Name="ApplySchemeButton" Content="Применить" Margin="10,0,0,0"
+                                    <Button x:Name="ApplySchemeButton" Content="{loc:Loc Common.Apply}" Margin="10,0,0,0"
                                             Padding="12,5" VerticalAlignment="Center"
                                             Style="{DynamicResource ModernButton}"
                                             Click="OnApplyColorScheme_Click"
-                                            ToolTip="Применить выбранную тему и цвета сразу (предпросмотр)"/>
+                                            ToolTip="{loc:Loc Settings.Theme.ApplyTooltip}"/>
                                 </StackPanel>
-                                <TextBlock Text="Встроенные темы: «Светлая» и «Тёмная». Свои темы сохраняются в каталоге пользователя и появляются в списке."
+                                <TextBlock Text="{loc:Loc Settings.Theme.Description}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,10"/>
                                 <WrapPanel Orientation="Horizontal">
                                     <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
                                             Click="OnCreateScheme_Click"
-                                            ToolTip="Создать свою тему на основе текущих цветов">
+                                            ToolTip="{loc:Loc Settings.CreateThemeTooltip}">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Создать тему" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Settings.CreateTheme}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="RenameSchemeButton" Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
                                             Click="OnRenameScheme_Click"
-                                            ToolTip="Переименовать выбранную тему">
+                                            ToolTip="{loc:Loc Settings.RenameTooltip}">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Переименовать" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Settings.Rename}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button x:Name="DeleteSchemeButton" Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
                                             Click="OnDeleteScheme_Click"
-                                            ToolTip="Удалить выбранную пользовательскую тему">
+                                            ToolTip="{loc:Loc Settings.DeleteThemeTooltip}">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Удалить" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
                                             Click="OnResetSchemeColors_Click"
-                                            ToolTip="Восстановить цвета выбранной темы по умолчанию">
+                                            ToolTip="{loc:Loc Settings.ResetColorsTooltip}">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="Restore" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Сбросить цвета" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Settings.ResetColors}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
                                             Click="OnExportScheme_Click"
-                                            ToolTip="Выгрузить текущую тему в JSON-файл">
+                                            ToolTip="{loc:Loc Settings.ExportThemeTooltip}">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="Export" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Выгрузить…" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Settings.ExportTheme}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,0,4"
                                             Click="OnImportScheme_Click"
-                                            ToolTip="Загрузить тему из JSON-файла">
+                                            ToolTip="{loc:Loc Settings.ImportThemeTooltip}">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="Import" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Загрузить…" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Settings.ImportTheme}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </WrapPanel>
                             </StackPanel>
                         </GroupBox>
 
-                        <GroupBox Header="Цвета" Padding="8" Margin="0,0,0,8">
+                        <GroupBox Header="{loc:Loc Settings.Colors}" Padding="8" Margin="0,0,0,8">
                             <StackPanel>
-                                <TextBlock Text="Измените цвета выбранной темы. «Применить» — сразу применить (предпросмотр), «Сохранить» — сохранить настройки."
+                                <TextBlock Text="{loc:Loc Settings.Colors.Description}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,8"/>
                                 <ItemsControl x:Name="ColorItemsControl">
@@ -854,7 +871,7 @@
                                                         Background="{Binding ColorBrush}"/>
                                                 <TextBlock Grid.Column="2" Text="{Binding Hex}" VerticalAlignment="Center"
                                                            Margin="12,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <Button Grid.Column="3" Content="Выбрать…" Padding="10,3"
+                                                <Button Grid.Column="3" Content="{loc:Loc Settings.ChooseColor}" Padding="10,3"
                                                         Margin="12,0,0,0" VerticalAlignment="Center"
                                                         Style="{DynamicResource SecondaryButton}"
                                                         Tag="{Binding Key}"
@@ -875,7 +892,7 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="KeyboardOutline" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                        <TextBlock Text="Клавиши" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc Settings.TabHotkeys}" VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -883,13 +900,13 @@
                               Margin="4,12,4,0" Padding="0,0,4,0">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <TextBlock Text="Горячие клавиши действий"
+                            <TextBlock Text="{loc:Loc Settings.Hotkeys.Title}"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HelpLink Margin="6,0,0,0"
-                                               HelpText="Назначение горячих клавиш действий (по аналогии с конфигуратором 1С).&#10;&#10;• Установите курсор в поле и нажмите нужную комбинацию: Ctrl, Shift, Alt, Win (например Ctrl+Shift+F), либо F2–F12, Delete, Insert.&#10;• Backspace/Delete — сбросить назначение; «Нет» — клавиша не используется.&#10;• Esc — отменить текущий ввод.&#10;• Одна и та же клавиша не может быть назначена разным действиям.&#10;• Назначенные клавиши применяются сразу после сохранения настроек и отображаются на кнопках правой панели и в контекстном меню."/>
+                                               HelpText="{loc:Loc Settings.Hotkeys.HelpText}"/>
                         </StackPanel>
-                        <TextBlock Text="Одна и та же клавиша не может быть назначена разным действиям. Установите курсор в поле и нажмите нужное сочетание (Ctrl, Shift, Alt и др.). Backspace/Delete — сбросить, «Нет» — клавиша не используется."
+                        <TextBlock Text="{loc:Loc Settings.Hotkeys.Description}"
                                    Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                    TextWrapping="Wrap" Margin="0,0,0,8"/>
                         <Grid Margin="0,0,0,12">
@@ -910,67 +927,67 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="1С:Предприятие:" VerticalAlignment="Center" Margin="0,0,0,6"
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.Enterprise}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyEnterpriseBox" Grid.Row="0" Grid.Column="1"
                                                 Height="34" Margin="0,0,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Конфигуратор:" VerticalAlignment="Center" Margin="0,0,0,6"
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.Configurator}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyConfiguratorBox" Grid.Row="1" Grid.Column="1"
                                                 Height="34" Margin="0,0,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Избранное:" VerticalAlignment="Center" Margin="0,0,0,6"
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.Favorites}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyFavoriteBox" Grid.Row="2" Grid.Column="1"
                                                 Height="34" Margin="0,0,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Изменить:" VerticalAlignment="Center" Margin="0,0,0,6"
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.Edit}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyEditBox" Grid.Row="3" Grid.Column="1"
                                                 Height="34" Margin="0,0,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Удалить:" VerticalAlignment="Center" Margin="0,0,0,6"
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.Delete}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyDeleteBox" Grid.Row="4" Grid.Column="1"
                                                 Height="34" Margin="0,0,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Очистить кэш:" VerticalAlignment="Center" Margin="0,0,0,6"
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ClearCache}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyClearCacheBox" Grid.Row="5" Grid.Column="1"
                                                 Height="34" Margin="0,0,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="6" Grid.Column="0" Text="Добавить базу:" VerticalAlignment="Center" Margin="0,0,0,6"
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.AddBase}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyAddBox" Grid.Row="6" Grid.Column="1"
                                                 Height="34" Margin="0,0,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="7" Grid.Column="0" Text="Закрепить:" VerticalAlignment="Center" Margin="0,0,0,6"
+                            <TextBlock Grid.Row="7" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.Pin}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyPinBox" Grid.Row="7" Grid.Column="1"
                                                 Height="34" Margin="0,0,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="8" Grid.Column="0" Text="Показать все базы:" VerticalAlignment="Center" Margin="0,0,0,6"
+                            <TextBlock Grid.Row="8" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ShowAll}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyShowAllBox" Grid.Row="8" Grid.Column="1"
                                                 Height="34" Margin="0,0,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="9" Grid.Column="0" Text="Показать избранное:" VerticalAlignment="Center" Margin="0,0,0,6"
+                            <TextBlock Grid.Row="9" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ShowFavorites}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyShowFavoritesBox" Grid.Row="9" Grid.Column="1"
                                                 Height="34" Margin="0,0,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="10" Grid.Column="0" Text="Показать недавние:" VerticalAlignment="Center"
+                            <TextBlock Grid.Row="10" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ShowRecent}" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyShowRecentBox" Grid.Row="10" Grid.Column="1"
                                                 Height="34" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
                         </Grid>
 
-                        <TextBlock Text="Порядок избранного (Alt+1 … Alt+9)"
+                        <TextBlock Text="{loc:Loc Settings.Hotkeys.FavoritesOrder}"
                                    FontWeight="SemiBold" Margin="0,4,0,6"
                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock Text="Порядок слотов определяет, какая база запускается по Alt+1, Alt+2 и т.д. Используйте стрелки для перемещения."
+                        <TextBlock Text="{loc:Loc Settings.Hotkeys.FavoritesOrderHint}"
                                    Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                    TextWrapping="Wrap" Margin="0,0,0,8"/>
                         <Grid MinHeight="140" Margin="0,0,0,12">
@@ -998,11 +1015,11 @@
                             </ListBox>
                             <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
                                 <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,0,6"
-                                        Click="OnFavoriteHotkeyUp_Click" ToolTip="Выше (меньший номер Alt)">
+                                        Click="OnFavoriteHotkeyUp_Click" ToolTip="{loc:Loc Settings.Hotkeys.MoveUpTooltip}">
                                     <materialDesign:PackIcon Kind="ArrowUp" Width="18" Height="18"/>
                                 </Button>
                                 <Button Style="{DynamicResource SecondaryButton}" Padding="10,6"
-                                        Click="OnFavoriteHotkeyDown_Click" ToolTip="Ниже (больший номер Alt)">
+                                        Click="OnFavoriteHotkeyDown_Click" ToolTip="{loc:Loc Settings.Hotkeys.MoveDownTooltip}">
                                     <materialDesign:PackIcon Kind="ArrowDown" Width="18" Height="18"/>
                                 </Button>
                             </StackPanel>
@@ -1018,44 +1035,44 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ApplicationCog" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                        <TextBlock Text="Настройки" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc Settings.TabGeneral}" VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="4,12,4,0" Padding="0,0,4,0">
                     <StackPanel>
-                        <TextBlock Text="Поведение приложения"
+                        <TextBlock Text="{loc:Loc Settings.General.Behavior}"
                                    FontWeight="SemiBold" Margin="0,0,0,8"
                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="AllowMultipleInstancesCheck" Margin="0,0,0,6">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ApplicationOutline" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Разрешить несколько экземпляров программы" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.General.AllowMultipleInstances}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
                         <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowTrayIconCheck" Margin="0,0,0,6">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="TrayFull" Width="16" Height="16" Foreground="#14B8A6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Значок в области уведомлений" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.General.ShowTrayIcon}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
                         <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="CloseToTrayCheck" Margin="0,0,0,6">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="WindowMinimize" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Сворачивать в трей при закрытии" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.General.CloseToTray}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
                         <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="EscapeToTrayCheck" Margin="0,0,0,6">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Keyboard" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="По Esc сворачивать в трей" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.General.EscapeToTray}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
                         <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="RememberWindowLayoutCheck">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Monitor" Width="16" Height="16" Foreground="#EC4899" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Запоминать расположение, размер и монитор окна" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.General.RememberWindowLayout}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
                     </StackPanel>
@@ -1080,18 +1097,18 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="Синхронизация приложения со стандартным файлом списка баз 1С (ibases.v8i)."
+                    <TextBlock Grid.Row="0" Text="{loc:Loc Settings.Ibases.Description}"
                                Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12"
                                TextWrapping="Wrap"/>
 
                     <!-- Синхронизация с ibases.v8i -->
-                    <GroupBox Grid.Row="1" Header="Настройки синхронизации" Padding="8">
+                    <GroupBox Grid.Row="1" Header="{loc:Loc Settings.SyncSettings}" Padding="8">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,-4,0,4">
-                                <controls:HelpLink HelpText="Синхронизация со стандартным файлом списка баз 1С ibases.v8i.&#10;&#10;• Режим: отключена / только загрузка / только выгрузка / двусторонняя (сначала выгрузка, затем загрузка).&#10;• Файл: путь к ibases.v8i (по умолчанию %APPDATA%\1C\1CEStart\).&#10;• Момент синхронизации: при старте, по интервалу (мин) или по расписанию (ЧЧ:ММ).&#10;• «Загрузить из файла» — добавить базы из файла в приложение; «Выгрузить в файл» — наоборот.&#10;• Рекомендуется включать резервные копии ibases.v8i перед синхронизацией — их можно восстановить кнопкой «Восстановить из последней копии»."/>
+                                <controls:HelpLink HelpText="{loc:Loc Settings.Ibases.HelpText}"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="Режим синхронизации:" VerticalAlignment="Center"
+                                <TextBlock Text="{loc:Loc Settings.Ibases.SyncMode}" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <ComboBox x:Name="SyncModeComboBox" Width="420" Height="40" Margin="10,0,0,0" FontSize="14"
                                           VerticalAlignment="Center"
@@ -1100,19 +1117,19 @@
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="Файл ibases.v8i:" VerticalAlignment="Center"
+                                <TextBlock Text="{loc:Loc Settings.Ibases.File}" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBox x:Name="SyncFilePathTextBox" Width="380" Margin="10,0,0,0"
                                          VerticalAlignment="Center"/>
-                                <Button x:Name="BrowseSyncFileButton" Content="Обзор…" Margin="6,0,0,0"
+                                <Button x:Name="BrowseSyncFileButton" Content="{loc:Loc Common.Browse}" Margin="6,0,0,0"
                                         Padding="10,3" VerticalAlignment="Center"
                                         Style="{DynamicResource SecondaryButton}"
                                         Click="OnBrowseSyncFile_Click"
-                                        ToolTip="Выбрать файл ibases.v8i вручную"/>
+                                        ToolTip="{loc:Loc Settings.Ibases.BrowseTooltip}"/>
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="Момент синхронизации:" VerticalAlignment="Center"
+                                <TextBlock Text="{loc:Loc Settings.Ibases.SyncTrigger}" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <ComboBox x:Name="SyncTriggerComboBox" Width="420" Height="40" Margin="10,0,0,0" FontSize="14"
                                           VerticalAlignment="Center"
@@ -1121,13 +1138,13 @@
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock x:Name="SyncIntervalLabel" Text="Интервал (мин):"
+                                <TextBlock x:Name="SyncIntervalLabel" Text="{loc:Loc Settings.Ibases.Interval}"
                                            VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBox x:Name="SyncIntervalTextBox" Width="60" Margin="10,0,0,0"
                                          VerticalAlignment="Center" TextAlignment="Center"
                                          TextChanged="OnSyncInterval_TextChanged"/>
-                                <TextBlock x:Name="SyncScheduleLabel" Text="Время (ЧЧ:ММ):"
+                                <TextBlock x:Name="SyncScheduleLabel" Text="{loc:Loc Settings.Ibases.ScheduleTime}"
                                            VerticalAlignment="Center" Margin="16,0,0,0"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBox x:Name="SyncScheduleTimePicker" Width="70" Margin="10,0,0,0"
@@ -1143,19 +1160,19 @@
                                 <Button x:Name="SyncImportButton" Style="{DynamicResource SecondaryButton}"
                                         Padding="10,6" Margin="0,0,8,0"
                                         Click="OnSyncImport_Click"
-                                        ToolTip="Загрузить новые базы из файла ibases.v8i в приложение">
+                                        ToolTip="{loc:Loc Settings.Ibases.ImportTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Download" Width="16" Height="16" Foreground="#F97316" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Загрузить из файла" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Ibases.Import}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="SyncExportButton" Style="{DynamicResource SecondaryButton}"
                                         Padding="10,6"
                                         Click="OnSyncExport_Click"
-                                        ToolTip="Выгрузить базы приложения в файл ibases.v8i">
+                                        ToolTip="{loc:Loc Settings.Ibases.ExportTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Upload" Width="16" Height="16" Foreground="#A855F7" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Выгрузить в файл" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Ibases.Export}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -1163,25 +1180,25 @@
                             <Separator Margin="0,12,0,12"/>
 
                             <CheckBox x:Name="IbasesBackupEnabledCheck"
-                                      Content="Создавать резервные копии ibases.v8i перед синхронизацией"
+                                      Content="{loc:Loc Settings.BackupBeforeSync}"
                                       IsChecked="True" Margin="0,0,0,6"/>
                             <StackPanel Orientation="Horizontal" Margin="24,0,0,6">
-                                <TextBlock Text="Хранить копий:" VerticalAlignment="Center"
+                                <TextBlock Text="{loc:Loc Settings.Ibases.BackupKeepCount}" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBox x:Name="IbasesBackupKeepCountBox" Width="50" Margin="8,0,0,0"
                                          Text="5" VerticalAlignment="Center"
                                          Style="{StaticResource ModernTextBox}"/>
                             </StackPanel>
-                            <TextBlock Text="Копии сохраняются рядом с файлом: ibases.v8i.bak_yyyyMMdd_HHmmss"
+                            <TextBlock Text="{loc:Loc Settings.Ibases.BackupNote}"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        FontSize="12" TextWrapping="Wrap" Margin="24,0,0,8"/>
                             <Button Style="{DynamicResource SecondaryButton}" Padding="10,6"
                                     HorizontalAlignment="Left"
                                     Click="OnRestoreIbasesBackup_Click"
-                                    ToolTip="Восстановить ibases.v8i из последней резервной копии">
+                                    ToolTip="{loc:Loc Settings.Ibases.RestoreTooltip}">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="BackupRestore" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Восстановить из последней копии" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Settings.Ibases.Restore}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -1196,21 +1213,21 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Database" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                        <TextBlock Text="Базы" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc Settings.TabBases}" VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="4,12,4,0" Padding="0,0,4,0">
                     <StackPanel>
-                        <TextBlock Text="Экспорт и загрузка списка баз, каталоги шаблонов и другие операции."
+                        <TextBlock Text="{loc:Loc Settings.Bases.Description}"
                                    Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12"
                                    TextWrapping="Wrap"/>
 
                         <!-- Каталоги шаблонов — выше, т.к. часто нужны при создании ИБ -->
-                        <GroupBox Header="Каталоги шаблонов конфигураций" Padding="8" Margin="0,0,0,12">
+                        <GroupBox Header="{loc:Loc Settings.TemplateDirs}" Padding="8" Margin="0,0,0,12">
                             <StackPanel>
-                                <TextBlock Text="Как в стартере 1С. Пустой список — пути из настроек 1С и %PUBLIC%\Documents\1C\1cv8\tmplts."
+                                <TextBlock Text="{loc:Loc Settings.Bases.TemplateDirsHint}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6" TextWrapping="Wrap"/>
                                 <ListBox x:Name="TemplatePathsList" MinHeight="100" MaxHeight="180" Margin="0,0,0,8"
                                          BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
@@ -1220,34 +1237,34 @@
                                 <WrapPanel Orientation="Horizontal">
                                     <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
                                             Click="OnAddTemplatePath_Click"
-                                            ToolTip="Добавить каталог шаблонов">
+                                            ToolTip="{loc:Loc Settings.Bases.AddTemplateTooltip}">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="FolderPlus" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Добавить…" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Settings.Bases.AddTemplate}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
                                             Click="OnEditTemplatePath_Click"
-                                            ToolTip="Изменить выбранный путь">
+                                            ToolTip="{loc:Loc Settings.Bases.EditTemplateTooltip}">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="FolderEdit" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Изменить…" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Settings.Bases.EditTemplate}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
                                             Click="OnRemoveTemplatePath_Click"
-                                            ToolTip="Удалить выбранный путь из списка">
+                                            ToolTip="{loc:Loc Settings.Bases.RemoveTemplateTooltip}">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="FolderRemove" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Удалить" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,0,4"
                                             Click="OnLoadDefaultTemplatePaths_Click"
-                                            ToolTip="Загрузить пути из настроек 1С и стандартный каталог tmplts">
+                                            ToolTip="{loc:Loc Settings.Bases.LoadDefaultTooltip}">
                                         <StackPanel Orientation="Horizontal">
                                             <materialDesign:PackIcon Kind="Download" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Из 1С" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Settings.Bases.LoadDefault}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </WrapPanel>
@@ -1255,40 +1272,40 @@
                         </GroupBox>
 
                         <!-- Экспорт / загрузка списка баз -->
-                        <GroupBox Header="Список информационных баз" Padding="8" Margin="0,0,0,12">
+                        <GroupBox Header="{loc:Loc Settings.IbaseList}" Padding="8" Margin="0,0,0,12">
                             <StackPanel>
                                 <Button Style="{DynamicResource ModernButton}" Margin="0,0,0,8" Padding="10,8"
                                         HorizontalAlignment="Stretch"
                                         Click="OnExportInfobases_Click"
-                                        ToolTip="Сохранить текущий список баз и групп в JSON-файл">
+                                        ToolTip="{loc:Loc Settings.Bases.ExportListTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Export" Width="16" Height="16" Foreground="White" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Экспорт списка баз в файл" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Bases.ExportList}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
                                         HorizontalAlignment="Stretch"
                                         Click="OnImportInfobases_Click"
-                                        ToolTip="Загрузить список баз и групп из JSON-файла (заменяет текущий)">
+                                        ToolTip="{loc:Loc Settings.Bases.ImportListTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Import" Width="16" Height="16" Foreground="#F97316" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Загрузка списка баз из файла" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Bases.ImportList}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
                                         HorizontalAlignment="Stretch"
                                         Click="OnImportIbasesV8i_Click"
-                                        ToolTip="Считать список баз из файла ibases.v8i и добавить/обновить базы">
+                                        ToolTip="{loc:Loc Settings.Bases.ImportV8iTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FileDownload" Width="16" Height="16" Foreground="#14B8A6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Импорт из ibases.v8i" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Bases.ImportV8i}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <CheckBox x:Name="AddTimestampToExportFileNameCheck"
-                                          Content="Добавлять дату-время к имени файла при выгрузке"
+                                          Content="{loc:Loc Settings.AddTimestamp}"
                                           Margin="0,6,0,0"
-                                          ToolTip="В имя файла при выгрузке (экспорт списка в JSON, выгрузка ИБ в .dt, выгрузка конфигурации в .cf) автоматически добавляется отметка даты и времени, например «База_20260819_074312.dt»."/>
-                                <TextBlock Text="Шаблон даты и времени:"
+                                          ToolTip="{loc:Loc Settings.AddTimestampTooltip}"/>
+                                <TextBlock Text="{loc:Loc Settings.Bases.TimestampFormat}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            Margin="0,12,0,4"/>
                                 <ComboBox x:Name="ExportTimestampFormatComboBox"
@@ -1298,7 +1315,7 @@
                                           IsTextSearchEnabled="True"
                                           StaysOpenOnEdit="True"
                                           SelectionChanged="OnExportTimestampFormat_SelectionChanged"
-                                          ToolTip="Шаблон отметки даты и времени в имени файла. Выберите из списка или введите свой формат (например yyyy-MM-dd_HHmmss)."/>
+                                          ToolTip="{loc:Loc Settings.Bases.TimestampFormatTooltip}"/>
                                 <TextBlock x:Name="ExportTimestampPreview"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            Margin="0,6,0,0" TextWrapping="Wrap"/>
@@ -1306,45 +1323,45 @@
                         </GroupBox>
 
                         <!-- Сервис (по аналогии со StartManager) -->
-                        <GroupBox Header="Обслуживание" Padding="8" Margin="0,0,0,12">
+                        <GroupBox Header="{loc:Loc Settings.Maintenance}" Padding="8" Margin="0,0,0,12">
                             <StackPanel>
-                                <TextBlock Text="Операции из альтернативных стартеров 1С: проверка файловых баз и завершение процессов платформы."
+                                <TextBlock Text="{loc:Loc Settings.Bases.MaintenanceHint}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
                                            TextWrapping="Wrap"/>
                                 <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
                                         HorizontalAlignment="Stretch"
                                         Click="OnRemoveMissingFileBases_Click"
-                                        ToolTip="Удалить из списка файловые базы, у которых нет каталога или файла 1Cv8.1CD">
+                                        ToolTip="{loc:Loc Settings.Bases.RemoveMissingTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FolderRemove" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Удалить отсутствующие файловые базы" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Bases.RemoveMissing}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{DynamicResource SecondaryButton}" Padding="10,8"
                                         HorizontalAlignment="Stretch"
                                         Click="OnKillOneCProcesses_Click"
-                                        ToolTip="Завершить процессы 1cv8, 1cv8c и связанные (зависшие сеансы)">
+                                        ToolTip="{loc:Loc Settings.Bases.KillProcessesTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="CloseNetwork" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Завершить процессы 1С" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Bases.KillProcesses}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
                         </GroupBox>
 
                         <!-- Опасные операции -->
-                        <GroupBox Header="Опасные операции" Padding="8" Margin="0,0,0,8">
+                        <GroupBox Header="{loc:Loc Settings.DangerousOps}" Padding="8" Margin="0,0,0,8">
                             <StackPanel>
-                                <TextBlock Text="Очистка всего списка баз и групп. Действие необратимо."
+                                <TextBlock Text="{loc:Loc Settings.Bases.DangerousHint}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
                                            TextWrapping="Wrap"/>
                                 <Button Style="{DynamicResource SecondaryButton}" Padding="10,8"
                                         HorizontalAlignment="Stretch"
                                         Click="OnClearAllInfobases_Click"
-                                        ToolTip="Удалить все базы и группы">
+                                        ToolTip="{loc:Loc Settings.Bases.ClearAllTooltip}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Очистить весь список баз" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Bases.ClearAll}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -1359,29 +1376,29 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="InformationOutline" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center"
                                                  Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
-                        <TextBlock Text="О программе" VerticalAlignment="Center"
+                        <TextBlock Text="{loc:Loc Settings.TabAbout}" VerticalAlignment="Center"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="4,12,4,0">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBlock Text="Управление конфигурациями 1С" FontSize="18" FontWeight="SemiBold"
+                            <TextBlock Text="{loc:Loc App.Title}" FontSize="18" FontWeight="SemiBold"
                                        VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HelpLink Margin="8,0,0,0" VerticalAlignment="Center"
-                                               HelpText="Версия: 0.2.7.24.&#10;&#10;Это десктопное приложение для управления информационными базами 1С:Предприятие 8.3 — замена стандартному списку баз 1С.&#10;&#10;• Во многих окнах рядом с элементами есть значок «?» — нажмите его, чтобы увидеть подсказку о том, как работает этот элемент.&#10;• Полное описание возможностей и архитектуры — в файле README.md репозитория."/>
+                                               HelpText="{loc:Loc Settings.About.HelpText}"/>
                         </StackPanel>
-                        <TextBlock Text="Автор: Sivatorov" FontSize="14"
+                        <TextBlock Text="{loc:Loc Settings.About.Author}" FontSize="14"
                                    Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,16"/>
-                        <TextBlock Text="Публикация на Infostart:" FontWeight="SemiBold"
+                        <TextBlock Text="{loc:Loc Settings.About.Infostart}" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4"/>
                         <TextBlock Margin="0,0,0,12" Cursor="Hand" TextDecorations="Underline"
                                    Foreground="{DynamicResource AccentBrush}"
                                    Text="https://infostart.ru/1c/tools/2764888/"
                                    MouseLeftButtonUp="OnAboutLink_Click"
                                    Tag="https://infostart.ru/1c/tools/2764888/"/>
-                        <TextBlock Text="Репозиторий GitHub:" FontWeight="SemiBold"
+                        <TextBlock Text="{loc:Loc Settings.About.GitHub}" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4"/>
                         <TextBlock Cursor="Hand" TextDecorations="Underline"
                                    Foreground="{DynamicResource AccentBrush}"
@@ -1414,7 +1431,7 @@
                 </Button.Template>
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Сохранить" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc Common.Save}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
             <Button Width="140" Height="36" IsCancel="True" Click="OnCancel_Click"
@@ -1437,7 +1454,7 @@
                 </Button.Template>
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="Отмена" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
         </StackPanel>

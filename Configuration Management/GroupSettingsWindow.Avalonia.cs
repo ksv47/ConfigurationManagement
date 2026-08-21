@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.ViewModels;
@@ -23,7 +24,7 @@ namespace Configuration_Management
         private readonly ObservableCollection<Group> _groups;
         private readonly IDialogService _dialogs;
         private readonly TreeView _tree = new();
-        private readonly Button _doneButton = new() { Content = "Готово", MinWidth = 110, IsDefault = true };
+        private readonly Button _doneButton = new() { Content = LocalizationManager.T("GroupSettings.Done"), MinWidth = 110, IsDefault = true };
 
         /// <summary>
         /// Создаёт диалог управления группами.
@@ -31,7 +32,7 @@ namespace Configuration_Management
         /// <param name="groups">Текущий список групп.</param>
         public GroupSettingsWindow(IEnumerable<Group> groups)
         {
-            Title = "Управление группами";
+            Title = LocalizationManager.T("GroupSettings.Title");
             Width = 540;
             Height = 560;
             MinWidth = 480;
@@ -67,7 +68,7 @@ namespace Configuration_Management
 
             var header = new TextBlock
             {
-                Text = "Управление группами информационных баз",
+                Text = LocalizationManager.T("GroupSettings.GroupsHeader"),
                 FontSize = 15,
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 0, 0, 10)
@@ -97,10 +98,10 @@ namespace Configuration_Management
 
             // Кнопки управления
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0), Spacing = 8 };
-            actions.Children.Add(MakeButton("Корневая", "IconAdd", OnAddRoot_Click));
-            actions.Children.Add(MakeButton("Подгруппа", "IconAdd", OnAddSubgroup_Click));
-            actions.Children.Add(MakeButton("Изменить", "IconEdit", OnEdit_Click));
-            actions.Children.Add(MakeButton("Удалить", "IconDelete", OnDelete_Click));
+            actions.Children.Add(MakeButton(LocalizationManager.T("GroupSettings.AddRoot"), "IconAdd", OnAddRoot_Click));
+            actions.Children.Add(MakeButton(LocalizationManager.T("GroupSettings.AddSubgroup"), "IconAdd", OnAddSubgroup_Click));
+            actions.Children.Add(MakeButton(LocalizationManager.T("Common.Edit"), "IconEdit", OnEdit_Click));
+            actions.Children.Add(MakeButton(LocalizationManager.T("Common.Delete"), "IconDelete", OnDelete_Click));
             Grid.SetRow(actions, 2);
             grid.Children.Add(actions);
 
@@ -151,7 +152,7 @@ namespace Configuration_Management
             var parent = SelectedNode?.Group;
             if (parent is null)
             {
-                _dialogs.ShowInfo("Выберите группу, внутри которой нужно создать подгруппу.", "Внимание");
+                _dialogs.ShowInfo(LocalizationManager.T("GroupSettings.NoGroupSelected"), LocalizationManager.T("Common.Warning"));
                 return;
             }
 
@@ -191,13 +192,13 @@ namespace Configuration_Management
             var subgroupCount = _groups.Count(g =>
                 string.Equals(g.ParentId, group.Id, StringComparison.OrdinalIgnoreCase));
 
-            var message = $"Удалить группу «{group.Name}»?";
+            var message = string.Format(LocalizationManager.T("GroupSettings.DeleteConfirm"), group.Name);
             if (subgroupCount > 0)
             {
-                message += $"\n\nВнутри группы находится подгрупп: {subgroupCount}.\nОни также будут удалены.";
+                message += string.Format(LocalizationManager.T("GroupSettings.DeleteHasSubgroups"), subgroupCount);
             }
 
-            if (!_dialogs.Confirm(message, "Подтверждение удаления"))
+            if (!_dialogs.Confirm(message, LocalizationManager.T("GroupSettings.DeleteConfirmTitle")))
                 return;
 
             var toRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { group.Id };

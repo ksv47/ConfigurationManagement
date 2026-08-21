@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.Themes;
@@ -53,6 +54,17 @@ namespace Configuration_Management
                     settings = new AppSettings();
                 }
 
+                // Инициализируем локализацию: выбираем сохранённый язык, иначе язык
+                // системы. Внешние языки (.json) подгружаются из папки Languages.
+                try
+                {
+                    LocalizationManager.Instance.Initialize(settings.Language);
+                }
+                catch
+                {
+                    // Локализация не должна блокировать запуск приложения.
+                }
+
                 if (!settings.AllowMultipleInstances)
                 {
                     _instanceMutex = new Mutex(true, MutexName, out var createdNew);
@@ -92,7 +104,7 @@ namespace Configuration_Management
                 var infoVersion = Assembly.GetExecutingAssembly()
                     .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion;
                 var versionText = string.IsNullOrWhiteSpace(infoVersion) ? "" : $" v{infoVersion}";
-                mainWindow.Title = $"Управление конфигурациями 1С{versionText}";
+                mainWindow.Title = $"{LocalizationManager.T("App.Title")}{versionText}";
 
                 // Применяем сохранённые настройки шрифта интерфейса.
                 ThemeManager.ApplyFont(mainWindow,

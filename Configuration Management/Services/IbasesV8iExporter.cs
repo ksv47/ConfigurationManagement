@@ -323,7 +323,13 @@ public static class IbasesV8iExporter
             }
         }
 
-        return sb.ToString();
+        // Завершающая точка с запятой обязательна: EDT (и ряд других средств 1С)
+        // не может открыть базу, если строка подключения не заканчивается знаком «;».
+        var result = sb.ToString().TrimEnd();
+        if (!string.IsNullOrEmpty(result) && !result.EndsWith(";"))
+            result += ";";
+
+        return result;
     }
 
     /// <summary>

@@ -18,6 +18,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Configuration_Management.Controls;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
@@ -54,7 +55,7 @@ namespace Configuration_Management
         {
             _vm = viewModel;
 
-            Title = "Управление конфигурациями 1С";
+            Title = LocalizationManager.T("App.Title");
             Width = 1200;
             Height = 760;
             MinWidth = 900;
@@ -110,12 +111,12 @@ namespace Configuration_Management
                 Spacing = 2
             };
 
-            var groupByToggle = MakeSegmentToggle("IconGroups", "Показывать / скрывать группы");
+            var groupByToggle = MakeSegmentToggle("IconGroups", LocalizationManager.T("Main.ToggleGroups"));
             groupByToggle.IsChecked = _vm?.GroupByGroup ?? true;
             groupByToggle.Click += (_, _) => { if (_vm is not null) _vm.GroupByGroup = groupByToggle.IsChecked == true; };
             left.Children.Add(groupByToggle);
 
-            var tagsToggle = MakeSegmentToggle("IconTag", "Показывать / скрывать теги");
+            var tagsToggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleTags"));
             tagsToggle.IsChecked = _vm?.ShowTagFilterPanel ?? true;
             tagsToggle.Click += (_, _) => { if (_vm is not null) _vm.ShowTagFilterPanel = tagsToggle.IsChecked == true; };
             left.Children.Add(tagsToggle);
@@ -141,19 +142,19 @@ namespace Configuration_Management
                 Spacing = 6
             };
 
-            var addBtn = TopBarPrimaryButton("IconAdd", "Добавить", "Добавить новую базу");
+            var addBtn = TopBarPrimaryButton("IconAdd", LocalizationManager.T("Main.Add"), LocalizationManager.T("Main.AddTooltip"));
             addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
             actions.Children.Add(addBtn);
 
-            var syncBtn = TopBarSecondaryButton("IconSync", "Синхронизация", "Синхронизация с ibases.v8i");
+            var syncBtn = TopBarSecondaryButton("IconSync", LocalizationManager.T("Main.Sync"), LocalizationManager.T("Main.SyncWithIbases"));
             syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
             actions.Children.Add(syncBtn);
 
-            var themeBtn = TopBarIconButton("IconTheme", "Переключить тему");
+            var themeBtn = TopBarIconButton("IconTheme", LocalizationManager.T("Main.Theme"));
             themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
             actions.Children.Add(themeBtn);
 
-            var settingsBtn = TopBarSecondaryButton("IconSettings", "Настройки", "Настройки приложения");
+            var settingsBtn = TopBarSecondaryButton("IconSettings", LocalizationManager.T("Main.Settings"), LocalizationManager.T("Main.SettingsTooltip"));
             settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
             actions.Children.Add(settingsBtn);
 
@@ -198,15 +199,15 @@ namespace Configuration_Management
 
             var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
 
-            var allSeg = new SegmentButton("IconList", "Все", "ItemHoverBrush", "ItemSelectedBrush");
+            var allSeg = new SegmentButton("IconList", LocalizationManager.T("Main.AllBases"), "ItemHoverBrush", "ItemSelectedBrush");
             allSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeAll") { Mode = BindingMode.TwoWay });
             panel.Children.Add(allSeg);
 
-            var favSeg = new SegmentButton("IconFavorite", "Избранное", "ItemHoverBrush", "ItemSelectedBrush");
+            var favSeg = new SegmentButton("IconFavorite", LocalizationManager.T("Main.Favorites"), "ItemHoverBrush", "ItemSelectedBrush");
             favSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeFavorites") { Mode = BindingMode.TwoWay });
             panel.Children.Add(favSeg);
 
-            var recSeg = new SegmentButton("IconRecent", "Недавние", "ItemHoverBrush", "ItemSelectedBrush");
+            var recSeg = new SegmentButton("IconRecent", LocalizationManager.T("Main.Recent"), "ItemHoverBrush", "ItemSelectedBrush");
             recSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeRecent") { Mode = BindingMode.TwoWay });
             panel.Children.Add(recSeg);
 
@@ -242,7 +243,7 @@ namespace Configuration_Management
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(2, 6),
                 VerticalContentAlignment = VerticalAlignment.Center,
-                Watermark = "Поиск по базам, конфигурациям, серверу…"
+                Watermark = LocalizationManager.T("Main.SearchPlaceholder")
             };
             _searchBox.Bind(TextBox.TextProperty, new Binding("SearchText") { Mode = BindingMode.TwoWay });
             grid.Children.Add(_searchBox);
@@ -255,7 +256,7 @@ namespace Configuration_Management
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(6, 0),
                 Cursor = new Cursor(StandardCursorType.Hand),
-                ToolTip = new ToolTip { Content = "Очистить поиск" }
+                ToolTip = new ToolTip { Content = LocalizationManager.T("Main.ClearSearch") }
             };
             clearBtn.Bind(Button.CommandProperty, new Binding("ClearSearchCommand"));
             grid.Children.Add(clearBtn);
@@ -469,7 +470,7 @@ namespace Configuration_Management
             ThemeBrushes.Bind(_emptyHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             stack.Children.Add(_emptyHint);
 
-            var addBtn = TopBarPrimaryButton("IconAdd", "Добавить базу", "Добавить новую базу");
+            var addBtn = TopBarPrimaryButton("IconAdd", LocalizationManager.T("Main.AddBase"), LocalizationManager.T("Main.AddTooltip"));
             addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
             addBtn.HorizontalAlignment = HorizontalAlignment.Center;
             addBtn.Margin = new Thickness(0, 10, 0, 0);
@@ -503,14 +504,14 @@ namespace Configuration_Management
             if (searching)
             {
                 _emptyIcon.Data = IconHelper.Geometry("IconSearch");
-                _emptyTitle.Text = "Ничего не найдено";
-                _emptyHint.Text = "Попробуйте изменить запрос или сбросить фильтры.";
+                _emptyTitle.Text = LocalizationManager.T("Main.EmptyNoResults");
+                _emptyHint.Text = LocalizationManager.T("Main.EmptyNoResultsHint");
             }
             else
             {
                 _emptyIcon.Data = IconHelper.Geometry("IconDatabase");
-                _emptyTitle.Text = "Список баз пуст";
-                _emptyHint.Text = "Добавьте первую базу или синхронизируйтесь с ibases.v8i.";
+                _emptyTitle.Text = LocalizationManager.T("Main.EmptyNoBases");
+                _emptyHint.Text = LocalizationManager.T("Main.EmptyNoBasesHint");
             }
 
             // Плавное появление заглушки.
@@ -684,42 +685,42 @@ namespace Configuration_Management
             panel.Children.Add(header);
 
             // Основное действие (primary) — крупная акцентная кнопка вверху.
-            panel.Children.Add(PrimaryActionButton("IconPlay", "Запустить 1С:Предприятие", "LaunchEnterpriseCommand"));
+            panel.Children.Add(PrimaryActionButton("IconPlay", LocalizationManager.T("Main.LaunchEnterprise"), "LaunchEnterpriseCommand"));
 
             // Секции secondary-действий, сгруппированные по смыслу.
-            panel.Children.Add(SectionCard("Конфигуратор", "IconConfiguration",
-                SecondaryActionButton("IconWrench", "Открыть конфигуратор", "LaunchConfiguratorCommand")));
+            panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionConfigurator"), "IconConfiguration",
+                SecondaryActionButton("IconWrench", LocalizationManager.T("Main.LaunchConfiguratorSection"), "LaunchConfiguratorCommand")));
 
-            panel.Children.Add(SectionCard("Обслуживание", "IconWrench",
-                SecondaryActionButton("IconEdit", "Изменить настройки", "EditInfobaseCommand"),
-                SecondaryActionButton("IconOpen", "Открыть папку базы", "OpenInfobaseFolderCommand"),
-                SecondaryActionButton("IconKeyboard", "Запустить стартер 1С", "OpenNativeStarterCommand")));
+            panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionMaintenance"), "IconWrench",
+                SecondaryActionButton("IconEdit", LocalizationManager.T("Main.EditSettings"), "EditInfobaseCommand"),
+                SecondaryActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand"),
+                SecondaryActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand")));
 
-            panel.Children.Add(SectionCard("Список баз", "IconList",
-                SecondaryActionButton("IconAdd", "Добавить базу / группу", "AddInfobaseCommand"),
-                SecondaryActionButton("IconShortcut", "Ярлык на рабочем столе", "CreateDesktopShortcutCommand"),
-                SecondaryActionButton("IconDelete", "Удалить", "DeleteInfobaseCommand")));
+            panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionBaseList"), "IconList",
+                SecondaryActionButton("IconAdd", LocalizationManager.T("Main.AddBaseOrGroup"), "AddInfobaseCommand"),
+                SecondaryActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand"),
+                SecondaryActionButton("IconDelete", LocalizationManager.T("Main.Delete"), "DeleteInfobaseCommand")));
 
-            panel.Children.Add(SectionCard("Отметки", "IconStar",
-                SecondaryActionButton("IconFavorite", "В избранное", "ToggleFavoriteCommand"),
-                SecondaryActionButton("IconPin", "Закрепить", "TogglePinCommand")));
+            panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionMarks"), "IconStar",
+                SecondaryActionButton("IconFavorite", LocalizationManager.T("Main.ToFavorites"), "ToggleFavoriteCommand"),
+                SecondaryActionButton("IconPin", LocalizationManager.T("Main.Pin"), "TogglePinCommand")));
 
             // Информация о подключении.
-            panel.Children.Add(SectionCard("Информация о подключении", "IconInfo",
-                DetailRow("Тип", new Binding("SelectedInfobase.ConnectionTypeDisplay")),
-                DetailRow("Сервер / путь", new Binding("SelectedInfobase.ConnectionPathDisplay")),
-                DetailRow("Строка", new Binding("SelectedInfobase.ConnectionStringDisplay")),
-                DetailRow("Платформа", new Binding("SelectedInfobase.PlatformVersion")),
-                DetailRow("Режим запуска", new Binding("SelectedInfobase.ParsedLaunchMode")),
-                DetailRow("Разрядность", new Binding("SelectedInfobase.ArchitectureDisplay")),
-                DetailRow("Последний запуск", new Binding("SelectedInfobase.LastLaunchDisplay"))));
+            panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionConnInfo"), "IconInfo",
+                DetailRow(LocalizationManager.T("Main.Type"), new Binding("SelectedInfobase.ConnectionTypeDisplay")),
+                DetailRow(LocalizationManager.T("Main.ServerPath"), new Binding("SelectedInfobase.ConnectionPathDisplay")),
+                DetailRow(LocalizationManager.T("Main.ConnectionString"), new Binding("SelectedInfobase.ConnectionStringDisplay")),
+                DetailRow(LocalizationManager.T("Main.Platform"), new Binding("SelectedInfobase.PlatformVersion")),
+                DetailRow(LocalizationManager.T("Main.LaunchMode"), new Binding("SelectedInfobase.ParsedLaunchMode")),
+                DetailRow(LocalizationManager.T("Main.Bitness"), new Binding("SelectedInfobase.ArchitectureDisplay")),
+                DetailRow(LocalizationManager.T("Main.LastLaunch"), new Binding("SelectedInfobase.LastLaunchDisplay"))));
 
             // Описание.
             var desc = new TextBlock { TextWrapping = TextWrapping.Wrap };
             desc.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.Description"));
-            panel.Children.Add(SectionCard("Описание", "IconInfo", desc));
+            panel.Children.Add(SectionCard(LocalizationManager.T("Main.Description"), "IconInfo", desc));
 
-            panel.Children.Add(SecondaryActionButton("IconExit", "Выход", "ExitCommand"));
+            panel.Children.Add(SecondaryActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand"));
 
             return panel;
         }
@@ -1148,7 +1149,7 @@ namespace Configuration_Management
             grid.Children.Add(_syncMessage);
             Grid.SetColumn(_syncMessage, 1);
 
-            var toggleBtn = new Button { Content = IconHelper.MakeIcon("IconPanel", 16), ToolTip = new ToolTip { Content = "Правая панель" }, Margin = new Thickness(4, 0, 0, 0) };
+            var toggleBtn = new Button { Content = IconHelper.MakeIcon("IconPanel", 16), ToolTip = new ToolTip { Content = LocalizationManager.T("Main.RightPanel") }, Margin = new Thickness(4, 0, 0, 0) };
             toggleBtn.Bind(Button.CommandProperty, new Binding("ToggleRightPanelDetailsCommand"));
             grid.Children.Add(toggleBtn);
             Grid.SetColumn(toggleBtn, 2);
@@ -1192,7 +1193,7 @@ namespace Configuration_Management
             {
                 var menu = new NativeMenu();
 
-                var showItem = new NativeMenuItem("Показать окно");
+                var showItem = new NativeMenuItem(LocalizationManager.T("Main.ShowWindow"));
                 showItem.Click += (_, _) => ShowAndActivate();
                 menu.Add(showItem);
                 menu.Add(new NativeMenuItemSeparator());
@@ -1209,35 +1210,35 @@ namespace Configuration_Management
                         item.Click += (_, _) => LaunchInfobase(baseRef);
                         recentMenu.Add(item);
                     }
-                    menu.Add(new NativeMenuItem("Недавние базы") { Menu = recentMenu });
+                    menu.Add(new NativeMenuItem(LocalizationManager.T("Main.RecentBases")) { Menu = recentMenu });
                     menu.Add(new NativeMenuItemSeparator());
                 }
 
                 // Запуск выбранной базы: Предприятие / Конфигуратор.
                 if (_vm?.SelectedInfobase is { } sel)
                 {
-                    var ent = new NativeMenuItem($"Предприятие: {sel.Name}");
+                    var ent = new NativeMenuItem($"{LocalizationManager.T("Main.LaunchEnterprise")}: {sel.Name}");
                     ent.Click += (_, _) => _vm.LaunchEnterpriseCommand.Execute(null);
                     menu.Add(ent);
 
-                    var cfg = new NativeMenuItem($"Конфигуратор: {sel.Name}");
+                    var cfg = new NativeMenuItem($"{LocalizationManager.T("Main.LaunchConfigurator")}: {sel.Name}");
                     cfg.Click += (_, _) => _vm.LaunchConfiguratorCommand.Execute(null);
                     menu.Add(cfg);
                     menu.Add(new NativeMenuItemSeparator());
                 }
 
                 // Синхронизация и настройки.
-                var sync = new NativeMenuItem("Синхронизация с ibases.v8i");
+                var sync = new NativeMenuItem(LocalizationManager.T("Main.SyncWithIbases"));
                 sync.Click += (_, _) => _vm?.SynchronizeWithIbasesCommand.Execute(null);
                 menu.Add(sync);
 
-                var settings = new NativeMenuItem("Настройки");
+                var settings = new NativeMenuItem(LocalizationManager.T("Main.Settings"));
                 settings.Click += (_, _) => _vm?.OpenSettingsCommand.Execute(null);
                 menu.Add(settings);
                 menu.Add(new NativeMenuItemSeparator());
 
                 // Выход: разрешаем реальное закрытие и завершаем приложение.
-                var exitItem = new NativeMenuItem("Выход");
+                var exitItem = new NativeMenuItem(LocalizationManager.T("Main.Exit"));
                 exitItem.Click += (_, _) =>
                 {
                     _allowCloseToTray = false;
@@ -1248,7 +1249,7 @@ namespace Configuration_Management
                 var tray = new TrayIcon
                 {
                     Icon = LoadTrayIcon(),
-                    ToolTipText = "Управление конфигурациями 1С",
+                    ToolTipText = LocalizationManager.T("App.Title"),
                     Menu = menu
                 };
                 TrayIcon.SetIcons(this, new TrayIcons { tray });
