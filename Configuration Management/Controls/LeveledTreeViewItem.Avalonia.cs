@@ -11,7 +11,7 @@ namespace Configuration_Management.Controls
     /// </summary>
     public class LeveledTreeViewItem : TreeViewItem
     {
-        protected override Control? GetContainerForItemOverride() => new LeveledTreeViewItem();
+        protected override Control CreateContainerForItemOverride(object? item, int index, object? recycleKey) => new LeveledTreeViewItem();
     }
 }
 #endif

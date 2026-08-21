@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Avalonia.Controls.Presenters;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -41,7 +42,7 @@ namespace Configuration_Management
 
         // Поля empty-state (заглушка пустого списка / «ничего не найдено»).
         private Border _emptyState = null!;
-        private Path _emptyIcon = null!;
+        private Avalonia.Controls.Shapes.Path _emptyIcon = null!;
         private TextBlock _emptyTitle = null!;
         private TextBlock _emptyHint = null!;
 
@@ -1140,11 +1141,11 @@ namespace Configuration_Management
             }
 
             /// <summary>Не даём снимать уже активный сегмент (как RadioButton), когда это требуется.</summary>
-            protected override void OnToggle()
+            protected override void Toggle()
             {
                 if (_lockOn && IsChecked == true)
                     return;
-                base.OnToggle();
+                base.Toggle();
             }
 
             private void Subscribe(string key, Action<IBrush> setter)
