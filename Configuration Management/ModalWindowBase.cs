@@ -39,7 +39,7 @@ namespace Configuration_Management
         /// </summary>
         /// <param name="owner">Окно-владелец (например, главное). Может быть null.</param>
         /// <returns>True, если пользователь подтвердил действие (DialogResult == true).</returns>
-        protected bool ShowDialogSync(Window? owner = null)
+        public bool ShowDialogSync(Window? owner = null)
         {
             if (owner is not null)
             {
@@ -65,7 +65,7 @@ namespace Configuration_Management
         /// <summary>
         /// Показывает окно модально (синхронно) без владельца.
         /// </summary>
-        protected bool ShowDialogSync() => ShowDialogSync(null);
+        public bool ShowDialogSync() => ShowDialogSync(null);
 
         /// <summary>
         /// Строит стандартный ряд кнопок «Отмена»/«ОК» с иконками и обработчиками.
