@@ -142,16 +142,13 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Завершает приложение. У Avalonia Application нет метода Shutdown,
-        /// выход выполняет desktop-lifetime.
+        /// Завершает приложение на этапе запуска. У Avalonia Application нет метода Shutdown,
+        /// а desktop.Shutdown здесь не годится: оба вызова происходят внутри
+        /// OnFrameworkInitializationCompleted, то есть до входа в цикл сообщений, и гасят
+        /// Dispatcher раньше времени. Тогда MainLoop падает с InvalidOperationException
+        /// «Cannot perform requested operation because the Dispatcher shut down».
         /// </summary>
-        private void Shutdown(int exitCode = 0)
-        {
-            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-                desktop.Shutdown(exitCode);
-            else
-                Environment.Exit(exitCode);
-        }
+        private static void Shutdown(int exitCode = 0) => Environment.Exit(exitCode);
 
         /// <summary>
         /// Захватывает исключительный файловый lock (один экземпляр на Linux).
