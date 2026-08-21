@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Media;
 using Configuration_Management.Models;
@@ -321,11 +322,17 @@ namespace Configuration_Management.Themes
             }
 
             // Уменьшаем фиксированные ширины колонок Grid (заголовки колонок идут за содержимым).
+            // Колонки, ширина которых привязана к модели (например, через ColumnVisibilityConverter /
+            // NameColumnWidthConverter в главном окне), пропускаем: прямая установка Width здесь
+            // перебивала бы binding и «ломала» изменение ширины колонок перетаскиванием разделителя.
             if (d is Grid grid)
             {
                 foreach (var cd in grid.ColumnDefinitions)
                 {
                     if (cd.Width.IsStar || cd.Width.IsAuto)
+                        continue;
+                    // Ширина задана привязкой — не трогаем (иначе теряется живое обновление).
+                    if (BindingOperations.GetBindingExpressionBase(cd, ColumnDefinition.WidthProperty) != null)
                         continue;
                     if (!_compactColumn.TryGetValue(cd, out var origWidth))
                     {

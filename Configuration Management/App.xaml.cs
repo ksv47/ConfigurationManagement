@@ -113,8 +113,10 @@ namespace Configuration_Management
                 // Применяем индивидуальные настройки шрифта отдельных областей.
                 ThemeManager.ApplyElementFonts(mainWindow, settings.ElementFonts);
 
-                // Применяем компактный режим интерфейса (если включён).
-                ThemeManager.ApplyCompact(settings.CompactMode);
+                // Компактный режим применяется в MainWindow.OnWindowLoaded, когда
+                // визуальное дерево уже построено. Здесь его вызывать нельзя:
+                // ApplyCompact обходит дерево через VisualTreeHelper, а до показа
+                // окна оно ещё пустое, поэтому масштабирование не сработало бы.
 
                 mainWindow.Show();
             }

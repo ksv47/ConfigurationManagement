@@ -595,13 +595,16 @@ namespace Configuration_Management
             Grid.SetColumn(iconBox, 0);
 
             // Правая колонка: имя (крупно) + строки вторичной информации.
-            var content = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+            // В компактном режиме уменьшаем и межстрочный промежуток, чтобы строки с
+            // полным набором метаданных тоже «сжимались», а не оставались прежней высоты.
+            var content = new StackPanel { Spacing = UiMetrics.Scaled(2), VerticalAlignment = VerticalAlignment.Center };
 
             // Строка имени с маркерами избранного/закрепления.
             var nameRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             var name = new TextBlock
             {
                 Text = ib.Name,
+                FontSize = UiMetrics.RowNameFont,
                 FontWeight = FontWeight.SemiBold,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
@@ -657,6 +660,7 @@ namespace Configuration_Management
             var block = new TextBlock
             {
                 Text = text,
+                FontSize = UiMetrics.RowSecondaryFont,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 ToolTip = text
             };

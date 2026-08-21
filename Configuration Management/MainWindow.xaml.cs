@@ -55,6 +55,13 @@ namespace Configuration_Management
             _viewModel = viewModel ?? new ViewModels.MainViewModel();
             DataContext = _viewModel;
 
+            // Пересчитываем выравнивание колонок заголовка после переключения компактного
+            // режима: ApplyCompact масштабирует отступы/шрифты/компенсатор заголовка,
+            // поэтому старое значение HeaderOffsetColumn становится неактуальным и данные
+            // разъезжаются относительно заголовков. Пересчёт откладывается до Loaded-приоритета,
+            // чтобы он выполнился уже после того, как ApplyCompact завершит изменения раскладки.
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+
             // Применяем сохранённую цветовую схему (тему оформления) при запуске.
             _viewModel.ApplyActiveColorSchemeToUi();
 
@@ -245,6 +252,10 @@ namespace Configuration_Management
         /// </summary>
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
+            // Гарантированно сохраняем все настройки (включая компактный режим) при закрытии,
+            // даже если переключатель не был задействован через сеттер.
+            _viewModel.SaveSettings();
+
             if (!_viewModel.RememberWindowLayout)
             {
                 // Если запоминание окна отключено — сбрасываем сохранённый макет,
@@ -1379,6 +1390,20 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Реакция на изменение компактного режима в модели: пересчитывает выравнивание
+        /// колонок заголовка списка баз (см. <see cref="AlignHeaderToData"/>), т.к. компактный
+        /// режим масштабирует отступы/шрифты и меняет положение данных относительно заголовков.
+        /// Вызов откладывается, чтобы выполняться после применения раскладки компактного режима.
+        /// </summary>
+        private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(MainViewModel.CompactMode))
+            {
+                Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+        }
+
+        /// <summary>
         /// Выравнивает колонки заголовка по фактическому положению колонки «Название»
         /// первой видимой базы в списке. Это необходимо, потому что при группировке
         /// базы смещаются вправо отступами вложенности дерева, и фиксированный сдвиг
@@ -1396,6 +1421,16 @@ namespace Configuration_Management
             // Повторное выравнивание после завершения первичной компоновки,
             // когда уже известны реальные размеры контейнеров дерева.
             Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+
+            // Применяем сохранённый компактный режим при старте. Делаем это здесь, на
+            // событии Loaded, когда визуальное дерево окна уже построено (ApplyCompact
+            // обходит его через VisualTreeHelper; до показа дерево пустое и масштабирование
+            // не срабатывает). После применения пересчитываем выравнивание колонок заголовка.
+            if (_viewModel.CompactMode)
+            {
+                ThemeManager.ApplyCompact(true);
+                Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
 
             // Запускаем автоматическую синхронизацию с файлом ibases.v8i.
             _viewModel.StartAutoSync();

@@ -3234,7 +3234,7 @@ public string HotkeyEnterprise
         }
     }
 
-    private void SaveSettings()
+    public void SaveSettings()
     {
         _repository.SaveSettings(new AppSettings
         {
