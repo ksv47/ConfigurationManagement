@@ -161,10 +161,12 @@ namespace Configuration_Management.Services
         private static T RunSync<T>(Func<Task<T>> taskFactory)
         {
             var task = taskFactory();
-            while (!task.IsCompleted)
+            if (!task.IsCompleted)
             {
-                Dispatcher.UIThread.RunJobs();
-                Thread.Sleep(10);
+                var frame = new DispatcherFrame();
+                task.ContinueWith(_ => frame.Continue = false,
+                    TaskScheduler.FromCurrentSynchronizationContext());
+                Dispatcher.UIThread.PushFrame(frame);
             }
             return task.GetAwaiter().GetResult();
         }
@@ -179,28 +181,26 @@ namespace Configuration_Management.Services
         private static bool ShowModalSync(Window window)
         {
             var owner = CurrentOwner();
+            bool result = true;
+            var frame = new DispatcherFrame();
+            window.Closed += (_, _) =>
+            {
+                result = window is MessageWindow mw ? mw.Result : true;
+                frame.Continue = false;
+            };
+
             if (owner is not null)
             {
                 window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                _ = window.ShowDialog(owner);
             }
             else
             {
                 window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            }
-
-            bool result = true;
-            window.Closed += (_, _) => result = window is MessageWindow mw ? mw.Result : true;
-
-            if (owner is not null)
-                window.Show(owner);
-            else
                 window.Show();
-
-            while (window.IsVisible)
-            {
-                Dispatcher.UIThread.RunJobs();
-                Thread.Sleep(10);
             }
+
+            Dispatcher.UIThread.PushFrame(frame);
 
             return result;
         }
