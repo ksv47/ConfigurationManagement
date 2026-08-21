@@ -102,7 +102,8 @@ namespace Configuration_Management
             // Дерево
             _tree.SelectionMode = SelectionMode.Single;
             _tree.ItemTemplate = new FuncTreeDataTemplate(
-                BuildTreeRow,
+                typeof(object),
+                (item, _) => BuildTreeRow(item),
                 item => item is GroupNodeViewModel g ? g.Children : null);
             _tree.SelectionChanged += (_, _) =>
             {

@@ -162,11 +162,11 @@ public class MainViewModel : ViewModelBase
         ClearTagFiltersCommand = new RelayCommand(ClearTagFilters);
         LaunchEnterpriseCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Enterprise), _ => SelectedInfobase is not null);
         LaunchConfiguratorCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Configurator), _ => SelectedInfobase is not null);
-        EditInfobaseCommand = new RelayCommand(EditInfobase, _ => SelectedInfobase is not null);
+        EditInfobaseCommand = new RelayCommand(_ => EditInfobase(), _ => SelectedInfobase is not null);
         AddInfobaseCommand = new RelayCommand(AddInfobase);
-        DeleteInfobaseCommand = new RelayCommand(DeleteInfobase, _ => SelectedInfobase is not null);
-        ToggleFavoriteCommand = new RelayCommand(ToggleFavorite, _ => SelectedInfobase is not null);
-        TogglePinCommand = new RelayCommand(TogglePin, _ => SelectedInfobase is not null);
+        DeleteInfobaseCommand = new RelayCommand(_ => DeleteInfobase(), _ => SelectedInfobase is not null);
+        ToggleFavoriteCommand = new RelayCommand(_ => ToggleFavorite(), _ => SelectedInfobase is not null);
+        TogglePinCommand = new RelayCommand(_ => TogglePin(), _ => SelectedInfobase is not null);
         OpenSettingsCommand = new RelayCommand(OpenSettings);
         ExpandAllGroupsCommand = new RelayCommand(ExpandAllGroups);
         CollapseAllGroupsCommand = new RelayCommand(CollapseAllGroups);
@@ -176,11 +176,11 @@ public class MainViewModel : ViewModelBase
         ToggleThemeCommand = new RelayCommand(ToggleTheme);
         ToggleRightPanelDetailsCommand = new RelayCommand(() => ShowRightPanelDetails = !ShowRightPanelDetails);
         ExitCommand = new RelayCommand(ExitApplication);
-        CopyConnectionStringCommand = new RelayCommand(CopyConnectionString, _ => SelectedInfobase is not null);
+        CopyConnectionStringCommand = new RelayCommand(_ => CopyConnectionString(), _ => SelectedInfobase is not null);
         RefreshAllConfigurationInfoCommand = new RelayCommand(RefreshAllConfigurationInfo);
-        OpenInfobaseFolderCommand = new RelayCommand(OpenInfobaseFolder,
+        OpenInfobaseFolderCommand = new RelayCommand(_ => OpenInfobaseFolder(),
             _ => SelectedInfobase?.Connection.Type == ConnectionType.File);
-        CreateDesktopShortcutCommand = new RelayCommand(CreateDesktopShortcut, _ => SelectedInfobase is not null);
+        CreateDesktopShortcutCommand = new RelayCommand(_ => CreateDesktopShortcut(), _ => SelectedInfobase is not null);
         OpenNativeStarterCommand = new RelayCommand(OpenNativeStarter);
         QuickClearCacheCommand = new RelayCommand(QuickClearCache, _ => SelectedInfobase is not null);
         ClearCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All), _ => SelectedInfobase is not null);
