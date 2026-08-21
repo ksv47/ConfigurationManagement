@@ -12,7 +12,7 @@ namespace Configuration_Management
     /// <summary>
     /// База модальных диалоговых окон (Avalonia/Linux). Предоставляет синхронный показ
     /// модального окна с эмуляцией <c>DialogResult</c>, как в <see cref="AvaloniaDialogService"/>:
-    /// модальный цикл обрабатывает очередь задач <see cref="Dispatcher.UIThread.RunJobs"/>,
+    /// модальный показ крутит вложенный цикл сообщений <see cref="Dispatcher.PushFrame"/>,
     /// пока окно открыто. Это позволяет вызывать диалоги синхронно из команд ViewModel,
     /// не блокируя UI-поток.
     /// </summary>

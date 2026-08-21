@@ -19,7 +19,7 @@ namespace Configuration_Management.Services
     /// Avalonia-версия диалогов (Linux). Реализует <see cref="IDialogService"/> через
     /// собственное модальное окно сообщения (Avalonia не имеет MessageBox из коробки).
     /// Методы интерфейса синхронные, поэтому модальный показ выполняется с помощью
-    /// вложенного цикла обработки <see cref="Dispatcher.UIThread.RunJobs"/>.
+    /// вложенного цикла сообщений <see cref="Dispatcher.PushFrame"/>.
     /// </summary>
     public sealed class AvaloniaDialogService : IDialogService
     {
