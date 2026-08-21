@@ -84,7 +84,7 @@
         </UniformGrid>
 
         <!-- ============ HEX ============ -->
-        <TextBlock Grid.Row="3" Grid.Column="0" Text="HEX:" VerticalAlignment="Center" Margin="0,4"/>
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc ColorPicker.HexLabel}" VerticalAlignment="Center" Margin="0,4"/>
         <TextBox x:Name="HexBox" Grid.Row="3" Grid.Column="1" Width="110" Padding="4,3"
                  Margin="8,4,0,4" TextChanged="OnHex_TextChanged"/>
 
@@ -95,7 +95,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="40"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="R" Foreground="#EF4444" FontWeight="Bold" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="0" Text="{loc:Loc ColorPicker.ChannelRed}" Foreground="#EF4444" FontWeight="Bold" VerticalAlignment="Center"/>
             <Slider x:Name="RedSlider" Grid.Column="1" Minimum="0" Maximum="255" ValueChanged="OnRgb_ValueChanged"/>
             <TextBlock x:Name="RedValue" Grid.Column="2" Text="0" TextAlignment="Right"
                        Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
@@ -106,7 +106,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="40"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="G" Foreground="#10B981" FontWeight="Bold" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="0" Text="{loc:Loc ColorPicker.ChannelGreen}" Foreground="#10B981" FontWeight="Bold" VerticalAlignment="Center"/>
             <Slider x:Name="GreenSlider" Grid.Column="1" Minimum="0" Maximum="255" ValueChanged="OnRgb_ValueChanged"/>
             <TextBlock x:Name="GreenValue" Grid.Column="2" Text="0" TextAlignment="Right"
                        Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
@@ -117,7 +117,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="40"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="B" Foreground="#2D6CDF" FontWeight="Bold" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="0" Text="{loc:Loc ColorPicker.ChannelBlue}" Foreground="#2D6CDF" FontWeight="Bold" VerticalAlignment="Center"/>
             <Slider x:Name="BlueSlider" Grid.Column="1" Minimum="0" Maximum="255" ValueChanged="OnRgb_ValueChanged"/>
             <TextBlock x:Name="BlueValue" Grid.Column="2" Text="0" TextAlignment="Right"
                        Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>

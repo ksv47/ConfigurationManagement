@@ -156,6 +156,133 @@ public static class OneCCacheCleaner
     }
 
     /// <summary>
+    /// Собирает множество «защищённых» имён каталогов кеша — имён, соответствующих текущим
+    /// информационным базам (ID базы и имени каталога кеша). Каталоги с такими именами
+    /// не считаются «остатками» от удалённых баз и не подлежат автоматической очистке.
+    /// </summary>
+    private static HashSet<string> BuildProtectedNames(IEnumerable<Infobase> allBases)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (allBases is null)
+            return set;
+
+        foreach (var ib in allBases)
+        {
+            if (ib is null)
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(ib.Id))
+                set.Add(ib.Id);
+
+            var name = GetCacheName(ib);
+            if (!string.IsNullOrWhiteSpace(name))
+                set.Add(name);
+        }
+
+        return set;
+    }
+
+    /// <summary>
+    /// Определяет, является ли имя каталога именем версии платформы (например, «8.3.24.1234»).
+    /// Каталоги версий не являются каталогами кеша отдельных баз — внутри них хранятся кеши.
+    /// </summary>
+    private static bool IsVersionDirName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+        foreach (var c in name)
+        {
+            if (!char.IsDigit(c) && c != '.' && c != '-')
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Перечисляет каталоги кеша, не принадлежащие ни одной текущей информационной базе.
+    /// Это «остатки» от удалённых из списка или созданных вне приложения баз: каталоги,
+    /// имя которых не совпадает ни с одним ID базы и ни с одним именем каталога кеша
+    /// текущих баз. Каталоги версий платформы (например, «8.3.24.1234») не удаляются —
+    /// они анализируются, и удаляются только их вложенные каталоги-кеши.
+    /// </summary>
+    private static IEnumerable<string> EnumerateOrphanDirectories(OneCCacheKind kind, IEnumerable<Infobase> allBases)
+    {
+        var protectedNames = BuildProtectedNames(allBases);
+
+        foreach (var root in GetCacheRoots(kind))
+        {
+            if (!Directory.Exists(root))
+                continue;
+
+            string[] versionDirs;
+            try { versionDirs = Directory.GetDirectories(root); }
+            catch { continue; }
+
+            foreach (var versionDir in versionDirs)
+            {
+                var versionName = Path.GetFileName(versionDir);
+
+                if (IsVersionDirName(versionName))
+                {
+                    // Внутри каталога версии находятся каталоги кеша отдельных баз.
+                    string[] cacheDirs;
+                    try { cacheDirs = Directory.GetDirectories(versionDir); }
+                    catch { continue; }
+
+                    foreach (var cd in cacheDirs)
+                    {
+                        var n = Path.GetFileName(cd);
+                        if (!protectedNames.Contains(n))
+                            yield return cd;
+                    }
+                }
+                else if (!protectedNames.Contains(versionName))
+                {
+                    // Прямой каталог кеша в корне (без версии).
+                    yield return versionDir;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Вычисляет суммарный размер «остатков» кеша от удалённых баз — каталогов кеша,
+    /// не принадлежащих ни одной текущей информационной базе.
+    /// </summary>
+    /// <param name="kind">Тип кеша (программный и/или пользовательский).</param>
+    /// <param name="allBases">Все текущие информационные базы (для определения «защищённых» имён).</param>
+    /// <returns>Суммарный размер в байтах.</returns>
+    public static long GetOrphanSize(OneCCacheKind kind, IEnumerable<Infobase> allBases)
+    {
+        long total = 0;
+        foreach (var dir in EnumerateOrphanDirectories(kind, allBases))
+            total += GetDirectorySize(dir);
+        return total;
+    }
+
+    /// <summary>
+    /// Удаляет «остатки» кеша от удалённых баз — каталоги кеша, не принадлежащие ни одной
+    /// текущей информационной базе.
+    /// </summary>
+    /// <param name="kind">Тип кеша (программный и/или пользовательский).</param>
+    /// <param name="allBases">Все текущие информационные базы (для определения «защищённых» имён).</param>
+    /// <returns>Количество удалённых каталогов кеша.</returns>
+    public static int ClearOrphans(OneCCacheKind kind, IEnumerable<Infobase> allBases)
+    {
+        if (kind == OneCCacheKind.None)
+            return 0;
+
+        var removed = 0;
+        foreach (var dir in EnumerateOrphanDirectories(kind, allBases))
+        {
+            TryDeleteDirectory(dir);
+            removed++;
+        }
+
+        return removed;
+    }
+
+    /// <summary>
     /// Вычисляет суммарный размер кеша указанного типа (программного и/или пользовательского)
     /// во всех корневых каталогах. Размер вычисляется без учёта размера самой файловой системы
     /// и может быть неточным, если файлы кеша заняты запущенной 1С.

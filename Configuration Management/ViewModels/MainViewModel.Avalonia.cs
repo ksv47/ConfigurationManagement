@@ -150,6 +150,10 @@ public class MainViewModel : ViewModelBase
     public ICommand OpenInfobaseFolderCommand { get; private set; } = null!;
     public ICommand CreateDesktopShortcutCommand { get; private set; } = null!;
     public ICommand OpenNativeStarterCommand { get; private set; } = null!;
+    public ICommand QuickClearCacheCommand { get; private set; } = null!;
+    public ICommand ClearCacheCommand { get; private set; } = null!;
+    public ICommand ClearProgramCacheCommand { get; private set; } = null!;
+    public ICommand ClearUserCacheCommand { get; private set; } = null!;
 
     private void InitializeCommands()
     {
@@ -178,6 +182,10 @@ public class MainViewModel : ViewModelBase
             _ => SelectedInfobase?.Connection.Type == ConnectionType.File);
         CreateDesktopShortcutCommand = new RelayCommand(CreateDesktopShortcut, _ => SelectedInfobase is not null);
         OpenNativeStarterCommand = new RelayCommand(OpenNativeStarter);
+        QuickClearCacheCommand = new RelayCommand(QuickClearCache, _ => SelectedInfobase is not null);
+        ClearCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All), _ => SelectedInfobase is not null);
+        ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program), _ => SelectedInfobase is not null);
+        ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User), _ => SelectedInfobase is not null);
     }
 
     private void Launch(ICommand launchVmCommand, LaunchKind kind) => launchVmCommand.Execute(kind);
@@ -708,6 +716,9 @@ public class MainViewModel : ViewModelBase
             .Take(8)
             .ToList();
 
+    /// <summary>Все информационные базы (для диалога выбора при очистке кеша).</summary>
+    public IReadOnlyList<Infobase> Infobases => _allInfobases;
+
     /// <summary>Открыть каталог файловой базы в файловом менеджере (xdg-open/nautilus).</summary>
     private void OpenInfobaseFolder()
     {
@@ -837,6 +848,10 @@ public class MainViewModel : ViewModelBase
         (TogglePinCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (CopyConnectionStringCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (OpenInfobaseFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (QuickClearCacheCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ClearCacheCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ClearProgramCacheCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ClearUserCacheCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private void NotifyColumnSettings()
@@ -864,6 +879,128 @@ public class MainViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(SessionClient));
         OnPropertyChanged(nameof(SessionArch));
+    }
+
+    // ======================= Очистка кеша 1С =======================
+
+    /// <summary>
+    /// Быстрая очистка всего кеша (программного и пользовательского) выбранной базы.
+    /// Перед очисткой запрашивает подтверждение у пользователя.
+    /// </summary>
+    /// <param name="parameter">Информационная база (или null — используется выбранная).</param>
+    private void QuickClearCache(object? parameter)
+    {
+        var ib = parameter as Infobase ?? SelectedInfobase;
+        if (ib is null)
+            return;
+
+        if (!_dialog.Confirm(
+            string.Format(LocalizationManager.T("Main.CacheClearAllConfirm"), ib.Name),
+            LocalizationManager.T("Main.ClearCacheDlgTitle")))
+            return;
+
+        try
+        {
+            var removed = OneCCacheCleaner.Clear(ib, OneCCacheKind.All);
+            var kindLabel = CacheKindLabel(OneCCacheKind.All);
+            var baseLabel = string.Format(LocalizationManager.T("Main.CacheBaseOne"), ib.Name);
+            var message = removed > 0
+                ? string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removed)
+                : string.Format(LocalizationManager.T("Main.CacheNotFound"), kindLabel, baseLabel);
+            _dialog.ShowInfo(message, LocalizationManager.T("Main.ClearCacheDlgTitle"));
+        }
+        catch (Exception ex)
+        {
+            _dialog.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrCacheClear"), ex.Message),
+                LocalizationManager.T("Main.CacheErrorTitle"));
+        }
+    }
+
+    /// <summary>
+    /// Открывает окно выбора типа кеша и информационных баз, после подтверждения выполняет очистку.
+    /// </summary>
+    /// <param name="kind">Тип кеша, выбранный по умолчанию.</param>
+    private void OpenCacheClean(OneCCacheKind kind)
+    {
+        if (Infobases.Count == 0)
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Main.CacheEmpty"),
+                LocalizationManager.T("Main.ClearCacheDlgTitle"));
+            return;
+        }
+
+        var dialog = new CacheCleanWindow(Infobases, kind, SelectedInfobase);
+        if (!dialog.ShowSync())
+            return;
+
+        var infobases = dialog.SelectedInfobases;
+        var selectedKind = dialog.SelectedCacheKind;
+        var cleanOrphans = dialog.CleanOrphans;
+        if (selectedKind == OneCCacheKind.None)
+            return;
+        if (infobases.Count == 0 && !cleanOrphans)
+            return;
+
+        var kindLabel = CacheKindLabel(selectedKind);
+
+        // Описание подтверждения: выбранные базы и/или остатки кеша от удалённых баз.
+        var confirmParts = new List<string>();
+        if (infobases.Count > 0)
+            confirmParts.Add(string.Join(", ", infobases.Select(ib => ib.Name)));
+        if (cleanOrphans)
+            confirmParts.Add(LocalizationManager.T("Main.CacheOrphanNote"));
+
+        if (!_dialog.Confirm(
+            string.Format(LocalizationManager.T("Main.CacheConfirm"), kindLabel, string.Join("\n", confirmParts)),
+            LocalizationManager.T("Main.ClearCacheDlgTitle")))
+            return;
+
+        try
+        {
+            var removedBases = OneCCacheCleaner.Clear(infobases, selectedKind);
+            var removedOrphans = cleanOrphans ? OneCCacheCleaner.ClearOrphans(selectedKind, Infobases) : 0;
+
+            var resultParts = new List<string>();
+            if (infobases.Count > 0)
+            {
+                var baseLabel = infobases.Count == 1
+                    ? string.Format(LocalizationManager.T("Main.CacheBaseOne"), infobases[0].Name)
+                    : string.Format(LocalizationManager.T("Main.CacheBaseMany"), infobases.Count);
+
+                if (removedBases > 0)
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removedBases));
+                else
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheNotFound"), kindLabel, baseLabel));
+            }
+
+            if (cleanOrphans)
+            {
+                if (removedOrphans > 0)
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheOrphanRemoved"), removedOrphans));
+                else
+                    resultParts.Add(LocalizationManager.T("Main.CacheOrphanNone"));
+            }
+
+            _dialog.ShowInfo(string.Join("\n\n", resultParts), LocalizationManager.T("Main.ClearCacheDlgTitle"));
+        }
+        catch (Exception ex)
+        {
+            _dialog.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrCacheClear"), ex.Message),
+                LocalizationManager.T("Main.CacheErrorTitle"));
+        }
+    }
+
+    /// <summary>Возвращает читаемое описание типа кеша.</summary>
+    private static string CacheKindLabel(OneCCacheKind kind)
+    {
+        return kind switch
+        {
+            OneCCacheKind.Program => LocalizationManager.T("Main.CacheKindProgram"),
+            OneCCacheKind.User => LocalizationManager.T("Main.CacheKindUser"),
+            _ => LocalizationManager.T("Main.CacheKindAll")
+        };
     }
 }
 

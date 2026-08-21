@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services
@@ -51,8 +52,8 @@ namespace Configuration_Management.Services
         /// <inheritdoc />
         public OneCComConnection? Connect(Infobase infobase, int timeoutMs = 8000)
         {
-            LastError = "COM-коннектор недоступен на Linux. " +
-                        "Сведения о конфигурации читаются через файл базы (1Cv8.1CD) или DESIGNER.";
+            LastError = LocalizationManager.T("Com.LinuxUnavailable") + " " +
+                        LocalizationManager.T("Com.LinuxConfigViaFileDesigner");
             return null;
         }
 
@@ -75,7 +76,7 @@ namespace Configuration_Management.Services
                 if (viaDesigner is { } di)
                     return di;
 
-                LastError ??= "Не удалось прочитать версию конфигурации из 1Cv8.1CD и через DESIGNER.";
+                LastError ??= LocalizationManager.T("Com.LinuxFileAndDesignerFailed");
                 return null;
             }
 
@@ -84,7 +85,7 @@ namespace Configuration_Management.Services
             if (viaCs is { } cs)
                 return cs;
 
-            LastError ??= "COM недоступен на Linux; чтение через DESIGNER не дало результата.";
+            LastError ??= LocalizationManager.T("Com.LinuxDesignerFailed");
             return null;
         }
 
@@ -128,7 +129,7 @@ namespace Configuration_Management.Services
                     if (!p.WaitForExit(timeoutMs))
                     {
                         try { p.Kill(entireProcessTree: true); } catch { }
-                        LastError = "Превышен таймаут чтения конфигурации через DESIGNER.";
+                        LastError = LocalizationManager.T("Com.LinuxDesignerTimeout");
                         return null;
                     }
 
@@ -220,7 +221,7 @@ namespace Configuration_Management.Services
 
             if (string.IsNullOrEmpty(cdPath) || !File.Exists(cdPath))
             {
-                LastError = "Файловая база 1Cv8.1CD не найдена.";
+                LastError = LocalizationManager.T("Com.LinuxFileBaseNotFound");
                 return null;
             }
 
@@ -241,7 +242,7 @@ namespace Configuration_Management.Services
             var version = FindVersionString(data);
             if (string.IsNullOrEmpty(version))
             {
-                LastError = "Не удалось извлечь версию конфигурации из 1Cv8.1CD.";
+                LastError = LocalizationManager.T("Com.LinuxExtractVersionFailed");
                 return null;
             }
 
@@ -324,7 +325,7 @@ namespace Configuration_Management.Services
                 platformVersion,
                 null,
                 false,
-                "COM-коннектор 1С недоступен на Linux. Чтение конфигурации выполняется без COM.",
+                LocalizationManager.T("ComReg.LinuxUnavailableNote"),
                 new List<ComConnectorRegistrationItem>());
         }
     }

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.ViewModels;
@@ -117,7 +118,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
 
     /// <summary>Текст для поля группы: путь или «Без группы».</summary>
     public string GroupDisplayPath =>
-        string.IsNullOrWhiteSpace(_group) ? "— Без группы —" : _group;
+        string.IsNullOrWhiteSpace(_group) ? LocalizationManager.T("Conn.GroupNoGroup") : _group;
 
     /// <summary>
     /// Находит группу по полному пути (например, «Учёт / Бухгалтерия»).
@@ -211,10 +212,10 @@ public class ConnectionSettingsViewModel : ViewModelBase
     /// <summary>Краткая подсказка по выбранному режиму разрядности.</summary>
     public string ArchitectureHint => Architecture switch
     {
-        "32" => "Всегда запускается 32-разрядный клиент. 64-битные версии игнорируются.",
-        "64" => "Всегда запускается 64-разрядный клиент. 32-битные версии игнорируются.",
-        "64-priority" => "Предпочитается 64-битный клиент; если есть более новая 32-битная версия — будет она.",
-        _ => "Предпочитается 32-битный клиент (как в 1С по умолчанию); более новая 64-битная версия имеет приоритет."
+        "32" => LocalizationManager.T("Conn.ArchHint32"),
+        "64" => LocalizationManager.T("Conn.ArchHint64"),
+        "64-priority" => LocalizationManager.T("Conn.ArchHint64Priority"),
+        _ => LocalizationManager.T("Conn.ArchHint32Priority")
     };
 
     /// <summary>Нормализация значения разрядности (совместимость со старыми «32»/«64»).</summary>
@@ -351,11 +352,11 @@ public class ConnectionSettingsViewModel : ViewModelBase
     /// <summary>Подсказка по выбранному режиму запуска.</summary>
     public string LaunchModeHint => LaunchMode switch
     {
-        "Тонкий клиент" => "Запуск в режиме управляемого приложения (тонкий клиент 1cv8c).",
-        "Толстый клиент" => "Запуск толстого клиента 1cv8 в управляемых формах (/RunModeManagedApplication).",
-        "Толстый клиент (обычные формы)" => "Запуск толстого клиента 1cv8 в обычных формах (/RunModeOrdinaryApplication).",
-        "Веб-клиент" => "Открытие базы в веб-браузере. Доступно при веб-публикации или клиент-сервере.",
-        _ => "Режим выбирает платформа 1С автоматически по настройкам информационной базы."
+        "Тонкий клиент" => LocalizationManager.T("Conn.LaunchThinHint"),
+        "Толстый клиент" => LocalizationManager.T("Conn.LaunchThickManagedHint"),
+        "Толстый клиент (обычные формы)" => LocalizationManager.T("Conn.LaunchThickOrdinaryHint"),
+        "Веб-клиент" => LocalizationManager.T("Conn.LaunchWebHint"),
+        _ => LocalizationManager.T("Conn.LaunchAutoHint")
     };
 
     /// <summary>Дополнительные параметры запуска платформы 1С.</summary>

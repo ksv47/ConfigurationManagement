@@ -2429,7 +2429,7 @@ namespace Configuration_Management
 
             if (payload is Infobase infobase && targetGroup is not null)
             {
-                if (targetGroup.DisplayName == LocalizationManager.T("Main.Pinned"))
+                if (string.Equals(targetGroup.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal))
                 {
                     _viewModel.MoveInfobaseToGroup(infobase, infobase.Group ?? string.Empty, insertBefore);
                 }

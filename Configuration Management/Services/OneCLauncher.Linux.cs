@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services
@@ -100,12 +101,17 @@ namespace Configuration_Management.Services
             var exePath = FindExecutable(infobase.PlatformVersion, architecture, clientType, mode);
             if (string.IsNullOrEmpty(exePath))
             {
-                var archLabel = architecture == OneCArchitecture.x64 ? "64-бит" : "32-бит";
+                var archLabel = architecture == OneCArchitecture.x64
+                    ? LocalizationManager.T("Launcher.Bit64")
+                    : LocalizationManager.T("Launcher.Bit32");
                 var versionHint = string.IsNullOrWhiteSpace(infobase.PlatformVersion)
-                    ? "Укажите версию платформы в настройках базы или установите 1С."
-                    : $"Запрошена версия: {infobase.PlatformVersion}";
+                    ? LocalizationManager.T("Launcher.PlatformVersionHint")
+                    : string.Format(LocalizationManager.T("Launcher.RequestedVersionFormat"), infobase.PlatformVersion);
                 var logger = GetLogger();
-                logger?.Warn($"Не удалось найти платформу 1С ({archLabel}). {versionHint}");
+                logger?.Warn(string.Format("{0} ({1}). {2}",
+                    LocalizationManager.T("Launcher.PlatformNotFoundTitle"),
+                    archLabel,
+                    versionHint));
                 return false;
             }
 
@@ -126,7 +132,7 @@ namespace Configuration_Management.Services
             }
             catch (Exception ex)
             {
-                GetLogger()?.Error($"Не удалось запустить платформу 1С.\n{ex.Message}", ex);
+                GetLogger()?.Error(string.Format(LocalizationManager.T("Launcher.LaunchFailedFormat"), ex.Message), ex);
                 return false;
             }
         }
@@ -422,10 +428,10 @@ namespace Configuration_Management.Services
 
             public string OperationLabel => Operation switch
             {
-                DesignerBatchOperation.DumpIB => "Выгрузка ИБ (.dt)",
-                DesignerBatchOperation.DumpCfg => "Выгрузка конфигурации (.cf)",
-                DesignerBatchOperation.TestAndRepair => "Тестирование ИБ",
-                _ => "Пакетная операция конфигуратора"
+                DesignerBatchOperation.DumpIB => LocalizationManager.T("Launcher.OperationDumpIB"),
+                DesignerBatchOperation.DumpCfg => LocalizationManager.T("Launcher.OperationDumpCfg"),
+                DesignerBatchOperation.TestAndRepair => LocalizationManager.T("Launcher.OperationTestAndRepair"),
+                _ => LocalizationManager.T("Launcher.OperationGeneric")
             };
         }
 
@@ -490,7 +496,7 @@ namespace Configuration_Management.Services
             }
             catch (Exception ex)
             {
-                GetLogger()?.Error($"Не удалось запустить операцию.\n{ex.Message}", ex);
+                GetLogger()?.Error(string.Format(LocalizationManager.T("Launcher.OperationStartFailedFormat"), ex.Message, exePath, arguments), ex);
                 return false;
             }
         }
@@ -551,14 +557,14 @@ namespace Configuration_Management.Services
                 return;
 
             var sb = new StringBuilder();
-            sb.AppendLine($"Операция «{info.OperationLabel}» завершилась неудачно.");
-            sb.AppendLine($"Код возврата 1cv8: {info.ExitCode}.");
+            sb.AppendLine(string.Format(LocalizationManager.T("Launcher.OperationFailedFormat"), info.OperationLabel));
+            sb.AppendLine(string.Format(LocalizationManager.T("Launcher.ExitCodeFormat"), info.ExitCode));
             if (!string.IsNullOrWhiteSpace(info.OutputPath))
-                sb.AppendLine($"Файл: {info.OutputPath}");
+                sb.AppendLine(string.Format(LocalizationManager.T("Launcher.FileFormat"), info.OutputPath));
             if (!string.IsNullOrWhiteSpace(logText))
             {
                 sb.AppendLine();
-                sb.AppendLine("--- Сообщение 1С ---");
+                sb.AppendLine(LocalizationManager.T("Launcher.MessageHeader1C"));
                 sb.Append(TruncateLogTail(logText, 3000));
             }
             info.ErrorMessage = sb.ToString();
@@ -623,15 +629,14 @@ namespace Configuration_Management.Services
             if (_activeBatchProcesses.Count > 0)
             {
                 var otherName = _activeBatchProcesses.First().Value?.ProcessName ?? "1cv8";
-                reason = "Уже запущена другая выгрузка или операция конфигуратора " +
-                         $"(процесс {otherName}).\nДождитесь её завершения.";
+                reason = string.Format(LocalizationManager.T("Launcher.AnotherOperationRunningFormat"), otherName);
                 return true;
             }
 
             var token = GetBaseConnectionToken(infobase);
             if (!string.IsNullOrWhiteSpace(token) && IsConfiguratorRunningForBase(token))
             {
-                reason = "Конфигуратор этой базы уже запущен.\nЗакройте окно конфигуратора перед выгрузкой .dt / .cf.";
+                reason = LocalizationManager.T("Launcher.ConfiguratorForBaseRunning");
                 return true;
             }
 
@@ -859,14 +864,14 @@ namespace Configuration_Management.Services
             var exe = FindExecutable(version, arch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86,
                 OneCClientType.Thick, OneCLaunchMode.Configurator);
             if (string.IsNullOrEmpty(exe))
-                return (false, "Не найден исполняемый файл 1cv8 для указанной версии платформы.");
+                return (false, LocalizationManager.T("Launcher.CreateExeNotFound"));
 
             string connectionString;
             if (isFile)
             {
                 var path = (filePath ?? "").Trim().TrimEnd('\\', '/');
                 if (string.IsNullOrEmpty(path))
-                    return (false, "Не указан каталог файловой базы.");
+                    return (false, LocalizationManager.T("Launcher.CreateFileDirNotSpecified"));
                 try
                 {
                     if (!Directory.Exists(path))
@@ -874,7 +879,7 @@ namespace Configuration_Management.Services
                 }
                 catch (Exception ex)
                 {
-                    return (false, $"Не удалось создать каталог:\n{path}\n{ex.Message}");
+                    return (false, string.Format(LocalizationManager.T("Launcher.CreateDirCreateFailedFormat"), path, ex.Message));
                 }
                 connectionString = $"File=\"{path}\"";
             }
@@ -883,7 +888,7 @@ namespace Configuration_Management.Services
                 var srv = (server ?? "").Trim();
                 var db = (databaseName ?? "").Trim();
                 if (string.IsNullOrEmpty(srv) || string.IsNullOrEmpty(db))
-                    return (false, "Не указаны сервер или имя базы.");
+                    return (false, LocalizationManager.T("Launcher.CreateServerOrDbNotSpecified"));
                 connectionString = $"Srvr=\"{srv}\";Ref=\"{db}\"";
             }
 
@@ -891,7 +896,7 @@ namespace Configuration_Management.Services
             if (!string.IsNullOrWhiteSpace(templatePath))
             {
                 if (!File.Exists(templatePath))
-                    return (false, $"Файл шаблона не найден:\n{templatePath}");
+                    return (false, string.Format(LocalizationManager.T("Launcher.CreateTemplateNotFoundFormat"), templatePath));
                 args.Add($"/UseTemplate\"{templatePath}\"");
             }
             args.Add("/DisableStartupDialogs");
@@ -913,26 +918,26 @@ namespace Configuration_Management.Services
 
                 using var proc = Process.Start(psi);
                 if (proc is null)
-                    return (false, "Не удалось запустить процесс 1cv8.");
+                    return (false, LocalizationManager.T("Launcher.CreateProcessFailed"));
 
                 if (!proc.WaitForExit(5 * 60 * 1000))
                 {
                     try { proc.Kill(entireProcessTree: true); } catch { }
-                    return (false, "Превышено время ожидания создания базы (5 мин).");
+                    return (false, LocalizationManager.T("Launcher.CreateTimeout"));
                 }
 
                 if (proc.ExitCode != 0)
                 {
                     var err = "";
                     try { err = proc.StandardError.ReadToEnd(); } catch { }
-                    return (false, $"1cv8 завершился с кодом {proc.ExitCode}.\n{err}\n\nКоманда:\n{exe}\n{string.Join(" ", args)}");
+                    return (false, string.Format(LocalizationManager.T("Launcher.CreateExitCodeFormat"), proc.ExitCode, err, exe, string.Join(" ", args)));
                 }
 
                 return (true, null);
             }
             catch (Exception ex)
             {
-                return (false, $"{ex.Message}\n\nКоманда:\n{exe}\n{string.Join(" ", args)}");
+                return (false, string.Format(LocalizationManager.T("Launcher.CreateCommandErrorFormat"), ex.Message, exe, string.Join(" ", args)));
             }
         }
 

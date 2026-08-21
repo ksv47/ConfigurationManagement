@@ -39,7 +39,7 @@ namespace Configuration_Management
 
             Grid.SetRow(_tagBox, 1);
 
-            var buttons = BuildButtons("ОК", 130, OnOk_Click);
+            var buttons = BuildButtons(null, 130, OnOk_Click);
             Grid.SetRow(buttons, 2);
 
             grid.Children.Add(prompt);

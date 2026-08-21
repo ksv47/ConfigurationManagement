@@ -27,7 +27,7 @@ namespace Configuration_Management
         // Поля для живого обновления текста кнопок «Отмена»/«ОК» при смене языка.
         private TextBlock? _lastCancelText;
         private TextBlock? _lastOkText;
-        private string _lastOkRaw = "ОК";
+        private string _lastOkRaw = "";
         private bool _languageSubscribed;
 
         /// <summary>Результат диалога: true — подтверждён (ОК), false — отменён.</summary>
@@ -72,10 +72,10 @@ namespace Configuration_Management
         /// При нажатии «ОК» сначала выполняется <paramref name="onOk"/> (если задан),
         /// затем устанавливается <see cref="DialogResult"/> и окно закрывается.
         /// </summary>
-        /// <param name="okText">Текст кнопки подтверждения.</param>
+        /// <param name="okText">Текст кнопки подтверждения. Если пуст/null — используется локализованный текст <c>Common.Ok</c>.</param>
         /// <param name="okWidth">Ширина кнопки подтверждения.</param>
         /// <param name="onOk">Необязательный обратный вызов при подтверждении (например, сохранить результат).</param>
-        protected StackPanel BuildButtons(string okText = "ОК", double okWidth = 130, Action? onOk = null)
+        protected StackPanel BuildButtons(string? okText = null, double okWidth = 130, Action? onOk = null)
         {
             var panel = new StackPanel
             {
@@ -131,15 +131,18 @@ namespace Configuration_Management
             // Живое обновление кнопок при смене языка.
             _lastCancelText = cancelText;
             _lastOkText = okTextBlock;
-            _lastOkRaw = okText;
+            _lastOkRaw = okText ?? "";
             EnsureLanguageSubscription();
 
             return panel;
         }
 
-        /// <summary>Возвращает локализованный текст кнопки подтверждения.</summary>
-        private static string ResolveOkText(string okText) =>
-            okText == "ОК" ? LocalizationManager.T("Common.Ok") : okText;
+        /// <summary>
+        /// Возвращает локализованный текст кнопки подтверждения.
+        /// Пустое значение (null/пустая строка) интерпретируется как <c>Common.Ok</c>.
+        /// </summary>
+        private static string ResolveOkText(string? okText) =>
+            string.IsNullOrEmpty(okText) ? LocalizationManager.T("Common.Ok") : okText;
 
         private void EnsureLanguageSubscription()
         {

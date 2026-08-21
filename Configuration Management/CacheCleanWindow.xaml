@@ -185,8 +185,24 @@
             </DockPanel>
         </Border>
 
-        <!-- Кнопки -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+        <!-- Нижняя панель: остатки от удалённых баз + кнопки -->
+        <Grid Grid.Row="5" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Остатки кеша от удалённых баз -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <CheckBox x:Name="OrphanCacheCheck" Content="{loc:Loc CacheClean.OrphanCache}"
+                          Style="{StaticResource ModernMaterialCheckBox}"
+                          Checked="OnCacheKindChanged" Unchecked="OnCacheKindChanged"
+                          ToolTip="{loc:Loc CacheClean.OrphanCacheTooltip}"/>
+                <TextBlock x:Name="OrphanCacheSizeText" VerticalAlignment="Center" FontSize="12"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="4,0,0,0" Text="…"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button x:Name="CleanButton" Width="180" Height="36" Margin="0,0,10,0" IsDefault="True"
                     Click="OnClean_Click" IsEnabled="False"
                     Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">
@@ -236,6 +252,7 @@
                     <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
                 </StackPanel>
             </Button>
-        </StackPanel>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

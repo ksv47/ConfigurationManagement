@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management.Services;
 
@@ -65,8 +66,8 @@ public sealed class OneCComConnectorRegistrar : IOneCComConnectorRegistrar
             var searched = string.Join("\n", EnumerateSearchRoots());
             _logger.Warn($"Каталог платформы 1С не найден (версия={platformVersion}). Проверены корни:\n{searched}");
             return new ComConnectorRegistrationResult(false, usedVersion, null, false,
-                $"Платформа 1С не найдена. Проверены каталоги:\n{searched}\n\n" +
-                "Если 1С установлена в нестандартную папку — добавьте её путь в «Настройки → Платформы».",
+                string.Format(LocalizationManager.T("ComReg.PlatformNotFoundFormat"), searched) +
+                LocalizationManager.T("ComReg.PlatformNotFoundHint"),
                 new List<ComConnectorRegistrationItem>());
         }
 
@@ -90,8 +91,8 @@ public sealed class OneCComConnectorRegistrar : IOneCComConnectorRegistrar
         string? note = null;
         if (!progIdVisible && items.Count > 0)
         {
-            note = "DLL зарегистрированы, но ProgID V83.COMConnector не виден процессу приложения. " +
-                   "Проверьте, что зарегистрирован COM-коннектор разрядности, совпадающей с приложением.";
+            note = LocalizationManager.T("ComReg.ProgIdNotVisibleNote") + " " +
+                   LocalizationManager.T("ComReg.ProgIdNotVisibleHint");
         }
 
         var registered = items.Count > 0 && items.Any(i => i.Success);
@@ -205,12 +206,12 @@ public sealed class OneCComConnectorRegistrar : IOneCComConnectorRegistrar
 
             using var process = Process.Start(psi);
             if (process is null)
-                return (false, "Не удалось запустить regsvr32.");
+                return (false, LocalizationManager.T("ComReg.RegSvr32StartFailed"));
 
             if (!process.WaitForExit(60_000))
             {
                 try { process.Kill(); } catch { /* ignore */ }
-                return (false, "Превышено время ожидания regsvr32.");
+                return (false, LocalizationManager.T("ComReg.RegSvr32Timeout"));
             }
 
             var exitCode = process.ExitCode;
@@ -218,14 +219,14 @@ public sealed class OneCComConnectorRegistrar : IOneCComConnectorRegistrar
             if (exitCode == 0)
                 return (true, null);
             if (exitCode == 1223)
-                return (false, "Отменено пользователем (недостаточно прав).");
-            return (false, $"regsvr32 вернул код {exitCode}.");
+                return (false, LocalizationManager.T("ComReg.RegSvr32Canceled"));
+            return (false, string.Format(LocalizationManager.T("ComReg.RegSvr32ExitCodeFormat"), exitCode));
         }
         catch (System.ComponentModel.Win32Exception wex)
         {
             // Возникает при отмене UAC (1223) или недоступности regsvr32.
             if (wex.NativeErrorCode == 1223)
-                return (false, "Отменено пользователем (недостаточно прав).");
+                return (false, LocalizationManager.T("ComReg.RegSvr32Canceled"));
             return (false, wex.Message);
         }
         catch (Exception ex)

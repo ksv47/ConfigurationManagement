@@ -4,6 +4,7 @@ using System.IO;
 using System.Management;
 using System.Text;
 using System.Threading;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services;
@@ -280,17 +281,15 @@ public static class OneCLauncher
         var exePath = FindExecutable(infobase.PlatformVersion, architecture, clientType, mode);
         if (string.IsNullOrEmpty(exePath))
         {
-            var archLabel = architecture == OneCArchitecture.x64 ? "64-бит" : "32-бит";
+            var archLabel = architecture == OneCArchitecture.x64
+                ? LocalizationManager.T("Launcher.Bit64")
+                : LocalizationManager.T("Launcher.Bit32");
             var versionHint = string.IsNullOrWhiteSpace(infobase.PlatformVersion)
-                ? "Укажите версию платформы в настройках базы или установите 1С."
-                : $"Запрошена версия: {infobase.PlatformVersion}";
+                ? LocalizationManager.T("Launcher.PlatformVersionHint")
+                : string.Format(LocalizationManager.T("Launcher.RequestedVersionFormat"), infobase.PlatformVersion);
             System.Windows.MessageBox.Show(
-                $"Не удалось найти платформу 1С ({archLabel}).\n{versionHint}\n\n" +
-                "Имена файлов:\n" +
-                "• 64-бит (совр.): 1cv8.exe / 1cv8c.exe в Program Files\\1cv8\\<ver>\\bin\\\n" +
-                "• 64-бит (стар.): 1cv8x64.exe\n" +
-                "• 32-бит: 1cv8.exe / 1cv8c.exe в Program Files (x86)\\1cv8\\<ver>\\bin\\",
-                "Платформа 1С не найдена",
+                string.Format(LocalizationManager.T("Launcher.PlatformNotFoundFormat"), archLabel, versionHint),
+                LocalizationManager.T("Launcher.PlatformNotFoundTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
             return false;
@@ -317,8 +316,8 @@ public static class OneCLauncher
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show(
-                $"Не удалось запустить платформу 1С.\n{ex.Message}",
-                "Ошибка запуска",
+                string.Format(LocalizationManager.T("Launcher.LaunchFailedFormat"), ex.Message),
+                LocalizationManager.T("Launcher.LaunchErrorTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Error);
             return false;
@@ -421,8 +420,8 @@ public static class OneCLauncher
             if (string.IsNullOrWhiteSpace(conn.WebUrl))
             {
                 System.Windows.MessageBox.Show(
-                    "Не указан URL веб-публикации.",
-                    "Веб-клиент недоступен",
+                    LocalizationManager.T("Launcher.WebUrlNotSpecified"),
+                    LocalizationManager.T("Launcher.WebClientUnavailableTitle"),
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Warning);
                 return false;
@@ -436,8 +435,8 @@ public static class OneCLauncher
         else
         {
             System.Windows.MessageBox.Show(
-                "Веб-клиент доступен только для клиент-серверных баз и баз на веб-сервере.",
-                "Веб-клиент недоступен",
+                LocalizationManager.T("Launcher.WebClientOnlyClientServer"),
+                LocalizationManager.T("Launcher.WebClientUnavailableTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
             return false;
@@ -457,8 +456,8 @@ public static class OneCLauncher
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show(
-                $"Не удалось открыть веб-клиент.\n{ex.Message}",
-                "Ошибка запуска",
+                string.Format(LocalizationManager.T("Launcher.WebClientOpenFailedFormat"), ex.Message),
+                LocalizationManager.T("Launcher.LaunchErrorTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Error);
             return false;
@@ -625,10 +624,10 @@ public static class OneCLauncher
         /// <summary>Человекочитаемое название операции для индикатора и подсказки.</summary>
         public string OperationLabel => Operation switch
         {
-            DesignerBatchOperation.DumpIB => "Выгрузка ИБ (.dt)",
-            DesignerBatchOperation.DumpCfg => "Выгрузка конфигурации (.cf)",
-            DesignerBatchOperation.TestAndRepair => "Тестирование ИБ",
-            _ => "Пакетная операция конфигуратора"
+            DesignerBatchOperation.DumpIB => LocalizationManager.T("Launcher.OperationDumpIB"),
+            DesignerBatchOperation.DumpCfg => LocalizationManager.T("Launcher.OperationDumpCfg"),
+            DesignerBatchOperation.TestAndRepair => LocalizationManager.T("Launcher.OperationTestAndRepair"),
+            _ => LocalizationManager.T("Launcher.OperationGeneric")
         };
     }
 
@@ -658,9 +657,8 @@ public static class OneCLauncher
             exePath.EndsWith("1CEStart.exe", StringComparison.OrdinalIgnoreCase))
         {
             System.Windows.MessageBox.Show(
-                "Не найден 1cv8.exe для режима Конфигуратор.\n" +
-                "Укажите версию платформы у базы или проверьте установку 1С.",
-                "Платформа 1С",
+                LocalizationManager.T("Launcher.ConfiguratorExeNotFound"),
+                LocalizationManager.T("Launcher.PlatformTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
             return false;
@@ -671,8 +669,8 @@ public static class OneCLauncher
         if (IsDesignerBlocked(infobase, out var blockReason))
         {
             System.Windows.MessageBox.Show(
-                $"Запуск конфигуратора для операции невозможен.\n\n{blockReason}",
-                "Конфигуратор уже запущен",
+                string.Format(LocalizationManager.T("Launcher.ConfiguratorBlockedFormat"), blockReason),
+                LocalizationManager.T("Launcher.ConfiguratorAlreadyRunningTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
             return false;
@@ -690,8 +688,8 @@ public static class OneCLauncher
                 catch (Exception ex)
                 {
                     System.Windows.MessageBox.Show(
-                        $"Не удалось создать каталог для файла:\n{dir}\n{ex.Message}",
-                        "Выгрузка",
+                        string.Format(LocalizationManager.T("Launcher.CreateDirFailedFormat"), dir, ex.Message),
+                        LocalizationManager.T("Launcher.DumpTitle"),
                         System.Windows.MessageBoxButton.OK,
                         System.Windows.MessageBoxImage.Error);
                     return false;
@@ -734,8 +732,8 @@ public static class OneCLauncher
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show(
-                $"Не удалось запустить операцию.\n{ex.Message}\n\nКоманда:\n{exePath}\n{arguments}",
-                "Ошибка",
+                string.Format(LocalizationManager.T("Launcher.OperationStartFailedFormat"), ex.Message, exePath, arguments),
+                LocalizationManager.T("Launcher.OperationErrorTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Error);
             return false;
@@ -808,20 +806,20 @@ public static class OneCLauncher
             return;
 
         var sb = new StringBuilder();
-        sb.AppendLine($"Операция «{info.OperationLabel}» завершилась неудачно.");
-        sb.AppendLine($"Код возврата 1cv8: {info.ExitCode}.");
+        sb.AppendLine(string.Format(LocalizationManager.T("Launcher.OperationFailedFormat"), info.OperationLabel));
+        sb.AppendLine(string.Format(LocalizationManager.T("Launcher.ExitCodeFormat"), info.ExitCode));
         if (!string.IsNullOrWhiteSpace(info.OutputPath))
-            sb.AppendLine($"Файл: {info.OutputPath}");
+            sb.AppendLine(string.Format(LocalizationManager.T("Launcher.FileFormat"), info.OutputPath));
         if (!string.IsNullOrWhiteSpace(logText))
         {
             sb.AppendLine();
-            sb.AppendLine("--- Сообщение 1С ---");
+            sb.AppendLine(LocalizationManager.T("Launcher.MessageHeader1C"));
             sb.Append(TruncateLogTail(logText, 3000));
         }
         if (!string.IsNullOrWhiteSpace(info.CommandLine))
         {
             sb.AppendLine();
-            sb.AppendLine("--- Командная строка ---");
+            sb.AppendLine(LocalizationManager.T("Launcher.CommandLineHeader"));
             sb.AppendLine(info.CommandLine);
         }
         info.ErrorMessage = sb.ToString();
@@ -905,8 +903,7 @@ public static class OneCLauncher
         if (_activeBatchProcesses.Count > 0)
         {
             var otherName = _activeBatchProcesses.First().Value?.ProcessName ?? "1cv8.exe";
-            reason = "Уже запущена другая выгрузка или операция конфигуратора " +
-                     $"(процесс {otherName}).\nДождитесь её завершения перед новой выгрузкой.";
+            reason = string.Format(LocalizationManager.T("Launcher.AnotherOperationRunningFormat"), otherName);
             return true;
         }
 
@@ -914,8 +911,7 @@ public static class OneCLauncher
         var token = GetBaseConnectionToken(infobase);
         if (!string.IsNullOrWhiteSpace(token) && IsConfiguratorRunningForBase(token))
         {
-            reason = "Конфигуратор этой базы уже запущен.\n" +
-                     "Закройте окно конфигуратора перед выгрузкой .dt / .cf.";
+            reason = LocalizationManager.T("Launcher.ConfiguratorForBaseRunning");
             return true;
         }
 
@@ -1033,13 +1029,8 @@ public static class OneCLauncher
         if (parsed is null)
         {
             System.Windows.MessageBox.Show(
-                "Не удалось распознать ссылку на информационную базу.\n\n" +
-                "Поддерживаемые форматы:\n" +
-                "• Ссылка-протокол:  e1c://... (стандартный загрузчик 1С)\n" +
-                "• Файловая база:  C:\\1C\\База\n" +
-                "• Клиент-сервер:  server\\База  или  Srvr=\"server\";Ref=\"База\"\n" +
-                "• Веб-клиент:     http://server/base",
-                "Ссылка на базу 1С",
+                LocalizationManager.T("Launcher.LinkParseFailed"),
+                LocalizationManager.T("Launcher.BaseLinkTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
             return false;
@@ -1060,8 +1051,8 @@ public static class OneCLauncher
             catch (Exception ex)
             {
                 System.Windows.MessageBox.Show(
-                    $"Не удалось открыть веб-клиент.\n{ex.Message}",
-                    "Ошибка запуска",
+                    string.Format(LocalizationManager.T("Launcher.WebClientOpenFailedFormat"), ex.Message),
+                    LocalizationManager.T("Launcher.LaunchErrorTitle"),
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);
                 return false;
@@ -1079,8 +1070,8 @@ public static class OneCLauncher
             exePath.EndsWith("1CEStart.exe", StringComparison.OrdinalIgnoreCase))
         {
             System.Windows.MessageBox.Show(
-                "Не удалось найти платформу 1С (1cv8.exe).\nУстановите платформу 1С:Предприятие.",
-                "Платформа 1С не найдена",
+                LocalizationManager.T("Launcher.PlatformExeNotFound"),
+                LocalizationManager.T("Launcher.PlatformNotFoundTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
             return false;
@@ -1100,8 +1091,8 @@ public static class OneCLauncher
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show(
-                $"Не удалось запустить платформу 1С.\n{ex.Message}",
-                "Ошибка запуска",
+                string.Format(LocalizationManager.T("Launcher.LaunchFailedFormat"), ex.Message),
+                LocalizationManager.T("Launcher.LaunchErrorTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Error);
             return false;
@@ -1204,7 +1195,7 @@ public static class OneCLauncher
         if (string.IsNullOrEmpty(exePath) ||
             exePath.EndsWith("1CEStart.exe", StringComparison.OrdinalIgnoreCase))
         {
-            return (false, "Не найден 1cv8.exe для указанной версии платформы.");
+            return (false, LocalizationManager.T("Launcher.CreateExeNotFound"));
         }
 
         string connectionString;
@@ -1212,7 +1203,7 @@ public static class OneCLauncher
         {
             var path = (filePath ?? "").Trim().TrimEnd('\\', '/');
             if (string.IsNullOrEmpty(path))
-                return (false, "Не указан каталог файловой базы.");
+                return (false, LocalizationManager.T("Launcher.CreateFileDirNotSpecified"));
             try
             {
                 if (!Directory.Exists(path))
@@ -1220,7 +1211,7 @@ public static class OneCLauncher
             }
             catch (Exception ex)
             {
-                return (false, $"Не удалось создать каталог:\n{path}\n{ex.Message}");
+                return (false, string.Format(LocalizationManager.T("Launcher.CreateDirCreateFailedFormat"), path, ex.Message));
             }
             connectionString = $"File=\"{path}\"";
         }
@@ -1229,7 +1220,7 @@ public static class OneCLauncher
             var srv = (server ?? "").Trim();
             var db = (databaseName ?? "").Trim();
             if (string.IsNullOrEmpty(srv) || string.IsNullOrEmpty(db))
-                return (false, "Не указаны сервер или имя базы.");
+                return (false, LocalizationManager.T("Launcher.CreateServerOrDbNotSpecified"));
             connectionString = $"Srvr=\"{srv}\";Ref=\"{db}\"";
         }
 
@@ -1237,7 +1228,7 @@ public static class OneCLauncher
         if (!string.IsNullOrWhiteSpace(templatePath))
         {
             if (!File.Exists(templatePath))
-                return (false, $"Файл шаблона не найден:\n{templatePath}");
+                return (false, string.Format(LocalizationManager.T("Launcher.CreateTemplateNotFoundFormat"), templatePath));
             arguments += $" /UseTemplate\"{templatePath}\"";
         }
         arguments += " /DisableStartupDialogs /DisableStartupMessages";
@@ -1256,12 +1247,12 @@ public static class OneCLauncher
             };
             using var process = Process.Start(psi);
             if (process is null)
-                return (false, "Не удалось запустить процесс 1cv8.");
+                return (false, LocalizationManager.T("Launcher.CreateProcessFailed"));
 
             if (!process.WaitForExit(5 * 60 * 1000))
             {
                 try { process.Kill(entireProcessTree: true); } catch { /* ignore */ }
-                return (false, "Превышено время ожидания создания базы (5 мин).");
+                return (false, LocalizationManager.T("Launcher.CreateTimeout"));
             }
 
             if (process.ExitCode != 0)
@@ -1269,14 +1260,14 @@ public static class OneCLauncher
                 var err = "";
                 try { err = process.StandardError.ReadToEnd(); } catch { /* ignore */ }
                 return (false,
-                    $"1cv8 завершился с кодом {process.ExitCode}.\n{err}\n\nКоманда:\n{exePath}\n{arguments}");
+                    string.Format(LocalizationManager.T("Launcher.CreateExitCodeFormat"), process.ExitCode, err, exePath, arguments));
             }
 
             return (true, null);
         }
         catch (Exception ex)
         {
-            return (false, $"{ex.Message}\n\nКоманда:\n{exePath}\n{arguments}");
+            return (false, string.Format(LocalizationManager.T("Launcher.CreateCommandErrorFormat"), ex.Message, exePath, arguments));
         }
     }
 

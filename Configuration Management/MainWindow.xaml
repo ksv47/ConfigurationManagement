@@ -1443,7 +1443,7 @@
                                 <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc Main.LaunchMode}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedInfobase.ParsedLaunchMode}" FontSize="12" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="6" Grid.Column="0" Text="{loc:Loc Main.Client}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding SelectedInfobase.ClientType}" FontSize="12" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding SelectedInfobase.ClientTypeDisplay}" FontSize="12" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="7" Grid.Column="0" Text="{loc:Loc Main.Bitness}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding SelectedInfobase.ArchitectureDisplay}" FontSize="12" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="8" Grid.Column="0" Text="{loc:Loc Main.Parameters}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>

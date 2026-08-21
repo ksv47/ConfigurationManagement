@@ -28,8 +28,8 @@ namespace Configuration_Management
         private readonly TreeView _tree = new();
         private readonly Button _selectButton = new() { Content = LocalizationManager.T("Common.Select"), MinWidth = 110, IsDefault = true };
         private readonly RadioButton _filterAll = new() { Content = LocalizationManager.T("Common.All"), IsChecked = true, GroupName = "Arch" };
-        private readonly RadioButton _filterX32 = new() { Content = "x32", GroupName = "Arch" };
-        private readonly RadioButton _filterX64 = new() { Content = "x64", GroupName = "Arch" };
+        private readonly RadioButton _filterX32 = new() { Content = LocalizationManager.T("PlatformVersionPicker.FilterX32"), GroupName = "Arch" };
+        private readonly RadioButton _filterX64 = new() { Content = LocalizationManager.T("PlatformVersionPicker.FilterX64"), GroupName = "Arch" };
         private readonly RadioButton _sortAsc = new() { Content = LocalizationManager.T("Common.SortAsc") };
         private readonly RadioButton _sortDesc = new() { Content = LocalizationManager.T("Common.SortDesc"), IsChecked = true };
 

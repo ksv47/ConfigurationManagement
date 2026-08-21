@@ -108,7 +108,7 @@ namespace Configuration_Management
             root.Children.Add(palette);
 
             // HEX
-            var hexLabel = new TextBlock { Text = "HEX:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 4) };
+            var hexLabel = new TextBlock { Text = LocalizationManager.T("ColorPicker.HexLabel"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 4) };
             Grid.SetRow(hexLabel, 3);
             root.Children.Add(hexLabel);
 
@@ -118,20 +118,20 @@ namespace Configuration_Management
             root.Children.Add(_hexBox);
 
             // RGB слайдеры
-            var red = BuildRgbRow(4, "R", "#EF4444", _redSlider, _redValue);
+            var red = BuildRgbRow(4, LocalizationManager.T("ColorPicker.ChannelRed"), "#EF4444", _redSlider, _redValue);
             Grid.SetColumnSpan(red, 2);
             root.Children.Add(red);
 
-            var green = BuildRgbRow(5, "G", "#10B981", _greenSlider, _greenValue);
+            var green = BuildRgbRow(5, LocalizationManager.T("ColorPicker.ChannelGreen"), "#10B981", _greenSlider, _greenValue);
             Grid.SetColumnSpan(green, 2);
             root.Children.Add(green);
 
-            var blue = BuildRgbRow(6, "B", "#2D6CDF", _blueSlider, _blueValue);
+            var blue = BuildRgbRow(6, LocalizationManager.T("ColorPicker.ChannelBlue"), "#2D6CDF", _blueSlider, _blueValue);
             Grid.SetColumnSpan(blue, 2);
             root.Children.Add(blue);
 
             // Кнопки
-            var buttons = BuildButtons("OK", 90, OnOk_Click);
+            var buttons = BuildButtons(LocalizationManager.T("Common.Ok"), 90, OnOk_Click);
             Grid.SetRow(buttons, 7);
             Grid.SetColumnSpan(buttons, 2);
             root.Children.Add(buttons);

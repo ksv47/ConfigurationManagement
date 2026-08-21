@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services
@@ -185,7 +186,7 @@ namespace Configuration_Management.Services
 
                 var safeName = SanitizeFileName(ib.Name);
                 if (string.IsNullOrWhiteSpace(safeName))
-                    safeName = "База_1С";
+                    safeName = SanitizeFileName(LocalizationManager.T("Maint.DefaultBaseName"));
 
                 var target = appExecutablePath;
                 if (string.IsNullOrEmpty(target))
@@ -200,7 +201,7 @@ namespace Configuration_Management.Services
                 sb.AppendLine("[Desktop Entry]");
                 sb.AppendLine("Type=Application");
                 sb.AppendLine($"Name={EscapeDesktopValue(ib.Name ?? safeName)}");
-                sb.AppendLine($"Comment={EscapeDesktopValue("Запуск информационной базы 1С")}");
+                sb.AppendLine($"Comment={EscapeDesktopValue(LocalizationManager.T("Maint.DesktopShortcutComment"))}");
                 // В Exec % — управляющие коды полей (%%), поэтому экранируем их.
                 sb.AppendLine($"Exec={QuoteExec(target)} {args.Replace("%", "%%")}");
                 // Иконка: путь к исполняемому 1cv8 (если есть) либо имя темы.
@@ -417,11 +418,11 @@ namespace Configuration_Management.Services
         public static string? TryDeleteFileBasePhysically(Infobase ib)
         {
             if (ib.Connection.Type != ConnectionType.File)
-                return "Физическое удаление доступно только для файловых баз.";
+                return LocalizationManager.T("Maint.PhysicalDeleteOnlyFile");
 
             var dir = GetFileBaseDirectory(ib);
             if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
-                return "Каталог файловой базы не найден на диске.";
+                return LocalizationManager.T("Maint.FileBaseDirNotFound");
 
             // Защита от удаления слишком «корневых» путей.
             try
@@ -434,7 +435,7 @@ namespace Configuration_Management.Services
                     if (string.IsNullOrEmpty(p)) continue;
                     var rr = Path.GetFullPath(p).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     if (string.Equals(full, rr, StringComparison.OrdinalIgnoreCase))
-                        return $"Отказ: нельзя удалить системный или корневой каталог ({full}).";
+                        return string.Format(LocalizationManager.T("Maint.CannotDeleteSystemRootFormat"), full);
                 }
             }
             catch
@@ -449,7 +450,7 @@ namespace Configuration_Management.Services
             }
             catch (Exception ex)
             {
-                return $"Не удалось удалить каталог:\n{dir}\n\n{ex.Message}";
+                return string.Format(LocalizationManager.T("Maint.DeleteFailedFormat"), dir, ex.Message);
             }
         }
 

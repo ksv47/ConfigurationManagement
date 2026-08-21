@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Media;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Themes
@@ -163,14 +164,14 @@ namespace Configuration_Management.Themes
         /// <summary>Читаемое название области для интерфейса настроек.</summary>
         public static string FontScopeDisplayName(string key) => key switch
         {
-            FontDefault => "По умолчанию",
-            FontList => "Список баз",
-            FontListHeader => "Заголовки списка",
-            FontRightPanel => "Правая панель",
-            FontStatusBar => "Нижняя панель (статус)",
-            FontTabs => "Вкладки",
-            FontButtons => "Кнопки",
-            FontInputs => "Поля ввода",
+            FontDefault => LocalizationManager.T("Font.Default"),
+            FontList => LocalizationManager.T("Font.List"),
+            FontListHeader => LocalizationManager.T("Font.ListHeader"),
+            FontRightPanel => LocalizationManager.T("Font.RightPanel"),
+            FontStatusBar => LocalizationManager.T("Font.StatusBar"),
+            FontTabs => LocalizationManager.T("Font.Tabs"),
+            FontButtons => LocalizationManager.T("Font.Buttons"),
+            FontInputs => LocalizationManager.T("Font.Inputs"),
             _ => key
         };
 

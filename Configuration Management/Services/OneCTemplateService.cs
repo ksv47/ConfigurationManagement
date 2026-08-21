@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.RegularExpressions;
+using Configuration_Management.Localization;
 #if WINDOWS
 using Microsoft.Win32;
 #endif
@@ -525,8 +526,8 @@ public static class OneCTemplateService
 
             var kindSuffix = kind switch
             {
-                TemplateKind.Demo => " · демо",
-                TemplateKind.Empty => " · пустая",
+                TemplateKind.Demo => LocalizationManager.T("Tpl.SuffixDemo"),
+                TemplateKind.Empty => LocalizationManager.T("Tpl.SuffixEmpty"),
                 _ => ""
             };
 
@@ -629,8 +630,8 @@ public static class OneCTemplateService
                 if (!string.IsNullOrWhiteSpace(config)) catalogParts.Add(config);
                 if (!string.IsNullOrWhiteSpace(version)) catalogParts.Add(version);
                 var leaf = Path.GetFileNameWithoutExtension(file);
-                if (kind == TemplateKind.Demo) leaf += " (демо)";
-                else if (kind == TemplateKind.Empty) leaf += " (пустая)";
+                if (kind == TemplateKind.Demo) leaf += LocalizationManager.T("Template.SuffixDemo");
+                else if (kind == TemplateKind.Empty) leaf += LocalizationManager.T("Template.SuffixEmpty");
                 else if (!leaf.Equals("1cv8", StringComparison.OrdinalIgnoreCase) &&
                          !leaf.Equals("1Cv8", StringComparison.OrdinalIgnoreCase))
                 {
@@ -640,8 +641,8 @@ public static class OneCTemplateService
                 }
                 else
                 {
-                    leaf = kind == TemplateKind.Configuration ? "Конфигурация" :
-                           kind == TemplateKind.Demo ? "Демонстрационная база" : "Пустая база";
+                    leaf = kind == TemplateKind.Configuration ? LocalizationManager.T("Tpl.NameConfiguration") :
+                           kind == TemplateKind.Demo ? LocalizationManager.T("Tpl.NameDemoBase") : LocalizationManager.T("Tpl.NameEmptyBase");
                 }
                 catalogParts.Add(leaf);
 
@@ -693,7 +694,7 @@ public static class OneCTemplateService
             {
                 segments = new[]
                 {
-                    string.IsNullOrWhiteSpace(t.Vendor) ? "Прочее" : t.Vendor,
+                    string.IsNullOrWhiteSpace(t.Vendor) ? LocalizationManager.T("Tpl.VendorOther") : t.Vendor,
                     string.IsNullOrWhiteSpace(t.ConfigurationName) ? t.DisplayName : t.ConfigurationName
                 };
             }

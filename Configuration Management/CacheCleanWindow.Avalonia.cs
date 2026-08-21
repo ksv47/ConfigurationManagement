@@ -27,8 +27,10 @@ namespace Configuration_Management
 
         private readonly TextBlock _programCacheSizeText = new();
         private readonly TextBlock _userCacheSizeText = new();
+        private readonly TextBlock _orphanCacheSizeText = new();
         private readonly CheckBox _programCacheCheck = new();
         private readonly CheckBox _userCacheCheck = new();
+        private readonly CheckBox _orphanCacheCheck = new();
         private readonly TextBox _searchBox = new() { Padding = new Thickness(10, 7), Watermark = LocalizationManager.T("CacheClean.SearchBase") };
         private readonly StackPanel _basesPanel = new();
         private readonly TextBlock _basesCountText = new();
@@ -63,13 +65,15 @@ namespace Configuration_Management
             Width = 580;
             Height = 540;
             MinWidth = 480;
-            MinHeight = 440;
+            MinHeight = 500;
             CanResize = true;
 
             _infobases = infobases.ToList();
 
             _programCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.ProgramCache"), _programCacheSizeText);
             _userCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.UserCache"), _userCacheSizeText);
+            _orphanCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.OrphanCache"), _orphanCacheSizeText);
+            _orphanCacheCheck.ToolTip = new ToolTip { Content = LocalizationManager.T("CacheClean.OrphanCacheTooltip") };
 
             _programCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.Program);
             _userCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.User);
@@ -77,6 +81,8 @@ namespace Configuration_Management
             _programCacheCheck.Unchecked += (_, _) => UpdateCleanEnabled();
             _userCacheCheck.Checked += (_, _) => UpdateCleanEnabled();
             _userCacheCheck.Unchecked += (_, _) => UpdateCleanEnabled();
+            _orphanCacheCheck.Checked += (_, _) => UpdateCleanEnabled();
+            _orphanCacheCheck.Unchecked += (_, _) => UpdateCleanEnabled();
             _searchBox.TextChanged += (_, _) => OnSearchTextChanged();
 
             LoadColumnWidths();
@@ -85,7 +91,15 @@ namespace Configuration_Management
             UpdateCount();
             UpdateCleanEnabled();
 
-            Content = BuildRoot();
+            // Внешний ScrollViewer гарантирует доступность всех элементов при любой высоте
+            // окна: если суммарная высота контента превышает высоту окна, появляется
+            // вертикальная прокрутка всего содержимого, а не обрезка нижней панели.
+            Content = new ScrollViewer
+            {
+                Content = BuildRoot(),
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
 
             Opened += (_, _) => RefreshCacheSizes();
             Closing += (_, _) => SaveColumnWidths();
@@ -132,6 +146,17 @@ namespace Configuration_Management
         /// <summary>Список баз, выбранных для очистки.</summary>
         public IReadOnlyList<Infobase> SelectedInfobases { get; private set; } = Array.Empty<Infobase>();
 
+        /// <summary>Признак того, что нужно дополнительно очистить «остатки» кеша от удалённых баз.</summary>
+        public bool CleanOrphans { get; private set; }
+
+        /// <summary>
+        /// Показывает окно модально (синхронно) и возвращает результат диалога.
+        /// Открытая публичная обёртка над <see cref="ModalWindowBase.ShowDialogSync()"/>,
+        /// чтобы диалог можно было вызывать из ViewModel (не наследника окна).
+        /// </summary>
+        /// <returns>True, если пользователь подтвердил очистку.</returns>
+        public bool ShowSync() => ShowDialogSync();
+
         /// <summary>
         /// Формирует содержимое чекбокса типа кеша: название и поле текущего размера.
         /// </summary>
@@ -163,14 +188,17 @@ namespace Configuration_Management
         {
             _programCacheSizeText.Text = "…";
             _userCacheSizeText.Text = "…";
+            _orphanCacheSizeText.Text = "…";
             foreach (var t in _programSizeTexts.Values) t.Text = "…";
             foreach (var t in _userSizeTexts.Values) t.Text = "…";
 
             var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program));
             var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User));
+            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(OneCCacheKind.All, _infobases));
 
             _programCacheSizeText.Text = FormatSize(program);
             _userCacheSizeText.Text = FormatSize(user);
+            _orphanCacheSizeText.Text = FormatSize(orphans);
 
             foreach (var ib in _infobases)
             {
@@ -188,8 +216,6 @@ namespace Configuration_Management
         {
             var units = LocalizationManager.T("CacheClean.SizeUnits")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (units.Length == 0)
-                units = new[] { "Б", "КБ", "МБ", "ГБ", "ТБ" };
 
             double value = bytes;
             var index = 0;
@@ -210,7 +236,7 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
             var title = new TextBlock
@@ -254,7 +280,14 @@ namespace Configuration_Management
             {
                 Margin = new Thickness(0, 12, 0, 0),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6)
+                CornerRadius = new CornerRadius(6),
+                // Фиксированная высота вместо Star-строки: внутри внешнего ScrollViewer
+                // звёздные строки схлопываются в 0, поэтому блоку списка задаём постоянную
+                // высоту с MinHeight. Внутренний ScrollViewer базы остаётся рабочим, а при
+                // малой высоте окна весь контент прокручивается внешним ScrollViewer —
+                // нижняя панель (чекбокс остатков и кнопки) никогда не обрезается.
+                Height = 260,
+                MinHeight = 220
             };
 
             var dock = new DockPanel { LastChildFill = true };
@@ -302,9 +335,17 @@ namespace Configuration_Management
             bottom.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             bottom.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
 
-            Grid.SetColumn(_basesCountText, 0);
+            var leftPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 16,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            leftPanel.Children.Add(_orphanCacheCheck);
             _basesCountText.VerticalAlignment = VerticalAlignment.Center;
-            bottom.Children.Add(_basesCountText);
+            leftPanel.Children.Add(_basesCountText);
+            Grid.SetColumn(leftPanel, 0);
+            bottom.Children.Add(leftPanel);
 
             var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
             cancel.Click += (_, _) => Close();
@@ -558,7 +599,8 @@ namespace Configuration_Management
         {
             var hasType = _programCacheCheck.IsChecked == true || _userCacheCheck.IsChecked == true;
             var hasBases = _baseChecks.Any(kv => kv.Key.IsChecked == true);
-            _cleanButton.IsEnabled = hasType && hasBases;
+            var hasOrphans = _orphanCacheCheck.IsChecked == true;
+            _cleanButton.IsEnabled = hasType && (hasBases || hasOrphans);
         }
 
         private void OnClean_Click()
@@ -569,6 +611,7 @@ namespace Configuration_Management
             if (_userCacheCheck.IsChecked == true)
                 kind |= OneCCacheKind.User;
 
+            CleanOrphans = _orphanCacheCheck.IsChecked == true;
             SelectedCacheKind = kind;
             SelectedInfobases = _baseChecks
                 .Where(kv => kv.Key.IsChecked == true)

@@ -1,4 +1,5 @@
 using System.IO;
+using Configuration_Management.Localization;
 
 namespace Configuration_Management.Services;
 
@@ -67,7 +68,7 @@ public static class IbasesBackupService
     public static void RestoreBackup(string backupPath, string targetFilePath)
     {
         if (!File.Exists(backupPath))
-            throw new FileNotFoundException("Резервная копия не найдена.", backupPath);
+            throw new FileNotFoundException(LocalizationManager.T("Settings.Ibases.BackupNotFound"), backupPath);
 
         var targetDir = Path.GetDirectoryName(targetFilePath);
         if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))

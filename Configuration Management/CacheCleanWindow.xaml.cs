@@ -103,6 +103,9 @@ public partial class CacheCleanWindow : Window
     /// <summary>Список баз, выбранных для очистки.</summary>
     public IReadOnlyList<Infobase> SelectedInfobases { get; private set; } = Array.Empty<Infobase>();
 
+    /// <summary>Признак того, что нужно дополнительно очистить «остатки» кеша от удалённых баз.</summary>
+    public bool CleanOrphans => OrphanCacheCheck.IsChecked == true;
+
     /// <summary>
     /// Возвращает GridLength для колонки: «База» (индекс 0) при нулевой ширине
     /// растягивается на всё свободное место, остальные — фиксированной ширины.
@@ -351,9 +354,11 @@ public partial class CacheCleanWindow : Window
 
         var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program));
         var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User));
+        var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(OneCCacheKind.All, _infobases));
 
         ProgramCacheSizeText.Text = FormatSize(program);
         UserCacheSizeText.Text = FormatSize(user);
+        OrphanCacheSizeText.Text = FormatSize(orphans);
 
         foreach (var ib in _infobases)
         {
@@ -371,8 +376,6 @@ public partial class CacheCleanWindow : Window
     {
         var units = LocalizationManager.T("CacheClean.SizeUnits")
             .Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries);
-        if (units.Length == 0)
-            units = new[] { "Б", "КБ", "МБ", "ГБ", "ТБ" };
 
         double value = bytes;
         var index = 0;
@@ -397,7 +400,8 @@ public partial class CacheCleanWindow : Window
     {
         var hasType = ProgramCacheCheck.IsChecked == true || UserCacheCheck.IsChecked == true;
         var hasBases = _baseChecks.Any(kv => kv.Key.IsChecked == true);
-        CleanButton.IsEnabled = hasType && hasBases;
+        var hasOrphans = OrphanCacheCheck.IsChecked == true;
+        CleanButton.IsEnabled = hasType && (hasBases || hasOrphans);
     }
 
     private void OnClean_Click(object sender, RoutedEventArgs e)

@@ -625,7 +625,7 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>Текст кнопки переключения отображения групп.</summary>
-    public string GroupByGroupText => _groupByGroup ? "📁 Скрыть группы" : "📁 Показывать группы";
+    public string GroupByGroupText => _groupByGroup ? LocalizationManager.T("Main.HideGroups") : LocalizationManager.T("Main.ShowGroups");
 
 
     /// <summary>Список групп информационных баз.</summary>
@@ -1509,7 +1509,7 @@ public class MainViewModel : ViewModelBase
     }
 
     public string RightPanelToggleTooltip =>
-        _showRightPanelDetails ? "Скрыть подробности правой панели" : "Показать подробности правой панели";
+        _showRightPanelDetails ? LocalizationManager.T("Main.RightPanelHideDetails") : LocalizationManager.T("Main.RightPanelShowDetails");
 
     /// <summary>Тип клиента для текущего запуска (не пишется в настройки базы).</summary>
     public SessionClientMode SessionClientMode
@@ -1651,7 +1651,7 @@ public class MainViewModel : ViewModelBase
             if (_statusShowLaunchMode)
                 parts.Add(ib.ParsedLaunchMode);
             if (_statusShowClientType && !string.IsNullOrWhiteSpace(ib.ClientType))
-                parts.Add(ib.ClientType);
+                parts.Add(ib.ClientTypeDisplay);
             if (_statusShowUser && !string.IsNullOrWhiteSpace(ib.Connection.User))
                 parts.Add($"{LocalizationManager.T("Main.StatusUser")} {ib.Connection.User}");
             if (_statusShowId && !string.IsNullOrWhiteSpace(ib.Id))
@@ -2047,8 +2047,8 @@ public class MainViewModel : ViewModelBase
                     RebuildGroupTree();
                     ExportToIbasesAfterLocalChange();
                     _dialogs.ShowInfo(
-                        $"База «{createDlg.Result.Name}» создана и добавлена в список.",
-                        "Создание ИБ");
+                        string.Format(LocalizationManager.T("Main.DlgBaseCreated"), createDlg.Result.Name),
+                        LocalizationManager.T("Main.DlgBaseCreatedTitle"));
                 }
                 break;
             }
@@ -2221,7 +2221,7 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     private bool IsNoGroupNodeSelected() =>
         SelectedGroupNode is { Group: null } node &&
-        string.Equals(node.DisplayName, "Без группы", StringComparison.Ordinal);
+        string.Equals(node.Marker, GroupNodeViewModel.NoGroupMarker, StringComparison.Ordinal);
 
     /// <summary>
     /// Редактирует оформление служебного узла «Без группы» (цвет и иконку)
@@ -2272,11 +2272,11 @@ public class MainViewModel : ViewModelBase
             var err = InfobaseMaintenanceService.TryDeleteFileBasePhysically(ib);
             if (err is not null)
             {
-                _dialogs.ShowError(err, "Физическое удаление");
+                _dialogs.ShowError(err, LocalizationManager.T("DeleteInfobase.PhysicalDeleteTitle"));
                 // Даже при ошибке на диске продолжаем удаление из списка по запросу пользователя
                 if (!_dialogs.Confirm(
-                        "Удалить базу только из списка программы (файлы на диске не тронуты или удалены частично)?",
-                        "Удаление из списка"))
+                        LocalizationManager.T("Main.ConfirmDeleteFromList"),
+                        LocalizationManager.T("Main.DeleteFromListTitle")))
                     return;
             }
         }
@@ -2311,22 +2311,22 @@ public class MainViewModel : ViewModelBase
         {
             var reasons = new List<string>();
             if (subgroupCount > 0)
-                reasons.Add($"подгрупп: {subgroupCount}");
+                reasons.Add(string.Format(LocalizationManager.T("Main.SubgroupsCount"), subgroupCount));
             if (infobaseCount > 0)
-                reasons.Add($"информационных баз: {infobaseCount}");
+                reasons.Add(string.Format(LocalizationManager.T("Main.InfobasesCount"), infobaseCount));
 
             _dialogs.ShowWarning(
-                $"Невозможно удалить группу «{group.Name}».\n\n" +
-                "Внутри группы (включая вложенные подгруппы) находится:\n" +
-                string.Join("\n", reasons.Select(r => $"• {r}")) + ".\n\n" +
-                "Сначала удалите или переместите содержимое группы, затем удалите её.",
-                "Удаление невозможно");
+                string.Format(LocalizationManager.T("Main.DeleteGroupImpossible"), group.Name) + "\n\n" +
+                LocalizationManager.T("Main.DeleteGroupContains") + "\n" +
+                string.Join("\n", reasons.Select(r => "• " + r)) + ".\n\n" +
+                LocalizationManager.T("Main.DeleteGroupFirstMove"),
+                LocalizationManager.T("Main.DeleteGroupImpossibleTitle"));
             return;
         }
 
         if (!_dialogs.Confirm(
-            $"Удалить группу «{group.Name}»?\n\nЭто действие нельзя отменить.",
-            "Подтверждение удаления"))
+            string.Format(LocalizationManager.T("Main.DeleteGroupConfirm"), group.Name),
+            LocalizationManager.T("Main.DeleteGroupConfirmTitle")))
             return;
 
         Groups.Remove(group);
@@ -2827,14 +2827,14 @@ public string HotkeyEnterprise
             return;
         }
 
-        const string pinnedName = "Закреплённые";
-        var pinned = GroupNodes.FirstOrDefault(n => n.Group is null && n.DisplayName == pinnedName);
+        var pinned = GroupNodes.FirstOrDefault(n => n.Group is null &&
+            string.Equals(n.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal));
 
         if (infobase.IsPinned)
         {
             if (pinned is null)
             {
-                pinned = new GroupNodeViewModel(null, displayName: pinnedName) { IsExpanded = true };
+                pinned = new GroupNodeViewModel(null, marker: GroupNodeViewModel.PinnedMarker) { IsExpanded = true };
                 pinned.Infobases.Add(infobase);
                 pinned.PopulateItems(); // NotifyCountChanged внутри
                 GroupNodes.Insert(0, pinned);
@@ -2907,7 +2907,9 @@ public string HotkeyEnterprise
                 try
                 {
                     Application.Current?.Dispatcher.Invoke(() =>
-                        _dialogs.ShowError($"Не удалось сохранить список баз.\n{ex.Message}", "Ошибка сохранения"));
+                        _dialogs.ShowError(
+                            string.Format(LocalizationManager.T("Main.ErrSaveBases"), ex.Message),
+                            LocalizationManager.T("Main.ErrSaveBasesTitle")));
                 }
                 catch
                 {
@@ -3034,8 +3036,10 @@ public string HotkeyEnterprise
 
         if (ok)
         {
-            SelectedInfobase.AddLaunchHistory(kind.ToString(),
-                $"клиент={_sessionClientMode}, арх={_sessionArchitecture}");
+            var sessionDetails = string.Format(
+                LocalizationManager.T("Main.LaunchHistorySessionDetails"),
+                _sessionClientMode, _sessionArchitecture);
+            SelectedInfobase.AddLaunchHistory(kind.ToString(), sessionDetails);
             InfobasesView.Refresh();
             Save();
             _logger.Info($"Запущена база «{SelectedInfobase.Name}» ({kind}, клиент={_sessionClientMode}, арх={_sessionArchitecture})");
@@ -3147,7 +3151,9 @@ public string HotkeyEnterprise
         catch (Exception ex)
         {
             _logger.Error("Ошибка сохранения после правки базы", ex);
-            _dialogs.ShowError($"Не удалось сохранить изменение.\n{ex.Message}", "Ошибка сохранения");
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrSaveChange"), ex.Message),
+                LocalizationManager.T("Main.ErrSaveBasesTitle"));
         }
     }
 
@@ -3173,7 +3179,9 @@ public string HotkeyEnterprise
         catch (Exception ex)
         {
             _logger.Error("Ошибка асинхронного сохранения баз", ex);
-            _dialogs.ShowError($"Не удалось сохранить список баз.\n{ex.Message}", "Ошибка сохранения");
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrSaveBases"), ex.Message),
+                LocalizationManager.T("Main.ErrSaveBasesTitle"));
         }
     }
 
@@ -3537,9 +3545,9 @@ public string HotkeyEnterprise
             return;
 
         node.IsExpanded = !node.IsExpanded;
-        // Для реальных групп ключом служит полный путь, для служебных узлов
-        // («Закреплённые», «Без группы») — отображаемое имя, т.к. пути у них нет.
-        var key = string.IsNullOrEmpty(node.FullPath) ? node.DisplayName : node.FullPath;
+        // Для реальных групп ключом служит полный путь, для служебных узлов —
+        // внутренний маркер (не зависит от языка), т.к. пути у них нет.
+        var key = node.NodeKey;
         SetGroupCollapsed(key, !node.IsExpanded);
     }
 
@@ -3612,9 +3620,9 @@ public string HotkeyEnterprise
     {
         foreach (var node in nodes)
         {
-            // Для реальных групп ключом служит полный путь, для служебных узлов
-            // («Закреплённые», «Без группы») — отображаемое имя (единый формат с ToggleGroupExpanded).
-            var key = string.IsNullOrEmpty(node.FullPath) ? node.DisplayName : node.FullPath;
+            // Для реальных групп ключом служит полный путь, для служебных узлов —
+            // внутренний маркер (не зависит от языка; единый формат с ToggleGroupExpanded).
+            var key = node.NodeKey;
             target.Add(key);
             CollectGroupPaths(node.Children, target);
         }
@@ -3684,7 +3692,10 @@ public string HotkeyEnterprise
         // группировка по группам теряет смысл.
         if (!_groupByGroup || IsFilterModeActive())
         {
-            var flatNode = new GroupNodeViewModel(null, displayName: IsFilterModeActive() ? "Найдено" : "Все базы");
+            var flatNode = new GroupNodeViewModel(
+                null,
+                displayName: IsFilterModeActive() ? LocalizationManager.T("Main.FlatFound") : null,
+                marker: IsFilterModeActive() ? null : GroupNodeViewModel.AllBasesMarker);
             flatNode.SetNotificationsSuppressed(true);
             foreach (var infobase in visible)
                 flatNode.Infobases.Add(infobase);
@@ -3706,10 +3717,10 @@ public string HotkeyEnterprise
         foreach (var root in roots)
             root.SortChildrenRecursive(_groupSortAscending);
 
-        var pinnedNode = new GroupNodeViewModel(null, displayName: "Закреплённые");
+        var pinnedNode = new GroupNodeViewModel(null, marker: GroupNodeViewModel.PinnedMarker);
         var noGroupNode = new GroupNodeViewModel(
             null,
-            displayName: "Без группы",
+            marker: GroupNodeViewModel.NoGroupMarker,
             defaultColor: _noGroupColor,
             defaultIconColor: _noGroupIconColor,
             defaultIcon: _noGroupIcon);
@@ -3874,9 +3885,9 @@ public string HotkeyEnterprise
     {
         foreach (var node in nodes)
         {
-            // Для реальных групп ключом служит полный путь, для служебных узлов
-            // («Закреплённые», «Без группы») — отображаемое имя (единый формат).
-            var key = string.IsNullOrEmpty(node.FullPath) ? node.DisplayName : node.FullPath;
+            // Для реальных групп ключом служит полный путь, для служебных узлов —
+            // внутренний маркер (не зависит от языка; единый формат).
+            var key = node.NodeKey;
             node.SetExpandedSilent(!IsGroupCollapsed(key));
             ApplyExpandedState(node.Children);
         }
@@ -3981,9 +3992,8 @@ public string HotkeyEnterprise
     /// </summary>
     private void PromptImportFromIbasesV8i()
     {
-        if (!_dialogs.Confirm("Список информационных баз пуст.\n\n" +
-            "Хотите загрузить базы из стандартного файла 1С (ibases.v8i)?",
-            "Загрузка баз"))
+        if (!_dialogs.Confirm(LocalizationManager.T("Main.PromptImportEmpty"),
+            LocalizationManager.T("Main.LoadBasesTitle")))
             return;
 
         // Сначала пытаемся найти файл ibases.v8i автоматически в стандартном месте.
@@ -3994,8 +4004,8 @@ public string HotkeyEnterprise
         {
             var dialog = new OpenFileDialog
             {
-                Title = "Выберите файл списка баз 1С (ibases.v8i)",
-                Filter = "Файл списка баз 1С (*.v8i)|*.v8i|Все файлы (*.*)|*.*",
+                Title = LocalizationManager.T("Settings.Ibases.FileDialogTitle"),
+                Filter = LocalizationManager.T("Main.IbasesFileFilter"),
                 CheckFileExists = true,
                 Multiselect = false
             };
@@ -4015,17 +4025,16 @@ public string HotkeyEnterprise
             SaveGroups();
             RebuildGroupTree();
 
-            _dialogs.ShowInfo($"Импорт завершён.\n\n" +
-                $"Добавлено новых баз: {importResult.Added}\n" +
-                $"Обновлено баз: {importResult.Updated}\n" +
-                $"Пропущено (отключено): {importResult.Skipped}\n" +
-                $"Создано новых групп: {importResult.GroupsCreated}",
-                "Импорт из ibases.v8i");
+            _dialogs.ShowInfo(
+                string.Format(LocalizationManager.T("Main.ImportDone"),
+                    importResult.Added, importResult.Updated, importResult.Skipped, importResult.GroupsCreated),
+                LocalizationManager.T("Main.ImportIbasesTitle"));
         }
         catch (Exception ex)
         {
-            _dialogs.ShowError($"Не удалось выполнить импорт.\n{ex.Message}",
-                "Ошибка импорта");
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrImportFailed"), ex.Message),
+                LocalizationManager.T("Main.ImportErrorTitle"));
         }
     }
 
@@ -4038,9 +4047,8 @@ public string HotkeyEnterprise
         if (_ibasesSyncMode == IbasesSyncMode.None)
         {
             if (_dialogs.Confirm(
-                    "Синхронизация с файлом ibases.v8i отключена в настройках.\n\n" +
-                    "Открыть настройки, чтобы выбрать режим (загрузка / выгрузка / двусторонняя)?",
-                    "Синхронизация ibases.v8i"))
+                    LocalizationManager.T("Main.SyncDisabledConfirm"),
+                    LocalizationManager.T("Main.SyncIbasesTitle")))
             {
                 OpenSettings(null);
             }
@@ -4051,18 +4059,17 @@ public string HotkeyEnterprise
         if (filePath is null)
         {
             _dialogs.ShowInfo(
-                "Не удалось определить путь к файлу ibases.v8i.\n" +
-                "Укажите путь на вкладке «ibases.v8i» в настройках.",
-                "Синхронизация ibases.v8i");
+                LocalizationManager.T("Main.ErrSyncNoPath"),
+                LocalizationManager.T("Main.SyncIbasesTitle"));
             return;
         }
 
         var modeText = _ibasesSyncMode switch
         {
-            IbasesSyncMode.Import => "загрузка из файла в приложение",
-            IbasesSyncMode.Export => "выгрузка из приложения в файл",
-            IbasesSyncMode.Both => "двусторонняя (загрузка и выгрузка)",
-            _ => "неизвестный режим"
+            IbasesSyncMode.Import => LocalizationManager.T("Main.SyncModeImport"),
+            IbasesSyncMode.Export => LocalizationManager.T("Main.SyncModeExport"),
+            IbasesSyncMode.Both => LocalizationManager.T("Main.SyncModeBoth"),
+            _ => LocalizationManager.T("Main.SyncModeUnknown")
         };
 
         try
@@ -4072,17 +4079,18 @@ public string HotkeyEnterprise
             var ok = SynchronizeWithIbases();
 
             var status = string.IsNullOrWhiteSpace(SyncMessage)
-                ? (ok ? "Синхронизация выполнена (изменений нет или режим не потребовал операций)." : "Синхронизация не выполнена.")
+                ? (ok ? LocalizationManager.T("Main.SyncDoneNoChanges") : LocalizationManager.T("Main.SyncNotPerformed"))
                 : SyncMessage;
 
             _dialogs.ShowInfo(
-                $"Режим: {modeText}\nФайл: {filePath}\n\n{status}",
-                "Синхронизация ibases.v8i");
+                string.Format(LocalizationManager.T("Main.SyncResultFormat"), modeText, filePath, status),
+                LocalizationManager.T("Main.SyncIbasesTitle"));
         }
         catch (Exception ex)
         {
-            _dialogs.ShowError($"Не удалось выполнить синхронизацию.\n{ex.Message}",
-                "Ошибка синхронизации");
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrSyncFailed"), ex.Message),
+                LocalizationManager.T("Sync.Failed"));
         }
     }
 
@@ -4096,8 +4104,8 @@ public string HotkeyEnterprise
         {
             var dialog = new OpenFileDialog
             {
-                Title = "Выберите файл списка баз 1С (ibases.v8i)",
-                Filter = "Файл списка баз 1С (*.v8i)|*.v8i|Все файлы (*.*)|*.*",
+                Title = LocalizationManager.T("Settings.Ibases.FileDialogTitle"),
+                Filter = LocalizationManager.T("Main.IbasesFileFilter"),
                 CheckFileExists = true,
                 Multiselect = false
             };
@@ -4117,17 +4125,16 @@ public string HotkeyEnterprise
             SaveGroups();
             RebuildGroupTree();
 
-            _dialogs.ShowInfo($"Импорт завершён.\n\n" +
-                $"Добавлено новых баз: {result.Added}\n" +
-                $"Обновлено баз: {result.Updated}\n" +
-                $"Пропущено (отключено): {result.Skipped}\n" +
-                $"Создано новых групп: {result.GroupsCreated}",
-                "Импорт из ibases.v8i");
+            _dialogs.ShowInfo(
+                string.Format(LocalizationManager.T("Main.ImportDone"),
+                    result.Added, result.Updated, result.Skipped, result.GroupsCreated),
+                LocalizationManager.T("Main.ImportIbasesTitle"));
         }
         catch (Exception ex)
         {
-            _dialogs.ShowError($"Не удалось выполнить импорт.\n{ex.Message}",
-                "Ошибка импорта");
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrImportFailed"), ex.Message),
+                LocalizationManager.T("Main.ImportErrorTitle"));
         }
     }
 
@@ -4138,15 +4145,15 @@ public string HotkeyEnterprise
     {
         if (Infobases.Count == 0)
         {
-            _dialogs.ShowInfo("Список информационных баз пуст. Экспортировать нечего.",
-                "Экспорт списка баз");
+            _dialogs.ShowInfo(LocalizationManager.T("Main.ExportEmpty"),
+                LocalizationManager.T("Main.ExportBasesTitle"));
             return;
         }
 
         var dialog = new SaveFileDialog
         {
-            Title = "Экспорт списка информационных баз",
-            Filter = "JSON-файл (*.json)|*.json|Все файлы (*.*)|*.*",
+            Title = LocalizationManager.T("Main.ExportBasesDialogTitle"),
+            Filter = LocalizationManager.T("Main.JsonFileFilter"),
             DefaultExt = ".json",
             FileName = BuildExportFileName("infobases_export", ".json"),
             AddExtension = true
@@ -4170,16 +4177,16 @@ public string HotkeyEnterprise
             });
             File.WriteAllText(dialog.FileName, json);
 
-            _dialogs.ShowInfo($"Список информационных баз успешно экспортирован.\n\n" +
-                $"Количество баз: {Infobases.Count}\n" +
-                $"Количество групп: {Groups.Count}\n" +
-                $"Файл: {dialog.FileName}",
-                "Экспорт списка баз");
+            _dialogs.ShowInfo(
+                string.Format(LocalizationManager.T("Main.ExportDone"),
+                    Infobases.Count, Groups.Count, dialog.FileName),
+                LocalizationManager.T("Main.ExportBasesTitle"));
         }
         catch (Exception ex)
         {
-            _dialogs.ShowError($"Не удалось выполнить экспорт.\n{ex.Message}",
-                "Ошибка экспорта");
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrExportFailed"), ex.Message),
+                LocalizationManager.T("Main.ExportErrorTitle"));
         }
     }
 
@@ -4191,8 +4198,8 @@ public string HotkeyEnterprise
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Загрузка списка информационных баз",
-            Filter = "JSON-файл (*.json)|*.json|Все файлы (*.*)|*.*",
+            Title = LocalizationManager.T("Main.ImportBasesDialogTitle"),
+            Filter = LocalizationManager.T("Main.JsonFileFilter"),
             CheckFileExists = true,
             Multiselect = false
         };
@@ -4238,14 +4245,14 @@ public string HotkeyEnterprise
 
             if (loaded.Count == 0)
             {
-                _dialogs.ShowWarning("В выбранном файле не найдено ни одной информационной базы.",
-                    "Загрузка списка баз");
+                _dialogs.ShowWarning(LocalizationManager.T("Main.ImportNoBases"),
+                    LocalizationManager.T("Main.LoadBasesTitle"));
                 return;
             }
 
-            if (!_dialogs.Confirm($"Загрузить {loaded.Count} информационных баз и {loadedGroups.Count} групп из файла?\n\n" +
-                "Текущий список баз и групп будет заменён.",
-                "Загрузка списка баз"))
+            if (!_dialogs.Confirm(
+                string.Format(LocalizationManager.T("Main.ImportConfirm"), loaded.Count, loadedGroups.Count),
+                LocalizationManager.T("Main.LoadBasesTitle")))
                 return;
 
             Infobases.Clear();
@@ -4266,15 +4273,15 @@ public string HotkeyEnterprise
             SaveGroups();
             RebuildGroupTree();
 
-            _dialogs.ShowInfo($"Список информационных баз успешно загружен.\n\n" +
-                $"Количество баз: {loaded.Count}\n" +
-                $"Количество групп: {loadedGroups.Count}",
-                "Загрузка списка баз");
+            _dialogs.ShowInfo(
+                string.Format(LocalizationManager.T("Main.ImportDoneMsg"), loaded.Count, loadedGroups.Count),
+                LocalizationManager.T("Main.LoadBasesTitle"));
         }
         catch (Exception ex)
         {
-            _dialogs.ShowError($"Не удалось выполнить загрузку.\n{ex.Message}",
-                "Ошибка загрузки");
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrLoadFailed"), ex.Message),
+                LocalizationManager.T("Main.LoadErrorTitle"));
         }
     }
 
@@ -4285,16 +4292,14 @@ public string HotkeyEnterprise
     {
         if (Infobases.Count == 0 && Groups.Count == 0)
         {
-            _dialogs.ShowInfo("Список информационных баз уже пуст.",
-                "Очистка списка баз");
+            _dialogs.ShowInfo(LocalizationManager.T("Main.ClearAllAlreadyEmpty"),
+                LocalizationManager.T("Main.ClearAllTitle"));
             return;
         }
 
-        if (!_dialogs.Confirm($"Очистить весь список информационных баз?\n\n" +
-            $"Будет удалено баз: {Infobases.Count}\n" +
-            $"Будет удалено групп: {Groups.Count}\n\n" +
-            "Это действие необратимо.",
-            "Очистка списка баз"))
+        if (!_dialogs.Confirm(
+            string.Format(LocalizationManager.T("Main.ClearAllConfirm"), Infobases.Count, Groups.Count),
+            LocalizationManager.T("Main.ClearAllTitle")))
             return;
 
         Infobases.Clear();
@@ -4305,8 +4310,8 @@ public string HotkeyEnterprise
         SaveGroups();
         RebuildGroupTree();
 
-        _dialogs.ShowInfo("Список информационных баз очищен.",
-            "Очистка списка баз");
+        _dialogs.ShowInfo(LocalizationManager.T("Main.ClearAllDone"),
+            LocalizationManager.T("Main.ClearAllTitle"));
     }
 
     private void CopyConnectionString(object? parameter)
@@ -4322,8 +4327,9 @@ public string HotkeyEnterprise
         }
         catch (Exception ex)
         {
-            _dialogs.ShowError($"Не удалось скопировать строку подключения.\n{ex.Message}",
-                "Ошибка копирования");
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrCopyConnection"), ex.Message),
+                LocalizationManager.T("Main.CopyErrorTitle"));
         }
     }
 
@@ -4343,8 +4349,8 @@ public string HotkeyEnterprise
     {
         if (Infobases.Count == 0)
         {
-            _dialogs.ShowInfo("Список информационных баз пуст. Добавьте базы, чтобы очистить их кеш.",
-                "Очистка кеша 1С");
+            _dialogs.ShowInfo(LocalizationManager.T("Main.CacheEmpty"),
+                LocalizationManager.T("Main.ClearCacheDlgTitle"));
             return;
         }
 
@@ -4358,40 +4364,59 @@ public string HotkeyEnterprise
 
         var infobases = dialog.SelectedInfobases;
         var selectedKind = dialog.SelectedCacheKind;
-        if (infobases.Count == 0 || selectedKind == OneCCacheKind.None)
+        var cleanOrphans = dialog.CleanOrphans;
+        if (selectedKind == OneCCacheKind.None)
+            return;
+        if (infobases.Count == 0 && !cleanOrphans)
             return;
 
-        var names = string.Join(", ", infobases.Select(ib => ib.Name));
         var kindLabel = CacheKindLabel(selectedKind);
 
-        if (!_dialogs.Confirm($"Очистить {kindLabel} для баз:\n\n{names}\n\n" +
-            "Рекомендуется закрыть все сеансы 1С для этих баз перед очисткой.",
-            "Очистка кеша 1С"))
+        // Описание подтверждения: выбранные базы и/или остатки кеша от удалённых баз.
+        var confirmParts = new List<string>();
+        if (infobases.Count > 0)
+            confirmParts.Add(string.Join(", ", infobases.Select(ib => ib.Name)));
+        if (cleanOrphans)
+            confirmParts.Add(LocalizationManager.T("Main.CacheOrphanNote"));
+
+        if (!_dialogs.Confirm(
+            string.Format(LocalizationManager.T("Main.CacheConfirm"), kindLabel, string.Join("\n", confirmParts)),
+            LocalizationManager.T("Main.ClearCacheDlgTitle")))
             return;
 
         try
         {
-            var removed = OneCCacheCleaner.Clear(infobases, selectedKind);
+            var removedBases = OneCCacheCleaner.Clear(infobases, selectedKind);
+            var removedOrphans = cleanOrphans ? OneCCacheCleaner.ClearOrphans(selectedKind, Infobases) : 0;
 
-            var baseLabel = infobases.Count == 1
-                ? $"базы «{infobases[0].Name}»"
-                : $"баз: {infobases.Count}";
+            var resultParts = new List<string>();
+            if (infobases.Count > 0)
+            {
+                var baseLabel = infobases.Count == 1
+                    ? string.Format(LocalizationManager.T("Main.CacheBaseOne"), infobases[0].Name)
+                    : string.Format(LocalizationManager.T("Main.CacheBaseMany"), infobases.Count);
 
-            if (removed > 0)
-            {
-                _dialogs.ShowInfo($"Кеш ({kindLabel}) для {baseLabel} очищен.\nУдалено каталогов: {removed}.",
-                    "Очистка кеша 1С");
+                if (removedBases > 0)
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removedBases));
+                else
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheNotFound"), kindLabel, baseLabel));
             }
-            else
+
+            if (cleanOrphans)
             {
-                _dialogs.ShowInfo($"Каталоги кеша ({kindLabel}) для {baseLabel} не найдены.",
-                    "Очистка кеша 1С");
+                if (removedOrphans > 0)
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheOrphanRemoved"), removedOrphans));
+                else
+                    resultParts.Add(LocalizationManager.T("Main.CacheOrphanNone"));
             }
+
+            _dialogs.ShowInfo(string.Join("\n\n", resultParts), LocalizationManager.T("Main.ClearCacheDlgTitle"));
         }
         catch (Exception ex)
         {
-            _dialogs.ShowError($"Не удалось очистить кеш.\n{ex.Message}",
-                "Ошибка очистки кеша");
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrCacheClear"), ex.Message),
+                LocalizationManager.T("Main.CacheErrorTitle"));
         }
     }
 
@@ -4400,9 +4425,9 @@ public string HotkeyEnterprise
     {
         return kind switch
         {
-            OneCCacheKind.Program => "программный кеш",
-            OneCCacheKind.User => "пользовательский кеш",
-            _ => "программный и пользовательский кеш"
+            OneCCacheKind.Program => LocalizationManager.T("Main.CacheKindProgram"),
+            OneCCacheKind.User => LocalizationManager.T("Main.CacheKindUser"),
+            _ => LocalizationManager.T("Main.CacheKindAll")
         };
     }
 
@@ -4414,16 +4439,16 @@ public string HotkeyEnterprise
 
         if (ib.Connection.Type != ConnectionType.File)
         {
-            _dialogs.ShowInfo("Открытие каталога доступно только для файловых информационных баз.",
-                "Открыть каталог");
+            _dialogs.ShowInfo(LocalizationManager.T("Main.OpenFolderOnlyFile"),
+                LocalizationManager.T("Main.OpenCatalogTitle"));
             return;
         }
 
         if (!InfobaseMaintenanceService.OpenInfobaseFolder(ib))
         {
             _dialogs.ShowError(
-                $"Не удалось открыть каталог.\nПуть: {ib.Connection.FilePath}",
-                "Открыть каталог");
+                string.Format(LocalizationManager.T("Main.ErrOpenFolder"), ib.Connection.FilePath),
+                LocalizationManager.T("Main.OpenCatalogTitle"));
         }
     }
 
@@ -4436,17 +4461,15 @@ public string HotkeyEnterprise
         if (InfobaseMaintenanceService.CreateDesktopShortcut(ib))
         {
             _dialogs.ShowInfo(
-                $"Ярлык для «{ib.Name}» создан на рабочем столе.\n" +
-                "Запуск через 1cv8.exe (как в стандартном стартере 1С).",
-                "Ярлык");
+                string.Format(LocalizationManager.T("Main.ShortcutCreatedFull"), ib.Name),
+                LocalizationManager.T("Main.ShortcutTitle"));
             _logger.Info($"Создан ярлык 1С на рабочем столе для базы «{ib.Name}»");
         }
         else
         {
             _dialogs.ShowError(
-                "Не удалось создать ярлык.\n" +
-                "Проверьте, что установлена платформа 1С (1cv8.exe) и у базы указана версия платформы.",
-                "Ярлык");
+                LocalizationManager.T("Main.ErrShortcutCreateFull"),
+                LocalizationManager.T("Main.ShortcutTitle"));
         }
     }
 
@@ -4456,18 +4479,18 @@ public string HotkeyEnterprise
         var missing = Infobases.Where(ib => !InfobaseMaintenanceService.FileBaseExists(ib)).ToList();
         if (missing.Count == 0)
         {
-            _dialogs.ShowInfo("Все файловые базы на месте. Удалять нечего.",
-                "Проверка файловых баз");
+            _dialogs.ShowInfo(LocalizationManager.T("Main.MissingNone"),
+                LocalizationManager.T("Main.CheckFileBasesTitle"));
             return;
         }
 
         var preview = string.Join("\n", missing.Take(15).Select(ib => "• " + ib.Name));
         if (missing.Count > 15)
-            preview += $"\n… и ещё {missing.Count - 15}";
+            preview += string.Format(LocalizationManager.T("Main.MissingMore"), missing.Count - 15);
 
         if (!_dialogs.Confirm(
-                $"Найдено файловых баз без каталога/1Cv8.1CD: {missing.Count}\n\n{preview}\n\nУдалить их из списка?",
-                "Удаление отсутствующих баз"))
+                string.Format(LocalizationManager.T("Main.MissingConfirm"), missing.Count, preview),
+                LocalizationManager.T("Main.RemoveMissingTitle")))
             return;
 
         foreach (var ib in missing)
@@ -4477,7 +4500,9 @@ public string HotkeyEnterprise
         InfobasesView.Refresh();
         Save();
         _logger.Info($"Удалено отсутствующих файловых баз: {missing.Count}");
-        _dialogs.ShowInfo($"Удалено из списка: {missing.Count}.", "Удаление отсутствующих баз");
+        _dialogs.ShowInfo(
+            string.Format(LocalizationManager.T("Main.MissingRemoved"), missing.Count),
+            LocalizationManager.T("Main.RemoveMissingTitle"));
     }
 
     /// <summary>Завершает процессы 1cv8 / 1cv8c и связанные.</summary>
@@ -4486,19 +4511,21 @@ public string HotkeyEnterprise
         var count = InfobaseMaintenanceService.CountOneCProcesses();
         if (count == 0)
         {
-            _dialogs.ShowInfo("Процессы платформы 1С не найдены.", "Процессы 1С");
+            _dialogs.ShowInfo(LocalizationManager.T("Main.NoProcesses"),
+                LocalizationManager.T("Main.OneCProcessesTitle"));
             return;
         }
 
         if (!_dialogs.Confirm(
-                $"Будет завершено процессов 1С: примерно {count}.\n\n" +
-                "Несохранённые данные в открытых сеансах могут быть потеряны.\nПродолжить?",
-                "Завершение процессов 1С"))
+                string.Format(LocalizationManager.T("Main.KillProcessesConfirm"), count),
+                LocalizationManager.T("Main.KillProcessesTitle")))
             return;
 
         var killed = InfobaseMaintenanceService.KillOneCProcesses();
         _logger.Info($"Завершено процессов 1С: {killed}");
-        _dialogs.ShowInfo($"Завершено процессов: {killed}.", "Процессы 1С");
+        _dialogs.ShowInfo(
+            string.Format(LocalizationManager.T("Main.ProcessesKilled"), killed),
+            LocalizationManager.T("Main.OneCProcessesTitle"));
     }
 
 
@@ -4565,12 +4592,12 @@ public string HotkeyEnterprise
                 {
                     var comError = ConfigurationInfoService.LastComError;
                     var detail = string.IsNullOrWhiteSpace(comError)
-                        ? "Проверьте, что база доступна и установлена платформа 1С (COM-коннектор)."
-                        : $"Причина: {comError}";
+                        ? LocalizationManager.T("Main.ConfigInfoCheckHint")
+                        : string.Format(LocalizationManager.T("Main.ConfigInfoReason"), comError);
                     _logger.Warn($"Не удалось получить информацию о конфигурации базы «{baseName}». {detail}");
                     _dialogs.ShowWarning(
-                        $"Не удалось получить информацию о конфигурации базы «{baseName}».\n\n{detail}",
-                        "Информация о конфигурации");
+                        string.Format(LocalizationManager.T("Main.ErrConfigInfo"), baseName, detail),
+                        LocalizationManager.T("Main.ConfigInfoTitle"));
                     return;
                 }
 
@@ -4582,10 +4609,10 @@ public string HotkeyEnterprise
                 _logger.Info($"Обновлена информация о конфигурации базы «{baseName}»: {name} ({version})");
 
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine($"База: {baseName}");
-                if (name.Length > 0) sb.AppendLine($"Конфигурация: {name}");
-                if (version.Length > 0) sb.AppendLine($"Версия: {version}");
-                _dialogs.ShowInfo(sb.ToString().TrimEnd(), "Информация о конфигурации");
+                sb.AppendLine(string.Format(LocalizationManager.T("Main.ConfigInfoBase"), baseName));
+                if (name.Length > 0) sb.AppendLine(string.Format(LocalizationManager.T("Main.ConfigInfoName"), name));
+                if (version.Length > 0) sb.AppendLine(string.Format(LocalizationManager.T("Main.ConfigInfoVersion"), version));
+                _dialogs.ShowInfo(sb.ToString().TrimEnd(), LocalizationManager.T("Main.ConfigInfoTitle"));
             });
         });
     }
@@ -4599,14 +4626,14 @@ public string HotkeyEnterprise
         var targets = Infobases.ToList();
         if (targets.Count == 0)
         {
-            _dialogs.ShowInfo("Список информационных баз пуст.", "Информация о конфигурациях");
+            _dialogs.ShowInfo(LocalizationManager.T("Main.ConfigListEmpty"),
+                LocalizationManager.T("Main.ConfigInfoListTitle"));
             return;
         }
 
         if (!_dialogs.Confirm(
-                $"Будет запрошена информация о конфигурации для всех баз — всего {targets.Count}.\n\n" +
-                "Операция может занять некоторое время. Продолжить?",
-                "Обновление информации о конфигурациях"))
+                string.Format(LocalizationManager.T("Main.RefreshAllConfigConfirm"), targets.Count),
+                LocalizationManager.T("Main.RefreshAllConfigTitle")))
             return;
 
         var updated = 0;
@@ -4637,9 +4664,8 @@ public string HotkeyEnterprise
                     $"Обновление информации о конфигурациях завершено: обновлено {updated}, " +
                     $"ошибок {failed} из {targets.Count}");
                 _dialogs.ShowInfo(
-                    $"Обновление информации о конфигурациях завершено.\n\n" +
-                    $"Обновлено баз: {updated}\nНе удалось: {failed}\nВсего: {targets.Count}",
-                    "Информация о конфигурациях");
+                    string.Format(LocalizationManager.T("Main.RefreshAllConfigDone"), updated, failed, targets.Count),
+                    LocalizationManager.T("Main.ConfigInfoListTitle"));
             });
         });
     }
@@ -4655,12 +4681,13 @@ public string HotkeyEnterprise
         var version = ib?.PlatformVersion ?? string.Empty;
         var architecture = ib is not null && (ib.Architecture == "64" || ib.Architecture == "x64") ? "64" : "32";
 
+        var versionLabel = string.IsNullOrWhiteSpace(version)
+            ? LocalizationManager.T("Main.ComRegLatestVersion")
+            : version;
+
         if (!_dialogs.Confirm(
-                "Будет выполнена регистрация COM-коннектора платформы 1С (regsvr32).\n\n" +
-                "Для этого потребуются права администратора — появится запрос UAC.\n\n" +
-                $"Версия платформы: {(string.IsNullOrWhiteSpace(version) ? "новейшая установленная" : version)}\n" +
-                $"Разрядность: {architecture} бит.\n\nПродолжить?",
-                "Регистрация COM-коннектора 1С"))
+                string.Format(LocalizationManager.T("Main.ComRegConfirm"), versionLabel, architecture),
+                LocalizationManager.T("Main.ComRegTitle")))
             return;
 
         var registrar = AppServices.GetRequiredService<IOneCComConnectorRegistrar>();
@@ -4674,34 +4701,39 @@ public string HotkeyEnterprise
                 if (result.BinDirectory is null)
                 {
                     _dialogs.ShowError(
-                        "Не найдена установленная платформа 1С (нет каталога bin с COM-коннектором).\n\n" +
-                        (!string.IsNullOrWhiteSpace(result.VerificationNote)
-                            ? result.VerificationNote
-                            : "Установите платформу 1С:Предприятие на этой машине."),
-                        "Регистрация COM-коннектора 1С");
+                        string.Format(LocalizationManager.T("Main.ComRegNotFound"),
+                            !string.IsNullOrWhiteSpace(result.VerificationNote)
+                                ? result.VerificationNote
+                                : LocalizationManager.T("Main.ComRegInstallHint")),
+                        LocalizationManager.T("Main.ComRegTitle"));
                     return;
                 }
 
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine($"Платформа: {result.PlatformVersion}");
-                sb.AppendLine($"Каталог: {result.BinDirectory}");
+                sb.AppendLine(string.Format(LocalizationManager.T("Main.ComRegPlatform"), result.PlatformVersion));
+                sb.AppendLine(string.Format(LocalizationManager.T("Main.ComRegBinDir"), result.BinDirectory));
                 sb.AppendLine();
 
                 if (result.Items.Count == 0)
                 {
-                    sb.AppendLine("DLL COM-коннектора не найдены в каталоге bin.");
+                    sb.AppendLine(LocalizationManager.T("Main.ComRegNoDll"));
                 }
                 else
                 {
                     foreach (var item in result.Items)
-                        sb.AppendLine($"{(item.Success ? "✓" : "✗")} {Path.GetFileName(item.DllPath)}" +
-                                      (item.Success ? " — зарегистрирован" : $" — ошибка: {item.Error}"));
+                    {
+                        var fileName = Path.GetFileName(item.DllPath);
+                        var suffix = item.Success
+                            ? LocalizationManager.T("Main.ComRegRegistered")
+                            : string.Format(LocalizationManager.T("Main.ComRegErrorSuffix"), item.Error);
+                        sb.AppendLine($"{(item.Success ? "✓" : "✗")} {fileName}{suffix}");
+                    }
                 }
 
                 sb.AppendLine();
                 sb.AppendLine(result.ProgIdVisible
-                    ? "✓ ProgID V83.COMConnector доступен приложению."
-                    : "✗ ProgID V83.COMConnector не виден приложению.");
+                    ? LocalizationManager.T("Main.ComRegProgIdOk")
+                    : LocalizationManager.T("Main.ComRegProgIdFail"));
                 if (!string.IsNullOrWhiteSpace(result.VerificationNote))
                     sb.AppendLine(result.VerificationNote);
 
@@ -4709,13 +4741,13 @@ public string HotkeyEnterprise
                 {
                     _logger.Info("COM-коннектор 1С успешно зарегистрирован.");
                     _dialogs.ShowInfo(sb.ToString().TrimEnd(),
-                        "Регистрация COM-коннектора 1С");
+                        LocalizationManager.T("Main.ComRegTitle"));
                 }
                 else
                 {
                     _logger.Warn("Регистрация COM-коннектора 1С завершилась неудачно.");
                     _dialogs.ShowWarning(sb.ToString().TrimEnd(),
-                        "Регистрация COM-коннектора 1С");
+                        LocalizationManager.T("Main.ComRegTitle"));
                 }
             });
         });
@@ -4743,8 +4775,8 @@ public string HotkeyEnterprise
         {
             _logger.Info($"Пакетная операция запущена: {e.OperationLabel}, база «{e.InfobaseName}»");
             ExportIndicatorTooltip =
-                $"Выгружаются данные…\nОперация: {e.OperationLabel}\nБаза: {e.InfobaseName}" +
-                (string.IsNullOrWhiteSpace(e.OutputPath) ? "" : $"\nФайл: {e.OutputPath}");
+                string.Format(LocalizationManager.T("Main.ExportTooltipData"), e.OperationLabel, e.InfobaseName) +
+                (string.IsNullOrWhiteSpace(e.OutputPath) ? "" : string.Format(LocalizationManager.T("Main.ExportTooltipFile"), e.OutputPath));
             IsExporting = true;
         });
     }
@@ -4764,8 +4796,8 @@ public string HotkeyEnterprise
             {
                 _logger.Error($"Ошибка пакетной операции: {e.ErrorMessage}");
                 System.Windows.MessageBox.Show(
-                    e.ErrorMessage ?? "Операция завершилась с ошибкой.",
-                    "Ошибка операции 1С",
+                    e.ErrorMessage ?? LocalizationManager.T("Main.OperationFailedDefault"),
+                    LocalizationManager.T("Main.OperationErrorTitle"),
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Error);
             }
@@ -4779,8 +4811,8 @@ public string HotkeyEnterprise
 
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "Выгрузка информационной базы (.dt)",
-            Filter = "Выгрузка 1С (*.dt)|*.dt|Все файлы (*.*)|*.*",
+            Title = LocalizationManager.T("Main.DumpDtDialogTitle"),
+            Filter = LocalizationManager.T("Main.DtFileFilter"),
             FileName = BuildExportFileName(SanitizeFileName(ib.Name), ".dt")
         };
         if (dlg.ShowDialog() != true) return;
@@ -4790,8 +4822,8 @@ public string HotkeyEnterprise
             ib.AddLaunchHistory("DumpDT", dlg.FileName);
             Save();
             _dialogs.ShowInfo(
-                "Запущена выгрузка ИБ в .dt.\nДождитесь закрытия окна конфигуратора / завершения процесса 1cv8.",
-                "Выгрузка .dt");
+                LocalizationManager.T("Main.DumpDtStarted"),
+                LocalizationManager.T("Main.DumpDtTitle"));
         }
     }
 
@@ -4802,8 +4834,8 @@ public string HotkeyEnterprise
 
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "Выгрузка конфигурации (.cf)",
-            Filter = "Конфигурация 1С (*.cf)|*.cf|Все файлы (*.*)|*.*",
+            Title = LocalizationManager.T("Main.DumpCfDialogTitle"),
+            Filter = LocalizationManager.T("Main.CfFileFilter"),
             FileName = BuildExportFileName(SanitizeFileName(ib.Name), ".cf")
         };
         if (dlg.ShowDialog() != true) return;
@@ -4813,8 +4845,8 @@ public string HotkeyEnterprise
             ib.AddLaunchHistory("DumpCF", dlg.FileName);
             Save();
             _dialogs.ShowInfo(
-                "Запущена выгрузка конфигурации в .cf.\nДождитесь завершения процесса 1cv8.",
-                "Выгрузка .cf");
+                LocalizationManager.T("Main.DumpCfStarted"),
+                LocalizationManager.T("Main.DumpCfTitle"));
         }
     }
 
@@ -4824,9 +4856,8 @@ public string HotkeyEnterprise
         if (ib is null) return;
 
         if (!_dialogs.Confirm(
-                $"Запустить тестирование ИБ «{ib.Name}»?\n\n" +
-                "Будет выполнен /IBCheckAndRepair -TestOnly в пакетном режиме конфигуратора.",
-                "Тестирование ИБ"))
+                string.Format(LocalizationManager.T("Main.TestInfobaseConfirm"), ib.Name),
+                LocalizationManager.T("Main.TestInfobaseTitle")))
             return;
 
         if (OneCLauncher.RunDesignerBatch(ib, OneCLauncher.DesignerBatchOperation.TestAndRepair))
@@ -4834,8 +4865,8 @@ public string HotkeyEnterprise
             ib.AddLaunchHistory("Test", "");
             Save();
             _dialogs.ShowInfo(
-                "Запущено тестирование ИБ.\nСледите за окном конфигуратора / логом операции.",
-                "Тестирование ИБ");
+                LocalizationManager.T("Main.TestInfobaseStarted"),
+                LocalizationManager.T("Main.TestInfobaseTitle"));
         }
     }
 
@@ -4846,12 +4877,16 @@ public string HotkeyEnterprise
 
         if (ib.LaunchHistory == null || ib.LaunchHistory.Count == 0)
         {
-            _dialogs.ShowInfo($"История запусков для «{ib.Name}» пуста.", "История запусков");
+            _dialogs.ShowInfo(
+                string.Format(LocalizationManager.T("Main.LaunchHistoryEmpty"), ib.Name),
+                LocalizationManager.T("Main.LaunchHistoryTitle"));
             return;
         }
 
         var text = string.Join("\n", ib.LaunchHistory.Select(h => h.Display));
-        _dialogs.ShowInfo($"История запусков «{ib.Name}»:\n\n{text}", "История запусков");
+        _dialogs.ShowInfo(
+            string.Format(LocalizationManager.T("Main.LaunchHistoryFormat"), ib.Name, text),
+            LocalizationManager.T("Main.LaunchHistoryTitle"));
     }
 
     private static string SanitizeFileName(string name)

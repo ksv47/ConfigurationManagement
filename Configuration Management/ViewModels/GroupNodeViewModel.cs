@@ -20,11 +20,24 @@ public class GroupNodeViewModel : ViewModelBase
     private bool? _containsInfobasesCache;
     private bool _suppressNotifications;
 
-    // Для специальных узлов («Закреплённые», «Без группы»), у которых нет модели Group,
+    /// <summary>Внутренний маркер специального узла «Закреплённые».</summary>
+    public const string PinnedMarker = "Pinned";
+
+    /// <summary>Внутренний маркер специального узла «Все базы» (плоский список без группировки).</summary>
+    public const string AllBasesMarker = "AllBases";
+
+    /// <summary>Внутренний маркер специального узла «Без группы».</summary>
+    public const string NoGroupMarker = "NoGroup";
+
+    // Для специальных узлов («Закреплённые», «Все базы», «Без группы»), у которых нет модели Group,
     // храним настраиваемые цвет/иконку. Для обычных групп значения берутся из Group.
     private readonly string _color;
     private readonly string _iconColor;
     private readonly string _icon;
+    // Внутренний маркер специального узла (null для обычных групп).
+    private readonly string? _marker;
+    // Отображаемое имя (для обычных узлов) или ключ локализации (для специальных узлов с маркером).
+    private readonly string _displayName;
 
     /// <summary>
     /// Создаёт узел дерева для указанной группы.
@@ -41,14 +54,26 @@ public class GroupNodeViewModel : ViewModelBase
         string? displayName = null,
         string? defaultColor = null,
         string? defaultIconColor = null,
-        string? defaultIcon = null)
+        string? defaultIcon = null,
+        string? marker = null)
     {
         Group = group;
         Parent = parent;
-        // Группа может не иметь имени (например, импортирована из ibases.v8i) —
-        // тогда в дереве показываем плейсхолдер, чтобы группу можно было увидеть и отредактировать.
-        DisplayName = displayName
-            ?? (group is null ? LocalizationManager.T("Group.NoGroup") : (string.IsNullOrWhiteSpace(group.Name) ? LocalizationManager.T("Group.NoName") : group.Name));
+        if (marker is not null)
+        {
+            // Специальный узел: храним маркер и ключ локализации, а отображаемое имя
+            // вычисляем на лету (LocalizationManager.T) — текст обновится при смене языка.
+            _marker = marker;
+            _displayName = MarkerToKey(marker);
+        }
+        else
+        {
+            _marker = null;
+            // Группа может не иметь имени (например, импортирована из ibases.v8i) —
+            // тогда в дереве показываем плейсхолдер, чтобы группу можно было увидеть и отредактировать.
+            _displayName = displayName
+                ?? (group is null ? LocalizationManager.T("Group.NoGroup") : (string.IsNullOrWhiteSpace(group.Name) ? LocalizationManager.T("Group.NoName") : group.Name));
+        }
         Children = new ObservableCollection<GroupNodeViewModel>();
         Infobases = new ObservableCollection<Infobase>();
         Items = new ObservableCollection<object>();
@@ -93,8 +118,30 @@ public class GroupNodeViewModel : ViewModelBase
     /// </summary>
     public GroupNodeViewModel? Parent { get; internal set; }
 
-    /// <summary>Имя группы для отображения (без пути).</summary>
-    public string DisplayName { get; }
+    /// <summary>
+    /// Имя группы для отображения (без пути). Для специальных узлов («Закреплённые»,
+    /// «Все базы», «Без группы») возвращает локализованный текст, который обновляется
+    /// при смене языка интерфейса.
+    /// </summary>
+    public string DisplayName => _marker is null ? _displayName : LocalizationManager.T(_displayName);
+
+    /// <summary>Внутренний маркер специального узла. Null для обычных групп.</summary>
+    public string? Marker => _marker;
+
+    /// <summary>
+    /// Стабильный ключ узла для сохранения состояния развёрнутости (не зависит от языка).
+    /// Для реальных групп — полный путь; для специальных узлов — внутренний маркер.
+    /// </summary>
+    public string NodeKey => string.IsNullOrEmpty(FullPath) ? (Marker ?? DisplayName) : FullPath;
+
+    /// <summary>Сопоставляет внутренний маркер специального узла с ключом локализации.</summary>
+    private static string MarkerToKey(string marker) => marker switch
+    {
+        PinnedMarker => "Main.Pinned",
+        AllBasesMarker => "Main.FlatAllBases",
+        NoGroupMarker => "Group.NoGroup",
+        _ => marker
+    };
 
     /// <summary>Полный путь группы в иерархии (кэшируется после первого обращения).</summary>
     public string FullPath
@@ -139,14 +186,12 @@ public class GroupNodeViewModel : ViewModelBase
             if (!string.IsNullOrWhiteSpace(_icon))
                 return _icon;
 
-            // ВАЖНО: «Закреплённые» / «Все базы» — внутренние маркеры, которые задаются
-            // явно при создании специальных узлов в MainViewModel (displayName). Они не
-            // локализуются и используются как ключи логики и для выбора иконки, поэтому
-            // их нельзя переводить, иначе сломается сопоставление с именами служебных узлов.
-            return DisplayName switch
+            // Иконка специальных узлов выбирается по внутреннему маркеру (не по DisplayName),
+            // поэтому не зависит от языка интерфейса.
+            return Marker switch
             {
-                "Закреплённые" => "IconPin",
-                "Все базы" => "IconDatabase",
+                PinnedMarker => "IconPin",
+                AllBasesMarker => "IconDatabase",
                 _ => "IconFolder"
             };
         }

@@ -86,10 +86,10 @@
                     <RadioButton x:Name="FilterAll" Content="{loc:Loc Common.All}" Style="{StaticResource ArchRadio}"
                                  GroupName="ArchFilter" IsChecked="True"
                                  Checked="OnArchFilter_Changed"/>
-                    <RadioButton x:Name="FilterX32" Content="x32" Style="{StaticResource ArchRadio}"
+                    <RadioButton x:Name="FilterX32" Content="{loc:Loc PlatformVersionPicker.FilterX32}" Style="{StaticResource ArchRadio}"
                                  GroupName="ArchFilter"
                                  Checked="OnArchFilter_Changed"/>
-                    <RadioButton x:Name="FilterX64" Content="x64" Style="{StaticResource ArchRadio}"
+                    <RadioButton x:Name="FilterX64" Content="{loc:Loc PlatformVersionPicker.FilterX64}" Style="{StaticResource ArchRadio}"
                                  GroupName="ArchFilter"
                                  Checked="OnArchFilter_Changed"/>
                 </StackPanel>

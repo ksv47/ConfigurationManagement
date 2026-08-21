@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services;
@@ -115,9 +116,9 @@ public static class InfobaseMaintenanceService
             if (string.IsNullOrEmpty(desktop) || !Directory.Exists(desktop))
                 return false;
 
-            var safeName = string.Join("_", (ib.Name ?? "База 1С").Split(Path.GetInvalidFileNameChars()));
+            var safeName = string.Join("_", (ib.Name ?? LocalizationManager.T("Maint.DefaultBaseName")).Split(Path.GetInvalidFileNameChars()));
             if (string.IsNullOrWhiteSpace(safeName))
-                safeName = "База_1С";
+                safeName = string.Join("_", LocalizationManager.T("Maint.DefaultBaseName").Split(Path.GetInvalidFileNameChars()));
             var lnkPath = Path.Combine(desktop, $"{safeName}.lnk");
 
             var target = OneCLauncher.ResolveThickClientExe(ib);
@@ -147,8 +148,8 @@ public static class InfobaseMaintenanceService
             if (string.IsNullOrEmpty(path))
             {
                 System.Windows.MessageBox.Show(
-                    "Не найден 1CEStart.exe.\nОжидаемый путь: Program Files\\1cv8\\common\\1CEStart.exe",
-                    "Стартер 1С",
+                    LocalizationManager.T("Maint.StarterNotFound"),
+                    LocalizationManager.T("Maint.StarterTitle"),
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Warning);
                 return false;
@@ -163,8 +164,8 @@ public static class InfobaseMaintenanceService
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show(
-                $"Не удалось запустить стартер 1С.\n{ex.Message}",
-                "Стартер 1С",
+                string.Format(LocalizationManager.T("Maint.StarterLaunchFailedFormat"), ex.Message),
+                LocalizationManager.T("Maint.StarterTitle"),
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Error);
             return false;
@@ -309,11 +310,11 @@ public static class InfobaseMaintenanceService
     public static string? TryDeleteFileBasePhysically(Infobase ib)
     {
         if (ib.Connection.Type != ConnectionType.File)
-            return "Физическое удаление доступно только для файловых баз.";
+            return LocalizationManager.T("Maint.PhysicalDeleteOnlyFile");
 
         var dir = GetFileBaseDirectory(ib);
         if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
-            return "Каталог файловой базы не найден на диске.";
+            return LocalizationManager.T("Maint.FileBaseDirNotFound");
 
         // Защита от удаления слишком «корневых» путей
         try
@@ -333,7 +334,7 @@ public static class InfobaseMaintenanceService
                 if (string.IsNullOrEmpty(r)) continue;
                 var rr = Path.GetFullPath(r).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 if (string.Equals(full, rr, StringComparison.OrdinalIgnoreCase))
-                    return $"Отказ: нельзя удалить системный или корневой каталог ({full}).";
+                    return string.Format(LocalizationManager.T("Maint.CannotDeleteSystemRootFormat"), full);
             }
         }
         catch
@@ -360,7 +361,7 @@ public static class InfobaseMaintenanceService
         }
         catch (Exception ex)
         {
-            return $"Не удалось удалить каталог:\n{dir}\n\n{ex.Message}";
+            return string.Format(LocalizationManager.T("Maint.DeleteFailedFormat"), dir, ex.Message);
         }
     }
 

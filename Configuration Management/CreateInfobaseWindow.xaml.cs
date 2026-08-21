@@ -166,6 +166,8 @@ namespace Configuration_Management
                     .Replace(" (демо)", "", StringComparison.OrdinalIgnoreCase)
                     .Replace(" (demo)", "", StringComparison.OrdinalIgnoreCase)
                     .Replace(" (пустая)", "", StringComparison.OrdinalIgnoreCase)
+                    .Replace(LocalizationManager.T("Template.SuffixDemo"), "", StringComparison.OrdinalIgnoreCase)
+                    .Replace(LocalizationManager.T("Template.SuffixEmpty"), "", StringComparison.OrdinalIgnoreCase)
                     .Trim();
                 if (!string.IsNullOrWhiteSpace(leaf))
                     return leaf;

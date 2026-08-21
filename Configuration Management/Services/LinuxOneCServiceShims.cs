@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services
@@ -284,7 +285,7 @@ namespace Configuration_Management.Services
             var exe = FindExecutable(version, arch);
             if (string.IsNullOrEmpty(exe))
             {
-                return (false, "Не найден исполняемый файл 1cv8 для указанной версии платформы.");
+                return (false, LocalizationManager.T("Launcher.CreateExeNotFound"));
             }
 
             string connectionString;
@@ -292,7 +293,7 @@ namespace Configuration_Management.Services
             {
                 var path = (filePath ?? "").Trim().TrimEnd('\\', '/');
                 if (string.IsNullOrEmpty(path))
-                    return (false, "Не указан каталог файловой базы.");
+                    return (false, LocalizationManager.T("Launcher.CreateFileDirNotSpecified"));
                 try
                 {
                     if (!Directory.Exists(path))
@@ -300,7 +301,7 @@ namespace Configuration_Management.Services
                 }
                 catch (Exception ex)
                 {
-                    return (false, $"Не удалось создать каталог:\n{path}\n{ex.Message}");
+                    return (false, string.Format(LocalizationManager.T("Launcher.CreateDirCreateFailedFormat"), path, ex.Message));
                 }
                 connectionString = $"File=\"{path}\"";
             }
@@ -309,7 +310,7 @@ namespace Configuration_Management.Services
                 var srv = (server ?? "").Trim();
                 var db = (databaseName ?? "").Trim();
                 if (string.IsNullOrEmpty(srv) || string.IsNullOrEmpty(db))
-                    return (false, "Не указаны сервер или имя базы.");
+                    return (false, LocalizationManager.T("Launcher.CreateServerOrDbNotSpecified"));
                 connectionString = $"Srvr=\"{srv}\";Ref=\"{db}\"";
             }
 
@@ -331,15 +332,15 @@ namespace Configuration_Management.Services
 
                 using var proc = Process.Start(psi);
                 if (proc is null)
-                    return (false, "Не удалось запустить 1cv8 (CREATEINFOBASE).");
+                    return (false, LocalizationManager.T("Launcher.CreateProcessFailed"));
                 proc.WaitForExit();
                 return proc.ExitCode == 0
                     ? (true, null)
-                    : (false, $"1cv8 завершился с кодом {proc.ExitCode}.");
+                    : (false, string.Format(LocalizationManager.T("Launcher.CreateExitCodeShortFormat"), proc.ExitCode));
             }
             catch (Exception ex)
             {
-                return (false, $"Ошибка запуска CREATEINFOBASE:\n{ex.Message}");
+                return (false, string.Format(LocalizationManager.T("Launcher.CreateProcessErrorFormat"), ex.Message));
             }
         }
 

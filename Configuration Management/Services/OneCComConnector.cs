@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Microsoft.Win32;
 
@@ -69,7 +70,7 @@ public sealed class OneCComConnector : IOneCComConnector
 
         if (!thread.Join(timeoutMs))
         {
-            LastError ??= $"Превышен таймаут подключения ({timeoutMs} мс).";
+            LastError ??= string.Format(LocalizationManager.T("Com.TimeoutConnectFormat"), timeoutMs);
             _logger.Error($"Превышен таймаут COM-подключения к базе «{infobase.Name}».");
             return null;
         }
@@ -97,7 +98,7 @@ public sealed class OneCComConnector : IOneCComConnector
                 var metadata = connection.GetConnectionProperty("Metadata");
                 if (metadata is null)
                 {
-                    LastError ??= "Не удалось получить свойство Metadata из соединения.";
+                    LastError ??= LocalizationManager.T("Com.MetadataPropertyFailed");
                     return;
                 }
 
@@ -108,7 +109,7 @@ public sealed class OneCComConnector : IOneCComConnector
 
                 if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(version))
                 {
-                    LastError = "Не удалось прочитать наименование/версию конфигурации из Metadata.";
+                    LastError = LocalizationManager.T("Com.MetadataReadFailed");
                     return;
                 }
 
@@ -132,7 +133,7 @@ public sealed class OneCComConnector : IOneCComConnector
 
         if (!thread.Join(timeoutMs))
         {
-            LastError ??= $"Превышен таймаут чтения ({timeoutMs} мс).";
+            LastError ??= string.Format(LocalizationManager.T("Com.TimeoutReadFormat"), timeoutMs);
             _logger.Error($"Превышен таймаут чтения конфигурации для базы «{infobase.Name}».");
             return null;
         }
@@ -151,7 +152,7 @@ public sealed class OneCComConnector : IOneCComConnector
         var connectString = BuildComConnectString(infobase);
         if (string.IsNullOrWhiteSpace(connectString))
         {
-            LastError = "Не удалось построить строку подключения COM (не заполнены сервер/база или путь к файловой базе).";
+            LastError = LocalizationManager.T("Com.ConnStringBuildFailed");
             return null;
         }
 
@@ -167,13 +168,13 @@ public sealed class OneCComConnector : IOneCComConnector
             }
             catch (Exception ex)
             {
-                LastError = $"Не удалось получить COM-тип {progId}: {ex.Message}";
+                LastError = string.Format(LocalizationManager.T("Com.ProgIdTypeFailedFormat"), progId, ex.Message);
                 continue;
             }
 
             if (type is null)
             {
-                LastError = $"COM-коннектор {progId} не зарегистрирован в системе.";
+                LastError = string.Format(LocalizationManager.T("Com.ProgIdNotRegisteredFormat"), progId);
                 continue;
             }
 
@@ -186,7 +187,7 @@ public sealed class OneCComConnector : IOneCComConnector
                 connector = Activator.CreateInstance(type);
                 if (connector is null)
                 {
-                    LastError = $"Не удалось создать экземпляр COM-коннектора {progId}.";
+                    LastError = string.Format(LocalizationManager.T("Com.ProgIdInstanceFailedFormat"), progId);
                     continue;
                 }
 
@@ -199,7 +200,7 @@ public sealed class OneCComConnector : IOneCComConnector
 
                 if (connection is null)
                 {
-                    LastError = $"COM-коннектор {progId} не вернул соединение для указанной строки подключения.";
+                    LastError = string.Format(LocalizationManager.T("Com.ProgIdNoConnectionFormat"), progId);
                     TryComRelease(connector);
                     continue;
                 }
@@ -210,7 +211,7 @@ public sealed class OneCComConnector : IOneCComConnector
             }
             catch (Exception ex)
             {
-                LastError = $"COM-подключение через {progId} не удалось: {ex.Message}";
+                LastError = string.Format(LocalizationManager.T("Com.ConnectFailedFormat"), progId, ex.Message);
                 _logger.Error($"COM-подключение через {progId} не удалось. Строка: {MaskCredentials(connectString)}", ex);
                 // Пробуем следующий ProgID.
                 TryComRelease(connection);
@@ -221,9 +222,9 @@ public sealed class OneCComConnector : IOneCComConnector
         // Ни один COM-коннектор 1С не зарегистрирован — понятное итоговое сообщение.
         if (!anyRegistered)
         {
-            LastError = "COM-коннектор 1С не найден (не зарегистрированы V83/V82/V81.COMConnector). " +
+            LastError = LocalizationManager.T("Com.NotFound") + " " +
                         DescribeProgIdStatus() + " " +
-                        "Установите платформу 1С:Предприятие на этой машине (или зарегистрируйте COM-коннектор через меню).";
+                        LocalizationManager.T("Com.NotFoundInstallHint");
             _logger.Warn($"COM-коннектор 1С не зарегистрирован в системе для базы «{infobase.Name}». {DescribeProgIdStatus()}");
         }
 
@@ -240,12 +241,12 @@ public sealed class OneCComConnector : IOneCComConnector
         var in32 = IsProgIdRegistered(RegistryView.Registry32);
 
         if (in64 && in32)
-            return "(V83.COMConnector зарегистрирован и в 64-битном, и в 32-битном реестре, но не виден процессу приложения)";
+            return LocalizationManager.T("Com.ProgIdStatusBothVisible");
         if (in64)
-            return "(V83.COMConnector есть только в 64-битном реестре; приложение, вероятно, запущено как 32-битное)";
+            return LocalizationManager.T("Com.ProgIdStatusOnly64");
         if (in32)
-            return "(V83.COMConnector есть только в 32-битном реестре; приложение, вероятно, запущено как 64-битное)";
-        return "(V83.COMConnector отсутствует в реестре — платформа 1С не установлена или COM-коннектор не зарегистрирован)";
+            return LocalizationManager.T("Com.ProgIdStatusOnly32");
+        return LocalizationManager.T("Com.ProgIdStatusAbsent");
     }
 
     private static bool IsProgIdRegistered(RegistryView view)

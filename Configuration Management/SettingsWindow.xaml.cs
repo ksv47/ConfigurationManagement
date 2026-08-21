@@ -843,7 +843,9 @@ namespace Configuration_Management
         private static string ReadHotkeyBox(Controls.HotkeyBox? box)
         {
             var s = box?.Value;
-            if (string.IsNullOrWhiteSpace(s) || s == "Нет")
+            // Поле «Нет»/«None» показывает локализованный Common.None при пустом назначении.
+            if (string.IsNullOrWhiteSpace(s) ||
+                string.Equals(s, LocalizationManager.T("Common.None"), StringComparison.Ordinal))
                 return "";
             return s.Trim();
         }

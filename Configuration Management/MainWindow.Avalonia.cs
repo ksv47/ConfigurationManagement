@@ -695,6 +695,7 @@ namespace Configuration_Management
                 SecondaryActionButton("IconWrench", LocalizationManager.T("Main.LaunchConfiguratorSection"), "LaunchConfiguratorCommand")));
 
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionMaintenance"), "IconWrench",
+                BuildClearCacheSplitButton(),
                 SecondaryActionButton("IconEdit", LocalizationManager.T("Main.EditSettings"), "EditInfobaseCommand"),
                 SecondaryActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand"),
                 SecondaryActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand")));
@@ -794,6 +795,78 @@ namespace Configuration_Management
             return btn;
         }
 
+        /// <summary>
+        /// Split-кнопка «Очистка кеша»: основная часть выполняет быструю очистку всего кеша
+        /// (программного и пользовательского) выбранной базы с предупреждением, а правая
+        /// стрелка «▾» открывает выпадающее меню с выбором типа кеша и полным окном очистки.
+        /// </summary>
+        private static Control BuildClearCacheSplitButton()
+        {
+            var radius = UiMetrics.RadiusLg;
+
+            // Основная часть: быстрая очистка всего кеша с подтверждением.
+            var main = new PanelButton(
+                "SecondaryButtonBackgroundBrush",
+                "SecondaryButtonHoverBrush",
+                "SecondaryButtonPressedBrush",
+                "BorderColorBrush",
+                new CornerRadius(radius, 0, 0, radius))
+            {
+                Content = ThemedIconAndText("IconDelete", LocalizationManager.T("Main.ClearCache"), "TextPrimaryBrush", 16, centered: false),
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 0, 2)
+            };
+            main.Bind(Button.CommandProperty, new Binding("QuickClearCacheCommand"));
+
+            // Выпадающее меню, привязанное к кнопке-стрелке.
+            var menu = new ContextMenu();
+
+            var openDialog = new MenuItem { Header = LocalizationManager.T("Main.CacheCleanOpenDialog") };
+            openDialog.Bind(MenuItem.CommandProperty, new Binding("ClearCacheCommand"));
+            menu.Items.Add(openDialog);
+
+            var program = new MenuItem { Header = LocalizationManager.T("Main.ClearProgramCache") };
+            program.Bind(MenuItem.CommandProperty, new Binding("ClearProgramCacheCommand"));
+            menu.Items.Add(program);
+
+            var user = new MenuItem { Header = LocalizationManager.T("Main.ClearUserCache") };
+            user.Bind(MenuItem.CommandProperty, new Binding("ClearUserCacheCommand"));
+            menu.Items.Add(user);
+
+            var arrow = new PanelButton(
+                "SecondaryButtonBackgroundBrush",
+                "SecondaryButtonHoverBrush",
+                "SecondaryButtonPressedBrush",
+                "BorderColorBrush",
+                new CornerRadius(0, radius, radius, 0))
+            {
+                Content = new TextBlock
+                {
+                    Text = "▾",
+                    FontSize = UiMetrics.Scaled(14),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                },
+                Width = 36,
+                Padding = new Thickness(0),
+                Margin = new Thickness(0, 0, 0, 2),
+                ToolTip = new ToolTip { Content = LocalizationManager.T("Main.ClearCacheTooltip") }
+            };
+            arrow.ContextMenu = menu;
+            arrow.Click += (_, _) => menu.Open(arrow);
+
+            // Объединяем обе части в один визуально цельный контрол.
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Grid.SetColumn(main, 0);
+            Grid.SetColumn(arrow, 1);
+            grid.Children.Add(main);
+            grid.Children.Add(arrow);
+            return grid;
+        }
+
         /// <summary>Содержимое кнопки: иконка + подпись, окрашенные кистью ресурса темы.</summary>
         private static Control ThemedIconAndText(string iconKey, string text, string brushKey, double iconSize, bool centered)
         {
@@ -843,12 +916,14 @@ namespace Configuration_Management
             private IBrush _pressedBg = Brushes.Transparent;
             private IBrush _border = Brushes.Transparent;
             private IBrush _accent = Brushes.Transparent;
+            private CornerRadius _radius;
             private bool _hovered;
             private bool _pressed;
             private bool _focused;
 
-            public PanelButton(string baseBgKey, string hoverBgKey, string pressedBgKey, string borderKey)
+            public PanelButton(string baseBgKey, string hoverBgKey, string pressedBgKey, string borderKey, CornerRadius? cornerRadius = null)
             {
+                _radius = cornerRadius ?? new CornerRadius(UiMetrics.RadiusLg);
                 HorizontalContentAlignment = HorizontalAlignment.Center;
                 VerticalContentAlignment = VerticalAlignment.Center;
                 Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV);
@@ -860,7 +935,7 @@ namespace Configuration_Management
                 {
                     Template = new FuncControlTemplate<PanelButton>((_, _) =>
                     {
-                        var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusLg), BorderThickness = new Thickness(1) };
+                        var border = new Border { CornerRadius = _radius, BorderThickness = new Thickness(1) };
                         border.Bind(Border.BackgroundProperty, new TemplateBinding(Control.BackgroundProperty));
                         border.Bind(Border.BorderBrushProperty, new TemplateBinding(Control.BorderBrushProperty));
                         border.Bind(Border.BorderThicknessProperty, new TemplateBinding(Control.BorderThicknessProperty));

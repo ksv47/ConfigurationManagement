@@ -227,8 +227,45 @@ public class Infobase : INotifyPropertyChanged
         _ => string.IsNullOrWhiteSpace(Architecture) ? LocalizationManager.T("Infobase.ArchPriority32") : Architecture
     };
 
-    /// <summary>Тип клиента (тонкий или толстый).</summary>
-    public string ClientType { get; set; } = "Тонкий";
+    /// <summary>
+    /// Тип клиента (тонкий или толстый). Каноническое строковое значение-идентификатор:
+    /// хранится в модели и сравнивается (StringComparison.OrdinalIgnoreCase), поэтому
+    /// НЕ локализуется напрямую.
+    /// </summary>
+    private string _clientType = "Тонкий";
+
+    /// <summary>
+    /// Тип клиента (тонкий или толстый). Каноническое значение, персистится на диск
+    /// и используется для сравнения — НЕ переводится.
+    /// </summary>
+    public string ClientType
+    {
+        get => _clientType;
+        set
+        {
+            if (SetProperty(ref _clientType, value ?? "Тонкий"))
+                OnPropertyChanged(nameof(ClientTypeDisplay));
+        }
+    }
+
+    /// <summary>
+    /// Тип клиента для отображения (локализованный). Используется в карточке базы
+    /// и в строке состояния. Каноническая строка (<see cref="ClientType"/>) не изменяется.
+    /// Неизвестные значения выводятся как есть (fallback).
+    /// </summary>
+    public string ClientTypeDisplay
+    {
+        get
+        {
+            var type = (_clientType ?? string.Empty).Trim();
+            return type.ToLowerInvariant() switch
+            {
+                "тонкий" => LocalizationManager.T("Main.SessionClientThin"),
+                "толстый" => LocalizationManager.T("Main.SessionClientThickManaged"),
+                _ => string.IsNullOrWhiteSpace(type) ? string.Empty : _clientType ?? string.Empty
+            };
+        }
+    }
 
     /// <summary>Описание базы.</summary>
     public string Description { get; set; } = string.Empty;
@@ -359,11 +396,27 @@ public class Infobase : INotifyPropertyChanged
         };
 
     /// <summary>
-    /// Режим запуска для отображения. Используется в колонке «Режим запуска».
+    /// Режим запуска для отображения (локализованный). Используется в колонке
+    /// «Режим запуска», строке состояния и в карточке базы. Каноническое строковое
+    /// значение (<see cref="LaunchMode"/>) при этом не изменяется — оно остаётся для
+    /// хранения и сравнения. Неизвестные значения выводятся как есть (fallback).
     /// </summary>
-    public string ParsedLaunchMode => string.IsNullOrWhiteSpace(LaunchMode)
-        ? LocalizationManager.T("Infobase.LaunchMode.Auto")
-        : LaunchMode;
+    public string ParsedLaunchMode
+    {
+        get
+        {
+            var mode = (LaunchMode ?? string.Empty).Trim();
+            return mode.ToLowerInvariant() switch
+            {
+                "" or "автоматический" => LocalizationManager.T("Connection.LaunchAuto"),
+                "тонкий клиент" => LocalizationManager.T("Connection.LaunchThin"),
+                "толстый клиент" => LocalizationManager.T("Connection.LaunchThickManaged"),
+                "толстый клиент (обычные формы)" => LocalizationManager.T("Connection.LaunchThickOrdinary"),
+                "веб-клиент" => LocalizationManager.T("Connection.LaunchWeb"),
+                _ => LaunchMode ?? string.Empty
+            };
+        }
+    }
 
     /// <summary>
     /// Сервер или база для отображения. Для файлового режима — путь к базе,
@@ -463,8 +516,6 @@ public class Infobase : INotifyPropertyChanged
         // «Б,КБ,МБ,ГБ,ТБ» для русского и «B,KB,MB,GB,TB» для английского.
         var units = LocalizationManager.T("CacheClean.SizeUnits")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (units.Length == 0)
-            units = new[] { "Б", "КБ", "МБ", "ГБ", "ТБ" };
 
         double value = bytes;
         var index = 0;
