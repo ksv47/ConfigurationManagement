@@ -1,7 +1,17 @@
-# Состояние: сборка Linux/Avalonia
+# Состояние: сборка и запуск Linux/Avalonia
 
 Дата среза: 22.08.2026. Форк проекта `sivatorov/ConfigurationManagement`.
 Всё, что относится к сборке, лежит в этой папке.
+
+## Где мы сейчас
+
+Linux-цель **собирается без ошибок и запускается**. Главное окно открывается,
+отрисовывается, тема и иконки на месте (`_port/screenshot-first-run.png`).
+Пройдено: 90 ошибок компиляции закрыты тремя группами, затем четыре дефекта,
+вскрывшихся на первом исполнении.
+
+Дальше идёт функциональная проверка: ни один сценарий работы с базами
+на Linux ещё не проходили.
 
 ## Короткий вывод
 
@@ -62,32 +72,138 @@ Windows, кросс-сборки WPF не существует. Для Windows-�
 Вывод на будущее: пока в объявлениях есть ошибки, счётчик ошибок ничего не говорит
 о реальном объёме работы.
 
-## Что осталось: 90 ошибок
+## Что сделано после коммита 7cc1ba3
 
-Полный список с путями и строками: `_port/errors-remaining.txt`.
-Полный лог сборки: `_port/build-2026-08-22.log`.
+Четыре коммита, по группам.
 
-Группы по существу:
+### `81ecdd0` Однозначные правки, 90 -> 45
 
-| Группа | Примерно | Суть |
-|---|---|---|
-| `ToolTip` как свойство | 14 | в Avalonia это присоединённое свойство, ставится `ToolTip.SetTip(control, text)` |
-| `Visibility` | 8 | WPF-перечисление, в Avalonia булево `IsVisible`. Затрагивает `Converters/Avalonia/InverseBoolToVisibilityConverter.Avalonia.cs`, конвертер надо переписать на bool |
-| `Control.Background`, `Padding`, `FontSize`, `FontWeight`, `FontFamily`, `FontStyle` | 18 | в Avalonia эти свойства объявлены на `TemplatedControl`, а не на `Control`. Нужна смена типа переменных или приведение |
-| `GetObservable`, `GetResourceObservable` | 12 | другой механизм ресурсов, `Application` в Avalonia не имеет этих методов напрямую |
-| `ShowDialogSync` через чужой тип | 12 | `protected`-метод `ModalWindowBase.ShowDialogSync` вызывается у экземпляра соседнего окна. Чинится сменой модификатора в `ModalWindowBase.cs` |
-| `ControlTheme.Template`, `FuncTreeDataTemplate` с двумя аргументами, сеттер `Window.Owner` | 8 | API Avalonia 11 изменился, нужен разбор замысла автора |
-| `CapturePointer`, `ReleasePointerCapture`, `GetVisualChildren`, приведение кистей, `Application.Windows`, `Shutdown` | 18 | замена вызовов на аналоги Avalonia. `Shutdown` берётся из `IClassicDesktopStyleApplicationLifetime`, `GetVisualChildren` требует `using Avalonia.VisualTree` |
+* `ToolTip` в Avalonia присоединённое свойство: 14 мест переведены на
+  `ToolTip.SetTip(control, text)`.
+* `ModalWindowBase.ShowDialogSync` из `protected` в `public`: метод вызывается
+  у экземпляра соседнего окна, а не через наследование. 12 мест.
+* `ThemeManager`: добавлены `using Avalonia.Styling` (`ThemeVariant`),
+  `Avalonia.VisualTree` (`GetVisualChildren`), `Avalonia.Controls.ApplicationLifetimes`;
+  `Application.Current.Windows` заменено на `desktop.Windows`.
+* `App`: добавлен собственный `Shutdown`, у Avalonia `Application` его нет.
+* `CapturePointer` / `ReleasePointerCapture` заменены на `e.Pointer.Capture(...)`.
+* `Path`: алиас на `Avalonia.Controls.Shapes.Path` в `GroupEditWindow`,
+  явная квалификация `System.IO.Path.Combine` в `MainWindow`.
 
-Распределение по файлам: `MainWindow.Avalonia.cs` 34, `GroupEditWindow.Avalonia.cs` 12,
-`Themes/ThemeManager.Avalonia.cs` 9, `ViewModels/MainViewModel.Avalonia.cs` 7,
-`CacheCleanWindow.Avalonia.cs` 7, остальные по мелочи.
+### `e173046` Visibility и Control против TemplatedControl, 45 -> 15
+
+* `InverseBoolToVisibilityConverter` переписан на `bool`: перечисления
+  `Visibility` в Avalonia нет, видимостью управляет `IsVisible`. Тот же приём
+  автор уже применил сам в `GroupVisibilityConverter.Avalonia.cs`, поэтому
+  замысел угадывать не пришлось.
+* `Background`, `BorderBrush`, `BorderThickness`, `Padding` объявлены на
+  `TemplatedControl`, а не на `Control`: поправлены `TemplateBinding`,
+  сеттер стиля и `ThemeBrushes.Bind`.
+* Шрифт в `ThemeManager.ApplyFont` ставится через присоединённые
+  `TextElement.SetFontFamily` и соседние: они принимают `Control`
+  и наследуются вниз по дереву, что и написано в авторском комментарии.
+* У `Grid` и `StackPanel` нет `Padding`: отступ статус-бара переехал на его
+  собственный внешний `Border`, отступ содержимого диалога стал `Margin`.
+* Кисти hover-состояния объявлены как `IBrush`: `var` выводил
+  `IImmutableSolidColorBrush`, а ресурс темы отдаёт `IBrush`.
+* `GetObservable` это метод расширения, нужен явный получатель `this`.
+  У `IsCheckedProperty` тип `bool?`, добавлена проекция `v => v == true`.
+
+### `0e20110` Последняя группа, 15 -> 0
+
+* `ControlTheme` не имеет свойства `Template`. Шаблон задаётся сеттером
+  `TemplatedControl.TemplateProperty` в коллекции `Setters`. Замысел автора
+  читается однозначно: свой шаблон `Border` плюс `ContentPresenter` вместо
+  хрома Fluent.
+* `FuncTreeDataTemplate` принимает три аргумента, а не два: первым идёт
+  совпадение по типу (`typeof(object)`), функция построения принимает ещё
+  и `INameScope`, поэтому обёрнута в `(item, _) => BuildTreeRow(item)`.
+  Четыре места.
+* `Window.Owner` имеет `protected set`. Владелец задаётся перегрузкой
+  `Show(owner)`, она же выставляет `Owner` внутри.
+* `TrayIcon.SetIcons` принимает `Application`, а не окно.
+* `RelayCommand`: метод без параметров вместе с предикатом `_ => ...`
+  не даёт подходящей перегрузки, метод обёрнут в `_ => Method()`. Семь команд.
+
+Предупреждений осталось 29, все авторские и все были до правок:
+устаревшие `ToggleButton.Checked` / `Unchecked`, устаревший
+`IClipboard.GetTextAsync`, нуллабельность, два `CA1416`.
+
+## Что вскрылось на первом исполнении
+
+Код до этого не запускался ни разу, поэтому дефекты ловились по одному.
+
+### `1ef9ef7` Два падения на старте
+
+* `UiMetrics.AddBrushTransition` и `AddOpacityTransition` падали
+  с `NullReferenceException`: `Animatable.Transitions` в Avalonia по умолчанию
+  `null`, коллекцию нужно создать. Компилятор об этом предупреждал (`CS8602`),
+  автор предупреждение не видел. Лог: `_port/run-crash-transitions.log`.
+* `TemplateBinding` внутри шаблонов `PanelButton` и `SegmentButton` падал
+  с `NotSupportedException`: у `Bind` приоритет по умолчанию `LocalValue`,
+  а у выражения `TemplateBinding` приоритет `Template`, и они конфликтуют.
+  Тринадцать привязок переведены на индексаторную форму
+  `control[!Property] = new TemplateBinding(...)`, она берёт приоритет
+  из самой привязки. Лог: `_port/run-crash-templatebinding.log`.
+
+### `0a1355b` Тема оформления и выход на старте
+
+* `App.axaml` подключал только `Themes/Icons.axaml`, но не
+  `Themes/LightTheme.axaml`. Из-за этого 13 ключей ресурсов, которые
+  запрашивает код (`AccentBrush`, `TextPrimaryBrush`, `CardBackgroundBrush`,
+  `ItemHoverBrush`, `SecondaryButton*Brush`, `TextOnAccentBrush`,
+  `FavoriteBrush` и другие), не разрешались вовсе: иконки на кнопках
+  оставались без `Fill` и были невидимы, акцентный фон primary-кнопок
+  не применялся. Работали только семь ключей, которые случайно совпали
+  с тем, что публикует `ThemeManager.ApplyColors` (ключ схемы плюс `Brush`):
+  `AccentColorBrush`, `BorderColorBrush`, `ContentBackgroundColorBrush`
+  и ещё четыре. Сравнение до и после:
+  `_port/screenshot-no-theme-brushes.png` и `_port/screenshot-first-run.png`.
+* `desktop.Shutdown` нельзя вызывать из `OnFrameworkInitializationCompleted`:
+  он гасит `Dispatcher` до входа в цикл сообщений, и `MainLoop` падает
+  с `InvalidOperationException`. Оба вызова относятся к этапу запуска
+  (второй экземпляр и фатальная ошибка), поэтому выход делается через
+  `Environment.Exit`. Проверено исполнением: запуск второго экземпляра
+  при живом первом даёт код возврата 0 и пустой вывод.
+
+## Известные дефекты, ещё не закрытые
+
+* **Модальность диалогов имитируется, а не обеспечивается.**
+  `ModalWindowBase.ShowDialogSync` и `AvaloniaDialogService.ShowModalSync`
+  делают `Show()` плюс цикл `Dispatcher.UIThread.RunJobs()` с `Thread.Sleep(10)`.
+  Окно-владелец при этом остаётся кликабельным: пользователь может повторно
+  запустить ту же команду или открыть второй диалог. В Avalonia для этого есть
+  `Window.ShowDialog(owner)`. Это авторская архитектура, а не следствие наших
+  правок, поэтому трогать её без отдельного решения не стали.
+* **Подписки на ресурсы темы без отписки.** `ThemeBrushes.Bind` и
+  `IconHelper.MakeIcon` вызывают `GetResourceObservable(...).Subscribe(...)`
+  и выбрасывают возвращённый `IDisposable`. Наблюдатель держит сильную ссылку
+  на контрол, а observable живёт у `Application.Current`. Для главного окна
+  безвредно, но каждый показ модального диалога навсегда укореняет его
+  визуальное дерево. Тоже авторское, диффом не вводилось.
+* **`HeaderBrush` и `HeaderTextBrush`** запрашиваются в `MainWindow`,
+  но не определены ни в словаре темы, ни в `ColorScheme`. Чем их заменить,
+  из кода не следует, нужен ответ автора или решение по месту.
+* **Сегмент «Все»** в верхней панели: акцентная подложка уже текста,
+  надпись частично перекрыта. Видно на `_port/screenshot-first-run.png`.
+* **Функциональность не проверялась.** Добавление базы, синхронизация
+  с `ibases.v8i`, запуск 1С, очистка кеша, дерево групп, настройки, трей:
+  ни один сценарий на Linux не прогонялся.
+
+## Как проверялись правки
+
+Планка сравнения бралась не по памяти, а по реальному API: reference-сборки
+и XML-документация лежат локально в
+`~/.nuget/packages/avalonia/11.3.20/ref/net8.0/`. Плюс два встречных аудита
+изменений (codex и вторая модель), их вердикты в `_port/audit-codex-g1g2.md`.
+Аудит нашёл дефект с `desktop.Shutdown`, который компилятор пропускает.
 
 ## Чего не покрывает компиляция
 
-Код ни разу не исполнялся. Даже когда он соберётся, темы, ресурсы, иконка в трее
-и дерево баз запустятся в первый раз именно у нас. Рантайм-дефекты придётся ловить
-отдельно, и их объём сейчас предсказать нечем.
+Компиляция и запуск говорят только о том, что окно строится. Ни одна прикладная
+операция не выполнялась: дерево баз наполнялось пустым списком, иконка в трее
+на GNOME Shell без AppIndicator может не показаться вовсе, диалоги ни разу
+не открывались. Всё это ловится только прогоном сценариев.
 
 ## Лицензия
 
