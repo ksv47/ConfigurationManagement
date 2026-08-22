@@ -425,6 +425,8 @@ public class MainViewModel : ViewModelBase
         FlatItems.Clear();
 
         var roots = GroupNodeViewModel.BuildTree(_groups);
+        DistributeInfobases(roots);
+
         foreach (var root in roots)
             AllGroupNodes.Add(root);
 
@@ -437,6 +439,62 @@ public class MainViewModel : ViewModelBase
 
         RebuildTagFilters();
         ApplyFilter();
+    }
+
+    /// <summary>
+    /// Раскладывает базы по узлам дерева: по полному пути группы, закреплённые
+    /// дополнительно в отдельный узел, остальные в узел «без группы». Узлы
+    /// «закреплённые» и «без группы» добавляются к корням, если непусты.
+    /// </summary>
+    private void DistributeInfobases(List<GroupNodeViewModel> roots)
+    {
+        var pinnedNode = new GroupNodeViewModel(null, marker: GroupNodeViewModel.PinnedMarker);
+        var noGroupNode = new GroupNodeViewModel(null, marker: GroupNodeViewModel.NoGroupMarker);
+
+        // Индексация по полному пути узла: база хранит путь группы строкой.
+        var pathToNode = new Dictionary<string, GroupNodeViewModel>(StringComparer.OrdinalIgnoreCase);
+        void Index(GroupNodeViewModel node)
+        {
+            if (node.Group is not null && !string.IsNullOrEmpty(node.FullPath))
+                pathToNode[node.FullPath] = node;
+            foreach (var child in node.Children)
+                Index(child);
+        }
+        foreach (var root in roots)
+            Index(root);
+
+        foreach (var node in pathToNode.Values)
+            node.SetNotificationsSuppressed(true);
+        pinnedNode.SetNotificationsSuppressed(true);
+        noGroupNode.SetNotificationsSuppressed(true);
+
+        foreach (var infobase in _allInfobases)
+        {
+            if (infobase.IsPinned)
+                pinnedNode.Infobases.Add(infobase);
+
+            var groupPath = infobase.Group?.Trim() ?? string.Empty;
+            if (!string.IsNullOrEmpty(groupPath) && pathToNode.TryGetValue(groupPath, out var node))
+                node.Infobases.Add(infobase);
+            else
+                noGroupNode.Infobases.Add(infobase);
+        }
+
+        foreach (var node in pathToNode.Values)
+            node.SetNotificationsSuppressed(false);
+        pinnedNode.SetNotificationsSuppressed(false);
+        noGroupNode.SetNotificationsSuppressed(false);
+
+        if (pinnedNode.Infobases.Count > 0)
+            roots.Insert(0, pinnedNode);
+        if (noGroupNode.Infobases.Count > 0)
+            roots.Add(noGroupNode);
+
+        foreach (var root in roots)
+        {
+            root.PopulateItems(_showEmptyGroups);
+            root.SetExpandedSilent(true);
+        }
     }
 
     /// <summary>Применяет фильтр по виду списка и поиску.</summary>
@@ -604,13 +662,119 @@ public class MainViewModel : ViewModelBase
         var ib = SelectedInfobase;
         if (ib is null)
             return;
-        _dialog.ShowInfo(string.Format(LocalizationManager.T("Main.EditBaseInfo"), ib.Name));
+
+        var dialog = new Configuration_Management.ConnectionSettingsWindow(
+            ib, _groups, InstalledPlatformVersions(), ib.Group);
+
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        var index = _allInfobases.IndexOf(ib);
+        if (index >= 0)
+            _allInfobases[index] = dialog.Result;
+
+        SaveSilently();
+        RebuildTree();
+        SelectedInfobase = dialog.Result;
     }
 
     private void AddInfobase()
     {
-        _dialog.ShowInfo(LocalizationManager.T("Main.AddBaseInfo"));
+        var chooser = new Configuration_Management.AddEditWindow();
+        if (!chooser.ShowDialogSync(OwnerWindow()))
+            return;
+
+        var defaultGroupPath = SelectedGroupNode?.Group is not null
+            ? SelectedGroupNode.FullPath
+            : (SelectedInfobase?.Group ?? string.Empty);
+
+        switch (chooser.SelectedType)
+        {
+            case "Group":
+                AddGroup();
+                break;
+
+            case "CreateEmpty":
+            case "CreateFromTemplate":
+                CreateInfobase(chooser.SelectedType == "CreateFromTemplate", defaultGroupPath);
+                break;
+
+            default:
+                RegisterExistingInfobase(defaultGroupPath);
+                break;
+        }
     }
+
+    /// <summary>Создание новой базы: пустой или из шаблона.</summary>
+    private void CreateInfobase(bool fromTemplate, string defaultGroupPath)
+    {
+        var dialog = new Configuration_Management.CreateInfobaseWindow(
+            fromTemplate,
+            InstalledPlatformVersions(),
+            defaultGroupPath,
+            _groups);
+
+        if (!dialog.ShowDialogSync(OwnerWindow()) || dialog.Result is null)
+            return;
+
+        _allInfobases.Add(dialog.Result);
+        SaveSilently();
+        RebuildTree();
+        SelectedInfobase = dialog.Result;
+        _dialog.ShowInfo(
+            string.Format(LocalizationManager.T("Main.DlgBaseCreated"), dialog.Result.Name),
+            LocalizationManager.T("Main.DlgBaseCreatedTitle"));
+    }
+
+    /// <summary>Регистрация уже существующей базы в списке.</summary>
+    private void RegisterExistingInfobase(string defaultGroupPath)
+    {
+        var dialog = new Configuration_Management.ConnectionSettingsWindow(
+            null, _groups, InstalledPlatformVersions(), defaultGroupPath);
+
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        _allInfobases.Add(dialog.Result);
+        SaveSilently();
+        RebuildTree();
+        SelectedInfobase = dialog.Result;
+    }
+
+    /// <summary>Добавление группы: родитель берётся из выделения в дереве.</summary>
+    private void AddGroup()
+    {
+        var parent = SelectedGroupNode?.Group;
+        var dialog = new Configuration_Management.GroupEditWindow(_groups, parent);
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        _groups.Add(dialog.Result);
+        SaveGroupsSilently();
+        RebuildTree();
+    }
+
+    /// <summary>Список установленных версий платформы для диалогов.</summary>
+    private List<string> InstalledPlatformVersions()
+    {
+        try { return _platformService.FindInstalledVersions(); }
+        catch (Exception ex)
+        {
+            _logger.Warn($"Не удалось получить список версий платформы: {ex.Message}");
+            return new List<string>();
+        }
+    }
+
+    private void SaveGroupsSilently()
+    {
+        try { _repository.SaveGroups(_groups); }
+        catch (Exception ex) { _logger.Error("Не удалось сохранить группы", ex); }
+    }
+
+    /// <summary>Главное окно как владелец модального диалога.</summary>
+    private static Avalonia.Controls.Window? OwnerWindow() =>
+        (Avalonia.Application.Current?.ApplicationLifetime
+            as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
     private void DeleteInfobase()
     {
