@@ -133,6 +133,8 @@ public class MainViewModel : ViewModelBase
 
     public ICommand ClearSearchCommand { get; private set; } = null!;
     public ICommand SearchByTagCommand { get; private set; } = null!;
+    public ICommand AddTagCommand { get; private set; } = null!;
+    public ICommand RemoveTagCommand { get; private set; } = null!;
     public ICommand ClearTagFiltersCommand { get; private set; } = null!;
     public ICommand LaunchEnterpriseCommand { get; private set; } = null!;
     public ICommand LaunchConfiguratorCommand { get; private set; } = null!;
@@ -167,6 +169,8 @@ public class MainViewModel : ViewModelBase
     {
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty);
         SearchByTagCommand = new RelayCommand(SearchByTag);
+        AddTagCommand = new RelayCommand(AddTag);
+        RemoveTagCommand = new RelayCommand(RemoveTag);
         ClearTagFiltersCommand = new RelayCommand(ClearTagFilters);
         LaunchEnterpriseCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Enterprise), _ => SelectedInfobase is not null);
         LaunchConfiguratorCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Configurator), _ => SelectedInfobase is not null);
@@ -370,7 +374,25 @@ public class MainViewModel : ViewModelBase
     public bool ShowServerColumn => _settings.ShowServerColumn;
     public bool ShowLastLaunchColumn => _settings.ShowLastLaunchColumn;
     public bool ShowSizeColumn => _settings.ShowSizeColumn;
-    public bool ShowTags => _settings.ShowTags;
+    /// <summary>
+    /// Показывать теги в строках списка. Переключатель живёт в панели
+    /// инструментов над списком, состояние хранится в настройках.
+    /// </summary>
+    public bool ShowTags
+    {
+        get => _settings.ShowTags;
+        set
+        {
+            if (_settings.ShowTags == value)
+                return;
+
+            _settings.ShowTags = value;
+            SaveSettingsSilently();
+            OnPropertyChanged(nameof(ShowTags));
+            // Строки строятся с чипами или без них, поэтому пересобираются.
+            ApplyFilter();
+        }
+    }
 
     public double NameColumnWidth => _settings.NameColumnWidth;
     public double VersionColumnWidth => _settings.VersionColumnWidth;
@@ -748,6 +770,52 @@ public class MainViewModel : ViewModelBase
     /// элемент коллекции.
     /// </summary>
     public event EventHandler? TagFiltersRebuilt;
+
+    /// <summary>
+    /// Добавляет тег базе через диалог ввода. Параметр это база строки,
+    /// без параметра берётся выбранная.
+    /// </summary>
+    private void AddTag(object? parameter)
+    {
+        var infobase = parameter as Infobase ?? SelectedInfobase;
+        if (infobase is null)
+            return;
+
+        var dialog = new Configuration_Management.TagInputWindow();
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        var tag = dialog.Result?.Trim() ?? string.Empty;
+        if (tag.Length == 0 || infobase.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
+            return;
+
+        infobase.Tags.Add(tag);
+        infobase.NotifyTagsChanged();
+        SaveSilently();
+        RebuildTagFilters();
+    }
+
+    /// <summary>
+    /// Убирает тег у базы. Параметр той же формы, что и в WPF-версии:
+    /// массив из базы и тега.
+    /// </summary>
+    private void RemoveTag(object? parameter)
+    {
+        if (parameter is not object[] values || values.Length < 2)
+            return;
+        if (values[0] is not Infobase infobase || values[1] is not string tag)
+            return;
+
+        infobase.Tags.RemoveAll(t => string.Equals(t, tag, StringComparison.OrdinalIgnoreCase));
+        infobase.NotifyTagsChanged();
+        SaveSilently();
+        // Пересборка отбора заодно снимает выбор с тега, которого больше нет
+        // ни у одной базы: иначе отбор продолжал бы прятать базы, а чипа
+        // на панели уже не было бы.
+        RebuildTagFilters();
+        if (HasActiveTagFilter || !string.IsNullOrWhiteSpace(SearchText) || _listMode != "All")
+            ApplyFilter();
+    }
 
     private void SearchByTag(object? parameter)
     {
