@@ -787,9 +787,6 @@ namespace Configuration_Management
             card.AddSubscription(() => ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush"));
             content.Children.Add(name);
 
-            if (_vm?.ShowTags == true)
-                content.Children.Add(BuildRowTags(card, ib));
-
             // Вторичной строкой остаётся только то, чего нет в колонках: тип
             // подключения и путь. Остальное ушло в колонки, иначе одни и те же
             // данные показывались бы дважды.
@@ -815,6 +812,21 @@ namespace Configuration_Management
                 cell.VerticalAlignment = VerticalAlignment.Center;
                 grid.Children.Add(cell);
                 Grid.SetColumn(cell, i + 4);
+            }
+
+            if (_vm?.ShowTags == true)
+            {
+                // Теги идут второй строкой сетки во всю ширину, как в WPF-версии:
+                // внутри колонки имени они переносились бы по её ширине и тянули
+                // высоту строки вверх.
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                var tags = BuildRowTags(card, ib);
+                grid.Children.Add(tags);
+                Grid.SetRow(tags, 1);
+                Grid.SetColumn(tags, NameRowColumn);
+                Grid.SetColumnSpan(tags, grid.ColumnDefinitions.Count - NameRowColumn);
             }
 
             card.Child = grid;
@@ -873,8 +885,11 @@ namespace Configuration_Management
             {
                 Text = tag,
                 FontSize = UiMetrics.Scaled(10),
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                MaxWidth = UiMetrics.Scaled(180),
+                TextTrimming = TextTrimming.CharacterEllipsis
             };
+            ToolTip.SetTip(text, tag);
             Track(subscriptions, ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
 
             var name = new Button
