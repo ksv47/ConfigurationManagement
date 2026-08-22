@@ -377,6 +377,21 @@ namespace Configuration_Management
                     backupCheck.IsChecked == true,
                     int.TryParse(keepBox.Text, out var keep) && keep > 0 ? keep : 5);
 
+                var assignments = new (string Action, Controls.HotkeyBox Box)[]
+                {
+                    (LocalizationManager.T("Main.LaunchEnterprise"), hotkeyEnterprise),
+                    (LocalizationManager.T("Main.SectionConfigurator"), hotkeyConfigurator),
+                    (LocalizationManager.T("Main.EditSettings"), hotkeyEdit),
+                    (LocalizationManager.T("Main.AddBaseOrGroup"), hotkeyAdd),
+                    (LocalizationManager.T("Main.Favorites"), hotkeyFavorite),
+                    (LocalizationManager.T("Main.Pin"), hotkeyPin),
+                    (LocalizationManager.T("Common.Delete"), hotkeyDelete),
+                    (LocalizationManager.T("Main.ClearCache"), hotkeyClearCache)
+                };
+
+                if (!ValidateHotkeys(assignments))
+                    return;
+
                 _viewModel.ApplyHotkeys(
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
                     hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value);
@@ -454,6 +469,47 @@ namespace Configuration_Management
             r.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
                 new Avalonia.Data.Binding(path) { Mode = Avalonia.Data.BindingMode.TwoWay });
             return r;
+        }
+
+        /// <summary>
+        /// Проверяет назначения перед сохранением: понятное ли сочетание,
+        /// не отбирает ли оно обычный ввод и не назначено ли двум действиям.
+        /// При отказе окно остаётся открытым, чтобы было что исправлять.
+        /// </summary>
+        private bool ValidateHotkeys((string Action, Controls.HotkeyBox Box)[] assignments)
+        {
+            var used = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (action, box) in assignments)
+            {
+                var value = box.Value?.Trim() ?? string.Empty;
+                if (value.Length == 0)
+                    continue;
+
+                if (!Controls.HotkeyBox.TryParse(value, out var gesture) || gesture is null)
+                {
+                    _viewModel.ShowWarning(string.Format(LocalizationManager.T("Settings.Hotkeys.Unsupported"), value));
+                    return false;
+                }
+
+                if (Controls.HotkeyBox.IsUnsafeForTextInput(gesture))
+                {
+                    _viewModel.ShowWarning(string.Format(LocalizationManager.T("Settings.Hotkeys.Unsafe"), value));
+                    return false;
+                }
+
+                if (used.TryGetValue(value, out var other))
+                {
+                    _viewModel.ShowWarning(string.Format(
+                        LocalizationManager.T("Settings.Hotkeys.DuplicateMsg"),
+                        string.Format(LocalizationManager.T("Settings.Hotkeys.AssignedTo"), value, other + ", " + action)));
+                    return false;
+                }
+
+                used[value] = action;
+            }
+
+            return true;
         }
 
         /// <summary>Строка переназначения: подпись действия и поле ввода сочетания.</summary>
