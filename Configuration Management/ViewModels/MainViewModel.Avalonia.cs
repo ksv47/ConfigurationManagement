@@ -28,6 +28,8 @@ public class MainViewModel : ViewModelBase
     private List<Infobase> _allInfobases = new();
     private List<Group> _groups = new();
     private bool _groupSortAscending = true;
+    private string _sortField = "Name";
+    private bool _sortAscending = true;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
     private bool _deferCollapsedSave;
 
@@ -139,6 +141,8 @@ public class MainViewModel : ViewModelBase
     public ICommand DeleteInfobaseCommand { get; private set; } = null!;
     public ICommand ToggleFavoriteCommand { get; private set; } = null!;
     public ICommand TogglePinCommand { get; private set; } = null!;
+    public ICommand ToggleFavoriteForCommand { get; private set; } = null!;
+    public ICommand TogglePinForCommand { get; private set; } = null!;
     public ICommand OpenSettingsCommand { get; private set; } = null!;
     public ICommand ExpandAllGroupsCommand { get; private set; } = null!;
     public ICommand CollapseAllGroupsCommand { get; private set; } = null!;
@@ -170,6 +174,8 @@ public class MainViewModel : ViewModelBase
         DeleteInfobaseCommand = new RelayCommand(_ => DeleteInfobase(), _ => SelectedInfobase is not null);
         ToggleFavoriteCommand = new RelayCommand(_ => ToggleFavorite(), _ => SelectedInfobase is not null);
         TogglePinCommand = new RelayCommand(_ => TogglePin(), _ => SelectedInfobase is not null);
+        ToggleFavoriteForCommand = new RelayCommand(p => ToggleFavoriteFor(p as Infobase), p => p is Infobase);
+        TogglePinForCommand = new RelayCommand(p => TogglePinFor(p as Infobase), p => p is Infobase);
         OpenSettingsCommand = new RelayCommand(OpenSettings);
         ExpandAllGroupsCommand = new RelayCommand(ExpandAllGroups);
         CollapseAllGroupsCommand = new RelayCommand(CollapseAllGroups);
@@ -223,7 +229,12 @@ public class MainViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _groupByGroup, value))
+            {
+                // Кнопки «развернуть/свернуть/сортировать группы» видны только
+                // при группировке, поэтому их видимость идёт следом.
+                OnPropertyChanged(nameof(ShowExpandCollapseButtons));
                 ApplyFilter();
+            }
         }
     }
 
@@ -365,6 +376,63 @@ public class MainViewModel : ViewModelBase
     public double LastLaunchColumnWidth => _settings.LastLaunchColumnWidth;
     public double SizeColumnWidth => _settings.SizeColumnWidth;
 
+    // ---- Сортировка списка ----
+    public string SortField => _sortField;
+    public bool SortAscending => _sortAscending;
+
+    /// <summary>
+    /// Меняет поле сортировки списка баз. Повторный клик по тому же полю
+    /// разворачивает направление.
+    /// </summary>
+    public void SetSortField(string field)
+    {
+        if (string.IsNullOrWhiteSpace(field))
+            return;
+
+        if (string.Equals(_sortField, field, StringComparison.OrdinalIgnoreCase))
+            _sortAscending = !_sortAscending;
+        else
+        {
+            _sortField = field;
+            _sortAscending = field != "LastLaunchDate"; // дату удобнее сначала по убыванию
+        }
+
+        _settings.SortField = _sortField;
+        _settings.SortAscending = _sortAscending;
+        SaveSettingsSilently();
+        OnPropertyChanged(nameof(SortField));
+        OnPropertyChanged(nameof(SortAscending));
+        RebuildTree();
+    }
+
+    /// <summary>
+    /// Упорядочивает базы по выбранному полю. Закреплённые всегда идут первыми,
+    /// имя служит вторым ключом, чтобы порядок не зависел от порядка в файле.
+    /// </summary>
+    private IEnumerable<Infobase> ApplyCurrentSort(IEnumerable<Infobase> source)
+    {
+        var query = source.OrderBy(i => i.GroupSortOrder);
+        return _sortField switch
+        {
+            "LastLaunchDate" when _sortAscending =>
+                query.ThenBy(i => i.LastLaunchDate ?? DateTime.MinValue)
+                     .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase),
+            "LastLaunchDate" =>
+                query.ThenByDescending(i => i.LastLaunchDate ?? DateTime.MinValue)
+                     .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase),
+            "SortOrder" when _sortAscending =>
+                query.ThenBy(i => i.SortOrder)
+                     .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase),
+            "SortOrder" =>
+                query.ThenByDescending(i => i.SortOrder)
+                     .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase),
+            _ when _sortAscending =>
+                query.ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase),
+            _ =>
+                query.ThenByDescending(i => i.Name, StringComparer.OrdinalIgnoreCase)
+        };
+    }
+
     // ---- Текущая сессия ----
     public string SessionClient
     {
@@ -407,6 +475,8 @@ public class MainViewModel : ViewModelBase
             _showTagFilterPanel = _settings.ShowTagFilterPanel;
             _themeName = _settings.Theme;
             _compactMode = _settings.CompactMode;
+            _sortField = string.IsNullOrWhiteSpace(_settings.SortField) ? "Name" : _settings.SortField;
+            _sortAscending = _settings.SortAscending;
 
             OnPropertyChanged(nameof(GroupByGroup));
             OnPropertyChanged(nameof(ShowEmptyGroups));
@@ -486,7 +556,7 @@ public class MainViewModel : ViewModelBase
         pinnedNode.SetNotificationsSuppressed(true);
         noGroupNode.SetNotificationsSuppressed(true);
 
-        foreach (var infobase in _allInfobases)
+        foreach (var infobase in ApplyCurrentSort(_allInfobases))
         {
             if (infobase.IsPinned)
                 pinnedNode.Infobases.Add(infobase);
@@ -540,9 +610,13 @@ public class MainViewModel : ViewModelBase
         // одним узлом туда же, иначе список остался бы пустым.
         if (filterActive || !_groupByGroup)
         {
-            var visible = (filterActive ? _allInfobases.Where(MatchesFilter) : _allInfobases)
-                .OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            // В режиме «Недавние» порядок задаёт дата запуска, в остальных —
+            // выбранное поле сортировки.
+            var matched = filterActive ? _allInfobases.Where(MatchesFilter) : _allInfobases;
+            var visible = (_listMode == "Recent"
+                ? matched.OrderByDescending(i => i.LastLaunchDate ?? DateTime.MinValue)
+                         .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+                : ApplyCurrentSort(matched)).ToList();
 
             FlatItems.Clear();
             foreach (var ib in visible)
@@ -1049,24 +1123,28 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private void ToggleFavorite()
+    private void ToggleFavorite() => ToggleFavoriteFor(SelectedInfobase);
+
+    private void TogglePin() => TogglePinFor(SelectedInfobase);
+
+    private void ToggleFavoriteFor(Infobase? infobase)
     {
-        if (SelectedInfobase is Infobase ib)
-        {
-            ib.IsFavorite = !ib.IsFavorite;
-            SaveSilently();
-            ApplyFilter();
-        }
+        if (infobase is null)
+            return;
+
+        infobase.IsFavorite = !infobase.IsFavorite;
+        SaveSilently();
+        ApplyFilter();
     }
 
-    private void TogglePin()
+    private void TogglePinFor(Infobase? infobase)
     {
-        if (SelectedInfobase is Infobase ib)
-        {
-            ib.IsPinned = !ib.IsPinned;
-            SaveSilently();
-            RebuildTree();
-        }
+        if (infobase is null)
+            return;
+
+        infobase.IsPinned = !infobase.IsPinned;
+        SaveSilently();
+        RebuildTree();
     }
 
     private void CopyConnectionString()
