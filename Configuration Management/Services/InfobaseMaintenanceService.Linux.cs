@@ -21,7 +21,7 @@ namespace Configuration_Management.Services
         /// <summary>
         /// Открывает каталог файловой базы в файловом менеджере. Если путь указывает
         /// на файл 1Cv8.1CD (или каталог базы содержит его) — файл выделяется
-        /// (nautilus --select / dolphin --select / gio open). Иначе каталог открывается
+        /// (менеджером, родным для текущего окружения, иначе gio open). Иначе каталог открывается
         /// через xdg-open.
         /// </summary>
         public static bool OpenInfobaseFolder(Infobase ib)
@@ -63,9 +63,10 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>
-        /// Выделяет файл в файловом менеджере. Приоритет: nautilus --select,
-        /// dolphin --select (поддерживают выделение), затем gio open (открывает каталог),
-        /// и в самом крайнем случае — xdg-open каталога файла.
+        /// Показывает файл в файловом менеджере. Порядок задаёт окружение рабочего
+        /// стола: родной менеджер первым, остальные запасными. Способ показа
+        /// у менеджеров разный, см. <see cref="LinuxDesktopEnvironment.FileManagers"/>.
+        /// Если ни один не подошёл, пробуется gio open, затем xdg-open каталога.
         /// </summary>
         private static bool SelectFileInManager(string filePath)
         {
@@ -77,7 +78,7 @@ namespace Configuration_Management.Services
             // первым, чтобы на KDE не открывался файловый менеджер GNOME и наоборот.
             // Список уже отфильтрован по наличию в PATH, поэтому запуск не выбирает
             // первый попавшийся установленный менеджер вслепую.
-            foreach (var (manager, selectArgument) in LinuxDesktopEnvironment.FileManagers())
+            foreach (var (manager, argument, passFile) in LinuxDesktopEnvironment.FileManagers())
             {
                 try
                 {
@@ -87,9 +88,11 @@ namespace Configuration_Management.Services
                         UseShellExecute = false,
                         CreateNoWindow = true
                     };
-                    if (!string.IsNullOrEmpty(selectArgument))
-                        startInfo.ArgumentList.Add(selectArgument);
-                    startInfo.ArgumentList.Add(filePath);
+                    if (!string.IsNullOrEmpty(argument))
+                        startInfo.ArgumentList.Add(argument);
+                    // Менеджеру, который не умеет выделять файл, даём каталог:
+                    // от пути к файлу он открыл бы сам файл приложением по умолчанию.
+                    startInfo.ArgumentList.Add(passFile ? filePath : dir);
 
                     using var process = Process.Start(startInfo);
                     if (process is null)
