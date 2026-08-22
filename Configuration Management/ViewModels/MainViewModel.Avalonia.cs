@@ -154,6 +154,7 @@ public class MainViewModel : ViewModelBase
     public ICommand ClearCacheCommand { get; private set; } = null!;
     public ICommand ClearProgramCacheCommand { get; private set; } = null!;
     public ICommand ClearUserCacheCommand { get; private set; } = null!;
+    public ICommand ClearCacheBothCommand { get; private set; } = null!;
 
     private void InitializeCommands()
     {
@@ -183,9 +184,12 @@ public class MainViewModel : ViewModelBase
         CreateDesktopShortcutCommand = new RelayCommand(CreateDesktopShortcut, _ => SelectedInfobase is not null);
         OpenNativeStarterCommand = new RelayCommand(OpenNativeStarter);
         QuickClearCacheCommand = new RelayCommand(QuickClearCache, _ => SelectedInfobase is not null);
-        ClearCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All), _ => SelectedInfobase is not null);
-        ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program), _ => SelectedInfobase is not null);
-        ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User), _ => SelectedInfobase is not null);
+        // Команды очистки кеша доступны всегда (в т.ч. при выбранной группе): если база не
+        // выделена, окно очистки открывается без выбранной базы (defaultSelected = null).
+        ClearCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));
+        ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program));
+        ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User));
+        ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));
     }
 
     private void Launch(ICommand launchVmCommand, LaunchKind kind) => launchVmCommand.Execute(kind);
@@ -852,6 +856,7 @@ public class MainViewModel : ViewModelBase
         (ClearCacheCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ClearProgramCacheCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ClearUserCacheCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ClearCacheBothCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private void NotifyColumnSettings()

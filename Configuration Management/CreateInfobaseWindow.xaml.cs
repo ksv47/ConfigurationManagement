@@ -163,9 +163,6 @@ namespace Configuration_Management
             if (segs.Length > 0)
             {
                 var leaf = segs[^1]
-                    .Replace(" (демо)", "", StringComparison.OrdinalIgnoreCase)
-                    .Replace(" (demo)", "", StringComparison.OrdinalIgnoreCase)
-                    .Replace(" (пустая)", "", StringComparison.OrdinalIgnoreCase)
                     .Replace(LocalizationManager.T("Template.SuffixDemo"), "", StringComparison.OrdinalIgnoreCase)
                     .Replace(LocalizationManager.T("Template.SuffixEmpty"), "", StringComparison.OrdinalIgnoreCase)
                     .Trim();

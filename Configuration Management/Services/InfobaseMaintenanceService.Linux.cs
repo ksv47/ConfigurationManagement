@@ -318,7 +318,7 @@ namespace Configuration_Management.Services
             var desktop = Path.Combine(home, "Desktop");
             if (Directory.Exists(desktop))
                 return desktop;
-            desktop = Path.Combine(home, "Рабочий стол");
+            desktop = Path.Combine(home, LocalizationManager.T("Common.DesktopFolder"));
             return Directory.Exists(desktop) ? desktop : string.Empty;
         }
 

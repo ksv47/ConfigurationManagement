@@ -25,6 +25,7 @@
     "Common.SortDesc": "Z → A",
     "Common.None": "None",
     "Common.Clear": "Clear",
+    "Common.DesktopFolder": "Desktop",
 
     "HelpLink.Tooltip": "What is this? Click to open a hint",
     "HelpLink.Title": "Hint",
@@ -141,6 +142,10 @@
     "Main.Enterprise": "1C:Enterprise",
     "Main.LaunchEnterpriseShort": "Launch 1C:Enterprise",
     "Main.LaunchConfiguratorShort": "Launch Configurator",
+    "Main.LaunchEnterpriseTooltip": "Launch 1C:Enterprise for the selected infobase",
+    "Main.LaunchConfiguratorSectionTooltip": "Launch the Configurator for the selected infobase",
+    "Main.OpenFolderTooltip": "Open the folder of the selected file-based infobase",
+    "Main.DesktopShortcutTooltip": "Create a desktop shortcut for the selected infobase",
     "Main.MoreLaunchOptions": "Additional launch options",
     "Main.NativeStarterTooltip": "Open the standard 1C starter (1CEStart.exe)",
     "Main.NativeStarter": "1C:Starter",
@@ -394,7 +399,7 @@
     "Settings.About.Author": "Author: Sivatorov",
     "Settings.About.Infostart": "Publication on Infostart:",
     "Settings.About.GitHub": "GitHub repository:",
-    "Settings.About.HelpText": "Version: 0.2.7.24.\n\nThis is a desktop application for managing 1C:Enterprise 8.3 infobases — a replacement for the standard 1C base list.\n\n• In many windows there is a ? icon next to elements — click it to see a hint about how that element works.\n• A full description of features and architecture is in the README.md file of the repository.",
+    "Settings.About.HelpText": "Version: 0.3.3.16.\n\nThis is a desktop application for managing 1C:Enterprise 8.3 infobases — a replacement for the standard 1C base list.\n\n• In many windows there is a ? icon next to elements — click it to see a hint about how that element works.\n• A full description of features and architecture is in the README.md file of the repository.",
 
     "AddEdit.Title": "Add to list",
     "DeleteInfobase.Title": "Delete infobase",
@@ -948,6 +953,8 @@
 
     "Group.NoGroup": "No group",
     "Group.NoName": "Unnamed",
+
+    "Model.DefaultBaseName": "1C",
 
     "Color.Accent": "Accent color",
     "Color.AccentHover": "Accent (hover)",

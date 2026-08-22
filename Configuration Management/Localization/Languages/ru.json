@@ -25,6 +25,7 @@
     "Common.SortDesc": "Я → А",
     "Common.None": "Нет",
     "Common.Clear": "Очистить",
+    "Common.DesktopFolder": "Рабочий стол",
 
     "HelpLink.Tooltip": "Что это? Нажмите, чтобы открыть подсказку",
     "HelpLink.Title": "Подсказка",
@@ -141,6 +142,10 @@
     "Main.Enterprise": "1С:Предприятие",
     "Main.LaunchEnterpriseShort": "Запустить 1С:Предприятие",
     "Main.LaunchConfiguratorShort": "Запустить Конфигуратор",
+    "Main.LaunchEnterpriseTooltip": "Запустить 1С:Предприятие для выбранной базы",
+    "Main.LaunchConfiguratorSectionTooltip": "Запустить Конфигуратор для выбранной базы",
+    "Main.OpenFolderTooltip": "Открыть папку выбранной файловой базы",
+    "Main.DesktopShortcutTooltip": "Создать ярлык на рабочем столе для выбранной базы",
     "Main.MoreLaunchOptions": "Дополнительные варианты запуска",
     "Main.NativeStarterTooltip": "Открыть стандартный стартер 1С (1CEStart.exe)",
     "Main.NativeStarter": "1С:Стартер",
@@ -394,7 +399,7 @@
     "Settings.About.Author": "Автор: Sivatorov",
     "Settings.About.Infostart": "Публикация на Infostart:",
     "Settings.About.GitHub": "Репозиторий GitHub:",
-    "Settings.About.HelpText": "Версия: 0.2.7.24.\n\nЭто десктопное приложение для управления информационными базами 1С:Предприятие 8.3 — замена стандартному списку баз 1С.\n\n• Во многих окнах рядом с элементами есть значок «?» — нажмите его, чтобы увидеть подсказку о том, как работает этот элемент.\n• Полное описание возможностей и архитектуры — в файле README.md репозитория.",
+    "Settings.About.HelpText": "Версия: 0.3.3.16.\n\nЭто десктопное приложение для управления информационными базами 1С:Предприятие 8.3 — замена стандартному списку баз 1С.\n\n• Во многих окнах рядом с элементами есть значок «?» — нажмите его, чтобы увидеть подсказку о том, как работает этот элемент.\n• Полное описание возможностей и архитектуры — в файле README.md репозитория.",
 
     "AddEdit.Title": "Добавление в список",
     "DeleteInfobase.Title": "Удаление информационной базы",
@@ -948,6 +953,8 @@
 
     "Group.NoGroup": "Без группы",
     "Group.NoName": "Без названия",
+
+    "Model.DefaultBaseName": "1С",
 
     "Color.Accent": "Акцентный цвет",
     "Color.AccentHover": "Акцент (наведение)",

@@ -2011,54 +2011,118 @@
                                            Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
                             </Grid>
                         </Button>
-                        <Button x:Name="ClearCacheMenuButton" Click="OnClearCacheMenuClick" ToolTip="{loc:Loc Main.ClearCacheTooltip}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
-                                    <Setter Property="Padding" Value="14,11"/>
+                        <!-- Split-кнопка «Очистить кеш» по аналогии с кнопкой запуска 1С:Предприятие:
+                             основная часть открывает окно очистки кеша, правая стрелка — выпадающее
+                             меню с выбором типа кеша. Доступна даже при выбранной группе. -->
+                        <!-- Локальный Margin не задаём: он управляется только через Border.Style
+                             (включая компактный режим), иначе локальное значение перекрывало бы
+                             триггер и отступ не менялся бы при сворачивании/разворачивании панели. -->
+                        <Border CornerRadius="8"
+                                Background="{DynamicResource SecondaryButtonBackgroundBrush}">
+                            <Border.Style>
+                                <Style TargetType="Border">
                                     <Setter Property="Margin" Value="8,0,8,8"/>
+                                    <!-- Единая высота с кнопками ActionPanelSecondaryButton
+                                         (40 в развёрнутом / 32 в компактном режиме), чтобы
+                                         split-блок «Очистить кеш» был одного размера с соседними. -->
+                                    <Setter Property="MinHeight" Value="40"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                            <Setter Property="Padding" Value="6,8"/>
                                             <Setter Property="Margin" Value="0,0,0,4"/>
+                                            <Setter Property="MinHeight" Value="32"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </Button.Style>
+                            </Border.Style>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.Column="0">
-                                    <materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Margin="0,0,4,0"
-                                                             Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{loc:Loc Main.ClearCache}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource ButtonTextBrush}"/>
-                                </StackPanel>
-                                <materialDesign:PackIcon Grid.Column="1" Kind="ChevronDown" Width="14" Height="14"
-                                                         Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center" Margin="6,0,0,0"/>
-                                <TextBlock Grid.Column="2" Text="{Binding HotkeyClearCache}"
-                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
-                                           Foreground="{DynamicResource ButtonTextBrush}" Opacity="0.75"
-                                           Margin="8,0,0,0"
-                                           Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
+                                <Button Grid.Column="0" Command="{Binding ClearCacheCommand}" Cursor="Hand"
+                                        HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
+                                        Background="Transparent" BorderThickness="0"
+                                        ToolTip="{loc:Loc Main.ClearCacheTooltip}">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Padding" Value="14,11"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
+                                                    <Setter Property="Padding" Value="6,8"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="Transparent" CornerRadius="8,0,0,8"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource SecondaryButtonHoverBrush}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource SecondaryButtonPressedBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                            <materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Margin="0,0,4,0"
+                                                                     Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Main.ClearCache}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource ButtonTextBrush}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding HotkeyClearCache}"
+                                                   VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
+                                                   Foreground="{DynamicResource ButtonTextBrush}" Opacity="0.75"
+                                                   Margin="8,0,0,0"
+                                                   Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
+                                    </Grid>
+                                </Button>
+                                <Border Grid.Column="1" Width="1" Background="{DynamicResource BorderBrushColor}" Margin="0,6"/>
+                                <Button Grid.Column="2" x:Name="ClearCacheMenuButton" Width="28" MinWidth="28" Cursor="Hand"
+                                        Click="OnClearCacheMenuClick" ToolTip="{loc:Loc Main.ClearCacheTooltip}"
+                                        Background="Transparent" BorderThickness="0" Padding="0">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="Transparent" CornerRadius="0,8,8,0">
+                                                <materialDesign:PackIcon Kind="ChevronDown" Width="16" Height="16"
+                                                                         Foreground="{DynamicResource ButtonTextBrush}"
+                                                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource SecondaryButtonHoverBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Button.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="{loc:Loc Main.ClearProgramCacheTitle}" Command="{Binding ClearProgramCacheCommand}" Style="{DynamicResource ModernMenuItem}">
+                                                <MenuItem.Icon><materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="{loc:Loc Main.ClearUserCacheTitle}" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}">
+                                                <MenuItem.Icon><materialDesign:PackIcon Kind="Account" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator/>
+                                            <MenuItem Header="{loc:Loc Main.ClearBothCaches}" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}">
+                                                <MenuItem.Icon><materialDesign:PackIcon Kind="DeleteSweep" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
                             </Grid>
-                            <Button.ContextMenu>
-                                <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                                    <MenuItem Header="{loc:Loc Main.ClearProgramCacheTitle}" Command="{Binding ClearProgramCacheCommand}" Style="{DynamicResource ModernMenuItem}">
-                                        <MenuItem.Icon><materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
-                                    </MenuItem>
-                                    <MenuItem Header="{loc:Loc Main.ClearUserCacheTitle}" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}">
-                                        <MenuItem.Icon><materialDesign:PackIcon Kind="Account" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
-                                    </MenuItem>
-                                    <Separator/>
-                                    <MenuItem Header="{loc:Loc Main.ClearBothCaches}" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}">
-                                        <MenuItem.Icon><materialDesign:PackIcon Kind="DeleteSweep" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
-                                    </MenuItem>
-                                </ContextMenu>
-                            </Button.ContextMenu>
-                        </Button>
+                        </Border>
                         <Border Height="1" Background="{DynamicResource BorderBrushColor}" Margin="0,6,0,8"
                                 Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
 

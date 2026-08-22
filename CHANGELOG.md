@@ -5,6 +5,89 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.24] — 2026-08-22
+
+### Изменено
+
+- **Гарантировано выровнена высота кнопки «Очистить кеш» по кнопкам панели действий в WPF-версии** ([`MainWindow.xaml`](Configuration Management/MainWindow.xaml), [`DarkTheme.xaml`](Configuration Management/Themes/DarkTheme.xaml), [`LightTheme.xaml`](Configuration Management/Themes/LightTheme.xaml)). Высота split-блока очистки кеша и соседних кнопок («Закрепить», «Удалить», «Перейти по ссылке» и др.) задаётся явным общим `MinHeight`: 40px в развёрнутом режиме правой панели и 32px в компактном (`ShowRightPanelDetails = False`). `MinHeight` добавлен в общий стиль `ActionPanelSecondaryButton` (обе темы) и во внешний Border split-блока.
+- **Исправлено поведение кнопки «Очистить кеш» при сворачивании/разворачивании правой панели** ([`MainWindow.xaml`](Configuration Management/MainWindow.xaml)). У внешнего Border split-блока был локальный атрибут `Margin="8,0,8,8"`, который из-за приоритета свойств WPF перекрывал триггер стиля, задающий отступ в компактном режиме (`0,0,0,4`). Из-за этого при сворачивании панели блок «Очистить кеш» не менял отступ (оставался `8,0,8,8`) и выглядел уже/смещённым относительно соседних кнопок, а после повторного разворачивания состояние могло не восстанавливаться корректно. Локальный `Margin` убран — отступ теперь полностью управляется через `Border.Style` (включая триггер компактного режима), как у остальных кнопок панели. Теперь размер и отступы кнопки «Очистить кеш» идентичны «Закрепить»/«Удалить» и корректно переключаются между развёрнутым и компактным режимами.
+- **Версия обновлена до 0.3.3.24** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.24 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.24.
+
+## [0.3.3.23] — 2026-08-22
+
+### Изменено
+
+- **Кнопка «Очистить кеш» приведена к виду двойной split-кнопки по аналогии с кнопкой «Запустить 1С:Предприятие»** в WPF-версии ([`MainWindow.xaml`](Configuration Management/MainWindow.xaml)). Ранее у кнопки очистки кеша правая панель была единым элементом, открывавшим только выпадающее меню. Теперь основная часть кнопки открывает окно очистки кеша (`ClearCacheCommand` → [`CacheCleanWindow`](Configuration Management/CacheCleanWindow.xaml)), а отдельная правая стрелка «▾» открывает выпадающее меню со следующими пунктами:
+  - «Программный кеш…» → `ClearProgramCacheCommand`;
+  - «Пользовательский кеш…» → `ClearUserCacheCommand`;
+  - разделитель;
+  - «Программный и пользовательский» → `ClearCacheBothCommand`.
+  Разделитель между основной частью и стрелкой визуально объединяет блок в цельный контрол. По цвету фона (`SecondaryButtonBackgroundBrush`), hover/pressed (`SecondaryButtonHoverBrush`/`SecondaryButtonPressedBrush`), высоте, ширине и отступам блок полностью соответствует соседним кнопкам «Закрепить»/«Удалить» как в развёрнутом, так и в компактном режиме правой панели: без `MinHeight`, внутренний отступ `14,11` (в компактном — `6,8`), внешний отступ `8,0,8,8` (в компактном — `0,0,0,4`). Текст и иконка используют `ButtonTextBrush` на фоне вторичной кнопки, поэтому читаются и в светлой, и в тёмной темах. Это приводит WPF-интерфейс к поведению, уже реализованному в Linux/Avalonia-версии (см. 0.3.3.22).
+- **Кнопка очистки кеша доступна даже при выбранной группе** ([`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs)). У команд `ClearCacheCommand`, `ClearProgramCacheCommand`, `ClearUserCacheCommand` и `ClearCacheBothCommand` убрано ограничение `CanExecute` на наличие выбранной базы — теперь они доступны всегда. При открытии окна [`OpenCacheClean`](Configuration Management/ViewModels/MainViewModel.cs) передаёт `SelectedInfobase` как `defaultSelected`: когда выбрана группа (база = null), окно очистки открывается без выделенной базы в списке; при выбранной базе она выделяется по умолчанию.
+- **Версия обновлена до 0.3.3.23** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.23 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.23.
+
+## [0.3.3.22] — 2026-08-22
+
+### Изменено
+
+- **Кнопка «Очистить кеш» приведена к виду двойной split-кнопки по аналогии с кнопкой «Запустить 1С:Предприятие»** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)). Ранее у правой панели была только стрелка «▾» для выпадающего меню очистки кеша, а быстрая очистка выполнялась основной частью кнопки. Теперь основная часть кнопки открывает окно очистки кеша ([`CacheCleanWindow`](Configuration Management/CacheCleanWindow.Avalonia.cs)), а правая стрелка открывает выпадающее меню со следующими пунктами:
+  - «Открыть окно очистки кеша…» → `ClearCacheCommand`;
+  - «Программный кеш…» → `ClearProgramCacheCommand`;
+  - «Пользовательский кеш…» → `ClearUserCacheCommand`;
+  - разделитель;
+  - «Программный и пользовательский» → `ClearCacheBothCommand` (новый пункт).
+- **Кнопка очистки кеша доступна даже при выбранной группе** ([`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)). У команд `ClearCacheCommand`, `ClearProgramCacheCommand`, `ClearUserCacheCommand` и новой `ClearCacheBothCommand` убрано ограничение `CanExecute` на наличие выбранной базы — теперь они доступны всегда. При открытии окна [`OpenCacheClean`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs) передаёт `SelectedInfobase` как `defaultSelected`: когда выбрана группа (база = null), окно очистки открывается без выделенной базы в списке; при выбранной базе она выделяется в окне по умолчанию. Новая команда `ClearCacheBothCommand` добавлена и в метод `RaiseCommandCanExecuteChanged()`.
+- **Версия обновлена до 0.3.3.22** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.22 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.22.
+
+## [0.3.3.21] — 2026-08-21
+
+### Изменено
+
+- **Имя каталога рабочего стола Linux вынесено в локализацию** ([`InfobaseMaintenanceService.Linux.cs`](Configuration Management/Services/InfobaseMaintenanceService.Linux.cs)). В `GetDesktopDirectory` fallback-путь `~/Рабочий стол` заменён на локализованный ключ `Common.DesktopFolder` через `LocalizationManager.T(...)`. Основным способом определения каталога по-прежнему остаётся системный API `xdg-user-dir DESKTOP`, далее проверяется кандидат `~/Desktop`, и лишь затем локализованное имя папки — это корректно покрывает как русифицированные системы («Рабочий стол»), так и английские («Desktop») в зависимости от текущего языка интерфейса.
+- **Версия обновлена до 0.3.3.21** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.21 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.21.
+
+## [0.3.3.20] — 2026-08-21
+
+### Изменено
+
+- **Суффиксы имён шаблонов («демо»/«пустая») вынесены в локализацию** ([`CreateInfobaseWindow.xaml.cs`](Configuration Management/CreateInfobaseWindow.xaml.cs)). При подборе имени базы из шаблона (`SuggestNameFromTemplate`) удаление жёстко закодированных суффиксов `« (демо)»`/`« (demo)»` и `« (пустая)»` заменено на существующие локализованные ключи `Template.SuffixDemo` и `Template.SuffixEmpty` через `LocalizationManager.T(...)` — это корректно покрывает как русские, так и английские формулировки в зависимости от текущего языка интерфейса. Новые ключи не добавлялись: существующие полностью подходят по формату (с ведущим пробелом).
+- **Версия обновлена до 0.3.3.20** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.20 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.20.
+
+## [0.3.3.19] — 2026-08-21
+
+### Изменено
+
+- **Полная локализация слоя отображения значений режима запуска/типа клиента, формируемых импортёром `ibases.v8i`** ([`IbasesV8iImporter.cs`](Configuration Management/Services/IbasesV8iImporter.cs)). Импортёр `MapLaunchMode` возвращает только 4 канонических значения — «Автоматический», «Тонкий клиент», «Толстый клиент», «Веб-клиент» — и каждое из них уже полностью покрывается регистронезависимым маппингом в `ParsedLaunchMode` ([`Infobase.cs`](Configuration Management/Models/Infobase.cs:404)) через ключи `Connection.Launch*`. Тип клиента импортёром не задаётся (поле `ClientType` не заполняется), поэтому дополнительных правок `ClientTypeDisplay` не требуется. Дублирование логики между ветками `App` и `DefaultApp` в `MapLaunchMode` устранено выносом общего сопоставления в хелпер `MapSingleLaunchMode`; канонические хранимые литералы сохранены без изменений (сравнения в `OneCLauncher`/`MainViewModel`/`ConnectionSettingsViewModel` не затрагиваются).
+- **Версия обновлена до 0.3.3.19** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.19 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.19.
+
+## [0.3.3.18] — 2026-08-21
+
+### Изменено
+
+- **Локализован слой отображения модели `Infobase`** ([`Infobase.cs`](Configuration Management/Models/Infobase.cs)). Канонические (хранимые) значения режима запуска и типа клиента не изменяются, но при отображении маппятся на локализованный вывод: `ParsedLaunchMode` — регистронезависимое сравнение (`ToLowerInvariant`) с покрытием всех канонических формулировок («Автоматический», «Тонкий клиент», «Толстый клиент», «Толстый клиент (обычные формы)», «Веб-клиент» и их вариации, включая «…(управляемое приложение)») через ключи `Connection.Launch*`; `ClientTypeDisplay` — регистронезависимый маппинг «Тонкий»/«Толстый» на `Main.SessionClientThin`/`Main.SessionClientThickManaged`. Fallback имени базы в `Initials` («1С») заменён на локализованный `LocalizationManager.T("Model.DefaultBaseName")`; новый ключ `Model.DefaultBaseName` добавлен в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+- **Версия обновлена до 0.3.3.18** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.18 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.18.
+
+## [0.3.3.17] — 2026-08-21
+
+### Изменено
+
+- **Имена встроенных тем оформления вынесены в локализацию (слой отображения)** ([`ColorScheme.cs`](Configuration Management/Models/ColorScheme.cs), [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs)). Канонические (хранимые) имена встроенных тем `«Светлая»`/`«Тёмная»` сохранены как стабильные ключи для сохранения/загрузки настроек и сопоставления с ресурсами темы (`LightTheme`/`DarkTheme`), а при отображении в списке тем настроек выводится локализованная подпись через `LocalizationManager.T("Theme.Light")` / `T("Theme.Dark")` (`ru.json`/`en.json`). При смене языка комбо тем перерисовывает локализованные подписи, сохранённое имя темы не меняется.
+- **Версия обновлена до 0.3.3.17** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.17 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.17.
+
+## [0.3.3.16] — 2026-08-21
+
+### Изменено
+
+- **Исправлен устаревший текст версии на вкладке «О программе»** ([`ru.json`](Configuration Management/Localization/Languages/ru.json), [`en.json`](Configuration Management/Localization/Languages/en.json)). В значении ключа `Settings.About.HelpText` была жёстко прописана устаревшая версия «0.2.7.24» (как в русском, так и в английском языковом файле), из-за чего на вкладке «О программе» отображался неактуальный номер сборки. Текст обновлён до текущей версии `0.3.3.16`.
+- **Версия обновлена до 0.3.3.16** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.16 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.16.
+
+## [0.3.3.15] — 2026-08-21
+
+### Добавлено
+
+- **Добавлены локализованные подсказки (ToolTip) кнопкам правой панели в Avalonia-версии** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)). Ранее у кнопок правой панели (кроме стрелки split-кнопки «Очистка кеша») всплывающих подсказок не было вовсе. В методы `PrimaryActionButton(...)` и `SecondaryActionButton(...)` добавлен параметр подсказки, и для всех кнопок секций «Конфигуратор», «Обслуживание», «Список баз», «Отметки», а также для primary-кнопки «Запустить 1С:Предприятие» и кнопки «Выход» задан локализованный `ToolTip`. Переиспользованы существующие ключи `Main.EditBaseTooltip`, `Main.NativeStarterTooltip`, `Main.AddBaseOrGroupTooltip`, `Main.DeleteTooltip`, `Main.ToggleFavoriteTooltip`, `Main.PinBaseTooltip`, `Main.ExitTooltip`, `Main.ClearCacheTooltip` (у основной части split-кнопки). Добавлены новые ключи `Main.LaunchEnterpriseTooltip`, `Main.LaunchConfiguratorSectionTooltip`, `Main.OpenFolderTooltip`, `Main.DesktopShortcutTooltip` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+- **Версия обновлена до 0.3.3.15** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.15 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.15.
+
 ## [0.3.3.14] — 2026-08-21
 
 ### Добавлено

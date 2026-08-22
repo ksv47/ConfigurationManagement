@@ -688,26 +688,26 @@ namespace Configuration_Management
             panel.Children.Add(header);
 
             // Основное действие (primary) — крупная акцентная кнопка вверху.
-            panel.Children.Add(PrimaryActionButton("IconPlay", LocalizationManager.T("Main.LaunchEnterprise"), "LaunchEnterpriseCommand"));
+            panel.Children.Add(PrimaryActionButton("IconPlay", LocalizationManager.T("Main.LaunchEnterprise"), "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
 
             // Секции secondary-действий, сгруппированные по смыслу.
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionConfigurator"), "IconConfiguration",
-                SecondaryActionButton("IconWrench", LocalizationManager.T("Main.LaunchConfiguratorSection"), "LaunchConfiguratorCommand")));
+                SecondaryActionButton("IconWrench", LocalizationManager.T("Main.LaunchConfiguratorSection"), "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip"))));
 
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionMaintenance"), "IconWrench",
                 BuildClearCacheSplitButton(),
-                SecondaryActionButton("IconEdit", LocalizationManager.T("Main.EditSettings"), "EditInfobaseCommand"),
-                SecondaryActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand"),
-                SecondaryActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand")));
+                SecondaryActionButton("IconEdit", LocalizationManager.T("Main.EditSettings"), "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")),
+                SecondaryActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
+                SecondaryActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltip"))));
 
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionBaseList"), "IconList",
-                SecondaryActionButton("IconAdd", LocalizationManager.T("Main.AddBaseOrGroup"), "AddInfobaseCommand"),
-                SecondaryActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand"),
-                SecondaryActionButton("IconDelete", LocalizationManager.T("Main.Delete"), "DeleteInfobaseCommand")));
+                SecondaryActionButton("IconAdd", LocalizationManager.T("Main.AddBaseOrGroup"), "AddInfobaseCommand", LocalizationManager.T("Main.AddBaseOrGroupTooltip")),
+                SecondaryActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand", LocalizationManager.T("Main.DesktopShortcutTooltip")),
+                SecondaryActionButton("IconDelete", LocalizationManager.T("Main.Delete"), "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"))));
 
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionMarks"), "IconStar",
-                SecondaryActionButton("IconFavorite", LocalizationManager.T("Main.ToFavorites"), "ToggleFavoriteCommand"),
-                SecondaryActionButton("IconPin", LocalizationManager.T("Main.Pin"), "TogglePinCommand")));
+                SecondaryActionButton("IconFavorite", LocalizationManager.T("Main.ToFavorites"), "ToggleFavoriteCommand", LocalizationManager.T("Main.ToggleFavoriteTooltip")),
+                SecondaryActionButton("IconPin", LocalizationManager.T("Main.Pin"), "TogglePinCommand", LocalizationManager.T("Main.PinBaseTooltip"))));
 
             // Информация о подключении.
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionConnInfo"), "IconInfo",
@@ -763,7 +763,7 @@ namespace Configuration_Management
         }
 
         /// <summary>Крупная primary-кнопка на акцентном фоне с контрастным текстом/иконкой.</summary>
-        private static Control PrimaryActionButton(string iconKey, string text, string commandPath)
+        private static Control PrimaryActionButton(string iconKey, string text, string commandPath, string tooltip)
         {
             var btn = new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush")
             {
@@ -771,14 +771,15 @@ namespace Configuration_Management
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Margin = new Thickness(0, 0, 0, UiMetrics.SectionMarginBottom),
-                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV)
+                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
+                ToolTip = new ToolTip { Content = tooltip }
             };
             btn.Bind(Button.CommandProperty, new Binding(commandPath));
             return btn;
         }
 
         /// <summary>Secondary-кнопка с приглушённым фоном и hover/pressed из ресурсов темы.</summary>
-        private static Control SecondaryActionButton(string iconKey, string text, string commandPath)
+        private static Control SecondaryActionButton(string iconKey, string text, string commandPath, string tooltip)
         {
             var btn = new PanelButton(
                 "SecondaryButtonBackgroundBrush",
@@ -789,22 +790,25 @@ namespace Configuration_Management
                 Content = ThemedIconAndText(iconKey, text, "TextPrimaryBrush", 16, centered: false),
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Margin = new Thickness(0, 0, 0, 2)
+                Margin = new Thickness(0, 0, 0, 2),
+                ToolTip = new ToolTip { Content = tooltip }
             };
             btn.Bind(Button.CommandProperty, new Binding(commandPath));
             return btn;
         }
 
         /// <summary>
-        /// Split-кнопка «Очистка кеша»: основная часть выполняет быструю очистку всего кеша
-        /// (программного и пользовательского) выбранной базы с предупреждением, а правая
-        /// стрелка «▾» открывает выпадающее меню с выбором типа кеша и полным окном очистки.
+        /// Split-кнопка «Очистка кеша» по аналогии с кнопкой запуска 1С:Предприятие:
+        /// основная часть открывает окно очистки кеша (<see cref="CacheCleanWindow"/>)
+        /// (с выделенной базой или без неё, если выбрана группа), а правая стрелка «▾»
+        /// открывает выпадающее меню с выбором типа кеша и полным окном очистки.
+        /// Доступна даже при выбранной группе.
         /// </summary>
         private static Control BuildClearCacheSplitButton()
         {
             var radius = UiMetrics.RadiusLg;
 
-            // Основная часть: быстрая очистка всего кеша с подтверждением.
+            // Основная часть: открывает окно очистки кеша.
             var main = new PanelButton(
                 "SecondaryButtonBackgroundBrush",
                 "SecondaryButtonHoverBrush",
@@ -815,9 +819,10 @@ namespace Configuration_Management
                 Content = ThemedIconAndText("IconDelete", LocalizationManager.T("Main.ClearCache"), "TextPrimaryBrush", 16, centered: false),
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Margin = new Thickness(0, 0, 0, 2)
+                Margin = new Thickness(0, 0, 0, 2),
+                ToolTip = new ToolTip { Content = LocalizationManager.T("Main.ClearCacheTooltip") }
             };
-            main.Bind(Button.CommandProperty, new Binding("QuickClearCacheCommand"));
+            main.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
 
             // Выпадающее меню, привязанное к кнопке-стрелке.
             var menu = new ContextMenu();
@@ -833,6 +838,12 @@ namespace Configuration_Management
             var user = new MenuItem { Header = LocalizationManager.T("Main.ClearUserCache") };
             user.Bind(MenuItem.CommandProperty, new Binding("ClearUserCacheCommand"));
             menu.Items.Add(user);
+
+            menu.Items.Add(new Separator());
+
+            var both = new MenuItem { Header = LocalizationManager.T("Main.ClearCacheBoth") };
+            both.Bind(MenuItem.CommandProperty, new Binding("ClearCacheBothCommand"));
+            menu.Items.Add(both);
 
             var arrow = new PanelButton(
                 "SecondaryButtonBackgroundBrush",
