@@ -739,8 +739,8 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 0, 10, 0)
             };
             ToolTip.SetTip(iconBox, ib.StatusDisplay);
-            card.AddSubscription(ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush"));
-            card.AddSubscription(ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush"));
+            card.AddSubscription(() => ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush"));
+            card.AddSubscription(() => ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush"));
             iconBox.Child = new Avalonia.Controls.Shapes.Path
             {
                 Width = UiMetrics.RowIcon,
@@ -770,7 +770,7 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            card.AddSubscription(ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush"));
+            card.AddSubscription(() => ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush"));
             nameRow.Children.Add(name);
             content.Children.Add(nameRow);
 
@@ -833,13 +833,10 @@ namespace Configuration_Management
                     icon.Fill = brush;
             }
 
-            if (Application.Current is { } app)
-            {
-                card.AddSubscription(app.GetResourceObservable(activeBrushKey)
-                    .Subscribe(new BrushObserver(brush => active = brush, ApplyState)));
-                card.AddSubscription(app.GetResourceObservable("TextSecondaryBrush")
-                    .Subscribe(new BrushObserver(brush => idle = brush, ApplyState)));
-            }
+            card.AddSubscription(() => Application.Current?.GetResourceObservable(activeBrushKey)
+                .Subscribe(new BrushObserver(brush => active = brush, ApplyState)));
+            card.AddSubscription(() => Application.Current?.GetResourceObservable("TextSecondaryBrush")
+                .Subscribe(new BrushObserver(brush => idle = brush, ApplyState)));
 
             void OnInfobaseChanged(object? _, PropertyChangedEventArgs e)
             {
@@ -847,9 +844,13 @@ namespace Configuration_Management
                     ApplyState();
             }
 
-            infobase.PropertyChanged += OnInfobaseChanged;
-            card.AddSubscription(new ActionDisposable(() => infobase.PropertyChanged -= OnInfobaseChanged));
-            ApplyState();
+            card.AddSubscription(() =>
+            {
+                infobase.PropertyChanged += OnInfobaseChanged;
+                // Состояние могло измениться, пока строка была отсоединена.
+                ApplyState();
+                return new ActionDisposable(() => infobase.PropertyChanged -= OnInfobaseChanged);
+            });
 
             var button = new Button
             {
@@ -907,9 +908,10 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
             ToolTip.SetTip(block, text);
-            var subscription = ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            if (owner is not null)
-                owner.AddSubscription(subscription);
+            if (owner is null)
+                ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            else
+                owner.AddSubscription(() => ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
             return block;
         }
 
