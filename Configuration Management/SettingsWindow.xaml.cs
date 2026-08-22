@@ -88,6 +88,10 @@ namespace Configuration_Management
                 !string.Equals(li.Code, LocalizationManager.Instance.CurrentLanguage, StringComparison.OrdinalIgnoreCase))
             {
                 _viewModel.ApplyLanguage(li.Code);
+                // Перестраиваем список тем: отображаемые подписи встроенных тем
+                // локализованы и должны обновиться при смене языка. Сохранённое имя
+                // (канонический ключ «Светлая»/«Тёмная») не меняется.
+                RefreshSchemeComboBox();
             }
         }
 

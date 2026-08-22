@@ -353,10 +353,13 @@ public class MainViewModel : ViewModelBase
         TogglePinCommand = new RelayCommand(TogglePin, _ => SelectedInfobase != null);
         TogglePinForCommand = new RelayCommand(TogglePinFor);
         CopyConnectionStringCommand = new RelayCommand(CopyConnectionString, _ => SelectedInfobase != null);
-        ClearCacheCommand = new RelayCommand(ClearCache, _ => SelectedInfobase != null);
-        ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program), _ => SelectedInfobase != null);
-        ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User), _ => SelectedInfobase != null);
-        ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All), _ => SelectedInfobase != null);
+        // Команды очистки кеша доступны всегда (в т.ч. при выбранной группе): если база не
+        // выделена (например, выбрана группа), окно очистки открывается без выбранной базы
+        // (defaultSelected = null) — в списке не выделяется ни одна база.
+        ClearCacheCommand = new RelayCommand(ClearCache);
+        ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program));
+        ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User));
+        ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));
         OpenInfobaseFolderCommand = new RelayCommand(OpenInfobaseFolder,
             _ => SelectedInfobase?.Connection.Type == ConnectionType.File);
         CreateDesktopShortcutCommand = new RelayCommand(CreateDesktopShortcut, _ => SelectedInfobase != null);

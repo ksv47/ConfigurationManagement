@@ -610,32 +610,34 @@ public static class IbasesV8iImporter
         /// </summary>
         private static string MapLaunchMode(string app, string defaultApp)
         {
-            var normalizedApp = app.Trim().ToLowerInvariant();
-
             // Явно заданный режим запуска имеет приоритет.
-            switch (normalizedApp)
-            {
-                case "thinclient":
-                    return "Тонкий клиент";
-                case "thickclient":
-                    return "Толстый клиент";
-                case "webclient":
-                    return "Веб-клиент";
-            }
+            var mapped = MapSingleLaunchMode(app);
+            if (mapped != null)
+                return mapped;
 
             // App не задан или равен Auto — используем режим запуска по умолчанию (DefaultApp).
-            var normalizedDefault = defaultApp.Trim().ToLowerInvariant();
-            switch (normalizedDefault)
-            {
-                case "thinclient":
-                    return "Тонкий клиент";
-                case "thickclient":
-                    return "Толстый клиент";
-                case "webclient":
-                    return "Веб-клиент";
-            }
+            mapped = MapSingleLaunchMode(defaultApp);
+            if (mapped != null)
+                return mapped;
 
             return "Автоматический";
+        }
+
+        /// <summary>
+        /// Сопоставляет одно значение ключа App/DefaultApp из ibases.v8i каноническому
+        /// русскому режиму запуска. Возвращает null, если значение не распознано
+        /// (пусто, Auto или иное) — в этом случае применяется режим по умолчанию.
+        /// Канонические значения используются для хранения и сравнения и НЕ локализуются.
+        /// </summary>
+        private static string? MapSingleLaunchMode(string value)
+        {
+            return value.Trim().ToLowerInvariant() switch
+            {
+                "thinclient" => "Тонкий клиент",
+                "thickclient" => "Толстый клиент",
+                "webclient" => "Веб-клиент",
+                _ => null
+            };
         }
 
         /// <summary>
