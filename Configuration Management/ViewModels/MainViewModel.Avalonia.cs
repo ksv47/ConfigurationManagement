@@ -77,6 +77,10 @@ public class MainViewModel : ViewModelBase
     public event Action<bool>? OnCompactModeChanged;
 
     // ---- Текущая сессия ----
+
+    /// <summary>Показывать блок «Текущая сессия» в правой панели.</summary>
+    public bool ShowSessionLaunchPanel => _settings.ShowSessionLaunchPanel;
+
     private string _sessionClient = "Авто";
     private string _sessionArch = "Авто";
 
@@ -389,6 +393,7 @@ public class MainViewModel : ViewModelBase
             _settings.ShowTags = value;
             SaveSettingsSilently();
             OnPropertyChanged(nameof(ShowTags));
+        OnPropertyChanged(nameof(ShowSessionLaunchPanel));
             // Строки строятся с чипами или без них, поэтому пересобираются.
             ApplyFilter();
         }

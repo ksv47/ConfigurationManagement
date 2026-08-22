@@ -225,6 +225,27 @@ namespace Configuration_Management.Themes
                     app.Resources[kvp.Key + "Brush"] = new SolidColorBrush(color);
                 }
             }
+
+            ApplyFluentAccent(app, scheme);
+        }
+
+        /// <summary>
+        /// Отдаёт акцент схемы стандартным контролам Fluent (переключатели,
+        /// флажки, ползунки): свой цвет они берут из SystemAccentColor, и без
+        /// этого в янтарном интерфейсе они оставались синими.
+        /// </summary>
+        private static void ApplyFluentAccent(Application app, ColorScheme scheme)
+        {
+            if (!scheme.Colors.TryGetValue("AccentColor", out var accentHex) || !TryParseColor(accentHex, out var accent))
+                return;
+
+            app.Resources["SystemAccentColor"] = accent;
+            app.Resources["SystemAccentColorLight1"] = accent;
+            app.Resources["SystemAccentColorLight2"] = accent;
+            app.Resources["SystemAccentColorLight3"] = accent;
+            app.Resources["SystemAccentColorDark1"] = accent;
+            app.Resources["SystemAccentColorDark2"] = accent;
+            app.Resources["SystemAccentColorDark3"] = accent;
         }
 
         private static bool TryParseColor(string hex, out Color color)

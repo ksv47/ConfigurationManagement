@@ -1132,11 +1132,17 @@ namespace Configuration_Management
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionConnInfo"), "IconInfo",
                 DetailRow(LocalizationManager.T("Main.Type"), new Binding("SelectedInfobase.ConnectionTypeDisplay")),
                 DetailRow(LocalizationManager.T("Main.ServerPath"), new Binding("SelectedInfobase.ConnectionPathDisplay")),
+                DetailRow(LocalizationManager.T("Column.ServerBase"), new Binding("SelectedInfobase.ServerDatabaseDisplay")),
                 DetailRow(LocalizationManager.T("Main.ConnectionString"), new Binding("SelectedInfobase.ConnectionStringDisplay")),
                 DetailRow(LocalizationManager.T("Main.Platform"), new Binding("SelectedInfobase.PlatformVersion")),
                 DetailRow(LocalizationManager.T("Main.LaunchMode"), new Binding("SelectedInfobase.ParsedLaunchMode")),
+                DetailRow(LocalizationManager.T("Main.Client"), new Binding("SelectedInfobase.ClientTypeDisplay")),
                 DetailRow(LocalizationManager.T("Main.Bitness"), new Binding("SelectedInfobase.ArchitectureDisplay")),
+                DetailRow(LocalizationManager.T("Main.Parameters"), new Binding("SelectedInfobase.LaunchParameters")),
                 DetailRow(LocalizationManager.T("Main.LastLaunch"), new Binding("SelectedInfobase.LastLaunchDisplay"))));
+
+            // Блок «Текущая сессия»: значения действуют только на следующий запуск.
+            panel.Children.Add(BuildSessionCard());
 
             // Описание.
             var desc = new TextBlock { TextWrapping = TextWrapping.Wrap };
@@ -1147,6 +1153,72 @@ namespace Configuration_Management
                 LocalizationManager.T("Main.ExitTooltip")));
 
             return panel;
+        }
+
+        /// <summary>
+        /// Блок «Текущая сессия»: режим клиента и разрядность только для
+        /// следующего запуска, сохранённые настройки базы он не меняет.
+        /// Видимостью управляет настройка, как и в WPF-версии.
+        /// </summary>
+        private Control BuildSessionCard()
+        {
+            var hint = new TextBlock
+            {
+                Text = LocalizationManager.T("Main.SessionOnceHint"),
+                FontSize = UiMetrics.Scaled(11),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+            ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            ToolTip.SetTip(hint, LocalizationManager.T("Main.CurrentSessionHelp"));
+
+            var card = SectionCard(LocalizationManager.T("Main.CurrentSession"), "IconInfo",
+                hint,
+                SessionGroupLabel(LocalizationManager.T("Main.ClientMode")),
+                SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionClient", "IsSessionClientAuto"),
+                SessionOption(LocalizationManager.T("Main.SessionClientOrdinary"), "SessionClient", "IsSessionClientOrdinary"),
+                SessionOption(LocalizationManager.T("Main.SessionClientThickManaged"), "SessionClient", "IsSessionClientThick",
+                    LocalizationManager.T("Main.SessionThickManagedTooltip")),
+                SessionOption(LocalizationManager.T("Main.SessionClientThickOrdinary"), "SessionClient", "IsSessionClientThickOrdinary",
+                    LocalizationManager.T("Main.SessionThickOrdinaryTooltip")),
+                SessionOption(LocalizationManager.T("Main.SessionClientThin"), "SessionClient", "IsSessionClientThin"),
+                SessionGroupLabel(LocalizationManager.T("Main.Bitness")),
+                SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionArch", "IsSessionArchAuto"),
+                SessionOption("32", "SessionArch", "IsSessionArch32"),
+                SessionOption("64", "SessionArch", "IsSessionArch64"));
+
+            card.Bind(Control.IsVisibleProperty, new Binding("ShowSessionLaunchPanel"));
+            return card;
+        }
+
+        /// <summary>Подпись группы переключателей в блоке текущей сессии.</summary>
+        private static Control SessionGroupLabel(string text)
+        {
+            var block = new TextBlock
+            {
+                Text = text,
+                FontSize = UiMetrics.Scaled(11),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 6, 0, 2)
+            };
+            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            return block;
+        }
+
+        /// <summary>Переключатель в блоке текущей сессии: одна из взаимоисключающих опций.</summary>
+        private static Control SessionOption(string text, string group, string propertyPath, string? tooltip = null)
+        {
+            var option = new RadioButton
+            {
+                Content = text,
+                GroupName = group,
+                FontSize = UiMetrics.Scaled(12),
+                Margin = new Thickness(0, 1)
+            };
+            option.Bind(RadioButton.IsCheckedProperty, new Binding(propertyPath) { Mode = BindingMode.TwoWay });
+            if (tooltip is not null)
+                ToolTip.SetTip(option, tooltip);
+            return option;
         }
 
         /// <summary>Карточка-секция: скруглённый фон/граница из темы + заголовок с иконкой и вложенные элементы.</summary>
