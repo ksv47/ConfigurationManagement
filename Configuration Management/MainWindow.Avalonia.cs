@@ -1122,14 +1122,29 @@ namespace Configuration_Management
             // Значок базы показывается только когда база выбрана: при выбранной
             // группе и при пустом выборе он висел бы один без подписи.
             var headerIcon = IconHelper.MakeIcon("IconDatabase", 28);
-            headerIcon.Bind(Control.IsVisibleProperty, new Binding("IsInfobaseSelected"));
+            headerIcon.Bind(Avalonia.Controls.Shapes.Path.DataProperty,
+                new Binding("RightPanelIconKey") { Converter = IconKeyConverter });
+            headerIcon.Bind(Control.IsVisibleProperty, new Binding("HasRightPanelIcon"));
             header.Children.Add(headerIcon);
             var headerText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             headerText.Children.Add(nameBlock);
             headerText.Children.Add(groupBlock);
             header.Children.Add(headerText);
             Grid.SetColumn(headerText, 1);
+
+            // Подсказка «выберите базу» отдельной строкой под заголовком,
+            // как в WPF: там она видна, пока база не выбрана.
+            var hintBlock = new TextBlock
+            {
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.7,
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+            hintBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelHint"));
+            hintBlock.Bind(Control.IsVisibleProperty, new Binding("!IsInfobaseSelected"));
             panel.Children.Add(header);
+            panel.Children.Add(hintBlock);
 
             // Основное действие (primary) — крупная акцентная кнопка вверху.
             panel.Children.Add(PrimaryActionButton("IconPlay", LocalizationManager.T("Main.LaunchEnterprise"), "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
@@ -1250,6 +1265,10 @@ namespace Configuration_Management
                 ToolTip.SetTip(option, tooltip);
             return option;
         }
+
+        /// <summary>Ключ значка в геометрию из Icons.axaml для привязок заголовка.</summary>
+        private static readonly Avalonia.Data.Converters.FuncValueConverter<string?, Geometry?> IconKeyConverter =
+            new(key => string.IsNullOrEmpty(key) ? null : IconHelper.Geometry(key));
 
         /// <summary>Карточка-секция: скруглённый фон/граница из темы + заголовок с иконкой и вложенные элементы.</summary>
         private static Control SectionCard(string title, string iconKey, params Control[] children)

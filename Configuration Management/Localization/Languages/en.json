@@ -1171,6 +1171,7 @@
     "Launcher.BaseLinkTitle": "1C infobase link",
     "Launcher.PlatformExeNotFound": "Failed to find the 1C platform (1cv8.exe).\nInstall the 1C:Enterprise platform.",
     "Launcher.CreateExeNotFound": "1cv8.exe not found for the specified platform version.",
+    "Launcher.CreateExeNotFoundLinux": "The 1cv8 executable was not found for the selected platform version.",
     "Launcher.CreateFileDirNotSpecified": "The file infobase directory is not specified.",
     "Launcher.CreateDirCreateFailedFormat": "Failed to create the directory:\n{0}\n{1}",
     "Launcher.CreateServerOrDbNotSpecified": "Server or database name is not specified.",

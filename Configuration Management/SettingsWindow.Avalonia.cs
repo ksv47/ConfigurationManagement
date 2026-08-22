@@ -1,6 +1,7 @@
 #if LINUX
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
 using Avalonia.Controls.Primitives;
@@ -138,23 +139,30 @@ namespace Configuration_Management
             platforms.Children.Add(Hint(LocalizationManager.T("Settings.Platforms.Intro")));
 
             var versionsList = new ListBox { MinHeight = 120, MaxHeight = 180 };
-            versionsList.ItemsSource = _viewModel.FindPlatformVersions();
+            var versionsEmpty = Hint(LocalizationManager.T("Settings.PlatformsNotFound"));
             platforms.Children.Add(versionsList);
+            platforms.Children.Add(versionsEmpty);
 
             var pathsList = new ListBox { MinHeight = 90, MaxHeight = 140 };
-            var paths = new List<string>(_viewModel.AdditionalPlatformSearchPaths);
+            // Наблюдаемый список: список сам обновляется и не теряет выделение
+            // с прокруткой, как было бы при подмене ItemsSource.
+            var paths = new ObservableCollection<string>(_viewModel.AdditionalPlatformSearchPaths);
             pathsList.ItemsSource = paths;
 
-            void RefreshPaths()
+            void RefreshVersions()
             {
-                // ItemsSource на том же списке не перечитывается, поэтому подменяем.
-                pathsList.ItemsSource = null;
-                pathsList.ItemsSource = new List<string>(paths);
+                var found = _viewModel.FindPlatformVersions(paths);
+                versionsList.ItemsSource = found;
+                // Пустой список без пояснения выглядит как поломка, поэтому
+                // показываем ту же подсказку, что и WPF-версия.
+                versionsEmpty.IsVisible = found.Count == 0;
             }
+
+            RefreshVersions();
 
             var refreshButton = new Button { Content = LocalizationManager.T("Settings.Platforms.Refresh") };
             ToolTip.SetTip(refreshButton, LocalizationManager.T("Settings.Platforms.RefreshTooltip"));
-            refreshButton.Click += (_, _) => versionsList.ItemsSource = _viewModel.FindPlatformVersions(paths);
+            refreshButton.Click += (_, _) => RefreshVersions();
             platforms.Children.Add(refreshButton);
 
             platforms.Children.Add(GroupTitle(LocalizationManager.T("Settings.AdditionalPaths")));
@@ -170,7 +178,8 @@ namespace Configuration_Management
                 if (string.IsNullOrWhiteSpace(folder) || paths.Contains(folder, StringComparer.OrdinalIgnoreCase))
                     return;
                 paths.Add(folder);
-                RefreshPaths();
+                // Список версий пересчитывается сразу, как в WPF-версии.
+                RefreshVersions();
             };
             var removePath = new Button { Content = LocalizationManager.T("Common.Delete") };
             ToolTip.SetTip(removePath, LocalizationManager.T("Settings.AdditionalPaths.RemoveTooltip"));
@@ -178,8 +187,8 @@ namespace Configuration_Management
             {
                 if (pathsList.SelectedItem is not string selected)
                     return;
-                paths.RemoveAll(p => string.Equals(p, selected, StringComparison.OrdinalIgnoreCase));
-                RefreshPaths();
+                paths.Remove(selected);
+                RefreshVersions();
             };
             pathButtons.Children.Add(addPath);
             pathButtons.Children.Add(removePath);
