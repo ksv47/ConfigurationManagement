@@ -81,6 +81,52 @@ public class MainViewModel : ViewModelBase
     /// <summary>Показывать блок «Текущая сессия» в правой панели.</summary>
     public bool ShowSessionLaunchPanel => _settings.ShowSessionLaunchPanel;
 
+    /// <summary>
+    /// Применяет настройки вкладки «Отображение» и сохраняет их разом, как это
+    /// делает WPF-версия по кнопке в окне настроек: по одному сохранению
+    /// на переключатель файл переписывался бы десяток раз.
+    /// </summary>
+    public void ApplyDisplaySettings(
+        bool showFavoritesButton, bool showPinnedButton, bool showTags, bool showTagFilterPanel,
+        bool showVersionColumn, bool showConfigurationColumn, bool showLaunchModeColumn,
+        bool showServerColumn, bool showLastLaunchColumn, bool showSizeColumn,
+        bool showRightPanelDetails, bool showSessionLaunchPanel,
+        bool groupByGroup, bool showEmptyGroups)
+    {
+        _settings.ShowFavoritesButton = showFavoritesButton;
+        _settings.ShowPinnedButton = showPinnedButton;
+        _settings.ShowTags = showTags;
+        _settings.ShowTagFilterPanel = showTagFilterPanel;
+        _settings.ShowVersionColumn = showVersionColumn;
+        _settings.ShowConfigurationColumn = showConfigurationColumn;
+        _settings.ShowLaunchModeColumn = showLaunchModeColumn;
+        _settings.ShowServerColumn = showServerColumn;
+        _settings.ShowLastLaunchColumn = showLastLaunchColumn;
+        _settings.ShowSizeColumn = showSizeColumn;
+        _settings.ShowRightPanelDetails = showRightPanelDetails;
+        _settings.ShowSessionLaunchPanel = showSessionLaunchPanel;
+        _settings.GroupByGroup = groupByGroup;
+        _settings.ShowEmptyGroups = showEmptyGroups;
+
+        _showTagFilterPanel = showTagFilterPanel;
+        _showRightPanelDetails = showRightPanelDetails;
+        _groupByGroup = groupByGroup;
+        _showEmptyGroups = showEmptyGroups;
+
+        SaveSettingsSilently();
+
+        NotifyColumnSettings();
+        NotifySessionSettings();
+        OnPropertyChanged(nameof(ShowTagFilterPanel));
+        OnPropertyChanged(nameof(ShowRightPanelDetails));
+        OnPropertyChanged(nameof(GroupByGroup));
+        OnPropertyChanged(nameof(ShowEmptyGroups));
+        OnPropertyChanged(nameof(ShowExpandCollapseButtons));
+
+        // Состав колонок и группировка меняют и строки, и заголовок.
+        RebuildTree();
+    }
+
     private string _sessionClient = "Авто";
     private string _sessionArch = "Авто";
 
