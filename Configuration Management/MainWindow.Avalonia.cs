@@ -57,6 +57,7 @@ namespace Configuration_Management
         private bool _columnHeaderRefreshQueued;
         private bool _headerAlignQueued;
         private readonly Dictionary<string, int> _headerColumnIndex = new(StringComparer.Ordinal);
+        private readonly List<IDisposable> _rightPanelSubscriptions = new();
         private string? _resizeKey;
         private int _resizePointerId;
         private readonly List<Grid> _resizeRowGrids = new();
@@ -1089,6 +1090,12 @@ namespace Configuration_Management
 
         private Control BuildRightPanel()
         {
+            // Панель пересобирается вместе с окном (компактный режим), поэтому
+            // прежние подписки на кисти темы освобождаются.
+            foreach (var subscription in _rightPanelSubscriptions)
+                subscription.Dispose();
+            _rightPanelSubscriptions.Clear();
+
             var panel = new StackPanel { HorizontalAlignment = HorizontalAlignment.Stretch };
 
             // Заголовок базы
@@ -1169,7 +1176,7 @@ namespace Configuration_Management
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 6)
             };
-            ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            Track(_rightPanelSubscriptions, ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
             ToolTip.SetTip(hint, LocalizationManager.T("Main.CurrentSessionHelp"));
 
             var card = SectionCard(LocalizationManager.T("Main.CurrentSession"), "IconInfo",
@@ -1192,7 +1199,7 @@ namespace Configuration_Management
         }
 
         /// <summary>Подпись группы переключателей в блоке текущей сессии.</summary>
-        private static Control SessionGroupLabel(string text)
+        private Control SessionGroupLabel(string text)
         {
             var block = new TextBlock
             {
@@ -1201,7 +1208,7 @@ namespace Configuration_Management
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 6, 0, 2)
             };
-            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            Track(_rightPanelSubscriptions, ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
             return block;
         }
 
