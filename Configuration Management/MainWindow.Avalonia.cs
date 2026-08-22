@@ -58,6 +58,8 @@ namespace Configuration_Management
         private bool _headerAlignQueued;
         private readonly Dictionary<string, int> _headerColumnIndex = new(StringComparer.Ordinal);
         private string? _resizeKey;
+        private int _resizePointerId;
+        private readonly List<Grid> _resizeRowGrids = new();
         private double _resizeStartWidth;
         private double _resizeStartX;
         private Border? _tagPanel;
@@ -1721,17 +1723,7 @@ namespace Configuration_Management
                 _columnHeaderRow.Children.Add(grip);
             }
 
-            // Минимальная ширина области равна сумме колонок: при узком окне
-            // включается горизонтальная прокрутка, и заголовок едет вместе
-            // со строками, а не разъезжается с ними. Слева считаем по большему
-            // из двух блоков: у заголовка это кнопки групп, у строки — иконка базы.
-            if (_listContent is not null)
-            {
-                var lead = favoriteWidth + pinWidth + IconColumnWidth;
-                var nameWidth = _vm.NameColumnWidth > 0 ? _vm.NameColumnWidth : NameColumnMinWidth;
-                _listContent.MinWidth = nameWidth + Math.Max(lead, _headerToolbarWidth)
-                    + UiMetrics.PaddingControl * 2 + columns.Sum(c => c.Width);
-            }
+            UpdateListMinWidth();
 
             QueueHeaderAlign();
         }
@@ -1813,6 +1805,10 @@ namespace Configuration_Management
             grip.PointerPressed += OnColumnResizePressed;
             grip.PointerMoved += OnColumnResizeMoved;
             grip.PointerReleased += OnColumnResizeReleased;
+            // Захват теряется не только отпусканием кнопки: его снимает и оконная
+            // система, и пересборка окна в компактном режиме. Без этого обработчика
+            // перетаскивание осталось бы незавершённым, а ширина несохранённой.
+            grip.PointerCaptureLost += OnColumnResizeCaptureLost;
             return grip;
         }
 
@@ -1820,21 +1816,42 @@ namespace Configuration_Management
         {
             if (sender is not Border grip || grip.Tag is not string key || _columnHeaderRow is null)
                 return;
+            if (_resizeKey is not null)
+                return;
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                return;
 
             var column = Grid.GetColumn(grip);
             if (column < 0 || column >= _columnHeaderRow.ColumnDefinitions.Count)
                 return;
 
             _resizeKey = key;
+            _resizePointerId = e.Pointer.Id;
             _resizeStartWidth = _columnHeaderRow.ColumnDefinitions[column].ActualWidth;
             _resizeStartX = e.GetPosition(this).X;
+
+            // Сетки строк собираются один раз на перетаскивание: во время него
+            // дерево не пересобирается, а обход визуального дерева на каждое
+            // движение указателя стоил бы дорого на списке в сотни баз.
+            _resizeRowGrids.Clear();
+            if (_tree is not null)
+            {
+                foreach (var card in _tree.GetVisualDescendants().OfType<InfobaseRowCard>())
+                {
+                    if (card.Child is Grid grid)
+                        _resizeRowGrids.Add(grid);
+                }
+            }
+
             e.Pointer.Capture(grip);
             e.Handled = true;
         }
 
         private void OnColumnResizeMoved(object? sender, PointerEventArgs e)
         {
-            if (_resizeKey is null || sender is not Border grip || !ReferenceEquals(e.Pointer.Captured, grip))
+            if (_resizeKey is null || e.Pointer.Id != _resizePointerId)
+                return;
+            if (sender is not Border grip || !ReferenceEquals(e.Pointer.Captured, grip))
                 return;
 
             var width = Math.Max(MinColumnWidth, _resizeStartWidth + e.GetPosition(this).X - _resizeStartX);
@@ -1844,14 +1861,33 @@ namespace Configuration_Management
 
         private void OnColumnResizeReleased(object? sender, PointerReleasedEventArgs e)
         {
-            e.Pointer.Capture(null);
-            if (_resizeKey is null)
+            if (_resizeKey is null || e.Pointer.Id != _resizePointerId)
                 return;
 
-            // Настройки пишутся один раз по отпусканию, а не на каждое движение мыши.
-            _vm?.UpdateColumnWidth(_resizeKey, ColumnWidthOf(_resizeKey), save: true);
-            _resizeKey = null;
+            e.Pointer.Capture(null);
+            FinishColumnResize();
             e.Handled = true;
+        }
+
+        private void OnColumnResizeCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+        {
+            if (_resizeKey is null || e.Pointer.Id != _resizePointerId)
+                return;
+
+            FinishColumnResize();
+        }
+
+        /// <summary>
+        /// Завершает перетаскивание: пишет ширину в настройки один раз, а не
+        /// на каждое движение указателя, и отпускает собранные сетки строк.
+        /// </summary>
+        private void FinishColumnResize()
+        {
+            if (_resizeKey is not null)
+                _vm?.UpdateColumnWidth(_resizeKey, ColumnWidthOf(_resizeKey), save: true);
+
+            _resizeKey = null;
+            _resizeRowGrids.Clear();
         }
 
         /// <summary>Текущая ширина колонки заголовка по её ключу.</summary>
@@ -1881,15 +1917,44 @@ namespace Configuration_Management
             _columnHeaderRow.ColumnDefinitions[header].Width = new GridLength(width);
 
             var row = header - (NameHeaderColumn - NameRowColumn);
-            if (_tree is null)
-                return;
-
-            foreach (var card in _tree.GetVisualDescendants().OfType<InfobaseRowCard>())
+            foreach (var grid in _resizeRowGrids)
             {
-                if (card.Child is not Grid grid || row < 0 || row >= grid.ColumnDefinitions.Count)
+                if (row < 0 || row >= grid.ColumnDefinitions.Count)
                     continue;
                 grid.ColumnDefinitions[row].Width = new GridLength(width);
             }
+
+            // Минимум области считается заново: иначе после сужения колонки
+            // прокручиваемая область осталась бы прежней ширины с пустотой справа.
+            UpdateListMinWidth();
+        }
+
+        /// <summary>
+        /// Минимальная ширина области списка: сумма колонок заголовка плюс отступы.
+        /// При более узком окне включается горизонтальная прокрутка, и заголовок
+        /// едет вместе со строками, а не разъезжается с ними.
+        /// </summary>
+        private void UpdateListMinWidth()
+        {
+            if (_listContent is null || _columnHeaderRow is null
+                || _columnHeaderRow.ColumnDefinitions.Count <= NameHeaderColumn)
+                return;
+
+            var definitions = _columnHeaderRow.ColumnDefinitions;
+            double lead = 0;
+            for (var i = 1; i < NameHeaderColumn; i++)
+                lead += definitions[i].Width.IsAbsolute ? definitions[i].Width.Value : 0;
+
+            var nameWidth = definitions[NameHeaderColumn].Width.IsAbsolute
+                ? definitions[NameHeaderColumn].Width.Value
+                : NameColumnMinWidth;
+
+            double values = 0;
+            for (var i = NameHeaderColumn + 1; i < definitions.Count; i++)
+                values += definitions[i].Width.IsAbsolute ? definitions[i].Width.Value : 0;
+
+            _listContent.MinWidth = nameWidth + Math.Max(lead, _headerToolbarWidth)
+                + UiMetrics.PaddingControl * 2 + values;
         }
 
         /// <summary>Делает заголовок колонки кликабельным: клик меняет поле сортировки.</summary>
