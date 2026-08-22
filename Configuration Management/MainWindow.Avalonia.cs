@@ -440,8 +440,10 @@ namespace Configuration_Management
                 }
             };
 
+            // Меню висит на дереве, как в WPF: над группой и над пустым местом
+            // оно тоже открывается, а недоступные пункты гасит CanExecute.
+            // Строку под курсором дерево выделяет само, по правому нажатию.
             _tree.ContextMenu = BuildRowContextMenu();
-            _tree.ContextRequested += OnTreeContextRequested;
 
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
@@ -2211,10 +2213,13 @@ namespace Configuration_Management
                 return menu;
 
             var cacheMenu = new MenuItem { Header = LocalizationManager.T("Main.ClearCache") };
-            cacheMenu.Items.Add(MenuAction("Main.ClearProgramCache", _vm.ClearProgramCacheCommand, _vm.HotkeyClearCache));
+            cacheMenu.Items.Add(MenuAction("Main.ClearProgramCache", _vm.ClearProgramCacheCommand));
             cacheMenu.Items.Add(MenuAction("Main.ClearUserCache", _vm.ClearUserCacheCommand));
             cacheMenu.Items.Add(new Separator());
-            cacheMenu.Items.Add(MenuAction("Main.ClearCacheBoth", _vm.ClearCacheBothCommand));
+            // Сочетание показано здесь, а не у программного кеша: Ctrl+Shift+C
+            // открывает очистку обоих кешей. В WPF подпись стоит у программного,
+            // хотя клавиша делает то же самое, что этот пункт.
+            cacheMenu.Items.Add(MenuAction("Main.ClearCacheBoth", _vm.ClearCacheBothCommand, _vm.HotkeyClearCache));
 
             menu.Items.Add(MenuAction("Main.LaunchEnterprise", _vm.LaunchEnterpriseCommand, _vm.HotkeyEnterprise));
             menu.Items.Add(MenuAction("Main.LaunchConfigurator", _vm.LaunchConfiguratorCommand, _vm.HotkeyConfigurator));
@@ -2247,27 +2252,15 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Показывает меню только над строкой базы и выделяет строку под курсором:
-        /// команды работают с выбранной базой, а правый клик выделение не меняет.
-        /// </summary>
-        private void OnTreeContextRequested(object? sender, ContextRequestedEventArgs e)
-        {
-            var container = (e.Source as Visual)?.FindAncestorOfType<TreeViewItem>();
-            if (container?.DataContext is not Infobase)
-            {
-                e.Handled = true;
-                return;
-            }
-
-            container.IsSelected = true;
-        }
-
-        /// <summary>
         /// Горячие клавиши действий. Сочетания берутся из вьюмодели, оттуда же
         /// их показывают подсказки и контекстное меню, поэтому список и подписи
-        /// не расходятся. Привязки живут на окне и срабатывают только когда
-        /// событие дошло до него необработанным: набор текста в поле поиска
-        /// они не задевают.
+        /// не расходятся.
+        /// Важно про порядок: в Avalonia привязки окна проверяются раньше, чем
+        /// клавишу получит элемент с фокусом, в отличие от WPF. Ни одно из этих
+        /// сочетаний не совпадает с правкой текста, поэтому ввод в поле поиска
+        /// они не задевают, но добавлять сюда Ctrl+C, Ctrl+V и подобное нельзя:
+        /// они отберут клавишу у поля ввода. Delete по этой же причине живёт
+        /// в отдельном обработчике с проверкой фокуса, а не здесь.
         /// </summary>
         private void RegisterHotkeys()
         {
