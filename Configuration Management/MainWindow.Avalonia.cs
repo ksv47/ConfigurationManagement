@@ -1,5 +1,6 @@
 #if LINUX
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -18,6 +19,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
@@ -47,8 +49,11 @@ namespace Configuration_Management
         private SegmentButton? _tagsToggle;
         private Border? _columnHeader;
         private Grid? _columnHeaderRow;
+        private ColumnDefinition? _headerOffsetColumn;
+        private readonly List<IDisposable> _columnHeaderSubscriptions = new();
         private Grid? _listContent;
         private bool _columnHeaderRefreshQueued;
+        private bool _headerAlignQueued;
         private Border? _tagPanel;
         private WrapPanel? _tagPanelItems;
         private Button? _tagClearButton;
@@ -409,6 +414,10 @@ namespace Configuration_Management
                 if (e.Container is not TreeViewItem container)
                     return;
 
+                // Раскрытие группы добавляет строки, а с ними может измениться
+                // и самый левый отступ, по которому выровнен заголовок.
+                QueueHeaderAlign();
+
                 if (expandedBindings.TryGetValue(container, out var previous))
                 {
                     previous.Dispose();
@@ -470,7 +479,9 @@ namespace Configuration_Management
             // Показываем/скрываем заглушку при любых изменениях списка и поиска.
             if (_vm is not null)
             {
-                _vm.GroupNodes.CollectionChanged += (_, _) => UpdateEmptyState();
+                // Строки пересобираются вместе с деревом, поэтому заголовок
+                // выравнивается по ним заново: отступ уровня мог измениться.
+                _vm.GroupNodes.CollectionChanged += (_, _) => { UpdateEmptyState(); QueueHeaderAlign(); };
                 _vm.FlatItems.CollectionChanged += (_, _) => UpdateEmptyState();
                 _vm.TagFiltersRebuilt += (_, _) => RefreshTagFilterPanel();
                 _vm.PropertyChanged += (_, e) =>
@@ -481,6 +492,9 @@ namespace Configuration_Management
                     // при уведомлении о колонках: иначе сохранённые ширина и состав
                     // применились бы к строкам, но не к уже собранному заголовку.
                     if (e.PropertyName is not null && e.PropertyName.Contains("Column", StringComparison.Ordinal))
+                        QueueColumnHeaderRefresh();
+                    // Кнопки групп живут в заголовке и видны только при группировке.
+                    if (e.PropertyName == nameof(MainViewModel.ShowExpandCollapseButtons))
                         QueueColumnHeaderRefresh();
                     if (e.PropertyName == nameof(MainViewModel.ShowTagFilterPanel)
                         || e.PropertyName == nameof(MainViewModel.HasActiveTagFilter))
@@ -659,6 +673,13 @@ namespace Configuration_Management
             var card = new InfobaseRowCard();
 
             var grid = new Grid();
+            // Слева направо: звезда, булавка, иконка типа подключения, имя базы,
+            // дальше колонки значений. Звезда и булавка повторяют колонки заголовка
+            // теми же ширинами и подчиняются тем же настройкам.
+            var showFavorite = _vm?.ShowFavoritesButton ?? true;
+            var showPin = _vm?.ShowPinnedButton ?? true;
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(showFavorite ? FavoriteColumnWidth : 0) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(showPin ? PinColumnWidth : 0) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition
             {
@@ -671,6 +692,22 @@ namespace Configuration_Management
             var columns = ListColumns();
             foreach (var column in columns)
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(column.Width) });
+
+            if (showFavorite)
+            {
+                var favorite = RowMarkButton("IconFavorite", ib.IsFavorite ? "FavoriteBrush" : "TextSecondaryBrush",
+                    LocalizationManager.T("Main.ToggleFavoriteTooltip"), "ToggleFavoriteForCommand", ib, FavoriteColumnWidth);
+                grid.Children.Add(favorite);
+                Grid.SetColumn(favorite, 0);
+            }
+
+            if (showPin)
+            {
+                var pin = RowMarkButton("IconPin", ib.IsPinned ? "AccentBrush" : "TextSecondaryBrush",
+                    LocalizationManager.T("Main.TogglePinTooltip"), "TogglePinForCommand", ib, PinColumnWidth);
+                grid.Children.Add(pin);
+                Grid.SetColumn(pin, 1);
+            }
 
             // Иконка статуса базы слева: тип подключения (папка / глобус / сеть)
             // или «недоступна». Цвет зависит от статуса: янтарный — файловая,
@@ -702,7 +739,7 @@ namespace Configuration_Management
             };
 
             grid.Children.Add(iconBox);
-            Grid.SetColumn(iconBox, 0);
+            Grid.SetColumn(iconBox, 2);
 
             // Правая колонка: имя (крупно) + строки вторичной информации.
             // В компактном режиме уменьшаем и межстрочный промежуток, чтобы строки с
@@ -721,10 +758,6 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush");
             nameRow.Children.Add(name);
-            if (ib.IsFavorite)
-                nameRow.Children.Add(IconHelper.MakeIcon("IconFavorite", 13, "FavoriteBrush"));
-            if (ib.IsPinned)
-                nameRow.Children.Add(IconHelper.MakeIcon("IconPin", 13, "TextSecondaryBrush"));
             content.Children.Add(nameRow);
 
             // Вторичной строкой остаётся только то, чего нет в колонках: тип
@@ -743,7 +776,7 @@ namespace Configuration_Management
                 content.Children.Add(SecondaryText(summary));
 
             grid.Children.Add(content);
-            Grid.SetColumn(content, 1);
+            Grid.SetColumn(content, 3);
 
             for (var i = 0; i < columns.Count; i++)
             {
@@ -751,11 +784,39 @@ namespace Configuration_Management
                 var cell = SecondaryText(string.IsNullOrWhiteSpace(value) ? string.Empty : value);
                 cell.VerticalAlignment = VerticalAlignment.Center;
                 grid.Children.Add(cell);
-                Grid.SetColumn(cell, i + 2);
+                Grid.SetColumn(cell, i + 4);
             }
 
             card.Child = grid;
             return card;
+        }
+
+        /// <summary>
+        /// Кнопка-маркер в строке базы: звезда «избранное» или булавка «закреплено».
+        /// Цвет иконки показывает состояние, клик переключает его для этой базы.
+        /// </summary>
+        private Button RowMarkButton(string iconKey, string brushKey, string tooltip,
+            string commandPath, Infobase infobase, double width)
+        {
+            var button = new Button
+            {
+                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), brushKey),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(0),
+                MinWidth = 0,
+                MinHeight = 0,
+                Width = width,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+                Cursor = new Cursor(StandardCursorType.Hand),
+                CommandParameter = infobase
+            };
+            ToolTip.SetTip(button, tooltip);
+            // Команда живёт во вьюмодели, а контекстом строки служит сама база,
+            // поэтому источник привязки указывается явно.
+            button.Bind(Button.CommandProperty, new Binding(commandPath) { Source = _vm });
+            return button;
         }
 
         /// <summary>Объединяет непустые фрагменты в одну строку с разделителем «•».</summary>
@@ -1374,6 +1435,24 @@ namespace Configuration_Management
         /// <summary>Минимум под имя базы: колонка звёздная, но схлопываться ей нельзя.</summary>
         private const double NameColumnMinWidth = 220;
 
+        /// <summary>Ширина колонки звезды «избранное» в заголовке и в строке базы.</summary>
+        private static double FavoriteColumnWidth => UiMetrics.Scaled(26);
+
+        /// <summary>Ширина колонки булавки «закреплено» в заголовке и в строке базы.</summary>
+        private static double PinColumnWidth => UiMetrics.Scaled(24);
+
+        /// <summary>Ширина одной кнопки панели инструментов над списком.</summary>
+        private static double ToolbarButtonWidth => UiMetrics.Scaled(24);
+
+        /// <summary>Ширина блока кнопок групп: четыре кнопки с промежутками.</summary>
+        private static double GroupToolbarWidth => ToolbarButtonWidth * 4 + 6 + UiMetrics.Scaled(6);
+
+        /// <summary>Номер колонки заголовка с именем базы: кнопки, компенсатор, звезда, булавка.</summary>
+        private const int NameHeaderColumn = 4;
+
+        /// <summary>Номер колонки заголовка с пометкой закрепления.</summary>
+        private const int PinHeaderColumn = NameHeaderColumn - 1;
+
         /// <summary>
         /// Колонки списка в порядке отображения, кроме первой (имя базы),
         /// которая занимает оставшееся место. Состав и ширины берутся
@@ -1453,45 +1532,188 @@ namespace Configuration_Management
             });
         }
 
-        /// <summary>Пересобирает заголовки колонок по текущим настройкам.</summary>
+        /// <summary>
+        /// Пересобирает панель инструментов и заголовки колонок по текущим настройкам.
+        /// Слева направо: кнопки групп, компенсатор отступа дерева, звезда, булавка,
+        /// имя базы, дальше колонки значений. Первые колонки повторяются в строке
+        /// базы теми же ширинами, поэтому заголовок и значения стоят друг под другом.
+        /// </summary>
         private void RefreshColumnHeader()
         {
             if (_vm is null || _columnHeaderRow is null || _columnHeader is null)
                 return;
 
+            // Прежние кнопки и подписи держат подписки на ресурсы темы: очистка
+            // коллекции детей сама по себе их не отпускает.
+            foreach (var subscription in _columnHeaderSubscriptions)
+                subscription.Dispose();
+            _columnHeaderSubscriptions.Clear();
             _columnHeaderRow.Children.Clear();
             _columnHeaderRow.ColumnDefinitions.Clear();
 
             var columns = ListColumns();
+            var toolbarWidth = _vm.ShowExpandCollapseButtons ? GroupToolbarWidth : 0;
+            var favoriteWidth = _vm.ShowFavoritesButton ? FavoriteColumnWidth : 0;
+            var pinWidth = _vm.ShowPinnedButton ? PinColumnWidth : 0;
+
+            _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(toolbarWidth) });
+            _headerOffsetColumn = new ColumnDefinition { Width = new GridLength(0) };
+            _columnHeaderRow.ColumnDefinitions.Add(_headerOffsetColumn);
+            _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(favoriteWidth) });
+            _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(pinWidth) });
             _columnHeaderRow.ColumnDefinitions.Add(
                 new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = NameColumnMinWidth });
             foreach (var column in columns)
                 _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(column.Width) });
 
-            var nameHeader = HeaderText(LocalizationManager.T("Column.Name"));
+            if (_vm.ShowExpandCollapseButtons)
+            {
+                var tools = BuildGroupToolbar();
+                _columnHeaderRow.Children.Add(tools);
+                Grid.SetColumn(tools, 0);
+            }
+
+            if (_vm.ShowPinnedButton)
+            {
+                // Значок закрепления в заголовке — только пометка колонки, как в WPF.
+                var pinMark = IconHelper.MakeIcon("IconPin", UiMetrics.Scaled(13), "TextSecondaryBrush", _columnHeaderSubscriptions);
+                ToolTip.SetTip(pinMark, LocalizationManager.T("Main.Pinned"));
+                _columnHeaderRow.Children.Add(pinMark);
+                Grid.SetColumn(pinMark, PinHeaderColumn);
+            }
+
+            var nameHeader = HeaderText(LocalizationManager.T("Column.Name"), _columnHeaderSubscriptions);
+            MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
             _columnHeaderRow.Children.Add(nameHeader);
-            Grid.SetColumn(nameHeader, 0);
+            Grid.SetColumn(nameHeader, NameHeaderColumn);
 
             for (var i = 0; i < columns.Count; i++)
             {
-                var text = HeaderText(columns[i].Header);
+                var text = HeaderText(columns[i].Header, _columnHeaderSubscriptions);
+                if (columns[i].Key == "LastLaunch")
+                    MakeSortableHeader(text, "LastLaunchDate", LocalizationManager.T("Main.ColumnLastLaunchSortTooltip"));
                 _columnHeaderRow.Children.Add(text);
-                Grid.SetColumn(text, i + 1);
+                Grid.SetColumn(text, NameHeaderColumn + 1 + i);
             }
-
-            _columnHeader.IsVisible = columns.Count > 0;
 
             // Минимальная ширина области равна сумме колонок: при узком окне
             // включается горизонтальная прокрутка, и заголовок едет вместе
-            // со строками, а не разъезжается с ними.
+            // со строками, а не разъезжается с ними. Слева считаем по большему
+            // из двух блоков: у заголовка это кнопки групп, у строки — иконка базы.
             if (_listContent is not null)
             {
-                var iconAndPadding = UiMetrics.RowIconBox + 10 + UiMetrics.PaddingControl * 2;
-                _listContent.MinWidth = NameColumnMinWidth + iconAndPadding + columns.Sum(c => c.Width);
+                var rowLeft = favoriteWidth + pinWidth + UiMetrics.RowIconBox + 10;
+                var headerLeft = toolbarWidth + favoriteWidth + pinWidth;
+                _listContent.MinWidth = NameColumnMinWidth + Math.Max(rowLeft, headerLeft)
+                    + UiMetrics.PaddingControl * 2 + columns.Sum(c => c.Width);
             }
+
+            QueueHeaderAlign();
         }
 
-        private static TextBlock HeaderText(string text)
+        /// <summary>
+        /// Блок кнопок над списком: развернуть и свернуть все группы, сортировка
+        /// групп по возрастанию и убыванию. Показывается только при группировке.
+        /// </summary>
+        private Control BuildGroupToolbar()
+        {
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 2,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            panel.Children.Add(HeaderIconButton("IconExpandAll",
+                LocalizationManager.T("Main.ExpandAllGroups"), "ExpandAllGroupsCommand"));
+            panel.Children.Add(HeaderIconButton("IconCollapseAll",
+                LocalizationManager.T("Main.CollapseAllGroups"), "CollapseAllGroupsCommand"));
+            panel.Children.Add(HeaderIconButton("IconSortAscending",
+                LocalizationManager.T("Main.SortGroupsAscending"), "SortGroupsAscendingCommand"));
+            panel.Children.Add(HeaderIconButton("IconSortDescending",
+                LocalizationManager.T("Main.SortGroupsDescending"), "SortGroupsDescendingCommand"));
+            return panel;
+        }
+
+        /// <summary>Компактная иконко-кнопка панели инструментов над списком.</summary>
+        private Button HeaderIconButton(string iconKey, string tooltip, string commandPath)
+        {
+            var button = new Button
+            {
+                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), "TextSecondaryBrush", _columnHeaderSubscriptions),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(2, 0),
+                MinWidth = 0,
+                MinHeight = 0,
+                Width = ToolbarButtonWidth,
+                VerticalAlignment = VerticalAlignment.Center,
+                Cursor = new Cursor(StandardCursorType.Hand)
+            };
+            ToolTip.SetTip(button, tooltip);
+            button.Bind(Button.CommandProperty, new Binding(commandPath));
+            return button;
+        }
+
+        /// <summary>Делает заголовок колонки кликабельным: клик меняет поле сортировки.</summary>
+        private void MakeSortableHeader(TextBlock header, string field, string tooltip)
+        {
+            header.Cursor = new Cursor(StandardCursorType.Hand);
+            ToolTip.SetTip(header, tooltip);
+            header.Tapped += (_, _) => _vm?.SetSortField(field);
+        }
+
+        /// <summary>
+        /// Ставит выравнивание заголовка со строками в очередь диспетчера:
+        /// положение строки известно только после раскладки.
+        /// </summary>
+        private void QueueHeaderAlign()
+        {
+            if (_headerAlignQueued)
+                return;
+            _headerAlignQueued = true;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                _headerAlignQueued = false;
+                AlignHeaderToRows();
+            }, Avalonia.Threading.DispatcherPriority.Loaded);
+        }
+
+        /// <summary>
+        /// Подгоняет ширину колонки-компенсатора так, чтобы звезда и булавка
+        /// заголовка встали над теми же значками первой строки базы. Дерево
+        /// сдвигает строки на отступ уровня, и без компенсации заголовок
+        /// разошёлся бы со списком.
+        /// </summary>
+        private void AlignHeaderToRows()
+        {
+            if (_headerOffsetColumn is null || _columnHeaderRow is null || _tree is null
+                || _columnHeaderRow.ColumnDefinitions.Count == 0)
+                return;
+
+            // Ориентир — самая левая из видимых строк: узлы разной вложенности
+            // сдвинуты по-разному, и по первой встреченной заголовок уехал бы
+            // вправо от большинства строк.
+            double? left = null;
+            foreach (var card in _tree.GetVisualDescendants().OfType<InfobaseRowCard>())
+            {
+                if (card.Child is not { } content)
+                    continue;
+                var origin = content.TranslatePoint(new Point(0, 0), _columnHeaderRow);
+                if (origin is null)
+                    continue;
+                if (left is null || origin.Value.X < left.Value)
+                    left = origin.Value.X;
+            }
+            if (left is null)
+                return;
+
+            var offset = Math.Max(0, left.Value - _columnHeaderRow.ColumnDefinitions[0].ActualWidth);
+            if (Math.Abs(offset - _headerOffsetColumn.Width.Value) > 0.5)
+                _headerOffsetColumn.Width = new GridLength(offset);
+        }
+
+        private static TextBlock HeaderText(string text, ICollection<IDisposable>? subscriptions = null)
         {
             var block = new TextBlock
             {
@@ -1501,7 +1723,9 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            var subscription = ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            if (subscription is not null)
+                subscriptions?.Add(subscription);
             return block;
         }
 
