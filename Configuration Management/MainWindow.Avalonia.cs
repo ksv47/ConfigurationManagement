@@ -44,6 +44,9 @@ namespace Configuration_Management
         private Border _emptyState = null!;
         private Avalonia.Controls.Shapes.Path _emptyIcon = null!;
         private TextBlock _emptyTitle = null!;
+        private Border? _tagPanel;
+        private WrapPanel? _tagPanelItems;
+        private Button? _tagClearButton;
         private TextBlock _emptyHint = null!;
 
         /// <summary>
@@ -75,18 +78,22 @@ namespace Configuration_Management
         {
             var grid = new Grid();
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             var topBar = BuildTopBar();
+            var tagPanel = BuildTagFilterPanel();
             var mainArea = BuildMainArea();
             var statusBar = BuildStatusBar();
 
             Grid.SetRow(topBar, 0);
-            Grid.SetRow(mainArea, 1);
-            Grid.SetRow(statusBar, 2);
+            Grid.SetRow(tagPanel, 1);
+            Grid.SetRow(mainArea, 2);
+            Grid.SetRow(statusBar, 3);
 
             grid.Children.Add(topBar);
+            grid.Children.Add(tagPanel);
             grid.Children.Add(mainArea);
             grid.Children.Add(statusBar);
 
@@ -435,13 +442,18 @@ namespace Configuration_Management
             {
                 _vm.GroupNodes.CollectionChanged += (_, _) => UpdateEmptyState();
                 _vm.FlatItems.CollectionChanged += (_, _) => UpdateEmptyState();
+                _vm.TagFilterItems.CollectionChanged += (_, _) => RefreshTagFilterPanel();
                 _vm.PropertyChanged += (_, e) =>
                 {
                     if (e.PropertyName == nameof(MainViewModel.SearchText))
                         UpdateEmptyState();
+                    if (e.PropertyName == nameof(MainViewModel.ShowTagFilterPanel)
+                        || e.PropertyName == nameof(MainViewModel.HasActiveTagFilter))
+                        RefreshTagFilterPanel();
                 };
             }
             UpdateEmptyState();
+            RefreshTagFilterPanel();
 
             var rightPanel = new ScrollViewer
             {
@@ -1217,7 +1229,10 @@ namespace Configuration_Management
                     Spacing = 6,
                     VerticalAlignment = VerticalAlignment.Center
                 };
-                sp.Children.Add(IconHelper.MakeIcon(_iconKey, _iconSize, brushKey));
+                // Пустой ключ означает кнопку без иконки: IconHelper на пустой ключ
+                // подставляет запасную папку, и она выглядела бы как настоящая иконка.
+                if (!string.IsNullOrEmpty(_iconKey))
+                    sp.Children.Add(IconHelper.MakeIcon(_iconKey, _iconSize, brushKey));
                 if (!string.IsNullOrEmpty(_text))
                 {
                     var tb = new TextBlock
@@ -1261,6 +1276,63 @@ namespace Configuration_Management
                     BorderThickness = new Thickness(0);
                 }
             }
+        }
+
+        /// <summary>
+        /// Панель отбора по тегам: по кнопке на каждый тег и кнопка сброса.
+        /// Видимость подчинена переключателю «теги» в верхней панели, а состав
+        /// пересобирается при каждом изменении набора тегов.
+        /// </summary>
+        private Control BuildTagFilterPanel()
+        {
+            _tagPanelItems = new WrapPanel { Orientation = Orientation.Horizontal };
+
+            _tagClearButton = new Button
+            {
+                Content = ThemedIconAndText("IconClose", LocalizationManager.T("Main.ClearTagFilters"),
+                    "ButtonTextBrush", UiMetrics.Scaled(12), centered: false),
+                Padding = new Thickness(8, 2),
+                Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _tagClearButton.Bind(Button.CommandProperty, new Binding("ClearTagFiltersCommand"));
+
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            row.Children.Add(_tagPanelItems);
+            row.Children.Add(_tagClearButton);
+
+            _tagPanel = new Border
+            {
+                Padding = new Thickness(UiMetrics.TopBarH, 6),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Child = row
+            };
+            ThemeBrushes.Bind(_tagPanel, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(_tagPanel, Border.BorderBrushProperty, "BorderColorBrush");
+            return _tagPanel;
+        }
+
+        /// <summary>Пересобирает кнопки тегов и обновляет видимость панели.</summary>
+        private void RefreshTagFilterPanel()
+        {
+            if (_vm is null || _tagPanelItems is null || _tagPanel is null || _tagClearButton is null)
+                return;
+
+            _tagPanelItems.Children.Clear();
+            foreach (var tag in _vm.TagFilterItems)
+            {
+                var item = tag;
+                var button = new SegmentButton("IconTag", item.Name, "ItemHoverBrush", "ItemSelectedBrush")
+                {
+                    Margin = new Thickness(0, 0, 4, 0),
+                    IsChecked = item.IsSelected
+                };
+                button.Click += (_, _) => _vm.SearchByTagCommand.Execute(item.Name);
+                _tagPanelItems.Children.Add(button);
+            }
+
+            _tagClearButton.IsVisible = _vm.HasActiveTagFilter;
+            _tagPanel.IsVisible = _vm.ShowTagFilterPanel && _vm.TagFilterItems.Count > 0;
         }
 
         private Control BuildStatusBar()
