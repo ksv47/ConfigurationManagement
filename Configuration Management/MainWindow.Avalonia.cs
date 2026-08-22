@@ -363,8 +363,15 @@ namespace Configuration_Management
 
             // Убираем стандартную подсветку контейнера TreeViewItem — карточка строки
             // сама рисует hover/выделение из ресурсов темы (без жёстких цветов).
-            var tviStyle = new Style(x => x.OfType<LeveledTreeViewItem>());
+            // Селектор сопоставляется по ключу стиля, а он переопределён
+            // на TreeViewItem: без этого стиль не находит контейнеры.
+            var tviStyle = new Style(x => x.OfType<TreeViewItem>());
             tviStyle.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent));
+            // Связываем раскрытие контейнера с моделью узла: без этого состояние
+            // не сохраняется между перестроениями дерева, а команды «развернуть все»
+            // и «свернуть все» не доходят до интерфейса.
+            tviStyle.Setters.Add(new Setter(TreeViewItem.IsExpandedProperty,
+                new Binding("IsExpanded") { Mode = BindingMode.TwoWay }));
             _tree.Styles.Add(tviStyle);
 
             _tree.ItemTemplate = new FuncTreeDataTemplate(
