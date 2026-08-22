@@ -918,13 +918,28 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Ключ узла, пригодный для хранения в настройках, либо null.
+    /// Годятся только полный путь группы и внутренний маркер служебного узла:
+    /// они не зависят от языка интерфейса. У узла без группы и без маркера
+    /// NodeKey это отображаемое имя, то есть локализованная строка, которая
+    /// после смены языка перестанет совпадать, а с реальной группой такого же
+    /// имени ещё и столкнётся.
+    /// </summary>
+    private static string? PersistableNodeKey(GroupNodeViewModel node)
+    {
+        if (node.Group is not null && !string.IsNullOrEmpty(node.FullPath))
+            return node.FullPath;
+        return string.IsNullOrEmpty(node.Marker) ? null : node.Marker;
+    }
+
+    /// <summary>
     /// Восстанавливает свёрнутость узла и его потомков из сохранённого набора.
-    /// Ключом служит NodeKey: полный путь для групп и маркер для служебных узлов,
-    /// он не зависит от языка интерфейса.
     /// </summary>
     private void ApplyExpandedState(GroupNodeViewModel node)
     {
-        node.SetExpandedSilent(!_collapsedGroups.Contains(node.NodeKey));
+        var key = PersistableNodeKey(node);
+        if (key is not null)
+            node.SetExpandedSilent(!_collapsedGroups.Contains(key));
         foreach (var child in node.Children)
             ApplyExpandedState(child);
     }
@@ -947,8 +962,8 @@ public class MainViewModel : ViewModelBase
         if (e.PropertyName != nameof(GroupNodeViewModel.IsExpanded) || sender is not GroupNodeViewModel node)
             return;
 
-        var key = node.NodeKey;
-        if (string.IsNullOrEmpty(key))
+        var key = PersistableNodeKey(node);
+        if (key is null)
             return;
 
         var changed = node.IsExpanded ? _collapsedGroups.Remove(key) : _collapsedGroups.Add(key);
