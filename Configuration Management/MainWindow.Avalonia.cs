@@ -48,6 +48,7 @@ namespace Configuration_Management
         private Border? _columnHeader;
         private Grid? _columnHeaderRow;
         private Grid? _listContent;
+        private bool _columnHeaderRefreshQueued;
         private Border? _tagPanel;
         private WrapPanel? _tagPanelItems;
         private Button? _tagClearButton;
@@ -427,9 +428,11 @@ namespace Configuration_Management
                 item => item is GroupNodeViewModel g ? g.Items : null);
             _tree.SelectionChanged += OnTreeSelectionChanged;
 
-            // Дерево само предоставляет ScrollViewer и штатную виртуализацию
-            // (VirtualizingStackPanel). Внешний ScrollViewer здесь не нужен — он давал бы дереву
-            // бесконечную высоту и отключал бы виртуализацию, поэтому убран.
+            // Прокрутку списка ведёт внешний ScrollViewer, общий с заголовком колонок.
+            // Прежнее опасение про бесконечную высоту и потерю виртуализации здесь
+            // неприменимо: у TreeView в Avalonia 11.3.20 виртуализации нет вовсе,
+            // панель элементов по умолчанию обычный StackPanel, и ни тема Fluent,
+            // ни сам контрол её не переопределяют.
             _emptyState = BuildEmptyState();
             var leftInner = new Grid();
             leftInner.Children.Add(_tree);
@@ -474,6 +477,11 @@ namespace Configuration_Management
                 {
                     if (e.PropertyName == nameof(MainViewModel.SearchText))
                         UpdateEmptyState();
+                    // Заголовок строится до загрузки настроек, поэтому обновляется
+                    // при уведомлении о колонках: иначе сохранённые ширина и состав
+                    // применились бы к строкам, но не к уже собранному заголовку.
+                    if (e.PropertyName is not null && e.PropertyName.Contains("Column", StringComparison.Ordinal))
+                        QueueColumnHeaderRefresh();
                     if (e.PropertyName == nameof(MainViewModel.ShowTagFilterPanel)
                         || e.PropertyName == nameof(MainViewModel.HasActiveTagFilter))
                     {
@@ -1426,6 +1434,23 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(_columnHeader, Border.BorderBrushProperty, "BorderColorBrush");
             return _columnHeader;
+        }
+
+        /// <summary>
+        /// Ставит пересборку заголовка в очередь диспетчера. Настройки колонок
+        /// уведомляют о шестнадцати свойствах подряд, и без склейки заголовок
+        /// пересобирался бы на каждое из них.
+        /// </summary>
+        private void QueueColumnHeaderRefresh()
+        {
+            if (_columnHeaderRefreshQueued)
+                return;
+            _columnHeaderRefreshQueued = true;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                _columnHeaderRefreshQueued = false;
+                RefreshColumnHeader();
+            });
         }
 
         /// <summary>Пересобирает заголовки колонок по текущим настройкам.</summary>
