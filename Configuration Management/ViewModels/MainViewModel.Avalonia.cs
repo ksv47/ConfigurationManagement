@@ -456,7 +456,12 @@ public class MainViewModel : ViewModelBase
         void Index(GroupNodeViewModel node)
         {
             if (node.Group is not null && !string.IsNullOrEmpty(node.FullPath))
+            {
                 pathToNode[node.FullPath] = node;
+                var normalized = NormalizeGroupPath(node.FullPath);
+                if (!string.IsNullOrEmpty(normalized))
+                    pathToNode[normalized] = node;
+            }
             foreach (var child in node.Children)
                 Index(child);
         }
@@ -474,7 +479,9 @@ public class MainViewModel : ViewModelBase
                 pinnedNode.Infobases.Add(infobase);
 
             var groupPath = infobase.Group?.Trim() ?? string.Empty;
-            if (!string.IsNullOrEmpty(groupPath) && pathToNode.TryGetValue(groupPath, out var node))
+            if (!string.IsNullOrEmpty(groupPath)
+                && (pathToNode.TryGetValue(groupPath, out var node)
+                    || pathToNode.TryGetValue(NormalizeGroupPath(groupPath), out node)))
                 node.Infobases.Add(infobase);
             else
                 noGroupNode.Infobases.Add(infobase);
@@ -502,15 +509,43 @@ public class MainViewModel : ViewModelBase
     {
         var hasSearch = !string.IsNullOrWhiteSpace(SearchText);
         var hasActiveTags = TagFilterItems.Any(t => t.IsSelected);
+        var filterActive = hasSearch || hasActiveTags || _listMode != "All";
 
-        if (hasSearch || hasActiveTags || _listMode != "All")
+        // Плоский список нужен в двух случаях: активен фильтр (поиск, теги,
+        // «Избранное», «Недавние») либо пользователь отключил группировку.
+        // Дерево привязано только к GroupNodes, поэтому результат кладётся
+        // одним узлом туда же, иначе список остался бы пустым.
+        if (filterActive || !_groupByGroup)
         {
-            // Плоский список результатов.
+            var visible = (filterActive ? _allInfobases.Where(MatchesFilter) : _allInfobases)
+                .OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             FlatItems.Clear();
-            var filtered = _allInfobases.Where(MatchesFilter);
-            foreach (var ib in filtered.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase))
+            foreach (var ib in visible)
                 FlatItems.Add(ib);
+
+            var flatNode = new GroupNodeViewModel(
+                null,
+                displayName: filterActive ? LocalizationManager.T("Main.FlatFound") : null,
+                marker: filterActive ? null : GroupNodeViewModel.AllBasesMarker);
+
+            flatNode.SetNotificationsSuppressed(true);
+            try
+            {
+                foreach (var ib in visible)
+                    flatNode.Infobases.Add(ib);
+            }
+            finally
+            {
+                flatNode.SetNotificationsSuppressed(false);
+            }
+
+            flatNode.PopulateItems();
+            flatNode.SetExpandedSilent(true);
+
             GroupNodes.Clear();
+            GroupNodes.Add(flatNode);
         }
         else
         {
@@ -664,7 +699,8 @@ public class MainViewModel : ViewModelBase
             return;
 
         var dialog = new Configuration_Management.ConnectionSettingsWindow(
-            ib, _groups, InstalledPlatformVersions(), ib.Group);
+            ib, _groups, InstalledPlatformVersions(), ib.Group,
+            AvailableServers(), AvailablePorts());
 
         if (!dialog.ShowDialogSync(OwnerWindow()))
             return;
@@ -675,6 +711,7 @@ public class MainViewModel : ViewModelBase
 
         SaveSilently();
         RebuildTree();
+        ExportToIbasesAfterLocalChange();
         SelectedInfobase = dialog.Result;
     }
 
@@ -720,6 +757,7 @@ public class MainViewModel : ViewModelBase
         _allInfobases.Add(dialog.Result);
         SaveSilently();
         RebuildTree();
+        ExportToIbasesAfterLocalChange();
         SelectedInfobase = dialog.Result;
         _dialog.ShowInfo(
             string.Format(LocalizationManager.T("Main.DlgBaseCreated"), dialog.Result.Name),
@@ -730,7 +768,8 @@ public class MainViewModel : ViewModelBase
     private void RegisterExistingInfobase(string defaultGroupPath)
     {
         var dialog = new Configuration_Management.ConnectionSettingsWindow(
-            null, _groups, InstalledPlatformVersions(), defaultGroupPath);
+            null, _groups, InstalledPlatformVersions(), defaultGroupPath,
+            AvailableServers(), AvailablePorts());
 
         if (!dialog.ShowDialogSync(OwnerWindow()))
             return;
@@ -738,6 +777,7 @@ public class MainViewModel : ViewModelBase
         _allInfobases.Add(dialog.Result);
         SaveSilently();
         RebuildTree();
+        ExportToIbasesAfterLocalChange();
         SelectedInfobase = dialog.Result;
     }
 
@@ -745,6 +785,8 @@ public class MainViewModel : ViewModelBase
     private void AddGroup()
     {
         var parent = SelectedGroupNode?.Group;
+        if (parent is null && !string.IsNullOrWhiteSpace(SelectedInfobase?.Group))
+            parent = FindGroupByFullPath(SelectedInfobase!.Group);
         var dialog = new Configuration_Management.GroupEditWindow(_groups, parent);
         if (!dialog.ShowDialogSync(OwnerWindow()))
             return;
@@ -762,6 +804,80 @@ public class MainViewModel : ViewModelBase
         {
             _logger.Warn($"Не удалось получить список версий платформы: {ex.Message}");
             return new List<string>();
+        }
+    }
+
+    /// <summary>Приводит путь группы к каноническому виду: и «/», и «\\» как разделители.</summary>
+    private static string NormalizeGroupPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+        var parts = path
+            .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0);
+        return string.Join(GroupHierarchyHelper.PathSeparator, parts);
+    }
+
+    /// <summary>Находит группу по полному пути с учётом нормализации разделителей.</summary>
+    private Group? FindGroupByFullPath(string? fullPath)
+    {
+        var target = NormalizeGroupPath(fullPath);
+        if (string.IsNullOrEmpty(target))
+            return null;
+        return _groups.FirstOrDefault(g =>
+            string.Equals(NormalizeGroupPath(GroupHierarchyHelper.GetFullPath(g, _groups)), target,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Серверы из уже зарегистрированных клиент-серверных баз (для автодополнения).</summary>
+    private IEnumerable<string> AvailableServers() => _allInfobases
+        .Where(b => b?.Connection?.Type == ConnectionType.ClientServer)
+        .Select(b => b.Connection!.Server?.Trim() ?? string.Empty)
+        .Where(s => !string.IsNullOrEmpty(s))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(s => s, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Порты из уже зарегистрированных клиент-серверных баз.</summary>
+    private IEnumerable<int> AvailablePorts() => _allInfobases
+        .Where(b => b?.Connection?.Type == ConnectionType.ClientServer)
+        .Select(b => b.Connection!.Port)
+        .Where(p => p > 0)
+        .Distinct()
+        .OrderBy(p => p);
+
+    /// <summary>
+    /// Выгружает список баз в ibases.v8i после локального изменения.
+    /// Работает только если пользователь включил режим экспорта: по умолчанию
+    /// IbasesSyncMode.None, то есть файл платформы не трогается вовсе.
+    /// Перед записью снимается резервная копия, если она включена в настройках.
+    /// </summary>
+    private void ExportToIbasesAfterLocalChange()
+    {
+        if (_settings.IbasesSyncMode is not (IbasesSyncMode.Export or IbasesSyncMode.Both))
+            return;
+
+        var filePath = string.IsNullOrWhiteSpace(_settings.IbasesSyncFilePath)
+            ? IbasesV8iImporter.FindDefaultPath()
+            : _settings.IbasesSyncFilePath;
+        if (string.IsNullOrWhiteSpace(filePath))
+            return;
+
+        try
+        {
+            if (_settings.IbasesBackupEnabled && System.IO.File.Exists(filePath))
+            {
+                try { IbasesBackupService.CreateBackup(filePath, _settings.IbasesBackupKeepCount); }
+                catch (Exception ex) { _logger.Warn($"Не удалось создать резервную копию ibases.v8i: {ex.Message}"); }
+            }
+
+            _sync.Export(filePath, _allInfobases, _groups);
+            _logger.Info($"Список баз выгружен в {filePath}");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка выгрузки списка баз в ibases.v8i", ex);
+            SyncMessage = string.Format(LocalizationManager.T("Sync.ExportError"), ex.Message);
         }
     }
 

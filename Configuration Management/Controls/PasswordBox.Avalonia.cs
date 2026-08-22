@@ -1,6 +1,7 @@
 #if LINUX
 using System;
 using Avalonia;
+using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
@@ -13,6 +14,12 @@ namespace Configuration_Management.Controls
     /// </summary>
     public class PasswordBox : TextBox
     {
+        /// <summary>
+        /// Тема оформления ищется по ключу стиля, а для наследника её в Fluent нет:
+        /// без этого поле ввода остаётся без шаблона и не отрисовывается.
+        /// </summary>
+        protected override Type StyleKeyOverride => typeof(TextBox);
+
         public PasswordBox()
         {
             PasswordChar = '•';
