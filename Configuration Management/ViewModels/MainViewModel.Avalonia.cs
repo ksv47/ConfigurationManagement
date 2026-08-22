@@ -487,15 +487,50 @@ public class MainViewModel : ViewModelBase
         set => SetProperty(ref _exportIndicatorTooltip, value);
     }
 
-    // ---- Горячие клавиши (для подсказок) ----
-    public string HotkeyEnterprise => "F3";
-    public string HotkeyConfigurator => "F4";
-    public string HotkeyEdit => "Ctrl+E";
-    public string HotkeyAdd => "Ctrl+N";
-    public string HotkeyFavorite => "Alt+F";
-    public string HotkeyPin => "Ctrl+P";
-    public string HotkeyDelete => "Del";
-    public string HotkeyClearCache => "Ctrl+Shift+C";
+    // ---- Горячие клавиши ----
+    // Раньше здесь стояли зашитые сочетания, и настройки пользователя
+    // Linux-версия игнорировала: файл настроек общий с WPF-версией, а клавиши
+    // в нём другие. Теперь читаются оттуда.
+    public string HotkeyEnterprise => _settings.HotkeyEnterprise;
+    public string HotkeyConfigurator => _settings.HotkeyConfigurator;
+    public string HotkeyEdit => _settings.HotkeyEdit;
+    public string HotkeyAdd => _settings.HotkeyAdd;
+    public string HotkeyFavorite => _settings.HotkeyFavorite;
+    public string HotkeyPin => _settings.HotkeyPin;
+    public string HotkeyDelete => _settings.HotkeyDelete;
+    public string HotkeyClearCache => _settings.HotkeyClearCache;
+
+    /// <summary>
+    /// Сохраняет назначенные сочетания и сообщает окну, что их надо
+    /// перерегистрировать: подписи в меню и сами привязки берутся отсюда.
+    /// </summary>
+    public void ApplyHotkeys(string enterprise, string configurator, string edit, string add,
+        string favorite, string pin, string delete, string clearCache)
+    {
+        _settings.HotkeyEnterprise = enterprise ?? string.Empty;
+        _settings.HotkeyConfigurator = configurator ?? string.Empty;
+        _settings.HotkeyEdit = edit ?? string.Empty;
+        _settings.HotkeyAdd = add ?? string.Empty;
+        _settings.HotkeyFavorite = favorite ?? string.Empty;
+        _settings.HotkeyPin = pin ?? string.Empty;
+        _settings.HotkeyDelete = delete ?? string.Empty;
+        _settings.HotkeyClearCache = clearCache ?? string.Empty;
+
+        SaveSettingsSilently();
+
+        OnPropertyChanged(nameof(HotkeyEnterprise));
+        OnPropertyChanged(nameof(HotkeyConfigurator));
+        OnPropertyChanged(nameof(HotkeyEdit));
+        OnPropertyChanged(nameof(HotkeyAdd));
+        OnPropertyChanged(nameof(HotkeyFavorite));
+        OnPropertyChanged(nameof(HotkeyPin));
+        OnPropertyChanged(nameof(HotkeyDelete));
+        OnPropertyChanged(nameof(HotkeyClearCache));
+        HotkeysChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Сочетания переназначены: окну надо перерегистрировать привязки и меню.</summary>
+    public event EventHandler? HotkeysChanged;
 
     // ---- Видимость колонок ----
     public bool ShowExpandCollapseButtons => GroupByGroup;

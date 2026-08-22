@@ -329,27 +329,18 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 0, 0, 6)
             });
 
-            var rows = new (string Action, string Key)[]
-            {
-                (LocalizationManager.T("Main.LaunchEnterprise"), _viewModel.HotkeyEnterprise),
-                (LocalizationManager.T("Main.SectionConfigurator"), _viewModel.HotkeyConfigurator),
-                (LocalizationManager.T("Main.EditSettings"), _viewModel.HotkeyEdit),
-                (LocalizationManager.T("Main.AddBaseOrGroup"), _viewModel.HotkeyAdd),
-                (LocalizationManager.T("Main.Favorites"), _viewModel.HotkeyFavorite),
-                (LocalizationManager.T("Main.Pin"), _viewModel.HotkeyPin),
-                (LocalizationManager.T("Common.Delete"), _viewModel.HotkeyDelete),
-                (LocalizationManager.T("Main.ClearCache"), _viewModel.HotkeyClearCache)
-            };
-            foreach (var (action, key) in rows)
-                hotkeys.Children.Add(BuildHotkeyRow(action, key));
+            // Поля назначения: HotkeyBox ловит сочетание с клавиатуры, Delete
+            // снимает назначение, Escape отменяет ввод.
+            var hotkeyEnterprise = HotkeyRow(hotkeys, LocalizationManager.T("Main.LaunchEnterprise"), _viewModel.HotkeyEnterprise);
+            var hotkeyConfigurator = HotkeyRow(hotkeys, LocalizationManager.T("Main.SectionConfigurator"), _viewModel.HotkeyConfigurator);
+            var hotkeyEdit = HotkeyRow(hotkeys, LocalizationManager.T("Main.EditSettings"), _viewModel.HotkeyEdit);
+            var hotkeyAdd = HotkeyRow(hotkeys, LocalizationManager.T("Main.AddBaseOrGroup"), _viewModel.HotkeyAdd);
+            var hotkeyFavorite = HotkeyRow(hotkeys, LocalizationManager.T("Main.Favorites"), _viewModel.HotkeyFavorite);
+            var hotkeyPin = HotkeyRow(hotkeys, LocalizationManager.T("Main.Pin"), _viewModel.HotkeyPin);
+            var hotkeyDelete = HotkeyRow(hotkeys, LocalizationManager.T("Common.Delete"), _viewModel.HotkeyDelete);
+            var hotkeyClearCache = HotkeyRow(hotkeys, LocalizationManager.T("Main.ClearCache"), _viewModel.HotkeyClearCache);
 
-            hotkeys.Children.Add(new TextBlock
-            {
-                Text = LocalizationManager.T("Settings.AvaloniaHotkeysPending"),
-                FontSize = 12,
-                TextWrapping = TextWrapping.Wrap,
-                Opacity = 0.7
-            });
+            hotkeys.Children.Add(Hint(LocalizationManager.T("Hotkey.Tooltip")));
 
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabHotkeys"), Content = new ScrollViewer { Content = hotkeys, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
@@ -385,6 +376,10 @@ namespace Configuration_Management
                     scheduleBox.Text?.Trim() ?? string.Empty,
                     backupCheck.IsChecked == true,
                     int.TryParse(keepBox.Text, out var keep) && keep > 0 ? keep : 5);
+
+                _viewModel.ApplyHotkeys(
+                    hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
+                    hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value);
 
                 // Настройки отображения применяются и сохраняются одним вызовом.
                 _viewModel.ApplyDisplaySettings(
@@ -459,6 +454,24 @@ namespace Configuration_Management
             r.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
                 new Avalonia.Data.Binding(path) { Mode = Avalonia.Data.BindingMode.TwoWay });
             return r;
+        }
+
+        /// <summary>Строка переназначения: подпись действия и поле ввода сочетания.</summary>
+        private static Controls.HotkeyBox HotkeyRow(Panel host, string action, string value)
+        {
+            var grid = new Grid { Margin = new Thickness(0, 2) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(190)));
+
+            var label = new TextBlock { Text = action, VerticalAlignment = VerticalAlignment.Center };
+            grid.Children.Add(label);
+
+            var box = new Controls.HotkeyBox { Value = value ?? string.Empty, HorizontalAlignment = HorizontalAlignment.Right, Width = 180 };
+            Grid.SetColumn(box, 1);
+            grid.Children.Add(box);
+
+            host.Children.Add(grid);
+            return box;
         }
 
         private static Grid BuildHotkeyRow(string action, string key)
