@@ -35,8 +35,8 @@ namespace Configuration_Management
         public SettingsWindow(MainViewModel viewModel)
         {
             Title = LocalizationManager.T("Settings.Title");
-            // Шесть вкладок в одну строку требуют этой ширины: в 840 последняя
-            // переносилась на вторую строку.
+            // Семь вкладок с длинными подписями в одну строку не помещаются
+            // ни в какую разумную ширину, поэтому полоса вкладок слева.
             Width = 940;
             Height = 620;
             MinWidth = 860;
@@ -55,7 +55,7 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            var tabs = new TabControl();
+            var tabs = new TabControl { TabStripPlacement = Dock.Left };
 
             // ===== Настройки =====
             var settings = new StackPanel { Spacing = 14 };
@@ -246,6 +246,243 @@ namespace Configuration_Management
                 Content = new ScrollViewer { Content = display, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
             });
 
+            // ===== Оформление =====
+            var appearance = new StackPanel { Spacing = 6 };
+            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Theme.Description")));
+
+            // Правки идут по копии: пока пользователь не сохранил, настройки
+            // приложения не меняются. «Применить» это предпросмотр, как в WPF.
+            var editedScheme = ThemeManager.CurrentScheme.Clone();
+
+            var schemeBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
+            var colorsPanel = new StackPanel { Spacing = 2 };
+            var schemeNames = new List<string>();
+            var suppressSchemeEvent = false;
+            Button? renameButton = null;
+            Button? deleteButton = null;
+
+            static bool IsBuiltInScheme(string name)
+                => string.Equals(name, ColorScheme.CreateLight().Name, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, ColorScheme.CreateDark().Name, StringComparison.OrdinalIgnoreCase);
+
+            static string SchemeDisplayName(string name)
+            {
+                if (string.Equals(name, ColorScheme.CreateLight().Name, StringComparison.OrdinalIgnoreCase))
+                    return LocalizationManager.T("Theme.Light");
+                if (string.Equals(name, ColorScheme.CreateDark().Name, StringComparison.OrdinalIgnoreCase))
+                    return LocalizationManager.T("Theme.Dark");
+                return name;
+            }
+
+            void UpdateSchemeButtons()
+            {
+                var index = schemeBox.SelectedIndex;
+                var builtIn = index >= 0 && index < schemeNames.Count && IsBuiltInScheme(schemeNames[index]);
+                if (renameButton is not null)
+                    renameButton.IsEnabled = !builtIn;
+                if (deleteButton is not null)
+                    deleteButton.IsEnabled = !builtIn;
+            }
+
+            void ReloadSchemes(string? select = null)
+            {
+                var target = select ?? editedScheme.Name;
+                schemeNames.Clear();
+                schemeNames.AddRange(ThemeManager.EnumerateAllSchemes().Select(x => x.Name));
+                if (!schemeNames.Any(n => string.Equals(n, target, StringComparison.OrdinalIgnoreCase)))
+                    schemeNames.Add(target);
+
+                suppressSchemeEvent = true;
+                schemeBox.ItemsSource = schemeNames.Select(SchemeDisplayName).ToList();
+                var index = schemeNames.FindIndex(n => string.Equals(n, target, StringComparison.OrdinalIgnoreCase));
+                schemeBox.SelectedIndex = index >= 0 ? index : 0;
+                suppressSchemeEvent = false;
+                UpdateSchemeButtons();
+            }
+
+            void RefreshColors()
+            {
+                colorsPanel.Children.Clear();
+                foreach (var (key, label) in Models.ColorScheme.Definitions)
+                {
+                    var current = editedScheme.Colors.TryGetValue(key, out var value) ? value : "#FFFFFF";
+                    colorsPanel.Children.Add(ColorRow(editedScheme, key, label, current));
+                }
+            }
+
+            string? SelectedSchemeName()
+            {
+                var index = schemeBox.SelectedIndex;
+                return index >= 0 && index < schemeNames.Count ? schemeNames[index] : null;
+            }
+
+            schemeBox.SelectionChanged += (_, _) =>
+            {
+                if (suppressSchemeEvent)
+                    return;
+                var name = SelectedSchemeName();
+                if (name is null)
+                    return;
+                var scheme = ThemeManager.EnumerateAllSchemes()
+                    .FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+                if (scheme is null)
+                    return;
+                editedScheme = scheme.Clone();
+                RefreshColors();
+                UpdateSchemeButtons();
+            };
+
+            ReloadSchemes();
+            RefreshColors();
+            appearance.Children.Add(schemeBox);
+
+            var schemeButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+
+            Button SchemeButton(string textKey, string tooltipKey, Action action)
+            {
+                var button = new Button { Content = LocalizationManager.T(textKey), Margin = new Thickness(0, 0, 6, 4) };
+                ToolTip.SetTip(button, LocalizationManager.T(tooltipKey));
+                button.Click += (_, _) => action();
+                schemeButtons.Children.Add(button);
+                return button;
+            }
+
+            SchemeButton("Common.Apply", "Settings.Theme.ApplyTooltip", () => ThemeManager.ApplyScheme(editedScheme));
+
+            SchemeButton("Settings.CreateTheme", "Settings.CreateThemeTooltip", () =>
+            {
+                var name = AskName(LocalizationManager.T("Settings.CreateTheme"),
+                    string.Format(LocalizationManager.T("Settings.CopyOf"), editedScheme.Name));
+                if (string.IsNullOrWhiteSpace(name))
+                    return;
+                name = name.Trim();
+                if (IsBuiltInScheme(name))
+                {
+                    _viewModel.ShowWarning(LocalizationManager.T("Settings.ReservedName"));
+                    return;
+                }
+
+                var copy = editedScheme.Clone();
+                copy.Name = name;
+                ThemeManager.SaveCustomScheme(copy);
+                editedScheme = copy;
+                ReloadSchemes(name);
+                RefreshColors();
+            });
+
+            renameButton = SchemeButton("Settings.Rename", "Settings.RenameTooltip", () =>
+            {
+                var current = SelectedSchemeName();
+                if (current is null)
+                    return;
+                if (IsBuiltInScheme(current))
+                {
+                    _viewModel.ShowInfo(LocalizationManager.T("Settings.CannotRenameBuiltIn"));
+                    return;
+                }
+
+                var name = AskName(LocalizationManager.T("Settings.Rename"), current);
+                if (string.IsNullOrWhiteSpace(name)
+                    || string.Equals(name.Trim(), current, StringComparison.OrdinalIgnoreCase))
+                    return;
+                name = name.Trim();
+                if (IsBuiltInScheme(name))
+                {
+                    _viewModel.ShowWarning(LocalizationManager.T("Settings.ReservedName"));
+                    return;
+                }
+
+                var scheme = ThemeManager.FindCustomScheme(current);
+                if (scheme is not null)
+                {
+                    ThemeManager.DeleteCustomScheme(current);
+                    scheme.Name = name;
+                    ThemeManager.SaveCustomScheme(scheme);
+                }
+
+                if (string.Equals(editedScheme.Name, current, StringComparison.OrdinalIgnoreCase))
+                    editedScheme.Name = name;
+                ReloadSchemes(name);
+                RefreshColors();
+            });
+
+            deleteButton = SchemeButton("Common.Delete", "Settings.DeleteThemeTooltip", () =>
+            {
+                var current = SelectedSchemeName();
+                if (current is null)
+                    return;
+                if (IsBuiltInScheme(current))
+                {
+                    _viewModel.ShowInfo(LocalizationManager.T("Settings.CannotDeleteBuiltIn"));
+                    return;
+                }
+                if (!_viewModel.Confirm(string.Format(LocalizationManager.T("Settings.DeleteThemeConfirm"), current)))
+                    return;
+
+                ThemeManager.DeleteCustomScheme(current);
+                if (string.Equals(editedScheme.Name, current, StringComparison.OrdinalIgnoreCase))
+                    editedScheme = editedScheme.IsDark ? ColorScheme.CreateDark() : ColorScheme.CreateLight();
+                ReloadSchemes(editedScheme.Name);
+                RefreshColors();
+            });
+
+            SchemeButton("Settings.ResetColors", "Settings.ResetColorsTooltip", () =>
+            {
+                editedScheme = ColorScheme.Create(editedScheme.Name, editedScheme.IsDark);
+                RefreshColors();
+            });
+
+            SchemeButton("Settings.ExportTheme", "Settings.ExportThemeTooltip", () =>
+            {
+                var path = _viewModel.PickSaveFile(LocalizationManager.T("Settings.ExportSchemeTitle"),
+                    editedScheme.Name + ".json");
+                if (string.IsNullOrWhiteSpace(path))
+                    return;
+                try
+                {
+                    ThemeManager.ExportScheme(editedScheme, path);
+                    _viewModel.ShowInfo(string.Format(LocalizationManager.T("Settings.ExportedOk"), path));
+                }
+                catch (Exception ex)
+                {
+                    _viewModel.ShowError(string.Format(LocalizationManager.T("Settings.ExportFailed"), ex.Message));
+                }
+            });
+
+            SchemeButton("Settings.ImportTheme", "Settings.ImportThemeTooltip", () =>
+            {
+                var path = _viewModel.PickFile(LocalizationManager.T("Settings.ImportSchemeTitle"), string.Empty);
+                if (string.IsNullOrWhiteSpace(path))
+                    return;
+                var imported = ThemeManager.ImportScheme(path);
+                if (imported is null || imported.Colors.Count == 0)
+                {
+                    _viewModel.ShowError(LocalizationManager.T("Settings.ImportFailed"));
+                    return;
+                }
+
+                ThemeManager.SaveCustomScheme(imported);
+                editedScheme = imported;
+                ReloadSchemes(imported.Name);
+                RefreshColors();
+                _viewModel.ShowInfo(string.Format(LocalizationManager.T("Settings.ImportedOk"), imported.Name));
+            });
+
+            // Кнопки создаются после первого ReloadSchemes, поэтому доступность
+            // для встроенной темы выставляется здесь, а не только по смене выбора.
+            UpdateSchemeButtons();
+
+            appearance.Children.Add(schemeButtons);
+            appearance.Children.Add(GroupTitle(LocalizationManager.T("Settings.Colors")));
+            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Colors.Description")));
+            appearance.Children.Add(colorsPanel);
+
+            tabs.Items.Add(new TabItem
+            {
+                Header = LocalizationManager.T("Settings.TabAppearance"),
+                Content = new ScrollViewer { Content = appearance, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+            });
+
             // ===== Базы (ibases.v8i) =====
             var bases = new StackPanel { Spacing = 6 };
             bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.Description")));
@@ -366,6 +603,10 @@ namespace Configuration_Management
                     _viewModel.ApplyLanguage(li.Code);
                 }
 
+                // Схема запоминается активной, иначе правка цветов держалась бы
+                // только до перезапуска.
+                _viewModel.ApplyColorScheme(editedScheme);
+
                 _viewModel.ApplyPlatformSettings(paths, archBox.SelectedItem as string ?? "X64");
 
                 _viewModel.ApplyIbasesSyncSettings(
@@ -421,6 +662,69 @@ namespace Configuration_Management
             grid.Children.Add(buttons);
 
             return grid;
+        }
+
+        /// <summary>
+        /// Строка цвета схемы: подпись и образец. Щелчок открывает выбор цвета
+        /// и сразу применяет результат, чтобы правку было видно на приложении.
+        /// </summary>
+        private Control ColorRow(ColorScheme scheme, string key, string label, string value)
+        {
+            var swatch = new Border
+            {
+                Width = 44,
+                Height = 20,
+                CornerRadius = new CornerRadius(4),
+                BorderThickness = new Thickness(1),
+                BorderBrush = Brushes.Gray,
+                Background = ParseBrush(value)
+            };
+
+            var button = new Button
+            {
+                Content = swatch,
+                Padding = new Thickness(2),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            button.Click += (_, _) =>
+            {
+                var picker = new ColorPickerWindow(value);
+                if (!picker.ShowDialogSync(this))
+                    return;
+
+                value = picker.Result;
+                scheme.Colors[key] = value;
+                swatch.Background = ParseBrush(value);
+            };
+
+            var grid = new Grid { Margin = new Thickness(0, 1) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(60)));
+            var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
+            grid.Children.Add(text);
+            grid.Children.Add(button);
+            Grid.SetColumn(button, 1);
+            return grid;
+        }
+
+        private static IBrush ParseBrush(string value)
+        {
+            try { return new SolidColorBrush(Color.Parse(value)); }
+            catch (Exception) { return Brushes.Transparent; }
+        }
+
+        /// <summary>Запрашивает имя схемы отдельным окном ввода.</summary>
+        private string? AskName(string title, string initial)
+        {
+            var dialog = new NameInputWindow(title, LocalizationManager.T("NameInput.Prompt"),
+                LocalizationManager.T("Common.Ok"), initial);
+            if (!dialog.ShowDialogSync(this))
+                return null;
+
+            var name = dialog.Result?.Trim();
+            return string.IsNullOrEmpty(name) ? null : name;
         }
 
         /// <summary>Заголовок группы настроек на вкладке.</summary>
