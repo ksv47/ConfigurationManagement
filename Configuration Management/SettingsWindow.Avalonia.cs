@@ -40,6 +40,9 @@ namespace Configuration_Management
             MinHeight = 520;
 
             _viewModel = viewModel;
+            // Без контекста привязки переключателей клиента и разрядности
+            // не находили свойств и всегда стояли пустыми.
+            DataContext = viewModel;
             Content = BuildRoot();
         }
 
@@ -103,7 +106,8 @@ namespace Configuration_Management
 
             // Параметры текущей сессии
             settings.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.DefaultClientLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
-            var clientPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+            // Пять вариантов клиента в строку не помещаются в окно, поэтому переносятся.
+            var clientPanel = new WrapPanel { Orientation = Orientation.Horizontal };
             clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientAuto", LocalizationManager.T("Main.SessionClientAuto")));
             clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThin", LocalizationManager.T("Main.SessionClientThin")));
             clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThick", LocalizationManager.T("Main.SessionClientThickManaged")));
@@ -112,7 +116,7 @@ namespace Configuration_Management
             settings.Children.Add(clientPanel);
 
             settings.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.DefaultArch"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
-            var archPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+            var archPanel = new WrapPanel { Orientation = Orientation.Horizontal };
             archPanel.Children.Add(Radio("SessionArch", "IsSessionArchAuto", LocalizationManager.T("Main.SessionClientAuto")));
             archPanel.Children.Add(Radio("SessionArch", "IsSessionArch32", "32"));
             archPanel.Children.Add(Radio("SessionArch", "IsSessionArch64", "64"));
@@ -127,6 +131,44 @@ namespace Configuration_Management
             });
 
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabGeneral"), Content = new ScrollViewer { Content = settings, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+
+            // ===== Отображение =====
+            var display = new StackPanel { Spacing = 6 };
+
+            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Icons")));
+            display.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
+            var favoritesCheck = DisplayCheck("Settings.Icons.FavoritesButton", _viewModel.ShowFavoritesButton);
+            var pinnedCheck = DisplayCheck("Settings.Icons.PinButton", _viewModel.ShowPinnedButton);
+            var tagsCheck = DisplayCheck("Settings.Icons.Tags", _viewModel.ShowTags);
+            var tagPanelCheck = DisplayCheck("Settings.Icons.TagFilterPanel", _viewModel.ShowTagFilterPanel);
+            foreach (var check in new[] { favoritesCheck, pinnedCheck, tagsCheck, tagPanelCheck })
+                display.Children.Add(check);
+
+            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Columns")));
+            display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
+            var versionCheck = DisplayCheck("Column.Version", _viewModel.ShowVersionColumn);
+            var configurationCheck = DisplayCheck("Settings.Columns.Configuration", _viewModel.ShowConfigurationColumn);
+            var launchModeCheck = DisplayCheck("Column.LaunchMode", _viewModel.ShowLaunchModeColumn);
+            var serverCheck = DisplayCheck("Column.ServerBase", _viewModel.ShowServerColumn);
+            var lastLaunchCheck = DisplayCheck("Column.LastLaunch", _viewModel.ShowLastLaunchColumn);
+            var sizeCheck = DisplayCheck("Settings.Columns.Size", _viewModel.ShowSizeColumn);
+            foreach (var check in new[] { versionCheck, configurationCheck, launchModeCheck, serverCheck, lastLaunchCheck, sizeCheck })
+                display.Children.Add(check);
+
+            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Panels")));
+            display.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
+            var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails);
+            var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel);
+            var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup);
+            var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups);
+            foreach (var check in new[] { rightPanelCheck, sessionPanelCheck, groupByGroupCheck, emptyGroupsCheck })
+                display.Children.Add(check);
+
+            tabs.Items.Add(new TabItem
+            {
+                Header = LocalizationManager.T("Settings.TabDisplay"),
+                Content = new ScrollViewer { Content = display, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+            });
 
             // ===== Клавиши =====
             var hotkeys = new StackPanel { Spacing = 10 };
@@ -182,6 +224,24 @@ namespace Configuration_Management
                 {
                     _viewModel.ApplyLanguage(li.Code);
                 }
+
+                // Настройки отображения применяются и сохраняются одним вызовом.
+                _viewModel.ApplyDisplaySettings(
+                    favoritesCheck.IsChecked == true,
+                    pinnedCheck.IsChecked == true,
+                    tagsCheck.IsChecked == true,
+                    tagPanelCheck.IsChecked == true,
+                    versionCheck.IsChecked == true,
+                    configurationCheck.IsChecked == true,
+                    launchModeCheck.IsChecked == true,
+                    serverCheck.IsChecked == true,
+                    lastLaunchCheck.IsChecked == true,
+                    sizeCheck.IsChecked == true,
+                    rightPanelCheck.IsChecked == true,
+                    sessionPanelCheck.IsChecked == true,
+                    groupByGroupCheck.IsChecked == true,
+                    emptyGroupsCheck.IsChecked == true);
+
                 DialogResult = true;
                 Close();
             };
@@ -191,6 +251,31 @@ namespace Configuration_Management
 
             return grid;
         }
+
+        /// <summary>Заголовок группы настроек на вкладке.</summary>
+        private static TextBlock GroupTitle(string text) => new()
+        {
+            Text = text,
+            FontWeight = FontWeight.SemiBold,
+            Margin = new Thickness(0, 12, 0, 2)
+        };
+
+        /// <summary>Пояснение под заголовком группы настроек.</summary>
+        private static TextBlock Hint(string text) => new()
+        {
+            Text = text,
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Opacity = 0.7,
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+
+        /// <summary>Переключатель настройки отображения.</summary>
+        private static CheckBox DisplayCheck(string textKey, bool value) => new()
+        {
+            Content = LocalizationManager.T(textKey),
+            IsChecked = value
+        };
 
         private static void ThemeChanged(RadioButton light, RadioButton dark)
         {
@@ -209,7 +294,7 @@ namespace Configuration_Management
         /// <summary>Радиокнопка с TwoWay-привязкой к свойству ViewModel (режим сессии).</summary>
         private RadioButton Radio(string groupName, string path, string content)
         {
-            var r = new RadioButton { Content = content, GroupName = groupName };
+            var r = new RadioButton { Content = content, GroupName = groupName, Margin = new Thickness(0, 0, 12, 0) };
             r.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
                 new Avalonia.Data.Binding(path) { Mode = Avalonia.Data.BindingMode.TwoWay });
             return r;
