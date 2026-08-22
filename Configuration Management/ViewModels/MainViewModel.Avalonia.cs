@@ -1715,6 +1715,202 @@ public class MainViewModel : ViewModelBase
         RebuildTree();
     }
 
+    /// <summary>Предупреждение в журнал из окна: журнал живёт во вьюмодели.</summary>
+    public void LogWarning(string message) => _logger.Warn(message);
+
+    /// <summary>Группы для окна: путь узла считается по этому же списку.</summary>
+    public IReadOnlyList<Group> Groups => _groups;
+
+    /// <summary>
+    /// Перемещает базу в указанную группу (полный путь).
+    /// <paramref name="insertBefore"/> — база, перед которой вставить (null = в конец группы).
+    /// </summary>
+    public void MoveInfobaseToGroup(Infobase infobase, string groupFullPath, Infobase? insertBefore = null)
+    {
+        var targetPath = groupFullPath ?? string.Empty;
+        var targetNorm = NormalizeGroupPath(targetPath);
+        infobase.Group = string.IsNullOrEmpty(targetNorm) ? targetPath : targetNorm;
+
+        var siblings = _allInfobases
+            .Where(i => !ReferenceEquals(i, infobase)
+                        && string.Equals(NormalizeGroupPath(i.Group), targetNorm,
+                            StringComparison.OrdinalIgnoreCase))
+            .OrderBy(i => i.SortOrder)
+            .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (insertBefore is not null
+            && siblings.Any(s => ReferenceEquals(s, insertBefore)
+                                 || string.Equals(s.Id, insertBefore.Id, StringComparison.OrdinalIgnoreCase)
+                                    && !string.IsNullOrEmpty(insertBefore.Id)))
+        {
+            var index = siblings.FindIndex(s =>
+                ReferenceEquals(s, insertBefore)
+                || (string.Equals(s.Id, insertBefore.Id, StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(insertBefore.Id)));
+            siblings.Insert(Math.Max(0, index), infobase);
+        }
+        else
+        {
+            siblings.Add(infobase);
+        }
+
+        for (var i = 0; i < siblings.Count; i++)
+            siblings[i].SortOrder = (i + 1) * 10;
+
+        SaveSilently();
+        ExportToIbasesAfterLocalChange();
+        RebuildTree();
+
+        // Выбор не менялся, а группа базы изменилась: подзаголовок правой панели
+        // считается от неё и сам об этом не узнает.
+        OnPropertyChanged(nameof(RightPanelSubtitle));
+    }
+
+    /// <summary>
+    /// Перемещает группу под другую группу (или в корень при пустом newParentId)
+    /// вместе со всеми вложенными подгруппами и информационными базами.
+    /// Обновляет ParentId и полные пути Infobase.Group у всей подветки.
+    /// </summary>
+    public void MoveGroupUnder(Group group, string newParentId)
+    {
+        newParentId ??= string.Empty;
+        if (string.Equals(group.Id, newParentId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Нельзя сделать родителем потомка этой группы (иначе цикл в иерархии).
+        if (!string.IsNullOrEmpty(newParentId)
+            && GroupHierarchyHelper.IsAncestorOrSelf(newParentId, group.Id, _groups))
+            return;
+
+        // Старые полные пути: сама группа + все потомки (до смены ParentId).
+        var oldPathsById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var subtreeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { group.Id };
+        CollectGroupDescendants(group.Id, subtreeIds);
+        foreach (var id in subtreeIds)
+        {
+            var g = _groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is not null)
+                oldPathsById[id] = GroupHierarchyHelper.GetFullPath(g, _groups);
+        }
+
+        var oldRootPath = oldPathsById.TryGetValue(group.Id, out var orp) ? orp : string.Empty;
+        var oldRootNorm = NormalizeGroupPath(oldRootPath);
+
+        // Меняем родителя только у перемещаемой группы; вложенные группы
+        // остаются её потомками через свои ParentId и переезжают вместе с ней.
+        group.ParentId = newParentId;
+
+        var newRootPath = GroupHierarchyHelper.GetFullPath(group, _groups);
+
+        // pathRemap: старый путь (и нормализованный) → новый канонический.
+        var pathRemap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(oldRootPath) && !string.IsNullOrEmpty(newRootPath))
+        {
+            pathRemap[oldRootPath] = newRootPath;
+            pathRemap[oldRootNorm] = newRootPath;
+        }
+
+        foreach (var id in subtreeIds)
+        {
+            var g = _groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is null || !oldPathsById.TryGetValue(id, out var oldPath))
+                continue;
+            var newPath = GroupHierarchyHelper.GetFullPath(g, _groups);
+            if (string.IsNullOrEmpty(oldPath) || string.IsNullOrEmpty(newPath))
+                continue;
+            pathRemap[oldPath] = newPath;
+            pathRemap[NormalizeGroupPath(oldPath)] = newPath;
+        }
+
+        if (pathRemap.Count > 0)
+        {
+            // Длинные пути первыми — чтобы «A / B» не переписывался как префикс «A».
+            var remapByLength = pathRemap
+                .OrderByDescending(kv => kv.Key.Length)
+                .ToList();
+
+            foreach (var ib in _allInfobases)
+            {
+                var current = ib.Group?.Trim() ?? string.Empty;
+                if (string.IsNullOrEmpty(current))
+                    continue;
+
+                var currentNorm = NormalizeGroupPath(current);
+                if (pathRemap.TryGetValue(current, out var mapped)
+                    || pathRemap.TryGetValue(currentNorm, out mapped))
+                {
+                    ib.Group = mapped;
+                    continue;
+                }
+
+                // Префикс: база во вложенном пути, которого не было в pathRemap.
+                // Путь считается по нормализованному ключу, иначе база не найдёт
+                // свой узел при перестройке дерева и уедет в «Без группы».
+                foreach (var (oldKey, newKey) in remapByLength)
+                {
+                    var oldKeyNorm = NormalizeGroupPath(oldKey);
+                    if (string.IsNullOrEmpty(oldKeyNorm))
+                        continue;
+                    var prefix = oldKeyNorm + GroupHierarchyHelper.PathSeparator;
+                    if (!currentNorm.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    ib.Group = newKey + currentNorm.Substring(oldKeyNorm.Length);
+                    break;
+                }
+
+                // Фолбэк на случай расхождений в формате пути: путь пересчитывается
+                // по старому корневому пути подветки.
+                if (!string.IsNullOrEmpty(oldRootNorm)
+                    && !string.IsNullOrEmpty(newRootPath)
+                    && (string.Equals(currentNorm, oldRootNorm, StringComparison.OrdinalIgnoreCase)
+                        || currentNorm.StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                            StringComparison.OrdinalIgnoreCase)))
+                {
+                    var suffix = currentNorm.Length > oldRootNorm.Length
+                        ? currentNorm.Substring(oldRootNorm.Length)
+                        : string.Empty;
+                    ib.Group = newRootPath + suffix;
+                }
+            }
+
+            if (_collapsedGroups.Count > 0)
+            {
+                var updated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var key in _collapsedGroups)
+                {
+                    if (pathRemap.TryGetValue(key, out var mapped)
+                        || pathRemap.TryGetValue(NormalizeGroupPath(key), out mapped))
+                        updated.Add(mapped);
+                    else if (!string.IsNullOrEmpty(oldRootPath)
+                             && (key.StartsWith(oldRootPath + GroupHierarchyHelper.PathSeparator,
+                                     StringComparison.OrdinalIgnoreCase)
+                                 || NormalizeGroupPath(key).StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                                     StringComparison.OrdinalIgnoreCase))
+                             && pathRemap.TryGetValue(oldRootPath, out var newRoot))
+                        updated.Add(newRoot + key.Substring(Math.Min(key.Length, oldRootPath.Length)));
+                    else
+                        updated.Add(key);
+                }
+                _collapsedGroups.Clear();
+                foreach (var k in updated)
+                    _collapsedGroups.Add(k);
+
+                // В WPF свёрнутость после переноса остаётся только в памяти:
+                // ключи переложены, а настройки не сохраняются.
+                PersistCollapsedGroups();
+            }
+        }
+
+        SaveSilently();
+        SaveGroupsSilently();
+        ExportToIbasesAfterLocalChange();
+        RebuildTree();
+    }
+
     /// <summary>Полные пути группы и всех её потомков: по ним ищутся базы внутри.</summary>
     private HashSet<string> CollectGroupPaths(string groupId)
     {
