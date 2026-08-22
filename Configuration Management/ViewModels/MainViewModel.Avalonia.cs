@@ -597,12 +597,17 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Временный фильтр: поиск, отбор по тегам или вид списка кроме «Все».
+    /// В этом режиме дерево показывает плоский найденный список, а не группы.
+    /// </summary>
+    private bool IsFilterModeActive() =>
+        !string.IsNullOrWhiteSpace(SearchText) || HasActiveTagFilter || _listMode != "All";
+
     /// <summary>Применяет фильтр по виду списка и поиску.</summary>
     private void ApplyFilter()
     {
-        var hasSearch = !string.IsNullOrWhiteSpace(SearchText);
-        var hasActiveTags = TagFilterItems.Any(t => t.IsSelected);
-        var filterActive = hasSearch || hasActiveTags || _listMode != "All";
+        var filterActive = IsFilterModeActive();
 
         // Плоский список нужен в двух случаях: активен фильтр (поиск, теги,
         // «Избранное», «Недавние») либо пользователь отключил группировку.
@@ -1134,7 +1139,12 @@ public class MainViewModel : ViewModelBase
 
         infobase.IsFavorite = !infobase.IsFavorite;
         SaveSilently();
-        ApplyFilter();
+
+        // Состав списка меняется только при активном временном фильтре: там база
+        // может выпасть из выборки. Без фильтра строка перекрашивается сама
+        // по уведомлению модели, и пересобирать дерево незачем.
+        if (IsFilterModeActive())
+            ApplyFilter();
     }
 
     private void TogglePinFor(Infobase? infobase)
@@ -1144,7 +1154,81 @@ public class MainViewModel : ViewModelBase
 
         infobase.IsPinned = !infobase.IsPinned;
         SaveSilently();
-        RebuildTree();
+        UpdatePinnedSection(infobase);
+    }
+
+    /// <summary>
+    /// Точечно обновляет узел «Закреплённые», как это делает WPF-версия
+    /// (ApplyPinToggle / UpdatePinnedSection): полная пересборка дерева здесь
+    /// стоила бы пересоздания всех строк и потери выделения. При отключённой
+    /// группировке или активном временном фильтре закрепление на состав списка
+    /// не влияет и проявится при следующей пересборке.
+    /// </summary>
+    private void UpdatePinnedSection(Infobase infobase)
+    {
+        if (!_groupByGroup || IsFilterModeActive())
+            return;
+
+        var pinned = AllGroupNodes.FirstOrDefault(node => node.Group is null
+            && string.Equals(node.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal));
+
+        if (infobase.IsPinned)
+        {
+            if (pinned is null)
+            {
+                pinned = new GroupNodeViewModel(null, marker: GroupNodeViewModel.PinnedMarker);
+                pinned.Infobases.Add(infobase);
+                pinned.PopulateItems(_showEmptyGroups);
+                ApplyExpandedState(pinned);
+                SubscribeExpandedTracking(pinned);
+                AllGroupNodes.Insert(0, pinned);
+                GroupNodes.Insert(0, pinned);
+                return;
+            }
+
+            if (!pinned.Infobases.Contains(infobase))
+            {
+                pinned.Infobases.Add(infobase);
+                SortNodeInfobases(pinned);
+                pinned.PopulateItems(_showEmptyGroups);
+            }
+            else
+            {
+                pinned.NotifyCountChanged();
+            }
+
+            return;
+        }
+
+        if (pinned is null)
+            return;
+
+        pinned.Infobases.Remove(infobase);
+        if (pinned.Infobases.Count > 0)
+        {
+            pinned.PopulateItems(_showEmptyGroups);
+            return;
+        }
+
+        AllGroupNodes.Remove(pinned);
+        GroupNodes.Remove(pinned);
+    }
+
+    /// <summary>Переупорядочивает базы узла по текущему полю сортировки.</summary>
+    private void SortNodeInfobases(GroupNodeViewModel node)
+    {
+        var sorted = ApplyCurrentSort(node.Infobases).ToList();
+        node.SetNotificationsSuppressed(true);
+        try
+        {
+            node.Infobases.Clear();
+            foreach (var infobase in sorted)
+                node.Infobases.Add(infobase);
+        }
+        finally
+        {
+            node.SetNotificationsSuppressed(false);
+        }
     }
 
     private void CopyConnectionString()

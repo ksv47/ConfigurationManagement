@@ -50,6 +50,8 @@ namespace Configuration_Management
         private Border? _columnHeader;
         private Grid? _columnHeaderRow;
         private ColumnDefinition? _headerOffsetColumn;
+        private Control? _headerPinMark;
+        private double _headerToolbarWidth;
         private readonly List<IDisposable> _columnHeaderSubscriptions = new();
         private Grid? _listContent;
         private bool _columnHeaderRefreshQueued;
@@ -655,13 +657,23 @@ namespace Configuration_Management
             };
             header.Bind(Border.BackgroundProperty, new Binding("HeaderBrush") { Source = group });
 
-            var text = new TextBlock
-            {
-                Text = $"{group.DisplayName}  ({group.TotalInfobaseCount})",
-                FontWeight = FontWeight.SemiBold
-            };
+            // Имя и счётчик привязаны к узлу, а не подставлены строкой: состав узла
+            // меняется и без пересборки дерева (закрепление базы), и тогда готовый
+            // текст остался бы со старым числом.
+            var caption = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+
+            var text = new TextBlock { FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            text.Bind(TextBlock.TextProperty, new Binding("DisplayName") { Source = group });
             text.Bind(TextBlock.ForegroundProperty, new Binding("HeaderTextBrush") { Source = group });
-            header.Child = text;
+            caption.Children.Add(text);
+
+            var count = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+            count.Bind(TextBlock.TextProperty,
+                new Binding("TotalInfobaseCount") { Source = group, StringFormat = "({0})" });
+            count.Bind(TextBlock.ForegroundProperty, new Binding("HeaderTextBrush") { Source = group });
+            caption.Children.Add(count);
+
+            header.Child = caption;
             return header;
         }
 
@@ -680,7 +692,7 @@ namespace Configuration_Management
             var showPin = _vm?.ShowPinnedButton ?? true;
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(showFavorite ? FavoriteColumnWidth : 0) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(showPin ? PinColumnWidth : 0) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(IconColumnWidth) });
             grid.ColumnDefinitions.Add(new ColumnDefinition
             {
                 Width = new GridLength(1, GridUnitType.Star),
@@ -695,16 +707,18 @@ namespace Configuration_Management
 
             if (showFavorite)
             {
-                var favorite = RowMarkButton("IconFavorite", ib.IsFavorite ? "FavoriteBrush" : "TextSecondaryBrush",
-                    LocalizationManager.T("Main.ToggleFavoriteTooltip"), "ToggleFavoriteForCommand", ib, FavoriteColumnWidth);
+                var favorite = RowMarkButton(card, ib, "IconFavorite", "FavoriteBrush",
+                    nameof(Infobase.IsFavorite), () => ib.IsFavorite,
+                    LocalizationManager.T("Main.ToggleFavoriteTooltip"), "ToggleFavoriteForCommand", FavoriteColumnWidth);
                 grid.Children.Add(favorite);
                 Grid.SetColumn(favorite, 0);
             }
 
             if (showPin)
             {
-                var pin = RowMarkButton("IconPin", ib.IsPinned ? "AccentBrush" : "TextSecondaryBrush",
-                    LocalizationManager.T("Main.TogglePinTooltip"), "TogglePinForCommand", ib, PinColumnWidth);
+                var pin = RowMarkButton(card, ib, "IconPin", "AccentBrush",
+                    nameof(Infobase.IsPinned), () => ib.IsPinned,
+                    LocalizationManager.T("Main.TogglePinTooltip"), "TogglePinForCommand", PinColumnWidth);
                 grid.Children.Add(pin);
                 Grid.SetColumn(pin, 1);
             }
@@ -725,8 +739,8 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 0, 10, 0)
             };
             ToolTip.SetTip(iconBox, ib.StatusDisplay);
-            ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush");
-            ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush");
+            card.AddSubscription(ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush"));
+            card.AddSubscription(ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush"));
             iconBox.Child = new Avalonia.Controls.Shapes.Path
             {
                 Width = UiMetrics.RowIcon,
@@ -756,7 +770,7 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            card.AddSubscription(ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush"));
             nameRow.Children.Add(name);
             content.Children.Add(nameRow);
 
@@ -773,7 +787,7 @@ namespace Configuration_Management
                 ? ib.ConnectionTypeDisplay
                 : JoinSegments(ib.ConnectionTypeDisplay, location);
             if (!string.IsNullOrWhiteSpace(summary))
-                content.Children.Add(SecondaryText(summary));
+                content.Children.Add(SecondaryText(summary, card));
 
             grid.Children.Add(content);
             Grid.SetColumn(content, 3);
@@ -781,7 +795,7 @@ namespace Configuration_Management
             for (var i = 0; i < columns.Count; i++)
             {
                 var value = ColumnValue(ib, columns[i].Key);
-                var cell = SecondaryText(string.IsNullOrWhiteSpace(value) ? string.Empty : value);
+                var cell = SecondaryText(string.IsNullOrWhiteSpace(value) ? string.Empty : value, card);
                 cell.VerticalAlignment = VerticalAlignment.Center;
                 grid.Children.Add(cell);
                 Grid.SetColumn(cell, i + 4);
@@ -793,14 +807,53 @@ namespace Configuration_Management
 
         /// <summary>
         /// Кнопка-маркер в строке базы: звезда «избранное» или булавка «закреплено».
-        /// Цвет иконки показывает состояние, клик переключает его для этой базы.
+        /// Цвет иконки следит за состоянием самой базы, поэтому после переключения
+        /// строку не нужно пересобирать, и за кистями темы он тоже следует.
         /// </summary>
-        private Button RowMarkButton(string iconKey, string brushKey, string tooltip,
-            string commandPath, Infobase infobase, double width)
+        private Button RowMarkButton(InfobaseRowCard card, Infobase infobase, string iconKey,
+            string activeBrushKey, string stateProperty, Func<bool> isActive,
+            string tooltip, string commandPath, double width)
         {
+            var icon = new Avalonia.Controls.Shapes.Path
+            {
+                Width = UiMetrics.Scaled(14),
+                Height = UiMetrics.Scaled(14),
+                Data = IconHelper.Geometry(iconKey),
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            IBrush? active = null;
+            IBrush? idle = null;
+            void ApplyState()
+            {
+                var brush = isActive() ? active : idle;
+                if (brush is not null)
+                    icon.Fill = brush;
+            }
+
+            if (Application.Current is { } app)
+            {
+                card.AddSubscription(app.GetResourceObservable(activeBrushKey)
+                    .Subscribe(new BrushObserver(brush => active = brush, ApplyState)));
+                card.AddSubscription(app.GetResourceObservable("TextSecondaryBrush")
+                    .Subscribe(new BrushObserver(brush => idle = brush, ApplyState)));
+            }
+
+            void OnInfobaseChanged(object? _, PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName == stateProperty)
+                    ApplyState();
+            }
+
+            infobase.PropertyChanged += OnInfobaseChanged;
+            card.AddSubscription(new ActionDisposable(() => infobase.PropertyChanged -= OnInfobaseChanged));
+            ApplyState();
+
             var button = new Button
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), brushKey),
+                Content = icon,
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(0),
@@ -819,6 +872,21 @@ namespace Configuration_Management
             return button;
         }
 
+        /// <summary>Освобождение по вызову действия: снятие подписки на событие модели.</summary>
+        private sealed class ActionDisposable : IDisposable
+        {
+            private Action? _dispose;
+
+            public ActionDisposable(Action dispose) => _dispose = dispose;
+
+            public void Dispose()
+            {
+                var action = _dispose;
+                _dispose = null;
+                action?.Invoke();
+            }
+        }
+
         /// <summary>Объединяет непустые фрагменты в одну строку с разделителем «•».</summary>
         private static string JoinSegments(params string?[] parts)
         {
@@ -830,7 +898,7 @@ namespace Configuration_Management
         }
 
         /// <summary>Строка вторичной информации: приглушённый текст из темы с подсказкой по полному значению.</summary>
-        private static TextBlock SecondaryText(string text)
+        private static TextBlock SecondaryText(string text, InfobaseRowCard? owner = null)
         {
             var block = new TextBlock
             {
@@ -839,7 +907,9 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
             ToolTip.SetTip(block, text);
-            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            var subscription = ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            if (owner is not null)
+                owner.AddSubscription(subscription);
             return block;
         }
 
@@ -1441,17 +1511,27 @@ namespace Configuration_Management
         /// <summary>Ширина колонки булавки «закреплено» в заголовке и в строке базы.</summary>
         private static double PinColumnWidth => UiMetrics.Scaled(24);
 
+        /// <summary>
+        /// Ширина колонки иконки базы: сама иконка и её правый отступ. В заголовке
+        /// эта колонка пустая, но она есть, иначе подпись «Название» стояла бы
+        /// левее имён строк на ширину иконки.
+        /// </summary>
+        private static double IconColumnWidth => UiMetrics.RowIconBox + 10;
+
         /// <summary>Ширина одной кнопки панели инструментов над списком.</summary>
         private static double ToolbarButtonWidth => UiMetrics.Scaled(24);
 
         /// <summary>Ширина блока кнопок групп: четыре кнопки с промежутками.</summary>
         private static double GroupToolbarWidth => ToolbarButtonWidth * 4 + 6 + UiMetrics.Scaled(6);
 
-        /// <summary>Номер колонки заголовка с именем базы: кнопки, компенсатор, звезда, булавка.</summary>
+        /// <summary>
+        /// Номер колонки заголовка с именем базы: компенсатор отступа дерева,
+        /// звезда, булавка, иконка.
+        /// </summary>
         private const int NameHeaderColumn = 4;
 
         /// <summary>Номер колонки заголовка с пометкой закрепления.</summary>
-        private const int PinHeaderColumn = NameHeaderColumn - 1;
+        private const int PinHeaderColumn = NameHeaderColumn - 2;
 
         /// <summary>
         /// Колонки списка в порядке отображения, кроме первой (имя базы),
@@ -1552,27 +1632,21 @@ namespace Configuration_Management
             _columnHeaderRow.ColumnDefinitions.Clear();
 
             var columns = ListColumns();
-            var toolbarWidth = _vm.ShowExpandCollapseButtons ? GroupToolbarWidth : 0;
+            _headerToolbarWidth = _vm.ShowExpandCollapseButtons ? GroupToolbarWidth : 0;
             var favoriteWidth = _vm.ShowFavoritesButton ? FavoriteColumnWidth : 0;
             var pinWidth = _vm.ShowPinnedButton ? PinColumnWidth : 0;
 
-            _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(toolbarWidth) });
             _headerOffsetColumn = new ColumnDefinition { Width = new GridLength(0) };
             _columnHeaderRow.ColumnDefinitions.Add(_headerOffsetColumn);
             _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(favoriteWidth) });
             _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(pinWidth) });
+            _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(IconColumnWidth) });
             _columnHeaderRow.ColumnDefinitions.Add(
                 new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = NameColumnMinWidth });
             foreach (var column in columns)
                 _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(column.Width) });
 
-            if (_vm.ShowExpandCollapseButtons)
-            {
-                var tools = BuildGroupToolbar();
-                _columnHeaderRow.Children.Add(tools);
-                Grid.SetColumn(tools, 0);
-            }
-
+            _headerPinMark = null;
             if (_vm.ShowPinnedButton)
             {
                 // Значок закрепления в заголовке — только пометка колонки, как в WPF.
@@ -1580,6 +1654,19 @@ namespace Configuration_Management
                 ToolTip.SetTip(pinMark, LocalizationManager.T("Main.Pinned"));
                 _columnHeaderRow.Children.Add(pinMark);
                 Grid.SetColumn(pinMark, PinHeaderColumn);
+                _headerPinMark = pinMark;
+            }
+
+            if (_vm.ShowExpandCollapseButtons)
+            {
+                // Кнопки лежат поверх компенсатора и пустых колонок звезды,
+                // булавки и иконки: своя колонка сдвинула бы подписи вправо
+                // от значений, а колонки заголовка тут ничего не показывают.
+                var tools = BuildGroupToolbar();
+                _columnHeaderRow.Children.Add(tools);
+                Grid.SetColumn(tools, 0);
+                Grid.SetColumnSpan(tools, NameHeaderColumn);
+                tools.ZIndex = 1;
             }
 
             var nameHeader = HeaderText(LocalizationManager.T("Column.Name"), _columnHeaderSubscriptions);
@@ -1602,9 +1689,8 @@ namespace Configuration_Management
             // из двух блоков: у заголовка это кнопки групп, у строки — иконка базы.
             if (_listContent is not null)
             {
-                var rowLeft = favoriteWidth + pinWidth + UiMetrics.RowIconBox + 10;
-                var headerLeft = toolbarWidth + favoriteWidth + pinWidth;
-                _listContent.MinWidth = NameColumnMinWidth + Math.Max(rowLeft, headerLeft)
+                var lead = favoriteWidth + pinWidth + IconColumnWidth;
+                _listContent.MinWidth = NameColumnMinWidth + Math.Max(lead, _headerToolbarWidth)
                     + UiMetrics.PaddingControl * 2 + columns.Sum(c => c.Width);
             }
 
@@ -1708,9 +1794,19 @@ namespace Configuration_Management
             if (left is null)
                 return;
 
-            var offset = Math.Max(0, left.Value - _columnHeaderRow.ColumnDefinitions[0].ActualWidth);
+            // Пустые колонки звезды, булавки и иконки заголовка кнопки перекрывают,
+            // а на подпись «Название» налезать не должны, отсюда нижняя граница.
+            var lead = _columnHeaderRow.ColumnDefinitions[1].ActualWidth
+                + _columnHeaderRow.ColumnDefinitions[2].ActualWidth
+                + _columnHeaderRow.ColumnDefinitions[3].ActualWidth;
+            var offset = Math.Max(Math.Max(0, _headerToolbarWidth - lead), left.Value);
             if (Math.Abs(offset - _headerOffsetColumn.Width.Value) > 0.5)
                 _headerOffsetColumn.Width = new GridLength(offset);
+
+            // Пометка булавки прячется, когда её место занял блок кнопок.
+            if (_headerPinMark is not null)
+                _headerPinMark.IsVisible = offset + _columnHeaderRow.ColumnDefinitions[1].ActualWidth
+                    >= _headerToolbarWidth;
         }
 
         private static TextBlock HeaderText(string text, ICollection<IDisposable>? subscriptions = null)
