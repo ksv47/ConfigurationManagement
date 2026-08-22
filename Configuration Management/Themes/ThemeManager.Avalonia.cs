@@ -300,7 +300,19 @@ namespace Configuration_Management.Themes
             if (!Directory.Exists(CustomSchemesDirectory))
                 return result;
 
-            foreach (var file in Directory.GetFiles(CustomSchemesDirectory, "*.json"))
+            string[] files;
+            try
+            {
+                files = Directory.GetFiles(CustomSchemesDirectory, "*.json");
+            }
+            catch
+            {
+                // Каталог схем может быть недоступен для чтения: список тем тогда пустой,
+                // но окно настроек всё равно открывается.
+                return result;
+            }
+
+            foreach (var file in files)
             {
                 try
                 {
@@ -333,6 +345,23 @@ namespace Configuration_Management.Themes
             Directory.CreateDirectory(CustomSchemesDirectory);
             var file = Path.Combine(CustomSchemesDirectory, SafeFileName(scheme.Name) + ".json");
             File.WriteAllText(file, scheme.ToJson());
+        }
+
+        /// <summary>
+        /// Переименовывает пользовательскую схему: сначала пишет файл под новым именем,
+        /// затем удаляет старый и только если это другой файл. Порядок важен: при
+        /// обратном схема пропадала бы при любой ошибке записи.
+        /// </summary>
+        public static void RenameCustomScheme(ColorScheme scheme, string oldName)
+        {
+            if (scheme is null || string.IsNullOrWhiteSpace(scheme.Name) || string.IsNullOrWhiteSpace(oldName))
+                return;
+
+            var oldFile = Path.Combine(CustomSchemesDirectory, SafeFileName(oldName) + ".json");
+            var newFile = Path.Combine(CustomSchemesDirectory, SafeFileName(scheme.Name) + ".json");
+            SaveCustomScheme(scheme);
+            if (!string.Equals(oldFile, newFile, StringComparison.Ordinal) && File.Exists(oldFile))
+                File.Delete(oldFile);
         }
 
         /// <summary>Удаляет пользовательскую схему по имени. Возвращает true, если файл удалён.</summary>

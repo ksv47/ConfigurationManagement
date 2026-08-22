@@ -790,6 +790,8 @@
     "Settings.ExportDoneTitle": "Выгрузить схему",
     "Settings.ExportFailed": "Не удалось выгрузить схему.\n{0}",
     "Settings.ImportSchemeTitle": "Загрузить цветовую схему",
+    "Settings.SchemeFailedLinux": "Не удалось выполнить операцию со схемой.\n{0}",
+    "Settings.ImportReplaceLinux": "Схема «{0}» уже есть. Заменить её загруженной?",
     "Settings.ImportFailed": "Не удалось загрузить цветовую схему из файла. Проверьте файл.",
     "Settings.ImportDoneTitle": "Загрузить схему",
     "Settings.ImportedOk": "Цветовая схема «{0}» загружена.",
