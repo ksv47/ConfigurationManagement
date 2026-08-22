@@ -45,6 +45,9 @@ namespace Configuration_Management
         private Avalonia.Controls.Shapes.Path _emptyIcon = null!;
         private TextBlock _emptyTitle = null!;
         private SegmentButton? _tagsToggle;
+        private Border? _columnHeader;
+        private Grid? _columnHeaderRow;
+        private Grid? _listContent;
         private Border? _tagPanel;
         private WrapPanel? _tagPanelItems;
         private Button? _tagClearButton;
@@ -366,6 +369,10 @@ namespace Configuration_Management
             };
             // Фон списка баз — фон рабочей области из темы.
             ThemeBrushes.Bind(_tree, TemplatedControl.BackgroundProperty, "ContentBackgroundColorBrush");
+            // Горизонтальная прокрутка отключена: иначе строка растягивается
+            // по сумме ширин колонок и уезжает за правый край, а заголовки,
+            // живущие вне области прокрутки, перестают совпадать со значениями.
+            ScrollViewer.SetHorizontalScrollBarVisibility(_tree, ScrollBarVisibility.Disabled);
             _tree.Bind(TreeView.ItemsSourceProperty, new Binding("GroupNodes"));
             _tree.SelectionMode = SelectionMode.Single;
 
@@ -428,9 +435,28 @@ namespace Configuration_Management
             leftInner.Children.Add(_tree);
             leftInner.Children.Add(_emptyState);
 
+            // Заголовки колонок и строки живут в одной области горизонтальной
+            // прокрутки: колонок может не хватить по ширине, и если прокручивать
+            // только список, заголовки перестанут совпадать со значениями.
+            _listContent = new Grid();
+            _listContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _listContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
+            var columnHeader = BuildColumnHeader();
+            _listContent.Children.Add(columnHeader);
+            Grid.SetRow(columnHeader, 0);
+            _listContent.Children.Add(leftInner);
+            Grid.SetRow(leftInner, 1);
+
+            var listArea = new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = _listContent
+            };
+
             var leftPanel = new Border
             {
-                Child = leftInner,
+                Child = listArea,
                 Margin = new Thickness(UiMetrics.TopBarH, UiMetrics.TopBarV, 8, UiMetrics.TopBarV),
                 Padding = new Thickness(UiMetrics.Scaled(8), UiMetrics.Scaled(8))
             };
@@ -462,6 +488,7 @@ namespace Configuration_Management
             }
             UpdateEmptyState();
             RefreshTagFilterPanel();
+            RefreshColumnHeader();
 
             var rightPanel = new ScrollViewer
             {
@@ -625,7 +652,17 @@ namespace Configuration_Management
 
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = new GridLength(1, GridUnitType.Star),
+                MinWidth = NameColumnMinWidth
+            });
+
+            // Колонки идут теми же ширинами, что и в заголовке, поэтому значения
+            // строк выстраиваются под своими заголовками.
+            var columns = ListColumns();
+            foreach (var column in columns)
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(column.Width) });
 
             // Иконка статуса базы слева: тип подключения (папка / глобус / сеть)
             // или «недоступна». Цвет зависит от статуса: янтарный — файловая,
@@ -682,28 +719,32 @@ namespace Configuration_Management
                 nameRow.Children.Add(IconHelper.MakeIcon("IconPin", 13, "TextSecondaryBrush"));
             content.Children.Add(nameRow);
 
-            // Версия платформы + конфигурация (название (версия)).
-            var versionLine = JoinSegments(ib.PlatformVersion, ib.ConfigurationDisplay);
-            if (!string.IsNullOrWhiteSpace(versionLine))
-                content.Children.Add(SecondaryText(versionLine));
-
-            // Тип подключения + сервер/путь (для веб — URL публикации).
+            // Вторичной строкой остаётся только то, чего нет в колонках: тип
+            // подключения и путь. Остальное ушло в колонки, иначе одни и те же
+            // данные показывались бы дважды.
+            var shown = new HashSet<string>(columns.Select(c => c.Key), StringComparer.Ordinal);
             var location = ib.Connection.Type switch
             {
                 ConnectionType.WebServer => ib.Connection.WebUrl,
                 _ => ib.ServerDatabaseDisplay
             };
-            var serverLine = JoinSegments(ib.ConnectionTypeDisplay, location);
-            if (!string.IsNullOrWhiteSpace(serverLine))
-                content.Children.Add(SecondaryText(serverLine));
-
-            // Режим запуска (тонкий/толстый/веб-клиент) + последний запуск.
-            var launchLine = JoinSegments(ib.ParsedLaunchMode, ib.LastLaunchDisplay);
-            if (!string.IsNullOrWhiteSpace(launchLine))
-                content.Children.Add(SecondaryText(launchLine));
+            var summary = shown.Contains("ServerBase")
+                ? ib.ConnectionTypeDisplay
+                : JoinSegments(ib.ConnectionTypeDisplay, location);
+            if (!string.IsNullOrWhiteSpace(summary))
+                content.Children.Add(SecondaryText(summary));
 
             grid.Children.Add(content);
             Grid.SetColumn(content, 1);
+
+            for (var i = 0; i < columns.Count; i++)
+            {
+                var value = ColumnValue(ib, columns[i].Key);
+                var cell = SecondaryText(string.IsNullOrWhiteSpace(value) ? string.Empty : value);
+                cell.VerticalAlignment = VerticalAlignment.Center;
+                grid.Children.Add(cell);
+                Grid.SetColumn(cell, i + 2);
+            }
 
             card.Child = grid;
             return card;
@@ -1317,6 +1358,126 @@ namespace Configuration_Management
                     BorderThickness = new Thickness(0);
                 }
             }
+        }
+
+        /// <summary>Описание колонки списка баз: ключ, заголовок, ширина.</summary>
+        private readonly record struct ListColumn(string Key, string Header, double Width);
+
+        /// <summary>Минимум под имя базы: колонка звёздная, но схлопываться ей нельзя.</summary>
+        private const double NameColumnMinWidth = 220;
+
+        /// <summary>
+        /// Колонки списка в порядке отображения, кроме первой (имя базы),
+        /// которая занимает оставшееся место. Состав и ширины берутся
+        /// из настроек, поэтому заголовок и строки всегда согласованы.
+        /// </summary>
+        private List<ListColumn> ListColumns()
+        {
+            var columns = new List<ListColumn>();
+            if (_vm is null)
+                return columns;
+
+            // Ширина из настроек, а при нуле (настройка ещё не трогалась) свой
+            // разумный размер под содержимое колонки.
+            void Add(bool visible, string key, string header, double width, double fallback)
+            {
+                if (visible)
+                    columns.Add(new ListColumn(key, LocalizationManager.T(header), width > 0 ? width : fallback));
+            }
+
+            Add(_vm.ShowVersionColumn, "Version", "Column.Version", _vm.VersionColumnWidth, 95);
+            Add(_vm.ShowConfigurationColumn, "Configuration", "Column.Configuration", _vm.ConfigurationColumnWidth, 140);
+            Add(_vm.ShowLaunchModeColumn, "LaunchMode", "Column.LaunchMode", _vm.LaunchModeColumnWidth, 115);
+            Add(_vm.ShowServerColumn, "ServerBase", "Column.ServerBase", _vm.ServerColumnWidth, 140);
+            Add(_vm.ShowLastLaunchColumn, "LastLaunch", "Column.LastLaunch", _vm.LastLaunchColumnWidth, 115);
+            Add(_vm.ShowSizeColumn, "Size", "Column.Size", _vm.SizeColumnWidth, 65);
+            return columns;
+        }
+
+        /// <summary>Значение колонки для конкретной базы.</summary>
+        private static string ColumnValue(Infobase ib, string key) => key switch
+        {
+            "Version" => ib.PlatformVersion ?? string.Empty,
+            "Configuration" => ib.ConfigurationDisplay ?? string.Empty,
+            "LaunchMode" => ib.LaunchMode ?? string.Empty,
+            "ServerBase" => ib.Connection.Type == ConnectionType.WebServer
+                ? (ib.Connection.WebUrl ?? string.Empty)
+                : (ib.ServerDatabaseDisplay ?? string.Empty),
+            "LastLaunch" => ib.LastLaunchDisplay ?? string.Empty,
+            "Size" => ib.FileSizeDisplay ?? string.Empty,
+            _ => string.Empty
+        };
+
+        /// <summary>
+        /// Строка заголовков колонок над списком. Пересобирается вместе
+        /// со списком, чтобы состав колонок совпадал со строками.
+        /// </summary>
+        private Control BuildColumnHeader()
+        {
+            _columnHeaderRow = new Grid();
+            _columnHeader = new Border
+            {
+                // Отступы совпадают с карточкой строки: колонки в обеих сетках
+                // прижаты вправо, поэтому заголовки встают над значениями только
+                // при одинаковом правом отступе.
+                Padding = new Thickness(UiMetrics.PaddingControl, 4),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Child = _columnHeaderRow
+            };
+            ThemeBrushes.Bind(_columnHeader, Border.BorderBrushProperty, "BorderColorBrush");
+            return _columnHeader;
+        }
+
+        /// <summary>Пересобирает заголовки колонок по текущим настройкам.</summary>
+        private void RefreshColumnHeader()
+        {
+            if (_vm is null || _columnHeaderRow is null || _columnHeader is null)
+                return;
+
+            _columnHeaderRow.Children.Clear();
+            _columnHeaderRow.ColumnDefinitions.Clear();
+
+            var columns = ListColumns();
+            _columnHeaderRow.ColumnDefinitions.Add(
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = NameColumnMinWidth });
+            foreach (var column in columns)
+                _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(column.Width) });
+
+            var nameHeader = HeaderText(LocalizationManager.T("Column.Name"));
+            _columnHeaderRow.Children.Add(nameHeader);
+            Grid.SetColumn(nameHeader, 0);
+
+            for (var i = 0; i < columns.Count; i++)
+            {
+                var text = HeaderText(columns[i].Header);
+                _columnHeaderRow.Children.Add(text);
+                Grid.SetColumn(text, i + 1);
+            }
+
+            _columnHeader.IsVisible = columns.Count > 0;
+
+            // Минимальная ширина области равна сумме колонок: при узком окне
+            // включается горизонтальная прокрутка, и заголовок едет вместе
+            // со строками, а не разъезжается с ними.
+            if (_listContent is not null)
+            {
+                var iconAndPadding = UiMetrics.RowIconBox + 10 + UiMetrics.PaddingControl * 2;
+                _listContent.MinWidth = NameColumnMinWidth + iconAndPadding + columns.Sum(c => c.Width);
+            }
+        }
+
+        private static TextBlock HeaderText(string text)
+        {
+            var block = new TextBlock
+            {
+                Text = text,
+                FontSize = UiMetrics.Scaled(12),
+                FontWeight = FontWeight.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            return block;
         }
 
         /// <summary>
