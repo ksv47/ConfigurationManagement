@@ -1160,17 +1160,21 @@ public class MainViewModel : ViewModelBase
     /// <summary>
     /// Точечно обновляет узел «Закреплённые», как это делает WPF-версия
     /// (ApplyPinToggle / UpdatePinnedSection): полная пересборка дерева здесь
-    /// стоила бы пересоздания всех строк и потери выделения. При отключённой
-    /// группировке или активном временном фильтре закрепление на состав списка
-    /// не влияет и проявится при следующей пересборке.
+    /// стоила бы пересоздания всех строк и потери выделения. Узел правится
+    /// всегда, а в видимый список попадает только когда он там уместен:
+    /// AllGroupNodes переживает и фильтр, и отключение группировки, и после
+    /// возврата к группам список берётся именно оттуда.
     /// </summary>
     private void UpdatePinnedSection(Infobase infobase)
     {
-        if (!_groupByGroup || IsFilterModeActive())
-            return;
-
+        var pinnedVisible = _groupByGroup && !IsFilterModeActive();
         var pinned = AllGroupNodes.FirstOrDefault(node => node.Group is null
             && string.Equals(node.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal));
+
+        // Закрепление меняет и порядок внутри своей группы: закреплённые идут
+        // первыми (GroupSortOrder). Без этого строка осталась бы на прежнем
+        // месте до следующей полной пересборки.
+        SortOwningNode(infobase);
 
         if (infobase.IsPinned)
         {
@@ -1182,7 +1186,8 @@ public class MainViewModel : ViewModelBase
                 ApplyExpandedState(pinned);
                 SubscribeExpandedTracking(pinned);
                 AllGroupNodes.Insert(0, pinned);
-                GroupNodes.Insert(0, pinned);
+                if (pinnedVisible)
+                    GroupNodes.Insert(0, pinned);
                 return;
             }
 
@@ -1212,6 +1217,41 @@ public class MainViewModel : ViewModelBase
 
         AllGroupNodes.Remove(pinned);
         GroupNodes.Remove(pinned);
+    }
+
+    /// <summary>
+    /// Переупорядочивает узел, в котором лежит база, кроме служебного узла
+    /// «Закреплённые»: его состав меняется отдельно.
+    /// </summary>
+    private void SortOwningNode(Infobase infobase)
+    {
+        foreach (var root in AllGroupNodes)
+        {
+            var owner = FindNodeWith(root, infobase);
+            if (owner is null
+                || string.Equals(owner.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal))
+                continue;
+
+            SortNodeInfobases(owner);
+            owner.PopulateItems(_showEmptyGroups);
+            return;
+        }
+    }
+
+    /// <summary>Ищет узел дерева, в списке баз которого лежит указанная база.</summary>
+    private static GroupNodeViewModel? FindNodeWith(GroupNodeViewModel node, Infobase infobase)
+    {
+        if (node.Infobases.Contains(infobase))
+            return node;
+
+        foreach (var child in node.Children)
+        {
+            var found = FindNodeWith(child, infobase);
+            if (found is not null)
+                return found;
+        }
+
+        return null;
     }
 
     /// <summary>Переупорядочивает базы узла по текущему полю сортировки.</summary>
