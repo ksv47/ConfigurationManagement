@@ -608,6 +608,12 @@ public class MainViewModel : ViewModelBase
 
     private void RebuildTagFilters()
     {
+        // Выбор сохраняется: пересборка идёт при каждом перестроении дерева,
+        // и без этого действующий отбор сбрасывался бы при любой правке базы.
+        var selected = TagFilterItems.Where(t => t.IsSelected)
+            .Select(t => t.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         TagFilterItems.Clear();
         foreach (var tag in _allInfobases
                      .SelectMany(ib => ib.Tags)
@@ -616,9 +622,19 @@ public class MainViewModel : ViewModelBase
                      .Distinct(StringComparer.OrdinalIgnoreCase)
                      .OrderBy(t => t, StringComparer.OrdinalIgnoreCase))
         {
-            TagFilterItems.Add(new TagFilterItem(tag));
+            TagFilterItems.Add(new TagFilterItem(tag) { IsSelected = selected.Contains(tag) });
         }
+
+        OnPropertyChanged(nameof(HasActiveTagFilter));
+        TagFiltersRebuilt?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// Набор тегов пересобран целиком. Отдельное событие нужно, чтобы
+    /// интерфейс перестраивал панель один раз, а не на каждый добавленный
+    /// элемент коллекции.
+    /// </summary>
+    public event EventHandler? TagFiltersRebuilt;
 
     private void SearchByTag(object? parameter)
     {
