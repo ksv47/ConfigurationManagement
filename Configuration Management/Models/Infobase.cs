@@ -405,12 +405,14 @@ public class Infobase : INotifyPropertyChanged
     {
         get
         {
-            var mode = (LaunchMode ?? string.Empty).Trim();
-            return mode.ToLowerInvariant() switch
+            // Каноническое значение не меняется; сравнение регистронезависимое
+            // (ToLowerInvariant покрывает «Автоматический»→«автоматический» и т.д.).
+            var mode = (LaunchMode ?? string.Empty).Trim().ToLowerInvariant();
+            return mode switch
             {
                 "" or "автоматический" => LocalizationManager.T("Connection.LaunchAuto"),
-                "тонкий клиент" => LocalizationManager.T("Connection.LaunchThin"),
-                "толстый клиент" => LocalizationManager.T("Connection.LaunchThickManaged"),
+                "тонкий клиент" or "тонкий клиент (управляемое приложение)" => LocalizationManager.T("Connection.LaunchThin"),
+                "толстый клиент" or "толстый клиент (управляемое приложение)" => LocalizationManager.T("Connection.LaunchThickManaged"),
                 "толстый клиент (обычные формы)" => LocalizationManager.T("Connection.LaunchThickOrdinary"),
                 "веб-клиент" => LocalizationManager.T("Connection.LaunchWeb"),
                 _ => LaunchMode ?? string.Empty
@@ -537,11 +539,11 @@ public class Infobase : INotifyPropertyChanged
         get
         {
             if (string.IsNullOrWhiteSpace(Name))
-                return "1С";
+                return LocalizationManager.T("Model.DefaultBaseName");
 
             var parts = Name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0)
-                return "1С";
+                return LocalizationManager.T("Model.DefaultBaseName");
 
             if (parts.Length == 1)
                 return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
