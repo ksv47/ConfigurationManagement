@@ -93,6 +93,18 @@ public class MainViewModel : ViewModelBase
         bool showRightPanelDetails, bool showSessionLaunchPanel,
         bool groupByGroup, bool showEmptyGroups)
     {
+        var previousShowFavoritesButton = _settings.ShowFavoritesButton;
+        var previousShowPinnedButton = _settings.ShowPinnedButton;
+        var previousShowTags = _settings.ShowTags;
+        var previousShowVersionColumn = _settings.ShowVersionColumn;
+        var previousShowConfigurationColumn = _settings.ShowConfigurationColumn;
+        var previousShowLaunchModeColumn = _settings.ShowLaunchModeColumn;
+        var previousShowServerColumn = _settings.ShowServerColumn;
+        var previousShowLastLaunchColumn = _settings.ShowLastLaunchColumn;
+        var previousShowSizeColumn = _settings.ShowSizeColumn;
+        var previousGroupByGroup = _groupByGroup;
+        var previousShowEmptyGroups = _showEmptyGroups;
+
         _settings.ShowFavoritesButton = showFavoritesButton;
         _settings.ShowPinnedButton = showPinnedButton;
         _settings.ShowTags = showTags;
@@ -113,6 +125,20 @@ public class MainViewModel : ViewModelBase
         _groupByGroup = groupByGroup;
         _showEmptyGroups = showEmptyGroups;
 
+        // Дерево трогаем, только если изменилось то, что на него влияет:
+        // иначе переключатель правой панели сбрасывал бы выделение и прокрутку.
+        var treeAffected = showTags != previousShowTags
+            || groupByGroup != previousGroupByGroup
+            || showEmptyGroups != previousShowEmptyGroups
+            || showFavoritesButton != previousShowFavoritesButton
+            || showPinnedButton != previousShowPinnedButton
+            || showVersionColumn != previousShowVersionColumn
+            || showConfigurationColumn != previousShowConfigurationColumn
+            || showLaunchModeColumn != previousShowLaunchModeColumn
+            || showServerColumn != previousShowServerColumn
+            || showLastLaunchColumn != previousShowLastLaunchColumn
+            || showSizeColumn != previousShowSizeColumn;
+
         SaveSettingsSilently();
 
         NotifyColumnSettings();
@@ -124,7 +150,8 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowExpandCollapseButtons));
 
         // Состав колонок и группировка меняют и строки, и заголовок.
-        RebuildTree();
+        if (treeAffected)
+            RebuildTree();
     }
 
     private string _sessionClient = "Авто";
@@ -336,6 +363,8 @@ public class MainViewModel : ViewModelBase
         if (_listMode == mode)
             return;
         _listMode = mode;
+        _settings.ShowFavoritesOnly = mode == "Favorites";
+        SaveSettingsSilently();
         OnPropertyChanged(nameof(IsListModeAll));
         OnPropertyChanged(nameof(IsListModeFavorites));
         OnPropertyChanged(nameof(IsListModeRecent));
@@ -694,12 +723,19 @@ public class MainViewModel : ViewModelBase
             _compactMode = _settings.CompactMode;
             _sortField = string.IsNullOrWhiteSpace(_settings.SortField) ? "Name" : _settings.SortField;
             _sortAscending = _settings.SortAscending;
+            // Вид списка хранится тем же признаком, что и в WPF: «только избранные».
+            _listMode = _settings.ShowFavoritesOnly ? "Favorites" : "All";
             _sessionClient = SessionClientFromSetting(_settings.SessionClientMode);
             _sessionArch = SessionArchFromSetting(_settings.SessionArchitecture);
 
             OnPropertyChanged(nameof(GroupByGroup));
             OnPropertyChanged(nameof(ShowEmptyGroups));
             OnPropertyChanged(nameof(ShowTagFilterPanel));
+            // Сегменты «Все / Избранное / Недавние» привязаны к производным
+            // признакам, а вид списка восстановлен полем, поэтому уведомляем.
+            OnPropertyChanged(nameof(IsListModeAll));
+            OnPropertyChanged(nameof(IsListModeFavorites));
+            OnPropertyChanged(nameof(IsListModeRecent));
             NotifyColumnSettings();
             NotifySessionSettings();
 
