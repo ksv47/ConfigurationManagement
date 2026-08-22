@@ -27,6 +27,8 @@ public class MainViewModel : ViewModelBase
 
     private List<Infobase> _allInfobases = new();
     private List<Group> _groups = new();
+    private bool _groupSortAscending = true;
+    private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
 
     private AppSettings _settings = new();
 
@@ -389,6 +391,10 @@ public class MainViewModel : ViewModelBase
             _allInfobases = _repository.Load();
             _groups = _repository.LoadGroups();
 
+            _collapsedGroups.Clear();
+            foreach (var key in _settings.CollapsedGroups)
+                _collapsedGroups.Add(key);
+
             _groupByGroup = _settings.GroupByGroup;
             _showEmptyGroups = _settings.ShowEmptyGroups;
             _showTagFilterPanel = _settings.ShowTagFilterPanel;
@@ -492,15 +498,25 @@ public class MainViewModel : ViewModelBase
         pinnedNode.SetNotificationsSuppressed(false);
         noGroupNode.SetNotificationsSuppressed(false);
 
+        // Порядок как в WPF-версии: закреплённые, без группы, затем группы
+        // по алфавиту в выбранном направлении.
+        var comparer = StringComparer.OrdinalIgnoreCase;
+        roots.Sort(_groupSortAscending
+            ? (a, b) => comparer.Compare(a.DisplayName, b.DisplayName)
+            : (a, b) => comparer.Compare(b.DisplayName, a.DisplayName));
+        foreach (var root in roots)
+            root.SortChildrenRecursive(_groupSortAscending);
+
+        if (noGroupNode.Infobases.Count > 0)
+            roots.Insert(0, noGroupNode);
         if (pinnedNode.Infobases.Count > 0)
             roots.Insert(0, pinnedNode);
-        if (noGroupNode.Infobases.Count > 0)
-            roots.Add(noGroupNode);
 
         foreach (var root in roots)
         {
             root.PopulateItems(_showEmptyGroups);
-            root.SetExpandedSilent(true);
+            ApplyExpandedState(root);
+            SubscribeExpandedTracking(root);
         }
     }
 
@@ -676,8 +692,9 @@ public class MainViewModel : ViewModelBase
 
     private void SortGroups(bool ascending)
     {
-        foreach (var root in AllGroupNodes)
-            root.SortChildrenRecursive(ascending);
+        // Направление запоминается: RebuildTree пересобирает дерево из _groups
+        // в исходном порядке, поэтому сортировать сами узлы бесполезно.
+        _groupSortAscending = ascending;
         RebuildTree();
     }
 
@@ -898,6 +915,48 @@ public class MainViewModel : ViewModelBase
             _logger.Error("Ошибка выгрузки списка баз в ibases.v8i", ex);
             SyncMessage = string.Format(LocalizationManager.T("Sync.ExportError"), ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Восстанавливает свёрнутость узла и его потомков из сохранённого набора.
+    /// Ключом служит NodeKey: полный путь для групп и маркер для служебных узлов,
+    /// он не зависит от языка интерфейса.
+    /// </summary>
+    private void ApplyExpandedState(GroupNodeViewModel node)
+    {
+        node.SetExpandedSilent(!_collapsedGroups.Contains(node.NodeKey));
+        foreach (var child in node.Children)
+            ApplyExpandedState(child);
+    }
+
+    /// <summary>
+    /// Подписывает узел на запоминание свёрнутости. Раскрытие меняется и мышью
+    /// через привязку контейнера, и командами «развернуть все» / «свернуть все»,
+    /// поэтому отслеживается само свойство, а не места его изменения.
+    /// </summary>
+    private void SubscribeExpandedTracking(GroupNodeViewModel node)
+    {
+        node.PropertyChanged -= OnNodeExpandedChanged;
+        node.PropertyChanged += OnNodeExpandedChanged;
+        foreach (var child in node.Children)
+            SubscribeExpandedTracking(child);
+    }
+
+    private void OnNodeExpandedChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(GroupNodeViewModel.IsExpanded) || sender is not GroupNodeViewModel node)
+            return;
+
+        var key = node.NodeKey;
+        if (string.IsNullOrEmpty(key))
+            return;
+
+        var changed = node.IsExpanded ? _collapsedGroups.Remove(key) : _collapsedGroups.Add(key);
+        if (!changed)
+            return;
+
+        _settings.CollapsedGroups = _collapsedGroups.ToList();
+        SaveSettingsSilently();
     }
 
     private void SaveGroupsSilently()
