@@ -330,6 +330,8 @@
 
     "Hotkey.Tooltip": "Set cursor and press a key combination. Backspace/Delete — reset, Esc — cancel.",
     "Settings.Hotkeys.Title": "Action hotkeys",
+    "Settings.Hotkeys.Unsafe": "The {0} shortcut cannot be assigned: it would take plain typing or clipboard keys away from text fields.",
+    "Settings.Hotkeys.Unsupported": "The {0} shortcut is not supported: choose a key with a modifier or a function key.",
     "Settings.Hotkeys.HelpText": "Assign hotkeys for actions (similar to the 1C Configurator).\n\n• Place the cursor in the field and press the desired combination: Ctrl, Shift, Alt, Win (e.g. Ctrl+Shift+F), or F2–F12, Delete, Insert.\n• Backspace/Delete — clear the assignment; None — the key is not used.\n• Esc — cancel the current input.\n• The same key cannot be assigned to different actions.\n• Assigned keys are applied immediately after saving settings and are shown on the right panel buttons and in the context menu.",
     "Settings.Hotkeys.Description": "The same key cannot be assigned to different actions. Place the cursor in the field and press the desired combination (Ctrl, Shift, Alt, etc.). Backspace/Delete — reset, None — the key is not used.",
     "Settings.Hotkeys.Enterprise": "1C:Enterprise:",

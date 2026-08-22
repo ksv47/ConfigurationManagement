@@ -1403,6 +1403,9 @@ public class MainViewModel : ViewModelBase
         RestartAutoSync();
     }
 
+    /// <summary>Предупреждение из окна настроек: диалоги живут в сервисе вьюмодели.</summary>
+    public void ShowWarning(string message) => _dialog.ShowWarning(message);
+
     /// <summary>Диалог выбора файла для окна настроек.</summary>
     public string? PickFile(string title, string filter) => _dialog.OpenFileDialog(title, filter);
 

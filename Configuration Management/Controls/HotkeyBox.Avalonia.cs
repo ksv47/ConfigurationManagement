@@ -85,6 +85,66 @@ namespace Configuration_Management.Controls
             Text = FormatValue(Value);
         }
 
+        /// <summary>
+        /// Разбирает сохранённое сочетание в жест Avalonia. Формат задаёт сам
+        /// контрол, поэтому и разбор живёт здесь: сокращения Del, Ins и Esc
+        /// раскрываются, а имена вроде «NumPad+» и «,» жестами не становятся,
+        /// и такое назначение считается недопустимым.
+        /// </summary>
+        public static bool TryParse(string? text, out KeyGesture? gesture)
+        {
+            gesture = null;
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            var parts = text.Trim().Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length == 0)
+                return false;
+
+            parts[^1] = parts[^1].ToLowerInvariant() switch
+            {
+                "del" => "Delete",
+                "ins" => "Insert",
+                "esc" => "Escape",
+                _ => parts[^1]
+            };
+
+            // Последняя часть должна быть именно клавишей, а не модификатором:
+            // «Ctrl» сам по себе Avalonia разбирает в жест с Key.None.
+            if (!Enum.TryParse<Key>(parts[^1], true, out var key) || key == Key.None)
+                return false;
+
+            try
+            {
+                gesture = KeyGesture.Parse(string.Join("+", parts));
+                return gesture.Key != Key.None;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Сочетание, которое нельзя отдавать окну: без модификаторов оно отберёт
+        /// обычный ввод, а Ctrl+C, Ctrl+V и соседние отберут работу с буфером
+        /// у полей ввода, потому что привязки окна проверяются раньше них.
+        /// </summary>
+        public static bool IsUnsafeForTextInput(KeyGesture gesture)
+        {
+            if (gesture.KeyModifiers == KeyModifiers.None)
+            {
+                var isFunctionKey = gesture.Key >= Key.F1 && gesture.Key <= Key.F24;
+                var isEditingKey = gesture.Key is Key.Delete or Key.Insert or Key.Back;
+                return !isFunctionKey && !isEditingKey;
+            }
+
+            if (gesture.KeyModifiers == KeyModifiers.Control)
+                return gesture.Key is Key.C or Key.V or Key.X or Key.A or Key.Z or Key.Y;
+
+            return false;
+        }
+
         private static bool IsModifierKey(Key key) =>
             key is Key.LeftCtrl or Key.RightCtrl
                 or Key.LeftShift or Key.RightShift

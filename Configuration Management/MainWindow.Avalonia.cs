@@ -2560,7 +2560,7 @@ namespace Configuration_Management
                 Header = LocalizationManager.T(textKey),
                 Command = command
             };
-            if (TryParseGesture(gesture, out var parsed) && parsed is not null)
+            if (Controls.HotkeyBox.TryParse(gesture, out var parsed) && parsed is not null)
                 item.InputGesture = parsed;
             return item;
         }
@@ -2594,17 +2594,24 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Удаление базы по Delete. Клавиша текстовая, поэтому команда
-        /// срабатывает, только когда фокус не в поле ввода и событие дошло
-        /// до окна необработанным.
+        /// Удаление базы по назначенному сочетанию. В общие привязки оно
+        /// не идёт, потому что по умолчанию это Delete: клавиша текстовая,
+        /// и в поле ввода она должна править текст, а не удалять базу.
         /// </summary>
         private void OnWindowKeyDown(object? sender, KeyEventArgs e)
         {
             if (e.Handled || _vm is null)
                 return;
-            if (e.Key != Key.Delete || e.KeyModifiers != KeyModifiers.None)
+            if (!Controls.HotkeyBox.TryParse(_vm.HotkeyDelete, out var gesture) || gesture is null)
                 return;
-            if (FocusManager?.GetFocusedElement() is TextBox)
+            if (e.Key != gesture.Key || e.KeyModifiers != gesture.KeyModifiers)
+                return;
+
+            // Только для текстовых клавиш без модификаторов: назначенное F8
+            // должно работать и в поле ввода, как любая другая горячая клавиша.
+            var isTextEditingKey = gesture.KeyModifiers == KeyModifiers.None
+                && gesture.Key is Key.Delete or Key.Back or Key.Insert;
+            if (isTextEditingKey && FocusManager?.GetFocusedElement() is TextBox)
                 return;
 
             if (_vm.DeleteInfobaseCommand.CanExecute(null))
@@ -2614,43 +2621,9 @@ namespace Configuration_Management
 
         private void AddHotkey(string? gesture, System.Windows.Input.ICommand? command)
         {
-            if (command is null || !TryParseGesture(gesture, out var parsed) || parsed is null)
+            if (command is null || !Controls.HotkeyBox.TryParse(gesture, out var parsed) || parsed is null)
                 return;
             KeyBindings.Add(new KeyBinding { Gesture = parsed, Command = command });
-        }
-
-        /// <summary>
-        /// Разбирает сочетание вида «F3», «Ctrl+E», «Ctrl+Shift+C», «Del».
-        /// Сокращения Del, Ins и Esc разбору Avalonia неизвестны, поэтому
-        /// раскрываются до полных имён клавиш, как это делает WPF-версия.
-        /// </summary>
-        private static bool TryParseGesture(string? text, out KeyGesture? gesture)
-        {
-            gesture = null;
-            if (string.IsNullOrWhiteSpace(text))
-                return false;
-
-            var parts = text.Trim().Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (parts.Length == 0)
-                return false;
-
-            parts[^1] = parts[^1].ToLowerInvariant() switch
-            {
-                "del" => "Delete",
-                "ins" => "Insert",
-                "esc" => "Escape",
-                _ => parts[^1]
-            };
-
-            try
-            {
-                gesture = KeyGesture.Parse(string.Join("+", parts));
-                return true;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
         }
 
         // ======================= Трей =======================
