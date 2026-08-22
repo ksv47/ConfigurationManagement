@@ -29,6 +29,7 @@ public class MainViewModel : ViewModelBase
     private List<Group> _groups = new();
     private bool _groupSortAscending = true;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
+    private bool _deferCollapsedSave;
 
     private AppSettings _settings = new();
 
@@ -670,16 +671,35 @@ public class MainViewModel : ViewModelBase
         return null;
     }
 
-    private void ExpandAllGroups()
-    {
-        foreach (var root in AllGroupNodes)
-            SetExpandedRecursive(root, true);
-    }
+    private void ExpandAllGroups() => SetExpandedForAll(true);
 
-    private void CollapseAllGroups()
+    private void CollapseAllGroups() => SetExpandedForAll(false);
+
+    /// <summary>
+    /// Массово меняет раскрытие всех узлов и сохраняет настройки один раз.
+    /// Поузловое сохранение записывало бы весь файл настроек столько раз,
+    /// сколько узлов в дереве, и всё это на потоке интерфейса.
+    /// </summary>
+    private void SetExpandedForAll(bool expanded)
     {
-        foreach (var root in AllGroupNodes)
-            SetExpandedRecursive(root, false);
+        var before = _collapsedGroups.Count;
+        var snapshot = _collapsedGroups.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        _deferCollapsedSave = true;
+        try
+        {
+            foreach (var root in AllGroupNodes)
+                SetExpandedRecursive(root, expanded);
+        }
+        finally
+        {
+            _deferCollapsedSave = false;
+        }
+
+        // Файл настроек пишется только если набор действительно изменился:
+        // «развернуть все» на уже развёрнутом дереве не должно трогать диск.
+        if (_collapsedGroups.Count != before || !_collapsedGroups.SetEquals(snapshot))
+            PersistCollapsedGroups();
     }
 
     private static void SetExpandedRecursive(GroupNodeViewModel node, bool expanded)
@@ -967,9 +987,14 @@ public class MainViewModel : ViewModelBase
             return;
 
         var changed = node.IsExpanded ? _collapsedGroups.Remove(key) : _collapsedGroups.Add(key);
-        if (!changed)
+        if (!changed || _deferCollapsedSave)
             return;
 
+        PersistCollapsedGroups();
+    }
+
+    private void PersistCollapsedGroups()
+    {
         _settings.CollapsedGroups = _collapsedGroups.ToList();
         SaveSettingsSilently();
     }
