@@ -35,10 +35,11 @@ namespace Configuration_Management
         public SettingsWindow(MainViewModel viewModel)
         {
             Title = LocalizationManager.T("Settings.Title");
-            // Пять вкладок в 720 не помещаются и переносятся на вторую строку.
-            Width = 840;
-            Height = 600;
-            MinWidth = 760;
+            // Шесть вкладок в одну строку требуют этой ширины: в 840 последняя
+            // переносилась на вторую строку.
+            Width = 940;
+            Height = 620;
+            MinWidth = 860;
             MinHeight = 520;
 
             _viewModel = viewModel;
@@ -245,6 +246,80 @@ namespace Configuration_Management
                 Content = new ScrollViewer { Content = display, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
             });
 
+            // ===== Базы (ibases.v8i) =====
+            var bases = new StackPanel { Spacing = 6 };
+            bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.Description")));
+
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Ibases.SyncMode")));
+            var syncModes = new[]
+            {
+                (Mode: IbasesSyncMode.None, Text: LocalizationManager.T("Settings.Ibases.SyncModeDisabled")),
+                (Mode: IbasesSyncMode.Import, Text: LocalizationManager.T("Settings.Ibases.SyncModeImport")),
+                (Mode: IbasesSyncMode.Export, Text: LocalizationManager.T("Settings.Ibases.SyncModeExport")),
+                (Mode: IbasesSyncMode.Both, Text: LocalizationManager.T("Settings.Ibases.SyncModeBoth"))
+            };
+            var syncModeBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
+            syncModeBox.ItemsSource = syncModes.Select(m => m.Text).ToList();
+            syncModeBox.SelectedIndex = Array.FindIndex(syncModes, m => m.Mode == _viewModel.IbasesSyncMode);
+            bases.Children.Add(syncModeBox);
+
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Ibases.File")));
+            var fileRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var fileBox = new TextBox { Text = _viewModel.IbasesSyncFilePath, MinWidth = 420 };
+            var browse = new Button { Content = "..." };
+            ToolTip.SetTip(browse, LocalizationManager.T("Settings.Ibases.BrowseTooltip"));
+            browse.Click += (_, _) =>
+            {
+                var picked = _viewModel.PickFile(
+                    LocalizationManager.T("Sync.ChooseIbasesFile"),
+                    LocalizationManager.T("Sync.IbasesFilter"));
+                if (!string.IsNullOrWhiteSpace(picked))
+                    fileBox.Text = picked;
+            };
+            fileRow.Children.Add(fileBox);
+            fileRow.Children.Add(browse);
+            bases.Children.Add(fileRow);
+
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Ibases.SyncTrigger")));
+            var triggers = new[]
+            {
+                (Trigger: IbasesSyncTrigger.OnStartup, Text: LocalizationManager.T("Settings.Ibases.TriggerStartup")),
+                (Trigger: IbasesSyncTrigger.Interval, Text: LocalizationManager.T("Settings.Ibases.TriggerInterval")),
+                (Trigger: IbasesSyncTrigger.Schedule, Text: LocalizationManager.T("Settings.Ibases.TriggerSchedule"))
+            };
+            var triggerBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
+            triggerBox.ItemsSource = triggers.Select(t => t.Text).ToList();
+            triggerBox.SelectedIndex = Array.FindIndex(triggers, t => t.Trigger == _viewModel.IbasesSyncTrigger);
+            bases.Children.Add(triggerBox);
+
+            var intervalRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
+            intervalRow.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.Ibases.Interval"), VerticalAlignment = VerticalAlignment.Center });
+            var intervalBox = new TextBox { Text = _viewModel.IbasesSyncIntervalMinutes.ToString(), Width = 80 };
+            intervalRow.Children.Add(intervalBox);
+            intervalRow.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.Ibases.ScheduleTime"), VerticalAlignment = VerticalAlignment.Center });
+            var scheduleBox = new TextBox { Text = _viewModel.IbasesSyncScheduleTime, Width = 80 };
+            intervalRow.Children.Add(scheduleBox);
+            bases.Children.Add(intervalRow);
+
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Maintenance")));
+            var backupCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.Ibases.BackupNote"),
+                IsChecked = _viewModel.IbasesBackupEnabled
+            };
+            bases.Children.Add(backupCheck);
+            var keepRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            keepRow.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.Ibases.BackupKeepCount"), VerticalAlignment = VerticalAlignment.Center });
+            var keepBox = new TextBox { Text = _viewModel.IbasesBackupKeepCount.ToString(), Width = 80 };
+            keepRow.Children.Add(keepBox);
+            bases.Children.Add(keepRow);
+
+            tabs.Items.Add(new TabItem
+            {
+                Header = LocalizationManager.T("Settings.TabBases"),
+                Content = new ScrollViewer { Content = bases, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+            });
+
             // ===== Клавиши =====
             var hotkeys = new StackPanel { Spacing = 10 };
             hotkeys.Children.Add(new TextBlock
@@ -301,6 +376,15 @@ namespace Configuration_Management
                 }
 
                 _viewModel.ApplyPlatformSettings(paths, archBox.SelectedItem as string ?? "X64");
+
+                _viewModel.ApplyIbasesSyncSettings(
+                    syncModeBox.SelectedIndex >= 0 ? syncModes[syncModeBox.SelectedIndex].Mode : IbasesSyncMode.None,
+                    fileBox.Text?.Trim() ?? string.Empty,
+                    triggerBox.SelectedIndex >= 0 ? triggers[triggerBox.SelectedIndex].Trigger : IbasesSyncTrigger.OnStartup,
+                    int.TryParse(intervalBox.Text, out var interval) && interval > 0 ? interval : 30,
+                    scheduleBox.Text?.Trim() ?? string.Empty,
+                    backupCheck.IsChecked == true,
+                    int.TryParse(keepBox.Text, out var keep) && keep > 0 ? keep : 5);
 
                 // Настройки отображения применяются и сохраняются одним вызовом.
                 _viewModel.ApplyDisplaySettings(
