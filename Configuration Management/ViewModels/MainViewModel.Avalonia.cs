@@ -110,11 +110,15 @@ public class MainViewModel : ViewModelBase
         FlatItems = new ObservableCollection<object>();
         TagFilterItems = new ObservableCollection<TagFilterItem>();
 
+        // Блок «Текущая сессия» действует на очередной запуск Предприятия.
         _launchVm = new LaunchViewModel(
             () => SelectedInfobase,
             launcher,
             logger,
-            OnLaunched);
+            OnLaunched)
+        {
+            EnterpriseOverrides = ResolveSessionOverrides
+        };
 
         InitializeCommands();
     }
@@ -393,7 +397,6 @@ public class MainViewModel : ViewModelBase
             _settings.ShowTags = value;
             SaveSettingsSilently();
             OnPropertyChanged(nameof(ShowTags));
-        OnPropertyChanged(nameof(ShowSessionLaunchPanel));
             // Строки строятся с чипами или без них, поэтому пересобираются.
             ApplyFilter();
         }
@@ -491,8 +494,16 @@ public class MainViewModel : ViewModelBase
     public string SessionClient
     {
         get => _sessionClient;
-        set => SetProperty(ref _sessionClient, value,
-            nameof(IsSessionClientAuto), nameof(IsSessionClientOrdinary), nameof(IsSessionClientThick), nameof(IsSessionClientThickOrdinary), nameof(IsSessionClientThin));
+        set
+        {
+            if (!SetProperty(ref _sessionClient, value,
+                    nameof(IsSessionClientAuto), nameof(IsSessionClientOrdinary), nameof(IsSessionClientThick),
+                    nameof(IsSessionClientThickOrdinary), nameof(IsSessionClientThin)))
+                return;
+
+            _settings.SessionClientMode = SessionClientMode().ToString();
+            SaveSettingsSilently();
+        }
     }
     public bool IsSessionClientAuto { get => SessionClient == "Авто"; set { if (value) SessionClient = "Авто"; } }
     public bool IsSessionClientOrdinary { get => SessionClient == "Обычный"; set { if (value) SessionClient = "Обычный"; } }
@@ -503,7 +514,107 @@ public class MainViewModel : ViewModelBase
     public string SessionArch
     {
         get => _sessionArch;
-        set => SetProperty(ref _sessionArch, value, nameof(IsSessionArchAuto), nameof(IsSessionArch32), nameof(IsSessionArch64));
+        set
+        {
+            if (!SetProperty(ref _sessionArch, value, nameof(IsSessionArchAuto), nameof(IsSessionArch32), nameof(IsSessionArch64)))
+                return;
+
+            _settings.SessionArchitecture = SessionArchitectureMode().ToString();
+            SaveSettingsSilently();
+        }
+    }
+
+    /// <summary>Режим клиента текущей сессии в терминах модели.</summary>
+    private SessionClientMode SessionClientMode() => _sessionClient switch
+    {
+        "Обычный" => Models.SessionClientMode.Ordinary,
+        "Толстый" => Models.SessionClientMode.Thick,
+        "ТолстыйОбычные" => Models.SessionClientMode.ThickOrdinary,
+        "Тонкий" => Models.SessionClientMode.Thin,
+        _ => Models.SessionClientMode.Auto
+    };
+
+    /// <summary>Разрядность текущей сессии в терминах модели.</summary>
+    private SessionArchitectureMode SessionArchitectureMode() => _sessionArch switch
+    {
+        "32" => Models.SessionArchitectureMode.X86,
+        "64" => Models.SessionArchitectureMode.X64,
+        _ => Models.SessionArchitectureMode.Auto
+    };
+
+    private static string SessionClientFromSetting(string? saved) =>
+        Enum.TryParse<SessionClientMode>(saved, true, out var parsed)
+            ? parsed switch
+            {
+                Models.SessionClientMode.Ordinary => "Обычный",
+                Models.SessionClientMode.Thick => "Толстый",
+                Models.SessionClientMode.ThickOrdinary => "ТолстыйОбычные",
+                Models.SessionClientMode.Thin => "Тонкий",
+                _ => "Авто"
+            }
+            : "Авто";
+
+    private static string SessionArchFromSetting(string? saved) =>
+        Enum.TryParse<SessionArchitectureMode>(saved, true, out var parsed)
+            ? parsed switch
+            {
+                Models.SessionArchitectureMode.X86 => "32",
+                Models.SessionArchitectureMode.X64 => "64",
+                _ => "Авто"
+            }
+            : "Авто";
+
+    /// <summary>
+    /// Переопределения очередного запуска Предприятия по блоку «Текущая сессия».
+    /// Возвращает null, когда оба переключателя в «Авто»: тогда запуск идёт
+    /// по настройкам самой базы, как в WPF-версии.
+    /// </summary>
+    private LaunchOverrides? ResolveSessionOverrides(Infobase infobase)
+    {
+        var client = SessionClientMode();
+        var arch = SessionArchitectureMode();
+        if (client == Models.SessionClientMode.Auto && arch == Models.SessionArchitectureMode.Auto)
+            return null;
+
+        OneCClientType? clientType = client switch
+        {
+            Models.SessionClientMode.Thin => OneCClientType.Thin,
+            Models.SessionClientMode.Thick => OneCClientType.Thick,
+            Models.SessionClientMode.ThickOrdinary => OneCClientType.Thick,
+            Models.SessionClientMode.Ordinary => OneCClientType.Thick,
+            _ => ClientFromInfobase(infobase)
+        };
+
+        var architecture = arch switch
+        {
+            Models.SessionArchitectureMode.X86 => OneCArchitecture.x86,
+            Models.SessionArchitectureMode.X64 => OneCArchitecture.x64,
+            _ => OneCLauncher.ResolveArchitecture(infobase.Architecture, infobase.PlatformVersion)
+        };
+
+        OneCRunMode? runMode = client switch
+        {
+            Models.SessionClientMode.Thick => OneCRunMode.Managed,
+            Models.SessionClientMode.ThickOrdinary => OneCRunMode.Ordinary,
+            Models.SessionClientMode.Auto => OneCLauncher.GetRunModeFromLaunchMode(infobase.LaunchMode),
+            _ => null
+        };
+
+        return new LaunchOverrides(clientType, runMode, architecture);
+    }
+
+    /// <summary>Тип клиента из настройки базы, как в WPF-версии.</summary>
+    private static OneCClientType? ClientFromInfobase(Infobase infobase)
+    {
+        if (string.Equals(infobase.LaunchMode, "Автоматический", StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (string.Equals(infobase.LaunchMode, "Толстый клиент (обычные формы)", StringComparison.OrdinalIgnoreCase))
+            return OneCClientType.Thick;
+        if (string.Equals(infobase.LaunchMode, "Толстый клиент", StringComparison.OrdinalIgnoreCase))
+            return OneCClientType.Thick;
+        if (string.Equals(infobase.LaunchMode, "Тонкий клиент", StringComparison.OrdinalIgnoreCase))
+            return OneCClientType.Thin;
+        return null;
     }
     public bool IsSessionArchAuto { get => SessionArch == "Авто"; set { if (value) SessionArch = "Авто"; } }
     public bool IsSessionArch32 { get => SessionArch == "32"; set { if (value) SessionArch = "32"; } }
@@ -531,6 +642,8 @@ public class MainViewModel : ViewModelBase
             _compactMode = _settings.CompactMode;
             _sortField = string.IsNullOrWhiteSpace(_settings.SortField) ? "Name" : _settings.SortField;
             _sortAscending = _settings.SortAscending;
+            _sessionClient = SessionClientFromSetting(_settings.SessionClientMode);
+            _sessionArch = SessionArchFromSetting(_settings.SessionArchitecture);
 
             OnPropertyChanged(nameof(GroupByGroup));
             OnPropertyChanged(nameof(ShowEmptyGroups));
@@ -1611,8 +1724,23 @@ public class MainViewModel : ViewModelBase
 
     private void NotifySessionSettings()
     {
+        OnPropertyChanged(nameof(ShowSessionLaunchPanel));
+        NotifySessionValues();
+    }
+
+    private void NotifySessionValues()
+    {
         OnPropertyChanged(nameof(SessionClient));
         OnPropertyChanged(nameof(SessionArch));
+        // Переключатели привязаны к производным признакам, а не к самим строкам.
+        OnPropertyChanged(nameof(IsSessionClientAuto));
+        OnPropertyChanged(nameof(IsSessionClientOrdinary));
+        OnPropertyChanged(nameof(IsSessionClientThick));
+        OnPropertyChanged(nameof(IsSessionClientThickOrdinary));
+        OnPropertyChanged(nameof(IsSessionClientThin));
+        OnPropertyChanged(nameof(IsSessionArchAuto));
+        OnPropertyChanged(nameof(IsSessionArch32));
+        OnPropertyChanged(nameof(IsSessionArch64));
     }
 
     // ======================= Очистка кеша 1С =======================

@@ -232,20 +232,45 @@ namespace Configuration_Management.Themes
         /// <summary>
         /// Отдаёт акцент схемы стандартным контролам Fluent (переключатели,
         /// флажки, ползунки): свой цвет они берут из SystemAccentColor, и без
-        /// этого в янтарном интерфейсе они оставались синими.
+        /// этого в янтарном интерфейсе они оставались синими. Светлые и тёмные
+        /// оттенки Fluent использует для состояний, поэтому считаются, а не
+        /// подменяются одним цветом.
         /// </summary>
         private static void ApplyFluentAccent(Application app, ColorScheme scheme)
         {
-            if (!scheme.Colors.TryGetValue("AccentColor", out var accentHex) || !TryParseColor(accentHex, out var accent))
-                return;
+            var accent = ResolveAccent(scheme);
 
             app.Resources["SystemAccentColor"] = accent;
-            app.Resources["SystemAccentColorLight1"] = accent;
-            app.Resources["SystemAccentColorLight2"] = accent;
-            app.Resources["SystemAccentColorLight3"] = accent;
-            app.Resources["SystemAccentColorDark1"] = accent;
-            app.Resources["SystemAccentColorDark2"] = accent;
-            app.Resources["SystemAccentColorDark3"] = accent;
+            app.Resources["SystemAccentColorLight1"] = Shade(accent, 0.10);
+            app.Resources["SystemAccentColorLight2"] = Shade(accent, 0.20);
+            app.Resources["SystemAccentColorLight3"] = Shade(accent, 0.30);
+            app.Resources["SystemAccentColorDark1"] = Shade(accent, -0.10);
+            app.Resources["SystemAccentColorDark2"] = Shade(accent, -0.20);
+            app.Resources["SystemAccentColorDark3"] = Shade(accent, -0.30);
+        }
+
+        /// <summary>
+        /// Акцент схемы, а если его в ней нет, то акцент встроенной светлой:
+        /// без запасного значения у стандартных контролов остался бы акцент
+        /// предыдущей схемы.
+        /// </summary>
+        private static Color ResolveAccent(ColorScheme scheme)
+        {
+            if (scheme.Colors.TryGetValue("AccentColor", out var hex) && TryParseColor(hex, out var accent))
+                return accent;
+
+            return ColorScheme.CreateLight().Colors.TryGetValue("AccentColor", out var fallbackHex)
+                   && TryParseColor(fallbackHex, out var fallback)
+                ? fallback
+                : Colors.DodgerBlue;
+        }
+
+        /// <summary>Осветлённый или затемнённый оттенок цвета по светлоте HSL.</summary>
+        private static Color Shade(Color color, double delta)
+        {
+            var hsl = color.ToHsl();
+            var lightness = Math.Clamp(hsl.L + delta, 0, 1);
+            return new HslColor(hsl.A, hsl.H, hsl.S, lightness).ToRgb();
         }
 
         private static bool TryParseColor(string hex, out Color color)
