@@ -255,17 +255,18 @@ namespace Configuration_Management.Services
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            var body = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 12,
-                Margin = new Thickness(4, 8, 4, 8),
-                Children =
-                {
-                    Configuration_Management.IconHelper.MakeIcon(iconKey, 28),
-                    messageBlock
-                }
-            };
+            // Сетка, а не горизонтальный StackPanel: в стопке текст получает
+            // бесконечную ширину и не переносится, длинное сообщение обрезается.
+            var body = new Grid { Margin = new Thickness(4, 8, 4, 8) };
+            body.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            body.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+
+            var messageIcon = Configuration_Management.IconHelper.MakeIcon(iconKey, 28);
+            messageIcon.Margin = new Thickness(0, 0, 12, 0);
+            messageIcon.VerticalAlignment = VerticalAlignment.Top;
+            body.Children.Add(messageIcon);
+            Grid.SetColumn(messageBlock, 1);
+            body.Children.Add(messageBlock);
 
             Button okButton = new() { Content = "OK", MinWidth = 90, IsDefault = true };
             okButton.Click += (_, _) => { Result = true; Close(); };

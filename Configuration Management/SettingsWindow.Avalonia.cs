@@ -250,9 +250,9 @@ namespace Configuration_Management
             var appearance = new StackPanel { Spacing = 6 };
             appearance.Children.Add(Hint(LocalizationManager.T("Settings.Theme.Description")));
 
-            // Правки идут по копии: пока пользователь не сохранил, настройки
-            // приложения не меняются. «Применить» это предпросмотр, как в WPF.
-            var editedScheme = ThemeManager.CurrentScheme.Clone();
+            // Правки идут по копии сохранённой схемы, а не применённой предпросмотром:
+            // закрытие окна крестиком не должно оставлять редактор на непринятых цветах.
+            var editedScheme = _viewModel.ActiveColorScheme.Clone();
 
             var schemeBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
             var colorsPanel = new StackPanel { Spacing = 2 };
@@ -310,6 +310,12 @@ namespace Configuration_Management
                 }
             }
 
+            bool NameTaken(string name)
+                => IsBuiltInScheme(name) || ThemeManager.FindCustomScheme(name) is not null;
+
+            void ReportSchemeFailure(Exception ex)
+                => _viewModel.ShowError(string.Format(LocalizationManager.T("Settings.SchemeFailedLinux"), ex.Message));
+
             string? SelectedSchemeName()
             {
                 var index = schemeBox.SelectedIndex;
@@ -356,7 +362,7 @@ namespace Configuration_Management
                 if (string.IsNullOrWhiteSpace(name))
                     return;
                 name = name.Trim();
-                if (IsBuiltInScheme(name))
+                if (NameTaken(name))
                 {
                     _viewModel.ShowWarning(LocalizationManager.T("Settings.ReservedName"));
                     return;
@@ -364,7 +370,16 @@ namespace Configuration_Management
 
                 var copy = editedScheme.Clone();
                 copy.Name = name;
-                ThemeManager.SaveCustomScheme(copy);
+                try
+                {
+                    ThemeManager.SaveCustomScheme(copy);
+                }
+                catch (Exception ex)
+                {
+                    ReportSchemeFailure(ex);
+                    return;
+                }
+
                 editedScheme = copy;
                 ReloadSchemes(name);
                 RefreshColors();
@@ -386,7 +401,7 @@ namespace Configuration_Management
                     || string.Equals(name.Trim(), current, StringComparison.OrdinalIgnoreCase))
                     return;
                 name = name.Trim();
-                if (IsBuiltInScheme(name))
+                if (NameTaken(name))
                 {
                     _viewModel.ShowWarning(LocalizationManager.T("Settings.ReservedName"));
                     return;
@@ -395,9 +410,16 @@ namespace Configuration_Management
                 var scheme = ThemeManager.FindCustomScheme(current);
                 if (scheme is not null)
                 {
-                    ThemeManager.DeleteCustomScheme(current);
                     scheme.Name = name;
-                    ThemeManager.SaveCustomScheme(scheme);
+                    try
+                    {
+                        ThemeManager.RenameCustomScheme(scheme, current);
+                    }
+                    catch (Exception ex)
+                    {
+                        ReportSchemeFailure(ex);
+                        return;
+                    }
                 }
 
                 if (string.Equals(editedScheme.Name, current, StringComparison.OrdinalIgnoreCase))
@@ -419,7 +441,16 @@ namespace Configuration_Management
                 if (!_viewModel.Confirm(string.Format(LocalizationManager.T("Settings.DeleteThemeConfirm"), current)))
                     return;
 
-                ThemeManager.DeleteCustomScheme(current);
+                try
+                {
+                    ThemeManager.DeleteCustomScheme(current);
+                }
+                catch (Exception ex)
+                {
+                    ReportSchemeFailure(ex);
+                    return;
+                }
+
                 if (string.Equals(editedScheme.Name, current, StringComparison.OrdinalIgnoreCase))
                     editedScheme = editedScheme.IsDark ? ColorScheme.CreateDark() : ColorScheme.CreateLight();
                 ReloadSchemes(editedScheme.Name);
@@ -454,14 +485,43 @@ namespace Configuration_Management
                 var path = _viewModel.PickFile(LocalizationManager.T("Settings.ImportSchemeTitle"), string.Empty);
                 if (string.IsNullOrWhiteSpace(path))
                     return;
-                var imported = ThemeManager.ImportScheme(path);
-                if (imported is null || imported.Colors.Count == 0)
+                ColorScheme? imported;
+                try
+                {
+                    imported = ThemeManager.ImportScheme(path);
+                }
+                catch
+                {
+                    imported = null;
+                }
+
+                if (imported is null || imported.Colors is not { Count: > 0 } || string.IsNullOrWhiteSpace(imported.Name))
                 {
                     _viewModel.ShowError(LocalizationManager.T("Settings.ImportFailed"));
                     return;
                 }
 
-                ThemeManager.SaveCustomScheme(imported);
+                if (IsBuiltInScheme(imported.Name))
+                {
+                    _viewModel.ShowWarning(LocalizationManager.T("Settings.ReservedName"));
+                    return;
+                }
+
+                if (ThemeManager.FindCustomScheme(imported.Name) is not null
+                    && !_viewModel.Confirm(string.Format(
+                        LocalizationManager.T("Settings.ImportReplaceLinux"), imported.Name)))
+                    return;
+
+                try
+                {
+                    ThemeManager.SaveCustomScheme(imported);
+                }
+                catch (Exception ex)
+                {
+                    ReportSchemeFailure(ex);
+                    return;
+                }
+
                 editedScheme = imported;
                 ReloadSchemes(imported.Name);
                 RefreshColors();

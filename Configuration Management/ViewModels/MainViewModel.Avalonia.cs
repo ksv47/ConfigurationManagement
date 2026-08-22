@@ -1418,6 +1418,12 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ThemeName));
     }
 
+    /// <summary>Сохранённая цветовая схема: окно настроек открывает редактор с неё,
+    /// а не с той, что применена предпросмотром.</summary>
+    public Models.ColorScheme ActiveColorScheme => _settings.ActiveColorScheme is { Colors.Count: > 0 }
+        ? _settings.ActiveColorScheme
+        : ThemeManager.GetBuiltInScheme(_settings.Theme) ?? Models.ColorScheme.CreateLight();
+
     /// <summary>Предупреждение из окна настроек: диалоги живут в сервисе вьюмодели.</summary>
     public void ShowWarning(string message) => _dialog.ShowWarning(message);
 
