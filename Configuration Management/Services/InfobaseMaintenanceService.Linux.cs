@@ -284,9 +284,16 @@ namespace Configuration_Management.Services
             {
                 if (string.IsNullOrEmpty(binDir))
                     continue;
-                var common = Path.Combine(Path.GetDirectoryName(binDir) ?? binDir, "common", "1cestart");
-                if (File.Exists(common))
-                    return common;
+                // binDir это либо <версия>/bin, либо сам каталог версии: раскладка
+                // зависит от дистрибутива, поэтому проверяются оба варианта.
+                foreach (var baseDir in new[] { binDir, Path.GetDirectoryName(binDir) })
+                {
+                    if (string.IsNullOrEmpty(baseDir))
+                        continue;
+                    var common = Path.Combine(baseDir, "common", "1cestart");
+                    if (File.Exists(common))
+                        return common;
+                }
             }
 
             // 2. Известные системные и пользовательские пути.

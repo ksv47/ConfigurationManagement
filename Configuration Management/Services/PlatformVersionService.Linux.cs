@@ -286,7 +286,12 @@ namespace Configuration_Management.Services
                 var binDir = Path.GetDirectoryName(target);
                 if (string.IsNullOrEmpty(binDir))
                     return;
-                var versionDir = Path.GetDirectoryName(binDir);
+
+                // При раскладке <версия>/bin каталог версии на уровень выше,
+                // при плоской раскладке каталог цели сам является каталогом версии.
+                var versionDir = LooksLikeVersion(Path.GetFileName(binDir))
+                    ? binDir
+                    : Path.GetDirectoryName(binDir);
                 if (string.IsNullOrEmpty(versionDir))
                     return;
                 var name = Path.GetFileName(versionDir);
