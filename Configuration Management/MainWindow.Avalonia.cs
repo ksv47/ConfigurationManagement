@@ -442,7 +442,7 @@ namespace Configuration_Management
             {
                 _vm.GroupNodes.CollectionChanged += (_, _) => UpdateEmptyState();
                 _vm.FlatItems.CollectionChanged += (_, _) => UpdateEmptyState();
-                _vm.TagFilterItems.CollectionChanged += (_, _) => RefreshTagFilterPanel();
+                _vm.TagFiltersRebuilt += (_, _) => RefreshTagFilterPanel();
                 _vm.PropertyChanged += (_, e) =>
                 {
                     if (e.PropertyName == nameof(MainViewModel.SearchText))
@@ -1130,9 +1130,22 @@ namespace Configuration_Management
         /// берутся из ресурсов темы (перекрашиваются при смене схемы). Если lockOn == true,
         /// активный сегмент нельзя «снять» кликом (поведение как у RadioButton).
         /// </summary>
-        private sealed class SegmentButton : ToggleButton
+        private sealed class SegmentButton : ToggleButton, IDisposable
         {
             private readonly List<IDisposable> _subs = new();
+
+            /// <summary>
+            /// Освобождает подписки на ресурсы темы. Кнопки тегов пересобираются
+            /// при каждом обновлении набора, и без этого каждая пересборка
+            /// оставляла бы по пять живых подписок на кнопку.
+            /// </summary>
+            public void Dispose()
+            {
+                foreach (var sub in _subs)
+                    sub.Dispose();
+                _subs.Clear();
+            }
+
             private readonly string _iconKey;
             private readonly string _text;
             private readonly double _iconSize;
@@ -1173,6 +1186,8 @@ namespace Configuration_Management
                         border[!Border.BackgroundProperty] = new TemplateBinding(TemplatedControl.BackgroundProperty);
                         border[!Border.BorderBrushProperty] = new TemplateBinding(TemplatedControl.BorderBrushProperty);
                         border[!Border.BorderThicknessProperty] = new TemplateBinding(TemplatedControl.BorderThicknessProperty);
+                        // Без этого фон измеряется ровно по содержимому и обрезает текст.
+                        border[!Border.PaddingProperty] = new TemplateBinding(TemplatedControl.PaddingProperty);
                         UiMetrics.AddBrushTransition(border);
                         var presenter = new ContentPresenter();
                         presenter[!ContentPresenter.ContentProperty] = new TemplateBinding(ContentControl.ContentProperty);
@@ -1331,7 +1346,12 @@ namespace Configuration_Management
             if (_vm is null || _tagPanelItems is null || _tagPanel is null || _tagClearButton is null)
                 return;
 
+            // Старые кнопки держат подписки на ресурсы темы, поэтому освобождаются
+            // явно: очистка коллекции детей сама по себе их не отпускает.
+            foreach (var child in _tagPanelItems.Children.OfType<IDisposable>().ToList())
+                child.Dispose();
             _tagPanelItems.Children.Clear();
+
             foreach (var tag in _vm.TagFilterItems)
             {
                 var item = tag;
