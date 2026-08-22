@@ -787,6 +787,9 @@ namespace Configuration_Management
             card.AddSubscription(() => ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush"));
             content.Children.Add(name);
 
+            if (_vm?.ShowTags == true)
+                content.Children.Add(BuildRowTags(card, ib));
+
             // Вторичной строкой остаётся только то, чего нет в колонках: тип
             // подключения и путь. Остальное ушло в колонки, иначе одни и те же
             // данные показывались бы дважды.
@@ -816,6 +819,147 @@ namespace Configuration_Management
 
             card.Child = grid;
             return card;
+        }
+
+        /// <summary>
+        /// Теги базы под её именем: чип с крестиком на каждый тег и кнопка
+        /// «+ тег». Панель перестраивается по уведомлению самой базы, поэтому
+        /// после правки тегов строку пересобирать не нужно.
+        /// </summary>
+        private Control BuildRowTags(InfobaseRowCard card, Infobase infobase)
+        {
+            var panel = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
+            var chipSubscriptions = new List<IDisposable>();
+
+            void Fill()
+            {
+                foreach (var subscription in chipSubscriptions)
+                    subscription.Dispose();
+                chipSubscriptions.Clear();
+                panel.Children.Clear();
+
+                foreach (var tag in infobase.Tags)
+                    panel.Children.Add(BuildTagChip(infobase, tag, chipSubscriptions));
+
+                panel.Children.Add(BuildAddTagButton(infobase, chipSubscriptions));
+            }
+
+            void OnInfobaseChanged(object? _, PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName == nameof(Infobase.Tags))
+                    Fill();
+            }
+
+            card.AddSubscription(() =>
+            {
+                infobase.PropertyChanged += OnInfobaseChanged;
+                Fill();
+                return new ActionDisposable(() =>
+                {
+                    infobase.PropertyChanged -= OnInfobaseChanged;
+                    foreach (var subscription in chipSubscriptions)
+                        subscription.Dispose();
+                    chipSubscriptions.Clear();
+                });
+            });
+
+            return panel;
+        }
+
+        /// <summary>Чип тега: клик отбирает базы по тегу, крестик убирает тег у базы.</summary>
+        private Control BuildTagChip(Infobase infobase, string tag, ICollection<IDisposable> subscriptions)
+        {
+            var text = new TextBlock
+            {
+                Text = tag,
+                FontSize = UiMetrics.Scaled(10),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Track(subscriptions, ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+
+            var name = new Button
+            {
+                Content = text,
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(0),
+                MinWidth = 0,
+                MinHeight = 0,
+                Cursor = new Cursor(StandardCursorType.Hand),
+                CommandParameter = tag
+            };
+            ToolTip.SetTip(name, LocalizationManager.T("Main.ShowTagBases"));
+            name.Bind(Button.CommandProperty, new Binding("SearchByTagCommand") { Source = _vm });
+
+            var remove = new Button
+            {
+                Content = IconHelper.MakeIcon("IconClose", UiMetrics.Scaled(9), "TextSecondaryBrush", subscriptions),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(0),
+                Margin = new Thickness(4, 0, 0, 0),
+                MinWidth = 0,
+                MinHeight = 0,
+                Cursor = new Cursor(StandardCursorType.Hand),
+                // Форма параметра та же, что в WPF-версии: база и тег.
+                CommandParameter = new object[] { infobase, tag }
+            };
+            ToolTip.SetTip(remove, LocalizationManager.T("Main.RemoveTag"));
+            remove.Bind(Button.CommandProperty, new Binding("RemoveTagCommand") { Source = _vm });
+
+            var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            row.Children.Add(name);
+            row.Children.Add(remove);
+
+            var chip = new Border
+            {
+                CornerRadius = new CornerRadius(UiMetrics.RadiusMd),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(6, 1),
+                Margin = new Thickness(0, 0, 4, 2),
+                Child = row
+            };
+            Track(subscriptions, ThemeBrushes.Bind(chip, Border.BackgroundProperty, "CardBackgroundBrush"));
+            Track(subscriptions, ThemeBrushes.Bind(chip, Border.BorderBrushProperty, "BorderColorBrush"));
+            return chip;
+        }
+
+        /// <summary>Складывает подписку в приёмник, пропуская пустую (Application ещё не поднят).</summary>
+        private static void Track(ICollection<IDisposable> sink, IDisposable? subscription)
+        {
+            if (subscription is not null)
+                sink.Add(subscription);
+        }
+
+        /// <summary>Кнопка «+ тег» в конце списка тегов строки.</summary>
+        private Control BuildAddTagButton(Infobase infobase, ICollection<IDisposable> subscriptions)
+        {
+            var text = new TextBlock
+            {
+                Text = LocalizationManager.T("Main.AddTagShort"),
+                FontSize = UiMetrics.Scaled(10),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Track(subscriptions, ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+
+            var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            content.Children.Add(IconHelper.MakeIcon("IconTag", UiMetrics.Scaled(9), "TextSecondaryBrush", subscriptions));
+            content.Children.Add(text);
+
+            var button = new Button
+            {
+                Content = content,
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(2, 1),
+                MinWidth = 0,
+                MinHeight = 0,
+                Cursor = new Cursor(StandardCursorType.Hand),
+                CommandParameter = infobase
+            };
+            ToolTip.SetTip(button, LocalizationManager.T("Main.AddTag"));
+            button.Bind(Button.CommandProperty, new Binding("AddTagCommand") { Source = _vm });
+            return button;
         }
 
         /// <summary>
@@ -1679,7 +1823,9 @@ namespace Configuration_Management
             _columnHeaderRow.ColumnDefinitions.Clear();
 
             var columns = ListColumns();
-            _headerToolbarWidth = _vm.ShowExpandCollapseButtons ? GroupToolbarWidth : 0;
+            // Ширина блока кнопок: четыре кнопки групп при группировке плюс
+            // переключатель тегов, который показывается всегда.
+            _headerToolbarWidth = (_vm.ShowExpandCollapseButtons ? GroupToolbarWidth : 0) + ToolbarButtonWidth + 2;
             var favoriteWidth = _vm.ShowFavoritesButton ? FavoriteColumnWidth : 0;
             var pinWidth = _vm.ShowPinnedButton ? PinColumnWidth : 0;
 
@@ -1705,17 +1851,14 @@ namespace Configuration_Management
                 _headerPinMark = pinMark;
             }
 
-            if (_vm.ShowExpandCollapseButtons)
-            {
-                // Кнопки лежат поверх компенсатора и пустых колонок звезды,
-                // булавки и иконки: своя колонка сдвинула бы подписи вправо
-                // от значений, а колонки заголовка тут ничего не показывают.
-                var tools = BuildGroupToolbar();
-                _columnHeaderRow.Children.Add(tools);
-                Grid.SetColumn(tools, 0);
-                Grid.SetColumnSpan(tools, NameHeaderColumn);
-                tools.ZIndex = 1;
-            }
+            // Кнопки лежат поверх компенсатора и пустых колонок звезды,
+            // булавки и иконки: своя колонка сдвинула бы подписи вправо
+            // от значений, а колонки заголовка тут ничего не показывают.
+            var tools = BuildGroupToolbar();
+            _columnHeaderRow.Children.Add(tools);
+            Grid.SetColumn(tools, 0);
+            Grid.SetColumnSpan(tools, NameHeaderColumn);
+            tools.ZIndex = 1;
 
             var nameHeader = HeaderText(LocalizationManager.T("Column.Name"), _columnHeaderSubscriptions);
             MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
@@ -1748,8 +1891,9 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Блок кнопок над списком: развернуть и свернуть все группы, сортировка
-        /// групп по возрастанию и убыванию. Показывается только при группировке.
+        /// Блок кнопок над списком: развернуть и свернуть все группы и две
+        /// сортировки групп (только при группировке), а также переключатель
+        /// тегов в строках, который нужен всегда.
         /// </summary>
         private Control BuildGroupToolbar()
         {
@@ -1760,15 +1904,39 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Left
             };
-            panel.Children.Add(HeaderIconButton("IconExpandAll",
-                LocalizationManager.T("Main.ExpandAllGroups"), "ExpandAllGroupsCommand"));
-            panel.Children.Add(HeaderIconButton("IconCollapseAll",
-                LocalizationManager.T("Main.CollapseAllGroups"), "CollapseAllGroupsCommand"));
-            panel.Children.Add(HeaderIconButton("IconSortAscending",
-                LocalizationManager.T("Main.SortGroupsAscending"), "SortGroupsAscendingCommand"));
-            panel.Children.Add(HeaderIconButton("IconSortDescending",
-                LocalizationManager.T("Main.SortGroupsDescending"), "SortGroupsDescendingCommand"));
+
+            if (_vm?.ShowExpandCollapseButtons == true)
+            {
+                panel.Children.Add(HeaderIconButton("IconExpandAll",
+                    LocalizationManager.T("Main.ExpandAllGroups"), "ExpandAllGroupsCommand"));
+                panel.Children.Add(HeaderIconButton("IconCollapseAll",
+                    LocalizationManager.T("Main.CollapseAllGroups"), "CollapseAllGroupsCommand"));
+                panel.Children.Add(HeaderIconButton("IconSortAscending",
+                    LocalizationManager.T("Main.SortGroupsAscending"), "SortGroupsAscendingCommand"));
+                panel.Children.Add(HeaderIconButton("IconSortDescending",
+                    LocalizationManager.T("Main.SortGroupsDescending"), "SortGroupsDescendingCommand"));
+            }
+
+            panel.Children.Add(BuildTagsInListToggle());
             return panel;
+        }
+
+        /// <summary>
+        /// Переключатель показа тегов в строках списка. Сделан тем же
+        /// сегментным контролом, что и переключатели верхней панели: у Fluent
+        /// в нажатом состоянии свой синий фон, чужой для этой темы.
+        /// </summary>
+        private Control BuildTagsInListToggle()
+        {
+            var toggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleListTags"));
+            toggle.IsChecked = _vm?.ShowTags ?? false;
+            toggle.VerticalAlignment = VerticalAlignment.Center;
+            toggle.Click += (_, _) =>
+            {
+                if (_vm is not null)
+                    _vm.ShowTags = toggle.IsChecked == true;
+            };
+            return toggle;
         }
 
         /// <summary>Компактная иконко-кнопка панели инструментов над списком.</summary>
