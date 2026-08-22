@@ -923,7 +923,7 @@
     "ConnectionSettings.TabConfigurator": "Configurator",
 
     "Settings.DefaultClientLabel": "Default client:",
-    "Settings.AvaloniaPendingTabs": "The Platforms, ibases.v8i, Bases tabs and the color scheme editor are not ported to the Linux build yet.",
+    "Settings.AvaloniaPendingTabs": "The Linux build has no color scheme editor yet, and the Bases tab has no template directories and no list export or import.",
     "Settings.AvaloniaHotkeysPending": "Reassigning hotkeys is deferred — a reference list of current combinations is available.",
     "Settings.About.Version": "Version: v{0}",
     "Settings.About.AvaloniaText": "An application for managing the list of 1C:Enterprise infobases.\nPortable version for Linux (Avalonia) — Stage 3: dialog windows.",

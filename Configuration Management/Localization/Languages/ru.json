@@ -923,7 +923,7 @@
     "ConnectionSettings.TabConfigurator": "Конфигуратор",
 
     "Settings.DefaultClientLabel": "Клиент по умолчанию:",
-    "Settings.AvaloniaPendingTabs": "Вкладки «Платформы», «ibases.v8i», «Базы» и редактор цветовых схем в Linux-версии пока не перенесены.",
+    "Settings.AvaloniaPendingTabs": "В Linux-версии пока нет редактора цветовых схем, а на вкладке «Базы» нет каталогов шаблонов, экспорта и импорта списка баз.",
     "Settings.AvaloniaHotkeysPending": "Изменение назначения клавиш (переназначение) отложено — доступен справочный список текущих сочетаний.",
     "Settings.About.Version": "Версия: v{0}",
     "Settings.About.AvaloniaText": "Приложение для управления списком информационных баз 1С:Предприятие.\nПортируемая версия для Linux (Avalonia) — Этап 3: диалоговые окна.",
