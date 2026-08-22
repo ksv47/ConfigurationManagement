@@ -1124,7 +1124,8 @@ namespace Configuration_Management
                 BuildClearCacheSplitButton(),
                 SecondaryActionButton("IconEdit", LocalizationManager.T("Main.EditSettings"), "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")),
                 SecondaryActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
-                SecondaryActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltip"))));
+                SecondaryActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltip")),
+                SecondaryActionButton("IconWeb", LocalizationManager.T("LinkInput.Title"), "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip"))));
 
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionBaseList"), "IconList",
                 SecondaryActionButton("IconAdd", LocalizationManager.T("Main.AddBaseOrGroup"), "AddInfobaseCommand", LocalizationManager.T("Main.AddBaseOrGroupTooltip")),

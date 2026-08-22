@@ -149,6 +149,7 @@ public class MainViewModel : ViewModelBase
     public ICommand EditInfobaseCommand { get; private set; } = null!;
     public ICommand AddInfobaseCommand { get; private set; } = null!;
     public ICommand DeleteInfobaseCommand { get; private set; } = null!;
+    public ICommand OpenInfobaseByLinkCommand { get; private set; } = null!;
     public ICommand ToggleFavoriteCommand { get; private set; } = null!;
     public ICommand TogglePinCommand { get; private set; } = null!;
     public ICommand ToggleFavoriteForCommand { get; private set; } = null!;
@@ -184,7 +185,9 @@ public class MainViewModel : ViewModelBase
         LaunchConfiguratorCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Configurator), _ => SelectedInfobase is not null);
         EditInfobaseCommand = new RelayCommand(_ => EditInfobase(), _ => SelectedInfobase is not null);
         AddInfobaseCommand = new RelayCommand(AddInfobase);
-        DeleteInfobaseCommand = new RelayCommand(_ => DeleteInfobase(), _ => SelectedInfobase is not null);
+        DeleteInfobaseCommand = new RelayCommand(_ => DeleteInfobase(),
+            _ => SelectedInfobase is not null || SelectedGroupNode?.Group is not null);
+        OpenInfobaseByLinkCommand = new RelayCommand(OpenInfobaseByLink);
         ToggleFavoriteCommand = new RelayCommand(_ => ToggleFavorite(), _ => SelectedInfobase is not null);
         TogglePinCommand = new RelayCommand(_ => TogglePin(), _ => SelectedInfobase is not null);
         ToggleFavoriteForCommand = new RelayCommand(p => ToggleFavoriteFor(p as Infobase), p => p is Infobase);
@@ -1337,16 +1340,117 @@ public class MainViewModel : ViewModelBase
 
     private void DeleteInfobase()
     {
+        // Выбран узел группы: удаляется группа, как в WPF-версии.
+        if (SelectedGroupNode?.Group is Group group)
+        {
+            DeleteGroup(group);
+            return;
+        }
+
         var ib = SelectedInfobase;
         if (ib is null)
             return;
-        if (_dialog.Confirm(string.Format(LocalizationManager.T("Main.ConfirmDeleteBase"), ib.Name)))
+
+        var dialog = new Configuration_Management.DeleteInfobaseWindow(ib);
+        if (!dialog.ShowDialogSync(OwnerWindow()) || !dialog.Confirmed)
+            return;
+
+        if (dialog.DeletePhysically)
         {
-            _allInfobases.Remove(ib);
-            SaveSilently();
-            RebuildTree();
-            SelectedInfobase = null;
+            var error = InfobaseMaintenanceService.TryDeleteFileBasePhysically(ib);
+            if (error is not null)
+            {
+                _dialog.ShowError(error);
+                // Даже при ошибке на диске из списка удаляем, если пользователь подтвердит.
+                if (!_dialog.Confirm(LocalizationManager.T("Main.ConfirmDeleteFromList")))
+                    return;
+            }
         }
+
+        _allInfobases.Remove(ib);
+        SaveSilently();
+        RebuildTree();
+        SelectedInfobase = null;
+        ExportToIbasesAfterLocalChange();
+    }
+
+    /// <summary>
+    /// Удаляет группу. Группа с подгруппами или базами не удаляется: сначала
+    /// её надо освободить, как и в WPF-версии.
+    /// </summary>
+    private void DeleteGroup(Group group)
+    {
+        var subgroupCount = _groups.Count(g =>
+            string.Equals(g.ParentId, group.Id, StringComparison.OrdinalIgnoreCase));
+
+        var groupPaths = CollectGroupPaths(group.Id);
+        var infobaseCount = _allInfobases.Count(ib =>
+            !string.IsNullOrWhiteSpace(ib.Group) && groupPaths.Contains(ib.Group.Trim()));
+
+        if (subgroupCount > 0 || infobaseCount > 0)
+        {
+            var reasons = new List<string>();
+            if (subgroupCount > 0)
+                reasons.Add(string.Format(LocalizationManager.T("Main.SubgroupsCount"), subgroupCount));
+            if (infobaseCount > 0)
+                reasons.Add(string.Format(LocalizationManager.T("Main.InfobasesCount"), infobaseCount));
+
+            _dialog.ShowWarning(
+                string.Format(LocalizationManager.T("Main.DeleteGroupImpossible"), group.Name) + "\n\n" +
+                LocalizationManager.T("Main.DeleteGroupContains") + "\n" +
+                string.Join("\n", reasons.Select(r => "• " + r)) + ".\n\n" +
+                LocalizationManager.T("Main.DeleteGroupFirstMove"));
+            return;
+        }
+
+        if (!_dialog.Confirm(string.Format(LocalizationManager.T("Main.DeleteGroupConfirm"), group.Name)))
+            return;
+
+        _groups.Remove(group);
+        SelectedGroupNode = null;
+        SaveGroupsSilently();
+        RebuildTree();
+    }
+
+    /// <summary>Полные пути группы и всех её потомков: по ним ищутся базы внутри.</summary>
+    private HashSet<string> CollectGroupPaths(string groupId)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { groupId };
+        CollectGroupDescendants(groupId, ids);
+
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in ids)
+        {
+            var group = _groups.FirstOrDefault(g => string.Equals(g.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (group is not null)
+                paths.Add(GroupHierarchyHelper.GetFullPath(group, _groups));
+        }
+        return paths;
+    }
+
+    private void CollectGroupDescendants(string parentId, ISet<string> result)
+    {
+        foreach (var child in _groups.Where(g => string.Equals(g.ParentId, parentId, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (result.Add(child.Id))
+                CollectGroupDescendants(child.Id, result);
+        }
+    }
+
+    /// <summary>
+    /// Открывает диалог ввода ссылки на информационную базу и запускает её,
+    /// как «Перейти по ссылке» в стандартном загрузчике 1С.
+    /// </summary>
+    private void OpenInfobaseByLink()
+    {
+        var dialog = new Configuration_Management.LinkInputWindow();
+        if (!dialog.ShowDialogSync(OwnerWindow()) || string.IsNullOrWhiteSpace(dialog.Result))
+            return;
+
+        var link = dialog.Result;
+        _logger.Info($"Запуск 1С по ссылке: {link}");
+        if (!OneCLauncher.LaunchByLink(link))
+            _dialog.ShowError(string.Format(LocalizationManager.T("Main.ErrLaunch"), link));
     }
 
     private void ToggleFavorite() => ToggleFavoriteFor(SelectedInfobase);
