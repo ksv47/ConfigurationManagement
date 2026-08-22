@@ -88,6 +88,7 @@ namespace Configuration_Management
 
             Content = BuildRoot();
             Loaded += OnWindowLoaded;
+            KeyDown += OnWindowKeyDown;
         }
 
         // ======================= Построение UI =======================
@@ -438,6 +439,9 @@ namespace Configuration_Management
                         new Binding("IsExpanded") { Mode = BindingMode.TwoWay }));
                 }
             };
+
+            _tree.ContextMenu = BuildRowContextMenu();
+            _tree.ContextRequested += OnTreeContextRequested;
 
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
@@ -2147,6 +2151,7 @@ namespace Configuration_Management
         private void OnWindowLoaded(object? sender, RoutedEventArgs e)
         {
             _vm?.Initialize();
+            RegisterHotkeys();
             SetupTray();
         }
 
@@ -2177,6 +2182,154 @@ namespace Configuration_Management
                     break;
                 default:
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Контекстное меню строки базы: те же действия, что и в WPF-версии,
+        /// кроме тех, чьих команд в Avalonia-вьюмодели пока нет (регистрация
+        /// COM-коннектора на Linux неприменима, выгрузка в dt и cf и история
+        /// запусков ждут порта сервисов запуска).
+        /// </summary>
+        private ContextMenu BuildRowContextMenu()
+        {
+            var menu = new ContextMenu();
+            if (_vm is null)
+                return menu;
+
+            var cacheMenu = new MenuItem { Header = LocalizationManager.T("Main.ClearCache") };
+            cacheMenu.Items.Add(MenuAction("Main.ClearProgramCache", _vm.ClearProgramCacheCommand, _vm.HotkeyClearCache));
+            cacheMenu.Items.Add(MenuAction("Main.ClearUserCache", _vm.ClearUserCacheCommand));
+            cacheMenu.Items.Add(new Separator());
+            cacheMenu.Items.Add(MenuAction("Main.ClearCacheBoth", _vm.ClearCacheCommand));
+
+            menu.Items.Add(MenuAction("Main.LaunchEnterprise", _vm.LaunchEnterpriseCommand, _vm.HotkeyEnterprise));
+            menu.Items.Add(MenuAction("Main.LaunchConfigurator", _vm.LaunchConfiguratorCommand, _vm.HotkeyConfigurator));
+            menu.Items.Add(MenuAction("Main.EditSettings", _vm.EditInfobaseCommand, _vm.HotkeyEdit));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(MenuAction("Main.ToFavorites", _vm.ToggleFavoriteCommand, _vm.HotkeyFavorite));
+            menu.Items.Add(MenuAction("Main.Pin", _vm.TogglePinCommand, _vm.HotkeyPin));
+            menu.Items.Add(cacheMenu);
+            menu.Items.Add(new Separator());
+            menu.Items.Add(MenuAction("Main.CopyConnectionString", _vm.CopyConnectionStringCommand));
+            menu.Items.Add(MenuAction("Main.OpenCatalog", _vm.OpenInfobaseFolderCommand));
+            menu.Items.Add(MenuAction("Main.DesktopShortcut", _vm.CreateDesktopShortcutCommand));
+            menu.Items.Add(MenuAction("Main.AddBase", _vm.AddInfobaseCommand, _vm.HotkeyAdd));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(MenuAction("Main.Delete", _vm.DeleteInfobaseCommand, _vm.HotkeyDelete));
+            return menu;
+        }
+
+        /// <summary>Пункт меню с подписью из словаря, командой и подсказкой сочетания клавиш.</summary>
+        private static MenuItem MenuAction(string textKey, System.Windows.Input.ICommand command, string? gesture = null)
+        {
+            var item = new MenuItem
+            {
+                Header = LocalizationManager.T(textKey),
+                Command = command
+            };
+            if (TryParseGesture(gesture, out var parsed) && parsed is not null)
+                item.InputGesture = parsed;
+            return item;
+        }
+
+        /// <summary>
+        /// Показывает меню только над строкой базы и выделяет строку под курсором:
+        /// команды работают с выбранной базой, а правый клик выделение не меняет.
+        /// </summary>
+        private void OnTreeContextRequested(object? sender, ContextRequestedEventArgs e)
+        {
+            var container = (e.Source as Visual)?.FindAncestorOfType<TreeViewItem>();
+            if (container?.DataContext is not Infobase)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            container.IsSelected = true;
+        }
+
+        /// <summary>
+        /// Горячие клавиши действий. Сочетания берутся из вьюмодели, оттуда же
+        /// их показывают подсказки и контекстное меню, поэтому список и подписи
+        /// не расходятся. Привязки живут на окне и срабатывают только когда
+        /// событие дошло до него необработанным: набор текста в поле поиска
+        /// они не задевают.
+        /// </summary>
+        private void RegisterHotkeys()
+        {
+            if (_vm is null)
+                return;
+
+            KeyBindings.Clear();
+            // Delete в привязки не идёт: он правит текст, и в поле ввода
+            // не должен удалять базу. Ему отдельный обработчик ниже.
+            AddHotkey(_vm.HotkeyEnterprise, _vm.LaunchEnterpriseCommand);
+            AddHotkey(_vm.HotkeyConfigurator, _vm.LaunchConfiguratorCommand);
+            AddHotkey(_vm.HotkeyEdit, _vm.EditInfobaseCommand);
+            AddHotkey(_vm.HotkeyAdd, _vm.AddInfobaseCommand);
+            AddHotkey(_vm.HotkeyFavorite, _vm.ToggleFavoriteCommand);
+            AddHotkey(_vm.HotkeyPin, _vm.TogglePinCommand);
+            AddHotkey(_vm.HotkeyClearCache, _vm.ClearCacheCommand);
+        }
+
+        /// <summary>
+        /// Удаление базы по Delete. Клавиша текстовая, поэтому команда
+        /// срабатывает, только когда фокус не в поле ввода и событие дошло
+        /// до окна необработанным.
+        /// </summary>
+        private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Handled || _vm is null)
+                return;
+            if (e.Key != Key.Delete || e.KeyModifiers != KeyModifiers.None)
+                return;
+            if (FocusManager?.GetFocusedElement() is TextBox)
+                return;
+
+            if (_vm.DeleteInfobaseCommand.CanExecute(null))
+                _vm.DeleteInfobaseCommand.Execute(null);
+            e.Handled = true;
+        }
+
+        private void AddHotkey(string? gesture, System.Windows.Input.ICommand? command)
+        {
+            if (command is null || !TryParseGesture(gesture, out var parsed) || parsed is null)
+                return;
+            KeyBindings.Add(new KeyBinding { Gesture = parsed, Command = command });
+        }
+
+        /// <summary>
+        /// Разбирает сочетание вида «F3», «Ctrl+E», «Ctrl+Shift+C», «Del».
+        /// Сокращения Del, Ins и Esc разбору Avalonia неизвестны, поэтому
+        /// раскрываются до полных имён клавиш, как это делает WPF-версия.
+        /// </summary>
+        private static bool TryParseGesture(string? text, out KeyGesture? gesture)
+        {
+            gesture = null;
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            var parts = text.Trim().Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length == 0)
+                return false;
+
+            parts[^1] = parts[^1].ToLowerInvariant() switch
+            {
+                "del" => "Delete",
+                "ins" => "Insert",
+                "esc" => "Escape",
+                _ => parts[^1]
+            };
+
+            try
+            {
+                gesture = KeyGesture.Parse(string.Join("+", parts));
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
             }
         }
 
