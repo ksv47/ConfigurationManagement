@@ -44,6 +44,7 @@ namespace Configuration_Management
         private Border _emptyState = null!;
         private Avalonia.Controls.Shapes.Path _emptyIcon = null!;
         private TextBlock _emptyTitle = null!;
+        private SegmentButton? _tagsToggle;
         private Border? _tagPanel;
         private WrapPanel? _tagPanelItems;
         private Button? _tagClearButton;
@@ -124,10 +125,10 @@ namespace Configuration_Management
             groupByToggle.Click += (_, _) => { if (_vm is not null) _vm.GroupByGroup = groupByToggle.IsChecked == true; };
             left.Children.Add(groupByToggle);
 
-            var tagsToggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleTags"));
-            tagsToggle.IsChecked = _vm?.ShowTagFilterPanel ?? true;
-            tagsToggle.Click += (_, _) => { if (_vm is not null) _vm.ShowTagFilterPanel = tagsToggle.IsChecked == true; };
-            left.Children.Add(tagsToggle);
+            _tagsToggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleTags"));
+            _tagsToggle.IsChecked = _vm?.ShowTagFilterPanel ?? true;
+            _tagsToggle.Click += (_, _) => { if (_vm is not null) _vm.ShowTagFilterPanel = _tagsToggle.IsChecked == true; };
+            left.Children.Add(_tagsToggle);
 
             grid.Children.Add(left);
             Grid.SetColumn(left, 0);
@@ -449,7 +450,14 @@ namespace Configuration_Management
                         UpdateEmptyState();
                     if (e.PropertyName == nameof(MainViewModel.ShowTagFilterPanel)
                         || e.PropertyName == nameof(MainViewModel.HasActiveTagFilter))
+                    {
+                        // Кнопка «теги» строится до загрузки настроек, поэтому
+                        // её состояние подтягивается отсюда, иначе после перезапуска
+                        // она разошлась бы с реальной видимостью панели.
+                        if (_tagsToggle is not null)
+                            _tagsToggle.IsChecked = _vm.ShowTagFilterPanel;
                         RefreshTagFilterPanel();
+                    }
                 };
             }
             UpdateEmptyState();
@@ -1134,6 +1142,9 @@ namespace Configuration_Management
         {
             private readonly List<IDisposable> _subs = new();
 
+            /// <summary>Подписки содержимого: иконка и текст пересоздаются при каждой смене состояния.</summary>
+            private readonly List<IDisposable> _contentSubs = new();
+
             /// <summary>
             /// Освобождает подписки на ресурсы темы. Кнопки тегов пересобираются
             /// при каждом обновлении набора, и без этого каждая пересборка
@@ -1141,9 +1152,17 @@ namespace Configuration_Management
             /// </summary>
             public void Dispose()
             {
+                ReleaseContentSubscriptions();
                 foreach (var sub in _subs)
                     sub.Dispose();
                 _subs.Clear();
+            }
+
+            private void ReleaseContentSubscriptions()
+            {
+                foreach (var sub in _contentSubs)
+                    sub.Dispose();
+                _contentSubs.Clear();
             }
 
             private readonly string _iconKey;
@@ -1237,6 +1256,11 @@ namespace Configuration_Management
             /// <summary>Собирает содержимое «иконка + текст» с цветом по состоянию выбора.</summary>
             private void UpdateContent()
             {
+                // Содержимое пересоздаётся при каждой смене состояния, поэтому
+                // подписки прежнего содержимого освобождаются: иначе они копились бы
+                // на каждое переключение и жили до конца процесса.
+                ReleaseContentSubscriptions();
+
                 var brushKey = IsChecked == true ? "TextOnAccentBrush" : "TextPrimaryBrush";
                 var sp = new StackPanel
                 {
@@ -1247,7 +1271,7 @@ namespace Configuration_Management
                 // Пустой ключ означает кнопку без иконки: IconHelper на пустой ключ
                 // подставляет запасную папку, и она выглядела бы как настоящая иконка.
                 if (!string.IsNullOrEmpty(_iconKey))
-                    sp.Children.Add(IconHelper.MakeIcon(_iconKey, _iconSize, brushKey));
+                    sp.Children.Add(IconHelper.MakeIcon(_iconKey, _iconSize, brushKey, _contentSubs));
                 if (!string.IsNullOrEmpty(_text))
                 {
                     var tb = new TextBlock
@@ -1257,7 +1281,9 @@ namespace Configuration_Management
                         FontWeight = FontWeight.SemiBold,
                         VerticalAlignment = VerticalAlignment.Center
                     };
-                    ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+                    var textSub = ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+                    if (textSub is not null)
+                        _contentSubs.Add(textSub);
                     sp.Children.Add(tb);
                 }
                 Content = sp;
