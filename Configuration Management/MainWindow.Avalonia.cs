@@ -2471,6 +2471,16 @@ namespace Configuration_Management
         {
             _vm?.Initialize();
             RegisterHotkeys();
+            if (_vm is not null)
+            {
+                // Переназначение клавиш меняет и привязки, и подписи в меню.
+                _vm.HotkeysChanged += (_, _) =>
+                {
+                    RegisterHotkeys();
+                    if (_tree is not null)
+                        _tree.ContextMenu = BuildRowContextMenu();
+                };
+            }
             SetupTray();
         }
 
