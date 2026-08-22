@@ -1403,11 +1403,39 @@ public class MainViewModel : ViewModelBase
         RestartAutoSync();
     }
 
+    /// <summary>
+    /// Запоминает выбранную цветовую схему как активную: без этого правка
+    /// цветов держалась только до перезапуска, потому что при старте
+    /// применяется ActiveColorScheme из настроек.
+    /// </summary>
+    public void ApplyColorScheme(Models.ColorScheme scheme)
+    {
+        ThemeManager.ApplyScheme(scheme);
+        _settings.ActiveColorScheme = scheme;
+        _settings.Theme = scheme.IsDark ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName;
+        _themeName = _settings.Theme;
+        SaveSettingsSilently();
+        OnPropertyChanged(nameof(ThemeName));
+    }
+
     /// <summary>Предупреждение из окна настроек: диалоги живут в сервисе вьюмодели.</summary>
     public void ShowWarning(string message) => _dialog.ShowWarning(message);
 
+    /// <summary>Сообщение из окна настроек.</summary>
+    public void ShowInfo(string message) => _dialog.ShowInfo(message);
+
+    /// <summary>Сообщение об ошибке из окна настроек.</summary>
+    public void ShowError(string message) => _dialog.ShowError(message);
+
+    /// <summary>Запрос подтверждения из окна настроек.</summary>
+    public bool Confirm(string message) => _dialog.Confirm(message);
+
     /// <summary>Диалог выбора файла для окна настроек.</summary>
     public string? PickFile(string title, string filter) => _dialog.OpenFileDialog(title, filter);
+
+    /// <summary>Диалог сохранения файла для окна настроек.</summary>
+    public string? PickSaveFile(string title, string defaultFileName) =>
+        _dialog.SaveFileDialog(title, defaultFileName);
 
     /// <summary>Диалог выбора каталога для окна настроек.</summary>
     public string? PickFolder(string title) => _dialog.OpenFolderDialog(title);
