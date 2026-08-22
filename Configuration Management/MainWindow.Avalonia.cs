@@ -1292,20 +1292,33 @@ namespace Configuration_Management
                 Content = ThemedIconAndText("IconClose", LocalizationManager.T("Main.ClearTagFilters"),
                     "ButtonTextBrush", UiMetrics.Scaled(12), centered: false),
                 Padding = new Thickness(8, 2),
-                Margin = new Thickness(8, 0, 0, 0),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center
             };
             _tagClearButton.Bind(Button.CommandProperty, new Binding("ClearTagFiltersCommand"));
 
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-            row.Children.Add(_tagPanelItems);
-            row.Children.Add(_tagClearButton);
+            // Подсказка остаётся на месте и когда тегов нет: панель не прячется,
+            // иначе переключатель «теги» выглядел бы неработающим. Раскладка как
+            // в WPF-версии: подсказка и кнопка сброса сверху, чипы тегов под ними.
+            var hint = ThemedIconAndText("IconTag", LocalizationManager.T("Main.TagFilterTitle"),
+                "TextSecondaryBrush", UiMetrics.Scaled(12), centered: false);
+            hint.HorizontalAlignment = HorizontalAlignment.Left;
+
+            var header = new Grid();
+            header.Children.Add(hint);
+            header.Children.Add(_tagClearButton);
+
+            var rows = new StackPanel { Orientation = Orientation.Vertical, Spacing = 6 };
+            rows.Children.Add(header);
+            rows.Children.Add(_tagPanelItems);
 
             _tagPanel = new Border
             {
                 Padding = new Thickness(UiMetrics.TopBarH, 6),
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Child = row
+                Child = rows
             };
             ThemeBrushes.Bind(_tagPanel, Border.BackgroundProperty, "CardBackgroundBrush");
             ThemeBrushes.Bind(_tagPanel, Border.BorderBrushProperty, "BorderColorBrush");
@@ -1332,7 +1345,7 @@ namespace Configuration_Management
             }
 
             _tagClearButton.IsVisible = _vm.HasActiveTagFilter;
-            _tagPanel.IsVisible = _vm.ShowTagFilterPanel && _vm.TagFilterItems.Count > 0;
+            _tagPanel.IsVisible = _vm.ShowTagFilterPanel;
         }
 
         private Control BuildStatusBar()
