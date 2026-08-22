@@ -47,6 +47,7 @@ namespace Configuration_Management
         private Avalonia.Controls.Shapes.Path _emptyIcon = null!;
         private TextBlock _emptyTitle = null!;
         private SegmentButton? _tagsToggle;
+        private SegmentButton? _groupByToggle;
         private Border? _columnHeader;
         private Grid? _columnHeaderRow;
         private ColumnDefinition? _headerOffsetColumn;
@@ -139,10 +140,10 @@ namespace Configuration_Management
                 Spacing = 2
             };
 
-            var groupByToggle = MakeSegmentToggle("IconGroups", LocalizationManager.T("Main.ToggleGroups"));
-            groupByToggle.IsChecked = _vm?.GroupByGroup ?? true;
-            groupByToggle.Click += (_, _) => { if (_vm is not null) _vm.GroupByGroup = groupByToggle.IsChecked == true; };
-            left.Children.Add(groupByToggle);
+            _groupByToggle = MakeSegmentToggle("IconGroups", LocalizationManager.T("Main.ToggleGroups"));
+            _groupByToggle.IsChecked = _vm?.GroupByGroup ?? true;
+            _groupByToggle.Click += (_, _) => { if (_vm is not null) _vm.GroupByGroup = _groupByToggle.IsChecked == true; };
+            left.Children.Add(_groupByToggle);
 
             _tagsToggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleTags"));
             _tagsToggle.IsChecked = _vm?.ShowTagFilterPanel ?? true;
@@ -511,6 +512,14 @@ namespace Configuration_Management
                     // Кнопки групп живут в заголовке и видны только при группировке.
                     if (e.PropertyName == nameof(MainViewModel.ShowExpandCollapseButtons))
                         QueueColumnHeaderRefresh();
+                    // Переключатель тегов в списке живёт в том же заголовке,
+                    // а его настройка меняется и из окна настроек.
+                    if (e.PropertyName == nameof(MainViewModel.ShowTags))
+                        QueueColumnHeaderRefresh();
+                    // Группировку меняют и верхняя панель, и окно настроек,
+                    // поэтому переключатель подтягивает состояние вьюмодели.
+                    if (e.PropertyName == nameof(MainViewModel.GroupByGroup) && _groupByToggle is not null)
+                        _groupByToggle.IsChecked = _vm.GroupByGroup;
                     if (e.PropertyName == nameof(MainViewModel.ShowTagFilterPanel)
                         || e.PropertyName == nameof(MainViewModel.HasActiveTagFilter))
                     {
@@ -1137,7 +1146,9 @@ namespace Configuration_Management
                 SecondaryActionButton("IconPin", LocalizationManager.T("Main.Pin"), "TogglePinCommand", LocalizationManager.T("Main.PinBaseTooltip"))));
 
             // Информация о подключении.
-            panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionConnInfo"), "IconInfo",
+            // Блок сведений подчинён переключателю подробностей правой панели,
+            // как в WPF: там по нему прячется та же таблица.
+            var connectionCard = SectionCard(LocalizationManager.T("Main.SectionConnInfo"), "IconInfo",
                 DetailRow(LocalizationManager.T("Main.Type"), new Binding("SelectedInfobase.ConnectionTypeDisplay")),
                 DetailRow(LocalizationManager.T("Main.ServerPath"), new Binding("SelectedInfobase.ConnectionPathDisplay")),
                 DetailRow(LocalizationManager.T("Column.ServerBase"), new Binding("SelectedInfobase.ServerDatabaseDisplay")),
@@ -1147,7 +1158,9 @@ namespace Configuration_Management
                 DetailRow(LocalizationManager.T("Main.Client"), new Binding("SelectedInfobase.ClientTypeDisplay")),
                 DetailRow(LocalizationManager.T("Main.Bitness"), new Binding("SelectedInfobase.ArchitectureDisplay")),
                 DetailRow(LocalizationManager.T("Main.Parameters"), new Binding("SelectedInfobase.LaunchParameters")),
-                DetailRow(LocalizationManager.T("Main.LastLaunch"), new Binding("SelectedInfobase.LastLaunchDisplay"))));
+                DetailRow(LocalizationManager.T("Main.LastLaunch"), new Binding("SelectedInfobase.LastLaunchDisplay")));
+            connectionCard.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
+            panel.Children.Add(connectionCard);
 
             // Блок «Текущая сессия»: значения действуют только на следующий запуск.
             panel.Children.Add(BuildSessionCard());
