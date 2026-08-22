@@ -1171,6 +1171,7 @@
     "Launcher.BaseLinkTitle": "Ссылка на базу 1С",
     "Launcher.PlatformExeNotFound": "Не удалось найти платформу 1С (1cv8.exe).\nУстановите платформу 1С:Предприятие.",
     "Launcher.CreateExeNotFound": "Не найден 1cv8.exe для указанной версии платформы.",
+    "Launcher.CreateExeNotFoundLinux": "Не найден исполняемый файл 1cv8 для указанной версии платформы.",
     "Launcher.CreateFileDirNotSpecified": "Не указан каталог файловой базы.",
     "Launcher.CreateDirCreateFailedFormat": "Не удалось создать каталог:\n{0}\n{1}",
     "Launcher.CreateServerOrDbNotSpecified": "Не указаны сервер или имя базы.",

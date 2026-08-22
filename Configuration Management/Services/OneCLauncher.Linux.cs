@@ -864,7 +864,7 @@ namespace Configuration_Management.Services
             var exe = FindExecutable(version, arch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86,
                 OneCClientType.Thick, OneCLaunchMode.Configurator);
             if (string.IsNullOrEmpty(exe))
-                return (false, LocalizationManager.T("Launcher.CreateExeNotFound"));
+                return (false, LocalizationManager.T("Launcher.CreateExeNotFoundLinux"));
 
             string connectionString;
             if (isFile)

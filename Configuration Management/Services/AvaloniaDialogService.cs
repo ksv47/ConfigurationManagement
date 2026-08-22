@@ -207,9 +207,19 @@ namespace Configuration_Management.Services
 
         private static Window? CurrentOwner()
         {
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-                return desktop.MainWindow;
-            return null;
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+                return null;
+
+            // Владельцем берём активное окно: диалог, вызванный из модального
+            // окна настроек, иначе принадлежал бы уже заблокированному главному
+            // окну, и модальность с фокусом на Linux вели бы себя странно.
+            foreach (var window in desktop.Windows)
+            {
+                if (window.IsActive)
+                    return window;
+            }
+
+            return desktop.MainWindow;
         }
     }
 

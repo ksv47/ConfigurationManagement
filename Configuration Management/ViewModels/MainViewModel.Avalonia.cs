@@ -378,7 +378,8 @@ public class MainViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _selectedInfobase, value, nameof(RightPanelTitle), nameof(RightPanelSubtitle),
-                    nameof(IsInfobaseSelected), nameof(ShowConnectionInfo)))
+                    nameof(IsInfobaseSelected), nameof(ShowConnectionInfo),
+                    nameof(RightPanelIconKey), nameof(HasRightPanelIcon)))
             {
                 if (value is not null)
                     SelectedGroupNode = null;
@@ -394,7 +395,8 @@ public class MainViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _selectedGroupNode, value, nameof(RightPanelTitle), nameof(RightPanelSubtitle),
-                    nameof(IsInfobaseSelected), nameof(ShowConnectionInfo)))
+                    nameof(IsInfobaseSelected), nameof(ShowConnectionInfo),
+                    nameof(RightPanelIconKey), nameof(HasRightPanelIcon)))
             {
                 if (value is not null)
                     SelectedInfobase = null;
@@ -422,13 +424,23 @@ public class MainViewModel : ViewModelBase
         ?? LocalizationManager.T("Main.NoSelection");
 
     /// <summary>
-    /// Подзаголовок правой панели: группа выбранной базы, а без базы подсказка
-    /// «выберите базу», как в WPF-версии и при выбранной группе тоже.
+    /// Подзаголовок правой панели: группа выбранной базы или полный путь
+    /// выбранной группы, как в WPF-версии.
     /// </summary>
     public string RightPanelSubtitle =>
         SelectedInfobase is { } infobase
             ? infobase.GroupDisplay
-            : LocalizationManager.T("Main.NoSelectionHint");
+            : SelectedGroupNode?.FullPath ?? string.Empty;
+
+    /// <summary>Подсказка «выберите базу» под заголовком, пока база не выбрана.</summary>
+    public string RightPanelHint => LocalizationManager.T("Main.NoSelectionHint");
+
+    /// <summary>Значок заголовка: база, значок выбранной группы или ничего.</summary>
+    public string? RightPanelIconKey =>
+        SelectedInfobase is not null ? "IconDatabase" : SelectedGroupNode?.Icon;
+
+    /// <summary>Показывать значок заголовка: для базы и для группы, но не при пустом выборе.</summary>
+    public bool HasRightPanelIcon => RightPanelIconKey is not null;
 
     /// <summary>Выбрана база, а не группа и не пустота.</summary>
     public bool IsInfobaseSelected => SelectedInfobase is not null;
@@ -758,6 +770,7 @@ public class MainViewModel : ViewModelBase
             _sessionClient = SessionClientFromSetting(_settings.SessionClientMode);
             _sessionArch = SessionArchFromSetting(_settings.SessionArchitecture);
             ApplyDefaultArchitecture();
+            ApplyAdditionalSearchPaths();
 
             OnPropertyChanged(nameof(GroupByGroup));
             OnPropertyChanged(nameof(ShowEmptyGroups));
@@ -789,6 +802,9 @@ public class MainViewModel : ViewModelBase
     /// <summary>Перестраивает дерево групп из моделей.</summary>
     public void RebuildTree()
     {
+        // Узлы пересоздаются, поэтому прежний выбранный узел больше не тот,
+        // что показан в дереве: правая панель иначе показывала бы старую группу.
+        SelectedGroupNode = null;
         AllGroupNodes.Clear();
         GroupNodes.Clear();
         FlatItems.Clear();
@@ -1336,8 +1352,18 @@ public class MainViewModel : ViewModelBase
             string.Equals(architecture, "X86", StringComparison.OrdinalIgnoreCase) ? "X86" : "X64";
 
         ApplyDefaultArchitecture();
+        ApplyAdditionalSearchPaths();
         SaveSettingsSilently();
     }
+
+    /// <summary>
+    /// Отдаёт дополнительные пути поиска самой платформе: вкладка настроек
+    /// передаёт их аргументом, а запуск читает статический список сервиса,
+    /// и без этой передачи платформа из нестандартного каталога была видна
+    /// в списке, но не находилась при запуске.
+    /// </summary>
+    private void ApplyAdditionalSearchPaths() =>
+        PlatformVersionService.SetAdditionalSearchPaths(_settings.AdditionalPlatformSearchPaths);
 
     /// <summary>
     /// Отдаёт разрядность по умолчанию запуску платформы. Без этого настройка
