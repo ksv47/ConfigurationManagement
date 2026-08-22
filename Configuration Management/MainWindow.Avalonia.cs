@@ -982,7 +982,8 @@ namespace Configuration_Management
             desc.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.Description"));
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.Description"), "IconInfo", desc));
 
-            panel.Children.Add(SecondaryActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand"));
+            panel.Children.Add(SecondaryActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand",
+                LocalizationManager.T("Main.ExitTooltip")));
 
             return panel;
         }
@@ -1029,9 +1030,10 @@ namespace Configuration_Management
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Margin = new Thickness(0, 0, 0, UiMetrics.SectionMarginBottom),
-                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
-                ToolTip = new ToolTip { Content = tooltip }
+                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV)
             };
+            // В Avalonia подсказка это присоединённое свойство, а не свойство контрола.
+            ToolTip.SetTip(btn, tooltip);
             btn.Bind(Button.CommandProperty, new Binding(commandPath));
             return btn;
         }
@@ -1048,9 +1050,9 @@ namespace Configuration_Management
                 Content = ThemedIconAndText(iconKey, text, "ButtonTextBrush", 16, centered: false),
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Margin = new Thickness(0, 0, 0, 2),
-                ToolTip = new ToolTip { Content = tooltip }
+                Margin = new Thickness(0, 0, 0, 2)
             };
+            ToolTip.SetTip(btn, tooltip);
             btn.Bind(Button.CommandProperty, new Binding(commandPath));
             return btn;
         }
@@ -1077,9 +1079,9 @@ namespace Configuration_Management
                 Content = ThemedIconAndText("IconDelete", LocalizationManager.T("Main.ClearCache"), "ButtonTextBrush", 16, centered: false),
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Margin = new Thickness(0, 0, 0, 2),
-                ToolTip = new ToolTip { Content = LocalizationManager.T("Main.ClearCacheTooltip") }
+                Margin = new Thickness(0, 0, 0, 2)
             };
+            ToolTip.SetTip(main, LocalizationManager.T("Main.ClearCacheTooltip"));
             main.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
 
             // Выпадающее меню, привязанное к кнопке-стрелке.
@@ -2212,7 +2214,7 @@ namespace Configuration_Management
             cacheMenu.Items.Add(MenuAction("Main.ClearProgramCache", _vm.ClearProgramCacheCommand, _vm.HotkeyClearCache));
             cacheMenu.Items.Add(MenuAction("Main.ClearUserCache", _vm.ClearUserCacheCommand));
             cacheMenu.Items.Add(new Separator());
-            cacheMenu.Items.Add(MenuAction("Main.ClearCacheBoth", _vm.ClearCacheCommand));
+            cacheMenu.Items.Add(MenuAction("Main.ClearCacheBoth", _vm.ClearCacheBothCommand));
 
             menu.Items.Add(MenuAction("Main.LaunchEnterprise", _vm.LaunchEnterpriseCommand, _vm.HotkeyEnterprise));
             menu.Items.Add(MenuAction("Main.LaunchConfigurator", _vm.LaunchConfiguratorCommand, _vm.HotkeyConfigurator));
