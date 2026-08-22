@@ -34,9 +34,10 @@ namespace Configuration_Management
         public SettingsWindow(MainViewModel viewModel)
         {
             Title = LocalizationManager.T("Settings.Title");
-            Width = 720;
-            Height = 580;
-            MinWidth = 640;
+            // Пять вкладок в 720 не помещаются и переносятся на вторую строку.
+            Width = 840;
+            Height = 600;
+            MinWidth = 760;
             MinHeight = 520;
 
             _viewModel = viewModel;
@@ -132,6 +133,71 @@ namespace Configuration_Management
 
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabGeneral"), Content = new ScrollViewer { Content = settings, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
+            // ===== Платформы =====
+            var platforms = new StackPanel { Spacing = 6 };
+            platforms.Children.Add(Hint(LocalizationManager.T("Settings.Platforms.Intro")));
+
+            var versionsList = new ListBox { MinHeight = 120, MaxHeight = 180 };
+            versionsList.ItemsSource = _viewModel.FindPlatformVersions();
+            platforms.Children.Add(versionsList);
+
+            var pathsList = new ListBox { MinHeight = 90, MaxHeight = 140 };
+            var paths = new List<string>(_viewModel.AdditionalPlatformSearchPaths);
+            pathsList.ItemsSource = paths;
+
+            void RefreshPaths()
+            {
+                // ItemsSource на том же списке не перечитывается, поэтому подменяем.
+                pathsList.ItemsSource = null;
+                pathsList.ItemsSource = new List<string>(paths);
+            }
+
+            var refreshButton = new Button { Content = LocalizationManager.T("Settings.Platforms.Refresh") };
+            ToolTip.SetTip(refreshButton, LocalizationManager.T("Settings.Platforms.RefreshTooltip"));
+            refreshButton.Click += (_, _) => versionsList.ItemsSource = _viewModel.FindPlatformVersions(paths);
+            platforms.Children.Add(refreshButton);
+
+            platforms.Children.Add(GroupTitle(LocalizationManager.T("Settings.AdditionalPaths")));
+            platforms.Children.Add(Hint(LocalizationManager.T("Settings.AdditionalPaths.HintLinux")));
+            platforms.Children.Add(pathsList);
+
+            var pathButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
+            var addPath = new Button { Content = LocalizationManager.T("Settings.AdditionalPaths.Add") };
+            ToolTip.SetTip(addPath, LocalizationManager.T("Settings.AdditionalPaths.AddTooltip"));
+            addPath.Click += (_, _) =>
+            {
+                var folder = _viewModel.PickFolder(LocalizationManager.T("Settings.AdditionalPaths.Add"));
+                if (string.IsNullOrWhiteSpace(folder) || paths.Contains(folder, StringComparer.OrdinalIgnoreCase))
+                    return;
+                paths.Add(folder);
+                RefreshPaths();
+            };
+            var removePath = new Button { Content = LocalizationManager.T("Common.Delete") };
+            ToolTip.SetTip(removePath, LocalizationManager.T("Settings.AdditionalPaths.RemoveTooltip"));
+            removePath.Click += (_, _) =>
+            {
+                if (pathsList.SelectedItem is not string selected)
+                    return;
+                paths.RemoveAll(p => string.Equals(p, selected, StringComparison.OrdinalIgnoreCase));
+                RefreshPaths();
+            };
+            pathButtons.Children.Add(addPath);
+            pathButtons.Children.Add(removePath);
+            platforms.Children.Add(pathButtons);
+
+            platforms.Children.Add(GroupTitle(LocalizationManager.T("Settings.DefaultArch")));
+            platforms.Children.Add(Hint(LocalizationManager.T("Settings.DefaultArch.Hint")));
+            var archBox = new ComboBox { MinWidth = 160, HorizontalAlignment = HorizontalAlignment.Left };
+            archBox.ItemsSource = new[] { "X64", "X86" };
+            archBox.SelectedItem = string.Equals(_viewModel.DefaultArchitecture, "X86", StringComparison.OrdinalIgnoreCase) ? "X86" : "X64";
+            platforms.Children.Add(archBox);
+
+            tabs.Items.Add(new TabItem
+            {
+                Header = LocalizationManager.T("Settings.TabPlatforms"),
+                Content = new ScrollViewer { Content = platforms, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+            });
+
             // ===== Отображение =====
             var display = new StackPanel { Spacing = 6 };
 
@@ -224,6 +290,8 @@ namespace Configuration_Management
                 {
                     _viewModel.ApplyLanguage(li.Code);
                 }
+
+                _viewModel.ApplyPlatformSettings(paths, archBox.SelectedItem as string ?? "X64");
 
                 // Настройки отображения применяются и сохраняются одним вызовом.
                 _viewModel.ApplyDisplaySettings(

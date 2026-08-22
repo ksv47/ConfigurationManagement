@@ -145,6 +145,7 @@ public class MainViewModel : ViewModelBase
         NotifySessionSettings();
         OnPropertyChanged(nameof(ShowTagFilterPanel));
         OnPropertyChanged(nameof(ShowRightPanelDetails));
+        OnPropertyChanged(nameof(ShowConnectionInfo));
         OnPropertyChanged(nameof(GroupByGroup));
         OnPropertyChanged(nameof(ShowEmptyGroups));
         OnPropertyChanged(nameof(ShowExpandCollapseButtons));
@@ -376,7 +377,8 @@ public class MainViewModel : ViewModelBase
         get => _selectedInfobase;
         set
         {
-            if (SetProperty(ref _selectedInfobase, value))
+            if (SetProperty(ref _selectedInfobase, value, nameof(RightPanelTitle), nameof(RightPanelSubtitle),
+                    nameof(IsInfobaseSelected), nameof(ShowConnectionInfo)))
             {
                 if (value is not null)
                     SelectedGroupNode = null;
@@ -391,7 +393,8 @@ public class MainViewModel : ViewModelBase
         get => _selectedGroupNode;
         set
         {
-            if (SetProperty(ref _selectedGroupNode, value))
+            if (SetProperty(ref _selectedGroupNode, value, nameof(RightPanelTitle), nameof(RightPanelSubtitle),
+                    nameof(IsInfobaseSelected), nameof(ShowConnectionInfo)))
             {
                 if (value is not null)
                     SelectedInfobase = null;
@@ -406,8 +409,35 @@ public class MainViewModel : ViewModelBase
     public bool ShowRightPanelDetails
     {
         get => _showRightPanelDetails;
-        set => SetProperty(ref _showRightPanelDetails, value, nameof(RightPanelToggleTooltip));
+        set => SetProperty(ref _showRightPanelDetails, value, nameof(RightPanelToggleTooltip), nameof(ShowConnectionInfo));
     }
+
+    /// <summary>
+    /// Заголовок правой панели: имя базы, имя группы или «Нет выбора».
+    /// Без него при пустом выборе от заголовка оставался один значок.
+    /// </summary>
+    public string RightPanelTitle =>
+        SelectedInfobase?.Name
+        ?? SelectedGroupNode?.DisplayName
+        ?? LocalizationManager.T("Main.NoSelection");
+
+    /// <summary>
+    /// Подзаголовок правой панели: группа выбранной базы, а без базы подсказка
+    /// «выберите базу», как в WPF-версии и при выбранной группе тоже.
+    /// </summary>
+    public string RightPanelSubtitle =>
+        SelectedInfobase is { } infobase
+            ? infobase.GroupDisplay
+            : LocalizationManager.T("Main.NoSelectionHint");
+
+    /// <summary>Выбрана база, а не группа и не пустота.</summary>
+    public bool IsInfobaseSelected => SelectedInfobase is not null;
+
+    /// <summary>
+    /// Показывать таблицу сведений о подключении: только когда выбрана база
+    /// и включён показ подробностей.
+    /// </summary>
+    public bool ShowConnectionInfo => IsInfobaseSelected && ShowRightPanelDetails;
 
     public string RightPanelToggleTooltip => _showRightPanelDetails
         ? LocalizationManager.T("Main.CollapseRightPanel")
@@ -727,6 +757,7 @@ public class MainViewModel : ViewModelBase
             _listMode = _settings.ShowFavoritesOnly ? "Favorites" : "All";
             _sessionClient = SessionClientFromSetting(_settings.SessionClientMode);
             _sessionArch = SessionArchFromSetting(_settings.SessionArchitecture);
+            ApplyDefaultArchitecture();
 
             OnPropertyChanged(nameof(GroupByGroup));
             OnPropertyChanged(nameof(ShowEmptyGroups));
@@ -1266,9 +1297,61 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>Список установленных версий платформы для диалогов.</summary>
+    /// <summary>
+    /// Версии платформы, найденные штатными путями и дополнительными путями
+    /// из настроек. Дополнительные пути в Linux-ветке до сих пор никуда
+    /// не передавались, и настройка была бесполезной.
+    /// </summary>
+    public List<string> FindPlatformVersions(IEnumerable<string>? additionalPaths = null)
+    {
+        try { return _platformService.FindInstalledVersions(additionalPaths ?? _settings.AdditionalPlatformSearchPaths); }
+        catch (Exception ex)
+        {
+            _logger.Warn($"Не удалось получить список версий платформы: {ex.Message}");
+            return new List<string>();
+        }
+    }
+
+    /// <summary>Дополнительные пути поиска платформы из настроек.</summary>
+    public IReadOnlyList<string> AdditionalPlatformSearchPaths => _settings.AdditionalPlatformSearchPaths;
+
+    /// <summary>Разрядность запуска по умолчанию: «X64» или «X86».</summary>
+    public string DefaultArchitecture => _settings.DefaultArchitecture;
+
+    /// <summary>Диалог выбора каталога для окна настроек.</summary>
+    public string? PickFolder(string title) => _dialog.OpenFolderDialog(title);
+
+    /// <summary>
+    /// Применяет настройки вкладки «Платформы»: дополнительные пути поиска
+    /// и разрядность по умолчанию.
+    /// </summary>
+    public void ApplyPlatformSettings(IEnumerable<string> additionalPaths, string architecture)
+    {
+        _settings.AdditionalPlatformSearchPaths = additionalPaths
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        _settings.DefaultArchitecture =
+            string.Equals(architecture, "X86", StringComparison.OrdinalIgnoreCase) ? "X86" : "X64";
+
+        ApplyDefaultArchitecture();
+        SaveSettingsSilently();
+    }
+
+    /// <summary>
+    /// Отдаёт разрядность по умолчанию запуску платформы. Без этого настройка
+    /// в Linux-ветке не действовала: запуск всегда считал её x64.
+    /// </summary>
+    private void ApplyDefaultArchitecture() =>
+        OneCLauncher.DefaultArchitecture =
+            string.Equals(_settings.DefaultArchitecture, "X86", StringComparison.OrdinalIgnoreCase)
+                ? OneCArchitecture.x86
+                : OneCArchitecture.x64;
+
     private List<string> InstalledPlatformVersions()
     {
-        try { return _platformService.FindInstalledVersions(); }
+        try { return _platformService.FindInstalledVersions(_settings.AdditionalPlatformSearchPaths); }
         catch (Exception ex)
         {
             _logger.Warn($"Не удалось получить список версий платформы: {ex.Message}");

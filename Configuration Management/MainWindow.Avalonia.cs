@@ -1109,17 +1109,26 @@ namespace Configuration_Management
 
             // Заголовок базы
             var nameBlock = new TextBlock { FontSize = 16, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
-            nameBlock.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.Name"));
+            nameBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelTitle"));
 
             var groupBlock = new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
-            groupBlock.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.GroupDisplay"));
+            groupBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelSubtitle"));
 
-            var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12), Spacing = 10 };
-            header.Children.Add(IconHelper.MakeIcon("IconDatabase", 28));
+            // Заголовок сеткой, а не горизонтальной панелью: в панели подпись
+            // получала бы бесконечную ширину и не переносилась бы по словам.
+            var header = new Grid { Margin = new Thickness(0, 0, 0, 12), ColumnSpacing = 10 };
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            // Значок базы показывается только когда база выбрана: при выбранной
+            // группе и при пустом выборе он висел бы один без подписи.
+            var headerIcon = IconHelper.MakeIcon("IconDatabase", 28);
+            headerIcon.Bind(Control.IsVisibleProperty, new Binding("IsInfobaseSelected"));
+            header.Children.Add(headerIcon);
             var headerText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             headerText.Children.Add(nameBlock);
             headerText.Children.Add(groupBlock);
             header.Children.Add(headerText);
+            Grid.SetColumn(headerText, 1);
             panel.Children.Add(header);
 
             // Основное действие (primary) — крупная акцентная кнопка вверху.
@@ -1133,7 +1142,7 @@ namespace Configuration_Management
                 BuildClearCacheSplitButton(),
                 SecondaryActionButton("IconEdit", LocalizationManager.T("Main.EditSettings"), "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")),
                 SecondaryActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
-                SecondaryActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltip")),
+                SecondaryActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
                 SecondaryActionButton("IconWeb", LocalizationManager.T("LinkInput.Title"), "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip"))));
 
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionBaseList"), "IconList",
@@ -1159,7 +1168,7 @@ namespace Configuration_Management
                 DetailRow(LocalizationManager.T("Main.Bitness"), new Binding("SelectedInfobase.ArchitectureDisplay")),
                 DetailRow(LocalizationManager.T("Main.Parameters"), new Binding("SelectedInfobase.LaunchParameters")),
                 DetailRow(LocalizationManager.T("Main.LastLaunch"), new Binding("SelectedInfobase.LastLaunchDisplay")));
-            connectionCard.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
+            connectionCard.Bind(Control.IsVisibleProperty, new Binding("ShowConnectionInfo"));
             panel.Children.Add(connectionCard);
 
             // Блок «Текущая сессия»: значения действуют только на следующий запуск.
