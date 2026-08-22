@@ -56,6 +56,10 @@ namespace Configuration_Management
         private Grid? _listContent;
         private bool _columnHeaderRefreshQueued;
         private bool _headerAlignQueued;
+        private readonly Dictionary<string, int> _headerColumnIndex = new(StringComparer.Ordinal);
+        private string? _resizeKey;
+        private double _resizeStartWidth;
+        private double _resizeStartX;
         private Border? _tagPanel;
         private WrapPanel? _tagPanelItems;
         private Button? _tagClearButton;
@@ -695,15 +699,16 @@ namespace Configuration_Management
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(IconColumnWidth) });
             grid.ColumnDefinitions.Add(new ColumnDefinition
             {
-                Width = new GridLength(1, GridUnitType.Star),
-                MinWidth = NameColumnMinWidth
+                Width = NameColumnLength(),
+                MinWidth = MinColumnWidth
             });
 
             // Колонки идут теми же ширинами, что и в заголовке, поэтому значения
             // строк выстраиваются под своими заголовками.
             var columns = ListColumns();
             foreach (var column in columns)
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(column.Width) });
+                grid.ColumnDefinitions.Add(
+                    new ColumnDefinition { Width = new GridLength(column.Width), MinWidth = MinColumnWidth });
 
             if (showFavorite)
             {
@@ -760,8 +765,9 @@ namespace Configuration_Management
             // полным набором метаданных тоже «сжимались», а не оставались прежней высоты.
             var content = new StackPanel { Spacing = UiMetrics.Scaled(2), VerticalAlignment = VerticalAlignment.Center };
 
-            // Строка имени с маркерами избранного/закрепления.
-            var nameRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            // Имя базы кладётся в колонку напрямую: в горизонтальной панели оно
+            // получало бы бесконечную ширину и при узкой колонке налезало бы
+            // на соседние значения вместо обрезки многоточием.
             var name = new TextBlock
             {
                 Text = ib.Name,
@@ -771,8 +777,7 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center
             };
             card.AddSubscription(() => ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush"));
-            nameRow.Children.Add(name);
-            content.Children.Add(nameRow);
+            content.Children.Add(name);
 
             // Вторичной строкой остаётся только то, чего нет в колонках: тип
             // подключения и путь. Остальное ушло в колонки, иначе одни и те же
@@ -1535,6 +1540,25 @@ namespace Configuration_Management
         /// <summary>Номер колонки заголовка с пометкой закрепления.</summary>
         private const int PinHeaderColumn = NameHeaderColumn - 2;
 
+        /// <summary>Номер колонки строки с именем базы: звезда, булавка, иконка.</summary>
+        private const int NameRowColumn = 3;
+
+        /// <summary>Минимальная ширина колонки при перетаскивании разделителя.</summary>
+        private const double MinColumnWidth = 40;
+
+        /// <summary>Ширина зоны захвата разделителя колонок.</summary>
+        private const double ResizeGripWidth = 8;
+
+        /// <summary>
+        /// Ширина колонки имени: пока её не тянули за разделитель, колонка
+        /// звёздная и занимает остаток, после перетаскивания становится заданной.
+        /// </summary>
+        private GridLength NameColumnLength()
+        {
+            var width = _vm?.NameColumnWidth ?? 0;
+            return width > 0 ? new GridLength(width) : new GridLength(1, GridUnitType.Star);
+        }
+
         /// <summary>
         /// Колонки списка в порядке отображения, кроме первой (имя базы),
         /// которая занимает оставшееся место. Состав и ширины берутся
@@ -1644,9 +1668,10 @@ namespace Configuration_Management
             _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(pinWidth) });
             _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(IconColumnWidth) });
             _columnHeaderRow.ColumnDefinitions.Add(
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = NameColumnMinWidth });
+                new ColumnDefinition { Width = NameColumnLength(), MinWidth = MinColumnWidth });
             foreach (var column in columns)
-                _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(column.Width) });
+                _columnHeaderRow.ColumnDefinitions.Add(
+                    new ColumnDefinition { Width = new GridLength(column.Width), MinWidth = MinColumnWidth });
 
             _headerPinMark = null;
             if (_vm.ShowPinnedButton)
@@ -1676,6 +1701,14 @@ namespace Configuration_Management
             _columnHeaderRow.Children.Add(nameHeader);
             Grid.SetColumn(nameHeader, NameHeaderColumn);
 
+            _headerColumnIndex.Clear();
+            _headerColumnIndex["Name"] = NameHeaderColumn;
+            for (var i = 0; i < columns.Count; i++)
+                _headerColumnIndex[columns[i].Key] = NameHeaderColumn + 1 + i;
+
+            var nameGrip = BuildResizeGrip("Name", NameHeaderColumn);
+            _columnHeaderRow.Children.Add(nameGrip);
+
             for (var i = 0; i < columns.Count; i++)
             {
                 var text = HeaderText(columns[i].Header, _columnHeaderSubscriptions);
@@ -1683,6 +1716,9 @@ namespace Configuration_Management
                     MakeSortableHeader(text, "LastLaunchDate", LocalizationManager.T("Main.ColumnLastLaunchSortTooltip"));
                 _columnHeaderRow.Children.Add(text);
                 Grid.SetColumn(text, NameHeaderColumn + 1 + i);
+
+                var grip = BuildResizeGrip(columns[i].Key, NameHeaderColumn + 1 + i);
+                _columnHeaderRow.Children.Add(grip);
             }
 
             // Минимальная ширина области равна сумме колонок: при узком окне
@@ -1692,7 +1728,8 @@ namespace Configuration_Management
             if (_listContent is not null)
             {
                 var lead = favoriteWidth + pinWidth + IconColumnWidth;
-                _listContent.MinWidth = NameColumnMinWidth + Math.Max(lead, _headerToolbarWidth)
+                var nameWidth = _vm.NameColumnWidth > 0 ? _vm.NameColumnWidth : NameColumnMinWidth;
+                _listContent.MinWidth = nameWidth + Math.Max(lead, _headerToolbarWidth)
                     + UiMetrics.PaddingControl * 2 + columns.Sum(c => c.Width);
             }
 
@@ -1741,6 +1778,118 @@ namespace Configuration_Management
             ToolTip.SetTip(button, tooltip);
             button.Bind(Button.CommandProperty, new Binding(commandPath));
             return button;
+        }
+
+        /// <summary>
+        /// Зона захвата у правого края колонки заголовка: тонкая линия по центру
+        /// и широкая невидимая полоса вокруг неё, иначе в разделитель трудно попасть.
+        /// </summary>
+        private Border BuildResizeGrip(string key, int column)
+        {
+            var line = new Border
+            {
+                Width = 1,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 2, 0, 4),
+                Opacity = 0.55
+            };
+            var subscription = ThemeBrushes.Bind(line, Border.BackgroundProperty, "BorderColorBrush");
+            if (subscription is not null)
+                _columnHeaderSubscriptions.Add(subscription);
+
+            var grip = new Border
+            {
+                Width = ResizeGripWidth,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Background = Brushes.Transparent,
+                ZIndex = 2,
+                Cursor = new Cursor(StandardCursorType.SizeWestEast),
+                Tag = key,
+                Child = line
+            };
+            ToolTip.SetTip(grip, LocalizationManager.T("Main.ResizeColumnTooltip"));
+            Grid.SetColumn(grip, column);
+            grip.PointerPressed += OnColumnResizePressed;
+            grip.PointerMoved += OnColumnResizeMoved;
+            grip.PointerReleased += OnColumnResizeReleased;
+            return grip;
+        }
+
+        private void OnColumnResizePressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is not Border grip || grip.Tag is not string key || _columnHeaderRow is null)
+                return;
+
+            var column = Grid.GetColumn(grip);
+            if (column < 0 || column >= _columnHeaderRow.ColumnDefinitions.Count)
+                return;
+
+            _resizeKey = key;
+            _resizeStartWidth = _columnHeaderRow.ColumnDefinitions[column].ActualWidth;
+            _resizeStartX = e.GetPosition(this).X;
+            e.Pointer.Capture(grip);
+            e.Handled = true;
+        }
+
+        private void OnColumnResizeMoved(object? sender, PointerEventArgs e)
+        {
+            if (_resizeKey is null || sender is not Border grip || !ReferenceEquals(e.Pointer.Captured, grip))
+                return;
+
+            var width = Math.Max(MinColumnWidth, _resizeStartWidth + e.GetPosition(this).X - _resizeStartX);
+            ApplyColumnWidth(_resizeKey, width);
+            _vm?.UpdateColumnWidth(_resizeKey, width, save: false);
+        }
+
+        private void OnColumnResizeReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            e.Pointer.Capture(null);
+            if (_resizeKey is null)
+                return;
+
+            // Настройки пишутся один раз по отпусканию, а не на каждое движение мыши.
+            _vm?.UpdateColumnWidth(_resizeKey, ColumnWidthOf(_resizeKey), save: true);
+            _resizeKey = null;
+            e.Handled = true;
+        }
+
+        /// <summary>Текущая ширина колонки заголовка по её ключу.</summary>
+        private double ColumnWidthOf(string key)
+        {
+            var index = HeaderColumnIndex(key);
+            return index >= 0 && _columnHeaderRow is not null && index < _columnHeaderRow.ColumnDefinitions.Count
+                ? _columnHeaderRow.ColumnDefinitions[index].ActualWidth
+                : 0;
+        }
+
+        /// <summary>Номер колонки заголовка по ключу колонки списка.</summary>
+        private int HeaderColumnIndex(string key) =>
+            _headerColumnIndex.TryGetValue(key, out var index) ? index : -1;
+
+        /// <summary>
+        /// Ведёт ширину колонки в двух сетках сразу: в заголовке и в каждой
+        /// построенной строке. Пересборки дерева при этом не происходит, поэтому
+        /// перетаскивание не мигает списком.
+        /// </summary>
+        private void ApplyColumnWidth(string key, double width)
+        {
+            var header = HeaderColumnIndex(key);
+            if (header < 0 || _columnHeaderRow is null || header >= _columnHeaderRow.ColumnDefinitions.Count)
+                return;
+
+            _columnHeaderRow.ColumnDefinitions[header].Width = new GridLength(width);
+
+            var row = header - (NameHeaderColumn - NameRowColumn);
+            if (_tree is null)
+                return;
+
+            foreach (var card in _tree.GetVisualDescendants().OfType<InfobaseRowCard>())
+            {
+                if (card.Child is not Grid grid || row < 0 || row >= grid.ColumnDefinitions.Count)
+                    continue;
+                grid.ColumnDefinitions[row].Width = new GridLength(width);
+            }
         }
 
         /// <summary>Делает заголовок колонки кликабельным: клик меняет поле сортировки.</summary>

@@ -376,6 +376,29 @@ public class MainViewModel : ViewModelBase
     public double LastLaunchColumnWidth => _settings.LastLaunchColumnWidth;
     public double SizeColumnWidth => _settings.SizeColumnWidth;
 
+    /// <summary>
+    /// Запоминает ширину колонки списка по её ключу. Уведомления намеренно нет:
+    /// во время перетаскивания разделителя ширину уже применили и заголовку,
+    /// и строкам, а уведомление пересобрало бы заголовок на каждое движение мыши.
+    /// </summary>
+    public void UpdateColumnWidth(string key, double width, bool save)
+    {
+        switch (key)
+        {
+            case "Name": _settings.NameColumnWidth = width; break;
+            case "Version": _settings.VersionColumnWidth = width; break;
+            case "Configuration": _settings.ConfigurationColumnWidth = width; break;
+            case "LaunchMode": _settings.LaunchModeColumnWidth = width; break;
+            case "ServerBase": _settings.ServerColumnWidth = width; break;
+            case "LastLaunch": _settings.LastLaunchColumnWidth = width; break;
+            case "Size": _settings.SizeColumnWidth = width; break;
+            default: return;
+        }
+
+        if (save)
+            SaveSettingsSilently();
+    }
+
     // ---- Сортировка списка ----
     public string SortField => _sortField;
     public bool SortAscending => _sortAscending;
