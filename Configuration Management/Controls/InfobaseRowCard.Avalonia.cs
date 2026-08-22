@@ -22,7 +22,6 @@ namespace Configuration_Management.Controls
     {
         private TreeViewItem? _container;
         private IDisposable? _selectedSubscription;
-        private readonly List<IDisposable> _brushSubscriptions = new();
 
         private readonly List<Func<IDisposable?>> _contentFactories = new();
         private readonly List<IDisposable> _contentSubscriptions = new();
@@ -54,11 +53,15 @@ namespace Configuration_Management.Controls
             PointerEntered += OnPointerEntered;
             PointerExited += OnPointerExited;
 
-            SubscribeBrush("CardBackgroundBrush", value => _cardBrush = value);
-            SubscribeBrush("ItemHoverBrush", value => _hoverBrush = value);
-            SubscribeBrush("ItemSelectedBrush", value => _selectedBrush = value);
-            SubscribeBrush("BorderColorBrush", value => _borderBrush = value);
-            SubscribeBrush("AccentBrush", value => _accentBrush = value);
+            // Кисти карточки подписываются тем же способом, что и содержимое:
+            // при отсоединении подписки освобождаются, при присоединении
+            // создаются заново. Иначе каждая пересборка списка оставляла бы
+            // по пять живых наблюдателей на выброшенную строку.
+            AddSubscription(() => SubscribeBrush("CardBackgroundBrush", value => _cardBrush = value));
+            AddSubscription(() => SubscribeBrush("ItemHoverBrush", value => _hoverBrush = value));
+            AddSubscription(() => SubscribeBrush("ItemSelectedBrush", value => _selectedBrush = value));
+            AddSubscription(() => SubscribeBrush("BorderColorBrush", value => _borderBrush = value));
+            AddSubscription(() => SubscribeBrush("AccentBrush", value => _accentBrush = value));
         }
 
         /// <summary>
@@ -130,14 +133,14 @@ namespace Configuration_Management.Controls
         }
 
         /// <summary>Подписывает слот-поле на ресурс-кисть темы и вызывает перерисовку при обновлении.</summary>
-        private void SubscribeBrush(string brushKey, Action<IBrush> setter)
+        private IDisposable? SubscribeBrush(string brushKey, Action<IBrush> setter)
         {
             if (Application.Current is not { } app)
-                return;
+                return null;
             // После обновления кисти переприменяем состояние, чтобы фон/граница
             // корректно перекрашивались при смене схемы даже в состоянии hover/выделение.
             var slot = new BrushSlot(setter, ApplyState);
-            _brushSubscriptions.Add(app.GetResourceObservable(brushKey).Subscribe(slot));
+            return app.GetResourceObservable(brushKey).Subscribe(slot);
         }
 
         /// <summary>Применяет состояние к фону и границе в порядке приоритета: выделено > hover > обычное.</summary>

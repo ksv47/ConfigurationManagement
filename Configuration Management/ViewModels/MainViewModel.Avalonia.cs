@@ -789,10 +789,16 @@ public class MainViewModel : ViewModelBase
         if (tag.Length == 0 || infobase.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
             return;
 
+        var wasFiltering = IsFilterModeActive();
         infobase.Tags.Add(tag);
         infobase.NotifyTagsChanged();
         SaveSilently();
         RebuildTagFilters();
+
+        // Пересобираем список, только если состав видимых баз мог измениться:
+        // без фильтра строка сама показывает новый чип по уведомлению модели.
+        if (wasFiltering || IsFilterModeActive())
+            ApplyFilter();
     }
 
     /// <summary>
@@ -806,14 +812,16 @@ public class MainViewModel : ViewModelBase
         if (values[0] is not Infobase infobase || values[1] is not string tag)
             return;
 
+        // Признак снимается до пересборки отбора: она убирает из панели тег,
+        // которого больше нет ни у одной базы, и проверка после неё уже
+        // не увидела бы, что список показан отобранным.
+        var wasFiltering = IsFilterModeActive();
         infobase.Tags.RemoveAll(t => string.Equals(t, tag, StringComparison.OrdinalIgnoreCase));
         infobase.NotifyTagsChanged();
         SaveSilently();
-        // Пересборка отбора заодно снимает выбор с тега, которого больше нет
-        // ни у одной базы: иначе отбор продолжал бы прятать базы, а чипа
-        // на панели уже не было бы.
         RebuildTagFilters();
-        if (HasActiveTagFilter || !string.IsNullOrWhiteSpace(SearchText) || _listMode != "All")
+
+        if (wasFiltering || IsFilterModeActive())
             ApplyFilter();
     }
 
