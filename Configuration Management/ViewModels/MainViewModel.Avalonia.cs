@@ -788,9 +788,10 @@ public class MainViewModel : ViewModelBase
             RebuildTree();
             UpdateStatus(string.Format(LocalizationManager.T("Main.LoadedBases"), _allInfobases.Count));
 
-            // Синхронизация при старте и запуск таймера по настройкам.
-            if (_settings.IbasesSyncMode != IbasesSyncMode.None
-                && _settings.IbasesSyncTrigger == IbasesSyncTrigger.OnStartup)
+            // При запуске синхронизируемся при любом триггере, как в WPF:
+            // «при старте» это сразу и только, интервал и расписание это сразу
+            // и дальше по таймеру.
+            if (_settings.IbasesSyncMode != IbasesSyncMode.None)
                 SynchronizeSilently();
             RestartAutoSync();
 
@@ -2000,9 +2001,15 @@ public class MainViewModel : ViewModelBase
 
         if (_settings.IbasesSyncTrigger == IbasesSyncTrigger.Schedule)
         {
-            if (string.IsNullOrWhiteSpace(_settings.IbasesSyncScheduleTime)
-                || !TimeSpan.TryParse(_settings.IbasesSyncScheduleTime, out var time))
+            // Строгий разбор ЧЧ:ММ: обычный TryParse принимает и локальные
+            // форматы, и длительности вроде 25:00, а это время суток.
+            if (!TimeSpan.TryParseExact(_settings.IbasesSyncScheduleTime?.Trim(), @"hh\:mm",
+                    System.Globalization.CultureInfo.InvariantCulture, out var time)
+                || time < TimeSpan.Zero || time >= TimeSpan.FromDays(1))
+            {
+                _logger.Warn($"Автосинхронизация выключена: время расписания «{_settings.IbasesSyncScheduleTime}» не распознано, ожидается ЧЧ:ММ");
                 return false;
+            }
 
             var now = DateTime.Now;
             var run = now.Date + time;
@@ -2038,33 +2045,87 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
+        var done = false;
+
+        // Выгрузка и загрузка разделены: отказ одной не должен отменять другую,
+        // как это устроено в WPF-версии.
+        if (_settings.IbasesSyncMode is IbasesSyncMode.Export or IbasesSyncMode.Both)
+            done |= ExportToIbases(filePath);
+
+        if (_settings.IbasesSyncMode is IbasesSyncMode.Import or IbasesSyncMode.Both)
+            done |= ImportFromIbases(filePath);
+
+        SyncMessage = done
+            ? LocalizationManager.T("Sync.Completed")
+            : LocalizationManager.T("Sync.Failed");
+    }
+
+    /// <summary>Выгрузка списка баз в файл платформы с резервной копией.</summary>
+    private bool ExportToIbases(string filePath)
+    {
         try
         {
-            if (_settings.IbasesSyncMode is IbasesSyncMode.Export or IbasesSyncMode.Both)
+            if (_settings.IbasesBackupEnabled && System.IO.File.Exists(filePath))
             {
-                if (_settings.IbasesBackupEnabled && System.IO.File.Exists(filePath))
-                {
-                    try { IbasesBackupService.CreateBackup(filePath, _settings.IbasesBackupKeepCount); }
-                    catch (Exception ex) { _logger.Error("Не удалось создать резервную копию ibases.v8i", ex); }
-                }
-
-                _sync.Export(filePath, _allInfobases, _groups);
+                try { IbasesBackupService.CreateBackup(filePath, _settings.IbasesBackupKeepCount); }
+                catch (Exception ex) { _logger.Error("Не удалось создать резервную копию ibases.v8i", ex); }
             }
 
-            if (_settings.IbasesSyncMode is IbasesSyncMode.Import or IbasesSyncMode.Both)
-            {
-                _sync.Import(filePath, _allInfobases, _groups);
-                SaveSilently();
-                RebuildTree();
-            }
-
-            SyncMessage = LocalizationManager.T("Sync.Completed");
-            _logger.Info($"Автосинхронизация с ibases.v8i выполнена: {filePath}");
+            _sync.Export(filePath, _allInfobases, _groups);
+            _logger.Info($"Автосинхронизация: выгрузка в {filePath}");
+            return true;
         }
         catch (Exception ex)
         {
-            _logger.Error("Ошибка автосинхронизации с ibases.v8i", ex);
-            SyncMessage = LocalizationManager.T("Sync.Failed");
+            _logger.Error("Ошибка выгрузки в ibases.v8i", ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Загрузка списка баз из файла платформы. Импорт удаляет из приложения базы,
+    /// которых нет в файле, поэтому отсутствующий и подозрительно пустой файл
+    /// пропускаются: иначе повреждённый файл вычистил бы список без спроса.
+    /// </summary>
+    private bool ImportFromIbases(string filePath)
+    {
+        if (!System.IO.File.Exists(filePath))
+        {
+            _logger.Warn($"Автосинхронизация: файла {filePath} нет, загрузка пропущена");
+            return false;
+        }
+
+        var before = _allInfobases.Count;
+
+        try
+        {
+            var result = _sync.Import(filePath, _allInfobases, _groups);
+
+            if (before > 0 && _allInfobases.Count == 0)
+            {
+                _logger.Warn($"Автосинхронизация: файл {filePath} не дал ни одной базы, список приложения не меняем");
+                _allInfobases = _repository.Load();
+                RebuildTree();
+                return false;
+            }
+
+            SaveSilently();
+            // Импорт создаёт недостающие группы, и без этого они пропадали
+            // при следующем запуске: сохраняется только список баз.
+            SaveGroupsSilently();
+            RebuildTree();
+
+            // Выбранная база могла быть удалена импортом.
+            if (SelectedInfobase is { } selected && !_allInfobases.Contains(selected))
+                SelectedInfobase = null;
+
+            _logger.Info($"Автосинхронизация: загрузка из {filePath}, добавлено {result.Added}, обновлено {result.Updated}, удалено {result.Removed}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка загрузки из ibases.v8i", ex);
+            return false;
         }
     }
 
