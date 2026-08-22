@@ -24,6 +24,8 @@ namespace Configuration_Management.Controls
         private IDisposable? _selectedSubscription;
         private readonly List<IDisposable> _brushSubscriptions = new();
 
+        private readonly List<IDisposable> _contentSubscriptions = new();
+
         // Актуальные кисти темы, обновляются при смене схемы/ресурсов.
         private IBrush _cardBrush = Brushes.Transparent;
         private IBrush _hoverBrush = Brushes.Transparent;
@@ -57,6 +59,19 @@ namespace Configuration_Management.Controls
             SubscribeBrush("AccentBrush", value => _accentBrush = value);
         }
 
+        /// <summary>
+        /// Принимает подписку содержимого строки: кисти темы у иконок и подписей,
+        /// уведомления самой базы. Карточка строится заново на каждую пересборку
+        /// дерева, поэтому подписки освобождаются вместе с ней, иначе наблюдатели
+        /// держали бы уже выброшенное визуальное дерево. Пустая подписка
+        /// (Application ещё не поднят) просто игнорируется.
+        /// </summary>
+        public void AddSubscription(IDisposable? subscription)
+        {
+            if (subscription is not null)
+                _contentSubscriptions.Add(subscription);
+        }
+
         private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
         {
             _container = this.FindAncestorOfType<TreeViewItem>();
@@ -72,6 +87,10 @@ namespace Configuration_Management.Controls
             _selectedSubscription?.Dispose();
             _selectedSubscription = null;
             _container = null;
+
+            foreach (var subscription in _contentSubscriptions)
+                subscription.Dispose();
+            _contentSubscriptions.Clear();
         }
 
         private void OnPointerEntered(object? sender, PointerEventArgs e)
