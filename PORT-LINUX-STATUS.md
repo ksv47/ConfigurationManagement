@@ -610,6 +610,11 @@ PR https://github.com/sivatorov/ConfigurationManagement/pull/54 из ветки
 проверяющий это замечал, а один раз артефакт устарел и его пришлось
 перегенерировать.
 
+Грабли с описанием PR: `gh pr edit --body-file` на этом репозитории молча
+не применяет правку, падая на устаревшем Projects (classic) в GraphQL, а код
+возврата при этом нулевой. Работает `gh api -X PATCH repos/<owner>/<repo>/pulls/54
+-F body=@file`. После любого способа сверять длину тела, а не верить выводу.
+
 ### Оснастка
 
 `_port/harness/` (вне git): `ui.py` для управления окном через XTEST,
