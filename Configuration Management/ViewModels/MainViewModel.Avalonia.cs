@@ -705,14 +705,33 @@ public class MainViewModel : ViewModelBase
         if (!dialog.ShowDialogSync(OwnerWindow()))
             return;
 
-        var index = _allInfobases.IndexOf(ib);
-        if (index >= 0)
-            _allInfobases[index] = dialog.Result;
+        // Применяем изменения к существующему объекту, а не заменяем его новым.
+        // Диалог возвращает свежий Infobase, в который переносятся только
+        // редактируемые поля, поэтому замена стёрла бы историю запусков,
+        // порядок сортировки и номер горячей клавиши избранного.
+        ib.Id = dialog.Result.Id;
+        ib.Name = dialog.Result.Name;
+        ib.Group = dialog.Result.Group;
+        ib.Description = dialog.Result.Description;
+        ib.PlatformVersion = dialog.Result.PlatformVersion;
+        ib.Architecture = dialog.Result.Architecture;
+        ib.LaunchMode = dialog.Result.LaunchMode;
+        ib.LaunchParameters = dialog.Result.LaunchParameters;
+        ib.ClientType = dialog.Result.ClientType;
+        ib.IsFavorite = dialog.Result.IsFavorite;
+        ib.IsPinned = dialog.Result.IsPinned;
+        ib.LastLaunchDate = dialog.Result.LastLaunchDate;
+        ib.Tags = dialog.Result.Tags;
+        ib.MetadataRoot = dialog.Result.MetadataRoot;
+        ib.Connection = dialog.Result.Connection;
+        ib.EnterpriseAuth = dialog.Result.EnterpriseAuth;
+        ib.ConfiguratorAuth = dialog.Result.ConfiguratorAuth;
+        ib.Repository = dialog.Result.Repository;
 
         SaveSilently();
         RebuildTree();
         ExportToIbasesAfterLocalChange();
-        SelectedInfobase = dialog.Result;
+        SelectedInfobase = ib;
     }
 
     private void AddInfobase()

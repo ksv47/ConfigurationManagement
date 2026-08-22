@@ -361,18 +361,35 @@ namespace Configuration_Management
             _tree.Bind(TreeView.ItemsSourceProperty, new Binding("GroupNodes"));
             _tree.SelectionMode = SelectionMode.Single;
 
-            // Убираем стандартную подсветку контейнера TreeViewItem — карточка строки
-            // сама рисует hover/выделение из ресурсов темы (без жёстких цветов).
-            // Селектор сопоставляется по ключу стиля, а он переопределён
-            // на TreeViewItem: без этого стиль не находит контейнеры.
+            // Убираем стандартную подсветку контейнера TreeViewItem: карточка строки
+            // сама рисует hover и выделение из ресурсов темы. Селектор сопоставляется
+            // по ключу стиля, а он переопределён на TreeViewItem, иначе стиль
+            // не нашёл бы контейнеры.
             var tviStyle = new Style(x => x.OfType<TreeViewItem>());
             tviStyle.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent));
-            // Связываем раскрытие контейнера с моделью узла: без этого состояние
-            // не сохраняется между перестроениями дерева, а команды «развернуть все»
-            // и «свернуть все» не доходят до интерфейса.
-            tviStyle.Setters.Add(new Setter(TreeViewItem.IsExpandedProperty,
-                new Binding("IsExpanded") { Mode = BindingMode.TwoWay }));
             _tree.Styles.Add(tviStyle);
+
+            // Фон покоя этим снят, но состояния выделения и наведения Fluent задаёт
+            // не свойством контейнера, а вложенным стилем на части шаблона, поэтому
+            // синяя полоса рисовалась бы за карточкой. Гасим её адресно.
+            foreach (var state in new[] { ":selected", ":pointerover" })
+            {
+                var stateStyle = new Style(x => x.OfType<TreeViewItem>().Class(state)
+                    .Template().OfType<Border>().Name("PART_LayoutRoot"));
+                stateStyle.Setters.Add(new Setter(Border.BackgroundProperty, Brushes.Transparent));
+                _tree.Styles.Add(stateStyle);
+            }
+
+            // Раскрытие контейнера связывается с моделью узла адресно, при подготовке
+            // контейнера, а не стилем: стиль повесил бы привязку и на строки баз,
+            // у которых свойства IsExpanded нет, и журнал заполнялся бы
+            // предупреждениями привязки на каждое перестроение дерева.
+            _tree.ContainerPrepared += (_, e) =>
+            {
+                if (e.Container is TreeViewItem container && container.DataContext is GroupNodeViewModel)
+                    container.Bind(TreeViewItem.IsExpandedProperty,
+                        new Binding("IsExpanded") { Mode = BindingMode.TwoWay });
+            };
 
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
