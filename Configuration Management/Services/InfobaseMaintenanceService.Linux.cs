@@ -73,22 +73,38 @@ namespace Configuration_Management.Services
             if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
                 return OpenDirectory(dir);
 
-            foreach (var manager in new[] { "nautilus", "dolphin" })
+            // Порядок задаёт текущее окружение рабочего стола: родной менеджер идёт
+            // первым, чтобы на KDE не открывался файловый менеджер GNOME и наоборот.
+            // Список уже отфильтрован по наличию в PATH, поэтому запуск не выбирает
+            // первый попавшийся установленный менеджер вслепую.
+            foreach (var (manager, selectArgument) in LinuxDesktopEnvironment.FileManagers())
             {
                 try
                 {
-                    Process.Start(new ProcessStartInfo
+                    var startInfo = new ProcessStartInfo
                     {
                         FileName = manager,
                         UseShellExecute = false,
-                        CreateNoWindow = true,
-                        ArgumentList = { "--select", filePath }
-                    });
+                        CreateNoWindow = true
+                    };
+                    if (!string.IsNullOrEmpty(selectArgument))
+                        startInfo.ArgumentList.Add(selectArgument);
+                    startInfo.ArgumentList.Add(filePath);
+
+                    using var process = Process.Start(startInfo);
+                    if (process is null)
+                        continue;
+
+                    // Менеджер остаётся работать, поэтому ждём недолго: интересует
+                    // только случай, когда он завершился сразу с ошибкой.
+                    if (process.WaitForExit(700) && process.ExitCode != 0)
+                        continue;
+
                     return true;
                 }
                 catch
                 {
-                    // менеджер не установлен / нет в PATH — пробуем следующий
+                    // менеджер не запустился — пробуем следующий
                 }
             }
 

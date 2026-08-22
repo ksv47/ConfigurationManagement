@@ -1357,6 +1357,16 @@ namespace Configuration_Management
                 };
                 if (Application.Current is { } app)
                     TrayIcon.SetIcons(app, new TrayIcons { tray });
+
+                // На GNOME Shell без расширения AppIndicator иконка трея не появится,
+                // и приложение об этом никак не узнает: ошибки не будет, значка просто
+                // не будет. Пишем в журнал, чтобы это не выглядело поломкой приложения.
+                if (Services.LinuxDesktopEnvironment.TrayMayBeUnavailable)
+                {
+                    AppServices.GetRequiredService<Services.IAppLogger>().Warn(
+                        $"Окружение {Services.LinuxDesktopEnvironment.Describe()}: " +
+                        "иконка в трее может не отображаться без расширения AppIndicator.");
+                }
             }
             catch
             {

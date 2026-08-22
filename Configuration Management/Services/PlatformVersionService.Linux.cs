@@ -368,8 +368,12 @@ namespace Configuration_Management.Services
             var binDir = ResolveBinDirectory(dir);
             if (binDir is null)
                 return null;
-            var bin = Path.Combine(binDir, "1cv8");
-            if (!File.Exists(bin))
+            // Установка может быть неполной: у версии с одним тонким клиентом
+            // файла 1cv8 нет, разрядность читаем с любого доступного бинарника.
+            var bin = OneCBinaryNames
+                .Select(n => Path.Combine(binDir, n))
+                .FirstOrDefault(File.Exists);
+            if (bin is null)
                 return null;
             try
             {
