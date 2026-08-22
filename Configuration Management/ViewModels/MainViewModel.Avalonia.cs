@@ -719,7 +719,7 @@ public class MainViewModel : ViewModelBase
     /// <summary>Все информационные базы (для диалога выбора при очистке кеша).</summary>
     public IReadOnlyList<Infobase> Infobases => _allInfobases;
 
-    /// <summary>Открыть каталог файловой базы в файловом менеджере (xdg-open/nautilus).</summary>
+    /// <summary>Открыть каталог файловой базы в файловом менеджере рабочего стола.</summary>
     private void OpenInfobaseFolder()
     {
         var ib = SelectedInfobase;

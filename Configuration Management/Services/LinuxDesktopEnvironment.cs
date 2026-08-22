@@ -71,11 +71,30 @@ namespace Configuration_Management.Services
         };
 
         /// <summary>
+        /// Как показать файл в конкретном менеджере. Способы различаются:
+        /// одни принимают ключ выделения, другие выделяют файл по одному лишь
+        /// пути, а thunar от пути к файлу открывает сам файл приложением
+        /// по умолчанию, поэтому ему передаётся каталог и выделения не будет.
+        /// </summary>
+        private static readonly Dictionary<string, (string Argument, bool PassFile)> SelectSyntax =
+            new(StringComparer.Ordinal)
+            {
+                ["dolphin"] = ("--select", true),
+                ["nautilus"] = ("--select", true),
+                ["caja"] = ("--select", true),
+                ["nemo"] = (string.Empty, true),
+                ["dde-file-manager"] = ("--show-item", true),
+                ["thunar"] = (string.Empty, false)
+            };
+
+        /// <summary>
         /// Файловые менеджеры в порядке предпочтения для текущего окружения:
         /// родной для среды идёт первым, остальные как запасные. Возвращаются
-        /// только те, что действительно есть в PATH.
+        /// только те, что действительно есть в PATH. Вместе с командой отдаётся
+        /// способ показа: ключ выделения и признак того, что менеджеру нужен
+        /// путь к файлу, а не к каталогу.
         /// </summary>
-        public static IReadOnlyList<(string Command, string SelectArgument)> FileManagers()
+        public static IReadOnlyList<(string Command, string Argument, bool PassFile)> FileManagers()
         {
             var native = Current switch
             {
@@ -92,13 +111,12 @@ namespace Configuration_Management.Services
                 .Concat(new[] { "nautilus", "dolphin", "nemo", "thunar", "caja", "dde-file-manager" })
                 .Distinct(StringComparer.Ordinal);
 
-            var result = new List<(string, string)>();
+            var result = new List<(string, string, bool)>();
             foreach (var cmd in order)
             {
-                if (!ExistsInPath(cmd))
+                if (!ExistsInPath(cmd) || !SelectSyntax.TryGetValue(cmd, out var syntax))
                     continue;
-                // thunar не умеет --select, ему передаётся сам файл.
-                result.Add((cmd, cmd == "thunar" ? string.Empty : "--select"));
+                result.Add((cmd, syntax.Argument, syntax.PassFile));
             }
             return result;
         }
