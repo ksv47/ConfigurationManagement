@@ -29,6 +29,8 @@ public class MainViewModel : ViewModelBase
     private List<Group> _groups = new();
     private bool _groupSortAscending = true;
     private string _sortField = "Name";
+    private Avalonia.Threading.DispatcherTimer? _syncTimer;
+    private DateTime? _nextScheduleRun;
     private bool _sortAscending = true;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
     private bool _deferCollapsedSave;
@@ -786,6 +788,12 @@ public class MainViewModel : ViewModelBase
             RebuildTree();
             UpdateStatus(string.Format(LocalizationManager.T("Main.LoadedBases"), _allInfobases.Count));
 
+            // Синхронизация при старте и запуск таймера по настройкам.
+            if (_settings.IbasesSyncMode != IbasesSyncMode.None
+                && _settings.IbasesSyncTrigger == IbasesSyncTrigger.OnStartup)
+                SynchronizeSilently();
+            RestartAutoSync();
+
             // Применяем сохранённую тему, если активная схема не задана.
             if (_settings.ActiveColorScheme is { Colors.Count: > 0 })
                 ThemeManager.ApplyScheme(_settings.ActiveColorScheme);
@@ -1333,6 +1341,34 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Разрядность запуска по умолчанию: «X64» или «X86».</summary>
     public string DefaultArchitecture => _settings.DefaultArchitecture;
+
+    // ---- Синхронизация с ibases.v8i ----
+    public IbasesSyncMode IbasesSyncMode => _settings.IbasesSyncMode;
+    public string IbasesSyncFilePath => _settings.IbasesSyncFilePath;
+    public IbasesSyncTrigger IbasesSyncTrigger => _settings.IbasesSyncTrigger;
+    public int IbasesSyncIntervalMinutes => _settings.IbasesSyncIntervalMinutes;
+    public string IbasesSyncScheduleTime => _settings.IbasesSyncScheduleTime;
+    public bool IbasesBackupEnabled => _settings.IbasesBackupEnabled;
+    public int IbasesBackupKeepCount => _settings.IbasesBackupKeepCount;
+
+    /// <summary>Применяет настройки синхронизации с файлом списка баз платформы.</summary>
+    public void ApplyIbasesSyncSettings(IbasesSyncMode mode, string filePath, IbasesSyncTrigger trigger,
+        int intervalMinutes, string scheduleTime, bool backupEnabled, int backupKeepCount)
+    {
+        _settings.IbasesSyncMode = mode;
+        _settings.IbasesSyncFilePath = filePath ?? string.Empty;
+        _settings.IbasesSyncTrigger = trigger;
+        _settings.IbasesSyncIntervalMinutes = intervalMinutes > 0 ? intervalMinutes : 30;
+        _settings.IbasesSyncScheduleTime = scheduleTime ?? string.Empty;
+        _settings.IbasesBackupEnabled = backupEnabled;
+        _settings.IbasesBackupKeepCount = backupKeepCount > 0 ? backupKeepCount : 5;
+
+        SaveSettingsSilently();
+        RestartAutoSync();
+    }
+
+    /// <summary>Диалог выбора файла для окна настроек.</summary>
+    public string? PickFile(string title, string filter) => _dialog.OpenFileDialog(title, filter);
 
     /// <summary>Диалог выбора каталога для окна настроек.</summary>
     public string? PickFolder(string title) => _dialog.OpenFolderDialog(title);
@@ -1890,6 +1926,146 @@ public class MainViewModel : ViewModelBase
     {
         if (!InfobaseMaintenanceService.OpenNativeStarter())
             _dialog.ShowError(LocalizationManager.T("Main.ErrStartStarter"));
+    }
+
+    /// <summary>
+    /// Перезапускает автоматическую синхронизацию по настройкам. При выключенной
+    /// синхронизации и при режиме «при старте» таймер не нужен.
+    /// </summary>
+    private void RestartAutoSync()
+    {
+        StopAutoSync();
+
+        if (_settings.IbasesSyncMode == IbasesSyncMode.None
+            || _settings.IbasesSyncTrigger == IbasesSyncTrigger.OnStartup)
+            return;
+
+        if (!ComputeNextRunTime(out var nextRun))
+            return;
+
+        _nextScheduleRun = nextRun;
+        _syncTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        _syncTimer.Tick += OnSyncTimerTick;
+        _syncTimer.Start();
+        _logger.Info($"Автосинхронизация с ibases.v8i включена, следующий запуск {nextRun:HH:mm}");
+    }
+
+    private void StopAutoSync()
+    {
+        if (_syncTimer is null)
+            return;
+
+        _syncTimer.Stop();
+        _syncTimer.Tick -= OnSyncTimerTick;
+        _syncTimer = null;
+        _nextScheduleRun = null;
+    }
+
+    private void OnSyncTimerTick(object? sender, EventArgs e)
+    {
+        if (_settings.IbasesSyncMode == IbasesSyncMode.None)
+        {
+            RestartAutoSync();
+            return;
+        }
+
+        if (_nextScheduleRun is null)
+        {
+            if (ComputeNextRunTime(out var next))
+                _nextScheduleRun = next;
+            return;
+        }
+
+        if (DateTime.Now < _nextScheduleRun.Value)
+            return;
+
+        SynchronizeSilently();
+        if (ComputeNextRunTime(out var following))
+            _nextScheduleRun = following;
+    }
+
+    /// <summary>
+    /// Время следующего запуска: для интервала это «сейчас плюс интервал»,
+    /// для расписания ближайшее заданное время, завтра если сегодня прошло.
+    /// </summary>
+    private bool ComputeNextRunTime(out DateTime nextRun)
+    {
+        nextRun = default;
+
+        if (_settings.IbasesSyncTrigger == IbasesSyncTrigger.Interval)
+        {
+            nextRun = DateTime.Now.AddMinutes(Math.Max(1, _settings.IbasesSyncIntervalMinutes));
+            return true;
+        }
+
+        if (_settings.IbasesSyncTrigger == IbasesSyncTrigger.Schedule)
+        {
+            if (string.IsNullOrWhiteSpace(_settings.IbasesSyncScheduleTime)
+                || !TimeSpan.TryParse(_settings.IbasesSyncScheduleTime, out var time))
+                return false;
+
+            var now = DateTime.Now;
+            var run = now.Date + time;
+            if (run <= now)
+                run = run.AddDays(1);
+
+            nextRun = run;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Путь к файлу списка баз: заданный в настройках или стандартный.</summary>
+    private string? ResolveIbasesFilePath() =>
+        string.IsNullOrWhiteSpace(_settings.IbasesSyncFilePath)
+            ? IbasesV8iImporter.FindDefaultPath()
+            : _settings.IbasesSyncFilePath;
+
+    /// <summary>
+    /// Синхронизация без диалогов: для запуска по расписанию и при старте.
+    /// В двустороннем режиме сначала выгрузка, затем загрузка, как в WPF-версии.
+    /// </summary>
+    private void SynchronizeSilently()
+    {
+        if (_settings.IbasesSyncMode == IbasesSyncMode.None)
+            return;
+
+        var filePath = ResolveIbasesFilePath();
+        if (filePath is null)
+        {
+            _logger.Warn("Автосинхронизация: файл ibases.v8i не найден");
+            return;
+        }
+
+        try
+        {
+            if (_settings.IbasesSyncMode is IbasesSyncMode.Export or IbasesSyncMode.Both)
+            {
+                if (_settings.IbasesBackupEnabled && System.IO.File.Exists(filePath))
+                {
+                    try { IbasesBackupService.CreateBackup(filePath, _settings.IbasesBackupKeepCount); }
+                    catch (Exception ex) { _logger.Error("Не удалось создать резервную копию ibases.v8i", ex); }
+                }
+
+                _sync.Export(filePath, _allInfobases, _groups);
+            }
+
+            if (_settings.IbasesSyncMode is IbasesSyncMode.Import or IbasesSyncMode.Both)
+            {
+                _sync.Import(filePath, _allInfobases, _groups);
+                SaveSilently();
+                RebuildTree();
+            }
+
+            SyncMessage = LocalizationManager.T("Sync.Completed");
+            _logger.Info($"Автосинхронизация с ibases.v8i выполнена: {filePath}");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка автосинхронизации с ibases.v8i", ex);
+            SyncMessage = LocalizationManager.T("Sync.Failed");
+        }
     }
 
     private void SynchronizeWithIbases()
