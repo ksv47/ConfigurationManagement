@@ -629,6 +629,7 @@ public class MainViewModel : ViewModelBase
         if (item is null)
             return;
         item.IsSelected = !item.IsSelected;
+        OnPropertyChanged(nameof(HasActiveTagFilter));
         ApplyFilter();
     }
 
@@ -638,6 +639,7 @@ public class MainViewModel : ViewModelBase
     {
         foreach (var item in TagFilterItems)
             item.IsSelected = false;
+        OnPropertyChanged(nameof(HasActiveTagFilter));
         ApplyFilter();
     }
 
