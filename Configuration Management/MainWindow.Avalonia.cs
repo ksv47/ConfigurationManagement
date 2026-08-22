@@ -384,11 +384,26 @@ namespace Configuration_Management
             // контейнера, а не стилем: стиль повесил бы привязку и на строки баз,
             // у которых свойства IsExpanded нет, и журнал заполнялся бы
             // предупреждениями привязки на каждое перестроение дерева.
+            // Контейнеры дерева переиспользуются, поэтому прежняя привязка
+            // освобождается: иначе на одном контейнере копились бы выражения
+            // привязки по одному на каждую подготовку.
+            var expandedBindings = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, IDisposable>();
             _tree.ContainerPrepared += (_, e) =>
             {
-                if (e.Container is TreeViewItem container && container.DataContext is GroupNodeViewModel)
-                    container.Bind(TreeViewItem.IsExpandedProperty,
-                        new Binding("IsExpanded") { Mode = BindingMode.TwoWay });
+                if (e.Container is not TreeViewItem container)
+                    return;
+
+                if (expandedBindings.TryGetValue(container, out var previous))
+                {
+                    previous.Dispose();
+                    expandedBindings.Remove(container);
+                }
+
+                if (container.DataContext is GroupNodeViewModel)
+                {
+                    expandedBindings.Add(container, container.Bind(TreeViewItem.IsExpandedProperty,
+                        new Binding("IsExpanded") { Mode = BindingMode.TwoWay }));
+                }
             };
 
             _tree.ItemTemplate = new FuncTreeDataTemplate(
