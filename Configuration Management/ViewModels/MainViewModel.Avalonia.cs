@@ -208,7 +208,13 @@ public class MainViewModel : ViewModelBase
     public bool ShowTagFilterPanel
     {
         get => _showTagFilterPanel;
-        set => SetProperty(ref _showTagFilterPanel, value);
+        set
+        {
+            if (!SetProperty(ref _showTagFilterPanel, value))
+                return;
+            _settings.ShowTagFilterPanel = value;
+            SaveSettingsSilently();
+        }
     }
 
     public bool GroupByGroup
@@ -625,7 +631,8 @@ public class MainViewModel : ViewModelBase
             TagFilterItems.Add(new TagFilterItem(tag) { IsSelected = selected.Contains(tag) });
         }
 
-        OnPropertyChanged(nameof(HasActiveTagFilter));
+        // HasActiveTagFilter отдельно не поднимается: интерфейс слушает и его,
+        // и это событие, и панель пересобиралась бы дважды на одно перестроение.
         TagFiltersRebuilt?.Invoke(this, EventArgs.Empty);
     }
 
