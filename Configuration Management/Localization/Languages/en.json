@@ -185,6 +185,7 @@
     "Main.ConfirmDeleteBase": "Remove infobase «{0}» from the list?",
     "Main.RefreshConfigInfoMsg": "Request configuration info for all infobases.\n\n(Implementation — Stage 5, 1C platform services.)",
     "Main.ErrOpenBaseFolder": "Could not open the file-based base directory.",
+    "Main.ErrOpenLink": "Failed to launch the infobase by link:\n{0}",
     "Main.ShortcutCreated": "Shortcut for infobase «{0}» created on the desktop.",
     "Main.ErrShortcutCreate": "Could not create a shortcut for infobase «{0}».\nCheck that the 1C platform is installed and the desktop is available.",
     "Main.ErrStartStarter": "Could not find and launch the 1C starter (1cestart).\nExpected paths: /opt/1cv8/<ver>/common/1cestart, /usr/bin/1cestart.",
@@ -1233,6 +1234,7 @@
 
     "Maint.PhysicalDeleteOnlyFile": "Physical deletion is available only for file infobases.",
     "Maint.FileBaseDirNotFound": "The file infobase directory was not found on disk.",
+    "Maint.CannotDeleteSymlinkFormat": "The infobase directory is a symbolic link:\n{0}\n\nDeleting the link would not remove the infobase files, so physical deletion was cancelled.",
     "Maint.CannotDeleteSystemRootFormat": "Refused: cannot delete a system or root directory ({0}).",
     "Maint.DeleteFailedFormat": "Failed to delete the directory:\n{0}\n\n{1}",
     "Maint.StarterNotFound": "1CEStart.exe not found.\nExpected path: Program Files\\1cv8\\common\\1CEStart.exe",

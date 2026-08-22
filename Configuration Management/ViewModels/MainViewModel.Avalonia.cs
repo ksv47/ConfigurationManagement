@@ -321,6 +321,9 @@ public class MainViewModel : ViewModelBase
                 if (value is not null)
                     SelectedInfobase = null;
                 UpdateStatus();
+                // Удаление доступно и при выбранной группе, а без этого
+                // события кнопка и клавиша остались бы неактивными.
+                RaiseCommandCanExecuteChanged();
             }
         }
     }
@@ -1450,7 +1453,7 @@ public class MainViewModel : ViewModelBase
         var link = dialog.Result;
         _logger.Info($"Запуск 1С по ссылке: {link}");
         if (!OneCLauncher.LaunchByLink(link))
-            _dialog.ShowError(string.Format(LocalizationManager.T("Main.ErrLaunch"), link));
+            _dialog.ShowError(string.Format(LocalizationManager.T("Main.ErrOpenLink"), link));
     }
 
     private void ToggleFavorite() => ToggleFavoriteFor(SelectedInfobase);

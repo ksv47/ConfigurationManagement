@@ -185,6 +185,7 @@
     "Main.ConfirmDeleteBase": "Удалить базу «{0}» из списка?",
     "Main.RefreshConfigInfoMsg": "Запрос информации о конфигурации по всем базам.\n\n(Реализация — Этап 5, сервисы платформы 1С.)",
     "Main.ErrOpenBaseFolder": "Не удалось открыть каталог файловой базы.",
+    "Main.ErrOpenLink": "Не удалось запустить базу по ссылке:\n{0}",
     "Main.ShortcutCreated": "Ярлык для базы «{0}» создан на рабочем столе.",
     "Main.ErrShortcutCreate": "Не удалось создать ярлык для базы «{0}».\nПроверьте, что установлена платформа 1С и доступен рабочий стол.",
     "Main.ErrStartStarter": "Не удалось найти и запустить стартер 1С (1cestart).\nОжидаемые пути: /opt/1cv8/<вер>/common/1cestart, /usr/bin/1cestart.",
@@ -1233,6 +1234,7 @@
 
     "Maint.PhysicalDeleteOnlyFile": "Физическое удаление доступно только для файловых баз.",
     "Maint.FileBaseDirNotFound": "Каталог файловой базы не найден на диске.",
+    "Maint.CannotDeleteSymlinkFormat": "Каталог базы задан символической ссылкой:\n{0}\n\nУдаление ссылки не удалило бы файлы базы, поэтому физическое удаление отменено.",
     "Maint.CannotDeleteSystemRootFormat": "Отказ: нельзя удалить системный или корневой каталог ({0}).",
     "Maint.DeleteFailedFormat": "Не удалось удалить каталог:\n{0}\n\n{1}",
     "Maint.StarterNotFound": "Не найден 1CEStart.exe.\nОжидаемый путь: Program Files\\1cv8\\common\\1CEStart.exe",

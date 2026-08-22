@@ -469,6 +469,18 @@ namespace Configuration_Management.Services
                 // продолжаем с осторожностью
             }
 
+            // Каталог по ссылке удалять нельзя: на Linux удалилась бы сама ссылка,
+            // а файлы базы остались бы на месте, и пользователь считал бы,
+            // что база удалена.
+            var info = new DirectoryInfo(dir);
+            if (info.LinkTarget is not null)
+                return string.Format(LocalizationManager.T("Maint.CannotDeleteSymlinkFormat"), dir);
+
+            // Признак файловой базы перепроверяется прямо перед удалением:
+            // между проверкой в диалоге и этим шагом каталог мог смениться.
+            if (!File.Exists(Path.Combine(dir, "1Cv8.1CD")))
+                return LocalizationManager.T("Maint.FileBaseDirNotFound");
+
             try
             {
                 Directory.Delete(dir, recursive: true);
