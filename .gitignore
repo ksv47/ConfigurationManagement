@@ -38,3 +38,10 @@ Desktop.ini
 .DS_Store
 ## Артефакты порта (локальные, наружу не выносим)
 _port/
+
+# Артефакты упаковки Linux: собираются скриптами из package/linux,
+# в репозитории нужны только сами скрипты.
+package/linux/AppDir/
+package/linux/out/
+package/linux/deb/staging/
+package/linux/deb/out/

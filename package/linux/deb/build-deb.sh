@@ -20,9 +20,14 @@ APP_ID="configuration-management"
 BINARY_NAME="ConfigurationManagement"
 ARCH="amd64"
 
-# Версия берётся из DEBIAN/control (поле Version), чтобы не дублировать.
+# Версия берётся из csproj: иначе пакет и приложение расходятся, и это
+# уже случилось (в control стояла 0.3.1.1 при 0.3.3.39 в сборке).
 CONTROL_SRC="$ROOT/package/linux/deb/DEBIAN/control"
-VERSION="$(sed -n 's/^Version:[[:space:]]*//p' "$CONTROL_SRC" | head -n1)"
+CSPROJ="$PROJECT_DIR/Configuration Management.csproj"
+VERSION="$(sed -n 's/.*<InformationalVersion>\([^<]*\)<.*/\1/p' "$CSPROJ" | head -n1)"
+if [[ -z "$VERSION" ]]; then
+  VERSION="$(sed -n 's/^Version:[[:space:]]*//p' "$CONTROL_SRC" | head -n1)"
+fi
 PKG="$(sed -n 's/^Package:[[:space:]]*//p' "$CONTROL_SRC" | head -n1)"
 
 STAGING="$ROOT/package/linux/deb/staging"
@@ -47,10 +52,16 @@ mkdir -p "$STAGING/usr/share/applications"
 mkdir -p "$STAGING/usr/share/icons/hicolor/256x256/apps"
 mkdir -p "$OUTDIR"
 
-install -m 644 "$CONTROL_SRC" "$STAGING/DEBIAN/control"
+# control собирается из шаблона: версия и размер установки подставляются,
+# иначе dpkg сообщает пользователю неверные цифры.
+sed "s/^Version:.*/Version: $VERSION/" "$CONTROL_SRC" > "$STAGING/DEBIAN/control"
 install -m 755 "$BINARY" "$STAGING/usr/bin/$BINARY_NAME"
 install -m 644 "$ROOT/package/linux/$APP_ID.desktop" "$STAGING/usr/share/applications/$APP_ID.desktop"
 install -m 644 "$ROOT/package/linux/app.png" "$STAGING/usr/share/icons/hicolor/256x256/apps/$APP_ID.png"
+
+# Размер установки в килобайтах: считается по собранному дереву.
+INSTALLED_SIZE="$(du -sk "$STAGING" | cut -f1)"
+sed -i "s/^Installed-Size:.*/Installed-Size: $INSTALLED_SIZE/" "$STAGING/DEBIAN/control"
 
 # --- 3. Сборка .deb ------------------------------------------------------------
 echo "==> Сборка .deb (dpkg-deb) ..."

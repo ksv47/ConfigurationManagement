@@ -51,6 +51,13 @@ install -m 755 "$BINARY" "$APPDIR/usr/bin/$BINARY_NAME"
 install -m 644 "$PACKAGE_DIR/$APP_ID.desktop" "$APPDIR/usr/share/applications/$APP_ID.desktop"
 install -m 644 "$PACKAGE_DIR/app.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/$APP_ID.png"
 
+# appimagetool ищет описание и значок в корне AppDir и без них отказывается
+# собирать («Desktop file not found»). Значок дополнительно кладётся под
+# именем .DirIcon: его показывает файловый менеджер.
+install -m 644 "$PACKAGE_DIR/$APP_ID.desktop" "$APPDIR/$APP_ID.desktop"
+install -m 644 "$PACKAGE_DIR/app.png" "$APPDIR/$APP_ID.png"
+install -m 644 "$PACKAGE_DIR/app.png" "$APPDIR/.DirIcon"
+
 # AppRun: точка входа AppImage (запуск через PATH внутри AppDir)
 cat > "$APPDIR/AppRun" <<'EOF'
 #!/usr/bin/env bash
