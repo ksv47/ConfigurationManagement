@@ -742,6 +742,36 @@ namespace Configuration_Management
                 .Subscribe(new SettingsObserver<string?>(_ => UpdateTimestampPreview()));
             UpdateTimestampPreview();
 
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Maintenance")));
+            bases.Children.Add(Hint(LocalizationManager.T("Settings.Bases.MaintenanceHint")));
+
+            var maintenanceButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
+
+            var removeMissing = new Button { Content = LocalizationManager.T("Settings.Bases.RemoveMissing") };
+            ToolTip.SetTip(removeMissing, LocalizationManager.T("Settings.Bases.RemoveMissingTooltip"));
+            removeMissing.Click += (_, _) => _viewModel.RemoveMissingFileBases();
+
+            var killProcesses = new Button { Content = LocalizationManager.T("Settings.Bases.KillProcesses") };
+            ToolTip.SetTip(killProcesses, LocalizationManager.T("Settings.Bases.KillProcessesTooltip"));
+            killProcesses.Click += (_, _) => _viewModel.KillOneCProcesses();
+
+            maintenanceButtons.Children.Add(removeMissing);
+            maintenanceButtons.Children.Add(killProcesses);
+            bases.Children.Add(maintenanceButtons);
+
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.DangerousOps")));
+            bases.Children.Add(Hint(LocalizationManager.T("Settings.Bases.DangerousHint")));
+
+            var clearAll = new Button
+            {
+                Content = LocalizationManager.T("Settings.Bases.ClearAll"),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            ToolTip.SetTip(clearAll, LocalizationManager.T("Settings.Bases.ClearAllTooltip"));
+            clearAll.Click += (_, _) => _viewModel.ClearAllInfobases();
+            bases.Children.Add(clearAll);
+
             bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.TabIbases")));
             bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.Description")));
 
@@ -803,7 +833,7 @@ namespace Configuration_Management
             intervalRow.Children.Add(scheduleBox);
             bases.Children.Add(intervalRow);
 
-            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Maintenance")));
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.BackupBeforeSync")));
             var backupCheck = new CheckBox
             {
                 Content = LocalizationManager.T("Settings.Ibases.BackupNote"),

@@ -73,15 +73,34 @@ namespace Configuration_Management.Services
                 var comm = ReadComm(pid) ?? string.Empty;
                 var cmd = ReadCmdLine(pid) ?? string.Empty;
 
-                var isOneC = OneCProcessNames.Any(n =>
-                                 string.Equals(comm, n, StringComparison.OrdinalIgnoreCase) ||
-                                 comm.StartsWith(n, StringComparison.OrdinalIgnoreCase)) ||
-                             cmd.Contains("1cv8", StringComparison.OrdinalIgnoreCase);
+                // Признак это имя самого исполняемого файла, а не упоминание
+                // «1cv8» где-нибудь в командной строке: под прежнее правило
+                // попадал любой процесс, у которого в аргументах есть путь
+                // с 1cv8, вплоть до терминала с открытым каталогом платформы.
+                var isOneC = MatchesOneCName(comm) || MatchesOneCName(ExecutableName(cmd));
 
                 if (isOneC)
                     yield return (pid, comm, cmd);
             }
         }
+
+        /// <summary>Имя исполняемого файла из командной строки, без пути и аргументов.</summary>
+        private static string ExecutableName(string cmdLine)
+        {
+            if (string.IsNullOrWhiteSpace(cmdLine))
+                return string.Empty;
+
+            var first = cmdLine.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            return string.IsNullOrEmpty(first) ? string.Empty : Path.GetFileName(first);
+        }
+
+        /// <summary>
+        /// Имя принадлежит платформе 1С. Сравнение точное: comm в Linux урезан
+        /// до пятнадцати символов, но все имена платформы короче.
+        /// </summary>
+        private static bool MatchesOneCName(string name) =>
+            !string.IsNullOrEmpty(name)
+            && OneCProcessNames.Any(n => string.Equals(name, n, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>Жив ли процесс с указанным pid.</summary>
         public static bool IsAlive(int pid)
@@ -127,8 +146,9 @@ namespace Configuration_Management.Services
                 killed++;
             }
 
-            // Страховка: pkill -f 1cv8 на случай процессов, невидимых в /proc (др. пользователь).
-            TryRunPkill();
+            // Прежняя страховка `pkill -f 1cv8` убрана: она била по подстроке
+            // в командной строке и уносила чужие процессы, у которых в аргументах
+            // просто встречается путь платформы.
             return killed;
         }
 
@@ -136,24 +156,6 @@ namespace Configuration_Management.Services
         public static int CountOneC()
             => Enumerate1C().Select(x => x.Pid).Distinct().Count();
 
-        private static void TryRunPkill()
-        {
-            try
-            {
-                using var p = Process.Start(new ProcessStartInfo
-                {
-                    FileName = "pkill",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    ArgumentList = { "-f", "1cv8" }
-                });
-                p?.WaitForExit(2000);
-            }
-            catch
-            {
-                // pkill может отсутствовать
-            }
-        }
     }
 }
 #endif
