@@ -1357,6 +1357,10 @@ public class MainViewModel : ViewModelBase
         finally
         {
             infobase.LaunchParameters = saved;
+            // Успешный запуск сохраняет список баз изнутри, то есть подменённое
+            // значение уже успело уйти на диск. Возвращаем файл к прежнему виду,
+            // иначе разовые параметры остались бы у базы навсегда.
+            SaveSilently();
         }
     }
 
@@ -1373,11 +1377,28 @@ public class MainViewModel : ViewModelBase
         var savedUser = connection.User;
         var savedPassword = connection.Password;
         var savedMode = connection.AuthenticationMode;
+
+        // У базы может быть отдельная авторизация Предприятия, и лаунчер
+        // предпочитает именно её: без этого пункт молча запускал бы клиент
+        // с сохранёнными учётными данными.
+        var enterpriseAuth = infobase.EnterpriseAuth;
+        var savedAuthUser = enterpriseAuth?.User;
+        var savedAuthPassword = enterpriseAuth?.Password;
+        var savedAuthMode = enterpriseAuth?.AuthenticationMode;
+
         try
         {
             connection.User = string.Empty;
             connection.Password = string.Empty;
             connection.AuthenticationMode = AuthenticationMode.Prompt;
+
+            if (enterpriseAuth is not null)
+            {
+                enterpriseAuth.User = string.Empty;
+                enterpriseAuth.Password = string.Empty;
+                enterpriseAuth.AuthenticationMode = AuthenticationMode.Prompt;
+            }
+
             Launch(_launchVm.LaunchCommand, LaunchKind.Enterprise);
         }
         finally
@@ -1385,6 +1406,17 @@ public class MainViewModel : ViewModelBase
             connection.User = savedUser;
             connection.Password = savedPassword;
             connection.AuthenticationMode = savedMode;
+
+            if (enterpriseAuth is not null)
+            {
+                enterpriseAuth.User = savedAuthUser ?? string.Empty;
+                enterpriseAuth.Password = savedAuthPassword ?? string.Empty;
+                enterpriseAuth.AuthenticationMode = savedAuthMode ?? AuthenticationMode.Prompt;
+            }
+
+            // Причина та же, что и у запуска с параметрами: успешный запуск
+            // сохраняет базы изнутри, и пустые учётные данные уже на диске.
+            SaveSilently();
         }
     }
 
