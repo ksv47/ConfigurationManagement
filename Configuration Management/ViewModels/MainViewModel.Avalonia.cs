@@ -105,6 +105,24 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public bool AllowMultipleInstances => _settings.AllowMultipleInstances;
 
+    /// <summary>Показывать ли значок в области уведомлений.</summary>
+    public bool ShowTrayIcon => _settings.ShowTrayIcon;
+
+    /// <summary>Уводить ли окно в трей вместо выхода при закрытии.</summary>
+    public bool CloseToTray => _settings.CloseToTray;
+
+    /// <summary>Уводить ли окно в трей по клавише Esc.</summary>
+    public bool EscapeToTray => _settings.EscapeToTray;
+
+    /// <summary>Применяет настройки поведения трея из окна настроек.</summary>
+    public void ApplyTraySettings(bool showTrayIcon, bool closeToTray, bool escapeToTray)
+    {
+        _settings.ShowTrayIcon = showTrayIcon;
+        _settings.CloseToTray = closeToTray;
+        _settings.EscapeToTray = escapeToTray;
+        SaveSettingsSilently();
+    }
+
     /// <summary>Запрос к главному окну выполнить действие после успешного запуска.</summary>
     public event Action<Models.AfterLaunchAction>? AfterLaunchRequested;
 
