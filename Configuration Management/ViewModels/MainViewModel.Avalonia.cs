@@ -2675,6 +2675,10 @@ public class MainViewModel : ViewModelBase
 
     private void ExitApplication()
     {
+        // Гарантируем сохранение выбранного языка при завершении программы:
+        // если язык определился автоматически (по системе) и не сохранялся через
+        // ApplyLanguage, записываем текущий код, чтобы он не потерялся между запусками.
+        _settings.Language = Configuration_Management.Localization.LocalizationManager.Instance.CurrentLanguage;
         SaveSettingsSilently();
         if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
             desktop.Shutdown();

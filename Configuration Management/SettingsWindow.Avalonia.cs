@@ -49,6 +49,20 @@ namespace Configuration_Management
             Content = BuildRoot();
         }
 
+        /// <summary>
+        /// При смене языка интерфейса полностью пересобирает диалог настроек,
+        /// чтобы все подписи обновились на новый язык сразу, а не только
+        /// кнопки OK/Отмена (которые обновляет базовая реализация).
+        /// </summary>
+        protected override void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            base.OnLanguageChanged(sender, e);
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                Content = BuildRoot();
+            else
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => Content = BuildRoot());
+        }
+
         private Control BuildRoot()
         {
             var grid = new Grid { Margin = new Thickness(16) };
@@ -83,6 +97,16 @@ namespace Configuration_Management
             langBox.DisplayMemberBinding = new Avalonia.Data.Binding("Name");
             langBox.SelectedItem = LocalizationManager.Instance.AvailableLanguages
                 .FirstOrDefault(l => l.Code == LocalizationManager.Instance.CurrentLanguage);
+            // Язык применяется сразу при выборе (и сохраняется в настройках), чтобы
+            // интерфейс перестраивался на новый язык без нажатия «OK».
+            langBox.SelectionChanged += (_, _) =>
+            {
+                if (langBox.SelectedItem is LanguageInfo li &&
+                    !string.Equals(li.Code, LocalizationManager.Instance.CurrentLanguage, StringComparison.Ordinal))
+                {
+                    _viewModel.ApplyLanguage(li.Code);
+                }
+            };
             settings.Children.Add(langBox);
             settings.Children.Add(new TextBlock
             {

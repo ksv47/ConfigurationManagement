@@ -5,6 +5,17 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.38] — 2026-08-23
+
+### Локализация
+
+- **Динамическая смена языка при выборе в настройках (Avalonia/Linux)** — в [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs) добавлен обработчик `SelectionChanged` у выпадающего списка языка: язык теперь применяется (и сохраняется в настройках) сразу при выборе пункта, без нажатия «OK». Ранее изменение языка фиксировалось только по кнопке «OK», поэтому интерфейс выглядел «непереведённым» при закрытии диалога иначе. Также добавлено переопределение `OnLanguageChanged`, которое пересобирает содержимое окна настроек целиком, чтобы все подписи вкладок и элементов обновились на выбранный язык немедленно (базовая реализация [`ModalWindowBase`](Configuration Management/ModalWindowBase.cs) обновляла только кнопки OK/Отмена).
+- **Сохранение языка при закрытии программы** — в [`ExitApplication()`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs:2676) текущий код языка (`LocalizationManager.Instance.CurrentLanguage`) записывается в `AppSettings.Language` перед сохранением настроек. Это гарантирует, что язык не теряется между запусками даже если он определялся автоматически (по языку системы) и не был явно выбран через `ApplyLanguage`.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.38** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.38 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.38; жёстко прописанная версия в `Settings.About.HelpText` обновлена в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
 ## [0.3.3.37] — 2026-08-23
 
 ### Локализация
