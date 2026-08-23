@@ -125,6 +125,23 @@ namespace Configuration_Management
             archPanel.Children.Add(Radio("SessionArch", "IsSessionArch64", "64"));
             settings.Children.Add(archPanel);
 
+            // Действие после запуска базы или конфигуратора.
+            settings.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.AfterLaunchAction"),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 8, 0, 0)
+            });
+            var afterLaunchBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
+            afterLaunchBox.ItemsSource = new[]
+            {
+                LocalizationManager.T("Settings.General.AfterLaunchAction.None"),
+                LocalizationManager.T("Settings.General.AfterLaunchAction.MinimizeToTray"),
+                LocalizationManager.T("Settings.General.AfterLaunchAction.Close")
+            };
+            afterLaunchBox.SelectedIndex = (int)Models.AfterLaunchActionHelper.Parse(_viewModel.AfterLaunchAction);
+            settings.Children.Add(afterLaunchBox);
+
             settings.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("Settings.AvaloniaPendingTabs"),
@@ -668,6 +685,15 @@ namespace Configuration_Management
                 _viewModel.ApplyColorScheme(editedScheme);
 
                 _viewModel.ApplyPlatformSettings(paths, archBox.SelectedItem as string ?? "X64");
+
+                _viewModel.AfterLaunchAction = afterLaunchBox.SelectedIndex switch
+                {
+                    0 => Models.AfterLaunchAction.None.ToSettingString(),
+                    1 => Models.AfterLaunchAction.MinimizeToTray.ToSettingString(),
+                    2 => Models.AfterLaunchAction.Close.ToSettingString(),
+                    // Ничего не выбрано: значение остаётся прежним, как в WPF-версии.
+                    _ => _viewModel.AfterLaunchAction
+                };
 
                 _viewModel.ApplyIbasesSyncSettings(
                     syncModeBox.SelectedIndex >= 0 ? syncModes[syncModeBox.SelectedIndex].Mode : IbasesSyncMode.None,

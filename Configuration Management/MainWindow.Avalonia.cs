@@ -59,6 +59,9 @@ namespace Configuration_Management
         private bool _headerAlignQueued;
         private readonly Dictionary<string, int> _headerColumnIndex = new(StringComparer.Ordinal);
         private readonly List<IDisposable> _rightPanelSubscriptions = new();
+        private object? _dragPayload;
+        private Point _dragStartPoint;
+        private bool _isDragging;
         private string? _resizeKey;
         private int _resizePointerId;
         private readonly List<Grid> _resizeRowGrids = new();
@@ -91,6 +94,56 @@ namespace Configuration_Management
             Content = BuildRoot();
             Loaded += OnWindowLoaded;
             KeyDown += OnWindowKeyDown;
+
+            // Действие после запуска базы или конфигуратора по глобальной настройке.
+            _vm.AfterLaunchRequested += OnAfterLaunchRequested;
+
+            // Подписка здесь, а не в построении содержимого: компактный режим
+            // пересобирает содержимое, и обработчики копились бы на каждый показ.
+            _vm.TreeRebuilt += RestoreTreeSelection;
+        }
+
+        /// <summary>Значок трея создан без ошибки: значение проверяется перед тем, как прятать окно.</summary>
+        private bool _trayIconCreated;
+
+        /// <summary>
+        /// Можно ли вернуть спрятанное окно. Значок трея это первый путь, но
+        /// на GNOME Shell без AppIndicator он не появится, а ошибки при этом не
+        /// будет. Второй путь, повторный запуск приложения через файл-сигнал,
+        /// работает только пока включён режим единственного экземпляра.
+        /// </summary>
+        private bool CanRestoreHiddenWindow =>
+            (_trayIconCreated && !Services.LinuxDesktopEnvironment.TrayMayBeUnavailable)
+            || _vm?.AllowMultipleInstances == false;
+
+        /// <summary>
+        /// Уводит окно в трей после успешного запуска, как это делает WPF-версия
+        /// для обоих значений настройки. Выполняется через диспетчер: запрос
+        /// приходит из обработчика команды, а окно к этому моменту ещё показывает
+        /// нажатую кнопку.
+        /// </summary>
+        private void OnAfterLaunchRequested(Models.AfterLaunchAction action)
+        {
+            if (action == Models.AfterLaunchAction.None)
+                return;
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                // Спрятанное окно живёт только в трее, поэтому без пути возврата
+                // оно сворачивается: иначе пользователь остался бы с работающим
+                // процессом, который нечем показать.
+                if (!CanRestoreHiddenWindow)
+                {
+                    WindowState = WindowState.Minimized;
+                    _vm?.LogWarning(LocalizationManager.T("Main.AfterLaunchTrayUnavailable"));
+                    return;
+                }
+
+                Hide();
+                if (action == Models.AfterLaunchAction.MinimizeToTray
+                    && WindowState == WindowState.Minimized)
+                    WindowState = WindowState.Normal;
+            });
         }
 
         // ======================= Построение UI =======================
@@ -412,35 +465,11 @@ namespace Configuration_Management
                 _tree.Styles.Add(stateStyle);
             }
 
-            // Раскрытие контейнера связывается с моделью узла адресно, при подготовке
-            // контейнера, а не стилем: стиль повесил бы привязку и на строки баз,
-            // у которых свойства IsExpanded нет, и журнал заполнялся бы
-            // предупреждениями привязки на каждое перестроение дерева.
-            // Контейнеры дерева переиспользуются, поэтому прежняя привязка
-            // освобождается: иначе на одном контейнере копились бы выражения
-            // привязки по одному на каждую подготовку.
-            var expandedBindings = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, IDisposable>();
-            _tree.ContainerPrepared += (_, e) =>
-            {
-                if (e.Container is not TreeViewItem container)
-                    return;
-
-                // Раскрытие группы добавляет строки, а с ними может измениться
-                // и самый левый отступ, по которому выровнен заголовок.
-                QueueHeaderAlign();
-
-                if (expandedBindings.TryGetValue(container, out var previous))
-                {
-                    previous.Dispose();
-                    expandedBindings.Remove(container);
-                }
-
-                if (container.DataContext is GroupNodeViewModel)
-                {
-                    expandedBindings.Add(container, container.Bind(TreeViewItem.IsExpandedProperty,
-                        new Binding("IsExpanded") { Mode = BindingMode.TwoWay }));
-                }
-            };
+            // Раскрытие узла связывает с моделью сам LeveledTreeView, при подготовке
+            // контейнера на любом уровне вложенности. Здесь остаётся только
+            // выравнивание заголовка: раскрытие группы добавляет строки, а с ними
+            // может измениться и самый левый отступ, по которому выровнен заголовок.
+            _tree.ContainerPrepared += (_, _) => QueueHeaderAlign();
 
             // Меню висит на дереве, как в WPF: над группой и над пустым местом
             // оно тоже открывается, а недоступные пункты гасит CanExecute.
@@ -452,6 +481,16 @@ namespace Configuration_Management
                 (item, _) => BuildTreeRow(item),
                 item => item is GroupNodeViewModel g ? g.Items : null);
             _tree.SelectionChanged += OnTreeSelectionChanged;
+
+            // Перетаскивание баз и групп. Нажатие ловится по туннелю: TreeView
+            // помечает PointerPressed обработанным, обновляя выделение, и
+            // обычная подписка не сработала бы. Это прямой аналог
+            // PreviewMouseLeftButtonDown в WPF-версии.
+            _tree.AddHandler(InputElement.PointerPressedEvent, OnTreeDragPointerPressed, RoutingStrategies.Tunnel);
+            _tree.PointerMoved += OnTreeDragPointerMoved;
+            DragDrop.SetAllowDrop(_tree, true);
+            _tree.AddHandler(DragDrop.DragOverEvent, OnTreeDragOver);
+            _tree.AddHandler(DragDrop.DropEvent, OnTreeDrop);
 
             // Прокрутку списка ведёт внешний ScrollViewer, общий с заголовком колонок.
             // Прежнее опасение про бесконечную высоту и потерю виртуализации здесь
@@ -2135,6 +2174,204 @@ namespace Configuration_Management
             return grip;
         }
 
+        /// <summary>Формат содержимого перетаскивания: сама нагрузка живёт в поле окна.</summary>
+        private const string DragPayloadMarker = "ConfigurationManagement.Row";
+
+        /// <summary>
+        /// Фиксация того, что поедет: как в WPF, нагрузка берётся в нажатии,
+        /// а не в движении. Иначе при сдвиге курсора на дочернюю строку под ним
+        /// оказывается другой узел и вместо группы уезжает база.
+        /// </summary>
+        private void OnTreeDragPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            _dragPayload = null;
+            var point = e.GetCurrentPoint(this);
+            if (!point.Properties.IsLeftButtonPressed)
+                return;
+
+            _dragStartPoint = point.Position;
+
+            // Клик по кнопке или полю ввода внутри строки перетаскивание не начинает:
+            // звезда, булавка, чип тега и раскрытие группы должны работать как обычно.
+            if (e.Source is not Visual source
+                || source.FindAncestorOfType<Button>(includeSelf: true) is not null
+                || source.FindAncestorOfType<TextBox>(includeSelf: true) is not null)
+                return;
+
+            var item = source.FindAncestorOfType<TreeViewItem>(includeSelf: true);
+            _dragPayload = item?.DataContext switch
+            {
+                Infobase infobase => infobase,
+                GroupNodeViewModel node when node.Group is not null => node,
+                _ => null
+            };
+        }
+
+        private async void OnTreeDragPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (_isDragging || _dragPayload is null)
+                return;
+
+            var point = e.GetCurrentPoint(this);
+            if (!point.Properties.IsLeftButtonPressed)
+            {
+                _dragPayload = null;
+                return;
+            }
+
+            // Порог сдвига обязателен: без него обычный клик по строке начинал бы
+            // перетаскивание. Аналога SystemParameters в Avalonia нет.
+            if (Math.Abs(point.Position.X - _dragStartPoint.X) < DragThreshold
+                && Math.Abs(point.Position.Y - _dragStartPoint.Y) < DragThreshold)
+                return;
+
+            var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.CreateText(DragPayloadMarker));
+
+            _isDragging = true;
+            try
+            {
+                await DragDrop.DoDragDropAsync(e, transfer, DragDropEffects.Move);
+            }
+            catch (Exception ex)
+            {
+                _vm.LogWarning($"Перетаскивание прервано: {ex.Message}");
+            }
+            finally
+            {
+                _isDragging = false;
+                _dragPayload = null;
+            }
+        }
+
+        /// <summary>Порог сдвига в пикселях, после которого нажатие считается перетаскиванием.</summary>
+        private const double DragThreshold = 4;
+
+        private void OnTreeDragOver(object? sender, DragEventArgs e)
+        {
+            e.DragEffects = DragDropEffects.None;
+            ResolveDropTarget(e.Source as Visual, out var targetNode, out _);
+            if (targetNode is not null && IsDropAllowed(_dragPayload, targetNode))
+                e.DragEffects = DragDropEffects.Move;
+            e.Handled = true;
+        }
+
+        private void OnTreeDrop(object? sender, DragEventArgs e)
+        {
+            e.Handled = true;
+
+            // Отпускание поднимается из насоса сырых событий, а не со стека
+            // DoDragDropAsync: исключение отсюда не дало бы завершиться самой
+            // операции, и перетаскивание осталось бы включённым навсегда,
+            // вместе с курсором и перехватом движений по всему приложению.
+            try
+            {
+                ApplyDrop(e);
+            }
+            catch (Exception ex)
+            {
+                _vm.LogWarning($"Перенос не выполнен: {ex.Message}");
+            }
+        }
+
+        private void ApplyDrop(DragEventArgs e)
+        {
+            var payload = _dragPayload;
+            ResolveDropTarget(e.Source as Visual, out var targetNode, out var insertBefore);
+
+            // Проверки повторяются здесь намеренно: в Avalonia отпускание приходит
+            // на последнюю цель независимо от того, что вернул DragOver, поэтому
+            // на отказ DragOver полагаться нельзя.
+            if (targetNode is null || !IsDropAllowed(payload, targetNode))
+                return;
+
+            if (payload is GroupNodeViewModel sourceNode && sourceNode.Group is not null)
+            {
+                _vm.MoveGroupUnder(sourceNode.Group, targetNode.Group?.Id ?? string.Empty);
+                return;
+            }
+
+            if (payload is not Infobase infobase)
+                return;
+
+            if (ReferenceEquals(insertBefore, infobase))
+                insertBefore = null;
+
+            // Сброс на «Закреплённые» группу не меняет: там лежат базы из разных групп,
+            // и перенос туда означал бы потерю группы.
+            if (string.Equals(targetNode.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal))
+            {
+                _vm.MoveInfobaseToGroup(infobase, infobase.Group ?? string.Empty, insertBefore);
+                return;
+            }
+
+            var path = targetNode.Group is null
+                ? string.Empty
+                : GroupHierarchyHelper.GetFullPath(targetNode.Group, _vm.Groups);
+            _vm.MoveInfobaseToGroup(infobase, path, insertBefore);
+        }
+
+        /// <summary>
+        /// Допустимость сброса. Узлы без группы разрешены не все: «Все базы» и узел
+        /// результата поиска группой не являются, и сброс на них молча обнулил бы
+        /// группу базы. В WPF эта ловушка есть, здесь она закрыта.
+        /// </summary>
+        private bool IsDropAllowed(object? payload, GroupNodeViewModel targetNode)
+        {
+            if (payload is Infobase)
+            {
+                return targetNode.Group is not null
+                    || string.Equals(targetNode.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal)
+                    || string.Equals(targetNode.Marker, GroupNodeViewModel.NoGroupMarker, StringComparison.Ordinal);
+            }
+
+            if (payload is not GroupNodeViewModel sourceNode || sourceNode.Group is null)
+                return false;
+
+            // Узел без группы означает для группы корень, но не любой: «Все базы»,
+            // результат поиска и «Закреплённые» группой не являются, и сброс на них
+            // молча вынес бы подгруппу наверх. Вернуть её на место в интерфейсе
+            // нечем: смена родителя есть только у перетаскивания.
+            if (targetNode.Group is null
+                && !string.Equals(targetNode.Marker, GroupNodeViewModel.NoGroupMarker, StringComparison.Ordinal))
+                return false;
+
+            var targetId = targetNode.Group?.Id ?? string.Empty;
+            if (string.Equals(sourceNode.Group.Id, targetId, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Перенос под собственного потомка создал бы цикл в иерархии.
+            return string.IsNullOrEmpty(targetId)
+                   || !GroupHierarchyHelper.IsAncestorOrSelf(targetId, sourceNode.Group.Id, _vm.Groups);
+        }
+
+        /// <summary>
+        /// Цель сброса: группа и база, перед которой вставить. Курсор над строкой
+        /// базы означает вставку перед ней в её же группу.
+        /// </summary>
+        private static void ResolveDropTarget(Visual? source, out GroupNodeViewModel? targetNode, out Infobase? insertBefore)
+        {
+            targetNode = null;
+            insertBefore = null;
+            if (source is null)
+                return;
+
+            var item = source.FindAncestorOfType<TreeViewItem>(includeSelf: true);
+            while (item is not null)
+            {
+                switch (item.DataContext)
+                {
+                    case GroupNodeViewModel node:
+                        targetNode = node;
+                        return;
+                    case Infobase infobase when insertBefore is null:
+                        insertBefore = infobase;
+                        break;
+                }
+                item = item.FindAncestorOfType<TreeViewItem>();
+            }
+        }
+
         private void OnColumnResizePressed(object? sender, PointerPressedEventArgs e)
         {
             if (sender is not Border grip || grip.Tag is not string key || _columnHeaderRow is null)
@@ -2494,6 +2731,37 @@ namespace Configuration_Management
             Content = BuildRoot();
         }
 
+        /// <summary>
+        /// Возвращает выделение строки после пересборки дерева: узлы групп
+        /// пересоздаются, и дерево теряет подсветку вместе с ними. Объекты баз
+        /// при этом те же самые, поэтому выбранная база ищется по ссылке.
+        /// Установка откладывается ниже компоновки, чтобы попасть после
+        /// перестроения строк, а цель читается в момент выполнения: вызывающие
+        /// меняют выбор уже после возврата из пересборки (создание, регистрация
+        /// и удаление базы), и снятая заранее цель подсветила бы чужую строку.
+        /// </summary>
+        private void RestoreTreeSelection()
+        {
+            if (_vm is null)
+                return;
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (_vm is null)
+                    return;
+
+                var target = (object?)_vm.SelectedInfobase ?? _vm.SelectedGroupNode;
+                if (target is null || ReferenceEquals(_tree.SelectedItem, target))
+                    return;
+
+                // Выбор ставится напрямую, без обработчика: он уже согласован
+                // с вьюмоделью, и повторный проход только сбросил бы парное поле.
+                _tree.SelectionChanged -= OnTreeSelectionChanged;
+                try { _tree.SelectedItem = target; }
+                finally { _tree.SelectionChanged += OnTreeSelectionChanged; }
+            }, Avalonia.Threading.DispatcherPriority.Background);
+        }
+
         private void OnTreeSelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             if (_vm is null)
@@ -2694,7 +2962,10 @@ namespace Configuration_Management
                     Menu = menu
                 };
                 if (Application.Current is { } app)
+                {
                     TrayIcon.SetIcons(app, new TrayIcons { tray });
+                    _trayIconCreated = true;
+                }
 
                 // На GNOME Shell без расширения AppIndicator иконка трея не появится,
                 // и приложение об этом никак не узнает: ошибки не будет, значка просто
