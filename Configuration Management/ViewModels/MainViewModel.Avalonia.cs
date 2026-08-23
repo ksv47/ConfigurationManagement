@@ -1,5 +1,6 @@
 #if LINUX
 using System.Collections.ObjectModel;
+using System.Text.Json;
 using System.Windows.Input;
 using Avalonia.Threading;
 using Configuration_Management.Localization;
@@ -858,6 +859,7 @@ public class MainViewModel : ViewModelBase
             _sessionArch = SessionArchFromSetting(_settings.SessionArchitecture);
             ApplyDefaultArchitecture();
             ApplyAdditionalSearchPaths();
+            ApplyTemplateCatalogPaths();
 
             OnPropertyChanged(nameof(GroupByGroup));
             OnPropertyChanged(nameof(ShowEmptyGroups));
@@ -1673,6 +1675,228 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     private void ApplyAdditionalSearchPaths() =>
         PlatformVersionService.SetAdditionalSearchPaths(_settings.AdditionalPlatformSearchPaths);
+
+    /// <summary>Добавлять ли метку времени к имени файла выгрузки.</summary>
+    public bool AddTimestampToExportFileName => _settings.AddTimestampToExportFileName;
+
+    /// <summary>Формат метки времени в имени файла выгрузки.</summary>
+    public string ExportTimestampFormat => _settings.ExportTimestampFormat;
+
+    /// <summary>Применяет настройки имени файла выгрузки со вкладки «Базы».</summary>
+    public void ApplyExportFileNameSettings(bool addTimestamp, string timestampFormat)
+    {
+        _settings.AddTimestampToExportFileName = addTimestamp;
+        _settings.ExportTimestampFormat = string.IsNullOrWhiteSpace(timestampFormat)
+            ? "yyyyMMdd_HHmmss"
+            : timestampFormat.Trim();
+        SaveSettingsSilently();
+    }
+
+    /// <summary>Выгружает список баз и групп в JSON-файл.</summary>
+    public void ExportInfobases()
+    {
+        if (_allInfobases.Count == 0)
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Main.ExportEmpty"),
+                LocalizationManager.T("Main.ExportBasesTitle"));
+            return;
+        }
+
+        var path = _dialog.SaveFileDialog(
+            LocalizationManager.T("Main.ExportBasesDialogTitle"),
+            BuildExportFileName("infobases_export", ".json"),
+            LocalizationManager.T("Main.JsonFileFilter"));
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        try
+        {
+            var json = JsonSerializer.Serialize(
+                new InfobaseExportData
+                {
+                    Infobases = _allInfobases.ToList(),
+                    Groups = _groups.ToList()
+                },
+                new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+
+            _dialog.ShowInfo(
+                string.Format(LocalizationManager.T("Main.ExportDone"), _allInfobases.Count, _groups.Count, path),
+                LocalizationManager.T("Main.ExportBasesTitle"));
+            _logger.Info($"Список баз выгружен в {path}");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка выгрузки списка баз", ex);
+            _dialog.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrExportFailed"), ex.Message),
+                LocalizationManager.T("Main.ExportErrorTitle"));
+        }
+    }
+
+    /// <summary>
+    /// Загружает список баз и групп из JSON-файла, заменяя текущий.
+    /// Понимает и старый формат, где в файле лежит только список баз.
+    /// </summary>
+    public void ImportInfobases()
+    {
+        var path = _dialog.OpenFileDialog(
+            LocalizationManager.T("Main.ImportBasesDialogTitle"),
+            LocalizationManager.T("Main.JsonFileFilter"));
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            InfobaseExportData? exportData = null;
+            try { exportData = JsonSerializer.Deserialize<InfobaseExportData>(json, options); }
+            catch (JsonException) { }
+
+            List<Infobase> loaded;
+            List<Group> loadedGroups;
+            if (exportData is not null && exportData.Infobases.Count > 0)
+            {
+                loaded = exportData.Infobases;
+                loadedGroups = exportData.Groups;
+            }
+            else
+            {
+                loaded = JsonSerializer.Deserialize<List<Infobase>>(json, options) ?? new List<Infobase>();
+                loadedGroups = new List<Group>();
+            }
+
+            if (loaded.Count == 0)
+            {
+                _dialog.ShowWarning(LocalizationManager.T("Main.ImportNoBases"),
+                    LocalizationManager.T("Main.LoadBasesTitle"));
+                return;
+            }
+
+            if (!_dialog.Confirm(
+                    string.Format(LocalizationManager.T("Main.ImportConfirm"), loaded.Count, loadedGroups.Count),
+                    LocalizationManager.T("Main.LoadBasesTitle")))
+                return;
+
+            _allInfobases.Clear();
+            _allInfobases.AddRange(loaded);
+            _groups.Clear();
+            _groups.AddRange(loadedGroups);
+            SelectedInfobase = null;
+
+            SaveSilently();
+            SaveGroupsSilently();
+            RebuildTree();
+
+            _dialog.ShowInfo(
+                string.Format(LocalizationManager.T("Main.ImportDoneMsg"), loaded.Count, loadedGroups.Count),
+                LocalizationManager.T("Main.LoadBasesTitle"));
+            _logger.Info($"Список баз загружен из {path}");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка загрузки списка баз", ex);
+            _dialog.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrLoadFailed"), ex.Message),
+                LocalizationManager.T("Main.LoadErrorTitle"));
+        }
+    }
+
+    /// <summary>
+    /// Читает список баз из ibases.v8i и добавляет или обновляет базы.
+    /// Путь ищется сам, и только если файла нет, спрашивается у пользователя.
+    /// </summary>
+    public void ImportFromIbasesV8i()
+    {
+        var path = IbasesV8iImporter.FindDefaultPath();
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            path = _dialog.OpenFileDialog(
+                LocalizationManager.T("Settings.Ibases.FileDialogTitle"),
+                LocalizationManager.T("Main.IbasesFileFilter"));
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+        }
+
+        try
+        {
+            _sync.Import(path, _allInfobases, _groups);
+            SaveSilently();
+            SaveGroupsSilently();
+            RebuildTree();
+            StatusBarInfo = string.Format(LocalizationManager.T("Sync.ImportedCount"), _allInfobases.Count, _groups.Count);
+            _logger.Info($"Импорт из ibases.v8i: {path}");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка импорта из ibases.v8i", ex);
+            _dialog.ShowError(string.Format(LocalizationManager.T("Sync.ErrSyncFailed"), ex.Message));
+        }
+    }
+
+    /// <summary>Имя файла выгрузки с меткой времени, если она включена.</summary>
+    private string BuildExportFileName(string baseName, string extension)
+    {
+        if (!_settings.AddTimestampToExportFileName)
+            return $"{baseName}{extension}";
+
+        var format = string.IsNullOrWhiteSpace(_settings.ExportTimestampFormat)
+            ? "yyyyMMdd_HHmmss"
+            : _settings.ExportTimestampFormat;
+        return $"{baseName}_{DateTime.Now.ToString(format)}{extension}";
+    }
+
+    /// <summary>Каталоги шаблонов конфигураций, заданные пользователем.</summary>
+    public IReadOnlyList<string> TemplateCatalogPaths => _settings.TemplateCatalogPaths;
+
+    /// <summary>
+    /// Применяет настройки каталогов шаблонов со вкладки «Базы». Поиск шаблонов
+    /// читает статический список сервиса, поэтому без этой передачи заданные
+    /// каталоги оставались только в файле настроек.
+    /// </summary>
+    public void ApplyTemplateCatalogPaths(IEnumerable<string> paths)
+    {
+        _settings.TemplateCatalogPaths = paths
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        ApplyTemplateCatalogPaths();
+        SaveSettingsSilently();
+    }
+
+    private void ApplyTemplateCatalogPaths() =>
+        OneCTemplateService.SetUserTemplatePaths(_settings.TemplateCatalogPaths);
+
+    /// <summary>
+    /// Каталоги шаблонов, известные самой платформе: из её настроек и
+    /// стандартный tmplts. Кнопка «Из 1С» на вкладке «Базы» заполняет
+    /// список ими.
+    /// </summary>
+    public List<string> DiscoverTemplateCatalogPaths()
+    {
+        var found = new List<string>();
+        try
+        {
+            var configured = OneCTemplateService.GetConfiguredOrDefaultTemplatePath();
+            if (!string.IsNullOrWhiteSpace(configured))
+                found.Add(configured);
+            found.AddRange(OneCTemplateService.GetTemplateRootFolders());
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"Не удалось прочитать каталоги шаблонов: {ex.Message}");
+        }
+
+        return found
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 
     /// <summary>
     /// Отдаёт разрядность по умолчанию запуску платформы. Без этого настройка

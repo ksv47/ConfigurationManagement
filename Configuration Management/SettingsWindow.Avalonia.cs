@@ -49,6 +49,17 @@ namespace Configuration_Management
             Content = BuildRoot();
         }
 
+        /// <summary>Форматы метки времени в имени файла выгрузки, как в версии для Windows.</summary>
+        private static readonly string[] TimestampFormats =
+        {
+            "yyyyMMdd_HHmmss",
+            "yyyy-MM-dd_HH-mm-ss",
+            "yyyy-MM-dd_HHmmss",
+            "dd.MM.yyyy HH-mm-ss",
+            "yyyyMMdd",
+            "HHmmss"
+        };
+
         private Control BuildRoot()
         {
             var grid = new Grid { Margin = new Thickness(16) };
@@ -560,8 +571,162 @@ namespace Configuration_Management
                 Content = new ScrollViewer { Content = appearance, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
             });
 
-            // ===== Базы (ibases.v8i) =====
+            // ===== Базы =====
             var bases = new StackPanel { Spacing = 6 };
+
+            // Каталоги шаблонов конфигураций: список путей и правка вручную,
+            // как на этой же вкладке в версии для Windows.
+            var templatePaths = new ObservableCollection<string>(_viewModel.TemplateCatalogPaths);
+            var templateList = new ListBox
+            {
+                ItemsSource = templatePaths,
+                Height = 110,
+                SelectionMode = SelectionMode.Single
+            };
+
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.TemplateDirs")));
+            bases.Children.Add(Hint(LocalizationManager.T("Settings.Bases.TemplateDirsHintLinux")));
+            bases.Children.Add(templateList);
+
+            var templateButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 8) };
+
+            var addTemplate = new Button { Content = LocalizationManager.T("Settings.Bases.AddTemplate") };
+            ToolTip.SetTip(addTemplate, LocalizationManager.T("Settings.Bases.AddTemplateTooltip"));
+            addTemplate.Click += (_, _) =>
+            {
+                var folder = _viewModel.PickFolder(LocalizationManager.T("Settings.Bases.AddTemplateFolderDesc"));
+                if (string.IsNullOrWhiteSpace(folder) || templatePaths.Contains(folder, StringComparer.OrdinalIgnoreCase))
+                    return;
+                templatePaths.Add(folder);
+            };
+
+            var editTemplate = new Button { Content = LocalizationManager.T("Settings.Bases.EditTemplate") };
+            ToolTip.SetTip(editTemplate, LocalizationManager.T("Settings.Bases.EditTemplateTooltip"));
+            editTemplate.Click += (_, _) =>
+            {
+                if (templateList.SelectedItem is not string current)
+                    return;
+                var folder = _viewModel.PickFolder(LocalizationManager.T("Settings.Bases.EditTemplateFolderDesc"));
+                if (string.IsNullOrWhiteSpace(folder) || string.Equals(folder, current, StringComparison.OrdinalIgnoreCase))
+                    return;
+                if (templatePaths.Contains(folder, StringComparer.OrdinalIgnoreCase))
+                    return;
+                templatePaths[templatePaths.IndexOf(current)] = folder;
+                templateList.SelectedItem = folder;
+            };
+
+            var removeTemplate = new Button { Content = LocalizationManager.T("Common.Delete") };
+            ToolTip.SetTip(removeTemplate, LocalizationManager.T("Settings.Bases.RemoveTemplateTooltip"));
+            removeTemplate.Click += (_, _) =>
+            {
+                if (templateList.SelectedItem is string selected)
+                    templatePaths.Remove(selected);
+            };
+
+            var loadTemplates = new Button { Content = LocalizationManager.T("Settings.Bases.LoadDefault") };
+            ToolTip.SetTip(loadTemplates, LocalizationManager.T("Settings.Bases.LoadDefaultTooltip"));
+            loadTemplates.Click += (_, _) =>
+            {
+                templatePaths.Clear();
+                foreach (var path in _viewModel.DiscoverTemplateCatalogPaths())
+                    templatePaths.Add(path);
+            };
+
+            templateButtons.Children.Add(addTemplate);
+            templateButtons.Children.Add(editTemplate);
+            templateButtons.Children.Add(removeTemplate);
+            templateButtons.Children.Add(loadTemplates);
+            bases.Children.Add(templateButtons);
+
+            // Операции со списком баз целиком: выгрузка и загрузка JSON,
+            // разовый импорт из ibases.v8i.
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.IbaseList")));
+
+            var timestampCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.AddTimestamp"),
+                IsChecked = _viewModel.AddTimestampToExportFileName,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            ToolTip.SetTip(timestampCheck, LocalizationManager.T("Settings.AddTimestampTooltip"));
+
+            var timestampBox = new ComboBox { MinWidth = 200, ItemsSource = TimestampFormats };
+            ToolTip.SetTip(timestampBox, LocalizationManager.T("Settings.Bases.TimestampFormatTooltip"));
+            var formatIndex = Array.IndexOf(TimestampFormats, _viewModel.ExportTimestampFormat);
+            timestampBox.SelectedIndex = formatIndex >= 0 ? formatIndex : 0;
+
+            var timestampPreview = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+
+            void ApplyExportFileNameSettings() =>
+                _viewModel.ApplyExportFileNameSettings(
+                    timestampCheck.IsChecked == true,
+                    timestampBox.SelectedItem as string ?? TimestampFormats[0]);
+
+            // Предпросмотр собирается теми же двумя шаблонами, что и в версии
+            // для Windows: один подставляет метку в имя файла, второй обрамляет
+            // это словом «Пример».
+            void UpdateTimestampPreview()
+            {
+                var format = (timestampBox.SelectedItem as string)?.Trim();
+                if (string.IsNullOrWhiteSpace(format))
+                {
+                    timestampPreview.Text = LocalizationManager.T("Settings.TimestampSpecifyHint");
+                    return;
+                }
+
+                try
+                {
+                    var name = string.Format(LocalizationManager.T("Settings.TimestampBasePrefix"),
+                        DateTime.Now.ToString(format));
+                    timestampPreview.Text = string.Format(LocalizationManager.T("Settings.TimestampExample"), name);
+                }
+                catch (FormatException)
+                {
+                    timestampPreview.Text = LocalizationManager.T("Settings.TimestampInvalid");
+                }
+            }
+
+            var listButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+            var exportList = new Button { Content = LocalizationManager.T("Settings.Bases.ExportList") };
+            ToolTip.SetTip(exportList, LocalizationManager.T("Settings.Bases.ExportListTooltip"));
+            exportList.Click += (_, _) =>
+            {
+                // Настройки имени файла применяются до выгрузки: иначе метка
+                // времени взялась бы из значения, сохранённого прошлым нажатием ОК.
+                ApplyExportFileNameSettings();
+                _viewModel.ExportInfobases();
+            };
+
+            var importList = new Button { Content = LocalizationManager.T("Settings.Bases.ImportList") };
+            ToolTip.SetTip(importList, LocalizationManager.T("Settings.Bases.ImportListTooltip"));
+            importList.Click += (_, _) => _viewModel.ImportInfobases();
+
+            var importV8i = new Button { Content = LocalizationManager.T("Settings.Bases.ImportV8i") };
+            ToolTip.SetTip(importV8i, LocalizationManager.T("Settings.Bases.ImportV8iTooltip"));
+            importV8i.Click += (_, _) => _viewModel.ImportFromIbasesV8i();
+
+            listButtons.Children.Add(exportList);
+            listButtons.Children.Add(importList);
+            listButtons.Children.Add(importV8i);
+            bases.Children.Add(listButtons);
+            bases.Children.Add(timestampCheck);
+
+            var timestampRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
+            timestampRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Bases.TimestampFormat"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            timestampRow.Children.Add(timestampBox);
+            timestampRow.Children.Add(timestampPreview);
+            bases.Children.Add(timestampRow);
+
+            timestampCheck.IsCheckedChanged += (_, _) => UpdateTimestampPreview();
+            timestampBox.SelectionChanged += (_, _) => UpdateTimestampPreview();
+            UpdateTimestampPreview();
+
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.TabIbases")));
             bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.Description")));
 
             bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Ibases.SyncMode")));
@@ -700,6 +865,8 @@ namespace Configuration_Management
                 _viewModel.ApplyColorScheme(editedScheme);
 
                 _viewModel.ApplyPlatformSettings(paths, archBox.SelectedItem as string ?? "X64");
+                _viewModel.ApplyTemplateCatalogPaths(templatePaths);
+                ApplyExportFileNameSettings();
 
                 _viewModel.AfterLaunchAction = afterLaunchBox.SelectedIndex switch
                 {

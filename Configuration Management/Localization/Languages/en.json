@@ -251,6 +251,7 @@
     "Settings.Platforms.RefreshTooltip": "Refresh the list of installed platform versions (standard and additional paths)",
     "Settings.AdditionalPaths.Hint": "Specify folders where 1C platforms are installed outside the standard Program Files directories. You can specify the installation root, the 1cv8 directory, or a specific version folder.",
     "Settings.AdditionalPaths.HintLinux": "List directories where the 1C platform is installed outside the standard ones (/opt/1cv8, /usr/local/1cv8, ~/.1cv8). Point to the installation root, the versions directory or a specific version folder.",
+    "Settings.Bases.TemplateDirsHintLinux": "Same as in the 1C starter. An empty list means paths from the 1C settings and the standard tmplts directory (~/.local/share/1C/1cv8/tmplts).",
     "Settings.AdditionalPaths.ListTooltip": "Additional directories for searching platform versions",
     "Settings.AdditionalPaths.Add": "Add folder",
     "Settings.AdditionalPaths.AddTooltip": "Add a folder for searching the 1C platform",
