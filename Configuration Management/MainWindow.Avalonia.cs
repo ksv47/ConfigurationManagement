@@ -120,6 +120,9 @@ namespace Configuration_Management
         /// <summary>Значок трея создан без ошибки: значение проверяется перед тем, как прятать окно.</summary>
         private bool _trayIconCreated;
 
+        /// <summary>Ссылка на значок трея, чтобы обновлять меню при смене языка.</summary>
+        private TrayIcon? _trayIcon;
+
         /// <summary>
         /// Можно ли вернуть спрятанное окно. Значок трея это первый путь, но
         /// на GNOME Shell без AppIndicator он не появится, а ошибки при этом не
@@ -2899,6 +2902,14 @@ namespace Configuration_Management
             Content = BuildRoot();
             Title = LocalizationManager.T("App.Title");
 
+            // Обновляем меню и подсказку трея, чтобы подписи кнопок и ToolTip
+            // тоже переключились на новый язык без перезапуска.
+            if (_trayIcon is not null)
+            {
+                _trayIcon.Menu = BuildTrayMenu();
+                _trayIcon.ToolTipText = LocalizationManager.T("App.Title");
+            }
+
             // Выделение и прокрутка восстанавливаются после того, как новое дерево
             // построено и разложено (иначе строки ещё не существуют).
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -3168,64 +3179,75 @@ namespace Configuration_Management
 
         // ======================= Трей =======================
 
+        /// <summary>
+        /// Строит меню трея с актуальными переводами. Вызывается при создании
+        /// значка и при смене языка, чтобы подписи и подсказки обновились.
+        /// </summary>
+        private NativeMenu BuildTrayMenu()
+        {
+            var menu = new NativeMenu();
+
+            var showItem = new NativeMenuItem(LocalizationManager.T("Main.ShowWindow"));
+            showItem.Click += (_, _) => ShowAndActivate();
+            menu.Add(showItem);
+            menu.Add(new NativeMenuItemSeparator());
+
+            // Недавние базы (быстрый запуск прямо из трея).
+            var recent = _vm?.RecentInfobases;
+            if (recent is { Count: > 0 })
+            {
+                var recentMenu = new NativeMenu();
+                foreach (var ib in recent)
+                {
+                    var item = new NativeMenuItem($"{ib.Name}  ({ib.ServerDatabaseDisplay})");
+                    var baseRef = ib;
+                    item.Click += (_, _) => LaunchInfobase(baseRef);
+                    recentMenu.Add(item);
+                }
+                menu.Add(new NativeMenuItem(LocalizationManager.T("Main.RecentBases")) { Menu = recentMenu });
+                menu.Add(new NativeMenuItemSeparator());
+            }
+
+            // Запуск выбранной базы: Предприятие / Конфигуратор.
+            if (_vm?.SelectedInfobase is { } sel)
+            {
+                var ent = new NativeMenuItem($"{LocalizationManager.T("Main.LaunchEnterprise")}: {sel.Name}");
+                ent.Click += (_, _) => _vm.LaunchEnterpriseCommand.Execute(null);
+                menu.Add(ent);
+
+                var cfg = new NativeMenuItem($"{LocalizationManager.T("Main.LaunchConfigurator")}: {sel.Name}");
+                cfg.Click += (_, _) => _vm.LaunchConfiguratorCommand.Execute(null);
+                menu.Add(cfg);
+                menu.Add(new NativeMenuItemSeparator());
+            }
+
+            // Синхронизация и настройки.
+            var sync = new NativeMenuItem(LocalizationManager.T("Main.SyncWithIbases"));
+            sync.Click += (_, _) => _vm?.SynchronizeWithIbasesCommand.Execute(null);
+            menu.Add(sync);
+
+            var settings = new NativeMenuItem(LocalizationManager.T("Main.Settings"));
+            settings.Click += (_, _) => _vm?.OpenSettingsCommand.Execute(null);
+            menu.Add(settings);
+            menu.Add(new NativeMenuItemSeparator());
+
+            // Выход: разрешаем реальное закрытие и завершаем приложение.
+            var exitItem = new NativeMenuItem(LocalizationManager.T("Main.Exit"));
+            exitItem.Click += (_, _) =>
+            {
+                _allowCloseToTray = false;
+                _vm?.ExitCommand.Execute(null);
+            };
+            menu.Add(exitItem);
+
+            return menu;
+        }
+
         private void SetupTray()
         {
             try
             {
-                var menu = new NativeMenu();
-
-                var showItem = new NativeMenuItem(LocalizationManager.T("Main.ShowWindow"));
-                showItem.Click += (_, _) => ShowAndActivate();
-                menu.Add(showItem);
-                menu.Add(new NativeMenuItemSeparator());
-
-                // Недавние базы (быстрый запуск прямо из трея).
-                var recent = _vm?.RecentInfobases;
-                if (recent is { Count: > 0 })
-                {
-                    var recentMenu = new NativeMenu();
-                    foreach (var ib in recent)
-                    {
-                        var item = new NativeMenuItem($"{ib.Name}  ({ib.ServerDatabaseDisplay})");
-                        var baseRef = ib;
-                        item.Click += (_, _) => LaunchInfobase(baseRef);
-                        recentMenu.Add(item);
-                    }
-                    menu.Add(new NativeMenuItem(LocalizationManager.T("Main.RecentBases")) { Menu = recentMenu });
-                    menu.Add(new NativeMenuItemSeparator());
-                }
-
-                // Запуск выбранной базы: Предприятие / Конфигуратор.
-                if (_vm?.SelectedInfobase is { } sel)
-                {
-                    var ent = new NativeMenuItem($"{LocalizationManager.T("Main.LaunchEnterprise")}: {sel.Name}");
-                    ent.Click += (_, _) => _vm.LaunchEnterpriseCommand.Execute(null);
-                    menu.Add(ent);
-
-                    var cfg = new NativeMenuItem($"{LocalizationManager.T("Main.LaunchConfigurator")}: {sel.Name}");
-                    cfg.Click += (_, _) => _vm.LaunchConfiguratorCommand.Execute(null);
-                    menu.Add(cfg);
-                    menu.Add(new NativeMenuItemSeparator());
-                }
-
-                // Синхронизация и настройки.
-                var sync = new NativeMenuItem(LocalizationManager.T("Main.SyncWithIbases"));
-                sync.Click += (_, _) => _vm?.SynchronizeWithIbasesCommand.Execute(null);
-                menu.Add(sync);
-
-                var settings = new NativeMenuItem(LocalizationManager.T("Main.Settings"));
-                settings.Click += (_, _) => _vm?.OpenSettingsCommand.Execute(null);
-                menu.Add(settings);
-                menu.Add(new NativeMenuItemSeparator());
-
-                // Выход: разрешаем реальное закрытие и завершаем приложение.
-                var exitItem = new NativeMenuItem(LocalizationManager.T("Main.Exit"));
-                exitItem.Click += (_, _) =>
-                {
-                    _allowCloseToTray = false;
-                    _vm?.ExitCommand.Execute(null);
-                };
-                menu.Add(exitItem);
+                var menu = BuildTrayMenu();
 
                 var tray = new TrayIcon
                 {
@@ -3233,6 +3255,7 @@ namespace Configuration_Management
                     ToolTipText = LocalizationManager.T("App.Title"),
                     Menu = menu
                 };
+                _trayIcon = tray;
                 if (Application.Current is { } app)
                 {
                     TrayIcon.SetIcons(app, new TrayIcons { tray });
@@ -3303,12 +3326,15 @@ namespace Configuration_Management
         /// <summary>
         /// Закрытие окна уводит приложение в трей, а не завершает его
         /// (свойство «закрытие в трей»). Реальный выход — команда «Выход».
+        /// Перед уходом в трей сохраняем настройки (в т.ч. язык интерфейса),
+        /// чтобы выбранный язык не терялся при последующем полном выходе.
         /// </summary>
         protected override void OnClosing(WindowClosingEventArgs e)
         {
             base.OnClosing(e);
             if (_allowCloseToTray && _vm is not null)
             {
+                _vm.PersistSettings();
                 e.Cancel = true;
                 Hide();
             }

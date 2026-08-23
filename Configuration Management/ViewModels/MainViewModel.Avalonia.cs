@@ -3115,6 +3115,7 @@ public class MainViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(code))
             return;
 
+        Console.Error.WriteLine("[l10n-debug] MainViewModel.ApplyLanguage(" + code + ")");
         _settings.Language = code;
         SaveSettingsSilently();
 
@@ -3128,9 +3129,24 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Сохраняет текущие настройки (включая язык интерфейса) на диск.
+    /// Вызывается при закрытии окна в трей и при полном выходе, чтобы
+    /// выбранный язык не терялся между запусками.
+    /// </summary>
+    public void PersistSettings()
+    {
+        _settings.Language = Configuration_Management.Localization.LocalizationManager.Instance.CurrentLanguage;
+        Console.Error.WriteLine("[l10n-debug] PersistSettings language=" + _settings.Language);
+        SaveSettingsSilently();
+    }
+
     private void ExitApplication()
     {
-        SaveSettingsSilently();
+        // Гарантируем сохранение выбранного языка при завершении программы:
+        // если язык определился автоматически (по системе) и не сохранялся через
+        // ApplyLanguage, записываем текущий код, чтобы он не потерялся между запусками.
+        PersistSettings();
         if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
             desktop.Shutdown();
     }

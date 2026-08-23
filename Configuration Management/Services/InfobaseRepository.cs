@@ -150,11 +150,16 @@ public class InfobaseRepository : IInfobaseRepository
     public AppSettings LoadSettings()
     {
         if (!File.Exists(_settingsFilePath))
+        {
+            Console.Error.WriteLine("[l10n-debug] LoadSettings: file missing (" + _settingsFilePath + ")");
             return new AppSettings();
+        }
         try
         {
             var json = File.ReadAllText(_settingsFilePath);
-            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            Console.Error.WriteLine("[l10n-debug] LoadSettings: Language=" + loaded.Language + ", file=" + _settingsFilePath);
+            return loaded;
         }
         catch (Exception ex)
         {
@@ -168,6 +173,7 @@ public class InfobaseRepository : IInfobaseRepository
     /// </summary>
     public void SaveSettings(AppSettings settings)
     {
+        Console.Error.WriteLine("[l10n-debug] SaveSettings: Language=" + settings.Language + ", file=" + _settingsFilePath);
         WriteAtomic(_settingsFilePath, JsonSerializer.Serialize(settings, JsonOptions));
     }
 

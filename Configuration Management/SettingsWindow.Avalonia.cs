@@ -104,6 +104,16 @@ namespace Configuration_Management
             langBox.DisplayMemberBinding = new Avalonia.Data.Binding("Name");
             langBox.SelectedItem = LocalizationManager.Instance.AvailableLanguages
                 .FirstOrDefault(l => l.Code == LocalizationManager.Instance.CurrentLanguage);
+            // Язык применяется сразу при выборе (и сохраняется в настройках), чтобы
+            // интерфейс перестраивался на новый язык без нажатия «OK».
+            langBox.SelectionChanged += (_, _) =>
+            {
+                if (langBox.SelectedItem is LanguageInfo li &&
+                    !string.Equals(li.Code, LocalizationManager.Instance.CurrentLanguage, StringComparison.Ordinal))
+                {
+                    _viewModel.ApplyLanguage(li.Code);
+                }
+            };
             settings.Children.Add(langBox);
             settings.Children.Add(new TextBlock
             {

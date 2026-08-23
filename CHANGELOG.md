@@ -5,6 +5,36 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.39] — 2026-08-23
+
+### Локализация / сохранение настроек
+
+- **Сохранение языка при закрытии окна в трей** — при уходе главного окна в трей (`OnClosing`) вызывается `MainViewModel.PersistSettings()`, который записывает текущий код языка в `AppSettings.Language` и сохраняет настройки на диск. Ранее язык сохранялся только при полном выходе через команду «Выход», поэтому при закрытии окна крестиком и последующем завершении из трея выбранный язык мог не сохраниться.
+- **Динамическое обновление меню трея при смене языка** — меню и подсказка (`ToolTipText`) значка в трее пересобираются в `RebuildAfterLanguageChange()` через новый метод `BuildTrayMenu()`. Подписи пунктов («Показать окно», «Синхронизация», «Настройки», «Выход» и др.) и подсказка трея сразу переключаются на выбранный язык без перезапуска приложения.
+- **Публичный метод `PersistSettings()`** в `MainViewModel` — единая точка сохранения настроек (включая язык), используется и при закрытии в трей, и при полном выходе.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.39** (`InformationalVersion` = 0.3.3.39 в `Configuration Management.csproj`). Бейдж и заголовок в `README.md` обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [Не выпущено]
+
+### Инструменты / валидация локализации
+
+- **Добавлен автоматический аудит локализации** [`tools/l10n-audit.ps1`](tools/l10n-audit.ps1) (и отчёт [`tools/l10n-audit-report.txt`](tools/l10n-audit-report.txt)). Скрипт (а) сравнивает наборы ключей `ru.json ↔ en.json` и (б) проверяет, что все ключи, используемые в коде/XAML (`LocalizationManager.T("...")`, `{loc:Loc ...}`, `Loc["..."]`, `{Binding Loc[...]}`), присутствуют в `ru.json`.
+- **Результат повторной валидации:** расхождений ключей между [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json) нет (1186 = 1186); все 1117 уникальных ключей, найденных в коде/XAML, присутствуют в `ru.json` (и, следовательно, в `en.json`). Захардкоженных пользовательских строк вне локализации в контекстных меню дерева, трей-меню и статус-баре не обнаружено. Дефектов для исправления не выявлено, поэтому номер версии не изменён.
+
+## [0.3.3.38] — 2026-08-23
+
+### Локализация
+
+- **Динамическая смена языка при выборе в настройках (Avalonia/Linux)** — в [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs) добавлен обработчик `SelectionChanged` у выпадающего списка языка: язык теперь применяется (и сохраняется в настройках) сразу при выборе пункта, без нажатия «OK». Ранее изменение языка фиксировалось только по кнопке «OK», поэтому интерфейс выглядел «непереведённым» при закрытии диалога иначе. Также добавлено переопределение `OnLanguageChanged`, которое пересобирает содержимое окна настроек целиком, чтобы все подписи вкладок и элементов обновились на выбранный язык немедленно (базовая реализация [`ModalWindowBase`](Configuration Management/ModalWindowBase.cs) обновляла только кнопки OK/Отмена).
+- **Сохранение языка при закрытии программы** — в [`ExitApplication()`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs:2676) текущий код языка (`LocalizationManager.Instance.CurrentLanguage`) записывается в `AppSettings.Language` перед сохранением настроек. Это гарантирует, что язык не теряется между запусками даже если он определялся автоматически (по языку системы) и не был явно выбран через `ApplyLanguage`.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.38** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.38 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.38; жёстко прописанная версия в `Settings.About.HelpText` обновлена в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
 ## [0.3.3.37] — 2026-08-23
 
 ### Локализация
