@@ -1,5 +1,6 @@
 #if LINUX
 using Avalonia;
+using Avalonia.Controls;
 
 namespace Configuration_Management.Themes
 {
@@ -27,6 +28,51 @@ namespace Configuration_Management.Themes
         /// </remarks>
         public static void Bind(StyledElement target, AvaloniaProperty property, string brushKey)
             => target.Bind(property, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(brushKey));
+
+        /// <summary>
+        /// Отдаёт кисть темы в код и обновляет её при смене темы или схемы.
+        /// Нужно там, где кисть не ложится в свойство напрямую: цвет зависит
+        /// от состояния элемента (наведение, фокус) и пересчитывается вручную.
+        /// </summary>
+        /// <param name="target">Элемент, к жизни которого привязана подписка.</param>
+        /// <param name="brushKey">Ключ ресурса-кисти темы.</param>
+        /// <param name="apply">Что делать с полученной кистью.</param>
+        /// <remarks>
+        /// Подписка снимается, когда элемент покидает визуальное дерево. Без
+        /// этого наблюдатель жил бы у приложения и держал элемент сильной
+        /// ссылкой: пересборка содержимого окна оставляла бы прежнее дерево
+        /// укоренённым навсегда.
+        /// </remarks>
+        public static void Observe(Avalonia.Controls.Control target, string brushKey, System.Action<Avalonia.Media.IBrush> apply)
+        {
+            if (Avalonia.Application.Current is not { } app)
+                return;
+
+            var subscription = app.GetResourceObservable(brushKey).Subscribe(new BrushCallback(apply));
+
+            void Release(object? sender, Avalonia.VisualTreeAttachmentEventArgs e)
+            {
+                subscription.Dispose();
+                target.DetachedFromVisualTree -= Release;
+            }
+
+            target.DetachedFromVisualTree += Release;
+        }
+
+        private sealed class BrushCallback : System.IObserver<object?>
+        {
+            private readonly System.Action<Avalonia.Media.IBrush> _apply;
+
+            public BrushCallback(System.Action<Avalonia.Media.IBrush> apply) => _apply = apply;
+
+            public void OnCompleted() { }
+            public void OnError(System.Exception error) { }
+            public void OnNext(object? value)
+            {
+                if (value is Avalonia.Media.IBrush brush)
+                    _apply(brush);
+            }
+        }
     }
 }
 #endif
