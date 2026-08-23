@@ -1,5 +1,6 @@
 #if LINUX
 using System.Collections.ObjectModel;
+using System.Text.Json;
 using System.Windows.Input;
 using Avalonia.Threading;
 using Configuration_Management.Localization;
@@ -858,6 +859,7 @@ public class MainViewModel : ViewModelBase
             _sessionArch = SessionArchFromSetting(_settings.SessionArchitecture);
             ApplyDefaultArchitecture();
             ApplyAdditionalSearchPaths();
+            ApplyTemplateCatalogPaths();
 
             OnPropertyChanged(nameof(GroupByGroup));
             OnPropertyChanged(nameof(ShowEmptyGroups));
@@ -1673,6 +1675,307 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     private void ApplyAdditionalSearchPaths() =>
         PlatformVersionService.SetAdditionalSearchPaths(_settings.AdditionalPlatformSearchPaths);
+
+    /// <summary>Добавлять ли метку времени к имени файла выгрузки.</summary>
+    public bool AddTimestampToExportFileName => _settings.AddTimestampToExportFileName;
+
+    /// <summary>Формат метки времени в имени файла выгрузки.</summary>
+    public string ExportTimestampFormat => _settings.ExportTimestampFormat;
+
+    /// <summary>Применяет настройки имени файла выгрузки со вкладки «Базы».</summary>
+    public void ApplyExportFileNameSettings(bool addTimestamp, string timestampFormat)
+    {
+        _settings.AddTimestampToExportFileName = addTimestamp;
+        _settings.ExportTimestampFormat = string.IsNullOrWhiteSpace(timestampFormat)
+            ? "yyyyMMdd_HHmmss"
+            : timestampFormat.Trim();
+        SaveSettingsSilently();
+    }
+
+    /// <summary>Выгружает список баз и групп в JSON-файл.</summary>
+    public void ExportInfobases(bool addTimestamp, string timestampFormat)
+    {
+        if (_allInfobases.Count == 0)
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Main.ExportEmpty"),
+                LocalizationManager.T("Main.ExportBasesTitle"));
+            return;
+        }
+
+        var path = _dialog.SaveFileDialog(
+            LocalizationManager.T("Main.ExportBasesDialogTitle"),
+            BuildExportFileName("infobases_export", ".json", addTimestamp, timestampFormat),
+            LocalizationManager.T("Main.JsonFileFilter"));
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        try
+        {
+            var json = JsonSerializer.Serialize(
+                new InfobaseExportData
+                {
+                    Infobases = _allInfobases.ToList(),
+                    Groups = _groups.ToList()
+                },
+                new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+
+            _dialog.ShowInfo(
+                string.Format(LocalizationManager.T("Main.ExportDone"), _allInfobases.Count, _groups.Count, path),
+                LocalizationManager.T("Main.ExportBasesTitle"));
+            _logger.Info($"Список баз выгружен в {path}");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка выгрузки списка баз", ex);
+            _dialog.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrExportFailed"), ex.Message),
+                LocalizationManager.T("Main.ExportErrorTitle"));
+        }
+    }
+
+    /// <summary>
+    /// Загружает список баз и групп из JSON-файла, заменяя текущий.
+    /// Понимает и старый формат, где в файле лежит только список баз.
+    /// </summary>
+    public void ImportInfobases()
+    {
+        var path = _dialog.OpenFileDialog(
+            LocalizationManager.T("Main.ImportBasesDialogTitle"),
+            LocalizationManager.T("Main.JsonFileFilter"));
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            InfobaseExportData? exportData = null;
+            try { exportData = JsonSerializer.Deserialize<InfobaseExportData>(json, options); }
+            catch (JsonException) { }
+
+            List<Infobase> loaded;
+            List<Group> loadedGroups;
+            if (exportData is not null && exportData.Infobases.Count > 0)
+            {
+                loaded = exportData.Infobases;
+                loadedGroups = exportData.Groups;
+            }
+            else
+            {
+                loaded = JsonSerializer.Deserialize<List<Infobase>>(json, options) ?? new List<Infobase>();
+                loadedGroups = new List<Group>();
+            }
+
+            if (loaded.Count == 0)
+            {
+                _dialog.ShowWarning(LocalizationManager.T("Main.ImportNoBases"),
+                    LocalizationManager.T("Main.LoadBasesTitle"));
+                return;
+            }
+
+            if (!_dialog.Confirm(
+                    string.Format(LocalizationManager.T("Main.ImportConfirm"), loaded.Count, loadedGroups.Count),
+                    LocalizationManager.T("Main.LoadBasesTitle")))
+                return;
+
+            _allInfobases.Clear();
+            _allInfobases.AddRange(loaded);
+            _groups.Clear();
+            _groups.AddRange(loadedGroups);
+            SelectedInfobase = null;
+
+            var saved = SaveSilently();
+            saved &= SaveGroupsSilently();
+            RebuildTree();
+
+            if (!saved)
+            {
+                // Список в памяти уже заменён, а на диске осталось прежнее
+                // состояние: сообщать об успехе нельзя.
+                _dialog.ShowError(
+                    string.Format(LocalizationManager.T("Main.ErrLoadFailed"),
+                        LocalizationManager.T("Main.SaveFailedHint")),
+                    LocalizationManager.T("Main.LoadErrorTitle"));
+                return;
+            }
+
+            _dialog.ShowInfo(
+                string.Format(LocalizationManager.T("Main.ImportDoneMsg"), loaded.Count, loadedGroups.Count),
+                LocalizationManager.T("Main.LoadBasesTitle"));
+            _logger.Info($"Список баз загружен из {path}");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка загрузки списка баз", ex);
+            _dialog.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrLoadFailed"), ex.Message),
+                LocalizationManager.T("Main.LoadErrorTitle"));
+        }
+    }
+
+    /// <summary>
+    /// Читает список баз из ibases.v8i и добавляет или обновляет базы.
+    /// Путь ищется сам, и только если файла нет, спрашивается у пользователя.
+    /// </summary>
+    public void ImportFromIbasesV8i()
+    {
+        var path = IbasesV8iImporter.FindDefaultPath();
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            path = _dialog.OpenFileDialog(
+                LocalizationManager.T("Settings.Ibases.FileDialogTitle"),
+                LocalizationManager.T("Main.IbasesFileFilter"));
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+        }
+
+        ImportFromIbasesFileInteractive(path);
+    }
+
+    /// <summary>
+    /// Разовый импорт из ibases.v8i по требованию пользователя. Импортёр не
+    /// только добавляет и обновляет базы, но и удаляет те, которых в файле нет,
+    /// поэтому пустой или испорченный файл вычистил бы список. Ровно та же
+    /// защита стоит в автоматической синхронизации.
+    /// </summary>
+    private void ImportFromIbasesFileInteractive(string path)
+    {
+        var before = _allInfobases.Count;
+
+        try
+        {
+            // Импорт идёт в копии списков: он удаляет базы, которых нет в файле,
+            // и до подтверждения пользователем рабочие списки трогать нельзя.
+            // Проверено исполнением: без этого разовый импорт молча заменил
+            // тридцать баз восемью из файла.
+            var candidateInfobases = _allInfobases.ToList();
+            var candidateGroups = _groups.ToList();
+            var result = _sync.Import(path, candidateInfobases, candidateGroups);
+
+            if (before > 0 && candidateInfobases.Count == 0)
+            {
+                _logger.Warn($"Импорт из {path} не дал ни одной базы, список приложения не меняем");
+                _dialog.ShowWarning(LocalizationManager.T("Main.ImportNoBases"),
+                    LocalizationManager.T("Main.ImportIbasesTitle"));
+                return;
+            }
+
+            if (result.Removed > 0 && !_dialog.Confirm(
+                    string.Format(LocalizationManager.T("Main.ImportRemovesConfirm"),
+                        result.Removed, result.Added, result.Updated),
+                    LocalizationManager.T("Main.ImportIbasesTitle")))
+                return;
+
+            _allInfobases.Clear();
+            _allInfobases.AddRange(candidateInfobases);
+            _groups.Clear();
+            _groups.AddRange(candidateGroups);
+
+            var saved = SaveSilently();
+            // Импорт создаёт недостающие группы, и без их записи они пропадают
+            // при следующем запуске.
+            saved &= SaveGroupsSilently();
+            RebuildTree();
+
+            // Выбранную базу мог удалить сам импорт.
+            if (SelectedInfobase is { } selected && !_allInfobases.Contains(selected))
+                SelectedInfobase = null;
+
+            StatusBarInfo = string.Format(LocalizationManager.T("Sync.ImportedCount"), _allInfobases.Count, _groups.Count);
+            _logger.Info($"Импорт из ibases.v8i: {path}, добавлено {result.Added}, обновлено {result.Updated}, удалено {result.Removed}");
+
+            if (!saved)
+            {
+                _dialog.ShowError(
+                    string.Format(LocalizationManager.T("Main.ErrImportFailed"),
+                        LocalizationManager.T("Main.SaveFailedHint")),
+                    LocalizationManager.T("Main.ImportErrorTitle"));
+                return;
+            }
+
+            _dialog.ShowInfo(
+                string.Format(LocalizationManager.T("Main.ImportDone"),
+                    result.Added, result.Updated, result.Skipped, result.GroupsCreated),
+                LocalizationManager.T("Main.ImportIbasesTitle"));
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка импорта из ibases.v8i", ex);
+            _dialog.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrImportFailed"), ex.Message),
+                LocalizationManager.T("Main.ImportErrorTitle"));
+        }
+    }
+
+    /// <summary>Имя файла выгрузки с меткой времени, если она включена.</summary>
+    private static string BuildExportFileName(string baseName, string extension, bool addTimestamp, string timestampFormat)
+    {
+        if (!addTimestamp)
+            return $"{baseName}{extension}";
+
+        var format = string.IsNullOrWhiteSpace(timestampFormat) ? "yyyyMMdd_HHmmss" : timestampFormat;
+        try
+        {
+            return $"{baseName}_{DateTime.Now.ToString(format)}{extension}";
+        }
+        catch (FormatException)
+        {
+            // Шаблон мог прийти из файла настроек, правленного руками.
+            return $"{baseName}_{DateTime.Now:yyyyMMdd_HHmmss}{extension}";
+        }
+    }
+
+    /// <summary>Каталоги шаблонов конфигураций, заданные пользователем.</summary>
+    public IReadOnlyList<string> TemplateCatalogPaths => _settings.TemplateCatalogPaths;
+
+    /// <summary>
+    /// Применяет настройки каталогов шаблонов со вкладки «Базы». Поиск шаблонов
+    /// читает статический список сервиса, поэтому без этой передачи заданные
+    /// каталоги оставались только в файле настроек.
+    /// </summary>
+    public void ApplyTemplateCatalogPaths(IEnumerable<string> paths)
+    {
+        _settings.TemplateCatalogPaths = (paths ?? Enumerable.Empty<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        ApplyTemplateCatalogPaths();
+        SaveSettingsSilently();
+    }
+
+    private void ApplyTemplateCatalogPaths() =>
+        OneCTemplateService.SetUserTemplatePaths(_settings.TemplateCatalogPaths);
+
+    /// <summary>
+    /// Каталоги шаблонов, известные самой платформе: из её настроек и
+    /// стандартный tmplts. Кнопка «Из 1С» на вкладке «Базы» заполняет
+    /// список ими.
+    /// </summary>
+    public List<string> DiscoverTemplateCatalogPaths()
+    {
+        var found = new List<string>();
+        try
+        {
+            var configured = OneCTemplateService.GetConfiguredOrDefaultTemplatePath();
+            if (!string.IsNullOrWhiteSpace(configured))
+                found.Add(configured);
+            found.AddRange(OneCTemplateService.GetTemplateRootFolders());
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"Не удалось прочитать каталоги шаблонов: {ex.Message}");
+        }
+
+        return found
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 
     /// <summary>
     /// Отдаёт разрядность по умолчанию запуску платформы. Без этого настройка
@@ -2625,21 +2928,10 @@ public class MainViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(path))
             return;
 
-        try
-        {
-            var importResult = _sync.Import(path, _allInfobases, _groups);
-            SaveSilently();
-            RebuildTree();
-            SyncMessage = LocalizationManager.T("Sync.Completed");
-            StatusBarInfo = string.Format(LocalizationManager.T("Sync.ImportedCount"), _allInfobases.Count, _groups.Count);
-            _logger.Info($"Синхронизация с ibases.v8i: {path}");
-        }
-        catch (Exception ex)
-        {
-            _logger.Error("Ошибка синхронизации с ibases.v8i", ex);
-            _dialog.ShowError(string.Format(LocalizationManager.T("Sync.ErrSyncFailed"), ex.Message));
-            SyncMessage = LocalizationManager.T("Sync.Failed");
-        }
+        // Тот же путь, что и у кнопки на вкладке «Базы»: раньше здесь терялись
+        // созданные импортом группы и оставался выбор на удалённой базе.
+        ImportFromIbasesFileInteractive(path);
+        SyncMessage = LocalizationManager.T("Sync.Completed");
     }
 
     private void ToggleTheme()
