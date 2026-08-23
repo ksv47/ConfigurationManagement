@@ -259,6 +259,15 @@ public class MainViewModel : ViewModelBase
     public ICommand ClearTagFiltersCommand { get; private set; } = null!;
     public ICommand LaunchEnterpriseCommand { get; private set; } = null!;
     public ICommand LaunchConfiguratorCommand { get; private set; } = null!;
+
+    /// <summary>Запуск Предприятия с разовыми параметрами командной строки.</summary>
+    public ICommand LaunchEnterpriseWithParamsCommand { get; private set; } = null!;
+
+    /// <summary>Запуск Предприятия с запросом имени и пароля вместо сохранённых.</summary>
+    public ICommand LaunchEnterpriseWithAuthCommand { get; private set; } = null!;
+
+    /// <summary>Запуск Конфигуратора с разовыми параметрами командной строки.</summary>
+    public ICommand LaunchConfiguratorWithParamsCommand { get; private set; } = null!;
     public ICommand EditInfobaseCommand { get; private set; } = null!;
     public ICommand AddInfobaseCommand { get; private set; } = null!;
     public ICommand DeleteInfobaseCommand { get; private set; } = null!;
@@ -296,6 +305,9 @@ public class MainViewModel : ViewModelBase
         ClearTagFiltersCommand = new RelayCommand(ClearTagFilters);
         LaunchEnterpriseCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Enterprise), _ => SelectedInfobase is not null);
         LaunchConfiguratorCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Configurator), _ => SelectedInfobase is not null);
+        LaunchEnterpriseWithParamsCommand = new RelayCommand(_ => LaunchWithParams(LaunchKind.Enterprise), _ => SelectedInfobase is not null);
+        LaunchEnterpriseWithAuthCommand = new RelayCommand(_ => LaunchWithAuth(), _ => SelectedInfobase is not null);
+        LaunchConfiguratorWithParamsCommand = new RelayCommand(_ => LaunchWithParams(LaunchKind.Configurator), _ => SelectedInfobase is not null);
         EditInfobaseCommand = new RelayCommand(_ => EditInfobase(), _ => SelectedInfobase is not null);
         AddInfobaseCommand = new RelayCommand(AddInfobase);
         DeleteInfobaseCommand = new RelayCommand(_ => DeleteInfobase(),
@@ -1321,6 +1333,60 @@ public class MainViewModel : ViewModelBase
     }
 
     // ======================= Запуск / действия =======================
+
+    /// <summary>
+    /// Запуск с разовыми параметрами: диалог правит параметры только на один
+    /// запуск, сохранённое значение базы возвращается в любом случае.
+    /// </summary>
+    private void LaunchWithParams(LaunchKind kind)
+    {
+        var infobase = SelectedInfobase;
+        if (infobase is null)
+            return;
+
+        var dialog = new Configuration_Management.LaunchParametersWindow(infobase.LaunchParameters ?? string.Empty);
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        var saved = infobase.LaunchParameters ?? string.Empty;
+        try
+        {
+            infobase.LaunchParameters = dialog.Result;
+            Launch(_launchVm.LaunchCommand, kind);
+        }
+        finally
+        {
+            infobase.LaunchParameters = saved;
+        }
+    }
+
+    /// <summary>
+    /// Запуск с авторизацией: сохранённые имя и пароль на один раз убираются,
+    /// чтобы платформа спросила их сама. Прежние значения возвращаются всегда.
+    /// </summary>
+    private void LaunchWithAuth()
+    {
+        var infobase = SelectedInfobase;
+        if (infobase?.Connection is not { } connection)
+            return;
+
+        var savedUser = connection.User;
+        var savedPassword = connection.Password;
+        var savedMode = connection.AuthenticationMode;
+        try
+        {
+            connection.User = string.Empty;
+            connection.Password = string.Empty;
+            connection.AuthenticationMode = AuthenticationMode.Prompt;
+            Launch(_launchVm.LaunchCommand, LaunchKind.Enterprise);
+        }
+        finally
+        {
+            connection.User = savedUser;
+            connection.Password = savedPassword;
+            connection.AuthenticationMode = savedMode;
+        }
+    }
 
     private void OnLaunched()
     {
