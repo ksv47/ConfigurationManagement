@@ -54,6 +54,9 @@ namespace Configuration_Management
         private Control? _headerPinMark;
         private double _headerToolbarWidth;
         private Grid? _listContent;
+        private ScrollBar? _listVerticalBar;
+        private bool _listScrollBarAttached;
+        private bool _syncingScrollBar;
         private bool _columnHeaderRefreshQueued;
         private bool _headerAlignQueued;
         private readonly Dictionary<string, int> _headerColumnIndex = new(StringComparer.Ordinal);
@@ -521,9 +524,42 @@ namespace Configuration_Management
                 Content = _listContent
             };
 
+            // Вертикальная полоса вынесена из области горизонтальной прокрутки
+            // и стоит отдельным столбцом справа. Собственная полоса дерева
+            // рисуется у правого края его содержимого, поэтому уезжала за границу,
+            // как только колонки переставали помещаться по ширине.
+            ScrollViewer.SetVerticalScrollBarVisibility(_tree, ScrollBarVisibility.Hidden);
+            // Ширина и авто-скрытие не задаются: полоса должна выглядеть так же,
+            // как горизонтальная полоса списка и полоса правой панели, то есть
+            // по правилам темы.
+            _listVerticalBar = new ScrollBar
+            {
+                Orientation = Orientation.Vertical,
+                Minimum = 0,
+                IsVisible = false
+            };
+            _listVerticalBar.GetObservable(RangeBase.ValueProperty).Subscribe(new PropertyObserver<double>(value =>
+            {
+                // Флаг разводит два направления: пользователь тянет полосу,
+                // и наоборот, прокрутка списка двигает полосу.
+                if (_syncingScrollBar || TreeScroll is not { } scroll)
+                    return;
+                _syncingScrollBar = true;
+                try { scroll.Offset = scroll.Offset.WithY(value); }
+                finally { _syncingScrollBar = false; }
+            }));
+
+            var listWithBar = new Grid();
+            listWithBar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            listWithBar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Grid.SetColumn(listArea, 0);
+            Grid.SetColumn(_listVerticalBar, 1);
+            listWithBar.Children.Add(listArea);
+            listWithBar.Children.Add(_listVerticalBar);
+
             var leftPanel = new Border
             {
-                Child = listArea,
+                Child = listWithBar,
                 Margin = new Thickness(UiMetrics.TopBarH, UiMetrics.TopBarV, 8, UiMetrics.TopBarV),
                 Padding = new Thickness(UiMetrics.Scaled(8), UiMetrics.Scaled(8))
             };
@@ -2734,6 +2770,9 @@ namespace Configuration_Management
         {
             _vm?.Initialize();
             RegisterHotkeys();
+            // Шаблон дерева готов только после загрузки окна, раньше внутренней
+            // прокрутки ещё нет.
+            AttachVerticalScrollBar();
             if (_vm is not null)
             {
                 // Переназначение клавиш меняет и привязки, и подписи в меню.
@@ -2763,6 +2802,50 @@ namespace Configuration_Management
         /// <summary>Внутренняя прокрутка дерева: вертикаль ведёт сам TreeView.</summary>
         private ScrollViewer? TreeScroll =>
             _tree?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+
+        /// <summary>
+        /// Связывает внешнюю полосу прокрутки с деревом. Полоса стоит отдельным
+        /// столбцом, вне горизонтальной прокрутки, поэтому остаётся у правого
+        /// края области даже когда колонки шире окна.
+        /// </summary>
+        private void AttachVerticalScrollBar()
+        {
+            if (_listVerticalBar is null || TreeScroll is not { } scroll || _listScrollBarAttached)
+                return;
+
+            _listScrollBarAttached = true;
+
+            void Sync()
+            {
+                if (_syncingScrollBar)
+                    return;
+                _syncingScrollBar = true;
+                try
+                {
+                    var hidden = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+                    _listVerticalBar.Maximum = hidden;
+                    _listVerticalBar.ViewportSize = scroll.Viewport.Height;
+                    _listVerticalBar.Value = Math.Min(scroll.Offset.Y, hidden);
+                    _listVerticalBar.IsVisible = hidden > 0.5;
+                }
+                finally { _syncingScrollBar = false; }
+            }
+
+            scroll.GetObservable(ScrollViewer.OffsetProperty).Subscribe(new PropertyObserver<Vector>(_ => Sync()));
+            scroll.GetObservable(ScrollViewer.ExtentProperty).Subscribe(new PropertyObserver<Size>(_ => Sync()));
+            scroll.GetObservable(ScrollViewer.ViewportProperty).Subscribe(new PropertyObserver<Size>(_ => Sync()));
+            Sync();
+        }
+
+        /// <summary>Наблюдатель за значением свойства.</summary>
+        private sealed class PropertyObserver<T> : IObserver<T>
+        {
+            private readonly Action<T> _apply;
+            public PropertyObserver(Action<T> apply) => _apply = apply;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(T value) => _apply(value);
+        }
 
         /// <summary>
         /// Запоминает позицию прокрутки до пересборки: список опустеет, и после
