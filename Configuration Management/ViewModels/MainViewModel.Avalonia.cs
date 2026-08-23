@@ -123,7 +123,9 @@ public class MainViewModel : ViewModelBase
         _settings.ShowTrayIcon = showTrayIcon;
         _settings.CloseToTray = closeToTray;
         _settings.EscapeToTray = escapeToTray;
-        SaveSettingsSilently();
+        if (!SaveSettingsSafe())
+            _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
+                LocalizationManager.T("Settings.Title"));
         // Значок показывается и прячется сразу, как в версии для Windows,
         // иначе настройка действовала бы только после перезапуска.
         TraySettingsChanged?.Invoke();
@@ -1779,15 +1781,20 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
+        // Разбивка и предупреждение идут перед вопросом: ключ подтверждения
+        // общий с версией для Windows и заканчивается словом «Продолжить?»,
+        // поэтому дописывать предупреждение после него нельзя.
         var breakdown = InfobaseMaintenanceService.DescribeProcesses(snapshot);
-        var question = string.Format(LocalizationManager.T("Main.KillProcessesConfirm"), snapshot.Count);
-        question += "\n\n" + string.Format(LocalizationManager.T("Main.KillProcessesBreakdown"),
+        var details = string.Format(LocalizationManager.T("Main.KillProcessesBreakdown"),
             string.Join(", ", breakdown.Select(p => $"{p.Name}: {p.Count}")));
 
         // Про остановку кластера предупреждаем только когда серверные процессы
         // действительно в списке.
         if (breakdown.Any(p => ServerProcessNames.Contains(p.Name, StringComparer.OrdinalIgnoreCase)))
-            question += " " + LocalizationManager.T("Main.KillProcessesServerNote");
+            details += " " + LocalizationManager.T("Main.KillProcessesServerNote");
+
+        var question = details + "\n\n"
+            + string.Format(LocalizationManager.T("Main.KillProcessesConfirm"), snapshot.Count);
 
         if (!_dialog.Confirm(question, LocalizationManager.T("Main.KillProcessesTitle")))
             return;
@@ -2116,8 +2123,14 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Процессы кластера серверов: их завершение останавливает сервер.</summary>
-    private static readonly string[] ServerProcessNames = { "ragent", "rmngr", "rphost" };
+    /// <summary>
+    /// Процессы, завершение которых бьёт не по клиентскому сеансу: кластер
+    /// серверов, сервер отладки, сервер данных и утилиты, держащие базу.
+    /// </summary>
+    private static readonly string[] ServerProcessNames =
+    {
+        "ragent", "rmngr", "rphost", "ras", "rac", "dbgs", "dbda", "ibsrv", "ibcmd", "crserver"
+    };
 
     private bool SaveList(List<Infobase> infobases)
     {
@@ -3200,6 +3213,13 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Сохраняет список баз, возвращая признак успеха: ошибка идёт в журнал.</summary>
     private bool SaveSilently() => SaveList(_allInfobases);
+
+    /// <summary>Сохраняет настройки и сообщает, удалось ли.</summary>
+    private bool SaveSettingsSafe()
+    {
+        try { _repository.SaveSettings(_settings); return true; }
+        catch (Exception ex) { _logger.Error("Не удалось сохранить настройки", ex); return false; }
+    }
 
     private void SaveSettingsSilently()
     {

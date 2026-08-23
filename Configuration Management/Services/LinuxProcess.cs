@@ -174,9 +174,8 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>
-        /// Корни установленных платформ: каталоги версий, которые нашёл поиск,
-        /// и их родители. Собираются один раз на перечисление, потому что поиск
-        /// ходит по файловой системе.
+        /// Каталоги установленных платформ, которые нашёл поиск. Собираются
+        /// один раз на перечисление, потому что поиск ходит по файловой системе.
         /// </summary>
         private static IReadOnlyList<string> PlatformRoots()
         {
@@ -185,8 +184,7 @@ namespace Configuration_Management.Services
             {
                 // Разрядность здесь кодируется как «64» и «32»: именно так её
                 // принимает Linux-версия поиска платформы.
-                foreach (var (_, binDir) in PlatformVersionService.FindPlatformVersionDirs("64")
-                             .Concat(PlatformVersionService.FindPlatformVersionDirs("32")))
+                foreach (var (_, binDir) in PlatformVersionService.FindPlatformVersionDirs("64"))
                 {
                     var full = TryGetFullPath(binDir);
                     if (full is not null)
@@ -275,46 +273,34 @@ namespace Configuration_Management.Services
         /// </summary>
         public static (int Killed, int Failed) KillOneC(IEnumerable<(int Pid, string? StartTime)> processes)
         {
-            var targets = new List<int>();
-            var failed = 0;
+            var all = processes.DistinctBy(p => p.Pid).ToList();
+            var signalled = new List<int>();
 
-            foreach (var (pid, startTime) in processes.DistinctBy(p => p.Pid))
+            foreach (var (pid, startTime) in all)
             {
                 if (!IsAlive(pid))
-                {
-                    // Процесс ушёл сам или вместе с чужим деревом: это успех,
-                    // иначе сумма не сходится с числом в вопросе.
-                    targets.Add(pid);
                     continue;
-                }
 
-                // Номер процесса ядро переиспользует: перед сигналом сверяем,
-                // что это тот самый экземпляр, который показывали пользователю.
-                // Пустое время старта означает, что подтвердить личность нечем,
-                // и тогда сигнал не посылается вовсе: номер процесса ядро
-                // переиспользует, и под удаление попал бы чужой процесс.
+                // Номер процесса ядро переиспользует, поэтому перед сигналом
+                // сверяется время старта. Пустое значение подтвердить нечем,
+                // и тогда сигнал не посылается вовсе.
                 if (startTime is null || ReadStartTime(pid) != startTime)
-                {
-                    failed++;
                     continue;
-                }
 
-                if (SendKill(pid))
-                    targets.Add(pid);
-                else
-                    failed++;
+                SendKill(pid);
+                signalled.Add(pid);
             }
 
             // Сигналы разосланы всем, теперь одно общее ожидание: иначе окно
             // стояло бы по три секунды на каждый зависший процесс.
             var deadline = Environment.TickCount64 + KillWaitMilliseconds;
-            while (targets.Any(IsAlive) && Environment.TickCount64 < deadline)
+            while (signalled.Any(IsAlive) && Environment.TickCount64 < deadline)
                 Thread.Sleep(KillPollMilliseconds);
 
-            var killed = targets.Count(pid => !IsAlive(pid));
-            failed += targets.Count - killed;
-
-            return (killed, failed);
+            // Итог считается по факту: процесса из показанного списка больше
+            // нет, значит цель достигнута, сам он ушёл или по сигналу.
+            var killed = all.Count(p => !IsAlive(p.Pid));
+            return (killed, all.Count - killed);
         }
 
     }

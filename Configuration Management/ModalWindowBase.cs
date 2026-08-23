@@ -156,7 +156,12 @@ namespace Configuration_Management
         private static string ResolveOkText(string? okText) =>
             string.IsNullOrEmpty(okText) ? LocalizationManager.T("Common.Ok") : okText;
 
-        private void EnsureLanguageSubscription()
+        /// <summary>
+        /// Включает подписку на смену языка. Вызывается сама для окон
+        /// со стандартной панелью кнопок; окну, которое строит кнопки само,
+        /// нужно вызвать её явно.
+        /// </summary>
+        protected void EnsureLanguageSubscription()
         {
             if (_languageSubscribed)
                 return;

@@ -3371,12 +3371,12 @@ namespace Configuration_Management
             {
                 // Значок не создался при загрузке: пробуем ещё раз, иначе
                 // включение настройки не даст ничего до перезапуска.
-                if (_vm is null || _vm.ShowTrayIcon || _vm.CloseToTray)
+                if (TrayIconWanted)
                     SetupTray();
                 return;
             }
 
-            var wanted = _vm is null || _vm.ShowTrayIcon || _vm.CloseToTray;
+            var wanted = TrayIconWanted;
 
             // Пока окно спрятано, значок обязан оставаться видимым: он
             // единственный надёжный путь назад. Если настройки требуют его
