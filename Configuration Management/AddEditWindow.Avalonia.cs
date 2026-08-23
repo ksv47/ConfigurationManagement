@@ -80,7 +80,7 @@ namespace Configuration_Management
                     Children =
                     {
                         new TextBlock { Text = LocalizationManager.T("AddEdit.Next"), VerticalAlignment = VerticalAlignment.Center },
-                        IconHelper.MakeIcon("IconArrowRight", 16, "TextOnAccentColorBrush", subscriptions: ThemeSubscriptions)
+                        IconHelper.MakeIcon("IconArrowRight", 16, "TextOnAccentColorBrush")
                     }
                 },
                 MinWidth = 110,
@@ -111,7 +111,7 @@ namespace Configuration_Management
             content.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(36)));
             content.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
 
-            var iconBlock = IconHelper.MakeIcon(iconKey, 26, subscriptions: ThemeSubscriptions);
+            var iconBlock = IconHelper.MakeIcon(iconKey, 26);
             Grid.SetColumn(iconBlock, 0);
             content.Children.Add(iconBlock);
 

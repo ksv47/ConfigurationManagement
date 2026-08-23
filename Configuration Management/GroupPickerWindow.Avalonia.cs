@@ -156,7 +156,7 @@ namespace Configuration_Management
             {
                 var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 2) };
                 var iconKey = node.Group is null ? "IconRootGroup" : "IconChevronRight";
-                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14, subscriptions: ThemeSubscriptions));
+                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14));
                 var text = new TextBlock { Text = node.DisplayName, VerticalAlignment = VerticalAlignment.Center };
                 panel.Children.Add(text);
                 return panel;
@@ -167,15 +167,6 @@ namespace Configuration_Management
         /// <summary>Перестраивает дерево с учётом текущего направления сортировки.</summary>
         private void RefreshTree()
         {
-            // Строки пересоздаются на каждую пересортировку, а их подписки
-            // на тему живут до закрытия окна: без освобождения набор растёт
-            // с каждым переключением, удерживая мёртвые строки.
-            foreach (var subscription in ThemeSubscriptions)
-            {
-                try { subscription.Dispose(); }
-                catch { /* освобождение подписки не должно мешать пересборке */ }
-            }
-            ThemeSubscriptions.Clear();
 
             var roots = GroupNodeViewModel.BuildTree(_allowed);
             var groupComparer = StringComparer.OrdinalIgnoreCase;

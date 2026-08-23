@@ -169,7 +169,7 @@ namespace Configuration_Management
 
             Grid.SetColumn(value, 2);
             // Значения RGB — вторичный текст из темы.
-            TrackThemeSubscription(ThemeBrushes.Bind(value, TextBlock.ForegroundProperty, "TextSecondaryColorBrush"));
+            ThemeBrushes.Bind(value, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
             grid.Children.Add(value);
 
             Grid.SetRow(grid, row);

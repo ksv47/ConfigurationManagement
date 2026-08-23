@@ -280,7 +280,7 @@ namespace Configuration_Management
 
                 if (string.IsNullOrEmpty(key))
                 {
-                    btn.Content = IconHelper.MakeIcon("IconClose", 16, "TextOnAccentColorBrush", subscriptions: ThemeSubscriptions);
+                    btn.Content = IconHelper.MakeIcon("IconClose", 16, "TextOnAccentColorBrush");
                 }
                 else
                 {

@@ -125,7 +125,7 @@ namespace Configuration_Management
 
         private Button MakeButton(string text, string iconKey, Action onClick)
         {
-            var button = new Button { Content = IconHelper.IconAndText(iconKey, text, subscriptions: ThemeSubscriptions) };
+            var button = new Button { Content = IconHelper.IconAndText(iconKey, text) };
             button.Click += (_, _) => onClick();
             return button;
         }

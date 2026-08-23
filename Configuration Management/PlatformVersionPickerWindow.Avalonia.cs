@@ -164,7 +164,7 @@ namespace Configuration_Management
             {
                 var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 2) };
                 var iconKey = node.IsLeaf ? "IconConfiguration" : (node.Kind == PlatformNodeKind.Line ? "IconChevronRight" : "IconBullet");
-                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14, subscriptions: ThemeSubscriptions));
+                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14));
                 var text = new TextBlock
                 {
                     Text = node.Name,
@@ -179,15 +179,6 @@ namespace Configuration_Management
 
         private void RefreshTree()
         {
-            // Строки пересоздаются на каждую пересортировку, а их подписки
-            // на тему живут до закрытия окна: без освобождения набор растёт
-            // с каждым переключением, удерживая мёртвые строки.
-            foreach (var subscription in ThemeSubscriptions)
-            {
-                try { subscription.Dispose(); }
-                catch { /* освобождение подписки не должно мешать пересборке */ }
-            }
-            ThemeSubscriptions.Clear();
 
             var filtered = FilterByArchitecture(_allInfos, _archFilter);
             var tree = PlatformVersionService.BuildGroupedTree(filtered);

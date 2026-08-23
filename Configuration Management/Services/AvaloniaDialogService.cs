@@ -235,31 +235,6 @@ namespace Configuration_Management.Services
         /// </summary>
         public bool Result { get; private set; }
 
-        /// <summary>
-        /// Подписка иконки на ресурс темы. Наблюдатель держит сильную ссылку
-        /// на элемент, а ресурс живёт у приложения, поэтому без освобождения
-        /// каждое показанное сообщение оставалось бы в памяти навсегда.
-        /// </summary>
-        private readonly System.Collections.Generic.List<IDisposable> _themeSubscriptions = new();
-
-        /// <summary>Запоминает подписку на ресурс темы, если она была создана.</summary>
-        private void TrackTheme(IDisposable? subscription)
-        {
-            if (subscription is not null)
-                _themeSubscriptions.Add(subscription);
-        }
-
-        protected override void OnClosed(EventArgs e)
-        {
-            foreach (var subscription in _themeSubscriptions)
-            {
-                try { subscription.Dispose(); }
-                catch { /* освобождение подписки не должно мешать закрытию окна */ }
-            }
-            _themeSubscriptions.Clear();
-            base.OnClosed(e);
-        }
-
         public MessageWindow(string message, string title, MessageWindowKind kind)
         {
             // Сообщение без выбора подтверждать нечего: там ответ всегда
@@ -276,7 +251,7 @@ namespace Configuration_Management.Services
             // Фон красит само окно, а не содержимое: у содержимого есть отступ,
             // и полоса по периметру осталась бы фоном Window от Fluent.
             // Диалоги WPF-версии красят Window по той же причине.
-            TrackTheme(Themes.ThemeBrushes.Bind(this, Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty, "ContentBackgroundColorBrush"));
+            Themes.ThemeBrushes.Bind(this, Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty, "ContentBackgroundColorBrush");
 
             var iconKey = kind switch
             {
@@ -293,7 +268,7 @@ namespace Configuration_Management.Services
                 FontSize = 13,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            TrackTheme(Themes.ThemeBrushes.Bind(messageBlock, TextBlock.ForegroundProperty, "TextPrimaryColorBrush"));
+            Themes.ThemeBrushes.Bind(messageBlock, TextBlock.ForegroundProperty, "TextPrimaryColorBrush");
 
             // Сетка, а не горизонтальный StackPanel: в стопке текст получает
             // бесконечную ширину и не переносится, длинное сообщение обрезается.
@@ -301,7 +276,7 @@ namespace Configuration_Management.Services
             body.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             body.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
 
-            var messageIcon = Configuration_Management.IconHelper.MakeIcon(iconKey, 28, subscriptions: _themeSubscriptions);
+            var messageIcon = Configuration_Management.IconHelper.MakeIcon(iconKey, 28);
             messageIcon.Margin = new Thickness(0, 0, 12, 0);
             messageIcon.VerticalAlignment = VerticalAlignment.Top;
             body.Children.Add(messageIcon);
@@ -312,8 +287,8 @@ namespace Configuration_Management.Services
                 ? LocalizationManager.T("Common.Yes")
                 : LocalizationManager.T("Common.Ok");
             Button okButton = new() { Content = okText, MinWidth = 90, IsDefault = true };
-            TrackTheme(Themes.ThemeBrushes.Bind(okButton, Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty, "AccentColorBrush"));
-            TrackTheme(Themes.ThemeBrushes.Bind(okButton, Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty, "TextOnAccentColorBrush"));
+            Themes.ThemeBrushes.Bind(okButton, Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty, "AccentColorBrush");
+            Themes.ThemeBrushes.Bind(okButton, Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty, "TextOnAccentColorBrush");
             okButton.Click += (_, _) => { Result = true; Close(); };
 
             var buttonsPanel = new StackPanel
@@ -327,8 +302,8 @@ namespace Configuration_Management.Services
             if (kind == MessageWindowKind.Question)
             {
                 Button cancelButton = new() { Content = LocalizationManager.T("Common.No"), MinWidth = 90, IsCancel = true };
-                TrackTheme(Themes.ThemeBrushes.Bind(cancelButton, Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty, "SecondaryButtonBackgroundColorBrush"));
-                TrackTheme(Themes.ThemeBrushes.Bind(cancelButton, Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty, "ButtonTextColorBrush"));
+                Themes.ThemeBrushes.Bind(cancelButton, Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty, "SecondaryButtonBackgroundColorBrush");
+                Themes.ThemeBrushes.Bind(cancelButton, Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty, "ButtonTextColorBrush");
                 cancelButton.Click += (_, _) => { Result = false; Close(); };
                 buttonsPanel.Children.Insert(0, cancelButton);
             }
