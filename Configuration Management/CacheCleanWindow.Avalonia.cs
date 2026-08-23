@@ -304,9 +304,9 @@ namespace Configuration_Management
                 Spacing = 12,
                 Margin = new Thickness(8, 2, 8, 4)
             };
-            var selectAll = new Button { Content = IconHelper.IconAndText("IconCheck", LocalizationManager.T("CacheClean.SelectAll")), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+            var selectAll = new Button { Content = IconHelper.IconAndText("IconCheck", LocalizationManager.T("CacheClean.SelectAll"), subscriptions: ThemeSubscriptions), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
             selectAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = true; UpdateCount(); UpdateCleanEnabled(); };
-            var clearAll = new Button { Content = IconHelper.IconAndText("IconUncheck", LocalizationManager.T("CacheClean.ClearAll")), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+            var clearAll = new Button { Content = IconHelper.IconAndText("IconUncheck", LocalizationManager.T("CacheClean.ClearAll"), subscriptions: ThemeSubscriptions), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
             clearAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = false; UpdateCount(); UpdateCleanEnabled(); };
             toolbar.Children.Add(selectAll);
             toolbar.Children.Add(clearAll);
