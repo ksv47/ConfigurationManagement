@@ -150,13 +150,13 @@ namespace Configuration_Management
             return grid;
         }
 
-        private static Control BuildTreeRow(object? item)
+        private Control BuildTreeRow(object? item)
         {
             if (item is GroupNodeViewModel node)
             {
                 var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 2) };
                 var iconKey = node.Group is null ? "IconRootGroup" : "IconChevronRight";
-                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14));
+                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14, subscriptions: ThemeSubscriptions));
                 var text = new TextBlock { Text = node.DisplayName, VerticalAlignment = VerticalAlignment.Center };
                 panel.Children.Add(text);
                 return panel;

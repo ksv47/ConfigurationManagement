@@ -230,6 +230,24 @@ namespace Configuration_Management.Services
     {
         public bool Result { get; private set; } = true;
 
+        /// <summary>
+        /// Подписка иконки на ресурс темы. Наблюдатель держит сильную ссылку
+        /// на элемент, а ресурс живёт у приложения, поэтому без освобождения
+        /// каждое показанное сообщение оставалось бы в памяти навсегда.
+        /// </summary>
+        private readonly System.Collections.Generic.List<IDisposable> _themeSubscriptions = new();
+
+        protected override void OnClosed(EventArgs e)
+        {
+            foreach (var subscription in _themeSubscriptions)
+            {
+                try { subscription.Dispose(); }
+                catch { /* освобождение подписки не должно мешать закрытию окна */ }
+            }
+            _themeSubscriptions.Clear();
+            base.OnClosed(e);
+        }
+
         public MessageWindow(string message, string title, MessageWindowKind kind)
         {
             Title = title;
@@ -261,7 +279,7 @@ namespace Configuration_Management.Services
             body.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             body.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
 
-            var messageIcon = Configuration_Management.IconHelper.MakeIcon(iconKey, 28);
+            var messageIcon = Configuration_Management.IconHelper.MakeIcon(iconKey, 28, subscriptions: _themeSubscriptions);
             messageIcon.Margin = new Thickness(0, 0, 12, 0);
             messageIcon.VerticalAlignment = VerticalAlignment.Top;
             body.Children.Add(messageIcon);

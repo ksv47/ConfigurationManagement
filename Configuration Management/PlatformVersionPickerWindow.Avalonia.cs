@@ -158,13 +158,13 @@ namespace Configuration_Management
             return grid;
         }
 
-        private static Control BuildTreeRow(object? item)
+        private Control BuildTreeRow(object? item)
         {
             if (item is PlatformVersionGroup node)
             {
                 var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 2) };
                 var iconKey = node.IsLeaf ? "IconConfiguration" : (node.Kind == PlatformNodeKind.Line ? "IconChevronRight" : "IconBullet");
-                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14));
+                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14, subscriptions: ThemeSubscriptions));
                 var text = new TextBlock
                 {
                     Text = node.Name,
