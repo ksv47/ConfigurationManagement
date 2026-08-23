@@ -97,6 +97,10 @@ namespace Configuration_Management
 
             // Действие после запуска базы или конфигуратора по глобальной настройке.
             _vm.AfterLaunchRequested += OnAfterLaunchRequested;
+
+            // Подписка здесь, а не в построении содержимого: компактный режим
+            // пересобирает содержимое, и обработчики копились бы на каждый показ.
+            _vm.TreeRebuilt += RestoreTreeSelection;
         }
 
         /// <summary>Значок трея создан без ошибки: значение проверяется перед тем, как прятать окно.</summary>
@@ -535,7 +539,6 @@ namespace Configuration_Management
                 _vm.GroupNodes.CollectionChanged += (_, _) => { UpdateEmptyState(); QueueHeaderAlign(); };
                 _vm.FlatItems.CollectionChanged += (_, _) => UpdateEmptyState();
                 _vm.TagFiltersRebuilt += (_, _) => RefreshTagFilterPanel();
-                _vm.TreeRebuilt += RestoreTreeSelection;
                 _vm.PropertyChanged += (_, e) =>
                 {
                     if (e.PropertyName == nameof(MainViewModel.SearchText))
@@ -2729,25 +2732,28 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Возвращает выделение строки после пересборки дерева. Узлы групп
-        /// пересоздаются, и дерево теряет подсветку вместе с ними, а объекты баз
-        /// те же самые, поэтому выбранная база ищется по ссылке. Установка
-        /// откладывается: к моменту события коллекция уже новая, а контейнеры
-        /// строк ещё не готовы, и выбор по неготовому контейнеру не удерживается.
+        /// Возвращает выделение строки после пересборки дерева: узлы групп
+        /// пересоздаются, и дерево теряет подсветку вместе с ними. Объекты баз
+        /// при этом те же самые, поэтому выбранная база ищется по ссылке.
+        /// Установка откладывается ниже компоновки, чтобы попасть после
+        /// перестроения строк, а цель читается в момент выполнения: вызывающие
+        /// меняют выбор уже после возврата из пересборки (создание, регистрация
+        /// и удаление базы), и снятая заранее цель подсветила бы чужую строку.
         /// </summary>
         private void RestoreTreeSelection()
         {
             if (_vm is null)
                 return;
 
-            var target = (object?)_vm.SelectedInfobase ?? _vm.SelectedGroupNode;
-            if (target is null)
-                return;
-
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                if (_vm is null || _tree.SelectedItem is not null)
+                if (_vm is null)
                     return;
+
+                var target = (object?)_vm.SelectedInfobase ?? _vm.SelectedGroupNode;
+                if (target is null || ReferenceEquals(_tree.SelectedItem, target))
+                    return;
+
                 // Выбор ставится напрямую, без обработчика: он уже согласован
                 // с вьюмоделью, и повторный проход только сбросил бы парное поле.
                 _tree.SelectionChanged -= OnTreeSelectionChanged;
