@@ -238,23 +238,6 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>Завершает процесс по pid (SIGTERM/Kill). Ошибки игнорируются.</summary>
-        /// <summary>
-        /// Завершает процесс вместе с потомками. Возвращает, действительно ли
-        /// он завершился: сигнал асинхронный, а прав на чужой процесс может
-        /// не быть, поэтому ответ даётся по факту, а не по отправке сигнала.
-        /// </summary>
-        public static bool KillProcess(int pid)
-        {
-            if (!SendKill(pid))
-                return false;
-
-            var deadline = Environment.TickCount64 + KillWaitMilliseconds;
-            while (IsAlive(pid) && Environment.TickCount64 < deadline)
-                Thread.Sleep(KillPollMilliseconds);
-
-            return !IsAlive(pid);
-        }
-
         /// <summary>Отправляет сигнал завершения вместе с деревом потомков.</summary>
         private static bool SendKill(int pid)
         {
@@ -307,7 +290,10 @@ namespace Configuration_Management.Services
 
                 // Номер процесса ядро переиспользует: перед сигналом сверяем,
                 // что это тот самый экземпляр, который показывали пользователю.
-                if (startTime is not null && ReadStartTime(pid) != startTime)
+                // Пустое время старта означает, что подтвердить личность нечем,
+                // и тогда сигнал не посылается вовсе: номер процесса ядро
+                // переиспользует, и под удаление попал бы чужой процесс.
+                if (startTime is null || ReadStartTime(pid) != startTime)
                 {
                     failed++;
                     continue;
@@ -331,9 +317,6 @@ namespace Configuration_Management.Services
             return (killed, failed);
         }
 
-        /// <summary>Число запущенных процессов 1С.</summary>
-        public static int CountOneC()
-            => Enumerate1C().Select(x => x.Pid).Distinct().Count();
     }
 }
 #endif

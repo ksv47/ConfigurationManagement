@@ -1063,6 +1063,7 @@
     "Main.LoadErrorTitle": "Load error",
     "Main.ClearAllAlreadyEmpty": "The infobase list is already empty.",
     "Main.ClearAllTitle": "Clear base list",
+    "Main.ClearAllPartial": "The infobase list was cleared but the groups were not, and restoring the previous list failed too. The disk now holds an empty infobase list and the previous groups.",
     "Main.ClearAllConfirm": "Clear the entire infobase list?\n\nBases to delete: {0}\nGroups to delete: {1}\n\nThis action is irreversible.",
     "Main.ClearAllDone": "The infobase list has been cleared.",
     "Main.ErrCopyConnection": "Failed to copy the connection string.\n{0}",
