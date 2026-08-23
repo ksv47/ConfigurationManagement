@@ -455,7 +455,7 @@ public class MainViewModel : ViewModelBase
         get => _selectedInfobase;
         set
         {
-            if (SetProperty(ref _selectedInfobase, value, nameof(SelectedInfobase), nameof(RightPanelTitle), nameof(RightPanelSubtitle),
+            if (SetPropertyWithRelated(ref _selectedInfobase, value, nameof(SelectedInfobase), nameof(RightPanelTitle), nameof(RightPanelSubtitle),
                     nameof(IsInfobaseSelected), nameof(ShowConnectionInfo),
                     nameof(RightPanelIconKey), nameof(HasRightPanelIcon)))
             {
@@ -472,7 +472,7 @@ public class MainViewModel : ViewModelBase
         get => _selectedGroupNode;
         set
         {
-            if (SetProperty(ref _selectedGroupNode, value, nameof(SelectedGroupNode), nameof(RightPanelTitle), nameof(RightPanelSubtitle),
+            if (SetPropertyWithRelated(ref _selectedGroupNode, value, nameof(SelectedGroupNode), nameof(RightPanelTitle), nameof(RightPanelSubtitle),
                     nameof(IsInfobaseSelected), nameof(ShowConnectionInfo),
                     nameof(RightPanelIconKey), nameof(HasRightPanelIcon)))
             {
@@ -489,7 +489,7 @@ public class MainViewModel : ViewModelBase
     public bool ShowRightPanelDetails
     {
         get => _showRightPanelDetails;
-        set => SetProperty(ref _showRightPanelDetails, value, nameof(ShowRightPanelDetails), nameof(RightPanelToggleTooltip), nameof(ShowConnectionInfo));
+        set => SetPropertyWithRelated(ref _showRightPanelDetails, value, nameof(ShowRightPanelDetails), nameof(RightPanelToggleTooltip), nameof(ShowConnectionInfo));
     }
 
     /// <summary>
@@ -732,7 +732,7 @@ public class MainViewModel : ViewModelBase
         get => _sessionClient;
         set
         {
-            if (!SetProperty(ref _sessionClient, value,
+            if (!SetPropertyWithRelated(ref _sessionClient, value, nameof(SessionClient),
                     nameof(IsSessionClientAuto), nameof(IsSessionClientOrdinary), nameof(IsSessionClientThick),
                     nameof(IsSessionClientThickOrdinary), nameof(IsSessionClientThin)))
                 return;
@@ -752,7 +752,7 @@ public class MainViewModel : ViewModelBase
         get => _sessionArch;
         set
         {
-            if (!SetProperty(ref _sessionArch, value, nameof(SessionArch), nameof(IsSessionArchAuto), nameof(IsSessionArch32), nameof(IsSessionArch64)))
+            if (!SetPropertyWithRelated(ref _sessionArch, value, nameof(SessionArch), nameof(IsSessionArchAuto), nameof(IsSessionArch32), nameof(IsSessionArch64)))
                 return;
 
             _settings.SessionArchitecture = SessionArchitectureMode().ToString();
@@ -962,6 +962,9 @@ public class MainViewModel : ViewModelBase
                 ?? (selectedKey is null ? null : FindNode(node =>
                     string.Equals(node.NodeKey, selectedKey, StringComparison.OrdinalIgnoreCase)));
 
+        // Состав списка мог смениться импортом, удалением или очисткой,
+        // а его показывает меню трея.
+        OnPropertyChanged(nameof(RecentInfobases));
     }
 
     /// <summary>Состав списка вот-вот сменится: окну нужно запомнить прокрутку.</summary>
