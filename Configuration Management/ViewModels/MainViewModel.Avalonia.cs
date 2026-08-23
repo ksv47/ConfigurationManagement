@@ -114,6 +114,9 @@ public class MainViewModel : ViewModelBase
     /// <summary>Уводить ли окно в трей по клавише Esc.</summary>
     public bool EscapeToTray => _settings.EscapeToTray;
 
+    /// <summary>Настройки трея изменились: окну нужно обновить значок.</summary>
+    public event Action? TraySettingsChanged;
+
     /// <summary>Применяет настройки поведения трея из окна настроек.</summary>
     public void ApplyTraySettings(bool showTrayIcon, bool closeToTray, bool escapeToTray)
     {
@@ -121,6 +124,9 @@ public class MainViewModel : ViewModelBase
         _settings.CloseToTray = closeToTray;
         _settings.EscapeToTray = escapeToTray;
         SaveSettingsSilently();
+        // Значок показывается и прячется сразу, как в версии для Windows,
+        // иначе настройка действовала бы только после перезапуска.
+        TraySettingsChanged?.Invoke();
     }
 
     /// <summary>Запрос к главному окну выполнить действие после успешного запуска.</summary>
@@ -2322,9 +2328,16 @@ public class MainViewModel : ViewModelBase
     private bool SaveGroupsSilently() => SaveGroupList(_groups);
 
     /// <summary>Главное окно как владелец модального диалога.</summary>
+    /// <summary>
+    /// Окно-владелец для модальных окон. Спрятанное в трей окно владельцем
+    /// быть не может: показ поверх невидимого окна роняет приложение.
+    /// </summary>
     private static Avalonia.Controls.Window? OwnerWindow() =>
         (Avalonia.Application.Current?.ApplicationLifetime
-            as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+            as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+        ?.MainWindow is { IsVisible: true } main
+            ? main
+            : null;
 
     private void DeleteInfobase()
     {
@@ -2827,19 +2840,13 @@ public class MainViewModel : ViewModelBase
     private void OpenSettings()
     {
         var settings = new Configuration_Management.SettingsWindow(this);
-        if (Avalonia.Application.Current?.ApplicationLifetime
-            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            var owner = desktop.MainWindow;
-            if (owner is not null)
-                settings.ShowDialog(owner);
-            else
-                settings.Show();
-        }
+        // Владелец берётся только видимый: окно, спрятанное в трей, остаётся
+        // в списке окон приложения, и показ поверх него ничего не показывает.
+        // Настройки открываются из меню трея именно в таком состоянии.
+        if (OwnerWindow() is { } owner)
+            settings.ShowDialog(owner);
         else
-        {
             settings.Show();
-        }
     }
 
     /// <summary>

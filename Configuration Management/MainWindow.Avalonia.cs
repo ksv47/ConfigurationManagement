@@ -108,6 +108,7 @@ namespace Configuration_Management
 
             // Подписка здесь, а не в построении содержимого: компактный режим
             // пересобирает содержимое, и обработчики копились бы на каждый показ.
+            _vm.TraySettingsChanged += ApplyTrayVisibility;
             _vm.TreeRebuilding += RememberTreeScroll;
             _vm.TreeRebuilt += RestoreTreeSelection;
 
@@ -3157,10 +3158,11 @@ namespace Configuration_Management
             // Esc уводит окно в трей, если так задано настройкой. В поле ввода
             // клавиша остаётся своей: там ей отменяют правку.
             if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None
-                && _vm.EscapeToTray && CanRestoreHiddenWindow
+                && _vm.EscapeToTray && _vm.ShowTrayIcon && CanRestoreHiddenWindow
                 && FocusManager?.GetFocusedElement() is not TextBox)
             {
                 _vm.PersistSettings();
+                ApplyTrayVisibility();
                 Hide();
                 e.Handled = true;
                 return;
@@ -3257,9 +3259,6 @@ namespace Configuration_Management
 
         private void SetupTray()
         {
-            if (_vm is not null && !_vm.ShowTrayIcon && !_vm.CloseToTray)
-                return;
-
             try
             {
                 var menu = BuildTrayMenu();
@@ -3276,6 +3275,8 @@ namespace Configuration_Management
                     TrayIcon.SetIcons(app, new TrayIcons { tray });
                     _trayIconCreated = true;
                 }
+
+                ApplyTrayVisibility();
 
                 // На GNOME Shell без расширения AppIndicator иконка трея не появится,
                 // и приложение об этом никак не узнает: ошибки не будет, значка просто
@@ -3347,12 +3348,26 @@ namespace Configuration_Management
         protected override void OnClosing(WindowClosingEventArgs e)
         {
             base.OnClosing(e);
-            if (_allowCloseToTray && _vm is { CloseToTray: true } && CanRestoreHiddenWindow)
+            if (_allowCloseToTray && _vm is { CloseToTray: true } && CanRestoreHiddenWindow
+                && e.CloseReason == WindowCloseReason.WindowClosing)
             {
                 _vm.PersistSettings();
+                ApplyTrayVisibility();
                 e.Cancel = true;
                 Hide();
             }
+        }
+
+        /// <summary>
+        /// Показывает или прячет значок по настройкам. Значок нужен и когда сам
+        /// он выключен, но закрытие уводит окно в трей: иначе окно нечем вернуть.
+        /// </summary>
+        private void ApplyTrayVisibility()
+        {
+            if (_trayIcon is null)
+                return;
+
+            _trayIcon.IsVisible = _vm is null || _vm.ShowTrayIcon || _vm.CloseToTray;
         }
 
         /// <summary>Позволяет повторно показать окно из трея/активации.</summary>
