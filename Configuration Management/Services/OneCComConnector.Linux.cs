@@ -46,6 +46,17 @@ namespace Configuration_Management.Services
         /// <inheritdoc />
         public string? LastError { get; private set; }
 
+        /// <summary>
+        /// Доступность COM-коннектора на Linux всегда равна false (COM отсутствует).
+        /// Метод добавлен для совместимости с общим кодом.
+        /// </summary>
+        public static bool IsComConnectorAvailable() => false;
+
+        /// <summary>No-op: на Linux нечего сбрасывать (кэш доступности отсутствует).</summary>
+        public static void ResetAvailabilityCache()
+        {
+        }
+
         /// <inheritdoc />
         public string BuildConnectString(Infobase infobase) => BuildConnectionString(infobase);
 

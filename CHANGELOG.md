@@ -5,6 +5,18 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.31] — 2026-08-23
+
+### Слияние исправлений от ksv47
+
+- **Влит PR #55 «Linux/Avalonia: перетаскивание баз и групп мышью»** (ветка `ksv47/linux-fixes`). Все изменения этого PR **выполнены автором ksv47**. По функциональным направлениям:
+  - **Перетаскивание баз и групп мышью в Linux/Avalonia-версии** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs), [`LeveledTreeView.Avalonia.cs`](Configuration Management/Controls/LeveledTreeView.Avalonia.cs), [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)): нажатие ловится туннельным событием `PointerPressed`, узел для переноса фиксируется в нажатии, а не в движении (курсор над дочерней строкой больше не подменяет цель), задан порог сдвига, после которого клик становится перетаскиванием. Сброс допустим только на настоящую группу или корректные служебные узлы (без потери группы базы и без создания циклов в иерархии). Перенос базы выполняется в указанную группу и перед строкой другой базы ([`MoveInfobaseToGroup`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)); перенос подгруппы со всей вложенной иерархией пересчитывает полные пути `Infobase.Group` и свёрнутость узлов без «уезжания» баз в «Без группы» ([`MoveGroupUnder`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)).
+  - **Действие после запуска базы или конфигуратора в Linux/Avalonia-версии** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs), [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs), [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)): как в WPF, окно можно свернуть в трей или увести в трей после успешного запуска; при отсутствии значка трея (например, GNOME Shell без AppIndicator) окно безопасно сворачивается, чтобы не оставаться недоступным. Добавлены ключи локализации `Settings.General.AfterLaunchAction.*` и `Main.AfterLaunchTrayUnavailable` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+  - **Сохранение выбора и подсветки при пересборке дерева**: раскрытие узла теперь связывается с моделью самим `LeveledTreeView` на любом уровне вложенности, а выделение строки восстанавливается после перестройки дерева — по идентификатору группы или ключу узла ([`RestoreTreeSelection`](Configuration Management/MainWindow.Avalonia.cs), событие `TreeRebuilt` в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)).
+  - **Надёжность сохранения**: `SaveSilently()`/`SaveGroupsSilently()` теперь возвращают признак успеха, и экспорт в `ibases.v8i` выполняется только когда удалось записать оба файла — иначе пути баз и дерево групп разъедутся.
+- **Авторство изменений:** все правки, вошедшие в этот merge, выполнены **ksv47** ([`PR #55`](https://github.com/ksv47/linux-fixes)) — см. также раздел «Благодарности» в [`README.md`](README.md).
+- **Версия обновлена до 0.3.3.31** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.31 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.31.
+
 ## [0.3.3.30] — 2026-08-23
 
 ### Удалено (мёртвый код, неиспользуемые файлы и функции)
