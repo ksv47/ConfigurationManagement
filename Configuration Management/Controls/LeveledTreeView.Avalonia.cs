@@ -1,8 +1,11 @@
 #if LINUX
 using System;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 using Configuration_Management.ViewModels;
 
 namespace Configuration_Management.Controls
@@ -45,6 +48,46 @@ namespace Configuration_Management.Controls
             // тогда не зависит от того, когда и чем контекст будет установлен.
             _expandedBindings.Add(treeItem, treeItem.Bind(TreeViewItem.IsExpandedProperty,
                 new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = item }));
+        }
+
+        /// <summary>
+        /// Прокрутка страницами и в начало со в конец. У TreeView в Avalonia
+        /// разбираются только стрелки, у ScrollViewer обработчика клавиш нет
+        /// вовсе, а полосе прокрутки фокус не передать: Focusable у ScrollBar
+        /// переопределён в false. В версии для Windows эти клавиши работают.
+        /// </summary>
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (e.Handled)
+                return;
+
+            // Клавишу, назначенную горячей, отдаём команде: перехват здесь
+            // сделал бы назначение молча нерабочим.
+            if (TopLevel.GetTopLevel(this) is { } top
+                && top.KeyBindings.Any(binding => binding.Gesture is { } gesture
+                    && gesture.Key == e.Key && gesture.KeyModifiers == e.KeyModifiers))
+                return;
+
+            if (this.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is not { } scroll)
+                return;
+
+            var hidden = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+            if (hidden <= 0)
+                return;
+
+            double target;
+            switch (e.Key)
+            {
+                case Key.Home: target = 0; break;
+                case Key.End: target = hidden; break;
+                case Key.PageUp: target = scroll.Offset.Y - scroll.Viewport.Height; break;
+                case Key.PageDown: target = scroll.Offset.Y + scroll.Viewport.Height; break;
+                default: return;
+            }
+
+            scroll.Offset = scroll.Offset.WithY(Math.Clamp(target, 0, hidden));
+            e.Handled = true;
         }
 
         protected override void ClearContainerForItemOverride(Control container)
