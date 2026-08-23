@@ -1498,11 +1498,10 @@ namespace Configuration_Management
                     "SecondaryButtonPressedBrush", "BorderColorBrush", mainCorner);
 
             var contentBrush = primary ? "TextOnAccentBrush" : "ButtonTextBrush";
-            main.Content = ThemedIconAndText(iconKey, text, contentBrush, UiMetrics.Scaled(primary ? 18 : 16), centered: primary);
+            main.Content = ThemedIconAndText(iconKey, text, contentBrush, primary ? UiMetrics.Scaled(18) : 16, centered: primary);
             main.HorizontalContentAlignment = primary ? HorizontalAlignment.Center : HorizontalAlignment.Left;
             main.HorizontalAlignment = HorizontalAlignment.Stretch;
             main.Margin = new Thickness(0, 0, 0, primary ? UiMetrics.SectionMarginBottom : 2);
-            main.Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV);
             ToolTip.SetTip(main, tooltip);
             main.Bind(Button.CommandProperty, new Binding(commandPath));
 
@@ -1538,7 +1537,7 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(arrowGlyph, TextBlock.ForegroundProperty, contentBrush);
             arrow.Content = arrowGlyph;
-            ToolTip.SetTip(arrow, tooltip);
+            ToolTip.SetTip(arrow, LocalizationManager.T("Main.MoreLaunchOptions"));
             arrow.ContextMenu = menu;
             arrow.Click += (_, _) => menu.Open(arrow);
 
