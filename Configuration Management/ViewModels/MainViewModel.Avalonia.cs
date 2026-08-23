@@ -884,10 +884,6 @@ public class MainViewModel : ViewModelBase
     /// <summary>Перестраивает дерево групп из моделей.</summary>
     public void RebuildTree()
     {
-        // Окно снимает позицию прокрутки до того, как список опустеет:
-        // после пересборки её уже не узнать.
-        TreeRebuilding?.Invoke();
-
         // Узлы пересоздаются, поэтому прежний выбранный узел больше не тот,
         // что показан в дереве: правая панель иначе показывала бы старую группу.
         // Ключ запоминается, чтобы выбор вернулся на равнозначный новый узел.
@@ -926,13 +922,12 @@ public class MainViewModel : ViewModelBase
                 ?? (selectedKey is null ? null : FindNode(node =>
                     string.Equals(node.NodeKey, selectedKey, StringComparison.OrdinalIgnoreCase)));
 
-        TreeRebuilt?.Invoke();
     }
 
-    /// <summary>Дерево вот-вот пересоберётся: окну нужно запомнить прокрутку.</summary>
+    /// <summary>Состав списка вот-вот сменится: окну нужно запомнить прокрутку.</summary>
     public event Action? TreeRebuilding;
 
-    /// <summary>Дерево пересобрано: окну нужно вернуть выделение строки и прокрутку.</summary>
+    /// <summary>Состав списка обновлён: окну нужно вернуть выделение строки и прокрутку.</summary>
     public event Action? TreeRebuilt;
 
     /// <summary>Ищет узел дерева по признаку, включая служебные узлы и подгруппы.</summary>
@@ -1043,6 +1038,11 @@ public class MainViewModel : ViewModelBase
     /// <summary>Применяет фильтр по виду списка и поиску.</summary>
     private void ApplyFilter()
     {
+        // События подняты здесь, а не в RebuildTree: список меняет состав
+        // и мимо полной пересборки, через поиск, вкладки, отбор по тегам,
+        // переключатель тегов и группировки. Все эти пути идут сюда.
+        TreeRebuilding?.Invoke();
+
         var filterActive = IsFilterModeActive();
 
         // Плоский список нужен в двух случаях: активен фильтр (поиск, теги,
@@ -1101,6 +1101,8 @@ public class MainViewModel : ViewModelBase
         // показывать группу, которой в дереве уже нет.
         if (SelectedGroupNode is { } selected && FindNode(node => ReferenceEquals(node, selected)) is null)
             SelectedGroupNode = null;
+
+        TreeRebuilt?.Invoke();
     }
 
     private bool MatchesFilter(Infobase ib)
