@@ -147,7 +147,7 @@ namespace Configuration_Management
         /// </summary>
         public string Result { get; private set; } = "#2D6CDF";
 
-        private static Grid BuildRgbRow(int row, string label, string accent, Slider slider, TextBlock value)
+        private Grid BuildRgbRow(int row, string label, string accent, Slider slider, TextBlock value)
         {
             var grid = new Grid { Margin = new Thickness(0, 2) };
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(20)));

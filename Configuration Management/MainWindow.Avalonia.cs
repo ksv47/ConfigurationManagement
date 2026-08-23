@@ -53,12 +53,10 @@ namespace Configuration_Management
         private ColumnDefinition? _headerOffsetColumn;
         private Control? _headerPinMark;
         private double _headerToolbarWidth;
-        private readonly List<IDisposable> _columnHeaderSubscriptions = new();
         private Grid? _listContent;
         private bool _columnHeaderRefreshQueued;
         private bool _headerAlignQueued;
         private readonly Dictionary<string, int> _headerColumnIndex = new(StringComparer.Ordinal);
-        private readonly List<IDisposable> _rightPanelSubscriptions = new();
         private object? _dragPayload;
         private Point _dragStartPoint;
         private bool _isDragging;
@@ -100,6 +98,7 @@ namespace Configuration_Management
 
             // Подписка здесь, а не в построении содержимого: компактный режим
             // пересобирает содержимое, и обработчики копились бы на каждый показ.
+            _vm.TreeRebuilding += RememberTreeScroll;
             _vm.TreeRebuilt += RestoreTreeSelection;
         }
 
@@ -363,13 +362,13 @@ namespace Configuration_Management
                 border.BorderThickness = focused ? new Thickness(2) : new Thickness(1);
             }
 
-            if (Application.Current is { } app)
-            {
-                app.GetResourceObservable("CardBackgroundColorBrush").Subscribe(new BrushObserver(b => baseBg = b, Refresh));
-                app.GetResourceObservable("ItemHoverBrush").Subscribe(new BrushObserver(b => hoverBg = b, Refresh));
-                app.GetResourceObservable("BorderColorBrush").Subscribe(new BrushObserver(b => baseBorder = b, Refresh));
-                app.GetResourceObservable("AccentBrush").Subscribe(new BrushObserver(b => { hoverBorder = b; accentBorder = b; }, Refresh));
-            }
+            // Подписки привязаны к жизни рамки: содержимое окна пересобирается
+            // при переключении компактного режима, и наблюдатель, живущий
+            // у приложения, удерживал бы прежнее дерево целиком.
+            ThemeBrushes.Observe(border, "CardBackgroundColorBrush", b => { baseBg = b; Refresh(); });
+            ThemeBrushes.Observe(border, "ItemHoverBrush", b => { hoverBg = b; Refresh(); });
+            ThemeBrushes.Observe(border, "BorderColorBrush", b => { baseBorder = b; Refresh(); });
+            ThemeBrushes.Observe(border, "AccentBrush", b => { hoverBorder = b; accentBorder = b; Refresh(); });
 
             border.PointerEntered += (_, _) => { hovered = true; Refresh(); };
             border.PointerExited += (_, _) => { hovered = false; Refresh(); };
@@ -492,7 +491,8 @@ namespace Configuration_Management
             _tree.AddHandler(DragDrop.DragOverEvent, OnTreeDragOver);
             _tree.AddHandler(DragDrop.DropEvent, OnTreeDrop);
 
-            // Прокрутку списка ведёт внешний ScrollViewer, общий с заголовком колонок.
+            // Горизонтальную прокрутку списка ведёт внешний ScrollViewer, общий
+            // с заголовком колонок, а вертикальную сам TreeView.
             // Прежнее опасение про бесконечную высоту и потерю виртуализации здесь
             // неприменимо: у TreeView в Avalonia 11.3.20 виртуализации нет вовсе,
             // панель элементов по умолчанию обычный StackPanel, и ни тема Fluent,
@@ -801,8 +801,8 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 0, 10, 0)
             };
             ToolTip.SetTip(iconBox, ib.StatusDisplay);
-            card.AddSubscription(() => ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush"));
-            card.AddSubscription(() => ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush"));
+            ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush");
             iconBox.Child = new Avalonia.Controls.Shapes.Path
             {
                 Width = UiMetrics.RowIcon,
@@ -833,7 +833,7 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            card.AddSubscription(() => ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush"));
+            ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush");
             content.Children.Add(name);
 
             // Вторичной строкой остаётся только то, чего нет в колонках: тип
@@ -939,7 +939,7 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
             ToolTip.SetTip(text, tag);
-            Track(subscriptions, ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+            ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush");
 
             var name = new Button
             {
@@ -957,7 +957,7 @@ namespace Configuration_Management
 
             var remove = new Button
             {
-                Content = IconHelper.MakeIcon("IconClose", UiMetrics.Scaled(9), "TextSecondaryBrush", subscriptions),
+                Content = IconHelper.MakeIcon("IconClose", UiMetrics.Scaled(9), "TextSecondaryBrush"),
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(0),
@@ -983,8 +983,8 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 0, 4, 2),
                 Child = row
             };
-            Track(subscriptions, ThemeBrushes.Bind(chip, Border.BackgroundProperty, "CardBackgroundBrush"));
-            Track(subscriptions, ThemeBrushes.Bind(chip, Border.BorderBrushProperty, "BorderColorBrush"));
+            ThemeBrushes.Bind(chip, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(chip, Border.BorderBrushProperty, "BorderColorBrush");
             return chip;
         }
 
@@ -1004,10 +1004,10 @@ namespace Configuration_Management
                 FontSize = UiMetrics.Scaled(10),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            Track(subscriptions, ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+            ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush");
 
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-            content.Children.Add(IconHelper.MakeIcon("IconTag", UiMetrics.Scaled(9), "TextSecondaryBrush", subscriptions));
+            content.Children.Add(IconHelper.MakeIcon("IconTag", UiMetrics.Scaled(9), "TextSecondaryBrush"));
             content.Children.Add(text);
 
             var button = new Button
@@ -1132,18 +1132,12 @@ namespace Configuration_Management
             if (owner is null)
                 ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             else
-                owner.AddSubscription(() => ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+                ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             return block;
         }
 
         private Control BuildRightPanel()
         {
-            // Панель пересобирается вместе с окном (компактный режим), поэтому
-            // прежние подписки на кисти темы освобождаются.
-            foreach (var subscription in _rightPanelSubscriptions)
-                subscription.Dispose();
-            _rightPanelSubscriptions.Clear();
-
             var panel = new StackPanel { HorizontalAlignment = HorizontalAlignment.Stretch };
 
             // Заголовок базы
@@ -1253,7 +1247,7 @@ namespace Configuration_Management
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 6)
             };
-            Track(_rightPanelSubscriptions, ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+            ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             ToolTip.SetTip(hint, LocalizationManager.T("Main.CurrentSessionHelp"));
 
             var card = SectionCard(LocalizationManager.T("Main.CurrentSession"), "IconInfo",
@@ -1285,7 +1279,7 @@ namespace Configuration_Management
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 6, 0, 2)
             };
-            Track(_rightPanelSubscriptions, ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             return block;
         }
 
@@ -1504,7 +1498,6 @@ namespace Configuration_Management
         /// </summary>
         private sealed class PanelButton : Button
         {
-            private readonly List<IDisposable> _subs = new();
             private IBrush _baseBg = Brushes.Transparent;
             private IBrush _hoverBg = Brushes.Transparent;
             private IBrush _pressedBg = Brushes.Transparent;
@@ -1566,11 +1559,10 @@ namespace Configuration_Management
             }
 
             private void Subscribe(string key, Action<IBrush> setter)
-            {
-                if (Application.Current is not { } app)
-                    return;
-                _subs.Add(app.GetResourceObservable(key).Subscribe(new BrushSlot(setter, ApplyState)));
-            }
+                // Подписка снимается вместе с уходом кнопки из дерева: список
+                // _subs не освобождался нигде, и каждая пересборка правой панели
+                // оставляла кнопку и всё её дерево укоренёнными.
+                => ThemeBrushes.Observe(this, key, brush => { setter(brush); ApplyState(); });
 
             /// <summary>Применяет состояние к фону/границе/прозрачности кнопки.</summary>
             private void ApplyState()
@@ -1599,27 +1591,6 @@ namespace Configuration_Management
                 }
             }
 
-            /// <summary>Передаёт текущее значение ресурса-кисти в слот и перерисовывает состояние.</summary>
-            private sealed class BrushSlot : IObserver<object?>
-            {
-                private readonly Action<IBrush> _setter;
-                private readonly Action _onChanged;
-
-                public BrushSlot(Action<IBrush> setter, Action onChanged)
-                {
-                    _setter = setter;
-                    _onChanged = onChanged;
-                }
-
-                public void OnCompleted() { }
-                public void OnError(Exception error) { }
-                public void OnNext(object? value)
-                {
-                    if (value is IBrush brush)
-                        _setter(brush);
-                    _onChanged();
-                }
-            }
 
         }
 
@@ -1665,33 +1636,8 @@ namespace Configuration_Management
         /// берутся из ресурсов темы (перекрашиваются при смене схемы). Если lockOn == true,
         /// активный сегмент нельзя «снять» кликом (поведение как у RadioButton).
         /// </summary>
-        private sealed class SegmentButton : ToggleButton, IDisposable
+        private sealed class SegmentButton : ToggleButton
         {
-            private readonly List<IDisposable> _subs = new();
-
-            /// <summary>Подписки содержимого: иконка и текст пересоздаются при каждой смене состояния.</summary>
-            private readonly List<IDisposable> _contentSubs = new();
-
-            /// <summary>
-            /// Освобождает подписки на ресурсы темы. Кнопки тегов пересобираются
-            /// при каждом обновлении набора, и без этого каждая пересборка
-            /// оставляла бы по пять живых подписок на кнопку.
-            /// </summary>
-            public void Dispose()
-            {
-                ReleaseContentSubscriptions();
-                foreach (var sub in _subs)
-                    sub.Dispose();
-                _subs.Clear();
-            }
-
-            private void ReleaseContentSubscriptions()
-            {
-                foreach (var sub in _contentSubs)
-                    sub.Dispose();
-                _contentSubs.Clear();
-            }
-
             private readonly string _iconKey;
             private readonly string _text;
             private readonly double _iconSize;
@@ -1774,20 +1720,15 @@ namespace Configuration_Management
             }
 
             private void Subscribe(string key, Action<IBrush> setter)
-            {
-                if (Application.Current is not { } app)
-                    return;
-                _subs.Add(app.GetResourceObservable(key).Subscribe(new BrushObserver(setter, ApplyState)));
-            }
+                // Подписка снимается вместе с уходом кнопки из дерева: список
+                // освобождался только у кнопок тегов, поэтому пять сегментов
+                // верхней панели держали прежнее дерево окна после каждой
+                // пересборки содержимого.
+                => ThemeBrushes.Observe(this, key, brush => { setter(brush); ApplyState(); });
 
             /// <summary>Собирает содержимое «иконка + текст» с цветом по состоянию выбора.</summary>
             private void UpdateContent()
             {
-                // Содержимое пересоздаётся при каждой смене состояния, поэтому
-                // подписки прежнего содержимого освобождаются: иначе они копились бы
-                // на каждое переключение и жили до конца процесса.
-                ReleaseContentSubscriptions();
-
                 var brushKey = IsChecked == true ? "TextOnAccentBrush" : "TextPrimaryBrush";
                 var sp = new StackPanel
                 {
@@ -1798,7 +1739,7 @@ namespace Configuration_Management
                 // Пустой ключ означает кнопку без иконки: IconHelper на пустой ключ
                 // подставляет запасную папку, и она выглядела бы как настоящая иконка.
                 if (!string.IsNullOrEmpty(_iconKey))
-                    sp.Children.Add(IconHelper.MakeIcon(_iconKey, _iconSize, brushKey, _contentSubs));
+                    sp.Children.Add(IconHelper.MakeIcon(_iconKey, _iconSize, brushKey));
                 if (!string.IsNullOrEmpty(_text))
                 {
                     var tb = new TextBlock
@@ -1808,9 +1749,7 @@ namespace Configuration_Management
                         FontWeight = FontWeight.SemiBold,
                         VerticalAlignment = VerticalAlignment.Center
                     };
-                    var textSub = ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
-                    if (textSub is not null)
-                        _contentSubs.Add(textSub);
+                    ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
                     sp.Children.Add(tb);
                 }
                 Content = sp;
@@ -1989,11 +1928,6 @@ namespace Configuration_Management
             if (_vm is null || _columnHeaderRow is null || _columnHeader is null)
                 return;
 
-            // Прежние кнопки и подписи держат подписки на ресурсы темы: очистка
-            // коллекции детей сама по себе их не отпускает.
-            foreach (var subscription in _columnHeaderSubscriptions)
-                subscription.Dispose();
-            _columnHeaderSubscriptions.Clear();
             _columnHeaderRow.Children.Clear();
             _columnHeaderRow.ColumnDefinitions.Clear();
 
@@ -2019,7 +1953,7 @@ namespace Configuration_Management
             if (_vm.ShowPinnedButton)
             {
                 // Значок закрепления в заголовке — только пометка колонки, как в WPF.
-                var pinMark = IconHelper.MakeIcon("IconPin", UiMetrics.Scaled(13), "TextSecondaryBrush", _columnHeaderSubscriptions);
+                var pinMark = IconHelper.MakeIcon("IconPin", UiMetrics.Scaled(13), "TextSecondaryBrush");
                 ToolTip.SetTip(pinMark, LocalizationManager.T("Main.Pinned"));
                 _columnHeaderRow.Children.Add(pinMark);
                 Grid.SetColumn(pinMark, PinHeaderColumn);
@@ -2035,7 +1969,7 @@ namespace Configuration_Management
             Grid.SetColumnSpan(tools, NameHeaderColumn);
             tools.ZIndex = 1;
 
-            var nameHeader = HeaderText(LocalizationManager.T("Column.Name"), _columnHeaderSubscriptions);
+            var nameHeader = HeaderText(LocalizationManager.T("Column.Name"));
             MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
             _columnHeaderRow.Children.Add(nameHeader);
             Grid.SetColumn(nameHeader, NameHeaderColumn);
@@ -2050,7 +1984,7 @@ namespace Configuration_Management
 
             for (var i = 0; i < columns.Count; i++)
             {
-                var text = HeaderText(columns[i].Header, _columnHeaderSubscriptions);
+                var text = HeaderText(columns[i].Header);
                 if (columns[i].Key == "LastLaunch")
                     MakeSortableHeader(text, "LastLaunchDate", LocalizationManager.T("Main.ColumnLastLaunchSortTooltip"));
                 _columnHeaderRow.Children.Add(text);
@@ -2119,7 +2053,7 @@ namespace Configuration_Management
         {
             var button = new Button
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), "TextSecondaryBrush", _columnHeaderSubscriptions),
+                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), "TextSecondaryBrush"),
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(2, 0),
@@ -2147,9 +2081,7 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 2, 0, 4),
                 Opacity = 0.55
             };
-            var subscription = ThemeBrushes.Bind(line, Border.BackgroundProperty, "BorderColorBrush");
-            if (subscription is not null)
-                _columnHeaderSubscriptions.Add(subscription);
+            ThemeBrushes.Bind(line, Border.BackgroundProperty, "BorderColorBrush");
 
             var grip = new Border
             {
@@ -2585,7 +2517,7 @@ namespace Configuration_Management
                     >= _headerToolbarWidth;
         }
 
-        private static TextBlock HeaderText(string text, ICollection<IDisposable>? subscriptions = null)
+        private static TextBlock HeaderText(string text)
         {
             var block = new TextBlock
             {
@@ -2595,9 +2527,7 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            var subscription = ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            if (subscription is not null)
-                subscriptions?.Add(subscription);
+            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             return block;
         }
 
@@ -2731,6 +2661,23 @@ namespace Configuration_Management
             Content = BuildRoot();
         }
 
+        /// <summary>Позиция прокрутки списка, снятая перед пересборкой дерева.</summary>
+        private Avalonia.Vector? _treeScrollOffset;
+
+        /// <summary>Внутренняя прокрутка дерева: вертикаль ведёт сам TreeView.</summary>
+        private ScrollViewer? TreeScroll =>
+            _tree?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+
+        /// <summary>
+        /// Запоминает позицию прокрутки до пересборки: список опустеет, и после
+        /// неё прежнюю позицию узнать уже неоткуда.
+        /// </summary>
+        private void RememberTreeScroll()
+            // Значение перезаписывается каждой пересборкой и не обнуляется после
+            // применения: две пересборки подряд тогда восстановят одну и ту же
+            // позицию, а не потеряют её из-за уже отработавшего вызова.
+            => _treeScrollOffset = TreeScroll?.Offset ?? _treeScrollOffset;
+
         /// <summary>
         /// Возвращает выделение строки после пересборки дерева: узлы групп
         /// пересоздаются, и дерево теряет подсветку вместе с ними. Объекты баз
@@ -2751,14 +2698,20 @@ namespace Configuration_Management
                     return;
 
                 var target = (object?)_vm.SelectedInfobase ?? _vm.SelectedGroupNode;
-                if (target is null || ReferenceEquals(_tree.SelectedItem, target))
-                    return;
+                if (target is not null && !ReferenceEquals(_tree.SelectedItem, target))
+                {
+                    // Выбор ставится напрямую, без обработчика: он уже согласован
+                    // с вьюмоделью, и повторный проход только сбросил бы парное поле.
+                    _tree.SelectionChanged -= OnTreeSelectionChanged;
+                    try { _tree.SelectedItem = target; }
+                    finally { _tree.SelectionChanged += OnTreeSelectionChanged; }
+                }
 
-                // Выбор ставится напрямую, без обработчика: он уже согласован
-                // с вьюмоделью, и повторный проход только сбросил бы парное поле.
-                _tree.SelectionChanged -= OnTreeSelectionChanged;
-                try { _tree.SelectedItem = target; }
-                finally { _tree.SelectionChanged += OnTreeSelectionChanged; }
+                // Прокрутка возвращается последней: у дерева включено
+                // AutoScrollToSelectedItem, и установка выбора синхронно тянет
+                // строку в видимую область, затирая прежнюю позицию.
+                if (_treeScrollOffset is { } offset && TreeScroll is { } scroll)
+                    scroll.Offset = offset;
             }, Avalonia.Threading.DispatcherPriority.Background);
         }
 

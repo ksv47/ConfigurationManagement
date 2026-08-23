@@ -158,7 +158,7 @@ namespace Configuration_Management
             return grid;
         }
 
-        private static Control BuildTreeRow(object? item)
+        private Control BuildTreeRow(object? item)
         {
             if (item is PlatformVersionGroup node)
             {
@@ -179,6 +179,7 @@ namespace Configuration_Management
 
         private void RefreshTree()
         {
+
             var filtered = FilterByArchitecture(_allInfos, _archFilter);
             var tree = PlatformVersionService.BuildGroupedTree(filtered);
             if (_sortAscending)

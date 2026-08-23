@@ -150,7 +150,7 @@ namespace Configuration_Management
             return grid;
         }
 
-        private static Control BuildTreeRow(object? item)
+        private Control BuildTreeRow(object? item)
         {
             if (item is GroupNodeViewModel node)
             {
@@ -167,6 +167,7 @@ namespace Configuration_Management
         /// <summary>Перестраивает дерево с учётом текущего направления сортировки.</summary>
         private void RefreshTree()
         {
+
             var roots = GroupNodeViewModel.BuildTree(_allowed);
             var groupComparer = StringComparer.OrdinalIgnoreCase;
             roots.Sort(_sortAscending

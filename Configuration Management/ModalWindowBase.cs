@@ -33,6 +33,20 @@ namespace Configuration_Management
         /// <summary>Результат диалога: true — подтверждён (ОК), false — отменён.</summary>
         public bool DialogResult { get; protected set; }
 
+        protected override void OnClosed(EventArgs e)
+        {
+            // Событие живёт у синглтона локализации, а обработчик это метод
+            // экземпляра: без отписки закрытое окно оставалось бы достижимым.
+            // Кисти темы отписывать не нужно, их привязку держит сам элемент.
+            if (_languageSubscribed)
+            {
+                LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
+                _languageSubscribed = false;
+            }
+
+            base.OnClosed(e);
+        }
+
         /// <summary>
         /// Показывает окно модально (синхронно) относительно владельца и блокирует
         /// вызывающий поток до закрытия окна.

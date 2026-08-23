@@ -228,16 +228,30 @@ namespace Configuration_Management.Services
     /// <summary>Окно сообщения (MessageBox) для Linux.</summary>
     internal sealed class MessageWindow : Window
     {
-        public bool Result { get; private set; } = true;
+        /// <summary>
+        /// Ответ пользователя. У вопроса значение по умолчанию отрицательное:
+        /// закрытие крестиком или Alt+F4 не должно означать согласие, а Confirm
+        /// спрашивают перед удалением базы, группы и цветовой схемы.
+        /// </summary>
+        public bool Result { get; private set; }
 
         public MessageWindow(string message, string title, MessageWindowKind kind)
         {
+            // Сообщение без выбора подтверждать нечего: там ответ всегда
+            // положительный, каким бы способом окно ни закрыли.
+            Result = kind != MessageWindowKind.Question;
+
             Title = title;
             Width = 420;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             SystemDecorations = SystemDecorations.Full;
+
+            // Фон красит само окно, а не содержимое: у содержимого есть отступ,
+            // и полоса по периметру осталась бы фоном Window от Fluent.
+            // Диалоги WPF-версии красят Window по той же причине.
+            Themes.ThemeBrushes.Bind(this, Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty, "ContentBackgroundColorBrush");
 
             var iconKey = kind switch
             {
@@ -254,6 +268,7 @@ namespace Configuration_Management.Services
                 FontSize = 13,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            Themes.ThemeBrushes.Bind(messageBlock, TextBlock.ForegroundProperty, "TextPrimaryColorBrush");
 
             // Сетка, а не горизонтальный StackPanel: в стопке текст получает
             // бесконечную ширину и не переносится, длинное сообщение обрезается.
@@ -268,7 +283,12 @@ namespace Configuration_Management.Services
             Grid.SetColumn(messageBlock, 1);
             body.Children.Add(messageBlock);
 
-            Button okButton = new() { Content = "OK", MinWidth = 90, IsDefault = true };
+            var okText = kind == MessageWindowKind.Question
+                ? LocalizationManager.T("Common.Yes")
+                : LocalizationManager.T("Common.Ok");
+            Button okButton = new() { Content = okText, MinWidth = 90, IsDefault = true };
+            Themes.ThemeBrushes.Bind(okButton, Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty, "AccentColorBrush");
+            Themes.ThemeBrushes.Bind(okButton, Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty, "TextOnAccentColorBrush");
             okButton.Click += (_, _) => { Result = true; Close(); };
 
             var buttonsPanel = new StackPanel
@@ -281,7 +301,9 @@ namespace Configuration_Management.Services
 
             if (kind == MessageWindowKind.Question)
             {
-                Button cancelButton = new() { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 90, IsCancel = true };
+                Button cancelButton = new() { Content = LocalizationManager.T("Common.No"), MinWidth = 90, IsCancel = true };
+                Themes.ThemeBrushes.Bind(cancelButton, Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty, "SecondaryButtonBackgroundColorBrush");
+                Themes.ThemeBrushes.Bind(cancelButton, Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty, "ButtonTextColorBrush");
                 cancelButton.Click += (_, _) => { Result = false; Close(); };
                 buttonsPanel.Children.Insert(0, cancelButton);
             }
@@ -292,6 +314,7 @@ namespace Configuration_Management.Services
                 Margin = new Thickness(16),
                 Children = { body, buttonsPanel }
             };
+
             Content = content;
         }
     }

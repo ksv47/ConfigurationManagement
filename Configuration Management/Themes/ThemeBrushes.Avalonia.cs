@@ -1,58 +1,90 @@
 #if LINUX
-using System;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace Configuration_Management.Themes
 {
     /// <summary>
-    /// Вспомогательный класс для привязки кистей-ресурсов темы к свойствам элементов,
-    /// собираемых в коде (без XAML). Ресурсы-кисти создаются ThemeManager.ApplyScheme как
-    /// Application.Resources (ключи вида <c>TextPrimaryColorBrush</c>, <c>CardBackgroundColorBrush</c>
-    /// и т.п.). Подписка через GetResourceObservable обеспечивает автоматическую перекраску
-    /// элемента при переключении светлой/тёмной схемы (аналогично IconHelper).
+    /// Привязка кистей-ресурсов темы к свойствам элементов, собираемых в коде
+    /// (без XAML). Сами ресурсы кладёт ThemeManager.ApplyScheme в
+    /// Application.Resources под ключами вида <c>TextPrimaryColorBrush</c>
+    /// и <c>CardBackgroundColorBrush</c>.
     /// </summary>
     public static class ThemeBrushes
     {
         /// <summary>
-        /// Подписывает свойство-кисть целевого элемента на ресурс-кисть темы.
-        /// При каждом обновлении ресурса (смена темы/схемы) свойство обновляется.
+        /// Привязывает свойство-кисть элемента к ресурсу темы. При смене темы или
+        /// цветовой схемы значение обновляется само.
         /// </summary>
         /// <param name="target">Элемент, у которого меняется кисть.</param>
-        /// <param name="property">Свойство типа IBrush (Background/Foreground/BorderBrush и т.п.).</param>
-        /// <param name="brushKey">Ключ ресурса-кисти темы (например "CardBackgroundColorBrush").</param>
-        /// <returns>
-        /// Подписка на ресурс. Вызывающий может её освободить, если элемент
-        /// живёт меньше приложения: наблюдатель держит сильную ссылку на элемент,
-        /// а сам ресурс живёт до конца процесса.
-        /// </returns>
-        public static IDisposable? Bind(AvaloniaObject target, AvaloniaProperty property, string brushKey)
-        {
-            var app = Application.Current;
-            if (app is null)
-                return null;
-            return app.GetResourceObservable(brushKey).Subscribe(new ResourceBrushObserver(target, property));
-        }
+        /// <param name="property">Свойство типа IBrush (Background, Foreground, BorderBrush).</param>
+        /// <param name="brushKey">Ключ ресурса-кисти темы, например "CardBackgroundColorBrush".</param>
+        /// <remarks>
+        /// Привязку отслеживает сам элемент, освобождать её не нужно и нельзя:
+        /// освобождение снимает окраску, а не подписку. Ресурс ищется по цепочке
+        /// логических родителей до окна, поэтому элемент, который так и не попал
+        /// в содержимое окна, останется неокрашенным молча. Ловушки такого рода:
+        /// ToolTip.Tip и MenuItem.Icon у неоткрытого меню.
+        /// </remarks>
+        public static void Bind(StyledElement target, AvaloniaProperty property, string brushKey)
+            => target.Bind(property, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(brushKey));
 
-        /// <summary>Наблюдатель, переносящий текущее значение ресурса-кисти в свойство элемента.</summary>
-        private sealed class ResourceBrushObserver : IObserver<object?>
+        /// <summary>
+        /// Отдаёт кисть темы в код и обновляет её при смене темы или схемы.
+        /// Нужно там, где кисть не ложится в свойство напрямую: цвет зависит
+        /// от состояния элемента (наведение, фокус) и пересчитывается вручную.
+        /// </summary>
+        /// <param name="target">Элемент, к жизни которого привязана подписка.</param>
+        /// <param name="brushKey">Ключ ресурса-кисти темы.</param>
+        /// <param name="apply">Что делать с полученной кистью.</param>
+        /// <remarks>
+        /// Подписка живёт ровно столько, сколько элемент находится в визуальном
+        /// дереве: создаётся при присоединении, снимается при откреплении и
+        /// создаётся заново, если элемент вернули. Иначе наблюдатель жил бы
+        /// у приложения и держал элемент сильной ссылкой, а пересборка
+        /// содержимого окна оставляла бы прежнее дерево укоренённым навсегда.
+        /// Элемент, который так и не попал в дерево, подписки не создаёт вовсе.
+        /// </remarks>
+        public static void Observe(Avalonia.Controls.Control target, string brushKey, System.Action<Avalonia.Media.IBrush> apply)
         {
-            private readonly AvaloniaObject _target;
-            private readonly AvaloniaProperty _property;
+            System.IDisposable? subscription = null;
 
-            public ResourceBrushObserver(AvaloniaObject target, AvaloniaProperty property)
+            void Start()
             {
-                _target = target;
-                _property = property;
+                subscription?.Dispose();
+                subscription = Avalonia.Application.Current?
+                    .GetResourceObservable(brushKey)
+                    .Subscribe(new BrushCallback(apply));
             }
 
+            void Stop()
+            {
+                subscription?.Dispose();
+                subscription = null;
+            }
+
+            target.AttachedToVisualTree += (_, _) => Start();
+            target.DetachedFromVisualTree += (_, _) => Stop();
+
+            // Элемент может быть уже в дереве: тогда события присоединения
+            // не будет, а кисть нужна сразу.
+            if (target.GetVisualRoot() is not null)
+                Start();
+        }
+
+        private sealed class BrushCallback : System.IObserver<object?>
+        {
+            private readonly System.Action<Avalonia.Media.IBrush> _apply;
+
+            public BrushCallback(System.Action<Avalonia.Media.IBrush> apply) => _apply = apply;
+
             public void OnCompleted() { }
-            public void OnError(Exception error) { }
+            public void OnError(System.Exception error) { }
             public void OnNext(object? value)
             {
-                if (value is IBrush brush && !Equals(_target.GetValue(_property), brush))
-                    _target.SetValue(_property, brush);
+                if (value is Avalonia.Media.IBrush brush)
+                    _apply(brush);
             }
         }
     }
