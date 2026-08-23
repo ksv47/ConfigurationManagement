@@ -169,6 +169,13 @@ public class AppSettings
     /// </summary>
     public bool CloseToTray { get; set; }
 
+    /// <summary>
+    /// Действие после успешного запуска информационной базы или конфигуратора 1С:
+    /// "None" (ничего), "MinimizeToTray" (свернуть в трей) или "Close" (закрыть/увести в трей).
+    /// Хранится строкой для обратной совместимости.
+    /// </summary>
+    public string AfterLaunchAction { get; set; } = "None";
+
     /// <summary>Показывать значок приложения в системном трее.</summary>
     public bool ShowTrayIcon { get; set; } = true;
 

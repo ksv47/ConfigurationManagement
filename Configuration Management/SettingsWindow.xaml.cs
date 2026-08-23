@@ -615,6 +615,16 @@ namespace Configuration_Management
                 CloseToTrayCheck.IsChecked = _viewModel.CloseToTray;
             if (EscapeToTrayCheck != null)
                 EscapeToTrayCheck.IsChecked = _viewModel.EscapeToTray;
+            if (AfterLaunchActionCombo != null)
+            {
+                AfterLaunchActionCombo.ItemsSource = new[]
+                {
+                    LocalizationManager.T("Settings.General.AfterLaunchAction.None"),
+                    LocalizationManager.T("Settings.General.AfterLaunchAction.MinimizeToTray"),
+                    LocalizationManager.T("Settings.General.AfterLaunchAction.Close")
+                };
+                AfterLaunchActionCombo.SelectedIndex = (int)Models.AfterLaunchActionHelper.Parse(_viewModel.AfterLaunchAction);
+            }
             if (RememberWindowLayoutCheck != null)
                 RememberWindowLayoutCheck.IsChecked = _viewModel.RememberWindowLayout;
             if (CompactModeCheck != null)
@@ -1405,7 +1415,8 @@ namespace Configuration_Management
                 hkShowAll,
                 hkShowFavorites,
                 hkShowRecent,
-                RememberWindowLayoutCheck.IsChecked ?? true);
+                RememberWindowLayoutCheck.IsChecked ?? true,
+                ReadAfterLaunchAction());
 
             var templatePaths = TemplatePathsList?.Items.Cast<string>().Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
                 ?? new System.Collections.Generic.List<string>();
@@ -1429,6 +1440,14 @@ namespace Configuration_Management
             _viewModel.SaveElementFonts(_elementFonts);
 
             DialogResult = true;
+        }
+
+        /// <summary>Читает выбранное в окне настроек действие «после запуска базы/конфигуратора».</summary>
+        private string ReadAfterLaunchAction()
+        {
+            if (AfterLaunchActionCombo?.SelectedIndex is int idx && idx >= 0 && idx <= 2)
+                return ((Models.AfterLaunchAction)idx).ToSettingString();
+            return _viewModel.AfterLaunchAction;
         }
 
 
