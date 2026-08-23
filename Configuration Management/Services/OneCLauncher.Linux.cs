@@ -657,8 +657,10 @@ namespace Configuration_Management.Services
         {
             try
             {
-                foreach (var (_, name, cmd) in LinuxProc.Enumerate1C())
+                foreach (var process in LinuxProc.Enumerate1C())
                 {
+                    var name = process.Name;
+                    var cmd = process.CmdLine;
                     var n = name ?? string.Empty;
                     if (!n.StartsWith("1cv8", StringComparison.OrdinalIgnoreCase))
                         continue;

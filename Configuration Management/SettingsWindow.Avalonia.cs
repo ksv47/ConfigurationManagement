@@ -843,10 +843,11 @@ namespace Configuration_Management
             intervalRow.Children.Add(scheduleBox);
             bases.Children.Add(intervalRow);
 
-            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.BackupBeforeSync")));
+            // Подписи как в оригинале: флажок называет само действие, а строка
+            // про имена копий идёт пояснением под числом хранимых копий.
             var backupCheck = new CheckBox
             {
-                Content = LocalizationManager.T("Settings.Ibases.BackupNote"),
+                Content = LocalizationManager.T("Settings.BackupBeforeSync"),
                 IsChecked = _viewModel.IbasesBackupEnabled
             };
             bases.Children.Add(backupCheck);
@@ -855,6 +856,7 @@ namespace Configuration_Management
             var keepBox = new TextBox { Text = _viewModel.IbasesBackupKeepCount.ToString(), Width = 80 };
             keepRow.Children.Add(keepBox);
             bases.Children.Add(keepRow);
+            bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.BackupNote")));
 
             tabs.Items.Add(new TabItem
             {

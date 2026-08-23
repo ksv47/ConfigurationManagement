@@ -11,7 +11,7 @@ namespace Configuration_Management.Services
     /// <summary>
     /// Вспомогательные операции с процессами 1С на Linux.
     /// Командная строка читается из /proc/<pid>/cmdline (аналог Win32_Process),
-    /// завершение — через Process.Kill() с последующим pkill -f 1cv8.
+    /// завершение — через Process.Kill() вместе с деревом потомков.
     /// </summary>
     internal static class LinuxProc
     {
@@ -56,10 +56,13 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>
-        /// Перечисляет запущенные процессы 1С: те, чьё имя (comm) совпадает с
-        /// известными именами 1С либо чья командная строка содержит «1cv8».
+        /// Перечисляет запущенные процессы 1С. Процессом платформы считается
+        /// тот, чей исполняемый файл лежит в каталоге установки 1С либо носит
+        /// известное имя. Упоминание «1cv8» в аргументах признаком не служит:
+        /// по нему в список попадал любой процесс с путём платформы в строке
+        /// запуска, вплоть до терминала с открытым каталогом.
         /// </summary>
-        public static IEnumerable<(int Pid, string Name, string? CmdLine)> Enumerate1C()
+        public static IEnumerable<OneCProcess> Enumerate1C()
         {
             const string proc = "/proc";
             if (!Directory.Exists(proc))
@@ -72,26 +75,65 @@ namespace Configuration_Management.Services
 
                 var comm = ReadComm(pid) ?? string.Empty;
                 var cmd = ReadCmdLine(pid) ?? string.Empty;
+                // У чужого пользователя ссылка exe не читается, а командная
+                // строка читается: её первый аргумент и даёт путь запуска.
+                var executable = ReadExePath(pid) ?? FirstArgument(cmd);
 
-                // Признак это имя самого исполняемого файла, а не упоминание
-                // «1cv8» где-нибудь в командной строке: под прежнее правило
-                // попадал любой процесс, у которого в аргументах есть путь
-                // с 1cv8, вплоть до терминала с открытым каталогом платформы.
-                var isOneC = MatchesOneCName(comm) || MatchesOneCName(ExecutableName(cmd));
+                if (!IsOneCProcess(comm, executable))
+                    continue;
 
-                if (isOneC)
-                    yield return (pid, comm, cmd);
+                var name = comm.Length > 0 ? comm : Path.GetFileName(executable);
+                yield return new OneCProcess(pid, name, cmd, executable);
             }
         }
 
-        /// <summary>Имя исполняемого файла из командной строки, без пути и аргументов.</summary>
-        private static string ExecutableName(string cmdLine)
+        /// <summary>Запущенный процесс платформы.</summary>
+        public readonly record struct OneCProcess(int Pid, string Name, string CmdLine, string Executable);
+
+        private static bool IsOneCProcess(string comm, string executable)
+        {
+            if (MatchesOneCName(comm) || comm.StartsWith("1cv8", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (string.IsNullOrEmpty(executable))
+                return false;
+
+            return MatchesOneCName(Path.GetFileName(executable)) || IsPlatformPath(executable);
+        }
+
+        /// <summary>
+        /// Путь ведёт внутрь установки платформы: у каталогов 1С есть сегмент
+        /// вида 1cv8. Сегмент, а не подстрока: путь домашнего каталога вроде
+        /// /home/1cv8admin признаком не является.
+        /// </summary>
+        private static bool IsPlatformPath(string executable) =>
+            executable
+                .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries)
+                .SkipLast(1)
+                .Any(segment => segment.StartsWith("1cv8", StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>Путь запуска: первый аргумент командной строки.</summary>
+        private static string FirstArgument(string cmdLine)
         {
             if (string.IsNullOrWhiteSpace(cmdLine))
                 return string.Empty;
 
             var first = cmdLine.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-            return string.IsNullOrEmpty(first) ? string.Empty : Path.GetFileName(first);
+            return first ?? string.Empty;
+        }
+
+        /// <summary>Куда указывает /proc/&lt;pid&gt;/exe. Для чужого процесса недоступно.</summary>
+        private static string? ReadExePath(int pid)
+        {
+            try
+            {
+                var link = new FileInfo($"/proc/{pid}/exe").LinkTarget;
+                return string.IsNullOrEmpty(link) ? null : link;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>
@@ -117,45 +159,68 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>Завершает процесс по pid (SIGTERM/Kill). Ошибки игнорируются.</summary>
-        public static void KillProcess(int pid)
+        /// <summary>
+        /// Завершает процесс вместе с потомками. Возвращает, действительно ли
+        /// он завершился: сигнал асинхронный, а прав на чужой процесс может
+        /// не быть, поэтому ответ даётся по факту, а не по отправке сигнала.
+        /// </summary>
+        public static bool KillProcess(int pid)
         {
             try
             {
                 using var p = Process.GetProcessById(pid);
-                if (!p.HasExited)
-                    p.Kill();
+                if (p.HasExited)
+                    return true;
+
+                p.Kill(entireProcessTree: true);
+                p.WaitForExit(KillWaitMilliseconds);
+                return p.HasExited;
+            }
+            catch (ArgumentException)
+            {
+                // процесса уже нет
+                return true;
             }
             catch
             {
-                // нет прав или процесс уже завершён
+                return false;
             }
         }
+
+        /// <summary>Сколько ждать выхода процесса после сигнала.</summary>
+        private const int KillWaitMilliseconds = 3000;
 
         /// <summary>
         /// Завершает все процессы 1С, найденные в /proc. Возвращает число завершённых.
         /// </summary>
-        public static int KillAllOneC()
+        /// <summary>
+        /// Завершает процессы из переданного снимка. Возвращает, сколько
+        /// действительно завершилось и сколько не удалось: у процессов чужого
+        /// пользователя прав нет, и без разделения пользователь видел бы
+        /// «завершено» при живом сервере.
+        /// </summary>
+        public static (int Killed, int Failed) KillOneC(IEnumerable<int> pids)
         {
-            var pids = Enumerate1C().Select(x => x.Pid).Distinct().ToList();
             var killed = 0;
-            foreach (var pid in pids)
+            var failed = 0;
+
+            foreach (var pid in pids.Distinct())
             {
                 if (!IsAlive(pid))
                     continue;
-                KillProcess(pid);
-                killed++;
+
+                if (KillProcess(pid))
+                    killed++;
+                else
+                    failed++;
             }
 
-            // Прежняя страховка `pkill -f 1cv8` убрана: она била по подстроке
-            // в командной строке и уносила чужие процессы, у которых в аргументах
-            // просто встречается путь платформы.
-            return killed;
+            return (killed, failed);
         }
 
         /// <summary>Число запущенных процессов 1С.</summary>
         public static int CountOneC()
             => Enumerate1C().Select(x => x.Pid).Distinct().Count();
-
     }
 }
 #endif

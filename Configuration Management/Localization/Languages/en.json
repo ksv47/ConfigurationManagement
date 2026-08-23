@@ -1100,7 +1100,10 @@
     "Main.NoProcesses": "No 1C platform processes found.",
     "Main.OneCProcessesTitle": "1C processes",
     "Main.KillProcessesConfirm": "About {0} 1C processes will be terminated.\n\nUnsaved data in open sessions may be lost.\nContinue?",
-    "Main.KillProcessesBreakdown": "Found: {0}. The ragent, rmngr and rphost processes belong to the 1C server; stopping them shuts the cluster down.",
+    "Main.MissingUnchecked": "{0} more infobases could not be checked: the directory is unavailable. They are kept in the list.",
+    "Main.ProcessesKillFailed": "Could not stop: {0}. These are usually processes of another user, such as the 1C server.",
+    "Main.KillProcessesServerNote": "The ragent, rmngr and rphost processes belong to the 1C server; stopping them shuts the cluster down.",
+    "Main.KillProcessesBreakdown": "Found: {0}.",
     "Main.KillProcessesTitle": "Terminate 1C processes",
     "Main.ProcessesKilled": "Processes terminated: {0}.",
 
