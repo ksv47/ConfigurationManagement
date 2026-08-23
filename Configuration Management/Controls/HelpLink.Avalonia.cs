@@ -18,31 +18,6 @@ namespace Configuration_Management.Controls
     /// </summary>
     public class HelpLink : UserControl
     {
-        /// <summary>
-        /// Подписки на ресурсы темы. Наблюдатель держит сильную ссылку на элемент,
-        /// а ресурс живёт у приложения, поэтому подписки снимаются вместе
-        /// с открепления контрола от дерева: иначе каждое построение окна
-        /// оставляло бы его укоренённым навсегда.
-        /// </summary>
-        private readonly System.Collections.Generic.List<IDisposable> _themeSubscriptions = new();
-
-        private void Track(IDisposable? subscription)
-        {
-            if (subscription is not null)
-                _themeSubscriptions.Add(subscription);
-        }
-
-        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-        {
-            foreach (var subscription in _themeSubscriptions)
-            {
-                try { subscription.Dispose(); }
-                catch { /* освобождение подписки не должно мешать выгрузке контрола */ }
-            }
-            _themeSubscriptions.Clear();
-            base.OnDetachedFromVisualTree(e);
-        }
-
         /// <summary>Текст всплывающей подсказки.</summary>
         public static readonly StyledProperty<string> HelpTextProperty =
             AvaloniaProperty.Register<HelpLink, string>(nameof(HelpText), string.Empty);
@@ -89,7 +64,7 @@ namespace Configuration_Management.Controls
                 FontSize = 12
             };
             // Заголовок — акцентный цвет темы.
-            Track(ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "AccentColorBrush"));
+            ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "AccentColorBrush");
             var popupContent = new StackPanel { Children = { titleBlock, _helpBody } };
             var popupBorder = new Border
             {
@@ -100,8 +75,8 @@ namespace Configuration_Management.Controls
                 Margin = new Thickness(0, 6, 0, 0)
             };
             // Фон и граница подсказки — карточка и граница из темы.
-            Track(ThemeBrushes.Bind(popupBorder, Border.BackgroundProperty, "CardBackgroundColorBrush"));
-            Track(ThemeBrushes.Bind(popupBorder, Border.BorderBrushProperty, "BorderColorBrush"));
+            ThemeBrushes.Bind(popupBorder, Border.BackgroundProperty, "CardBackgroundColorBrush");
+            ThemeBrushes.Bind(popupBorder, Border.BorderBrushProperty, "BorderColorBrush");
             _helpPopup.Child = popupBorder;
             _helpPopup.PlacementTarget = _helpToggle;
             _helpPopup.Placement = PlacementMode.Bottom;

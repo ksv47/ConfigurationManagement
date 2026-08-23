@@ -167,6 +167,16 @@ namespace Configuration_Management
         /// <summary>Перестраивает дерево с учётом текущего направления сортировки.</summary>
         private void RefreshTree()
         {
+            // Строки пересоздаются на каждую пересортировку, а их подписки
+            // на тему живут до закрытия окна: без освобождения набор растёт
+            // с каждым переключением, удерживая мёртвые строки.
+            foreach (var subscription in ThemeSubscriptions)
+            {
+                try { subscription.Dispose(); }
+                catch { /* освобождение подписки не должно мешать пересборке */ }
+            }
+            ThemeSubscriptions.Clear();
+
             var roots = GroupNodeViewModel.BuildTree(_allowed);
             var groupComparer = StringComparer.OrdinalIgnoreCase;
             roots.Sort(_sortAscending

@@ -50,6 +50,15 @@ namespace Configuration_Management
 
         protected override void OnClosed(EventArgs e)
         {
+            // Событие живёт у синглтона локализации, а обработчик это метод
+            // экземпляра: без отписки закрытое окно осталось бы достижимым
+            // и все освобождённые подписки на тему не дали бы ничего.
+            if (_languageSubscribed)
+            {
+                LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
+                _languageSubscribed = false;
+            }
+
             foreach (var subscription in ThemeSubscriptions)
             {
                 try { subscription.Dispose(); }
@@ -119,7 +128,7 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        IconHelper.MakeIcon("IconClose", 14),
+                        IconHelper.MakeIcon("IconClose", 14, subscriptions: ThemeSubscriptions),
                         cancelText
                     }
                 },
@@ -137,7 +146,7 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        IconHelper.MakeIcon("IconOk", 14),
+                        IconHelper.MakeIcon("IconOk", 14, subscriptions: ThemeSubscriptions),
                         okTextBlock
                     }
                 },

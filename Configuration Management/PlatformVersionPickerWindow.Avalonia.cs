@@ -179,6 +179,16 @@ namespace Configuration_Management
 
         private void RefreshTree()
         {
+            // Строки пересоздаются на каждую пересортировку, а их подписки
+            // на тему живут до закрытия окна: без освобождения набор растёт
+            // с каждым переключением, удерживая мёртвые строки.
+            foreach (var subscription in ThemeSubscriptions)
+            {
+                try { subscription.Dispose(); }
+                catch { /* освобождение подписки не должно мешать пересборке */ }
+            }
+            ThemeSubscriptions.Clear();
+
             var filtered = FilterByArchitecture(_allInfos, _archFilter);
             var tree = PlatformVersionService.BuildGroupedTree(filtered);
             if (_sortAscending)

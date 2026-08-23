@@ -73,7 +73,7 @@ namespace Configuration_Management
         /// Строит содержимое кнопки «иконка + подпись» (горизонтальная панель).
         /// </summary>
         public static Control IconAndText(string iconKey, string text, double iconSize = 16,
-            string brushKey = "TextPrimaryColorBrush")
+            string brushKey = "TextPrimaryColorBrush", ICollection<IDisposable>? subscriptions = null)
         {
             return new StackPanel
             {
@@ -81,7 +81,7 @@ namespace Configuration_Management
                 Spacing = 6,
                 Children =
                 {
-                    MakeIcon(iconKey, iconSize, brushKey),
+                    MakeIcon(iconKey, iconSize, brushKey, subscriptions),
                     new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center }
                 }
             };

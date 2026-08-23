@@ -123,9 +123,9 @@ namespace Configuration_Management
             return grid;
         }
 
-        private static Button MakeButton(string text, string iconKey, Action onClick)
+        private Button MakeButton(string text, string iconKey, Action onClick)
         {
-            var button = new Button { Content = IconHelper.IconAndText(iconKey, text) };
+            var button = new Button { Content = IconHelper.IconAndText(iconKey, text, subscriptions: ThemeSubscriptions) };
             button.Click += (_, _) => onClick();
             return button;
         }
