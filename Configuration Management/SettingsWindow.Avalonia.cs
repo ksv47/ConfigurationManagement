@@ -153,7 +153,7 @@ namespace Configuration_Management
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 8, 0, 0)
             });
-            var afterLaunchBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
+            var afterLaunchBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
             afterLaunchBox.ItemsSource = new[]
             {
                 LocalizationManager.T("Settings.General.AfterLaunchAction.None"),
@@ -235,7 +235,7 @@ namespace Configuration_Management
 
             platforms.Children.Add(GroupTitle(LocalizationManager.T("Settings.DefaultArch")));
             platforms.Children.Add(Hint(LocalizationManager.T("Settings.DefaultArch.Hint")));
-            var archBox = new ComboBox { MinWidth = 160, HorizontalAlignment = HorizontalAlignment.Left };
+            var archBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
             archBox.ItemsSource = new[] { "X64", "X86" };
             archBox.SelectedItem = string.Equals(_viewModel.DefaultArchitecture, "X86", StringComparison.OrdinalIgnoreCase) ? "X86" : "X64";
             platforms.Children.Add(archBox);
@@ -753,15 +753,20 @@ namespace Configuration_Management
                 (Mode: IbasesSyncMode.Export, Text: LocalizationManager.T("Settings.Ibases.SyncModeExport")),
                 (Mode: IbasesSyncMode.Both, Text: LocalizationManager.T("Settings.Ibases.SyncModeBoth"))
             };
-            var syncModeBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
+            var syncModeBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
             syncModeBox.ItemsSource = syncModes.Select(m => m.Text).ToList();
             syncModeBox.SelectedIndex = Array.FindIndex(syncModes, m => m.Mode == _viewModel.IbasesSyncMode);
             bases.Children.Add(syncModeBox);
 
             bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Ibases.File")));
-            var fileRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var fileBox = new TextBox { Text = _viewModel.IbasesSyncFilePath, MinWidth = 420 };
-            var browse = new Button { Content = "..." };
+            // Строка пути на Grid: поле растягивается на доступную ширину, а кнопка
+            // обзора закреплена справа — в отличие от горизонтального StackPanel
+            // с фиксированной MinWidth это не вызывает обрезания по горизонтали.
+            var fileGrid = new Grid();
+            fileGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            fileGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            var fileBox = new TextBox { Text = _viewModel.IbasesSyncFilePath, HorizontalAlignment = HorizontalAlignment.Stretch };
+            var browse = new Button { Content = "...", Margin = new Thickness(8, 0, 0, 0) };
             ToolTip.SetTip(browse, LocalizationManager.T("Settings.Ibases.BrowseTooltip"));
             browse.Click += (_, _) =>
             {
@@ -771,9 +776,11 @@ namespace Configuration_Management
                 if (!string.IsNullOrWhiteSpace(picked))
                     fileBox.Text = picked;
             };
-            fileRow.Children.Add(fileBox);
-            fileRow.Children.Add(browse);
-            bases.Children.Add(fileRow);
+            Grid.SetColumn(fileBox, 0);
+            Grid.SetColumn(browse, 1);
+            fileGrid.Children.Add(fileBox);
+            fileGrid.Children.Add(browse);
+            bases.Children.Add(fileGrid);
 
             bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Ibases.SyncTrigger")));
             var triggers = new[]
@@ -782,7 +789,7 @@ namespace Configuration_Management
                 (Trigger: IbasesSyncTrigger.Interval, Text: LocalizationManager.T("Settings.Ibases.TriggerInterval")),
                 (Trigger: IbasesSyncTrigger.Schedule, Text: LocalizationManager.T("Settings.Ibases.TriggerSchedule"))
             };
-            var triggerBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
+            var triggerBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
             triggerBox.ItemsSource = triggers.Select(t => t.Text).ToList();
             triggerBox.SelectedIndex = Array.FindIndex(triggers, t => t.Trigger == _viewModel.IbasesSyncTrigger);
             bases.Children.Add(triggerBox);
@@ -812,7 +819,15 @@ namespace Configuration_Management
             tabs.Items.Add(new TabItem
             {
                 Header = LocalizationManager.T("Settings.TabBases"),
-                Content = new ScrollViewer { Content = bases, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+                Content = new ScrollViewer
+                {
+                    Content = bases,
+                    // Горизонтальная прокрутка отключена, чтобы элементы растягивались
+                    // по ширине окна (Stretch). При изменении размера окна реквизиты
+                    // сжимаются вслед за ним; строки уже адаптивны (Grid со Star-колонкой).
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                }
             });
 
             // ===== Клавиши =====

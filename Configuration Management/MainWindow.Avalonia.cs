@@ -110,6 +110,11 @@ namespace Configuration_Management
             // пересобирает содержимое, и обработчики копились бы на каждый показ.
             _vm.TreeRebuilding += RememberTreeScroll;
             _vm.TreeRebuilt += RestoreTreeSelection;
+
+            // Смена языка интерфейса: названия колонок, кнопки правой панели и подсказки
+            // создаются в коде через LocalizationManager.T(...), поэтому окно пересобирается,
+            // чтобы переведённый текст появился сразу, а не после перезапуска.
+            LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         }
 
         /// <summary>Значок трея создан без ошибки: значение проверяется перед тем, как прятать окно.</summary>
@@ -292,14 +297,17 @@ namespace Configuration_Management
             var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
 
             var allSeg = new SegmentButton("IconList", LocalizationManager.T("Main.AllBases"), "ItemHoverBrush", "ItemSelectedBrush");
+            ToolTip.SetTip(allSeg, LocalizationManager.T("Main.AllBasesTooltip"));
             allSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeAll") { Mode = BindingMode.TwoWay });
             panel.Children.Add(allSeg);
 
             var favSeg = new SegmentButton("IconFavorite", LocalizationManager.T("Main.Favorites"), "ItemHoverBrush", "ItemSelectedBrush");
+            ToolTip.SetTip(favSeg, LocalizationManager.T("Main.FavoritesTooltip"));
             favSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeFavorites") { Mode = BindingMode.TwoWay });
             panel.Children.Add(favSeg);
 
             var recSeg = new SegmentButton("IconRecent", LocalizationManager.T("Main.Recent"), "ItemHoverBrush", "ItemSelectedBrush");
+            ToolTip.SetTip(recSeg, LocalizationManager.T("Main.RecentTooltip"));
             recSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeRecent") { Mode = BindingMode.TwoWay });
             panel.Children.Add(recSeg);
 
@@ -2866,6 +2874,127 @@ namespace Configuration_Management
         {
             UiMetrics.Compact = compact;
             Content = BuildRoot();
+        }
+
+        /// <summary>Позиция прокрутки списка, снятая перед пересборкой дерева.</summary>
+        private Avalonia.Vector? _treeScrollOffset;
+
+        /// <summary>Внутренняя прокрутка дерева: вертикаль ведёт сам TreeView.</summary>
+        private ScrollViewer? TreeScroll =>
+            _tree?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+
+        /// <summary>
+        /// Связывает внешнюю полосу прокрутки с деревом. Полоса стоит отдельным
+        /// столбцом, вне горизонтальной прокрутки, поэтому остаётся у правого
+        /// края области даже когда колонки шире окна.
+        /// </summary>
+        private void AttachVerticalScrollBar()
+        {
+            // Компактный режим пересобирает окно целиком, и дерево с полосой
+            // становятся другими объектами. Поэтому сверяемся с самой прокруткой,
+            // а не с признаком «уже привязывались»: иначе после переключения
+            // полоса остаётся подписанной на выброшенный ScrollViewer.
+            if (_listVerticalBar is not { } bar || TreeScroll is not { } scroll)
+                return;
+            if (ReferenceEquals(_boundTreeScroll, scroll) && ReferenceEquals(_boundScrollBar, bar))
+                return;
+
+            foreach (var link in _scrollBarLinks)
+                link.Dispose();
+            _scrollBarLinks.Clear();
+            _boundTreeScroll = scroll;
+            _boundScrollBar = bar;
+
+            void Sync()
+            {
+                if (_syncingScrollBar)
+                    return;
+                _syncingScrollBar = true;
+                try
+                {
+                    var hidden = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+                    bar.Maximum = hidden;
+                    bar.ViewportSize = scroll.Viewport.Height;
+                    // Шаги берёт сама прокрутка по своему содержимому. Без этого
+                    // у отдельной полосы остаются значения RangeBase по умолчанию,
+                    // и щелчок по дорожке двигает список на десять точек вместо
+                    // страницы, а стрелка на одну точку вместо строки.
+                    bar.SmallChange = scroll.SmallChange.Height;
+                    bar.LargeChange = scroll.LargeChange.Height;
+                    bar.Value = Math.Min(scroll.Offset.Y, hidden);
+                }
+                finally { _syncingScrollBar = false; }
+            }
+
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.OffsetProperty)
+                .Subscribe(new PropertyObserver<Vector>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.ExtentProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.ViewportProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.SmallChangeProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.LargeChangeProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            Sync();
+        }
+
+        /// <summary>Наблюдатель за значением свойства.</summary>
+        private sealed class PropertyObserver<T> : IObserver<T>
+        {
+            private readonly Action<T> _apply;
+            public PropertyObserver(Action<T> apply) => _apply = apply;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(T value) => _apply(value);
+        }
+
+        /// <summary>
+        /// Запоминает позицию прокрутки до пересборки: список опустеет, и после
+        /// неё прежнюю позицию узнать уже неоткуда.
+        /// </summary>
+        private void RememberTreeScroll()
+            // Значение перезаписывается каждой пересборкой и не обнуляется после
+            // применения: две пересборки подряд тогда восстановят одну и ту же
+            // позицию, а не потеряют её из-за уже отработавшего вызова.
+            => _treeScrollOffset = TreeScroll?.Offset ?? _treeScrollOffset;
+
+        /// <summary>
+        /// Пересобирает главное окно при смене языка интерфейса, чтобы названия колонок,
+        /// кнопки правой панели и подсказки (создаваемые через <c>LocalizationManager.T(...)</c>)
+        /// обновились на новый язык сразу, а не после перезапуска. Компактный режим
+        /// (<see cref="UiMetrics.Compact"/>) при этом сохраняется; выделение и прокрутка
+        /// списка восстанавливаются после пересборки содержимого.
+        /// </summary>
+        private void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                RebuildAfterLanguageChange();
+            else
+                Avalonia.Threading.Dispatcher.UIThread.Post(RebuildAfterLanguageChange);
+        }
+
+        private void RebuildAfterLanguageChange()
+        {
+            var selected = (object?)_vm?.SelectedInfobase ?? _vm?.SelectedGroupNode;
+            var offset = TreeScroll?.Offset;
+
+            Content = BuildRoot();
+            Title = LocalizationManager.T("App.Title");
+
+            // Выделение и прокрутка восстанавливаются после того, как новое дерево
+            // построено и разложено (иначе строки ещё не существуют).
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (selected is not null && _tree is not null && !ReferenceEquals(_tree.SelectedItem, selected))
+                {
+                    _tree.SelectionChanged -= OnTreeSelectionChanged;
+                    try { _tree.SelectedItem = selected; }
+                    finally { _tree.SelectionChanged += OnTreeSelectionChanged; }
+                }
+                if (offset is { } off && TreeScroll is { } scroll)
+                    scroll.Offset = off;
+            }, Avalonia.Threading.DispatcherPriority.Background);
         }
 
         /// <summary>Позиция прокрутки списка, снятая перед пересборкой дерева.</summary>
