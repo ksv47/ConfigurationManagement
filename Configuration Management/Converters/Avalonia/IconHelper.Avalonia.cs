@@ -56,10 +56,15 @@ namespace Configuration_Management
                 HorizontalAlignment = HorizontalAlignment.Center
             };
 
-            if (Application.Current is { } app)
+            if (Application.Current is not null)
             {
-                var sub = app.GetResourceObservable(brushKey).Subscribe(new ResourceBrushObserver(path));
-                subscriptions?.Add(sub);
+                // Динамический ресурс вместо ручной подписки: его отслеживает сам
+                // элемент, и при выходе из дерева отслеживание снимается. Прежняя
+                // подписка жила у приложения и держала элемент сильной ссылкой,
+                // то есть укореняла всё окно, пока её не освободят вручную.
+                var binding = path.Bind(Avalonia.Controls.Shapes.Path.FillProperty,
+                    new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(brushKey));
+                subscriptions?.Add(binding);
             }
             else
             {
@@ -87,19 +92,6 @@ namespace Configuration_Management
             };
         }
 
-        /// <summary>
-        /// Наблюдатель, который переносит текущее значение ресурса-кисти в Path.Fill.
-        /// </summary>
-        private sealed class ResourceBrushObserver : IObserver<object?>
-        {
-            private readonly Avalonia.Controls.Shapes.Path _path;
-
-            public ResourceBrushObserver(Avalonia.Controls.Shapes.Path path) => _path = path;
-
-            public void OnCompleted() { }
-            public void OnError(Exception error) { }
-            public void OnNext(object? value) => _path.Fill = value as IBrush;
-        }
     }
 }
 #endif

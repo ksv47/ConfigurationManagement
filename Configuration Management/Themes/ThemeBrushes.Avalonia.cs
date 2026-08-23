@@ -32,29 +32,9 @@ namespace Configuration_Management.Themes
             var app = Application.Current;
             if (app is null)
                 return null;
-            return app.GetResourceObservable(brushKey).Subscribe(new ResourceBrushObserver(target, property));
+            return target.Bind(property, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(brushKey));
         }
 
-        /// <summary>Наблюдатель, переносящий текущее значение ресурса-кисти в свойство элемента.</summary>
-        private sealed class ResourceBrushObserver : IObserver<object?>
-        {
-            private readonly AvaloniaObject _target;
-            private readonly AvaloniaProperty _property;
-
-            public ResourceBrushObserver(AvaloniaObject target, AvaloniaProperty property)
-            {
-                _target = target;
-                _property = property;
-            }
-
-            public void OnCompleted() { }
-            public void OnError(Exception error) { }
-            public void OnNext(object? value)
-            {
-                if (value is IBrush brush && !Equals(_target.GetValue(_property), brush))
-                    _target.SetValue(_property, brush);
-            }
-        }
     }
 }
 #endif
