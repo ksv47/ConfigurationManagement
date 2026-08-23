@@ -53,12 +53,10 @@ namespace Configuration_Management
         private ColumnDefinition? _headerOffsetColumn;
         private Control? _headerPinMark;
         private double _headerToolbarWidth;
-        private readonly List<IDisposable> _columnHeaderSubscriptions = new();
         private Grid? _listContent;
         private bool _columnHeaderRefreshQueued;
         private bool _headerAlignQueued;
         private readonly Dictionary<string, int> _headerColumnIndex = new(StringComparer.Ordinal);
-        private readonly List<IDisposable> _rightPanelSubscriptions = new();
         private object? _dragPayload;
         private Point _dragStartPoint;
         private bool _isDragging;
@@ -1138,12 +1136,6 @@ namespace Configuration_Management
 
         private Control BuildRightPanel()
         {
-            // Панель пересобирается вместе с окном (компактный режим), поэтому
-            // прежние подписки на кисти темы освобождаются.
-            foreach (var subscription in _rightPanelSubscriptions)
-                subscription.Dispose();
-            _rightPanelSubscriptions.Clear();
-
             var panel = new StackPanel { HorizontalAlignment = HorizontalAlignment.Stretch };
 
             // Заголовок базы
@@ -1597,27 +1589,6 @@ namespace Configuration_Management
                 }
             }
 
-            /// <summary>Передаёт текущее значение ресурса-кисти в слот и перерисовывает состояние.</summary>
-            private sealed class BrushSlot : IObserver<object?>
-            {
-                private readonly Action<IBrush> _setter;
-                private readonly Action _onChanged;
-
-                public BrushSlot(Action<IBrush> setter, Action onChanged)
-                {
-                    _setter = setter;
-                    _onChanged = onChanged;
-                }
-
-                public void OnCompleted() { }
-                public void OnError(Exception error) { }
-                public void OnNext(object? value)
-                {
-                    if (value is IBrush brush)
-                        _setter(brush);
-                    _onChanged();
-                }
-            }
 
         }
 
@@ -1663,33 +1634,8 @@ namespace Configuration_Management
         /// берутся из ресурсов темы (перекрашиваются при смене схемы). Если lockOn == true,
         /// активный сегмент нельзя «снять» кликом (поведение как у RadioButton).
         /// </summary>
-        private sealed class SegmentButton : ToggleButton, IDisposable
+        private sealed class SegmentButton : ToggleButton
         {
-            private readonly List<IDisposable> _subs = new();
-
-            /// <summary>Подписки содержимого: иконка и текст пересоздаются при каждой смене состояния.</summary>
-            private readonly List<IDisposable> _contentSubs = new();
-
-            /// <summary>
-            /// Освобождает подписки на ресурсы темы. Кнопки тегов пересобираются
-            /// при каждом обновлении набора, и без этого каждая пересборка
-            /// оставляла бы по пять живых подписок на кнопку.
-            /// </summary>
-            public void Dispose()
-            {
-                ReleaseContentSubscriptions();
-                foreach (var sub in _subs)
-                    sub.Dispose();
-                _subs.Clear();
-            }
-
-            private void ReleaseContentSubscriptions()
-            {
-                foreach (var sub in _contentSubs)
-                    sub.Dispose();
-                _contentSubs.Clear();
-            }
-
             private readonly string _iconKey;
             private readonly string _text;
             private readonly double _iconSize;
@@ -1772,20 +1718,15 @@ namespace Configuration_Management
             }
 
             private void Subscribe(string key, Action<IBrush> setter)
-            {
-                if (Application.Current is not { } app)
-                    return;
-                _subs.Add(app.GetResourceObservable(key).Subscribe(new BrushObserver(setter, ApplyState)));
-            }
+                // Подписка снимается вместе с уходом кнопки из дерева: список
+                // освобождался только у кнопок тегов, поэтому пять сегментов
+                // верхней панели держали прежнее дерево окна после каждой
+                // пересборки содержимого.
+                => ThemeBrushes.Observe(this, key, brush => { setter(brush); ApplyState(); });
 
             /// <summary>Собирает содержимое «иконка + текст» с цветом по состоянию выбора.</summary>
             private void UpdateContent()
             {
-                // Содержимое пересоздаётся при каждой смене состояния, поэтому
-                // подписки прежнего содержимого освобождаются: иначе они копились бы
-                // на каждое переключение и жили до конца процесса.
-                ReleaseContentSubscriptions();
-
                 var brushKey = IsChecked == true ? "TextOnAccentBrush" : "TextPrimaryBrush";
                 var sp = new StackPanel
                 {
@@ -1985,11 +1926,6 @@ namespace Configuration_Management
             if (_vm is null || _columnHeaderRow is null || _columnHeader is null)
                 return;
 
-            // Прежние кнопки и подписи держат подписки на ресурсы темы: очистка
-            // коллекции детей сама по себе их не отпускает.
-            foreach (var subscription in _columnHeaderSubscriptions)
-                subscription.Dispose();
-            _columnHeaderSubscriptions.Clear();
             _columnHeaderRow.Children.Clear();
             _columnHeaderRow.ColumnDefinitions.Clear();
 
@@ -2031,7 +1967,7 @@ namespace Configuration_Management
             Grid.SetColumnSpan(tools, NameHeaderColumn);
             tools.ZIndex = 1;
 
-            var nameHeader = HeaderText(LocalizationManager.T("Column.Name"), _columnHeaderSubscriptions);
+            var nameHeader = HeaderText(LocalizationManager.T("Column.Name"));
             MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
             _columnHeaderRow.Children.Add(nameHeader);
             Grid.SetColumn(nameHeader, NameHeaderColumn);
@@ -2046,7 +1982,7 @@ namespace Configuration_Management
 
             for (var i = 0; i < columns.Count; i++)
             {
-                var text = HeaderText(columns[i].Header, _columnHeaderSubscriptions);
+                var text = HeaderText(columns[i].Header);
                 if (columns[i].Key == "LastLaunch")
                     MakeSortableHeader(text, "LastLaunchDate", LocalizationManager.T("Main.ColumnLastLaunchSortTooltip"));
                 _columnHeaderRow.Children.Add(text);
@@ -2579,7 +2515,7 @@ namespace Configuration_Management
                     >= _headerToolbarWidth;
         }
 
-        private static TextBlock HeaderText(string text, ICollection<IDisposable>? subscriptions = null)
+        private static TextBlock HeaderText(string text)
         {
             var block = new TextBlock
             {
