@@ -448,7 +448,6 @@ namespace Configuration_Management.Services
         public static (int Killed, int Failed) KillOneCProcesses(IEnumerable<OneCProcessInfo> snapshot) =>
             LinuxProc.KillOneC(snapshot.Select(p => (p.Pid, p.StartTime)));
 
-
         /// <summary>Разбивка снимка по именам процессов.</summary>
         public static IReadOnlyList<(string Name, int Count)> DescribeProcesses(
             IEnumerable<OneCProcessInfo> snapshot) =>

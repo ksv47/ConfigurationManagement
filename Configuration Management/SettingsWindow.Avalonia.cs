@@ -47,6 +47,9 @@ namespace Configuration_Management
             // не находили свойств и всегда стояли пустыми.
             DataContext = viewModel;
             Content = BuildRoot();
+            // Кнопки окно строит само, поэтому подписку на смену языка
+            // базовый класс не включает: включаем явно.
+            EnsureLanguageSubscription();
         }
 
         /// <summary>Наблюдатель за значением свойства контрола.</summary>
@@ -69,6 +72,25 @@ namespace Configuration_Management
             "yyyyMMdd",
             "HHmmss"
         };
+
+        /// <summary>
+        /// Пересобирает окно при смене языка: подписи вкладок, флажков и кнопок
+        /// создаются в коде через LocalizationManager.T, поэтому сами по себе
+        /// они не переключаются. Базовая реализация обновляет только ОК и
+        /// Отмену, а язык здесь применяется сразу при выборе в списке, и без
+        /// пересборки окно оставалось наполовину на прежнем языке.
+        /// Введённые, но не сохранённые значения при этом читаются заново
+        /// из настроек: сменить язык посреди правки означает начать её заново.
+        /// </summary>
+        protected override void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            base.OnLanguageChanged(sender, e);
+
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                Content = BuildRoot();
+            else
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => Content = BuildRoot());
+        }
 
         private Control BuildRoot()
         {
