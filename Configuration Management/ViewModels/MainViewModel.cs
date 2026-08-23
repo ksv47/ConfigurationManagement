@@ -4807,6 +4807,9 @@ public string HotkeyEnterprise
 
                 if (result.Success && result.ProgIdVisible)
                 {
+                    // После регистрации сбрасываем кэш доступности, чтобы следующие
+                    // попытки COM-подключения снова проверили реестр.
+                    OneCComConnector.ResetAvailabilityCache();
                     _logger.Info("COM-коннектор 1С успешно зарегистрирован.");
                     _dialogs.ShowInfo(sb.ToString().TrimEnd(),
                         LocalizationManager.T("Main.ComRegTitle"));

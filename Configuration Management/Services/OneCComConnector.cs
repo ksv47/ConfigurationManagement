@@ -25,6 +25,83 @@ public sealed class OneCComConnector : IOneCComConnector
         "V81.COMConnector"
     };
 
+    // -- Кэш доступности COM-коннекторов 1С ----------------------------------
+    // Реестр COM не меняется в течение сеанса (кроме ручной регистрации),
+    // поэтому результат проверки кэшируется, чтобы не повторять её для каждой базы.
+    private static readonly object AvailabilityLock = new();
+    private static bool? _connectorsAvailable;
+    private static string? _cachedAvailabilityStatus;
+
+    /// <summary>
+    /// Проверяет (с кэшированием), зарегистрирован ли хотя бы один COM-коннектор 1С,
+    /// фактически доступный из текущего процесса (учитывает разрядность через GetTypeFromProgID).
+    /// Если коннектор недоступен, вызывающие методы быстро прерываются, не плодя потоки и исключения.
+    /// </summary>
+    public static bool IsComConnectorAvailable()
+    {
+        lock (AvailabilityLock)
+        {
+            if (_connectorsAvailable is { } cached)
+                return cached;
+
+            var available = false;
+            foreach (var progId in KnownProgIds)
+            {
+                try
+                {
+                    if (Type.GetTypeFromProgID(progId) is not null)
+                    {
+                        available = true;
+                        break;
+                    }
+                }
+                catch
+                {
+                    // Не зарегистрирован / несоответствие разрядности — пробуем следующий.
+                }
+            }
+
+            _connectorsAvailable = available;
+            _cachedAvailabilityStatus = DescribeProgIdStatus();
+            return available;
+        }
+    }
+
+    /// <summary>
+    /// Сбрасывает кэш доступности (вызывается после ручной регистрации COM-коннектора).
+    /// </summary>
+    public static void ResetAvailabilityCache()
+    {
+        lock (AvailabilityLock)
+        {
+            _connectorsAvailable = null;
+            _cachedAvailabilityStatus = null;
+        }
+    }
+
+    /// <summary>Кэшированное описание состояния ProgID (реестр).</summary>
+    private static string AvailabilityStatusText
+    {
+        get
+        {
+            lock (AvailabilityLock)
+                return _cachedAvailabilityStatus ?? DescribeProgIdStatus();
+        }
+    }
+
+    /// <summary>
+    /// Заполняет LastError и пишет в лог понятное сообщение о том, что COM-коннектор
+    /// не зарегистрирован (быстрый отказ без создания потока).
+    /// </summary>
+    private void SetConnectorUnavailableError(string baseName)
+    {
+        var status = AvailabilityStatusText;
+        LastError = LocalizationManager.T("Com.NotFound") + " " +
+                    status + " " +
+                    LocalizationManager.T("Com.NotFoundInstallHint");
+        _logger.Warn($"COM-коннектор 1С не зарегистрирован в системе для базы «{baseName}». {status}");
+    }
+
     /// <summary>
     /// Текст последней ошибки COM-подключения (для вывода в UI при диагностике).
     /// Сбрасывается перед каждой новой успешной попыткой.
@@ -43,6 +120,13 @@ public sealed class OneCComConnector : IOneCComConnector
     public OneCComConnection? Connect(Infobase infobase, int timeoutMs = 8000)
     {
         if (infobase is null) return null;
+
+        // Быстрый отказ: коннектор не зарегистрирован — не создаём поток и не ловим COMException.
+        if (!IsComConnectorAvailable())
+        {
+            SetConnectorUnavailableError(infobase.Name);
+            return null;
+        }
 
         OneCComConnection? result = null;
         Exception? error = null;
@@ -84,6 +168,13 @@ public sealed class OneCComConnector : IOneCComConnector
     public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000)
     {
         if (infobase is null) return null;
+
+        // Быстрый отказ: коннектор не зарегистрирован — не создаём поток и не ловим COMException.
+        if (!IsComConnectorAvailable())
+        {
+            SetConnectorUnavailableError(infobase.Name);
+            return null;
+        }
 
         OneCConfigInfo? result = null;
         Exception? error = null;
