@@ -886,6 +886,11 @@ public class MainViewModel : ViewModelBase
     {
         // Узлы пересоздаются, поэтому прежний выбранный узел больше не тот,
         // что показан в дереве: правая панель иначе показывала бы старую группу.
+        // Ключ запоминается, чтобы выбор вернулся на равнозначный новый узел.
+        // Для настоящей группы главным остаётся её идентификатор: перенос
+        // подветки меняет путь, а вместе с ним и ключ, но группа та же.
+        var selectedKey = SelectedGroupNode?.NodeKey;
+        var selectedGroupId = SelectedGroupNode?.Group?.Id;
         SelectedGroupNode = null;
         AllGroupNodes.Clear();
         GroupNodes.Clear();
@@ -906,6 +911,43 @@ public class MainViewModel : ViewModelBase
 
         RebuildTagFilters();
         ApplyFilter();
+
+        if (selectedGroupId is not null || selectedKey is not null)
+            SelectedGroupNode = FindNode(node =>
+                selectedGroupId is not null
+                && string.Equals(node.Group?.Id, selectedGroupId, StringComparison.OrdinalIgnoreCase))
+                ?? (selectedKey is null ? null : FindNode(node =>
+                    string.Equals(node.NodeKey, selectedKey, StringComparison.OrdinalIgnoreCase)));
+
+        TreeRebuilt?.Invoke();
+    }
+
+    /// <summary>Дерево пересобрано: окну нужно вернуть выделение строки.</summary>
+    public event Action? TreeRebuilt;
+
+    /// <summary>Ищет узел дерева по признаку, включая служебные узлы и подгруппы.</summary>
+    private GroupNodeViewModel? FindNode(Func<GroupNodeViewModel, bool> match)
+    {
+        GroupNodeViewModel? Search(GroupNodeViewModel node)
+        {
+            if (match(node))
+                return node;
+            foreach (var child in node.Children)
+            {
+                var found = Search(child);
+                if (found is not null)
+                    return found;
+            }
+            return null;
+        }
+
+        foreach (var root in GroupNodes)
+        {
+            var found = Search(root);
+            if (found is not null)
+                return found;
+        }
+        return null;
     }
 
     /// <summary>

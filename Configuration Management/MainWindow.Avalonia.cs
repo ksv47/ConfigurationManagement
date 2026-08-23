@@ -535,6 +535,7 @@ namespace Configuration_Management
                 _vm.GroupNodes.CollectionChanged += (_, _) => { UpdateEmptyState(); QueueHeaderAlign(); };
                 _vm.FlatItems.CollectionChanged += (_, _) => UpdateEmptyState();
                 _vm.TagFiltersRebuilt += (_, _) => RefreshTagFilterPanel();
+                _vm.TreeRebuilt += RestoreTreeSelection;
                 _vm.PropertyChanged += (_, e) =>
                 {
                     if (e.PropertyName == nameof(MainViewModel.SearchText))
@@ -2725,6 +2726,34 @@ namespace Configuration_Management
         {
             UiMetrics.Compact = compact;
             Content = BuildRoot();
+        }
+
+        /// <summary>
+        /// Возвращает выделение строки после пересборки дерева. Узлы групп
+        /// пересоздаются, и дерево теряет подсветку вместе с ними, а объекты баз
+        /// те же самые, поэтому выбранная база ищется по ссылке. Установка
+        /// откладывается: к моменту события коллекция уже новая, а контейнеры
+        /// строк ещё не готовы, и выбор по неготовому контейнеру не удерживается.
+        /// </summary>
+        private void RestoreTreeSelection()
+        {
+            if (_vm is null)
+                return;
+
+            var target = (object?)_vm.SelectedInfobase ?? _vm.SelectedGroupNode;
+            if (target is null)
+                return;
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (_vm is null || _tree.SelectedItem is not null)
+                    return;
+                // Выбор ставится напрямую, без обработчика: он уже согласован
+                // с вьюмоделью, и повторный проход только сбросил бы парное поле.
+                _tree.SelectionChanged -= OnTreeSelectionChanged;
+                try { _tree.SelectedItem = target; }
+                finally { _tree.SelectionChanged += OnTreeSelectionChanged; }
+            }, Avalonia.Threading.DispatcherPriority.Background);
         }
 
         private void OnTreeSelectionChanged(object? sender, SelectionChangedEventArgs e)
