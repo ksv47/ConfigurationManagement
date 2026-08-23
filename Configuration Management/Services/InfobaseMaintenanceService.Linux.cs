@@ -1,6 +1,7 @@
 #if LINUX
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
@@ -379,63 +380,25 @@ namespace Configuration_Management.Services
         /// <summary>Завершает процессы платформы 1С. Возвращает число завершённых.</summary>
         public static int KillOneCProcesses()
         {
-            var killed = 0;
-            foreach (var name in OneCProcessNames)
-            {
-                Process[] list;
-                try
-                {
-                    list = Process.GetProcessesByName(name);
-                }
-                catch
-                {
-                    continue;
-                }
-
-                foreach (var p in list)
-                {
-                    try
-                    {
-                        if (!p.HasExited)
-                        {
-                            p.Kill(entireProcessTree: true);
-                            killed++;
-                        }
-                    }
-                    catch
-                    {
-                        // нет прав / уже завершён
-                    }
-                    finally
-                    {
-                        p.Dispose();
-                    }
-                }
-            }
-
-            // Страховка: процессы, не видимые GetProcessesByName (др. пользователь).
-            killed += LinuxProc.KillAllOneC();
-            return killed;
+            // Один источник на подсчёт и на завершение: перечисление /proc.
+            // Прежде тот же список ещё раз обходился через GetProcessesByName,
+            // и процессы считались дважды.
+            return LinuxProc.KillAllOneC();
         }
 
-        /// <summary>Число запущенных процессов 1С.</summary>
-        public static int CountOneCProcesses()
-        {
-            var count = 0;
-            foreach (var name in OneCProcessNames)
-            {
-                try
-                {
-                    count += Process.GetProcessesByName(name).Length;
-                }
-                catch
-                {
-                    // ignore
-                }
-            }
-            count += LinuxProc.CountOneC();
-            return count;
-        }
+        /// <summary>
+        /// Сколько процессов найдено по каждому имени. На Linux сервер 1С обычно
+        /// живёт на той же машине, и в список попадают ragent, rmngr и rphost:
+        /// пользователю нужно видеть это до того, как он согласится их закрыть.
+        /// </summary>
+        public static IReadOnlyList<(string Name, int Count)> DescribeOneCProcesses() =>
+            LinuxProc.Enumerate1C()
+                .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => (Name: g.Key, Count: g.Select(x => x.Pid).Distinct().Count()))
+                .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+        public static int CountOneCProcesses() => LinuxProc.CountOneC();
 
         /// <summary>Имя маркера блокировки файловой базы в её каталоге.</summary>
         public const string BlockMarkerFileName = "1Cv8.blocked";

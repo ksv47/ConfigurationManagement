@@ -1676,6 +1676,116 @@ public class MainViewModel : ViewModelBase
     private void ApplyAdditionalSearchPaths() =>
         PlatformVersionService.SetAdditionalSearchPaths(_settings.AdditionalPlatformSearchPaths);
 
+    /// <summary>
+    /// Убирает из списка файловые базы, у которых нет каталога или файла базы.
+    /// Перед удалением показывается список того, что будет убрано.
+    /// </summary>
+    public void RemoveMissingFileBases()
+    {
+        var missing = _allInfobases.Where(ib => !InfobaseMaintenanceService.FileBaseExists(ib)).ToList();
+        if (missing.Count == 0)
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Main.MissingNone"),
+                LocalizationManager.T("Main.CheckFileBasesTitle"));
+            return;
+        }
+
+        var preview = string.Join("\n", missing.Take(15).Select(ib => "• " + ib.Name));
+        if (missing.Count > 15)
+            preview += string.Format(LocalizationManager.T("Main.MissingMore"), missing.Count - 15);
+
+        if (!_dialog.Confirm(
+                string.Format(LocalizationManager.T("Main.MissingConfirm"), missing.Count, preview),
+                LocalizationManager.T("Main.RemoveMissingTitle")))
+            return;
+
+        foreach (var infobase in missing)
+            _allInfobases.Remove(infobase);
+
+        if (SelectedInfobase is { } selected && !_allInfobases.Contains(selected))
+            SelectedInfobase = null;
+
+        var saved = SaveSilently();
+        RebuildTree();
+        _logger.Info($"Удалено отсутствующих файловых баз: {missing.Count}");
+
+        if (!saved)
+        {
+            _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
+                LocalizationManager.T("Main.RemoveMissingTitle"));
+            return;
+        }
+
+        _dialog.ShowInfo(
+            string.Format(LocalizationManager.T("Main.MissingRemoved"), missing.Count),
+            LocalizationManager.T("Main.RemoveMissingTitle"));
+    }
+
+    /// <summary>Завершает запущенные процессы платформы 1С.</summary>
+    public void KillOneCProcesses()
+    {
+        var count = InfobaseMaintenanceService.CountOneCProcesses();
+        if (count == 0)
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Main.NoProcesses"),
+                LocalizationManager.T("Main.OneCProcessesTitle"));
+            return;
+        }
+
+        // Разбивка по именам: на Linux сервер 1С часто стоит на той же машине,
+        // и в счёт попадают ragent, rmngr и rphost. Одного числа мало, чтобы
+        // понять, что согласие уронит рабочий кластер.
+        var breakdown = string.Join(", ",
+            InfobaseMaintenanceService.DescribeOneCProcesses().Select(p => $"{p.Name}: {p.Count}"));
+        var question = string.Format(LocalizationManager.T("Main.KillProcessesConfirm"), count);
+        if (breakdown.Length > 0)
+            question += "\n\n" + string.Format(LocalizationManager.T("Main.KillProcessesBreakdown"), breakdown);
+
+        if (!_dialog.Confirm(question, LocalizationManager.T("Main.KillProcessesTitle")))
+            return;
+
+        var killed = InfobaseMaintenanceService.KillOneCProcesses();
+        _logger.Info($"Завершено процессов 1С: {killed}");
+        _dialog.ShowInfo(
+            string.Format(LocalizationManager.T("Main.ProcessesKilled"), killed),
+            LocalizationManager.T("Main.OneCProcessesTitle"));
+    }
+
+    /// <summary>Очищает список баз и групп целиком. Сами базы на диске не трогает.</summary>
+    public void ClearAllInfobases()
+    {
+        if (_allInfobases.Count == 0 && _groups.Count == 0)
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Main.ClearAllAlreadyEmpty"),
+                LocalizationManager.T("Main.ClearAllTitle"));
+            return;
+        }
+
+        if (!_dialog.Confirm(
+                string.Format(LocalizationManager.T("Main.ClearAllConfirm"), _allInfobases.Count, _groups.Count),
+                LocalizationManager.T("Main.ClearAllTitle")))
+            return;
+
+        _allInfobases.Clear();
+        _groups.Clear();
+        SelectedInfobase = null;
+
+        var saved = SaveSilently();
+        saved &= SaveGroupsSilently();
+        RebuildTree();
+        _logger.Info("Список баз и групп очищен");
+
+        if (!saved)
+        {
+            _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
+                LocalizationManager.T("Main.ClearAllTitle"));
+            return;
+        }
+
+        _dialog.ShowInfo(LocalizationManager.T("Main.ClearAllDone"),
+            LocalizationManager.T("Main.ClearAllTitle"));
+    }
+
     /// <summary>Добавлять ли метку времени к имени файла выгрузки.</summary>
     public bool AddTimestampToExportFileName => _settings.AddTimestampToExportFileName;
 
