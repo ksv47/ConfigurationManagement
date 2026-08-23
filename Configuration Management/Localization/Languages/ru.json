@@ -355,6 +355,10 @@
     "Settings.General.ShowTrayIcon": "Значок в области уведомлений",
     "Settings.General.CloseToTray": "Сворачивать в трей при закрытии",
     "Settings.General.EscapeToTray": "По Esc сворачивать в трей",
+    "Settings.General.AfterLaunchAction": "После запуска базы или конфигуратора",
+    "Settings.General.AfterLaunchAction.None": "Ничего не делать",
+    "Settings.General.AfterLaunchAction.MinimizeToTray": "Свернуть окно",
+    "Settings.General.AfterLaunchAction.Close": "Закрыть окно в трей",
     "Settings.General.RememberWindowLayout": "Запоминать расположение, размер и монитор окна",
 
     "Settings.Ibases.Description": "Синхронизация приложения со стандартным файлом списка баз 1С (ibases.v8i).",

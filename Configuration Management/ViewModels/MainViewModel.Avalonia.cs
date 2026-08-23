@@ -78,6 +78,37 @@ public class MainViewModel : ViewModelBase
     /// <summary>Событие изменения компактного режима (для перестроения главного окна).</summary>
     public event Action<bool>? OnCompactModeChanged;
 
+    // ---- Действие после запуска базы или конфигуратора ----
+    private string _afterLaunchAction = "None";
+
+    /// <summary>
+    /// Что делать с окном после успешного запуска: "None", "MinimizeToTray" или "Close".
+    /// Хранится строкой, как в WPF-версии и в файле настроек.
+    /// </summary>
+    public string AfterLaunchAction
+    {
+        get => _afterLaunchAction;
+        set
+        {
+            if (SetProperty(ref _afterLaunchAction, value))
+            {
+                _settings.AfterLaunchAction = value;
+                SaveSettingsSilently();
+            }
+        }
+    }
+
+    /// <summary>Запрос к главному окну выполнить действие после успешного запуска.</summary>
+    public event Action<Models.AfterLaunchAction>? AfterLaunchRequested;
+
+    /// <summary>Оповещает главное окно, если настройка требует действия.</summary>
+    public void NotifyAfterLaunch()
+    {
+        var action = Models.AfterLaunchActionHelper.Parse(_afterLaunchAction);
+        if (action != Models.AfterLaunchAction.None)
+            AfterLaunchRequested?.Invoke(action);
+    }
+
     // ---- Текущая сессия ----
 
     /// <summary>Показывать блок «Текущая сессия» в правой панели.</summary>
@@ -800,6 +831,7 @@ public class MainViewModel : ViewModelBase
             _showTagFilterPanel = _settings.ShowTagFilterPanel;
             _themeName = _settings.Theme;
             _compactMode = _settings.CompactMode;
+            _afterLaunchAction = _settings.AfterLaunchAction ?? "None";
             _sortField = string.IsNullOrWhiteSpace(_settings.SortField) ? "Name" : _settings.SortField;
             _sortAscending = _settings.SortAscending;
             // Вид списка хранится тем же признаком, что и в WPF: «только избранные».
@@ -1231,6 +1263,10 @@ public class MainViewModel : ViewModelBase
             SelectedInfobase.AddLaunchHistory(LocalizationManager.T("Main.LaunchAction"));
             SaveSilently();
         }
+
+        // Одна точка на все пути запуска: команды окна, контекстное меню и трей
+        // приходят сюда же, в отличие от WPF, где уведомление расставлено трижды.
+        NotifyAfterLaunch();
     }
 
     private void EditInfobase()

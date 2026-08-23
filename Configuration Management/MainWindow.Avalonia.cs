@@ -94,6 +94,33 @@ namespace Configuration_Management
             Content = BuildRoot();
             Loaded += OnWindowLoaded;
             KeyDown += OnWindowKeyDown;
+
+            // Действие после запуска базы или конфигуратора по глобальной настройке.
+            _vm.AfterLaunchRequested += OnAfterLaunchRequested;
+        }
+
+        /// <summary>
+        /// Сворачивает окно или уводит его в трей после успешного запуска.
+        /// Выполняется через диспетчер: запрос приходит из обработчика команды,
+        /// а окно к этому моменту ещё показывает нажатую кнопку.
+        /// </summary>
+        private void OnAfterLaunchRequested(Models.AfterLaunchAction action)
+        {
+            if (action == Models.AfterLaunchAction.None)
+                return;
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                // Уводить окно в трей можно только когда трею есть где показаться:
+                // на GNOME Shell без AppIndicator значка не будет, и спрятанное
+                // окно вернуть было бы нечем. Там окно сворачивается.
+                var hideToTray = action == Models.AfterLaunchAction.Close
+                                 && !Services.LinuxDesktopEnvironment.TrayMayBeUnavailable;
+                if (hideToTray)
+                    Hide();
+                else
+                    WindowState = WindowState.Minimized;
+            });
         }
 
         // ======================= Построение UI =======================
