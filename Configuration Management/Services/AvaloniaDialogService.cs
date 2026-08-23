@@ -19,7 +19,7 @@ namespace Configuration_Management.Services
     /// Avalonia-версия диалогов (Linux). Реализует <see cref="IDialogService"/> через
     /// собственное модальное окно сообщения (Avalonia не имеет MessageBox из коробки).
     /// Методы интерфейса синхронные, поэтому модальный показ выполняется с помощью
-    /// вложенного цикла обработки <see cref="Dispatcher.UIThread.RunJobs"/>.
+    /// вложенного цикла сообщений <see cref="Dispatcher.PushFrame"/>.
     /// </summary>
     public sealed class AvaloniaDialogService : IDialogService
     {
@@ -161,10 +161,12 @@ namespace Configuration_Management.Services
         private static T RunSync<T>(Func<Task<T>> taskFactory)
         {
             var task = taskFactory();
-            while (!task.IsCompleted)
+            if (!task.IsCompleted)
             {
-                Dispatcher.UIThread.RunJobs();
-                Thread.Sleep(10);
+                var frame = new DispatcherFrame();
+                task.ContinueWith(_ => frame.Continue = false,
+                    TaskScheduler.FromCurrentSynchronizationContext());
+                Dispatcher.UIThread.PushFrame(frame);
             }
             return task.GetAwaiter().GetResult();
         }
@@ -179,35 +181,45 @@ namespace Configuration_Management.Services
         private static bool ShowModalSync(Window window)
         {
             var owner = CurrentOwner();
+            bool result = true;
+            var frame = new DispatcherFrame();
+            window.Closed += (_, _) =>
+            {
+                result = window is MessageWindow mw ? mw.Result : true;
+                frame.Continue = false;
+            };
+
             if (owner is not null)
             {
                 window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                window.Owner = owner;
+                _ = window.ShowDialog(owner);
             }
             else
             {
                 window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                window.Show();
             }
 
-            bool result = true;
-            window.Closed += (_, _) => result = window is MessageWindow mw ? mw.Result : true;
-
-            window.Show();
-
-            while (window.IsVisible)
-            {
-                Dispatcher.UIThread.RunJobs();
-                Thread.Sleep(10);
-            }
+            Dispatcher.UIThread.PushFrame(frame);
 
             return result;
         }
 
         private static Window? CurrentOwner()
         {
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-                return desktop.MainWindow;
-            return null;
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+                return null;
+
+            // Владельцем берём активное окно: диалог, вызванный из модального
+            // окна настроек, иначе принадлежал бы уже заблокированному главному
+            // окну, и модальность с фокусом на Linux вели бы себя странно.
+            foreach (var window in desktop.Windows)
+            {
+                if (window.IsActive)
+                    return window;
+            }
+
+            return desktop.MainWindow;
         }
     }
 
@@ -243,17 +255,18 @@ namespace Configuration_Management.Services
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            var body = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 12,
-                Margin = new Thickness(4, 8, 4, 8),
-                Children =
-                {
-                    Configuration_Management.IconHelper.MakeIcon(iconKey, 28),
-                    messageBlock
-                }
-            };
+            // Сетка, а не горизонтальный StackPanel: в стопке текст получает
+            // бесконечную ширину и не переносится, длинное сообщение обрезается.
+            var body = new Grid { Margin = new Thickness(4, 8, 4, 8) };
+            body.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            body.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+
+            var messageIcon = Configuration_Management.IconHelper.MakeIcon(iconKey, 28);
+            messageIcon.Margin = new Thickness(0, 0, 12, 0);
+            messageIcon.VerticalAlignment = VerticalAlignment.Top;
+            body.Children.Add(messageIcon);
+            Grid.SetColumn(messageBlock, 1);
+            body.Children.Add(messageBlock);
 
             Button okButton = new() { Content = "OK", MinWidth = 90, IsDefault = true };
             okButton.Click += (_, _) => { Result = true; Close(); };
@@ -276,7 +289,7 @@ namespace Configuration_Management.Services
             var content = new StackPanel
             {
                 Spacing = 16,
-                Padding = new Thickness(16),
+                Margin = new Thickness(16),
                 Children = { body, buttonsPanel }
             };
             Content = content;
