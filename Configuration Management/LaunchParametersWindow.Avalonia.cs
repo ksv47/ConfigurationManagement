@@ -52,11 +52,14 @@ namespace Configuration_Management
         private Control BuildRoot()
         {
             var grid = new Grid { Margin = new Thickness(16) };
+            // По высоте тянется справочник (строка 4), а не подпись над ним:
+            // раньше звёздочка стояла на подписи, справочник разворачивался
+            // на всю высоту содержимого и выдавливал кнопки за край окна.
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
             var title = new TextBlock
             {

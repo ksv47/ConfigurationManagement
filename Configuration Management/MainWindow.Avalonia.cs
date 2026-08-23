@@ -17,6 +17,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Utilities;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -54,6 +55,15 @@ namespace Configuration_Management
         private Control? _headerPinMark;
         private double _headerToolbarWidth;
         private Grid? _listContent;
+        /// <summary>Шаг прокрутки колесом, как у штатного ScrollContentPresenter.</summary>
+        private const double WheelScrollStep = 50;
+
+        private ScrollBar? _listVerticalBar;
+        private ScrollViewer? _listScroll;
+        private ScrollViewer? _boundTreeScroll;
+        private ScrollBar? _boundScrollBar;
+        private readonly List<IDisposable> _scrollBarLinks = new();
+        private bool _syncingScrollBar;
         private bool _columnHeaderRefreshQueued;
         private bool _headerAlignQueued;
         private readonly Dictionary<string, int> _headerColumnIndex = new(StringComparer.Ordinal);
@@ -450,6 +460,9 @@ namespace Configuration_Management
             // по сумме ширин колонок и уезжает за правый край, а заголовки,
             // живущие вне области прокрутки, перестают совпадать со значениями.
             ScrollViewer.SetHorizontalScrollBarVisibility(_tree, ScrollBarVisibility.Disabled);
+            // Внутренняя прокрутка появляется только вместе с шаблоном, а он
+            // применяется заново при каждой пересборке окна компактным режимом.
+            _tree.TemplateApplied += (_, _) => AttachVerticalScrollBar();
             _tree.Bind(TreeView.ItemsSourceProperty, new Binding("GroupNodes"));
             _tree.SelectionMode = SelectionMode.Single;
 
@@ -528,10 +541,105 @@ namespace Configuration_Management
                 VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Content = _listContent
             };
+            _listScroll = listArea;
+
+            // Вертикальная полоса вынесена из области горизонтальной прокрутки
+            // и стоит отдельным столбцом справа. Собственная полоса дерева
+            // рисуется у правого края его содержимого, поэтому уезжала за границу,
+            // как только колонки переставали помещаться по ширине.
+            ScrollViewer.SetVerticalScrollBarVisibility(_tree, ScrollBarVisibility.Hidden);
+            // Ширина и авто-скрытие не задаются: полоса должна выглядеть так же,
+            // как горизонтальная полоса списка и полоса правой панели, то есть
+            // по правилам темы. Видимость тоже ведёт сам контрол: при Auto он
+            // показывает полосу ровно когда есть что прокручивать. Присваивать
+            // IsVisible руками нельзя, при значении Visible полоса включает себя
+            // обратно на каждое изменение Maximum и ViewportSize.
+            _listVerticalBar = new ScrollBar
+            {
+                Orientation = Orientation.Vertical,
+                Visibility = ScrollBarVisibility.Auto,
+                Minimum = 0,
+                Maximum = 0,
+                ViewportSize = 0
+            };
+            // Локальная ссылка на созданную полосу: поле к этому моменту
+            // указывает на неё, но при следующей пересборке окна начнёт
+            // указывать на другую, а подписки живут вместе с этой.
+            var verticalBar = _listVerticalBar;
+            // Полоса не входит в шаблон ScrollViewer, поэтому колесо над ней
+            // некому переадресовать. Шаг и разбор осей взяты из
+            // ScrollContentPresenter платформы: с Shift вертикальная дельта
+            // становится горизонтальной, и в версии для Windows сделано так же.
+            // Вертикаль ведёт прокрутка дерева, горизонталь общая с шапкой.
+            _listVerticalBar.PointerWheelChanged += (_, e) =>
+            {
+                if (!ReferenceEquals(_listVerticalBar, verticalBar))
+                    return;
+                var delta = e.Delta;
+                if (e.KeyModifiers == KeyModifiers.Shift && MathUtilities.IsZero(delta.X))
+                    delta = new Vector(delta.Y, delta.X);
+
+                // Событие считается разобранным только если список сдвинулся:
+                // на краю платформа отдаёт прокрутку выше по дереву, и глушить
+                // её здесь значит ломать это правило.
+                var moved = false;
+                if (delta.Y != 0 && TreeScroll is { } vertical)
+                {
+                    var hidden = Math.Max(0, vertical.Extent.Height - vertical.Viewport.Height);
+                    var next = vertical.Offset.WithY(
+                        Math.Clamp(vertical.Offset.Y - delta.Y * WheelScrollStep, 0, hidden));
+                    if (next != vertical.Offset)
+                    {
+                        vertical.Offset = next;
+                        moved = true;
+                    }
+                }
+
+                if (delta.X != 0 && _listScroll is { } horizontal)
+                {
+                    var hidden = Math.Max(0, horizontal.Extent.Width - horizontal.Viewport.Width);
+                    var next = horizontal.Offset.WithX(
+                        Math.Clamp(horizontal.Offset.X - delta.X * WheelScrollStep, 0, hidden));
+                    if (next != horizontal.Offset)
+                    {
+                        horizontal.Offset = next;
+                        moved = true;
+                    }
+                }
+
+                e.Handled = moved;
+            };
+            // Прокручиваются только строки, поэтому полоса начинается под шапкой
+            // колонок. Высота шапки меняется вместе с компактным режимом и темой.
+            columnHeader.GetObservable(Visual.BoundsProperty).Subscribe(new PropertyObserver<Rect>(bounds =>
+                verticalBar.Margin = new Thickness(0, bounds.Height, 0, 0)));
+            _listVerticalBar.GetObservable(RangeBase.ValueProperty).Subscribe(new PropertyObserver<double>(value =>
+            {
+                // Флаг разводит два направления: пользователь тянет полосу,
+                // и наоборот, прокрутка списка двигает полосу.
+                if (_syncingScrollBar || !ReferenceEquals(_listVerticalBar, verticalBar)
+                    || TreeScroll is not { } scroll)
+                    return;
+                _syncingScrollBar = true;
+                try { scroll.Offset = scroll.Offset.WithY(value); }
+                finally { _syncingScrollBar = false; }
+            }));
+
+            // Полоса занимает свой столбец, как в версии для Windows. Ширина
+            // ей задана темой и при наведении не меняется, поэтому список от неё
+            // не дёргается, а пока прокручивать нечего, полоса скрыта и столбец
+            // пуст. Поверх списка её класть нельзя: она забирала бы клики,
+            // контекстное меню и перетаскивание по правой кромке строк.
+            var listWithBar = new Grid();
+            listWithBar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            listWithBar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Grid.SetColumn(_listVerticalBar, 1);
+            listWithBar.Children.Add(listArea);
+            listWithBar.Children.Add(_listVerticalBar);
 
             var leftPanel = new Border
             {
-                Child = listArea,
+                Child = listWithBar,
                 Margin = new Thickness(UiMetrics.TopBarH, UiMetrics.TopBarV, 8, UiMetrics.TopBarV),
                 Padding = new Thickness(UiMetrics.Scaled(8), UiMetrics.Scaled(8))
             };
@@ -1188,11 +1296,30 @@ namespace Configuration_Management
             panel.Children.Add(hintBlock);
 
             // Основное действие (primary) — крупная акцентная кнопка вверху.
-            panel.Children.Add(PrimaryActionButton("IconPlay", LocalizationManager.T("Main.LaunchEnterprise"), "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
+            panel.Children.Add(BuildLaunchSplitButton(
+                "IconPlay",
+                LocalizationManager.T("Main.LaunchEnterprise"),
+                "LaunchEnterpriseCommand",
+                LocalizationManager.T("Main.LaunchEnterpriseTooltip"),
+                primary: true,
+                new[]
+                {
+                    (LocalizationManager.T("Main.LaunchWithParams"), "LaunchEnterpriseWithParamsCommand"),
+                    (LocalizationManager.T("Main.LaunchWithAuth"), "LaunchEnterpriseWithAuthCommand")
+                }));
 
             // Секции secondary-действий, сгруппированные по смыслу.
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionConfigurator"), "IconConfiguration",
-                SecondaryActionButton("IconWrench", LocalizationManager.T("Main.LaunchConfiguratorSection"), "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip"))));
+                BuildLaunchSplitButton(
+                    "IconWrench",
+                    LocalizationManager.T("Main.LaunchConfiguratorSection"),
+                    "LaunchConfiguratorCommand",
+                    LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip"),
+                    primary: false,
+                    new[]
+                    {
+                        (LocalizationManager.T("Main.LaunchWithParams"), "LaunchConfiguratorWithParamsCommand")
+                    })));
 
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionMaintenance"), "IconWrench",
                 BuildClearCacheSplitButton(),
@@ -1453,6 +1580,83 @@ namespace Configuration_Management
             arrow.Click += (_, _) => menu.Open(arrow);
 
             // Объединяем обе части в один визуально цельный контрол.
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Grid.SetColumn(main, 0);
+            Grid.SetColumn(arrow, 1);
+            grid.Children.Add(main);
+            grid.Children.Add(arrow);
+            return grid;
+        }
+
+        /// <summary>
+        /// Кнопка запуска со стрелкой и меню дополнительных вариантов, как
+        /// в WPF-версии. Пункт «от имени администратора» не переносится:
+        /// на Linux нет повышения прав через оболочку, параметр runAsAdmin
+        /// в лаунчере не используется, а запуск клиента 1С от root оставил бы
+        /// в домашнем каталоге пользователя файлы, которые ему не принадлежат.
+        /// </summary>
+        private static Control BuildLaunchSplitButton(
+            string iconKey,
+            string text,
+            string commandPath,
+            string tooltip,
+            bool primary,
+            IReadOnlyList<(string Header, string Command)> menuItems)
+        {
+            var radius = UiMetrics.RadiusLg;
+            var mainCorner = new CornerRadius(radius, 0, 0, radius);
+
+            var main = primary
+                ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", mainCorner)
+                : new PanelButton("SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush",
+                    "SecondaryButtonPressedBrush", "BorderColorBrush", mainCorner);
+
+            var contentBrush = primary ? "TextOnAccentBrush" : "ButtonTextBrush";
+            main.Content = ThemedIconAndText(iconKey, text, contentBrush, primary ? UiMetrics.Scaled(18) : 16, centered: primary);
+            main.HorizontalContentAlignment = primary ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+            main.HorizontalAlignment = HorizontalAlignment.Stretch;
+            main.Margin = new Thickness(0, 0, 0, primary ? UiMetrics.SectionMarginBottom : 2);
+            ToolTip.SetTip(main, tooltip);
+            main.Bind(Button.CommandProperty, new Binding(commandPath));
+
+            var menu = new ContextMenu();
+            foreach (var (header, command) in menuItems)
+            {
+                if (header.Length == 0)
+                {
+                    menu.Items.Add(new Separator());
+                    continue;
+                }
+
+                var item = new MenuItem { Header = header };
+                item.Bind(MenuItem.CommandProperty, new Binding(command));
+                menu.Items.Add(item);
+            }
+
+            var arrowCorner = new CornerRadius(0, radius, radius, 0);
+            var arrow = primary
+                ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", arrowCorner)
+                : new PanelButton("SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush",
+                    "SecondaryButtonPressedBrush", "BorderColorBrush", arrowCorner);
+            arrow.Width = 36;
+            arrow.Padding = new Thickness(0);
+            arrow.Margin = main.Margin;
+
+            var arrowGlyph = new TextBlock
+            {
+                Text = "▾",
+                FontSize = UiMetrics.Scaled(14),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            ThemeBrushes.Bind(arrowGlyph, TextBlock.ForegroundProperty, contentBrush);
+            arrow.Content = arrowGlyph;
+            ToolTip.SetTip(arrow, LocalizationManager.T("Main.MoreLaunchOptions"));
+            arrow.ContextMenu = menu;
+            arrow.Click += (_, _) => menu.Open(arrow);
+
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
@@ -2646,6 +2850,9 @@ namespace Configuration_Management
         {
             _vm?.Initialize();
             RegisterHotkeys();
+            // Шаблон дерева готов только после загрузки окна, раньше внутренней
+            // прокрутки ещё нет.
+            AttachVerticalScrollBar();
             if (_vm is not null)
             {
                 // Переназначение клавиш меняет и привязки, и подписи в меню.
@@ -2713,6 +2920,72 @@ namespace Configuration_Management
         /// <summary>Внутренняя прокрутка дерева: вертикаль ведёт сам TreeView.</summary>
         private ScrollViewer? TreeScroll =>
             _tree?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+
+        /// <summary>
+        /// Связывает внешнюю полосу прокрутки с деревом. Полоса стоит отдельным
+        /// столбцом, вне горизонтальной прокрутки, поэтому остаётся у правого
+        /// края области даже когда колонки шире окна.
+        /// </summary>
+        private void AttachVerticalScrollBar()
+        {
+            // Компактный режим пересобирает окно целиком, и дерево с полосой
+            // становятся другими объектами. Поэтому сверяемся с самой прокруткой,
+            // а не с признаком «уже привязывались»: иначе после переключения
+            // полоса остаётся подписанной на выброшенный ScrollViewer.
+            if (_listVerticalBar is not { } bar || TreeScroll is not { } scroll)
+                return;
+            if (ReferenceEquals(_boundTreeScroll, scroll) && ReferenceEquals(_boundScrollBar, bar))
+                return;
+
+            foreach (var link in _scrollBarLinks)
+                link.Dispose();
+            _scrollBarLinks.Clear();
+            _boundTreeScroll = scroll;
+            _boundScrollBar = bar;
+
+            void Sync()
+            {
+                if (_syncingScrollBar)
+                    return;
+                _syncingScrollBar = true;
+                try
+                {
+                    var hidden = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+                    bar.Maximum = hidden;
+                    bar.ViewportSize = scroll.Viewport.Height;
+                    // Шаги берёт сама прокрутка по своему содержимому. Без этого
+                    // у отдельной полосы остаются значения RangeBase по умолчанию,
+                    // и щелчок по дорожке двигает список на десять точек вместо
+                    // страницы, а стрелка на одну точку вместо строки.
+                    bar.SmallChange = scroll.SmallChange.Height;
+                    bar.LargeChange = scroll.LargeChange.Height;
+                    bar.Value = Math.Min(scroll.Offset.Y, hidden);
+                }
+                finally { _syncingScrollBar = false; }
+            }
+
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.OffsetProperty)
+                .Subscribe(new PropertyObserver<Vector>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.ExtentProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.ViewportProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.SmallChangeProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.LargeChangeProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            Sync();
+        }
+
+        /// <summary>Наблюдатель за значением свойства.</summary>
+        private sealed class PropertyObserver<T> : IObserver<T>
+        {
+            private readonly Action<T> _apply;
+            public PropertyObserver(Action<T> apply) => _apply = apply;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(T value) => _apply(value);
+        }
 
         /// <summary>
         /// Запоминает позицию прокрутки до пересборки: список опустеет, и после
