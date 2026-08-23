@@ -363,13 +363,13 @@ namespace Configuration_Management
                 border.BorderThickness = focused ? new Thickness(2) : new Thickness(1);
             }
 
-            if (Application.Current is { } app)
-            {
-                app.GetResourceObservable("CardBackgroundColorBrush").Subscribe(new BrushObserver(b => baseBg = b, Refresh));
-                app.GetResourceObservable("ItemHoverBrush").Subscribe(new BrushObserver(b => hoverBg = b, Refresh));
-                app.GetResourceObservable("BorderColorBrush").Subscribe(new BrushObserver(b => baseBorder = b, Refresh));
-                app.GetResourceObservable("AccentBrush").Subscribe(new BrushObserver(b => { hoverBorder = b; accentBorder = b; }, Refresh));
-            }
+            // Подписки привязаны к жизни рамки: содержимое окна пересобирается
+            // при переключении компактного режима, и наблюдатель, живущий
+            // у приложения, удерживал бы прежнее дерево целиком.
+            ThemeBrushes.Observe(border, "CardBackgroundColorBrush", b => { baseBg = b; Refresh(); });
+            ThemeBrushes.Observe(border, "ItemHoverBrush", b => { hoverBg = b; Refresh(); });
+            ThemeBrushes.Observe(border, "BorderColorBrush", b => { baseBorder = b; Refresh(); });
+            ThemeBrushes.Observe(border, "AccentBrush", b => { hoverBorder = b; accentBorder = b; Refresh(); });
 
             border.PointerEntered += (_, _) => { hovered = true; Refresh(); };
             border.PointerExited += (_, _) => { hovered = false; Refresh(); };
@@ -1504,7 +1504,6 @@ namespace Configuration_Management
         /// </summary>
         private sealed class PanelButton : Button
         {
-            private readonly List<IDisposable> _subs = new();
             private IBrush _baseBg = Brushes.Transparent;
             private IBrush _hoverBg = Brushes.Transparent;
             private IBrush _pressedBg = Brushes.Transparent;
@@ -1566,11 +1565,10 @@ namespace Configuration_Management
             }
 
             private void Subscribe(string key, Action<IBrush> setter)
-            {
-                if (Application.Current is not { } app)
-                    return;
-                _subs.Add(app.GetResourceObservable(key).Subscribe(new BrushSlot(setter, ApplyState)));
-            }
+                // Подписка снимается вместе с уходом кнопки из дерева: список
+                // _subs не освобождался нигде, и каждая пересборка правой панели
+                // оставляла кнопку и всё её дерево укоренёнными.
+                => ThemeBrushes.Observe(this, key, brush => { setter(brush); ApplyState(); });
 
             /// <summary>Применяет состояние к фону/границе/прозрачности кнопки.</summary>
             private void ApplyState()

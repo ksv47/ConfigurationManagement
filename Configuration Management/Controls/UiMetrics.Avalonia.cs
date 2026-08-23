@@ -98,9 +98,13 @@ namespace Configuration_Management.Controls
         /// </summary>
         public static void AddSoftShadow(Border target)
         {
-            if (Application.Current is not { } app)
-                return;
-            app.GetResourceObservable("BorderColorBrush").Subscribe(new ShadowObserver(target));
+            // Подписка снимается вместе с уходом элемента из дерева: тень
+            // добавляется в содержимое главного окна, а оно пересобирается.
+            Themes.ThemeBrushes.Observe(target, "BorderColorBrush", brush =>
+            {
+                if (brush is ISolidColorBrush solid)
+                    ApplyShadow(target, solid.Color);
+            });
         }
 
         /// <summary>Добавляет плавный переход цвета фона и/или границы элемента.</summary>
@@ -136,30 +140,17 @@ namespace Configuration_Management.Controls
         /// Наблюдатель, который по значению ресурса-кисти строит мягкую полупрозрачную тень
         /// и применяет её к целевому Border.
         /// </summary>
-        private sealed class ShadowObserver : IObserver<object?>
+        private static void ApplyShadow(Border target, Color borderColor)
         {
-            private readonly Border _target;
-
-            public ShadowObserver(Border target) => _target = target;
-
-            public void OnCompleted() { }
-            public void OnError(Exception error) { }
-
-            public void OnNext(object? value)
+            // Полупрозрачный вариант цвета границы: мягкая тень для обеих тем.
+            var shadowColor = new Color((byte)(borderColor.A * 0.26), borderColor.R, borderColor.G, borderColor.B);
+            target.BoxShadow = new BoxShadows(new BoxShadow
             {
-                if (value is not ISolidColorBrush solid)
-                    return;
-                var c = solid.Color;
-                // Полупрозрачный вариант цвета границы — мягкая тень для обеих тем.
-                var shadowColor = new Color((byte)(c.A * 0.26), c.R, c.G, c.B);
-                _target.BoxShadow = new BoxShadows(new BoxShadow
-                {
-                    OffsetY = 3,
-                    Blur = 14,
-                    Spread = 0,
-                    Color = shadowColor
-                });
-            }
+                OffsetY = 3,
+                Blur = 14,
+                Spread = 0,
+                Color = shadowColor
+            });
         }
     }
 }
