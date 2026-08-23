@@ -98,6 +98,12 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Разрешено ли несколько экземпляров: от этого зависит, вернётся ли
+    /// спрятанное окно повторным запуском приложения.
+    /// </summary>
+    public bool AllowMultipleInstances => _settings.AllowMultipleInstances;
+
     /// <summary>Запрос к главному окну выполнить действие после успешного запуска.</summary>
     public event Action<Models.AfterLaunchAction>? AfterLaunchRequested;
 
@@ -2000,7 +2006,12 @@ public class MainViewModel : ViewModelBase
         var link = dialog.Result;
         _logger.Info($"Запуск 1С по ссылке: {link}");
         if (!OneCLauncher.LaunchByLink(link))
+        {
             _dialog.ShowError(string.Format(LocalizationManager.T("Main.ErrOpenLink"), link));
+            return;
+        }
+
+        NotifyAfterLaunch();
     }
 
     private void ToggleFavorite() => ToggleFavoriteFor(SelectedInfobase);

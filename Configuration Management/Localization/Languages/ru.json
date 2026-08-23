@@ -357,8 +357,9 @@
     "Settings.General.EscapeToTray": "По Esc сворачивать в трей",
     "Settings.General.AfterLaunchAction": "После запуска базы или конфигуратора",
     "Settings.General.AfterLaunchAction.None": "Ничего не делать",
-    "Settings.General.AfterLaunchAction.MinimizeToTray": "Свернуть окно",
-    "Settings.General.AfterLaunchAction.Close": "Закрыть окно в трей",
+    "Settings.General.AfterLaunchAction.MinimizeToTray": "Свернуть в трей",
+    "Settings.General.AfterLaunchAction.Close": "Закрыть (уйти в трей)",
+    "Main.AfterLaunchTrayUnavailable": "Значка в трее нет, окно свёрнуто вместо ухода в трей: спрятанное окно было бы нечем вернуть.",
     "Settings.General.RememberWindowLayout": "Запоминать расположение, размер и монитор окна",
 
     "Settings.Ibases.Description": "Синхронизация приложения со стандартным файлом списка баз 1С (ibases.v8i).",
