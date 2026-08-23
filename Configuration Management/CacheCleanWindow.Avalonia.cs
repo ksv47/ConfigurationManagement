@@ -316,7 +316,9 @@ namespace Configuration_Management
             _basesCountText.HorizontalAlignment = HorizontalAlignment.Right;
             _basesCountText.TextTrimming = TextTrimming.CharacterEllipsis;
             _basesCountText.FontSize = 12;
-            _basesCountText.Foreground = Brushes.Gray;
+            // Цвет из темы, как в оригинале: постоянный серый мимо палитры
+            // тёмной схемы, где вторичный текст светлее фона.
+            Themes.ThemeBrushes.Bind(_basesCountText, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             Grid.SetColumn(_basesCountText, 1);
             toolbar.Children.Add(_basesCountText);
             DockPanel.SetDock(toolbar, Dock.Top);
