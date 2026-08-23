@@ -455,7 +455,7 @@ public class MainViewModel : ViewModelBase
         get => _selectedInfobase;
         set
         {
-            if (SetProperty(ref _selectedInfobase, value, nameof(RightPanelTitle), nameof(RightPanelSubtitle),
+            if (SetProperty(ref _selectedInfobase, value, nameof(SelectedInfobase), nameof(RightPanelTitle), nameof(RightPanelSubtitle),
                     nameof(IsInfobaseSelected), nameof(ShowConnectionInfo),
                     nameof(RightPanelIconKey), nameof(HasRightPanelIcon)))
             {
@@ -472,7 +472,7 @@ public class MainViewModel : ViewModelBase
         get => _selectedGroupNode;
         set
         {
-            if (SetProperty(ref _selectedGroupNode, value, nameof(RightPanelTitle), nameof(RightPanelSubtitle),
+            if (SetProperty(ref _selectedGroupNode, value, nameof(SelectedGroupNode), nameof(RightPanelTitle), nameof(RightPanelSubtitle),
                     nameof(IsInfobaseSelected), nameof(ShowConnectionInfo),
                     nameof(RightPanelIconKey), nameof(HasRightPanelIcon)))
             {
@@ -489,7 +489,7 @@ public class MainViewModel : ViewModelBase
     public bool ShowRightPanelDetails
     {
         get => _showRightPanelDetails;
-        set => SetProperty(ref _showRightPanelDetails, value, nameof(RightPanelToggleTooltip), nameof(ShowConnectionInfo));
+        set => SetProperty(ref _showRightPanelDetails, value, nameof(ShowRightPanelDetails), nameof(RightPanelToggleTooltip), nameof(ShowConnectionInfo));
     }
 
     /// <summary>
@@ -752,7 +752,7 @@ public class MainViewModel : ViewModelBase
         get => _sessionArch;
         set
         {
-            if (!SetProperty(ref _sessionArch, value, nameof(IsSessionArchAuto), nameof(IsSessionArch32), nameof(IsSessionArch64)))
+            if (!SetProperty(ref _sessionArch, value, nameof(SessionArch), nameof(IsSessionArchAuto), nameof(IsSessionArch32), nameof(IsSessionArch64)))
                 return;
 
             _settings.SessionArchitecture = SessionArchitectureMode().ToString();
@@ -1455,6 +1455,9 @@ public class MainViewModel : ViewModelBase
             SelectedInfobase.AddLaunchHistory(LocalizationManager.T("Main.LaunchAction"));
             SaveSilently();
         }
+
+        // Список недавних изменился, и его показывает меню трея.
+        OnPropertyChanged(nameof(RecentInfobases));
 
         // Одна точка на все пути запуска: команды окна, контекстное меню и трей
         // приходят сюда же, в отличие от WPF, где уведомление расставлено трижды.

@@ -124,6 +124,7 @@ namespace Configuration_Management
 
         /// <summary>Ссылка на значок трея, чтобы обновлять меню при смене языка.</summary>
         private TrayIcon? _trayIcon;
+        private NativeMenu? _trayMenu;
 
         /// <summary>
         /// Можно ли вернуть спрятанное окно. Значок трея это первый путь, но
@@ -667,6 +668,11 @@ namespace Configuration_Management
                 {
                     if (e.PropertyName == nameof(MainViewModel.SearchText))
                         UpdateEmptyState();
+                    // Меню трея показывает выбранную базу и недавние: без этого
+                    // оно осталось бы таким, каким было собрано при запуске.
+                    if (e.PropertyName == nameof(MainViewModel.SelectedInfobase)
+                        || e.PropertyName == nameof(MainViewModel.RecentInfobases))
+                        RefreshTrayMenu();
                     // Заголовок строится до загрузки настроек, поэтому обновляется
                     // при уведомлении о колонках: иначе сохранённые ширина и состав
                     // применились бы к строкам, но не к уже собранному заголовку.
@@ -3257,6 +3263,27 @@ namespace Configuration_Management
         private NativeMenu BuildTrayMenu()
         {
             var menu = new NativeMenu();
+            // Состав меню зависит от данных: недавние базы и выбранная база
+            // меняются в работе. Штатный запрос обновления перед показом
+            // (NeedsUpdate) под KDE не приходит вовсе, проверено прогоном,
+            // поэтому меню ещё и пересобирается по изменению самих данных.
+            menu.NeedsUpdate += (_, _) => FillTrayMenu(menu);
+            FillTrayMenu(menu);
+            _trayMenu = menu;
+            return menu;
+        }
+
+        /// <summary>Пересобирает меню трея, если оно уже создано.</summary>
+        private void RefreshTrayMenu()
+        {
+            if (_trayMenu is not null)
+                FillTrayMenu(_trayMenu);
+        }
+
+        /// <summary>Наполняет меню трея заново по текущему состоянию списка баз.</summary>
+        private void FillTrayMenu(NativeMenu menu)
+        {
+            menu.Items.Clear();
 
             var showItem = new NativeMenuItem(LocalizationManager.T("Main.ShowWindow"));
             showItem.Click += (_, _) => ShowAndActivate();
@@ -3310,8 +3337,6 @@ namespace Configuration_Management
                 _vm?.ExitCommand.Execute(null);
             };
             menu.Add(exitItem);
-
-            return menu;
         }
 
         private void SetupTray()
