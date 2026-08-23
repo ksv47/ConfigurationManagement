@@ -5,6 +5,68 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.44] — 2026-08-23
+
+### Локализация (Windows/WPF)
+
+- **Исправлена регрессия: вместо переводов отображались сырые ключи локализации (например «Main.AllBases»)** — [`LocExtension.cs`](Configuration Management/Localization/LocExtension.cs) возвращён к КОНВЕРТЕРНОЙ привязке (`Source = LocalizationManager.Instance.Source`, `Mode = BindingMode.OneWay`, `Converter = LocalizationValueConverter.Instance`, `ConverterParameter = Key`). Ранее (в 0.3.3.43) привязка была заменена на индексаторную (`Path = new PropertyPath($"[{EscapeIndexerKey(Key)}]")`), которая некорректно резолвится в индексатор `LocalizationSource[string]` и возвращала сырой ключ вместо перевода. Убраны ставшие ненужными `using System.Text;`, `using System.Windows;` и метод `EscapeIndexerKey`.
+- **Надёжное динамическое обновление через регистрацию выражений привязки** — в [`LocalizationSource.cs`](Configuration Management/Localization/LocalizationSource.cs) добавлен платформонезависимый механизм: `RegisterForUpdate(object target, Action<object> update)` хранит СЛАБУЮ ссылку на объект и делегат обновления (без захвата target), а `NotifyAll()` после поднятия `PropertyChanged("Item[]")`/`PropertyChanged(string.Empty)` вызывает `UpdateTarget()` у всех зарегистрированных выражений (обёртка в try/catch, защита от выброшенных/отвязанных ссылок, периодическая очистка «мёртвых» ссылок по достижении порога). `LocExtension.ProvideValue` регистрирует полученный `BindingExpression`. `LocalizationSource` не зависит от WPF-типа `BindingExpression` напрямую, поэтому сборка Avalonia (Linux) не ломается.
+- **Сохранён проход по визуальному дереву** — в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs) `RefreshAllBindingsOnVisualTree()` в `RebuildAfterLanguageChange()` остался без изменений: он по-прежнему закрывает MultiBinding-подсказки кнопок запуска (`Path="Source"` + конвертер), которые регистрация из п.2 не покрывает.
+- Переводы снова корректно отображаются при загрузке и обновляются динамически при смене языка без перезапуска приложения.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.44** (`InformationalVersion` = 0.3.3.44 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.43] — 2026-08-23
+
+### Локализация (Windows/WPF)
+
+- **Исправлено: статичные подписи главного окна не переводились сразу при смене языка** — корневая причина устранена в [`LocExtension.cs`](Configuration Management/Localization/LocExtension.cs). Раньше `ProvideValue` создавал привязку с пустым `Path` (`Source` + конвертер по `ConverterParameter=Key`), а привязка WPF без пути НЕ подписывается на `INotifyPropertyChanged` источника, поэтому `LocalizationSource.NotifyAll()` (`PropertyChanged(string.Empty)`) не обновляла такие элементы — они получали значение один раз при создании и оставались на старом языке до перезапуска.
+  Теперь `ProvideValue` строит ИНДЕКСАТОРНУЮ привязку: `Path = new PropertyPath($"[{EscapeIndexerKey(Key)}]")` (с экранированием `\` и `"` в ключе), `Source = LocalizationManager.Instance.Source`, `Mode = BindingMode.OneWay`. Конвертер больше не используется — источник возвращает перевод через `this[string key]`. Индексаторные привязки WPF корректно реагируют на `PropertyChanged("Item[]")`, которое поднимает `NotifyAll()`, поэтому все `{loc:Loc}` в любом окне (вкладки «Все базы/Избранное/Недавние», кнопки панели, заголовки колонок, пункты меню и т.п.) переводятся мгновенно, без перезапуска.
+- **Принудительное обновление привязок по визуальному дереву окна** — в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs) в `RebuildAfterLanguageChange()` после обновления заголовка/темы/трея теперь вызывается `RefreshAllBindingsOnVisualTree()`, который через `VisualTreeHelper` (с переходом в логическое дерево, где необходимо) обходит все `DependencyObject` окна и для каждой локальной привязки (`GetLocalValueEnumerator()` + `BindingOperations.GetBindingExpressionBase(dp).UpdateTarget()`) принудительно обновляет целевое значение. Это закрывает и те элементы, которые не реагируют на `PropertyChanged("Item[]")` (например MultiBinding-подсказки кнопок запуска с `Path="Source"` + конвертер). Всё обёрнуто в try/catch — сбой одной привязки не прерывает пересборку интерфейса. Существующая подписка/обработчик смены языка сохранены.
+- Смена языка работает в обе стороны (ru ↔ en) и на внешние языки; главное окно полностью переводится без перезапуска.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.43** (`InformationalVersion` = 0.3.3.43 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.42] — 2026-08-23
+
+### Локализация (Windows/WPF)
+
+- **Полная динамическая смена языка интерфейса без перезапуска для локализованных свойств VM и дерева групп** — [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) (Windows/#if WINDOWS) теперь подписывается на `LocalizationManager.Instance.LanguageChanged` в конструкторе. Новый обработчик `OnLanguageChanged` (с маршалингом на UI-поток через `Dispatcher`) вызывает `HandleLanguageChanged()`, который:
+  - вызывает `OnPropertyChanged(string.Empty)` — WPF пересчитывает все привязки к VM, обновляя локализованные свойства (`StatusBarInfo`, `ExportIndicatorTooltip`, `RightPanelToggleTooltip`, `GroupByGroupText`, `SyncMessage` и др.), которые возвращают `LocalizationManager.T(...)` на лету;
+  - вызывает `RebuildGroupTree()` — дерево пересобирается целиком, поэтому служебные узлы («Все базы», «Без группы», «Избранное») через `GroupNodeViewModel.DisplayName` сразу получают тексты на новом языке.
+  Работает для любого направления (ru ↔ en и внешние языки). Ранее эти элементы обновлялись только после перезапуска, хотя XAML-привязки `{loc:Loc}` уже обновлялись через `Source.NotifyAll()`.
+- **Корректная отписка от события** — добавлен публичный метод `UnsubscribeLanguageChanged()` с флагом `_languageChangedSubscribed` (защищает от дублирования подписки); вызывается из `MainWindow.OnClosing` при полном закрытии окна, чтобы не было утечек.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.42** (`InformationalVersion` = 0.3.3.42 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.41] — 2026-08-23
+
+### Локализация (Windows/WPF)
+
+- **Динамическая смена языка интерфейса без перезапуска (Windows/WPF)** — главное окно [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs) теперь подписывается на `LocalizationManager.Instance.LanguageChanged` (по аналогии с Avalonia-версией [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)). При смене языка в настройках новый обработчик `OnLanguageChanged`/`RebuildAfterLanguageChange` вручную обновляет элементы, заданные в code-behind: заголовок окна (`Title` с версией — локальное значение перекрывает XAML-привязку `{loc:Loc App.Title}`), подсказку кнопки смены темы ([`UpdateThemeButton()`](Configuration Management/MainWindow.xaml.cs)), а также текст и меню трея ([`RebuildTrayMenu()`](Configuration Management/MainWindow.xaml.cs)). Событие обрабатывается на UI-потоке через диспетчер (`Dispatcher.CheckAccess`/`BeginInvoke`) — работает для любого направления (ru ↔ en и внешние языки).
+- **Корректная отписка от события** — в [`OnClosing`](Configuration Management/MainWindow.xaml.cs) (ветка реального закрытия, не сворачивания в трей) выполняется `LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged`, что исключает утечку памяти (окно не удерживается менеджером локализации после закрытия).
+- Остальные тексты главного окна (кнопки, колонки, тултипы, empty-state и т.п.) объявлены в XAML через `{loc:Loc ...}` и обновляются автоматически через `LocalizationManager.Source.NotifyAll()`, поэтому дополнительной перестройки не требуют.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.41** (`InformationalVersion` = 0.3.3.41 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в `README.md` обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.40] — 2026-08-23
+
+### Локализация / сохранение настроек
+
+- **Исправлено: язык интерфейса терялся при закрытии окна (Windows/WPF)** — метод `SaveSettings()` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs:3282) при построении нового объекта `AppSettings` не задавал свойство `Language`, из-за чего оно сохранялось пустым (`""`). При закрытии главного окна (`MainWindow.OnClosing` → `_viewModel.SaveSettings()`) файл настроек перезаписывался с пустым языком, и при следующем запуске `LocalizationManager.Initialize(settings.Language)` выбирал язык системы вместо выбранного пользователем. Теперь `SaveSettings()` всегда записывает актуальный код языка через `LocalizationManager.Instance.CurrentLanguage` в создаваемый объект `AppSettings.Language`.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.40** (`InformationalVersion` = 0.3.3.40 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в `README.md` обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.3.39] — 2026-08-23
 
 ### Локализация / сохранение настроек

@@ -39,6 +39,8 @@ public class MainViewModel : ViewModelBase
     private string _noGroupIcon = string.Empty;
     private string _savedTheme = string.Empty;
     private ColorScheme? _activeColorScheme;
+    /// <summary>Флаг подписки на событие смены языка (предотвращает дублирование подписки).</summary>
+    private bool _languageChangedSubscribed;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
     private List<string> _installedPlatformVersions = new();
     private List<string> _additionalPlatformSearchPaths = new();
@@ -314,6 +316,13 @@ public class MainViewModel : ViewModelBase
         // Дерево групп (отображается в виде «группа в группе»).
         GroupNodes = new ObservableCollection<GroupNodeViewModel>();
         RebuildGroupTree();
+
+        // Смена языка интерфейса: локализованные свойства VM и служебные узлы дерева
+        // обновляются на лету без перезапуска. XAML-привязки {loc:Loc} обновляются сами
+        // через LocalizationManager.Source.NotifyAll(), а здесь обновляем свойства VM,
+        // возвращающие LocalizationManager.T(...), и пересобираем дерево групп.
+        LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
+        _languageChangedSubscribed = true;
 
         // Раскрываем ветку, содержащую последнюю выбранную строку, чтобы её контейнер
         // в виртуализированном дереве создался сразу при первой отрисовке и выделение
@@ -3283,6 +3292,9 @@ public string HotkeyEnterprise
     {
         _repository.SaveSettings(new AppSettings
         {
+            // Актуальный язык интерфейса сохраняется всегда, чтобы выбор
+            // пользователя не затирался при закрытии окна (OnClosing).
+            Language = Configuration_Management.Localization.LocalizationManager.Instance.CurrentLanguage,
             ShowFavoritesOnly = _showFavoritesOnly,
             GroupByGroup = _groupByGroup,
             ShowEmptyGroups = _showEmptyGroups,
@@ -3743,6 +3755,55 @@ public string HotkeyEnterprise
     /// Группы и подгруппы, не содержащие баз (в том числе при активном фильтре «Только избранные»),
     /// в дерево не попадают.
     /// </summary>
+    /// <summary>
+    /// Обработчик смены языка интерфейса (Windows): пересчитывает все привязки к VM
+    /// и пересобирает дерево групп, чтобы локализованные свойства и служебные узлы
+    /// («Все базы», «Без группы», «Избранное») обновились без перезапуска.
+    /// Работает для любого направления (ru ↔ en и внешние языки).
+    /// </summary>
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        // Событие поднимается на UI-потоке (SettingsWindow), но добавляем страховку:
+        // если вызов пришёл с другого потока — маршализуем на диспетчер приложения.
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            HandleLanguageChanged();
+            return;
+        }
+
+        dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.DataBind,
+            new Action(HandleLanguageChanged));
+    }
+
+    /// <summary>
+    /// Непосредственно применяет смену языка: уведомляет об изменении всех свойств VM
+    /// (WPF пересчитает StatusBarInfo, ExportIndicatorTooltip, RightPanelToggleTooltip,
+    /// GroupByGroupText, SyncMessage и пр.) и пересобирает дерево групп.
+    /// </summary>
+    private void HandleLanguageChanged()
+    {
+        // Пустое имя свойства означает «изменились все свойства» — WPF пересчитает
+        // все активные привязки к VM.
+        OnPropertyChanged(string.Empty);
+        // Дерево перестраиваем целиком: узлы со спецмаркерами возвращают
+        // LocalizationManager.T(...) на лету (см. GroupNodeViewModel.DisplayName).
+        RebuildGroupTree();
+    }
+
+    /// <summary>
+    /// Отписывается от события смены языка. Вызывается при полном закрытии главного
+    /// окна (MainWindow.OnClosing), чтобы избежать утечек и дублирования подписки.
+    /// </summary>
+    public void UnsubscribeLanguageChanged()
+    {
+        if (!_languageChangedSubscribed)
+            return;
+        LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
+        _languageChangedSubscribed = false;
+    }
+
     public void RebuildGroupTree()
     {
         // Один проход по базам без CollectionView.Refresh (он дорогой на больших списках).

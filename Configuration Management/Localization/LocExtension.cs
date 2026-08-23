@@ -8,12 +8,18 @@ namespace Configuration_Management.Localization
     /// <summary>
     /// WPF-расширение разметки для локализации XAML: <c>{loc:Loc Key}</c>.
     ///
-    /// Создаёт привязку к источнику локализации <see cref="LocalizationManager.Source"/>
-    /// с конвертером <see cref="LocalizationValueConverter"/> (ключ передаётся через
-    /// <see cref="Binding.ConverterParameter"/>). Такой способ не зависит от парсинга
-    /// пути индексера и корректно работает с ключами, содержащими точки
-    /// (например <c>Column.Name</c>). При смене языка источник уведомляет привязку,
-    /// и текст обновляется автоматически.
+    /// Создаёт КОНВЕРТЕРНУЮ привязку к <see cref="LocalizationSource"/>:
+    /// <c>Source = LocalizationManager.Instance.Source</c>,
+    /// <c>Converter = LocalizationValueConverter.Instance</c>,
+    /// <c>ConverterParameter = Key</c>. Конвертер читает перевод текущего языка
+    /// напрямую через <see cref="LocalizationManager.Instance"/>, поэтому при
+    /// загрузке элемент сразу получает корректный текст (а не сырой ключ).
+    ///
+    /// Привязка WPF без пути НЕ подписывается на INotifyPropertyChanged источника,
+    /// поэтому после создания привязка дополнительно регистрируется в источнике
+    /// (<see cref="LocalizationSource.RegisterForUpdate"/>). При смене языка
+    /// <see cref="LocalizationSource.NotifyAll"/> вызывает UpdateTarget() у всех
+    /// зарегистрированных выражений, и текст обновляется без перезапуска.
     ///
     /// Примеры:
     /// <code>
@@ -43,8 +49,6 @@ namespace Configuration_Management.Localization
 
             var binding = new Binding
             {
-                // Привязываемся к самому источнику (без индексерного пути),
-                // значение получаем через конвертер по ConverterParameter=Key.
                 Source = LocalizationManager.Instance.Source,
                 Mode = BindingMode.OneWay,
                 Converter = LocalizationValueConverter.Instance,
@@ -53,7 +57,19 @@ namespace Configuration_Management.Localization
 
             // Возвращаем результат ProvideValue у Binding (BindingExpression),
             // а не сам объект Binding.
-            return binding.ProvideValue(serviceProvider);
+            var value = binding.ProvideValue(serviceProvider);
+
+            // Динамическое обновление: привязка без пути не реагирует на
+            // PropertyChanged источника, поэтому регистрируем выражение в источнике,
+            // который вызовет UpdateTarget() при NotifyAll() (смене языка).
+            if (value is BindingExpression expression)
+            {
+                LocalizationManager.Instance.Source.RegisterForUpdate(
+                    expression,
+                    static target => ((BindingExpression)target).UpdateTarget());
+            }
+
+            return value;
         }
     }
 }
