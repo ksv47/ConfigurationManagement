@@ -99,10 +99,24 @@ namespace Configuration_Management
             _vm.AfterLaunchRequested += OnAfterLaunchRequested;
         }
 
+        /// <summary>Значок трея создан без ошибки: значение проверяется перед тем, как прятать окно.</summary>
+        private bool _trayIconCreated;
+
         /// <summary>
-        /// Сворачивает окно или уводит его в трей после успешного запуска.
-        /// Выполняется через диспетчер: запрос приходит из обработчика команды,
-        /// а окно к этому моменту ещё показывает нажатую кнопку.
+        /// Можно ли вернуть спрятанное окно. Значок трея это первый путь, но
+        /// на GNOME Shell без AppIndicator он не появится, а ошибки при этом не
+        /// будет. Второй путь, повторный запуск приложения через файл-сигнал,
+        /// работает только пока включён режим единственного экземпляра.
+        /// </summary>
+        private bool CanRestoreHiddenWindow =>
+            (_trayIconCreated && !Services.LinuxDesktopEnvironment.TrayMayBeUnavailable)
+            || _vm?.AllowMultipleInstances == false;
+
+        /// <summary>
+        /// Уводит окно в трей после успешного запуска, как это делает WPF-версия
+        /// для обоих значений настройки. Выполняется через диспетчер: запрос
+        /// приходит из обработчика команды, а окно к этому моменту ещё показывает
+        /// нажатую кнопку.
         /// </summary>
         private void OnAfterLaunchRequested(Models.AfterLaunchAction action)
         {
@@ -111,15 +125,20 @@ namespace Configuration_Management
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                // Уводить окно в трей можно только когда трею есть где показаться:
-                // на GNOME Shell без AppIndicator значка не будет, и спрятанное
-                // окно вернуть было бы нечем. Там окно сворачивается.
-                var hideToTray = action == Models.AfterLaunchAction.Close
-                                 && !Services.LinuxDesktopEnvironment.TrayMayBeUnavailable;
-                if (hideToTray)
-                    Hide();
-                else
+                // Спрятанное окно живёт только в трее, поэтому без пути возврата
+                // оно сворачивается: иначе пользователь остался бы с работающим
+                // процессом, который нечем показать.
+                if (!CanRestoreHiddenWindow)
+                {
                     WindowState = WindowState.Minimized;
+                    _vm?.LogWarning(LocalizationManager.T("Main.AfterLaunchTrayUnavailable"));
+                    return;
+                }
+
+                Hide();
+                if (action == Models.AfterLaunchAction.MinimizeToTray
+                    && WindowState == WindowState.Minimized)
+                    WindowState = WindowState.Normal;
             });
         }
 
@@ -2908,7 +2927,10 @@ namespace Configuration_Management
                     Menu = menu
                 };
                 if (Application.Current is { } app)
+                {
                     TrayIcon.SetIcons(app, new TrayIcons { tray });
+                    _trayIconCreated = true;
+                }
 
                 // На GNOME Shell без расширения AppIndicator иконка трея не появится,
                 // и приложение об этом никак не узнает: ошибки не будет, значка просто

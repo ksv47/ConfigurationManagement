@@ -688,9 +688,11 @@ namespace Configuration_Management
 
                 _viewModel.AfterLaunchAction = afterLaunchBox.SelectedIndex switch
                 {
+                    0 => Models.AfterLaunchAction.None.ToSettingString(),
                     1 => Models.AfterLaunchAction.MinimizeToTray.ToSettingString(),
                     2 => Models.AfterLaunchAction.Close.ToSettingString(),
-                    _ => Models.AfterLaunchAction.None.ToSettingString()
+                    // Ничего не выбрано: значение остаётся прежним, как в WPF-версии.
+                    _ => _viewModel.AfterLaunchAction
                 };
 
                 _viewModel.ApplyIbasesSyncSettings(
