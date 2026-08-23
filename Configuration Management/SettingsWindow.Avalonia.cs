@@ -123,6 +123,29 @@ namespace Configuration_Management
                 Opacity = 0.7
             });
 
+            // Поведение значка в области уведомлений. До этого три настройки
+            // жили только в файле и в версии для Windows: в Linux-сборке ни
+            // флажков, ни учёта не было.
+            var trayIconCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.General.ShowTrayIcon"),
+                IsChecked = _viewModel.ShowTrayIcon,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            var closeToTrayCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.General.CloseToTray"),
+                IsChecked = _viewModel.CloseToTray
+            };
+            var escapeToTrayCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.General.EscapeToTray"),
+                IsChecked = _viewModel.EscapeToTray
+            };
+            settings.Children.Add(trayIconCheck);
+            settings.Children.Add(closeToTrayCheck);
+            settings.Children.Add(escapeToTrayCheck);
+
             // Компактный режим интерфейса.
             var compactToggle = new CheckBox
             {
@@ -923,6 +946,10 @@ namespace Configuration_Management
                 _viewModel.ApplyColorScheme(editedScheme);
 
                 _viewModel.ApplyPlatformSettings(paths, archBox.SelectedItem as string ?? "X64");
+                _viewModel.ApplyTraySettings(
+                    trayIconCheck.IsChecked == true,
+                    closeToTrayCheck.IsChecked == true,
+                    escapeToTrayCheck.IsChecked == true);
                 _viewModel.ApplyTemplateCatalogPaths(templatePaths);
                 ApplyExportFileNameSettings();
 

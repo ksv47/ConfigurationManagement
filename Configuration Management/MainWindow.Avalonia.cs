@@ -3153,6 +3153,18 @@ namespace Configuration_Management
         {
             if (e.Handled || _vm is null)
                 return;
+
+            // Esc уводит окно в трей, если так задано настройкой. В поле ввода
+            // клавиша остаётся своей: там ей отменяют правку.
+            if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None
+                && _vm.EscapeToTray && CanRestoreHiddenWindow
+                && FocusManager?.GetFocusedElement() is not TextBox)
+            {
+                _vm.PersistSettings();
+                Hide();
+                e.Handled = true;
+                return;
+            }
             if (!Controls.HotkeyBox.TryParse(_vm.HotkeyDelete, out var gesture) || gesture is null)
                 return;
             if (e.Key != gesture.Key || e.KeyModifiers != gesture.KeyModifiers)
@@ -3245,6 +3257,9 @@ namespace Configuration_Management
 
         private void SetupTray()
         {
+            if (_vm is not null && !_vm.ShowTrayIcon && !_vm.CloseToTray)
+                return;
+
             try
             {
                 var menu = BuildTrayMenu();
@@ -3332,7 +3347,7 @@ namespace Configuration_Management
         protected override void OnClosing(WindowClosingEventArgs e)
         {
             base.OnClosing(e);
-            if (_allowCloseToTray && _vm is not null)
+            if (_allowCloseToTray && _vm is { CloseToTray: true } && CanRestoreHiddenWindow)
             {
                 _vm.PersistSettings();
                 e.Cancel = true;
