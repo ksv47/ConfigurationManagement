@@ -935,6 +935,23 @@ namespace Configuration_Management
             var ok = new Button { Content = LocalizationManager.T("Common.Ok"), MinWidth = 110, IsDefault = true };
             ok.Click += (_, _) =>
             {
+                // Проверка дублей идёт первой: иначе при конфликте окно
+                // остаётся открытым, а часть настроек уже на диске.
+                var assignments = new (string Action, Controls.HotkeyBox Box)[]
+                {
+                    (LocalizationManager.T("Main.LaunchEnterprise"), hotkeyEnterprise),
+                    (LocalizationManager.T("Main.SectionConfigurator"), hotkeyConfigurator),
+                    (LocalizationManager.T("Main.EditSettings"), hotkeyEdit),
+                    (LocalizationManager.T("Main.AddBaseOrGroup"), hotkeyAdd),
+                    (LocalizationManager.T("Main.Favorites"), hotkeyFavorite),
+                    (LocalizationManager.T("Main.Pin"), hotkeyPin),
+                    (LocalizationManager.T("Common.Delete"), hotkeyDelete),
+                    (LocalizationManager.T("Main.ClearCache"), hotkeyClearCache)
+                };
+
+                if (!ValidateHotkeys(assignments))
+                    return;
+
                 if (langBox.SelectedItem is LanguageInfo li &&
                     !string.Equals(li.Code, LocalizationManager.Instance.CurrentLanguage, StringComparison.Ordinal))
                 {
@@ -970,21 +987,6 @@ namespace Configuration_Management
                     scheduleBox.Text?.Trim() ?? string.Empty,
                     backupCheck.IsChecked == true,
                     int.TryParse(keepBox.Text, out var keep) && keep > 0 ? keep : 5);
-
-                var assignments = new (string Action, Controls.HotkeyBox Box)[]
-                {
-                    (LocalizationManager.T("Main.LaunchEnterprise"), hotkeyEnterprise),
-                    (LocalizationManager.T("Main.SectionConfigurator"), hotkeyConfigurator),
-                    (LocalizationManager.T("Main.EditSettings"), hotkeyEdit),
-                    (LocalizationManager.T("Main.AddBaseOrGroup"), hotkeyAdd),
-                    (LocalizationManager.T("Main.Favorites"), hotkeyFavorite),
-                    (LocalizationManager.T("Main.Pin"), hotkeyPin),
-                    (LocalizationManager.T("Common.Delete"), hotkeyDelete),
-                    (LocalizationManager.T("Main.ClearCache"), hotkeyClearCache)
-                };
-
-                if (!ValidateHotkeys(assignments))
-                    return;
 
                 _viewModel.ApplyHotkeys(
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,

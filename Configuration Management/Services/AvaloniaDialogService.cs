@@ -222,11 +222,14 @@ namespace Configuration_Management.Services
             // окну, и модальность с фокусом на Linux вели бы себя странно.
             foreach (var window in desktop.Windows)
             {
-                if (window.IsActive)
+                if (window.IsActive && window.IsVisible)
                     return window;
             }
 
-            return desktop.MainWindow;
+            // Спрятанное в трей окно остаётся в списке, но владельцем быть
+            // не может: показ диалога поверх невидимого окна роняет приложение.
+            // Без владельца диалог открывается по центру экрана, это ниже.
+            return desktop.MainWindow is { IsVisible: true } main ? main : null;
         }
     }
 

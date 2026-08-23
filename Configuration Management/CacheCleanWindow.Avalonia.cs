@@ -310,9 +310,13 @@ namespace Configuration_Management
             toolbarButtons.Children.Add(clearAll);
             toolbar.Children.Add(toolbarButtons);
 
+            // Кегль и цвет как у заголовков колонок рядом: счётчик встал с ними
+            // в один ряд, и умолчания выбивались из строя.
             _basesCountText.VerticalAlignment = VerticalAlignment.Center;
             _basesCountText.HorizontalAlignment = HorizontalAlignment.Right;
             _basesCountText.TextTrimming = TextTrimming.CharacterEllipsis;
+            _basesCountText.FontSize = 12;
+            _basesCountText.Foreground = Brushes.Gray;
             Grid.SetColumn(_basesCountText, 1);
             toolbar.Children.Add(_basesCountText);
             DockPanel.SetDock(toolbar, Dock.Top);
