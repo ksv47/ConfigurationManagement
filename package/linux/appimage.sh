@@ -20,12 +20,24 @@ BINARY="$PUBLISH_DIR/ConfigurationManagement"
 
 APP_ID="configuration-management"
 BINARY_NAME="ConfigurationManagement"
-ARCH="x86_64"
+
+# appimagetool читает архитектуру из переменной окружения, иначе угадывает
+# её по содержимому AppDir.
+export ARCH="${ARCH:-x86_64}"
+
+CSPROJ="$PROJECT_DIR/Configuration Management.csproj"
+VERSION="$(sed -e 's/<!--.*-->//g' "$CSPROJ" \
+  | sed -n 's/.*<InformationalVersion>\([^<]*\)<.*/\1/p' \
+  | head -n1 | tr -d '[:space:]')"
+if [[ -z "$VERSION" ]]; then
+  echo "Ошибка: не удалось прочитать InformationalVersion из $CSPROJ"
+  exit 1
+fi
 
 PACKAGE_DIR="$ROOT/package/linux"
 APPDIR="$PACKAGE_DIR/AppDir"
 OUTDIR="$PACKAGE_DIR/out"
-OUT_FILE="ConfigurationManagement-$ARCH.AppImage"
+OUT_FILE="ConfigurationManagement-$VERSION-$ARCH.AppImage"
 
 # Инструменты упаковки. По умолчанию appimagetool из PATH; можно переопределить:
 #   APPIMAGETOOL=/путь/к/appimagetool ./appimage.sh
@@ -63,7 +75,6 @@ cat > "$APPDIR/AppRun" <<'EOF'
 #!/usr/bin/env bash
 SELF="$(dirname "$(readlink -f "$0")")"
 export PATH="$SELF/usr/bin:$PATH"
-export LD_LIBRARY_PATH="$SELF/usr/lib:$LD_LIBRARY_PATH"
 exec "$SELF/usr/bin/ConfigurationManagement" "$@"
 EOF
 chmod +x "$APPDIR/AppRun"

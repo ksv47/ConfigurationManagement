@@ -1,11 +1,14 @@
 [Desktop Entry]
 Type=Application
-Name=Управление конфигурациями 1С
-Comment=Управление информационными базами 1С:Предприятие 8.3
+Name=Configuration Management
+Name[ru]=Управление конфигурациями 1С
+Comment=Manage 1C:Enterprise 8.3 infobases
+Comment[ru]=Управление информационными базами 1С:Предприятие 8.3
 Exec=ConfigurationManagement
 Icon=configuration-management
 Terminal=false
-Categories=Office;Development;
-Keywords=1C;1С;инфобазы;конфигурации;1cv8;
+Categories=Office;
+Keywords=1C;infobase;configuration;1cv8;
+Keywords[ru]=1C;1С;инфобазы;конфигурации;1cv8;
 StartupNotify=true
 StartupWMClass=ConfigurationManagement
