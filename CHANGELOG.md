@@ -5,6 +5,46 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.30] — 2026-08-23
+
+### Удалено (мёртвый код, неиспользуемые файлы и функции)
+
+Проведена чистка репозитория: удалены файлы, которые не компилировались ни на одной платформе или не использовались нигде в коде/XAML, а также неиспользуемая функция. После удалений проект успешно собирается (`dotnet build`, конфигурация Windows/WPF).
+
+- **Удалены устаревшие Linux-заглушки, исключённые из сборки и не дававшие кода на Windows (`#if LINUX` + `<Compile Remove>` в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)):**
+  - [`Themes/ThemeManager.Linux.cs`](Configuration Management/Themes/ThemeManager.Linux.cs) — старая заглушка Этапа 2; вместо неё используется полный `Themes/ThemeManager.Avalonia.cs`.
+  - [`Services/LinuxStubs.cs`](Configuration Management/Services/LinuxStubs.cs) — временные DI-заглушки; вместо них — полноценные реализации `OneCLauncher.Linux.cs`, `OneCComConnector.Linux.cs`, `PlatformVersionService.Linux.cs`.
+  - [`Services/LinuxOneCServiceShims.cs`](Configuration Management/Services/LinuxOneCServiceShims.cs) — старый шим статических сервисов 1С; функциональность перенесена в `*Linux.cs` (напр., `Launcher.CreateDirCreateFailedFormat` в [`OneCLauncher.Linux.cs`](Configuration Management/Services/OneCLauncher.Linux.cs)).
+- **Удалён временный артефакт WPF-компилятора** [`Configuration Management_ujfv2o2k_wpftmp.csproj`](Configuration Management/Configuration Management_ujfv2o2k_wpftmp.csproj) — авто-генерируемый `*_wpftmp.csproj` (создаётся заново при каждой сборке).
+- **Удалена неподключаемая тема** [`Themes/ModernTheme.xaml`](Configuration Management/Themes/ModernTheme.xaml) — не упоминалась ни в `App.xaml`, ни в [`ThemeManager.cs`](Configuration Management/Themes/ThemeManager.cs) (используются только `LightTheme.xaml`/`DarkTheme.xaml`).
+- **Удалён неиспользуемый конвертер `GroupFullPathConverter` (WPF + Avalonia)** — без привязок в XAML и без использований в коде.
+- **Удалена неиспользуемая ViewModel** [`ViewModels/MetadataNodeViewModel.cs`](Configuration Management/ViewModels/MetadataNodeViewModel.cs) — UI метаданных отсутствует (`MetadataNode`-модель сохраняется, используется через `Infobase.MetadataRoot`).
+- **Удалена неиспользуемая локальная функция `FlushSection`** в [`OneCTemplateService.cs`](Configuration Management/Services/OneCTemplateService.cs) — пустая no-op заглушка, вызывала предупреждение компилятора CS8321.
+- **Устранены предупреждения компилятора CS8601** (nullable) в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs): в `LaunchEnterpriseWithParams` / `LaunchConfiguratorWithParams` промежуточная переменная `saved` для временного сохранения параметров запуска инициализируется через `?? ""`, исключая назначение nullable-значения в не-nullable свойство.
+- **Почищен [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)**: убраны «висячие» `<Compile Remove>` для удалённых файлов и устаревшие комментарии про заглушки; исправлены устаревшие комментарии в [`Services/IOneCLauncher.cs`](Configuration Management/Services/IOneCLauncher.cs) и [`Services/IPlatformVersionService.cs`](Configuration Management/Services/IPlatformVersionService.cs).
+
+### Документация
+
+- Обновлён [`README.md`](README.md): версия в бейдже и заголовке, удалены ссылки на удалённые файлы (`ModernTheme.xaml`, `LinuxOneCServiceShims.cs`, `MetadataNodeViewModel.cs`), уточнено количество конвертеров Avalonia (18 → 10).
+
+### Прочее
+
+- **Версия обновлена до 0.3.3.30** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.30 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.30.
+
+## [0.3.3.29] — 2026-08-23
+
+### Изменено
+
+- **Настройка «После запуска базы или конфигуратора»: вариант «Закрыть» теперь полностью завершает работу приложения, а не уводит его в трей** ([`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs)). Ранее выбор «Закрыть» фактически делал то же, что и «Свернуть в трей» — вызывал `HideToTray()`, оставляя приложение работать в фоне. Теперь после успешного запуска информационной базы или конфигуратора 1С при выбранной опции «Закрыть» главное окно закрывается через `_forceClose = true; Close()` (тот же механизм, что у команды «Выход»): настройки сохраняются, автоматическая синхронизация останавливается, значок трея освобождается, приложение полностью завершает работу. Текст опции обновлён в локализации: [`ru.json`](Configuration Management/Localization/Languages/ru.json) — «Закрыть (увести в трей)» → «Закрыть программу», [`en.json`](Configuration Management/Localization/Languages/en.json) — «Close (hide to tray)» → «Close the program».
+- **Версия обновлена до 0.3.3.29** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.29 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.29.
+
+## [0.3.3.28] — 2026-08-23
+
+### Исправлено
+
+- **Добавлены недостающие ключи локализации настройки «После запуска базы или конфигуратора»** в разделе «Поведение приложения» окна настроек ([`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml), [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs)). Ключи `Settings.General.AfterLaunchAction`, `Settings.General.AfterLaunchAction.None`, `Settings.General.AfterLaunchAction.MinimizeToTray` и `Settings.General.AfterLaunchAction.Close` были объявлены ещё в версии 0.3.3.26, но фактически отсутствовали в файлах локализации. Из-за механизма отката [`LocalizationManager.Translate()`](Configuration Management/Localization/LocalizationManager.cs) (текущий язык → английский → русский → сам ключ) в комбобоксе отображался сырой технический ключ (`Settings.General.AfterLaunchAction.MinimizeToTray` и т.п.) вместо понятной подписи «что делать с окном после запуска», что выглядело как нелокализованный англоязычный текст. Ключи добавлены в [`ru.json`](Configuration Management/Localization/Languages/ru.json) («Ничего», «Свернуть в трей», «Закрыть программу») и [`en.json`](Configuration Management/Localization/Languages/en.json) («Do nothing», «Minimize to tray», «Close the program»).
+- **Версия обновлена до 0.3.3.28** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.28 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.28.
+
 ## [0.3.3.27] — 2026-08-23
 
 ### Слияние исправлений от ksv47

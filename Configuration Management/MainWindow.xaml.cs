@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if WINDOWS
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -836,7 +837,8 @@ namespace Configuration_Management
 
         /// <summary>
         /// Обработчик события «действие после запуска базы/конфигуратора»:
-        /// сворачивает окно в трей или уводит его в трей согласно глобальной настройке.
+        /// сворачивает окно в трей или полностью закрывает приложение согласно
+        /// глобальной настройке.
         /// </summary>
         private void OnAfterLaunchRequested(Models.AfterLaunchAction action)
         {
@@ -848,7 +850,11 @@ namespace Configuration_Management
                 if (action == Models.AfterLaunchAction.MinimizeToTray)
                     MinimizeToTray();
                 else if (action == Models.AfterLaunchAction.Close)
-                    HideToTray();
+                {
+                    // «Закрыть» — полностью завершить работу приложения, не уводя его в трей.
+                    _forceClose = true;
+                    Close();
+                }
             }));
         }
 
@@ -2573,3 +2579,4 @@ namespace Configuration_Management
 
     }
 }
+#endif

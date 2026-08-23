@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
@@ -1576,3 +1577,4 @@ namespace Configuration_Management
         }
     }
 }
+#endif

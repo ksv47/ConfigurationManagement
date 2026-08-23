@@ -1,3 +1,5 @@
+#if WINDOWS
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -2961,7 +2963,7 @@ public string HotkeyEnterprise
             Owner = Application.Current?.MainWindow
         };
         if (dlg.ShowDialog() != true) return;
-        var saved = SelectedInfobase.LaunchParameters;
+        var saved = SelectedInfobase.LaunchParameters ?? "";
         try
         {
             SelectedInfobase.LaunchParameters = dlg.Result ?? "";
@@ -2986,7 +2988,7 @@ public string HotkeyEnterprise
             Owner = Application.Current?.MainWindow
         };
         if (dlg.ShowDialog() != true) return;
-        var saved = SelectedInfobase.LaunchParameters;
+        var saved = SelectedInfobase.LaunchParameters ?? "";
         try
         {
             SelectedInfobase.LaunchParameters = dlg.Result ?? "";
@@ -5402,3 +5404,4 @@ public sealed class TagFilterItem
     public string Name { get; }
     public bool IsSelected { get; }
 }
+#endif

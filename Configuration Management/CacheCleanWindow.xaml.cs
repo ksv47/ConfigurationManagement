@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -421,3 +422,4 @@ public partial class CacheCleanWindow : Window
         DialogResult = true;
     }
 }
+#endif

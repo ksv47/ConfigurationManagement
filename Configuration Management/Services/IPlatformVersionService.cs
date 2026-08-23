@@ -6,7 +6,8 @@ public interface IPlatformVersionService
 }
 
 // Адаптер ссылается на Windows-only статический класс PlatformVersionService,
-// поэтому в Linux-сборке исключается (см. Services/LinuxStubs.cs — заглушка).
+// поэтому в Linux-сборке исключается (реализация PlatformVersionServiceAdapter
+// для Linux — в Services/PlatformVersionService.Linux.cs).
 #if WINDOWS
 public sealed class PlatformVersionServiceAdapter : IPlatformVersionService
 {

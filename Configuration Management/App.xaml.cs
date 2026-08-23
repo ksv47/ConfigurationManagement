@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -24,13 +25,17 @@ namespace Configuration_Management
             // Показываем любые необработанные ошибки — иначе окно просто не появляется.
             DispatcherUnhandledException += (_, args) =>
             {
+                LogFatal(LocalizationManager.T("App.Fatal.Interface"), args.Exception);
                 ShowFatalError(LocalizationManager.T("App.Fatal.Interface"), args.Exception);
                 args.Handled = true;
             };
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             {
                 if (args.ExceptionObject is Exception ex)
+                {
+                    LogFatal(LocalizationManager.T("App.Fatal.Critical"), ex);
                     ShowFatalError(LocalizationManager.T("App.Fatal.Critical"), ex);
+                }
             };
             TaskScheduler.UnobservedTaskException += (_, args) =>
             {
@@ -122,8 +127,32 @@ namespace Configuration_Management
             }
             catch (Exception ex)
             {
+                LogFatal(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
                 ShowFatalError(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
                 Shutdown(1);
+            }
+        }
+
+        /// <summary>
+        /// Записывает полный стек-трейс фатальной ошибки в лог-файл (для диагностики).
+        /// Сам по себе не бросает исключений, даже если логирование недоступно.
+        /// </summary>
+        private static void LogFatal(string title, Exception ex)
+        {
+            try
+            {
+                var logger = AppServices.GetRequiredService<IAppLogger>();
+                var sb = new StringBuilder();
+                sb.AppendLine(title);
+                sb.AppendLine("Исключение: " + ex.GetType().FullName);
+                sb.AppendLine("Сообщение: " + ex.Message);
+                sb.AppendLine("StackTrace:");
+                sb.AppendLine(ex.ToString());
+                logger.Error(sb.ToString());
+            }
+            catch
+            {
+                // Логирование не должно маскировать исходную ошибку.
             }
         }
 
@@ -310,3 +339,4 @@ namespace Configuration_Management
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -500,3 +501,4 @@ namespace Configuration_Management.Themes
         }
     }
 }
+#endif
