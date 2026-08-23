@@ -1,3 +1,5 @@
+#if WINDOWS
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -106,6 +108,7 @@ public class MainViewModel : ViewModelBase
     private bool _showTrayIcon = true;
     private bool _compactMode;
     private bool _escapeToTray = true;
+    private string _afterLaunchAction = "None";
     private List<string> _templateCatalogPaths = new();
     private string _hotkeyEnterprise = "F3";
     private string _hotkeyConfigurator = "F4";
@@ -256,6 +259,7 @@ public class MainViewModel : ViewModelBase
         _closeToTray = settings.CloseToTray;
         _showTrayIcon = settings.ShowTrayIcon;
         _escapeToTray = settings.EscapeToTray;
+        _afterLaunchAction = settings.AfterLaunchAction ?? "None";
         _compactMode = settings.CompactMode;
         _templateCatalogPaths = settings.TemplateCatalogPaths?.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
             ?? new List<string>();
@@ -2458,6 +2462,7 @@ public class MainViewModel : ViewModelBase
             InfobasesView.Refresh();
             Save();
             _logger.Info($"[tray] Запущена «{ib.Name}» ({(isConfigurator ? "Конфигуратор" : "Предприятие")})");
+            NotifyAfterLaunch();
         }
         else
         {
@@ -2482,6 +2487,7 @@ public class MainViewModel : ViewModelBase
             ib.LastLaunchDate = DateTime.Now;
             ScheduleSave();
             _logger.Info($"Запущена избранная база «{ib.Name}» по Alt+{number}");
+            NotifyAfterLaunch();
         }
         else
         {
@@ -2660,7 +2666,34 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    
+    /// <summary>
+    /// Глобальная настройка «что делать с окном после запуска базы/конфигуратора 1С»:
+    /// "None" / "MinimizeToTray" / "Close".
+    /// </summary>
+    public string AfterLaunchAction
+    {
+        get => _afterLaunchAction;
+        set
+        {
+            if (SetProperty(ref _afterLaunchAction, value))
+                ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>
+    /// Запрос к главному окну выполнить действие после успешного запуска базы/конфигуратора
+    /// (свернуть или увести в трей согласно глобальной настройке).
+    /// </summary>
+    public event Action<Models.AfterLaunchAction>? AfterLaunchRequested;
+
+    /// <summary>Оповещает главное окно о необходимости выполнить действие «после запуска».</summary>
+    public void NotifyAfterLaunch()
+    {
+        var action = Models.AfterLaunchActionHelper.Parse(_afterLaunchAction);
+        if (action != Models.AfterLaunchAction.None)
+            AfterLaunchRequested?.Invoke(action);
+    }
+
     /// <summary>Обновляет список каталогов шаблонов из настроек.</summary>
     public void SetTemplateCatalogPaths(System.Collections.Generic.IEnumerable<string> paths)
     {
@@ -2930,7 +2963,7 @@ public string HotkeyEnterprise
             Owner = Application.Current?.MainWindow
         };
         if (dlg.ShowDialog() != true) return;
-        var saved = SelectedInfobase.LaunchParameters;
+        var saved = SelectedInfobase.LaunchParameters ?? "";
         try
         {
             SelectedInfobase.LaunchParameters = dlg.Result ?? "";
@@ -2955,7 +2988,7 @@ public string HotkeyEnterprise
             Owner = Application.Current?.MainWindow
         };
         if (dlg.ShowDialog() != true) return;
-        var saved = SelectedInfobase.LaunchParameters;
+        var saved = SelectedInfobase.LaunchParameters ?? "";
         try
         {
             SelectedInfobase.LaunchParameters = dlg.Result ?? "";
@@ -3046,6 +3079,7 @@ public string HotkeyEnterprise
             InfobasesView.Refresh();
             Save();
             _logger.Info($"Запущена база «{SelectedInfobase.Name}» ({kind}, клиент={_sessionClientMode}, арх={_sessionArchitecture})");
+            NotifyAfterLaunch();
         }
         else
         {
@@ -3305,6 +3339,7 @@ public string HotkeyEnterprise
             AddTimestampToExportFileName = _addTimestampToExportFileName,
             ExportTimestampFormat = _exportTimestampFormat,
             CloseToTray = _closeToTray,
+            AfterLaunchAction = _afterLaunchAction,
             ShowTrayIcon = _showTrayIcon,
             EscapeToTray = _escapeToTray,
             CompactMode = _compactMode,
@@ -3381,6 +3416,36 @@ public string HotkeyEnterprise
     {
         var scheme = Themes.ThemeManager.GetBuiltInScheme(theme) ?? Models.ColorScheme.CreateLight();
         ApplyColorScheme(scheme);
+    }
+
+    /// <summary>
+    /// Переключает базовую тему (светлую/тёмную), сохраняя выбранную пользовательскую схему:
+    /// если для целевой темы есть активная схема — применяется она; иначе применяются встроенные
+    /// цвета, а сохранённая пользовательская схема не затирается (восстановится при возврате
+    /// к её базовой теме).
+    /// </summary>
+    public void ToggleTheme()
+    {
+        var targetDark = !Themes.ThemeManager.CurrentScheme.IsDark;
+        ApplyBaseThemePreserving(targetDark);
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Применяет базовый вариант темы, не заменяя активную пользовательскую схему встроенной.
+    /// </summary>
+    private void ApplyBaseThemePreserving(bool dark)
+    {
+        if (_activeColorScheme is { Colors.Count: > 0 } && _activeColorScheme.IsDark == dark)
+        {
+            _savedTheme = _activeColorScheme.BaseThemeName;
+            Themes.ThemeManager.ApplyScheme(_activeColorScheme);
+            return;
+        }
+
+        var builtIn = dark ? Models.ColorScheme.CreateDark() : Models.ColorScheme.CreateLight();
+        _savedTheme = builtIn.BaseThemeName;
+        Themes.ThemeManager.ApplyScheme(builtIn);
     }
 
     /// <summary>
@@ -5275,7 +5340,8 @@ public string HotkeyEnterprise
         string? hotkeyShowAll = null,
         string? hotkeyShowFavorites = null,
         string? hotkeyShowRecent = null,
-        bool rememberWindowLayout = true)
+        bool rememberWindowLayout = true,
+        string afterLaunchAction = "None")
     {
         _allowMultipleInstances = allowMultipleInstances;
         _showTagFilterPanel = showTagFilterPanel;
@@ -5283,6 +5349,7 @@ public string HotkeyEnterprise
         _showTrayIcon = showTrayIcon;
         _escapeToTray = escapeToTray;
         _rememberWindowLayout = rememberWindowLayout;
+        _afterLaunchAction = afterLaunchAction;
         if (hotkeyEnterprise != null) _hotkeyEnterprise = hotkeyEnterprise.Trim();
         if (hotkeyConfigurator != null) _hotkeyConfigurator = hotkeyConfigurator.Trim();
         if (hotkeyFavorite != null) _hotkeyFavorite = hotkeyFavorite.Trim();
@@ -5299,6 +5366,7 @@ public string HotkeyEnterprise
         OnPropertyChanged(nameof(CloseToTray));
         OnPropertyChanged(nameof(ShowTrayIcon));
         OnPropertyChanged(nameof(EscapeToTray));
+        OnPropertyChanged(nameof(AfterLaunchAction));
         OnPropertyChanged(nameof(HotkeyEnterprise));
         OnPropertyChanged(nameof(HotkeyConfigurator));
         OnPropertyChanged(nameof(HotkeyFavorite));
@@ -5336,3 +5404,4 @@ public sealed class TagFilterItem
     public string Name { get; }
     public bool IsSelected { get; }
 }
+#endif

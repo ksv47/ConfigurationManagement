@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if WINDOWS
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -54,6 +55,9 @@ namespace Configuration_Management
 
             _viewModel = viewModel ?? new ViewModels.MainViewModel();
             DataContext = _viewModel;
+
+            // Действие «после запуска базы/конфигуратора» согласно глобальной настройке.
+            _viewModel.AfterLaunchRequested += OnAfterLaunchRequested;
 
             // Пересчитываем выравнивание колонок заголовка после переключения компактного
             // режима: ApplyCompact масштабирует отступы/шрифты/компенсатор заголовка,
@@ -831,6 +835,39 @@ namespace Configuration_Management
                 WindowState = WindowState.Normal;
         }
 
+        /// <summary>
+        /// Обработчик события «действие после запуска базы/конфигуратора»:
+        /// сворачивает окно в трей или полностью закрывает приложение согласно
+        /// глобальной настройке.
+        /// </summary>
+        private void OnAfterLaunchRequested(Models.AfterLaunchAction action)
+        {
+            if (action == Models.AfterLaunchAction.None)
+                return;
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (action == Models.AfterLaunchAction.MinimizeToTray)
+                    MinimizeToTray();
+                else if (action == Models.AfterLaunchAction.Close)
+                {
+                    // «Закрыть» — полностью завершить работу приложения, не уводя его в трей.
+                    _forceClose = true;
+                    Close();
+                }
+            }));
+        }
+
+        /// <summary>Уводит главное окно в системный трей (не завершая приложение).</summary>
+        private void HideToTray()
+        {
+            if (_trayIcon == null)
+                InitializeTrayIcon();
+            if (_trayIcon != null)
+                _trayIcon.Visible = true;
+            Hide();
+        }
+
         private void RestoreFromTray()
         {
             Show();
@@ -1376,9 +1413,8 @@ namespace Configuration_Management
 
         private void OnToggleTheme_Click(object sender, RoutedEventArgs e)
         {
-            var next = ThemeManager.ToggleTheme();
+            _viewModel.ToggleTheme();
             UpdateThemeButton();
-            _viewModel.ApplyTheme(next);
         }
 
         /// <summary>Переключатель компактного режима на верхней панели: применяет сразу и сохраняет.</summary>
@@ -2543,3 +2579,4 @@ namespace Configuration_Management
 
     }
 }
+#endif

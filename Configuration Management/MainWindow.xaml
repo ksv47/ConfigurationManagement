@@ -39,6 +39,7 @@
         <conv:IconKeyToGeometryConverter x:Key="IconKeyToGeometryConverter"/>
         <conv:LevelToThicknessConverter x:Key="LevelToThickness"/>
         <conv:GroupOffsetConverter x:Key="GroupOffset"/>
+        <conv:MultiFormatConverter x:Key="MultiFormat"/>
 
         <!-- ScrollViewer списка баз: корректные PART_* и привязки полос прокрутки.
              Виртуализация TreeView отключена — иначе высота контента = viewport и ScrollableHeight=0. -->
@@ -393,7 +394,7 @@
                                                 Command="{Binding DataContext.SearchByTagCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 CommandParameter="{Binding Name}">
                                             <Button.ToolTip>
-                                                <MultiBinding StringFormat="{}{0}: {1}">
+                                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0}: {1}">
                                                     <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
                                                              Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.FilterByTagLabel"/>
                                                     <Binding Path="Name"/>
@@ -1558,7 +1559,7 @@
                                         Cursor="Hand" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
                                         Background="Transparent" BorderThickness="0" Padding="10,12,4,12" MinHeight="40">
                                     <Button.ToolTip>
-                                        <MultiBinding StringFormat="{}{0} ({1})">
+                                        <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
                                             <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
                                                      Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.LaunchEnterpriseShort"/>
                                             <Binding Path="HotkeyEnterprise"/>
@@ -1655,7 +1656,7 @@
                                         Cursor="Hand" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
                                         Background="Transparent" BorderThickness="0" Padding="10,12,4,12" MinHeight="40">
                                     <Button.ToolTip>
-                                        <MultiBinding StringFormat="{}{0} ({1})">
+                                        <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
                                             <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
                                                      Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.LaunchConfiguratorShort"/>
                                             <Binding Path="HotkeyConfigurator"/>
@@ -1843,7 +1844,7 @@
 
                         <Button Command="{Binding EditInfobaseCommand}">
                             <Button.ToolTip>
-                                <MultiBinding StringFormat="{}{0} ({1})">
+                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
                                     <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
                                              Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.EditBaseTooltip"/>
                                     <Binding Path="HotkeyEdit"/>
@@ -1892,7 +1893,7 @@
                         </Button>
                         <Button Command="{Binding AddInfobaseCommand}">
                             <Button.ToolTip>
-                                <MultiBinding StringFormat="{}{0} ({1})">
+                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
                                     <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
                                              Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.AddBaseOrGroupTooltip"/>
                                     <Binding Path="HotkeyAdd"/>
@@ -1941,7 +1942,7 @@
                         </Button>
                         <Button Command="{Binding ToggleFavoriteCommand}">
                             <Button.ToolTip>
-                                <MultiBinding StringFormat="{}{0} ({1})">
+                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
                                     <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
                                              Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.FavoritesTooltipShort"/>
                                     <Binding Path="HotkeyFavorite"/>
@@ -1976,7 +1977,7 @@
                         </Button>
                         <Button Command="{Binding TogglePinCommand}">
                             <Button.ToolTip>
-                                <MultiBinding StringFormat="{}{0} ({1})">
+                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
                                     <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
                                              Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.PinBaseTooltip"/>
                                     <Binding Path="HotkeyPin"/>
@@ -2128,7 +2129,7 @@
 
                         <Button Command="{Binding DeleteInfobaseCommand}">
                             <Button.ToolTip>
-                                <MultiBinding StringFormat="{}{0} ({1})">
+                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
                                     <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
                                              Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.DeleteTooltip"/>
                                     <Binding Path="HotkeyDelete"/>

@@ -10,7 +10,8 @@ public interface IOneCLauncher
 }
 
 // Адаптер ссылается на Windows-only статический класс OneCLauncher, поэтому
-// в Linux-сборке исключается (см. Services/LinuxStubs.cs — временная заглушка).
+// в Linux-сборке исключается (реализация OneCLauncherService для Linux —
+// в Services/OneCLauncher.Linux.cs).
 #if WINDOWS
 public sealed class OneCLauncherService : IOneCLauncher
 {

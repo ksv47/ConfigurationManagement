@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -133,3 +134,4 @@ namespace Configuration_Management
         }
     }
 }
+#endif

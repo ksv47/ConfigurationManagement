@@ -448,11 +448,6 @@ public static class OneCTemplateService
         string? section = null;
         var sectionProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        void FlushSection()
-        {
-            // no-op placeholder — yield can't be in local function easily
-        }
-
         var mftDir = Path.GetDirectoryName(mftPath) ?? root;
 
         // Сначала соберём секции в список

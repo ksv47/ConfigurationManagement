@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.Windows;
 using System.Windows.Controls;
 
@@ -37,3 +38,4 @@ namespace Configuration_Management
         }
     }
 }
+#endif

@@ -668,8 +668,9 @@
 
     <!-- ===================== РЎС‚РёР»СЊ СЌР»РµРјРµРЅС‚Р° РґРµСЂРµРІР° ===================== -->
     <Style x:Key="ModernTreeViewItem" TargetType="TreeViewItem">
-        <Setter Property="IsExpanded" Value="{Binding IsExpanded}"/>
-        <Setter Property="IsSelected" Value="{Binding IsSelected}"/>
+        <!-- FallbackValue глушит ошибки привязки для узлов без свойства IsExpanded (напр. PlatformVersionGroup) -->
+        <Setter Property="IsExpanded" Value="{Binding IsExpanded, FallbackValue=False}"/>
+        <Setter Property="IsSelected" Value="{Binding IsSelected, FallbackValue=False}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TreeViewItem">

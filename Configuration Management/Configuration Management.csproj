@@ -44,7 +44,7 @@
     <Version>0.3.3</Version>
     <AssemblyVersion>0.3.3</AssemblyVersion>
     <FileVersion>0.3.3</FileVersion>
-    <InformationalVersion>0.3.3.24</InformationalVersion>
+    <InformationalVersion>0.3.3.30</InformationalVersion>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>
@@ -130,7 +130,7 @@
        Окна, контролы, конвертеры, темы и Windows-сервисы портируются на
        более поздних этапах (Этапы 3 и 5). Для Linux остаются: App.axaml/.cs,
        Program.cs, MainWindow.Avalonia.cs (заглушка), чистые .NET-модели и
-       сервисы, а также Services/LinuxStubs.cs (временные заглушки DI).
+       сервисы.
        .xaml-файлы здесь не компилируются (нет UseWPF/Avalonia для .xaml),
        поэтому достаточно удалить их code-behind (.cs).
        ====================================================================== -->
@@ -161,16 +161,14 @@
     <!-- Конвертеры (WPF) исключаем, но возвращаем Avalonia-версии (Converters/Avalonia/*) -->
     <Compile Remove="Converters\**\*.cs" />
     <Compile Include="Converters\Avalonia\*.cs" />
-    <!-- Темы (WPF) исключаем; также старую заглушку ThemeManager.Linux.cs —
-         вместо неё полный ThemeManager.Avalonia.cs (подключается автоматически) -->
+    <!-- Темы (WPF) исключаем; вместо них полный ThemeManager.Avalonia.cs
+         (подключается автоматически дефолтным глобом). -->
     <Compile Remove="Themes\ThemeManager.cs" />
-    <Compile Remove="Themes\ThemeManager.Linux.cs" />
     <!-- ViewModels: подключаем Avalonia-версии (*.Avalonia.cs) и чистые .NET (без WPF-зависимостей).
          WPF-зависимые ViewModel (MainViewModel.cs, GroupNodeViewModel.cs, RelayCommand.cs и др.) исключаются. -->
     <Compile Remove="ViewModels\**\*.cs" />
     <Compile Include="ViewModels\*.Avalonia.cs" />
     <Compile Include="ViewModels\ConnectionSettingsViewModel.cs" />
-    <Compile Include="ViewModels\MetadataNodeViewModel.cs" />
     <!-- Windows-only сервисы — Этап 5 -->
     <Compile Remove="Services\WpfDialogService.cs" />
     <Compile Remove="Services\OneCLauncher.cs" />
@@ -187,10 +185,7 @@
     <Compile Remove="ModalWindowBase.cs" />
     <Compile Include="ModalWindowBase.cs" />
     <!-- Этап 5: полноценные Linux-реализации сервисов 1С (*.Linux.cs включаются
-         автоматически дефолтным глобом; WPF-файлы исключены выше).
-         Старые временные заглушки (Этап 2/3) больше не компилируются. -->
-    <Compile Remove="Services\LinuxStubs.cs" />
-    <Compile Remove="Services\LinuxOneCServiceShims.cs" />
+         автоматически дефолтным глобом; WPF-файлы исключены выше). -->
   </ItemGroup>
 
 </Project>

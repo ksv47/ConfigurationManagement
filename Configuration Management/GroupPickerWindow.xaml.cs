@@ -1,3 +1,4 @@
+#if WINDOWS
 using System.Windows;
 using System.Windows.Controls;
 using Configuration_Management.Localization;
@@ -188,3 +189,4 @@ namespace Configuration_Management
         }
     }
 }
+#endif
