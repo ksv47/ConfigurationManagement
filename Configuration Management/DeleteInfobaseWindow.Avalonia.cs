@@ -102,7 +102,7 @@ namespace Configuration_Management
                         ? LocalizationManager.T("DeleteInfobase.DirNotSpecified")
                         : string.Format(LocalizationManager.T("DeleteInfobase.DirNotFound"), dir);
                     // Серый статус «каталог не найден» — вторичный текст из темы.
-                    ThemeBrushes.Bind(_existsText, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
+                    TrackThemeSubscription(ThemeBrushes.Bind(_existsText, TextBlock.ForegroundProperty, "TextSecondaryColorBrush"));
                     _physicalDeleteCheck.IsEnabled = false;
                     _physicalDeleteCheck.IsChecked = false;
                     _physicalHint.Text = LocalizationManager.T("DeleteInfobase.PhysicalUnavailable");
@@ -113,7 +113,7 @@ namespace Configuration_Management
             else
             {
                 _existsText.Text = LocalizationManager.T("DeleteInfobase.NonFileOnlyFromList");
-                ThemeBrushes.Bind(_existsText, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
+                TrackThemeSubscription(ThemeBrushes.Bind(_existsText, TextBlock.ForegroundProperty, "TextSecondaryColorBrush"));
             }
 
             Grid.SetRow(_physicalPanel, 2);
@@ -137,7 +137,7 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        IconHelper.MakeIcon("IconDelete", 16, "TextOnAccentColorBrush"),
+                        IconHelper.MakeIcon("IconDelete", 16, "TextOnAccentColorBrush", subscriptions: ThemeSubscriptions),
                         new TextBlock { Text = LocalizationManager.T("DeleteInfobase.Delete"), VerticalAlignment = VerticalAlignment.Center }
                     }
                 },

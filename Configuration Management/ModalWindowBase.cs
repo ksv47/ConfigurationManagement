@@ -34,6 +34,32 @@ namespace Configuration_Management
         public bool DialogResult { get; protected set; }
 
         /// <summary>
+        /// Подписки окна на ресурсы темы. Наблюдатель держит сильную ссылку
+        /// на элемент, а сам ресурс живёт у приложения, поэтому без освобождения
+        /// каждый показ диалога навсегда укоренял бы его визуальное дерево.
+        /// Освобождаются при закрытии окна.
+        /// </summary>
+        protected readonly System.Collections.Generic.List<IDisposable> ThemeSubscriptions = new();
+
+        /// <summary>Добавляет подписку на ресурс темы, если она была создана.</summary>
+        protected void TrackThemeSubscription(IDisposable? subscription)
+        {
+            if (subscription is not null)
+                ThemeSubscriptions.Add(subscription);
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            foreach (var subscription in ThemeSubscriptions)
+            {
+                try { subscription.Dispose(); }
+                catch { /* освобождение подписки не должно мешать закрытию окна */ }
+            }
+            ThemeSubscriptions.Clear();
+            base.OnClosed(e);
+        }
+
+        /// <summary>
         /// Показывает окно модально (синхронно) относительно владельца и блокирует
         /// вызывающий поток до закрытия окна.
         /// </summary>

@@ -361,7 +361,7 @@ namespace Configuration_Management
                 Spacing = 6,
                 Children =
                 {
-                    IconHelper.MakeIcon("IconDelete", 16),
+                    IconHelper.MakeIcon("IconDelete", 16, subscriptions: ThemeSubscriptions),
                     new TextBlock { Text = LocalizationManager.T("CacheClean.Clean"), VerticalAlignment = VerticalAlignment.Center }
                 }
             };
