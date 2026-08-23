@@ -5,6 +5,16 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.32] — 2026-08-23
+
+### Добавлено (сборка / упаковка)
+
+- **Собран единый исполняемый файл для Windows (WPF, self-contained single-file)** через [`build.ps1`](Configuration Management/build.ps1) (`dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true`). Выходной артефакт — один файл `ConfigurationManagement.exe` (~75,5 МБ) в каталоге `Configuration Management/publish/win-x64/`, не требующий установленного .NET Runtime. Нативные библиотеки встроены (`IncludeNativeLibrariesForSelfExtract`), применено сжатие (`EnableCompressionInSingleFile`). Рядом с exe находится только папка `Localization/` для подгрузки внешних `.json`-языков (встроенные `ru`/`en` уже внутри исполняемого файла).
+
+### Документация
+
+- **Версия обновлена до 0.3.3.32** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.32 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.32; жёстко прописанная версия в `Settings.About.HelpText` обновлена в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
 ## [0.3.3.31] — 2026-08-23
 
 ### Слияние исправлений от ksv47

@@ -1,8 +1,8 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.3.31-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.3.32-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.3.31**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.3.32**
 
 **Управление конфигурациями 1С** — это кроссплатформенное настольное приложение на платформе **.NET** (**WPF** на Windows и **Avalonia 11** на Linux), которое заменяет стандартный список баз 1С и предоставляет современный интерфейс для работы с информационными базами: запуск в режимах «1С:Предприятие» и «Конфигуратор», вкладки **Все базы / Избранное / Недавние**, иерархические группы, избранное с `Alt+1…9`, мультифильтр по тегам, очистка кеша, синхронизация с `ibases.v8i`, системный трей, светлая и тёмная темы. Одна кодовая база собирается под обе ОС: `net10.0-windows` (WPF) на Windows и `net10.0` (Avalonia) на Linux.
 
@@ -215,7 +215,7 @@
 
 Результат публикации: `publish/linux-x64/` — один исполняемый файл `ConfigurationManagement` (self-contained, не требует установки .NET Runtime).
 
-> На Linux проект собирается как **Avalonia** (`net10.0`); на Windows — как **WPF** (`net10.0-windows`). Целевой TFM и RID выбираются автоматически по ОС. `build.sh` собирает/публикует и Windows (`win-x64`), и Linux (`linux-x64`).
+> Целевой TFM и RID выбираются автоматически по ОС, на которой запускается сборка: на **Windows** — WPF (`net10.0-windows`, RID `win-x64`), на **Linux** — Avalonia (`net10.0`, RID `linux-x64`). Скрипт [`build.sh`](Configuration Management/build.sh) собирает/публикует для текущей ОС (Linux — `linux-x64`, Windows — `win-x64`); на Windows то же выполняет [`build.ps1`](Configuration Management/build.ps1).
 
 ### 📦 Установка на Linux
 
@@ -279,13 +279,19 @@ dotnet run --project "Configuration Management/Configuration Management.csproj"
 
 ### 📦 Публикация автономного приложения
 
-Проект настроен на публикацию в виде **автономного (self-contained) single-file** исполняемого файла для Windows x64. Для публикации выполните:
+Проект настроен на публикацию в виде **автономного (self-contained) single-file** исполняемого файла. Для Windows x64 выполните ([`build.ps1`](Configuration Management/build.ps1)):
 
-```bash
-dotnet publish "Configuration Management/Configuration Management.csproj" -c Release
+```powershell
+.\build.ps1 -Publish
 ```
 
-Результат появится в каталоге `publish/` — один исполняемый файл `Configuration Management.exe`, который не требует установки .NET Runtime на целевой машине.
+либо вручную:
+
+```powershell
+dotnet publish "Configuration Management.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+```
+
+Результат — в каталоге `publish\win-x64\`: один исполняемый файл **`ConfigurationManagement.exe`** (~75 МБ, self-contained single-file со встроенными нативными библиотеками), который не требует установки .NET Runtime на целевой машине.
 
 ---
 
@@ -483,19 +489,21 @@ dotnet publish "Configuration Management.csproj" -c Release -r win-x64 --self-co
 
 ### Автоматическая сборка (GitHub Actions)
 
+Workflow'ы CI (`.github/workflows/build.yml`, `.github/workflows/release.yml`) в репозитории пока **не добавлены**. Планируются:
+
 | Workflow | Когда запускается | Что делает |
 |----------|-------------------|------------|
-| **Build** (`.github/workflows/build.yml`) | push / PR в `main`, `master`, `develop` | Restore → Build Debug/Release → Publish win-x64 → artifact |
-| **Release** (`.github/workflows/release.yml`) | тег `v*.*.*` или ручной запуск | Publish + ZIP + GitHub Release |
+| **Build** | push / PR в `main`, `master`, `develop` | Restore → Build Debug/Release → Publish win-x64 → artifact |
+| **Release** | тег `v*.*.*` или ручной запуск | Publish + ZIP + GitHub Release |
 
-Создание релиза:
+Создание релиза (после добавления workflow):
 
 ```bash
-git tag v0.3.1.1
-git push origin v0.3.1.1
+git tag v0.3.3.32
+git push origin v0.3.3.32
 ```
 
-Артефакт `ConfigurationManagement-v0.3.1.1-win-x64.zip` (и `-linux-x64`, при включённом Linux-джобе) появится в Releases.
+Артефакт `ConfigurationManagement-v0.3.3.32-win-x64.zip` (и `-linux-x64`, при включённом Linux-джобе) появится в Releases.
 
 > Для WPF-сборки требуется Windows-раннер (`windows-latest`); для Linux-сборки Avalonia — `ubuntu-latest`.
 
