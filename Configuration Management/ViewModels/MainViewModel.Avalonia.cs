@@ -1630,10 +1630,11 @@ public class MainViewModel : ViewModelBase
         SaveSettingsSilently();
     }
 
-    private void SaveGroupsSilently()
+    /// <summary>Сохраняет группы, возвращая признак успеха: ошибка идёт в журнал.</summary>
+    private bool SaveGroupsSilently()
     {
-        try { _repository.SaveGroups(_groups); }
-        catch (Exception ex) { _logger.Error("Не удалось сохранить группы", ex); }
+        try { _repository.SaveGroups(_groups); return true; }
+        catch (Exception ex) { _logger.Error("Не удалось сохранить группы", ex); return false; }
     }
 
     /// <summary>Главное окно как владелец модального диалога.</summary>
@@ -1758,8 +1759,10 @@ public class MainViewModel : ViewModelBase
         for (var i = 0; i < siblings.Count; i++)
             siblings[i].SortOrder = (i + 1) * 10;
 
-        SaveSilently();
-        ExportToIbasesAfterLocalChange();
+        // Экспорт только после удачной записи: иначе ibases.v8i получит новую
+        // группу, а свой файл останется со старой, и перезапуск их разведёт.
+        if (SaveSilently())
+            ExportToIbasesAfterLocalChange();
         RebuildTree();
 
         // Выбор не менялся, а группа базы изменилась: подзаголовок правой панели
@@ -1776,6 +1779,11 @@ public class MainViewModel : ViewModelBase
     {
         newParentId ??= string.Empty;
         if (string.Equals(group.Id, newParentId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Родитель тот же: сброс группы на её текущего родителя не должен
+        // переписывать три файла ради нулевого изменения.
+        if (string.Equals(group.ParentId, newParentId, StringComparison.OrdinalIgnoreCase))
             return;
 
         // Нельзя сделать родителем потомка этой группы (иначе цикл в иерархии).
@@ -1885,13 +1893,13 @@ public class MainViewModel : ViewModelBase
                     if (pathRemap.TryGetValue(key, out var mapped)
                         || pathRemap.TryGetValue(NormalizeGroupPath(key), out mapped))
                         updated.Add(mapped);
-                    else if (!string.IsNullOrEmpty(oldRootPath)
-                             && (key.StartsWith(oldRootPath + GroupHierarchyHelper.PathSeparator,
-                                     StringComparison.OrdinalIgnoreCase)
-                                 || NormalizeGroupPath(key).StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
-                                     StringComparison.OrdinalIgnoreCase))
+                    else if (!string.IsNullOrEmpty(oldRootNorm)
+                             && NormalizeGroupPath(key).StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                                 StringComparison.OrdinalIgnoreCase)
                              && pathRemap.TryGetValue(oldRootPath, out var newRoot))
-                        updated.Add(newRoot + key.Substring(Math.Min(key.Length, oldRootPath.Length)));
+                        // Совпадение ищется по нормализованному пути, значит и суффикс
+                        // режется от него же: иначе длины разойдутся и ключ станет битым.
+                        updated.Add(newRoot + NormalizeGroupPath(key).Substring(oldRootNorm.Length));
                     else
                         updated.Add(key);
                 }
@@ -1905,10 +1913,17 @@ public class MainViewModel : ViewModelBase
             }
         }
 
-        SaveSilently();
-        SaveGroupsSilently();
-        ExportToIbasesAfterLocalChange();
+        // Записываются оба файла, экспорт идёт только когда удались оба: иначе
+        // пути баз и дерево групп разъедутся, и базы уедут в «Без группы».
+        var saved = SaveSilently();
+        saved &= SaveGroupsSilently();
+        if (saved)
+            ExportToIbasesAfterLocalChange();
         RebuildTree();
+
+        // Группа выбранной базы могла измениться вместе с путём подветки,
+        // а подзаголовок правой панели считается от базы и об этом не узнает.
+        OnPropertyChanged(nameof(RightPanelSubtitle));
     }
 
     /// <summary>Полные пути группы и всех её потомков: по ним ищутся базы внутри.</summary>
@@ -2462,10 +2477,11 @@ public class MainViewModel : ViewModelBase
 
     // ======================= Сохранение =======================
 
-    private void SaveSilently()
+    /// <summary>Сохраняет список баз, возвращая признак успеха: ошибка идёт в журнал.</summary>
+    private bool SaveSilently()
     {
-        try { _repository.Save(_allInfobases); }
-        catch (Exception ex) { _logger.Error("Не удалось сохранить список баз", ex); }
+        try { _repository.Save(_allInfobases); return true; }
+        catch (Exception ex) { _logger.Error("Не удалось сохранить список баз", ex); return false; }
     }
 
     private void SaveSettingsSilently()

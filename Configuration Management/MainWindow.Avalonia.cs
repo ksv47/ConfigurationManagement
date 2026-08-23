@@ -2209,6 +2209,23 @@ namespace Configuration_Management
         private void OnTreeDrop(object? sender, DragEventArgs e)
         {
             e.Handled = true;
+
+            // Отпускание поднимается из насоса сырых событий, а не со стека
+            // DoDragDropAsync: исключение отсюда не дало бы завершиться самой
+            // операции, и перетаскивание осталось бы включённым навсегда,
+            // вместе с курсором и перехватом движений по всему приложению.
+            try
+            {
+                ApplyDrop(e);
+            }
+            catch (Exception ex)
+            {
+                _vm.LogWarning($"Перенос не выполнен: {ex.Message}");
+            }
+        }
+
+        private void ApplyDrop(DragEventArgs e)
+        {
             var payload = _dragPayload;
             ResolveDropTarget(e.Source as Visual, out var targetNode, out var insertBefore);
 
@@ -2261,8 +2278,14 @@ namespace Configuration_Management
             if (payload is not GroupNodeViewModel sourceNode || sourceNode.Group is null)
                 return false;
 
-            // Узел без группы означает для группы корень: это единственный способ
-            // вынести подгруппу обратно наверх, другого пути в интерфейсе нет.
+            // Узел без группы означает для группы корень, но не любой: «Все базы»,
+            // результат поиска и «Закреплённые» группой не являются, и сброс на них
+            // молча вынес бы подгруппу наверх. Вернуть её на место в интерфейсе
+            // нечем: смена родителя есть только у перетаскивания.
+            if (targetNode.Group is null
+                && !string.Equals(targetNode.Marker, GroupNodeViewModel.NoGroupMarker, StringComparison.Ordinal))
+                return false;
+
             var targetId = targetNode.Group?.Id ?? string.Empty;
             if (string.Equals(sourceNode.Group.Id, targetId, StringComparison.OrdinalIgnoreCase))
                 return false;
