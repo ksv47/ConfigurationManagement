@@ -54,8 +54,12 @@ namespace Configuration_Management
         private Control? _headerPinMark;
         private double _headerToolbarWidth;
         private Grid? _listContent;
+        /// <summary>Шаг прокрутки колесом, как у штатного ScrollContentPresenter.</summary>
+        private const double WheelScrollStep = 50;
+
         private ScrollBar? _listVerticalBar;
-        private bool _listScrollBarAttached;
+        private ScrollViewer? _boundTreeScroll;
+        private readonly List<IDisposable> _scrollBarLinks = new();
         private bool _syncingScrollBar;
         private bool _columnHeaderRefreshQueued;
         private bool _headerAlignQueued;
@@ -445,6 +449,9 @@ namespace Configuration_Management
             // по сумме ширин колонок и уезжает за правый край, а заголовки,
             // живущие вне области прокрутки, перестают совпадать со значениями.
             ScrollViewer.SetHorizontalScrollBarVisibility(_tree, ScrollBarVisibility.Disabled);
+            // Внутренняя прокрутка появляется только вместе с шаблоном, а он
+            // применяется заново при каждой пересборке окна компактным режимом.
+            _tree.TemplateApplied += (_, _) => AttachVerticalScrollBar();
             _tree.Bind(TreeView.ItemsSourceProperty, new Binding("GroupNodes"));
             _tree.SelectionMode = SelectionMode.Single;
 
@@ -531,13 +538,36 @@ namespace Configuration_Management
             ScrollViewer.SetVerticalScrollBarVisibility(_tree, ScrollBarVisibility.Hidden);
             // Ширина и авто-скрытие не задаются: полоса должна выглядеть так же,
             // как горизонтальная полоса списка и полоса правой панели, то есть
-            // по правилам темы.
+            // по правилам темы. Видимость тоже ведёт сам контрол: при Auto он
+            // показывает полосу ровно когда есть что прокручивать. Присваивать
+            // IsVisible руками нельзя, при значении Visible полоса включает себя
+            // обратно на каждое изменение Maximum и ViewportSize.
             _listVerticalBar = new ScrollBar
             {
                 Orientation = Orientation.Vertical,
+                Visibility = ScrollBarVisibility.Auto,
                 Minimum = 0,
-                IsVisible = false
+                Maximum = 0,
+                ViewportSize = 0,
+                HorizontalAlignment = HorizontalAlignment.Right
             };
+            // Полоса не входит в шаблон ScrollViewer, поэтому колесо над ней
+            // некому переадресовать. Шаг взят из ScrollContentPresenter платформы.
+            _listVerticalBar.PointerWheelChanged += (_, e) =>
+            {
+                if (TreeScroll is not { } scroll)
+                    return;
+                var hidden = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+                if (hidden <= 0)
+                    return;
+                scroll.Offset = scroll.Offset.WithY(
+                    Math.Clamp(scroll.Offset.Y - e.Delta.Y * WheelScrollStep, 0, hidden));
+                e.Handled = true;
+            };
+            // Прокручиваются только строки, поэтому полоса начинается под шапкой
+            // колонок. Высота шапки меняется вместе с компактным режимом и темой.
+            columnHeader.GetObservable(Visual.BoundsProperty).Subscribe(new PropertyObserver<Rect>(bounds =>
+                _listVerticalBar.Margin = new Thickness(0, bounds.Height, 0, 0)));
             _listVerticalBar.GetObservable(RangeBase.ValueProperty).Subscribe(new PropertyObserver<double>(value =>
             {
                 // Флаг разводит два направления: пользователь тянет полосу,
@@ -549,11 +579,11 @@ namespace Configuration_Management
                 finally { _syncingScrollBar = false; }
             }));
 
+            // Полоса лежит поверх правого края области. Отдельным столбцом её
+            // держать нельзя: в покое она узкая, при наведении расширяется,
+            // и столбец с шириной Auto каждый раз раздвигал бы список. Штатные
+            // полосы Avalonia рисуются поверх содержимого по той же причине.
             var listWithBar = new Grid();
-            listWithBar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            listWithBar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            Grid.SetColumn(listArea, 0);
-            Grid.SetColumn(_listVerticalBar, 1);
             listWithBar.Children.Add(listArea);
             listWithBar.Children.Add(_listVerticalBar);
 
@@ -2810,10 +2840,19 @@ namespace Configuration_Management
         /// </summary>
         private void AttachVerticalScrollBar()
         {
-            if (_listVerticalBar is null || TreeScroll is not { } scroll || _listScrollBarAttached)
+            // Компактный режим пересобирает окно целиком, и дерево с полосой
+            // становятся другими объектами. Поэтому сверяемся с самой прокруткой,
+            // а не с признаком «уже привязывались»: иначе после переключения
+            // полоса остаётся подписанной на выброшенный ScrollViewer.
+            if (_listVerticalBar is not { } bar || TreeScroll is not { } scroll)
+                return;
+            if (ReferenceEquals(_boundTreeScroll, scroll))
                 return;
 
-            _listScrollBarAttached = true;
+            foreach (var link in _scrollBarLinks)
+                link.Dispose();
+            _scrollBarLinks.Clear();
+            _boundTreeScroll = scroll;
 
             void Sync()
             {
@@ -2823,17 +2862,29 @@ namespace Configuration_Management
                 try
                 {
                     var hidden = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
-                    _listVerticalBar.Maximum = hidden;
-                    _listVerticalBar.ViewportSize = scroll.Viewport.Height;
-                    _listVerticalBar.Value = Math.Min(scroll.Offset.Y, hidden);
-                    _listVerticalBar.IsVisible = hidden > 0.5;
+                    bar.Maximum = hidden;
+                    bar.ViewportSize = scroll.Viewport.Height;
+                    // Шаги берёт сама прокрутка по своему содержимому. Без этого
+                    // у отдельной полосы остаются значения RangeBase по умолчанию,
+                    // и щелчок по дорожке двигает список на десять точек вместо
+                    // страницы, а стрелка на одну точку вместо строки.
+                    bar.SmallChange = scroll.SmallChange.Height;
+                    bar.LargeChange = scroll.LargeChange.Height;
+                    bar.Value = Math.Min(scroll.Offset.Y, hidden);
                 }
                 finally { _syncingScrollBar = false; }
             }
 
-            scroll.GetObservable(ScrollViewer.OffsetProperty).Subscribe(new PropertyObserver<Vector>(_ => Sync()));
-            scroll.GetObservable(ScrollViewer.ExtentProperty).Subscribe(new PropertyObserver<Size>(_ => Sync()));
-            scroll.GetObservable(ScrollViewer.ViewportProperty).Subscribe(new PropertyObserver<Size>(_ => Sync()));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.OffsetProperty)
+                .Subscribe(new PropertyObserver<Vector>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.ExtentProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.ViewportProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.SmallChangeProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
+            _scrollBarLinks.Add(scroll.GetObservable(ScrollViewer.LargeChangeProperty)
+                .Subscribe(new PropertyObserver<Size>(_ => Sync())));
             Sync();
         }
 
