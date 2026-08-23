@@ -65,7 +65,7 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        IconHelper.MakeIcon("IconClose", 14, subscriptions: ThemeSubscriptions),
+                        IconHelper.MakeIcon("IconClose", 14),
                         new TextBlock { Text = LocalizationManager.T("Common.Cancel"), VerticalAlignment = VerticalAlignment.Center }
                     }
                 },
@@ -83,7 +83,7 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        IconHelper.MakeIcon("IconOk", 14, subscriptions: ThemeSubscriptions),
+                        IconHelper.MakeIcon("IconOk", 14),
                         new TextBlock { Text = LocalizationManager.T("Common.Ok"), VerticalAlignment = VerticalAlignment.Center }
                     }
                 },

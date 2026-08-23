@@ -44,7 +44,7 @@ namespace Configuration_Management
         /// накапливались бы на каждую пересборку.
         /// </param>
         public static Avalonia.Controls.Shapes.Path MakeIcon(string key, double size = 16,
-            string brushKey = "TextPrimaryColorBrush", ICollection<IDisposable>? subscriptions = null)
+            string brushKey = "TextPrimaryColorBrush")
         {
             var path = new Avalonia.Controls.Shapes.Path
             {
@@ -62,9 +62,7 @@ namespace Configuration_Management
                 // элемент, и при выходе из дерева отслеживание снимается. Прежняя
                 // подписка жила у приложения и держала элемент сильной ссылкой,
                 // то есть укореняла всё окно, пока её не освободят вручную.
-                var binding = path.Bind(Avalonia.Controls.Shapes.Path.FillProperty,
-                    new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(brushKey));
-                subscriptions?.Add(binding);
+                Themes.ThemeBrushes.Bind(path, Avalonia.Controls.Shapes.Path.FillProperty, brushKey);
             }
             else
             {
@@ -78,7 +76,7 @@ namespace Configuration_Management
         /// Строит содержимое кнопки «иконка + подпись» (горизонтальная панель).
         /// </summary>
         public static Control IconAndText(string iconKey, string text, double iconSize = 16,
-            string brushKey = "TextPrimaryColorBrush", ICollection<IDisposable>? subscriptions = null)
+            string brushKey = "TextPrimaryColorBrush")
         {
             return new StackPanel
             {
@@ -86,7 +84,7 @@ namespace Configuration_Management
                 Spacing = 6,
                 Children =
                 {
-                    MakeIcon(iconKey, iconSize, brushKey, subscriptions),
+                    MakeIcon(iconKey, iconSize, brushKey),
                     new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center }
                 }
             };

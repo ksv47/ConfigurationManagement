@@ -33,38 +33,17 @@ namespace Configuration_Management
         /// <summary>Результат диалога: true — подтверждён (ОК), false — отменён.</summary>
         public bool DialogResult { get; protected set; }
 
-        /// <summary>
-        /// Подписки окна на ресурсы темы. Наблюдатель держит сильную ссылку
-        /// на элемент, а сам ресурс живёт у приложения, поэтому без освобождения
-        /// каждый показ диалога навсегда укоренял бы его визуальное дерево.
-        /// Освобождаются при закрытии окна.
-        /// </summary>
-        protected readonly System.Collections.Generic.List<IDisposable> ThemeSubscriptions = new();
-
-        /// <summary>Добавляет подписку на ресурс темы, если она была создана.</summary>
-        protected void TrackThemeSubscription(IDisposable? subscription)
-        {
-            if (subscription is not null)
-                ThemeSubscriptions.Add(subscription);
-        }
-
         protected override void OnClosed(EventArgs e)
         {
             // Событие живёт у синглтона локализации, а обработчик это метод
-            // экземпляра: без отписки закрытое окно осталось бы достижимым
-            // и все освобождённые подписки на тему не дали бы ничего.
+            // экземпляра: без отписки закрытое окно оставалось бы достижимым.
+            // Кисти темы отписывать не нужно, их привязку держит сам элемент.
             if (_languageSubscribed)
             {
                 LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
                 _languageSubscribed = false;
             }
 
-            foreach (var subscription in ThemeSubscriptions)
-            {
-                try { subscription.Dispose(); }
-                catch { /* освобождение подписки не должно мешать закрытию окна */ }
-            }
-            ThemeSubscriptions.Clear();
             base.OnClosed(e);
         }
 
@@ -128,7 +107,7 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        IconHelper.MakeIcon("IconClose", 14, subscriptions: ThemeSubscriptions),
+                        IconHelper.MakeIcon("IconClose", 14),
                         cancelText
                     }
                 },
@@ -146,7 +125,7 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        IconHelper.MakeIcon("IconOk", 14, subscriptions: ThemeSubscriptions),
+                        IconHelper.MakeIcon("IconOk", 14),
                         okTextBlock
                     }
                 },

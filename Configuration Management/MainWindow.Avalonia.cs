@@ -801,8 +801,8 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 0, 10, 0)
             };
             ToolTip.SetTip(iconBox, ib.StatusDisplay);
-            card.AddSubscription(() => ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush"));
-            card.AddSubscription(() => ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush"));
+            ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush");
             iconBox.Child = new Avalonia.Controls.Shapes.Path
             {
                 Width = UiMetrics.RowIcon,
@@ -833,7 +833,7 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            card.AddSubscription(() => ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush"));
+            ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush");
             content.Children.Add(name);
 
             // Вторичной строкой остаётся только то, чего нет в колонках: тип
@@ -939,7 +939,7 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
             ToolTip.SetTip(text, tag);
-            Track(subscriptions, ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+            ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush");
 
             var name = new Button
             {
@@ -957,7 +957,7 @@ namespace Configuration_Management
 
             var remove = new Button
             {
-                Content = IconHelper.MakeIcon("IconClose", UiMetrics.Scaled(9), "TextSecondaryBrush", subscriptions),
+                Content = IconHelper.MakeIcon("IconClose", UiMetrics.Scaled(9), "TextSecondaryBrush"),
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(0),
@@ -983,8 +983,8 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 0, 4, 2),
                 Child = row
             };
-            Track(subscriptions, ThemeBrushes.Bind(chip, Border.BackgroundProperty, "CardBackgroundBrush"));
-            Track(subscriptions, ThemeBrushes.Bind(chip, Border.BorderBrushProperty, "BorderColorBrush"));
+            ThemeBrushes.Bind(chip, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(chip, Border.BorderBrushProperty, "BorderColorBrush");
             return chip;
         }
 
@@ -1004,10 +1004,10 @@ namespace Configuration_Management
                 FontSize = UiMetrics.Scaled(10),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            Track(subscriptions, ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+            ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush");
 
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-            content.Children.Add(IconHelper.MakeIcon("IconTag", UiMetrics.Scaled(9), "TextSecondaryBrush", subscriptions));
+            content.Children.Add(IconHelper.MakeIcon("IconTag", UiMetrics.Scaled(9), "TextSecondaryBrush"));
             content.Children.Add(text);
 
             var button = new Button
@@ -1132,7 +1132,7 @@ namespace Configuration_Management
             if (owner is null)
                 ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             else
-                owner.AddSubscription(() => ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+                ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             return block;
         }
 
@@ -1253,7 +1253,7 @@ namespace Configuration_Management
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 6)
             };
-            Track(_rightPanelSubscriptions, ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+            ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             ToolTip.SetTip(hint, LocalizationManager.T("Main.CurrentSessionHelp"));
 
             var card = SectionCard(LocalizationManager.T("Main.CurrentSession"), "IconInfo",
@@ -1285,7 +1285,7 @@ namespace Configuration_Management
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 6, 0, 2)
             };
-            Track(_rightPanelSubscriptions, ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush"));
+            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             return block;
         }
 
@@ -1798,7 +1798,7 @@ namespace Configuration_Management
                 // Пустой ключ означает кнопку без иконки: IconHelper на пустой ключ
                 // подставляет запасную папку, и она выглядела бы как настоящая иконка.
                 if (!string.IsNullOrEmpty(_iconKey))
-                    sp.Children.Add(IconHelper.MakeIcon(_iconKey, _iconSize, brushKey, _contentSubs));
+                    sp.Children.Add(IconHelper.MakeIcon(_iconKey, _iconSize, brushKey));
                 if (!string.IsNullOrEmpty(_text))
                 {
                     var tb = new TextBlock
@@ -1808,9 +1808,7 @@ namespace Configuration_Management
                         FontWeight = FontWeight.SemiBold,
                         VerticalAlignment = VerticalAlignment.Center
                     };
-                    var textSub = ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
-                    if (textSub is not null)
-                        _contentSubs.Add(textSub);
+                    ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
                     sp.Children.Add(tb);
                 }
                 Content = sp;
@@ -2019,7 +2017,7 @@ namespace Configuration_Management
             if (_vm.ShowPinnedButton)
             {
                 // Значок закрепления в заголовке — только пометка колонки, как в WPF.
-                var pinMark = IconHelper.MakeIcon("IconPin", UiMetrics.Scaled(13), "TextSecondaryBrush", _columnHeaderSubscriptions);
+                var pinMark = IconHelper.MakeIcon("IconPin", UiMetrics.Scaled(13), "TextSecondaryBrush");
                 ToolTip.SetTip(pinMark, LocalizationManager.T("Main.Pinned"));
                 _columnHeaderRow.Children.Add(pinMark);
                 Grid.SetColumn(pinMark, PinHeaderColumn);
@@ -2119,7 +2117,7 @@ namespace Configuration_Management
         {
             var button = new Button
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), "TextSecondaryBrush", _columnHeaderSubscriptions),
+                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), "TextSecondaryBrush"),
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(2, 0),
@@ -2147,9 +2145,7 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 2, 0, 4),
                 Opacity = 0.55
             };
-            var subscription = ThemeBrushes.Bind(line, Border.BackgroundProperty, "BorderColorBrush");
-            if (subscription is not null)
-                _columnHeaderSubscriptions.Add(subscription);
+            ThemeBrushes.Bind(line, Border.BackgroundProperty, "BorderColorBrush");
 
             var grip = new Border
             {
@@ -2595,9 +2591,7 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            var subscription = ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            if (subscription is not null)
-                subscriptions?.Add(subscription);
+            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             return block;
         }
 
