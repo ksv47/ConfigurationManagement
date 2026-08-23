@@ -1,6 +1,7 @@
 #if LINUX
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -124,6 +125,13 @@ namespace Configuration_Management
         /// <summary>Ссылка на значок трея, чтобы обновлять меню при смене языка.</summary>
         private TrayIcon? _trayIcon;
         private NativeMenu? _trayMenu;
+        private string? _traySignature;
+        private bool _trayRefreshQueued;
+        private IDisposable? _toolbarWidthLink;
+        private NotifyCollectionChangedEventHandler? _groupNodesChanged;
+        private NotifyCollectionChangedEventHandler? _flatItemsChanged;
+        private EventHandler? _tagFiltersRebuilt;
+        private PropertyChangedEventHandler? _vmPropertyChanged;
 
         /// <summary>
         /// Можно ли вернуть спрятанное окно. Значок трея это первый путь, но
@@ -655,12 +663,17 @@ namespace Configuration_Management
             // Показываем/скрываем заглушку при любых изменениях списка и поиска.
             if (_vm is not null)
             {
+                // Содержимое окна пересобирается при смене языка и компактного
+                // режима, а вьюмодель живёт дальше: без снятия прежние
+                // обработчики накапливались бы и делали ту же работу заново.
+                DetachViewModelHandlers();
+
                 // Строки пересобираются вместе с деревом, поэтому заголовок
                 // выравнивается по ним заново: отступ уровня мог измениться.
-                _vm.GroupNodes.CollectionChanged += (_, _) => { UpdateEmptyState(); QueueHeaderAlign(); };
-                _vm.FlatItems.CollectionChanged += (_, _) => UpdateEmptyState();
-                _vm.TagFiltersRebuilt += (_, _) => RefreshTagFilterPanel();
-                _vm.PropertyChanged += (_, e) =>
+                _groupNodesChanged = (_, _) => { UpdateEmptyState(); QueueHeaderAlign(); };
+                _flatItemsChanged = (_, _) => UpdateEmptyState();
+                _tagFiltersRebuilt = (_, _) => RefreshTagFilterPanel();
+                _vmPropertyChanged = (_, e) =>
                 {
                     if (e.PropertyName == nameof(MainViewModel.SearchText))
                         UpdateEmptyState();
@@ -668,7 +681,7 @@ namespace Configuration_Management
                     // оно осталось бы таким, каким было собрано при запуске.
                     if (e.PropertyName == nameof(MainViewModel.SelectedInfobase)
                         || e.PropertyName == nameof(MainViewModel.RecentInfobases))
-                        RefreshTrayMenu();
+                        QueueTrayMenuRefresh();
                     // Заголовок строится до загрузки настроек, поэтому обновляется
                     // при уведомлении о колонках: иначе сохранённые ширина и состав
                     // применились бы к строкам, но не к уже собранному заголовку.
@@ -696,6 +709,11 @@ namespace Configuration_Management
                         RefreshTagFilterPanel();
                     }
                 };
+
+                _vm.GroupNodes.CollectionChanged += _groupNodesChanged;
+                _vm.FlatItems.CollectionChanged += _flatItemsChanged;
+                _vm.TagFiltersRebuilt += _tagFiltersRebuilt;
+                _vm.PropertyChanged += _vmPropertyChanged;
             }
             UpdateEmptyState();
             RefreshTagFilterPanel();
@@ -1887,7 +1905,8 @@ namespace Configuration_Management
                 Cursor = new Cursor(StandardCursorType.Hand);
                 MinHeight = 30;
                 Padding = new Thickness(12, 5);
-                BorderThickness = new Thickness(0);
+                BorderThickness = new Thickness(2);
+                BorderBrush = Brushes.Transparent;
 
                 // Кастомный шаблон: скруглённый Border + ContentPresenter (без Fluent-хрома).
                 Theme = new ControlTheme(typeof(ToggleButton))
@@ -1994,16 +2013,10 @@ namespace Configuration_Management
                 else
                     Background = _pressed ? _pressedBg : (_hovered ? _hoverBg : Brushes.Transparent);
 
-                if (_focused)
-                {
-                    BorderBrush = _accent;
-                    BorderThickness = new Thickness(2);
-                }
-                else
-                {
-                    BorderBrush = Brushes.Transparent;
-                    BorderThickness = new Thickness(0);
-                }
+                // Толщина постоянна, меняется только цвет: иначе фокус
+                // расширял бы кнопку на четыре пикселя, а по её правому краю
+                // выравнивается подпись «Название» в шапке списка.
+                BorderBrush = _focused ? _accent : Brushes.Transparent;
             }
         }
 
@@ -2034,10 +2047,10 @@ namespace Configuration_Management
 
         /// <summary>
         /// Расчётная ширина переключателя тегов: он сделан сегментной кнопкой
-        /// с горизонтальным отступом 12 и иконкой 15, то есть заметно шире
-        /// обычной кнопки панели.
+        /// с горизонтальным отступом 12, рамкой 2 и иконкой 15, то есть
+        /// заметно шире обычной кнопки панели.
         /// </summary>
-        private const double TagsToggleWidth = 12 * 2 + 15;
+        private const double TagsToggleWidth = 12 * 2 + 2 * 2 + 15;
 
         /// <summary>Зазор между блоком кнопок и подписью «Название».</summary>
         private const double HeaderToolbarGap = 2;
@@ -2282,12 +2295,15 @@ namespace Configuration_Management
 
             var tagsToggle = BuildTagsInListToggle();
             panel.Children.Add(tagsToggle);
-            tagsToggle.GetObservable(Visual.BoundsProperty).Subscribe(new PropertyObserver<Rect>(_ => QueueHeaderAlign()));
 
             _groupToolbar = panel;
             // Ширина известна только после раскладки, а подпись выравнивается
-            // по ней: пересчитываем, когда блок получил размер.
-            panel.GetObservable(Visual.BoundsProperty).Subscribe(new PropertyObserver<Rect>(_ => QueueHeaderAlign()));
+            // по ней. Следим за переключателем: он всегда крайний справа,
+            // поэтому именно он задаёт правый край блока. Bounds самой панели
+            // обрезаны колонками заголовка и на измерение не влияют.
+            _toolbarWidthLink?.Dispose();
+            _toolbarWidthLink = tagsToggle.GetObservable(Visual.BoundsProperty)
+                .Subscribe(new PropertyObserver<Rect>(_ => QueueHeaderAlign()));
             return panel;
         }
 
@@ -3248,19 +3264,81 @@ namespace Configuration_Management
             var menu = new NativeMenu();
             // Состав меню зависит от данных: недавние базы и выбранная база
             // меняются в работе. Штатный запрос обновления перед показом
-            // (NeedsUpdate) под KDE не приходит вовсе, проверено прогоном,
-            // поэтому меню ещё и пересобирается по изменению самих данных.
+            // (NeedsUpdate) на Linux не приходит: его поднимает только
+            // бэкенд macOS, в Avalonia.FreeDesktop вызова нет, проверено
+            // и прогоном, и разбором сборок. Поэтому меню пересобирается
+            // по изменению самих данных, а подписка оставлена на случай,
+            // если событие появится.
             menu.NeedsUpdate += (_, _) => FillTrayMenu(menu);
             FillTrayMenu(menu);
             _trayMenu = menu;
+            _traySignature = TrayMenuSignature();
             return menu;
         }
 
-        /// <summary>Пересобирает меню трея, если оно уже создано.</summary>
+        /// <summary>Снимает обработчики вьюмодели, навешенные прошлой сборкой окна.</summary>
+        private void DetachViewModelHandlers()
+        {
+            if (_vm is null)
+                return;
+            if (_groupNodesChanged is not null)
+                _vm.GroupNodes.CollectionChanged -= _groupNodesChanged;
+            if (_flatItemsChanged is not null)
+                _vm.FlatItems.CollectionChanged -= _flatItemsChanged;
+            if (_tagFiltersRebuilt is not null)
+                _vm.TagFiltersRebuilt -= _tagFiltersRebuilt;
+            if (_vmPropertyChanged is not null)
+                _vm.PropertyChanged -= _vmPropertyChanged;
+        }
+
+        /// <summary>
+        /// Ставит пересборку меню трея в очередь диспетчера. Одно действие даёт
+        /// несколько уведомлений подряд (выбор, список, запуск), а пересборка
+        /// заново экспортирует меню по DBus, поэтому вызовы склеиваются, как
+        /// это уже делают QueueHeaderAlign и QueueColumnHeaderRefresh.
+        /// </summary>
+        private void QueueTrayMenuRefresh()
+        {
+            if (_trayRefreshQueued || _trayMenu is null || _vm is null)
+                return;
+
+            _trayRefreshQueued = true;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                _trayRefreshQueued = false;
+                RefreshTrayMenu();
+            }, Avalonia.Threading.DispatcherPriority.Background);
+        }
+
+        /// <summary>
+        /// Пересобирает меню трея, если его состав действительно изменился:
+        /// уведомления приходят и на поиск, и на фильтр, поэтому сверяется
+        /// отпечаток состава.
+        /// </summary>
         private void RefreshTrayMenu()
         {
-            if (_trayMenu is not null)
-                FillTrayMenu(_trayMenu);
+            if (_trayMenu is null || _vm is null)
+                return;
+
+            var signature = TrayMenuSignature();
+            if (signature == _traySignature)
+                return;
+
+            _traySignature = signature;
+            FillTrayMenu(_trayMenu);
+        }
+
+        /// <summary>Состав меню трея строкой: выбранная база и недавние.</summary>
+        private string TrayMenuSignature()
+        {
+            if (_vm is null)
+                return string.Empty;
+
+            var builder = new System.Text.StringBuilder();
+            builder.Append(_vm.SelectedInfobase?.Id).Append('|').Append(_vm.SelectedInfobase?.Name);
+            foreach (var ib in _vm.RecentInfobases)
+                builder.Append('|').Append(ib.Id).Append('~').Append(ib.Name);
+            return builder.ToString();
         }
 
         /// <summary>Наполняет меню трея заново по текущему состоянию списка баз.</summary>
@@ -3364,6 +3442,13 @@ namespace Configuration_Management
         {
             if (_vm is null)
                 return;
+            // Пункт меню держит ссылку на базу, а список мог смениться
+            // импортом или удалением: запускать исчезнувшую нельзя.
+            if (!_vm.Infobases.Contains(ib))
+            {
+                QueueTrayMenuRefresh();
+                return;
+            }
             _vm.SelectedInfobase = ib;
             _vm.LaunchEnterpriseCommand.Execute(null);
         }

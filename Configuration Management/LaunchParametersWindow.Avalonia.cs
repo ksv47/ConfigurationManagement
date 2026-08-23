@@ -30,7 +30,7 @@ namespace Configuration_Management
         {
             Title = LocalizationManager.T("LaunchParams.Title");
             Width = 800;
-            Height = 560;
+            Height = 640;
             MinWidth = 720;
             MinHeight = 480;
 
@@ -94,7 +94,8 @@ namespace Configuration_Management
             list.ItemTemplate = new FuncDataTemplate<ParamRef>((item, _) =>
             {
                 var panel = new Grid { Margin = new Thickness(2, 3) };
-                panel.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(220)));
+                // 220 под текст, как в колонке WPF, плюс зазор до описания.
+                panel.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(232)));
                 panel.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
 
                 var key = new TextBlock
