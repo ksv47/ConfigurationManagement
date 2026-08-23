@@ -157,7 +157,7 @@ namespace Configuration_Management
         /// чтобы диалог можно было вызывать из ViewModel (не наследника окна).
         /// </summary>
         /// <returns>True, если пользователь подтвердил очистку.</returns>
-        public bool ShowSync() => ShowDialogSync();
+        public bool ShowSync(Window? owner = null) => ShowDialogSync(owner);
 
         /// <summary>
         /// Формирует содержимое чекбокса типа кеша: название и поле текущего размера.

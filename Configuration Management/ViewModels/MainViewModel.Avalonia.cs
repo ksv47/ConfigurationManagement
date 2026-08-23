@@ -1832,7 +1832,20 @@ public class MainViewModel : ViewModelBase
 
         if (!SaveGroupList(new List<Group>()))
         {
-            SaveList(previousInfobases);
+            // Список баз уже записан пустым, возвращаем прежний. Если и это
+            // не удалось, на диске пусто, а в памяти нет: чтобы состояния
+            // сошлись, память тоже очищается, и об этом сказано отдельно.
+            if (!SaveList(previousInfobases))
+            {
+                _allInfobases.Clear();
+                _groups.Clear();
+                SelectedInfobase = null;
+                RebuildTree();
+                _dialog.ShowError(LocalizationManager.T("Main.ClearAllPartial"),
+                    LocalizationManager.T("Main.ClearAllTitle"));
+                return;
+            }
+
             _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
                 LocalizationManager.T("Main.ClearAllTitle"));
             return;
@@ -3315,8 +3328,11 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
-        var dialog = new CacheCleanWindow(Infobases, kind, SelectedInfobase);
-        if (!dialog.ShowSync())
+        // Список отдаётся копией и окно открывается модально: иначе пока оно
+        // открыто, список баз можно очистить из главного окна, и очистка
+        // остатков посчитает остатками уже весь кеш.
+        var dialog = new CacheCleanWindow(Infobases.ToList(), kind, SelectedInfobase);
+        if (!dialog.ShowSync(OwnerWindow()))
             return;
 
         var infobases = dialog.SelectedInfobases;
