@@ -41,8 +41,8 @@ namespace Configuration_Management.Controls
             if (container is not TreeViewItem treeItem || item is not GroupNodeViewModel)
                 return;
 
-            // Источником указан сам узел: DataContext контейнера к этому моменту
-            // может быть ещё не установлен.
+            // Источником указан сам узел, а не DataContext контейнера: привязка
+            // тогда не зависит от того, когда и чем контекст будет установлен.
             _expandedBindings.Add(treeItem, treeItem.Bind(TreeViewItem.IsExpandedProperty,
                 new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = item }));
         }
