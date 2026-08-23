@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace Configuration_Management.Services
 {
@@ -20,6 +21,46 @@ namespace Configuration_Management.Services
         {
             "1cv8", "1cv8c", "1cv8s", "1cv8a", "ragent", "rmngr", "rphost"
         };
+
+        /// <summary>Первый аргумент командной строки, то есть путь запуска.</summary>
+        public static string? ReadFirstArgument(int pid)
+        {
+            try
+            {
+                var bytes = File.ReadAllBytes($"/proc/{pid}/cmdline");
+                var end = Array.IndexOf(bytes, (byte)0);
+                if (end < 0)
+                    end = bytes.Length;
+                return end == 0 ? null : Encoding.UTF8.GetString(bytes, 0, end);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Время старта процесса из /proc/&lt;pid&gt;/stat. Номер процесса ядро
+        /// переиспользует, а пара «номер плюс время старта» уникальна, и по ней
+        /// перед сигналом видно, тот ли это процесс, что показывали.
+        /// </summary>
+        public static string? ReadStartTime(int pid)
+        {
+            try
+            {
+                var stat = File.ReadAllText($"/proc/{pid}/stat");
+                // Имя процесса в скобках может содержать пробелы, поэтому поля
+                // считаются от закрывающей скобки.
+                var tail = stat[(stat.LastIndexOf(')') + 1)..];
+                var fields = tail.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                // starttime это 22-е поле записи, то есть 20-е после имени.
+                return fields.Length >= 20 ? fields[19] : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
 
         /// <summary>Читает командную строку процесса из /proc/<pid>/cmdline (аргументы разделены NUL).</summary>
         public static string? ReadCmdLine(int pid)
@@ -68,6 +109,8 @@ namespace Configuration_Management.Services
             if (!Directory.Exists(proc))
                 yield break;
 
+            var platformRoots = PlatformRoots();
+
             foreach (var dir in Directory.EnumerateDirectories(proc))
             {
                 if (!int.TryParse(Path.GetFileName(dir), out var pid) || pid <= 0)
@@ -77,49 +120,85 @@ namespace Configuration_Management.Services
                 var cmd = ReadCmdLine(pid) ?? string.Empty;
                 // У чужого пользователя ссылка exe не читается, а командная
                 // строка читается: её первый аргумент и даёт путь запуска.
-                var executable = ReadExePath(pid) ?? FirstArgument(cmd);
+                var executable = ReadExePath(pid) ?? ReadFirstArgument(pid) ?? string.Empty;
 
-                if (!IsOneCProcess(comm, executable))
+                if (!IsOneCProcess(comm, executable, platformRoots))
                     continue;
 
                 var name = comm.Length > 0 ? comm : Path.GetFileName(executable);
-                yield return new OneCProcess(pid, name, cmd, executable);
+                yield return new OneCProcess(pid, name, cmd, executable, ReadStartTime(pid));
             }
         }
 
         /// <summary>Запущенный процесс платформы.</summary>
-        public readonly record struct OneCProcess(int Pid, string Name, string CmdLine, string Executable);
+        public readonly record struct OneCProcess(
+            int Pid, string Name, string CmdLine, string Executable, string? StartTime);
 
-        private static bool IsOneCProcess(string comm, string executable)
+        private static bool IsOneCProcess(string comm, string executable, IReadOnlyList<string> platformRoots)
         {
-            if (MatchesOneCName(comm) || comm.StartsWith("1cv8", StringComparison.OrdinalIgnoreCase))
+            if (MatchesOneCName(comm))
                 return true;
 
             if (string.IsNullOrEmpty(executable))
                 return false;
 
-            return MatchesOneCName(Path.GetFileName(executable)) || IsPlatformPath(executable);
+            return MatchesOneCName(Path.GetFileName(executable)) || IsUnderPlatformRoot(executable, platformRoots);
         }
 
         /// <summary>
-        /// Путь ведёт внутрь установки платформы: у каталогов 1С есть сегмент
-        /// вида 1cv8. Сегмент, а не подстрока: путь домашнего каталога вроде
-        /// /home/1cv8admin признаком не является.
+        /// Исполняемый файл лежит внутри найденной установки платформы.
+        /// Сравниваются реальные корни, а не имя каталога: по одному лишь
+        /// началу «1cv8» под правило попадал и домашний каталог вида
+        /// /home/1cv8admin, то есть чужие процессы этого пользователя.
         /// </summary>
-        private static bool IsPlatformPath(string executable) =>
-            executable
-                .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries)
-                .SkipLast(1)
-                .Any(segment => segment.StartsWith("1cv8", StringComparison.OrdinalIgnoreCase));
-
-        /// <summary>Путь запуска: первый аргумент командной строки.</summary>
-        private static string FirstArgument(string cmdLine)
+        private static bool IsUnderPlatformRoot(string executable, IReadOnlyList<string> roots)
         {
-            if (string.IsNullOrWhiteSpace(cmdLine))
-                return string.Empty;
+            var full = TryGetFullPath(executable);
+            if (full is null)
+                return false;
 
-            var first = cmdLine.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-            return first ?? string.Empty;
+            foreach (var root in roots)
+            {
+                var normalized = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                if (full.StartsWith(normalized, StringComparison.Ordinal))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static string? TryGetFullPath(string path)
+        {
+            try { return Path.GetFullPath(path); }
+            catch { return null; }
+        }
+
+        /// <summary>
+        /// Корни установленных платформ: каталоги версий, которые нашёл поиск,
+        /// и их родители. Собираются один раз на перечисление, потому что поиск
+        /// ходит по файловой системе.
+        /// </summary>
+        private static IReadOnlyList<string> PlatformRoots()
+        {
+            var roots = new List<string>();
+            try
+            {
+                // Разрядность здесь кодируется как «64» и «32»: именно так её
+                // принимает Linux-версия поиска платформы.
+                foreach (var (_, binDir) in PlatformVersionService.FindPlatformVersionDirs("64")
+                             .Concat(PlatformVersionService.FindPlatformVersionDirs("32")))
+                {
+                    var full = TryGetFullPath(binDir);
+                    if (full is not null)
+                        roots.Add(full);
+                }
+            }
+            catch
+            {
+                // Поиск платформы не должен ронять перечисление процессов.
+            }
+
+            return roots.Distinct(StringComparer.Ordinal).ToList();
         }
 
         /// <summary>Куда указывает /proc/&lt;pid&gt;/exe. Для чужого процесса недоступно.</summary>
@@ -166,6 +245,19 @@ namespace Configuration_Management.Services
         /// </summary>
         public static bool KillProcess(int pid)
         {
+            if (!SendKill(pid))
+                return false;
+
+            var deadline = Environment.TickCount64 + KillWaitMilliseconds;
+            while (IsAlive(pid) && Environment.TickCount64 < deadline)
+                Thread.Sleep(KillPollMilliseconds);
+
+            return !IsAlive(pid);
+        }
+
+        /// <summary>Отправляет сигнал завершения вместе с деревом потомков.</summary>
+        private static bool SendKill(int pid)
+        {
             try
             {
                 using var p = Process.GetProcessById(pid);
@@ -173,8 +265,7 @@ namespace Configuration_Management.Services
                     return true;
 
                 p.Kill(entireProcessTree: true);
-                p.WaitForExit(KillWaitMilliseconds);
-                return p.HasExited;
+                return true;
             }
             catch (ArgumentException)
             {
@@ -187,33 +278,55 @@ namespace Configuration_Management.Services
             }
         }
 
-        /// <summary>Сколько ждать выхода процесса после сигнала.</summary>
+        /// <summary>Сколько ждать выхода процессов после сигналов, всего.</summary>
         private const int KillWaitMilliseconds = 3000;
 
-        /// <summary>
-        /// Завершает все процессы 1С, найденные в /proc. Возвращает число завершённых.
-        /// </summary>
+        /// <summary>Шаг опроса при ожидании выхода.</summary>
+        private const int KillPollMilliseconds = 50;
+
         /// <summary>
         /// Завершает процессы из переданного снимка. Возвращает, сколько
         /// действительно завершилось и сколько не удалось: у процессов чужого
         /// пользователя прав нет, и без разделения пользователь видел бы
         /// «завершено» при живом сервере.
         /// </summary>
-        public static (int Killed, int Failed) KillOneC(IEnumerable<int> pids)
+        public static (int Killed, int Failed) KillOneC(IEnumerable<(int Pid, string? StartTime)> processes)
         {
-            var killed = 0;
+            var targets = new List<int>();
             var failed = 0;
 
-            foreach (var pid in pids.Distinct())
+            foreach (var (pid, startTime) in processes.DistinctBy(p => p.Pid))
             {
                 if (!IsAlive(pid))
+                {
+                    // Процесс ушёл сам или вместе с чужим деревом: это успех,
+                    // иначе сумма не сходится с числом в вопросе.
+                    targets.Add(pid);
                     continue;
+                }
 
-                if (KillProcess(pid))
-                    killed++;
+                // Номер процесса ядро переиспользует: перед сигналом сверяем,
+                // что это тот самый экземпляр, который показывали пользователю.
+                if (startTime is not null && ReadStartTime(pid) != startTime)
+                {
+                    failed++;
+                    continue;
+                }
+
+                if (SendKill(pid))
+                    targets.Add(pid);
                 else
                     failed++;
             }
+
+            // Сигналы разосланы всем, теперь одно общее ожидание: иначе окно
+            // стояло бы по три секунды на каждый зависший процесс.
+            var deadline = Environment.TickCount64 + KillWaitMilliseconds;
+            while (targets.Any(IsAlive) && Environment.TickCount64 < deadline)
+                Thread.Sleep(KillPollMilliseconds);
+
+            var killed = targets.Count(pid => !IsAlive(pid));
+            failed += targets.Count - killed;
 
             return (killed, failed);
         }
