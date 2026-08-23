@@ -49,6 +49,16 @@ namespace Configuration_Management
             Content = BuildRoot();
         }
 
+        /// <summary>Наблюдатель за значением свойства контрола.</summary>
+        private sealed class SettingsObserver<T> : IObserver<T>
+        {
+            private readonly Action<T> _apply;
+            public SettingsObserver(Action<T> apply) => _apply = apply;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(T value) => _apply(value);
+        }
+
         /// <summary>Форматы метки времени в имени файла выгрузки, как в версии для Windows.</summary>
         private static readonly string[] TimestampFormats =
         {
@@ -650,24 +660,31 @@ namespace Configuration_Management
             };
             ToolTip.SetTip(timestampCheck, LocalizationManager.T("Settings.AddTimestampTooltip"));
 
-            var timestampBox = new ComboBox { MinWidth = 200, ItemsSource = TimestampFormats };
+            var timestampBox = new AutoCompleteBox
+            {
+                MinWidth = 200,
+                ItemsSource = TimestampFormats,
+                FilterMode = AutoCompleteFilterMode.Contains,
+                Text = string.IsNullOrWhiteSpace(_viewModel.ExportTimestampFormat)
+                    ? TimestampFormats[0]
+                    : _viewModel.ExportTimestampFormat
+            };
             ToolTip.SetTip(timestampBox, LocalizationManager.T("Settings.Bases.TimestampFormatTooltip"));
-            var formatIndex = Array.IndexOf(TimestampFormats, _viewModel.ExportTimestampFormat);
-            timestampBox.SelectedIndex = formatIndex >= 0 ? formatIndex : 0;
 
             var timestampPreview = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
 
+            string TimestampFormat() =>
+                string.IsNullOrWhiteSpace(timestampBox.Text) ? TimestampFormats[0] : timestampBox.Text.Trim();
+
             void ApplyExportFileNameSettings() =>
-                _viewModel.ApplyExportFileNameSettings(
-                    timestampCheck.IsChecked == true,
-                    timestampBox.SelectedItem as string ?? TimestampFormats[0]);
+                _viewModel.ApplyExportFileNameSettings(timestampCheck.IsChecked == true, TimestampFormat());
 
             // Предпросмотр собирается теми же двумя шаблонами, что и в версии
             // для Windows: один подставляет метку в имя файла, второй обрамляет
             // это словом «Пример».
             void UpdateTimestampPreview()
             {
-                var format = (timestampBox.SelectedItem as string)?.Trim();
+                var format = timestampBox.Text?.Trim();
                 if (string.IsNullOrWhiteSpace(format))
                 {
                     timestampPreview.Text = LocalizationManager.T("Settings.TimestampSpecifyHint");
@@ -690,13 +707,11 @@ namespace Configuration_Management
 
             var exportList = new Button { Content = LocalizationManager.T("Settings.Bases.ExportList") };
             ToolTip.SetTip(exportList, LocalizationManager.T("Settings.Bases.ExportListTooltip"));
+            // Значения передаются выгрузке прямо из полей, а на диск попадают
+            // только по ОК: иначе отмена выгрузки или закрытие окна крестиком
+            // всё равно меняли бы настройку.
             exportList.Click += (_, _) =>
-            {
-                // Настройки имени файла применяются до выгрузки: иначе метка
-                // времени взялась бы из значения, сохранённого прошлым нажатием ОК.
-                ApplyExportFileNameSettings();
-                _viewModel.ExportInfobases();
-            };
+                _viewModel.ExportInfobases(timestampCheck.IsChecked == true, TimestampFormat());
 
             var importList = new Button { Content = LocalizationManager.T("Settings.Bases.ImportList") };
             ToolTip.SetTip(importList, LocalizationManager.T("Settings.Bases.ImportListTooltip"));
@@ -723,7 +738,8 @@ namespace Configuration_Management
             bases.Children.Add(timestampRow);
 
             timestampCheck.IsCheckedChanged += (_, _) => UpdateTimestampPreview();
-            timestampBox.SelectionChanged += (_, _) => UpdateTimestampPreview();
+            timestampBox.GetObservable(AutoCompleteBox.TextProperty)
+                .Subscribe(new SettingsObserver<string?>(_ => UpdateTimestampPreview()));
             UpdateTimestampPreview();
 
             bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.TabIbases")));

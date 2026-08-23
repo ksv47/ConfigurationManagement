@@ -85,6 +85,13 @@ namespace Configuration_Management.Services
                 SuggestedFileName = string.IsNullOrWhiteSpace(defaultFileName) ? "file" : defaultFileName,
                 FileTypeChoices = BuildFileTypes(filter)
             };
+
+            // Расширение берётся из предложенного имени: без него имя, введённое
+            // пользователем без точки, сохранится без расширения, тогда как
+            // в версии для Windows диалог его дописывает сам.
+            var suggestedExtension = Path.GetExtension(options.SuggestedFileName);
+            if (!string.IsNullOrWhiteSpace(suggestedExtension))
+                options.DefaultExtension = suggestedExtension.TrimStart('.');
             if (!string.IsNullOrWhiteSpace(initialDirectory))
                 options.SuggestedStartLocation = await TryGetFolder(provider, initialDirectory);
 
