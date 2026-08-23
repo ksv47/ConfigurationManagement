@@ -1103,122 +1103,144 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <Grid Margin="4,12,4,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                <!-- Прокрутка по вертикали, чтобы при маленьком окне данные не выходили за границы.
+                     Горизонтальная прокрутка отключена, чтобы элементы растягивались по ширине окна. -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              Margin="4,12,4,0" Padding="0,0,4,0">
+                    <StackPanel>
+                        <TextBlock Text="{loc:Loc Settings.Ibases.Description}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,12"
+                                   TextWrapping="Wrap"/>
 
-                    <TextBlock Grid.Row="0" Text="{loc:Loc Settings.Ibases.Description}"
-                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12"
-                               TextWrapping="Wrap"/>
-
-                    <!-- Синхронизация с ibases.v8i -->
-                    <GroupBox Grid.Row="1" Header="{loc:Loc Settings.SyncSettings}" Padding="8">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,-4,0,4">
-                                <controls:HelpLink HelpText="{loc:Loc Settings.Ibases.HelpText}"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="{loc:Loc Settings.Ibases.SyncMode}" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <ComboBox x:Name="SyncModeComboBox" Width="420" Height="40" Margin="10,0,0,0" FontSize="14"
-                                          VerticalAlignment="Center"
-                                          Style="{StaticResource ModernComboBox}"
-                                          SelectionChanged="OnSyncMode_SelectionChanged"/>
-                            </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="{loc:Loc Settings.Ibases.File}" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBox x:Name="SyncFilePathTextBox" Width="380" Margin="10,0,0,0"
-                                         VerticalAlignment="Center"/>
-                                <Button x:Name="BrowseSyncFileButton" Content="{loc:Loc Common.Browse}" Margin="6,0,0,0"
-                                        Padding="10,3" VerticalAlignment="Center"
-                                        Style="{DynamicResource SecondaryButton}"
-                                        Click="OnBrowseSyncFile_Click"
-                                        ToolTip="{loc:Loc Settings.Ibases.BrowseTooltip}"/>
-                            </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="{loc:Loc Settings.Ibases.SyncTrigger}" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <ComboBox x:Name="SyncTriggerComboBox" Width="420" Height="40" Margin="10,0,0,0" FontSize="14"
-                                          VerticalAlignment="Center"
-                                          Style="{StaticResource ModernComboBox}"
-                                          SelectionChanged="OnSyncTrigger_SelectionChanged"/>
-                            </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock x:Name="SyncIntervalLabel" Text="{loc:Loc Settings.Ibases.Interval}"
-                                           VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBox x:Name="SyncIntervalTextBox" Width="60" Margin="10,0,0,0"
-                                         VerticalAlignment="Center" TextAlignment="Center"
-                                         TextChanged="OnSyncInterval_TextChanged"/>
-                                <TextBlock x:Name="SyncScheduleLabel" Text="{loc:Loc Settings.Ibases.ScheduleTime}"
-                                           VerticalAlignment="Center" Margin="16,0,0,0"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBox x:Name="SyncScheduleTimePicker" Width="70" Margin="10,0,0,0"
-                                         VerticalAlignment="Center" TextAlignment="Center"
-                                         TextChanged="OnSyncScheduleTime_TextChanged"/>
-                            </StackPanel>
-
-                            <TextBlock x:Name="SyncStatusText"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
-                                       Margin="0,4,0,8" TextWrapping="Wrap"/>
-
-                            <StackPanel Orientation="Horizontal">
-                                <Button x:Name="SyncImportButton" Style="{DynamicResource SecondaryButton}"
-                                        Padding="10,6" Margin="0,0,8,0"
-                                        Click="OnSyncImport_Click"
-                                        ToolTip="{loc:Loc Settings.Ibases.ImportTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Download" Width="16" Height="16" Foreground="#F97316" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Ibases.Import}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="SyncExportButton" Style="{DynamicResource SecondaryButton}"
-                                        Padding="10,6"
-                                        Click="OnSyncExport_Click"
-                                        ToolTip="{loc:Loc Settings.Ibases.ExportTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Upload" Width="16" Height="16" Foreground="#A855F7" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Ibases.Export}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-
-                            <Separator Margin="0,12,0,12"/>
-
-                            <CheckBox x:Name="IbasesBackupEnabledCheck"
-                                      Content="{loc:Loc Settings.BackupBeforeSync}"
-                                      IsChecked="True" Margin="0,0,0,6"/>
-                            <StackPanel Orientation="Horizontal" Margin="24,0,0,6">
-                                <TextBlock Text="{loc:Loc Settings.Ibases.BackupKeepCount}" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBox x:Name="IbasesBackupKeepCountBox" Width="50" Margin="8,0,0,0"
-                                         Text="5" VerticalAlignment="Center"
-                                         Style="{StaticResource ModernTextBox}"/>
-                            </StackPanel>
-                            <TextBlock Text="{loc:Loc Settings.Ibases.BackupNote}"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       FontSize="12" TextWrapping="Wrap" Margin="24,0,0,8"/>
-                            <Button Style="{DynamicResource SecondaryButton}" Padding="10,6"
-                                    HorizontalAlignment="Left"
-                                    Click="OnRestoreIbasesBackup_Click"
-                                    ToolTip="{loc:Loc Settings.Ibases.RestoreTooltip}">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="BackupRestore" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{loc:Loc Settings.Ibases.Restore}" VerticalAlignment="Center"/>
+                        <!-- Синхронизация с ibases.v8i -->
+                        <GroupBox Header="{loc:Loc Settings.SyncSettings}" Padding="8">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,-4,0,4">
+                                    <controls:HelpLink HelpText="{loc:Loc Settings.Ibases.HelpText}"/>
                                 </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </GroupBox>
 
-                </Grid>
+                                <!-- Режим синхронизации: подпись слева, список тянется по ширине -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{loc:Loc Settings.Ibases.SyncMode}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <ComboBox x:Name="SyncModeComboBox" Grid.Column="1" Height="40" Margin="10,0,0,0" FontSize="14"
+                                              VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                              Style="{StaticResource ModernComboBox}"
+                                              SelectionChanged="OnSyncMode_SelectionChanged"/>
+                                </Grid>
+
+                                <!-- Файл: путь растягивается, кнопка обзора справа -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{loc:Loc Settings.Ibases.File}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBox x:Name="SyncFilePathTextBox" Grid.Column="1" Margin="10,0,0,0"
+                                             VerticalAlignment="Center" HorizontalAlignment="Stretch"/>
+                                    <Button x:Name="BrowseSyncFileButton" Grid.Column="2" Content="{loc:Loc Common.Browse}" Margin="6,0,0,0"
+                                            Padding="10,3" VerticalAlignment="Center"
+                                            Style="{DynamicResource SecondaryButton}"
+                                            Click="OnBrowseSyncFile_Click"
+                                            ToolTip="{loc:Loc Settings.Ibases.BrowseTooltip}"/>
+                                </Grid>
+
+                                <!-- Условие запуска синхронизации -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{loc:Loc Settings.Ibases.SyncTrigger}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <ComboBox x:Name="SyncTriggerComboBox" Grid.Column="1" Height="40" Margin="10,0,0,0" FontSize="14"
+                                              VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                              Style="{StaticResource ModernComboBox}"
+                                              SelectionChanged="OnSyncTrigger_SelectionChanged"/>
+                                </Grid>
+
+                                <!-- Интервал и время расписания -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="SyncIntervalLabel" Text="{loc:Loc Settings.Ibases.Interval}"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBox x:Name="SyncIntervalTextBox" Grid.Column="1" Width="60" Margin="10,0,0,0"
+                                             VerticalAlignment="Center" TextAlignment="Center"
+                                             TextChanged="OnSyncInterval_TextChanged"/>
+                                    <TextBlock x:Name="SyncScheduleLabel" Grid.Column="2" Text="{loc:Loc Settings.Ibases.ScheduleTime}"
+                                               VerticalAlignment="Center" Margin="16,0,0,0"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBox x:Name="SyncScheduleTimePicker" Grid.Column="3" Width="70" Margin="10,0,0,0"
+                                             VerticalAlignment="Center" TextAlignment="Center"
+                                             TextChanged="OnSyncScheduleTime_TextChanged"/>
+                                </Grid>
+
+                                <TextBlock x:Name="SyncStatusText"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           Margin="0,4,0,8" TextWrapping="Wrap"/>
+
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="SyncImportButton" Style="{DynamicResource SecondaryButton}"
+                                            Padding="10,6" Margin="0,0,8,0"
+                                            Click="OnSyncImport_Click"
+                                            ToolTip="{loc:Loc Settings.Ibases.ImportTooltip}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Download" Width="16" Height="16" Foreground="#F97316" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Settings.Ibases.Import}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="SyncExportButton" Style="{DynamicResource SecondaryButton}"
+                                            Padding="10,6"
+                                            Click="OnSyncExport_Click"
+                                            ToolTip="{loc:Loc Settings.Ibases.ExportTooltip}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Upload" Width="16" Height="16" Foreground="#A855F7" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc Settings.Ibases.Export}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+
+                                <Separator Margin="0,12,0,12"/>
+
+                                <CheckBox x:Name="IbasesBackupEnabledCheck"
+                                          Content="{loc:Loc Settings.BackupBeforeSync}"
+                                          IsChecked="True" Margin="0,0,0,6"/>
+                                <StackPanel Orientation="Horizontal" Margin="24,0,0,6">
+                                    <TextBlock Text="{loc:Loc Settings.Ibases.BackupKeepCount}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBox x:Name="IbasesBackupKeepCountBox" Width="50" Margin="8,0,0,0"
+                                             Text="5" VerticalAlignment="Center"
+                                             Style="{StaticResource ModernTextBox}"/>
+                                </StackPanel>
+                                <TextBlock Text="{loc:Loc Settings.Ibases.BackupNote}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="12" TextWrapping="Wrap" Margin="24,0,0,8"/>
+                                <Button Style="{DynamicResource SecondaryButton}" Padding="10,6"
+                                        HorizontalAlignment="Left"
+                                        Click="OnRestoreIbasesBackup_Click"
+                                        ToolTip="{loc:Loc Settings.Ibases.RestoreTooltip}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="BackupRestore" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Ibases.Restore}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
 
             <!-- ============ Вкладка «Базы» ============ -->
