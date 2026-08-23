@@ -98,6 +98,7 @@ namespace Configuration_Management
 
             // Подписка здесь, а не в построении содержимого: компактный режим
             // пересобирает содержимое, и обработчики копились бы на каждый показ.
+            _vm.TreeRebuilding += RememberTreeScroll;
             _vm.TreeRebuilt += RestoreTreeSelection;
         }
 
@@ -2659,6 +2660,20 @@ namespace Configuration_Management
             Content = BuildRoot();
         }
 
+        /// <summary>Позиция прокрутки списка, снятая перед пересборкой дерева.</summary>
+        private Avalonia.Vector? _treeScrollOffset;
+
+        /// <summary>Внутренняя прокрутка дерева: вертикаль ведёт сам TreeView.</summary>
+        private ScrollViewer? TreeScroll =>
+            _tree?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+
+        /// <summary>
+        /// Запоминает позицию прокрутки до пересборки: список опустеет, и после
+        /// неё прежнюю позицию узнать уже неоткуда.
+        /// </summary>
+        private void RememberTreeScroll()
+            => _treeScrollOffset = TreeScroll?.Offset;
+
         /// <summary>
         /// Возвращает выделение строки после пересборки дерева: узлы групп
         /// пересоздаются, и дерево теряет подсветку вместе с ними. Объекты баз
@@ -2677,6 +2692,15 @@ namespace Configuration_Management
             {
                 if (_vm is null)
                     return;
+
+                // Прокрутка возвращается раньше выбора: установка выбранного
+                // элемента подтягивает его в видимую область и сама сдвинула бы
+                // список, если сделать это после.
+                if (_treeScrollOffset is { } offset && TreeScroll is { } scroll)
+                {
+                    scroll.Offset = offset;
+                    _treeScrollOffset = null;
+                }
 
                 var target = (object?)_vm.SelectedInfobase ?? _vm.SelectedGroupNode;
                 if (target is null || ReferenceEquals(_tree.SelectedItem, target))
