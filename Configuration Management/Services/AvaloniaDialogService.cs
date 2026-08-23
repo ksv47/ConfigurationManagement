@@ -237,6 +237,13 @@ namespace Configuration_Management.Services
         /// </summary>
         private readonly System.Collections.Generic.List<IDisposable> _themeSubscriptions = new();
 
+        /// <summary>Запоминает подписку на ресурс темы, если она была создана.</summary>
+        private void TrackTheme(IDisposable? subscription)
+        {
+            if (subscription is not null)
+                _themeSubscriptions.Add(subscription);
+        }
+
         protected override void OnClosed(EventArgs e)
         {
             foreach (var subscription in _themeSubscriptions)
@@ -272,6 +279,7 @@ namespace Configuration_Management.Services
                 FontSize = 13,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            TrackTheme(Themes.ThemeBrushes.Bind(messageBlock, TextBlock.ForegroundProperty, "TextPrimaryColorBrush"));
 
             // Сетка, а не горизонтальный StackPanel: в стопке текст получает
             // бесконечную ширину и не переносится, длинное сообщение обрезается.
@@ -286,7 +294,7 @@ namespace Configuration_Management.Services
             Grid.SetColumn(messageBlock, 1);
             body.Children.Add(messageBlock);
 
-            Button okButton = new() { Content = "OK", MinWidth = 90, IsDefault = true };
+            Button okButton = new() { Content = LocalizationManager.T("Common.Ok"), MinWidth = 90, IsDefault = true };
             okButton.Click += (_, _) => { Result = true; Close(); };
 
             var buttonsPanel = new StackPanel
@@ -310,6 +318,11 @@ namespace Configuration_Management.Services
                 Margin = new Thickness(16),
                 Children = { body, buttonsPanel }
             };
+
+            // Фон и текст берутся из темы теми же ключами, что и остальной
+            // интерфейс: иначе окно выглядит белым Fluent в отрыве от него,
+            // а на тёмной теме ещё и слепит.
+            TrackTheme(Themes.ThemeBrushes.Bind(content, Panel.BackgroundProperty, "ContentBackgroundColorBrush"));
             Content = content;
         }
     }
