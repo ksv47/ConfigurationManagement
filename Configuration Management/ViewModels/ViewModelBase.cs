@@ -38,12 +38,9 @@ public abstract class ViewModelBase : INotifyPropertyChanged
     /// Устанавливает значение и дополнительно уведомляет о связанных свойствах
     /// (удобно для вычисляемых свойств вроде GroupByGroupText).
     /// </summary>
-    protected bool SetProperty<T>(ref T field, T value, string propertyName, params string[] relatedProperties)
+    protected bool SetProperty<T>(ref T field, T value, params string[] relatedProperties)
     {
-        // Имя своего свойства передаётся явно: у вызова без него CallerMemberName
-        // подставлял имя самого метода, и подписчики на имя свойства уведомления
-        // не получали вовсе.
-        if (!SetProperty(ref field, value, propertyName))
+        if (!SetProperty(ref field, value))
             return false;
         foreach (var name in relatedProperties)
             OnPropertyChanged(name);
