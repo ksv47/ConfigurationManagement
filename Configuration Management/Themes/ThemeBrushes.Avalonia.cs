@@ -1,6 +1,7 @@
 #if LINUX
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
 
 namespace Configuration_Management.Themes
 {
@@ -38,25 +39,38 @@ namespace Configuration_Management.Themes
         /// <param name="brushKey">Ключ ресурса-кисти темы.</param>
         /// <param name="apply">Что делать с полученной кистью.</param>
         /// <remarks>
-        /// Подписка снимается, когда элемент покидает визуальное дерево. Без
-        /// этого наблюдатель жил бы у приложения и держал элемент сильной
-        /// ссылкой: пересборка содержимого окна оставляла бы прежнее дерево
-        /// укоренённым навсегда.
+        /// Подписка живёт ровно столько, сколько элемент находится в визуальном
+        /// дереве: создаётся при присоединении, снимается при откреплении и
+        /// создаётся заново, если элемент вернули. Иначе наблюдатель жил бы
+        /// у приложения и держал элемент сильной ссылкой, а пересборка
+        /// содержимого окна оставляла бы прежнее дерево укоренённым навсегда.
+        /// Элемент, который так и не попал в дерево, подписки не создаёт вовсе.
         /// </remarks>
         public static void Observe(Avalonia.Controls.Control target, string brushKey, System.Action<Avalonia.Media.IBrush> apply)
         {
-            if (Avalonia.Application.Current is not { } app)
-                return;
+            System.IDisposable? subscription = null;
 
-            var subscription = app.GetResourceObservable(brushKey).Subscribe(new BrushCallback(apply));
-
-            void Release(object? sender, Avalonia.VisualTreeAttachmentEventArgs e)
+            void Start()
             {
-                subscription.Dispose();
-                target.DetachedFromVisualTree -= Release;
+                subscription?.Dispose();
+                subscription = Avalonia.Application.Current?
+                    .GetResourceObservable(brushKey)
+                    .Subscribe(new BrushCallback(apply));
             }
 
-            target.DetachedFromVisualTree += Release;
+            void Stop()
+            {
+                subscription?.Dispose();
+                subscription = null;
+            }
+
+            target.AttachedToVisualTree += (_, _) => Start();
+            target.DetachedFromVisualTree += (_, _) => Stop();
+
+            // Элемент может быть уже в дереве: тогда события присоединения
+            // не будет, а кисть нужна сразу.
+            if (target.GetVisualRoot() is not null)
+                Start();
         }
 
         private sealed class BrushCallback : System.IObserver<object?>
