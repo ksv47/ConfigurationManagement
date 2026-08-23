@@ -131,8 +131,11 @@ namespace Configuration_Management
         /// работает только пока включён режим единственного экземпляра.
         /// </summary>
         private bool CanRestoreHiddenWindow =>
-            (_trayIconCreated && !Services.LinuxDesktopEnvironment.TrayMayBeUnavailable)
+            (_trayIconCreated && TrayIconWanted && !Services.LinuxDesktopEnvironment.TrayMayBeUnavailable)
             || _vm?.AllowMultipleInstances == false;
+
+        /// <summary>Нужен ли значок по настройкам: сам значок либо закрытие в трей.</summary>
+        private bool TrayIconWanted => _vm is null || _vm.ShowTrayIcon || _vm.CloseToTray;
 
         /// <summary>
         /// Уводит окно в трей после успешного запуска, как это делает WPF-версия
@@ -3365,9 +3368,23 @@ namespace Configuration_Management
         private void ApplyTrayVisibility()
         {
             if (_trayIcon is null)
+            {
+                // Значок не создался при загрузке: пробуем ещё раз, иначе
+                // включение настройки не даст ничего до перезапуска.
+                if (_vm is null || _vm.ShowTrayIcon || _vm.CloseToTray)
+                    SetupTray();
                 return;
+            }
 
-            _trayIcon.IsVisible = _vm is null || _vm.ShowTrayIcon || _vm.CloseToTray;
+            var wanted = _vm is null || _vm.ShowTrayIcon || _vm.CloseToTray;
+
+            // Пока окно спрятано, значок обязан оставаться видимым: он
+            // единственный надёжный путь назад. Если настройки требуют его
+            // убрать, сперва возвращаем окно.
+            if (!wanted && !IsVisible)
+                ShowAndActivate();
+
+            _trayIcon.IsVisible = wanted;
         }
 
         /// <summary>Позволяет повторно показать окно из трея/активации.</summary>

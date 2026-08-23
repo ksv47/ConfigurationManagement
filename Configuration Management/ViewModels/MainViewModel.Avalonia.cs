@@ -2327,17 +2327,24 @@ public class MainViewModel : ViewModelBase
     /// <summary>Сохраняет группы, возвращая признак успеха: ошибка идёт в журнал.</summary>
     private bool SaveGroupsSilently() => SaveGroupList(_groups);
 
-    /// <summary>Главное окно как владелец модального диалога.</summary>
     /// <summary>
     /// Окно-владелец для модальных окон. Спрятанное в трей окно владельцем
     /// быть не может: показ поверх невидимого окна роняет приложение.
     /// </summary>
-    private static Avalonia.Controls.Window? OwnerWindow() =>
-        (Avalonia.Application.Current?.ApplicationLifetime
-            as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
-        ?.MainWindow is { IsVisible: true } main
-            ? main
-            : null;
+    private static Avalonia.Controls.Window? OwnerWindow()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+
+        foreach (var window in desktop.Windows)
+        {
+            if (window.IsActive && window.IsVisible)
+                return window;
+        }
+
+        return desktop.MainWindow is { IsVisible: true } main ? main : null;
+    }
 
     private void DeleteInfobase()
     {
