@@ -491,7 +491,8 @@ namespace Configuration_Management
             _tree.AddHandler(DragDrop.DragOverEvent, OnTreeDragOver);
             _tree.AddHandler(DragDrop.DropEvent, OnTreeDrop);
 
-            // Прокрутку списка ведёт внешний ScrollViewer, общий с заголовком колонок.
+            // Горизонтальную прокрутку списка ведёт внешний ScrollViewer, общий
+            // с заголовком колонок, а вертикальную сам TreeView.
             // Прежнее опасение про бесконечную высоту и потерю виртуализации здесь
             // неприменимо: у TreeView в Avalonia 11.3.20 виртуализации нет вовсе,
             // панель элементов по умолчанию обычный StackPanel, и ни тема Fluent,
@@ -2672,7 +2673,10 @@ namespace Configuration_Management
         /// неё прежнюю позицию узнать уже неоткуда.
         /// </summary>
         private void RememberTreeScroll()
-            => _treeScrollOffset = TreeScroll?.Offset;
+            // Значение перезаписывается каждой пересборкой и не обнуляется после
+            // применения: две пересборки подряд тогда восстановят одну и ту же
+            // позицию, а не потеряют её из-за уже отработавшего вызова.
+            => _treeScrollOffset = TreeScroll?.Offset ?? _treeScrollOffset;
 
         /// <summary>
         /// Возвращает выделение строки после пересборки дерева: узлы групп
@@ -2693,24 +2697,21 @@ namespace Configuration_Management
                 if (_vm is null)
                     return;
 
-                // Прокрутка возвращается раньше выбора: установка выбранного
-                // элемента подтягивает его в видимую область и сама сдвинула бы
-                // список, если сделать это после.
-                if (_treeScrollOffset is { } offset && TreeScroll is { } scroll)
+                var target = (object?)_vm.SelectedInfobase ?? _vm.SelectedGroupNode;
+                if (target is not null && !ReferenceEquals(_tree.SelectedItem, target))
                 {
-                    scroll.Offset = offset;
-                    _treeScrollOffset = null;
+                    // Выбор ставится напрямую, без обработчика: он уже согласован
+                    // с вьюмоделью, и повторный проход только сбросил бы парное поле.
+                    _tree.SelectionChanged -= OnTreeSelectionChanged;
+                    try { _tree.SelectedItem = target; }
+                    finally { _tree.SelectionChanged += OnTreeSelectionChanged; }
                 }
 
-                var target = (object?)_vm.SelectedInfobase ?? _vm.SelectedGroupNode;
-                if (target is null || ReferenceEquals(_tree.SelectedItem, target))
-                    return;
-
-                // Выбор ставится напрямую, без обработчика: он уже согласован
-                // с вьюмоделью, и повторный проход только сбросил бы парное поле.
-                _tree.SelectionChanged -= OnTreeSelectionChanged;
-                try { _tree.SelectedItem = target; }
-                finally { _tree.SelectionChanged += OnTreeSelectionChanged; }
+                // Прокрутка возвращается последней: у дерева включено
+                // AutoScrollToSelectedItem, и установка выбора синхронно тянет
+                // строку в видимую область, затирая прежнюю позицию.
+                if (_treeScrollOffset is { } offset && TreeScroll is { } scroll)
+                    scroll.Offset = offset;
             }, Avalonia.Threading.DispatcherPriority.Background);
         }
 
