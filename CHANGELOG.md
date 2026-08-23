@@ -5,6 +5,58 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.37] — 2026-08-23
+
+### Локализация
+
+- **Аудит прочих непереведённых строк интерфейса по всему проекту** — проверены все диалоговые окна ([`AddEditWindow`](Configuration Management/AddEditWindow.Avalonia.cs), [`CacheCleanWindow`](Configuration Management/CacheCleanWindow.Avalonia.cs), [`ConnectionSettingsWindow`](Configuration Management/ConnectionSettingsWindow.Avalonia.cs), [`CreateInfobaseWindow`](Configuration Management/CreateInfobaseWindow.Avalonia.cs), [`DeleteInfobaseWindow`](Configuration Management/DeleteInfobaseWindow.Avalonia.cs), [`GroupEditWindow`](Configuration Management/GroupEditWindow.Avalonia.cs), [`GroupPickerWindow`](Configuration Management/GroupPickerWindow.Avalonia.cs), [`GroupSettingsWindow`](Configuration Management/GroupSettingsWindow.Avalonia.cs), [`LaunchParametersWindow`](Configuration Management/LaunchParametersWindow.Avalonia.cs), [`LinkInputWindow`](Configuration Management/LinkInputWindow.Avalonia.cs), [`NameInputWindow`](Configuration Management/NameInputWindow.Avalonia.cs), [`PlatformVersionPickerWindow`](Configuration Management/PlatformVersionPickerWindow.Avalonia.cs), [`SettingsWindow`](Configuration Management/SettingsWindow.Avalonia.cs), [`TagInputWindow`](Configuration Management/TagInputWindow.Avalonia.cs) и др.), контролы (`Controls/*.cs`), сервисы (`Services/*.cs`) и ViewModel (`ViewModels/*.cs`) обеих реализаций (WPF `.xaml`/`.xaml.cs` и Avalonia `.Avalonia.cs`). Способ поиска — regex по кириллице в строковых литералах C# и по содержимому атрибутов XAML/AXAML вне обёртки `{loc:Loc …}`/`Content=`; комментарии не учитывались.
+- **Результат: жёстко зашитых пользовательских строк не обнаружено** — весь пользовательский текст (подписи кнопок, заголовки окон, тексты меток, сообщения диалогов/MessageBox, тултипы, пункты контекстных меню, значения выпадающих списков) уже вынесен в локализацию: WPF — `{loc:Loc Key}`, Avalonia — `LocalizationManager.T("Key")`. Ключи [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json) согласованы, недостающих ключей и английских переводов нет.
+- **Оставлены без изменений как технические (не показываются пользователю в UI):** значения режимов запуска/клиента («Автоматический», «Тонкий клиент», «Толстый клиент», «Веб-клиент», «Авто», «Обычный», «Тонкий» и т.п.), используемые как внутренние ключи хранения и сопоставляемые с локализованными подписями через маппинги ([`Infobase.cs`](Configuration Management/Models/Infobase.cs), [`IbasesV8iImporter.cs`](Configuration Management/Services/IbasesV8iImporter.cs), [`OneCLauncher*.cs`](Configuration Management/Services/OneCLauncher.cs)); строки журналов (`_logger.*`, `Debug.WriteLine`); диагностические префиксы в логах фатальных ошибок ([`App.xaml.cs`](Configuration Management/App.xaml.cs)); описание окружения Linux для журнала (`LinuxDesktopEnvironment.Describe()`). Их замена на `LocalizationManager.T(...)` сломала бы логику хранения/сопоставления и не дала бы пользы, т.к. они не отображаются в интерфейсе.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.37** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.37 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.37; жёстко прописанная версия в `Settings.About.HelpText` обновлена в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+## [0.3.3.36] — 2026-08-23
+
+### Локализация
+
+- **Аудит подсказок (ToolTips) кнопок и переключателей главного окна** — проверены обе реализации ([`MainWindow.xaml`](Configuration Management/MainWindow.xaml): верхняя панель, заголовки колонок, правая панель; [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs): [`BuildTopBar()`](Configuration Management/MainWindow.Avalonia.cs:183), [`RefreshColumnHeader()`](Configuration Management/MainWindow.Avalonia.cs:1931), [`BuildRightPanel()`](Configuration Management/MainWindow.Avalonia.cs:1144), вспомогательные `TopBarPrimaryButton`/`TopBarSecondaryButton`/`TopBarIconButton`/`PrimaryActionButton`/`SecondaryActionButton`/`HeaderIconButton`). Все подсказки уже вынесены в локализацию: WPF — `{loc:Loc Main.*}` (в т.ч. через `MultiBinding` с ключами `Main.LaunchEnterpriseShort`/`Main.LaunchConfiguratorShort` и хоткеем), Avalonia — `LocalizationManager.T("Main.*Tooltip")` и `ToolTip.SetTip(...)`. Жёстко зашитых русских строк в тултипах не обнаружено.
+- **Добавлены недостающие тултипы сегментам «Все / Избранное / Недавние» в Avalonia-версии** — в [`BuildListModeSegments()`](Configuration Management/MainWindow.Avalonia.cs:273) переключатели списка баз не имели подсказок, тогда как в WPF они есть. Теперь им задаются существующие ключи `Main.AllBasesTooltip`/`Main.FavoritesTooltip`/`Main.RecentTooltip`. Ключи `Main.*Tooltip` согласованы между [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json); недостающих ключей и английских переводов нет.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.36** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.36 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.36; жёстко прописанная версия в `Settings.About.HelpText` обновлена в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+## [0.3.3.35] — 2026-08-23
+
+### Локализация
+
+- **Аудит текстов кнопок правой панели главного окна** — проверены обе реализации ([`MainWindow.xaml`](Configuration Management/MainWindow.xaml) и [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs), метод [`BuildRightPanel()`](Configuration Management/MainWindow.Avalonia.cs:1144)). Все подписи кнопок, заголовки секций, тексты split-кнопок и пункты их контекстных меню уже вынесены в локализацию: WPF использует `{loc:Loc Main.*}` (и `{loc:Loc LinkInput.Title}`, `{loc:Loc Common.Delete}`), Avalonia — `LocalizationManager.T("Main.*")` (вспомогательные `PrimaryActionButton`/`SecondaryActionButton`/`SectionCard` получают текст ключом). Жёстко зашитых русских строк в текстах кнопок правой панели не обнаружено.
+- **Исправлен английский перевод** текста переключателя `Main.SessionClientOrdinary` в блоке «Текущая сессия» в [`en.json`](Configuration Management/Localization/Languages/en.json): было «Thin (managed)», стало «Ordinary» (согласовано с `ru.json` — «Обычный»). Ключи `Main.*` правой панели согласованы между `ru.json` и `en.json`; недостающих ключей и переводов нет.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.35** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.35 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.35; жёстко прописанная версия в `Settings.About.HelpText` обновлена в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+## [0.3.3.34] — 2026-08-23
+
+### Локализация
+
+- **Аудит названий колонок главного окна** — проверены обе реализации ([`MainWindow.xaml`](Configuration Management/MainWindow.xaml) и [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)). Все заголовки колонок уже вынесены в локализацию: WPF использует `{loc:Loc Column.*}`, Avalonia — `LocalizationManager.T("Column.*")` (в методе [`ListColumns()`](Configuration Management/MainWindow.Avalonia.cs)); жёстко зашитых русских строк в названиях колонок не обнаружено. Переводы в [`en.json`](Configuration Management/Localization/Languages/en.json) согласованы с `ru.json`: `Column.Name` = Name, `Column.Version` = Platform version, `Column.Configuration` = Configuration, `Column.LaunchMode` = Launch mode, `Column.ServerBase` = Server/Base, `Column.LastLaunch` = Last launch, `Column.Size` = Size.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.34** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.34 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.34; жёстко прописанная версия в `Settings.About.HelpText` обновлена в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+## [0.3.3.33] — 2026-08-23
+
+### Исправлено
+
+- **Смена языка интерфейса в Linux/Avalonia-версии теперь мгновенно обновляет главное окно** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)). Ранее при выборе другого языка в настройках названия колонок, кнопки правой панели и подсказки кнопок (которые создаются в коде через `LocalizationManager.T(...)`) не перерисовывались — переведённый текст появлялся только после перезапуска приложения, что выглядело как непереведённые элементы интерфейса. Теперь главное окно подписывается на событие [`LocalizationManager.Instance.LanguageChanged`](Configuration Management/Localization/LocalizationManager.cs) и пересобирает своё содержимое: заголовок окна, названия колонок, кнопки правой панели и все подсказки обновляются сразу; компактный режим (`UiMetrics.Compact`) сохраняется, а выделение и прокрутка списка баз восстанавливаются после пересборки. На Windows (WPF) такой проблемы не было — там тексты связаны через `{loc:Loc ...}` и обновляются автоматически через `NotifyAll()`.
+
+- **Версия обновлена до 0.3.3.33** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.33 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.33; жёстко прописанная версия в `Settings.About.HelpText` обновлена в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
 ## [0.3.3.32] — 2026-08-23
 
 ### Добавлено (сборка / упаковка)

@@ -100,6 +100,11 @@ namespace Configuration_Management
             // пересобирает содержимое, и обработчики копились бы на каждый показ.
             _vm.TreeRebuilding += RememberTreeScroll;
             _vm.TreeRebuilt += RestoreTreeSelection;
+
+            // Смена языка интерфейса: названия колонок, кнопки правой панели и подсказки
+            // создаются в коде через LocalizationManager.T(...), поэтому окно пересобирается,
+            // чтобы переведённый текст появился сразу, а не после перезапуска.
+            LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         }
 
         /// <summary>Значок трея создан без ошибки: значение проверяется перед тем, как прятать окно.</summary>
@@ -282,14 +287,17 @@ namespace Configuration_Management
             var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
 
             var allSeg = new SegmentButton("IconList", LocalizationManager.T("Main.AllBases"), "ItemHoverBrush", "ItemSelectedBrush");
+            ToolTip.SetTip(allSeg, LocalizationManager.T("Main.AllBasesTooltip"));
             allSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeAll") { Mode = BindingMode.TwoWay });
             panel.Children.Add(allSeg);
 
             var favSeg = new SegmentButton("IconFavorite", LocalizationManager.T("Main.Favorites"), "ItemHoverBrush", "ItemSelectedBrush");
+            ToolTip.SetTip(favSeg, LocalizationManager.T("Main.FavoritesTooltip"));
             favSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeFavorites") { Mode = BindingMode.TwoWay });
             panel.Children.Add(favSeg);
 
             var recSeg = new SegmentButton("IconRecent", LocalizationManager.T("Main.Recent"), "ItemHoverBrush", "ItemSelectedBrush");
+            ToolTip.SetTip(recSeg, LocalizationManager.T("Main.RecentTooltip"));
             recSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeRecent") { Mode = BindingMode.TwoWay });
             panel.Children.Add(recSeg);
 
@@ -2659,6 +2667,44 @@ namespace Configuration_Management
         {
             UiMetrics.Compact = compact;
             Content = BuildRoot();
+        }
+
+        /// <summary>
+        /// Пересобирает главное окно при смене языка интерфейса, чтобы названия колонок,
+        /// кнопки правой панели и подсказки (создаваемые через <c>LocalizationManager.T(...)</c>)
+        /// обновились на новый язык сразу, а не после перезапуска. Компактный режим
+        /// (<see cref="UiMetrics.Compact"/>) при этом сохраняется; выделение и прокрутка
+        /// списка восстанавливаются после пересборки содержимого.
+        /// </summary>
+        private void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                RebuildAfterLanguageChange();
+            else
+                Avalonia.Threading.Dispatcher.UIThread.Post(RebuildAfterLanguageChange);
+        }
+
+        private void RebuildAfterLanguageChange()
+        {
+            var selected = (object?)_vm?.SelectedInfobase ?? _vm?.SelectedGroupNode;
+            var offset = TreeScroll?.Offset;
+
+            Content = BuildRoot();
+            Title = LocalizationManager.T("App.Title");
+
+            // Выделение и прокрутка восстанавливаются после того, как новое дерево
+            // построено и разложено (иначе строки ещё не существуют).
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (selected is not null && _tree is not null && !ReferenceEquals(_tree.SelectedItem, selected))
+                {
+                    _tree.SelectionChanged -= OnTreeSelectionChanged;
+                    try { _tree.SelectedItem = selected; }
+                    finally { _tree.SelectionChanged += OnTreeSelectionChanged; }
+                }
+                if (offset is { } off && TreeScroll is { } scroll)
+                    scroll.Offset = off;
+            }, Avalonia.Threading.DispatcherPriority.Background);
         }
 
         /// <summary>Позиция прокрутки списка, снятая перед пересборкой дерева.</summary>
