@@ -1682,10 +1682,26 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public void RemoveMissingFileBases()
     {
-        var missing = _allInfobases.Where(ib => !InfobaseMaintenanceService.FileBaseExists(ib)).ToList();
+        var states = _allInfobases
+            .Select(ib => (Infobase: ib, State: InfobaseMaintenanceService.GetFileBaseState(ib)))
+            .ToList();
+
+        var missing = states
+            .Where(x => x.State == InfobaseMaintenanceService.FileBaseState.Missing)
+            .Select(x => x.Infobase)
+            .ToList();
+
+        // Базы с недоступного диска в удаление не идут: «проверить не удалось»
+        // это не «нет». О них сказано отдельно.
+        var unknown = states.Count(x => x.State == InfobaseMaintenanceService.FileBaseState.Unknown);
+
         if (missing.Count == 0)
         {
-            _dialog.ShowInfo(LocalizationManager.T("Main.MissingNone"),
+            _dialog.ShowInfo(
+                unknown == 0
+                    ? LocalizationManager.T("Main.MissingNone")
+                    : LocalizationManager.T("Main.MissingNone") + "\n\n"
+                      + string.Format(LocalizationManager.T("Main.MissingUnchecked"), unknown),
                 LocalizationManager.T("Main.CheckFileBasesTitle"));
             return;
         }
@@ -1693,28 +1709,34 @@ public class MainViewModel : ViewModelBase
         var preview = string.Join("\n", missing.Take(15).Select(ib => "• " + ib.Name));
         if (missing.Count > 15)
             preview += string.Format(LocalizationManager.T("Main.MissingMore"), missing.Count - 15);
+        if (unknown > 0)
+            preview += "\n\n" + string.Format(LocalizationManager.T("Main.MissingUnchecked"), unknown);
 
         if (!_dialog.Confirm(
                 string.Format(LocalizationManager.T("Main.MissingConfirm"), missing.Count, preview),
                 LocalizationManager.T("Main.RemoveMissingTitle")))
             return;
 
-        foreach (var infobase in missing)
-            _allInfobases.Remove(infobase);
-
-        if (SelectedInfobase is { } selected && !_allInfobases.Contains(selected))
-            SelectedInfobase = null;
-
-        var saved = SaveSilently();
-        RebuildTree();
-        _logger.Info($"Удалено отсутствующих файловых баз: {missing.Count}");
-
-        if (!saved)
+        // Сначала запись, потом замена списка в памяти: при ошибке диска
+        // пользователь остался бы с урезанным списком в окне и полным на диске,
+        // а следующее сохранение записало бы урезанный поверх.
+        var remaining = _allInfobases.Except(missing).ToList();
+        if (!SaveList(remaining))
         {
             _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
                 LocalizationManager.T("Main.RemoveMissingTitle"));
             return;
         }
+
+        _allInfobases.Clear();
+        _allInfobases.AddRange(remaining);
+
+        if (SelectedInfobase is { } selected && !_allInfobases.Contains(selected))
+            SelectedInfobase = null;
+
+        RebuildTree();
+        ExportToIbasesAfterLocalChange();
+        _logger.Info($"Удалено отсутствующих файловых баз: {missing.Count}");
 
         _dialog.ShowInfo(
             string.Format(LocalizationManager.T("Main.MissingRemoved"), missing.Count),
@@ -1724,31 +1746,37 @@ public class MainViewModel : ViewModelBase
     /// <summary>Завершает запущенные процессы платформы 1С.</summary>
     public void KillOneCProcesses()
     {
-        var count = InfobaseMaintenanceService.CountOneCProcesses();
-        if (count == 0)
+        // Один снимок на вопрос и на действие: между ними процессы приходят
+        // и уходят, и завершать пришлось бы не то, что показано.
+        var snapshot = InfobaseMaintenanceService.SnapshotOneCProcesses();
+        if (snapshot.Count == 0)
         {
             _dialog.ShowInfo(LocalizationManager.T("Main.NoProcesses"),
                 LocalizationManager.T("Main.OneCProcessesTitle"));
             return;
         }
 
-        // Разбивка по именам: на Linux сервер 1С часто стоит на той же машине,
-        // и в счёт попадают ragent, rmngr и rphost. Одного числа мало, чтобы
-        // понять, что согласие уронит рабочий кластер.
-        var breakdown = string.Join(", ",
-            InfobaseMaintenanceService.DescribeOneCProcesses().Select(p => $"{p.Name}: {p.Count}"));
-        var question = string.Format(LocalizationManager.T("Main.KillProcessesConfirm"), count);
-        if (breakdown.Length > 0)
-            question += "\n\n" + string.Format(LocalizationManager.T("Main.KillProcessesBreakdown"), breakdown);
+        var breakdown = InfobaseMaintenanceService.DescribeProcesses(snapshot);
+        var question = string.Format(LocalizationManager.T("Main.KillProcessesConfirm"), snapshot.Count);
+        question += "\n\n" + string.Format(LocalizationManager.T("Main.KillProcessesBreakdown"),
+            string.Join(", ", breakdown.Select(p => $"{p.Name}: {p.Count}")));
+
+        // Про остановку кластера предупреждаем только когда серверные процессы
+        // действительно в списке.
+        if (breakdown.Any(p => ServerProcessNames.Contains(p.Name, StringComparer.OrdinalIgnoreCase)))
+            question += " " + LocalizationManager.T("Main.KillProcessesServerNote");
 
         if (!_dialog.Confirm(question, LocalizationManager.T("Main.KillProcessesTitle")))
             return;
 
-        var killed = InfobaseMaintenanceService.KillOneCProcesses();
-        _logger.Info($"Завершено процессов 1С: {killed}");
-        _dialog.ShowInfo(
-            string.Format(LocalizationManager.T("Main.ProcessesKilled"), killed),
-            LocalizationManager.T("Main.OneCProcessesTitle"));
+        var (killed, failed) = InfobaseMaintenanceService.KillOneCProcesses(snapshot);
+        _logger.Info($"Завершено процессов 1С: {killed}, не удалось: {failed}");
+
+        var message = string.Format(LocalizationManager.T("Main.ProcessesKilled"), killed);
+        if (failed > 0)
+            message += "\n" + string.Format(LocalizationManager.T("Main.ProcessesKillFailed"), failed);
+
+        _dialog.ShowInfo(message, LocalizationManager.T("Main.OneCProcessesTitle"));
     }
 
     /// <summary>Очищает список баз и групп целиком. Сами базы на диске не трогает.</summary>
@@ -1766,21 +1794,23 @@ public class MainViewModel : ViewModelBase
                 LocalizationManager.T("Main.ClearAllTitle")))
             return;
 
-        _allInfobases.Clear();
-        _groups.Clear();
-        SelectedInfobase = null;
-
-        var saved = SaveSilently();
-        saved &= SaveGroupsSilently();
-        RebuildTree();
-        _logger.Info("Список баз и групп очищен");
-
-        if (!saved)
+        // Пустые списки пишутся на диск до того, как очищается память:
+        // иначе при отказе записи в окне пусто, а на диске прежнее, и первое
+        // же следующее сохранение затирает уцелевшее.
+        if (!SaveList(new List<Infobase>()) || !SaveGroupList(new List<Group>()))
         {
             _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
                 LocalizationManager.T("Main.ClearAllTitle"));
             return;
         }
+
+        _allInfobases.Clear();
+        _groups.Clear();
+        SelectedInfobase = null;
+
+        RebuildTree();
+        ExportToIbasesAfterLocalChange();
+        _logger.Info("Список баз и групп очищен");
 
         _dialog.ShowInfo(LocalizationManager.T("Main.ClearAllDone"),
             LocalizationManager.T("Main.ClearAllTitle"));
@@ -2035,6 +2065,21 @@ public class MainViewModel : ViewModelBase
             // Шаблон мог прийти из файла настроек, правленного руками.
             return $"{baseName}_{DateTime.Now:yyyyMMdd_HHmmss}{extension}";
         }
+    }
+
+    /// <summary>Процессы кластера серверов: их завершение останавливает сервер.</summary>
+    private static readonly string[] ServerProcessNames = { "ragent", "rmngr", "rphost" };
+
+    private bool SaveList(List<Infobase> infobases)
+    {
+        try { _repository.Save(infobases); return true; }
+        catch (Exception ex) { _logger.Error("Не удалось сохранить список баз", ex); return false; }
+    }
+
+    private bool SaveGroupList(List<Group> groups)
+    {
+        try { _repository.SaveGroups(groups); return true; }
+        catch (Exception ex) { _logger.Error("Не удалось сохранить группы", ex); return false; }
     }
 
     /// <summary>Каталоги шаблонов конфигураций, заданные пользователем.</summary>

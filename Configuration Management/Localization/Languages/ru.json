@@ -1100,7 +1100,10 @@
     "Main.NoProcesses": "Процессы платформы 1С не найдены.",
     "Main.OneCProcessesTitle": "Процессы 1С",
     "Main.KillProcessesConfirm": "Будет завершено процессов 1С: примерно {0}.\n\nНесохранённые данные в открытых сеансах могут быть потеряны.\nПродолжить?",
-    "Main.KillProcessesBreakdown": "Найдено: {0}. Процессы ragent, rmngr и rphost относятся к серверу 1С, их завершение остановит кластер.",
+    "Main.MissingUnchecked": "Ещё {0} баз проверить не удалось: каталог недоступен. Они оставлены в списке.",
+    "Main.ProcessesKillFailed": "Не удалось завершить: {0}. Обычно это процессы другого пользователя, например сервера 1С.",
+    "Main.KillProcessesServerNote": "Процессы ragent, rmngr и rphost относятся к серверу 1С, их завершение остановит кластер.",
+    "Main.KillProcessesBreakdown": "Найдено: {0}.",
     "Main.KillProcessesTitle": "Завершение процессов 1С",
     "Main.ProcessesKilled": "Завершено процессов: {0}.",
 

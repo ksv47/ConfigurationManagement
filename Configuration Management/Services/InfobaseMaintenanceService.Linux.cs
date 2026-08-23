@@ -14,11 +14,6 @@ namespace Configuration_Management.Services
     /// </summary>
     public static class InfobaseMaintenanceService
     {
-        private static readonly string[] OneCProcessNames =
-        {
-            "1cv8", "1cv8c", "1cv8s", "1cv8a", "ragent", "rmngr", "rphost"
-        };
-
         /// <summary>
         /// Открывает каталог файловой базы в файловом менеджере. Если путь указывает
         /// на файл 1Cv8.1CD (или каталог базы содержит его) — файл выделяется
@@ -150,6 +145,64 @@ namespace Configuration_Management.Services
             catch
             {
                 return false;
+            }
+        }
+
+        /// <summary>Что известно о файле базы на диске.</summary>
+        public enum FileBaseState
+        {
+            /// <summary>База на месте.</summary>
+            Exists,
+
+            /// <summary>Ни каталога, ни файла базы нет.</summary>
+            Missing,
+
+            /// <summary>Проверить не удалось: нет прав, ресурс недоступен.</summary>
+            Unknown
+        }
+
+        /// <summary>
+        /// Состояние файловой базы. Отдельный ответ для «проверить не удалось»
+        /// нужен потому, что Directory.Exists возвращает ложь и при отказе
+        /// в доступе, и при отвалившемся сетевом ресурсе: без этого базы
+        /// с недоступного диска попадали бы в список на удаление.
+        /// </summary>
+        public static FileBaseState GetFileBaseState(Infobase ib)
+        {
+            if (ib.Connection.Type != ConnectionType.File)
+                return FileBaseState.Exists;
+
+            var path = ib.Connection.FilePath?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(path))
+                return FileBaseState.Missing;
+
+            try
+            {
+                if (File.Exists(path))
+                    return FileBaseState.Exists;
+
+                if (!Directory.Exists(path))
+                {
+                    // Родительский каталог недоступен: сказать «базы нет» нельзя.
+                    var parent = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(parent) && !Directory.Exists(parent))
+                        return FileBaseState.Unknown;
+
+                    return FileBaseState.Missing;
+                }
+
+                // Имена файлов на Linux регистрозависимы, поэтому маска
+                // сравнивается своими силами, а не через EnumerateFiles.
+                var found = Directory
+                    .EnumerateFiles(path, "*", SearchOption.TopDirectoryOnly)
+                    .Any(f => string.Equals(Path.GetFileName(f), "1Cv8.1CD", StringComparison.OrdinalIgnoreCase));
+
+                return found ? FileBaseState.Exists : FileBaseState.Missing;
+            }
+            catch (Exception)
+            {
+                // Нет прав на чтение каталога, ресурс исчез посреди проверки.
+                return FileBaseState.Unknown;
             }
         }
 
@@ -378,27 +431,34 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>Завершает процессы платформы 1С. Возвращает число завершённых.</summary>
-        public static int KillOneCProcesses()
-        {
-            // Один источник на подсчёт и на завершение: перечисление /proc.
-            // Прежде тот же список ещё раз обходился через GetProcessesByName,
-            // и процессы считались дважды.
-            return LinuxProc.KillAllOneC();
-        }
+        /// <summary>Запущенный процесс платформы: то, что нужно окну и завершению.</summary>
+        public readonly record struct OneCProcessInfo(int Pid, string Name);
+
+        /// <summary>Снимок запущенных процессов платформы.</summary>
+        public static IReadOnlyList<OneCProcessInfo> SnapshotOneCProcesses() =>
+            LinuxProc.Enumerate1C().Select(p => new OneCProcessInfo(p.Pid, p.Name)).ToList();
 
         /// <summary>
-        /// Сколько процессов найдено по каждому имени. На Linux сервер 1С обычно
-        /// живёт на той же машине, и в список попадают ragent, rmngr и rphost:
-        /// пользователю нужно видеть это до того, как он согласится их закрыть.
+        /// Завершает процессы из снимка. Работа идёт по снимку, показанному
+        /// пользователю: иначе между вопросом и действием множество процессов
+        /// успевает измениться.
         /// </summary>
-        public static IReadOnlyList<(string Name, int Count)> DescribeOneCProcesses() =>
-            LinuxProc.Enumerate1C()
-                .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(g => (Name: g.Key, Count: g.Select(x => x.Pid).Distinct().Count()))
-                .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+        public static (int Killed, int Failed) KillOneCProcesses(IEnumerable<OneCProcessInfo> snapshot) =>
+            LinuxProc.KillOneC(snapshot.Select(p => p.Pid));
+
+        public static int KillOneCProcesses() => KillOneCProcesses(SnapshotOneCProcesses()).Killed;
+
 
         public static int CountOneCProcesses() => LinuxProc.CountOneC();
+
+        /// <summary>Разбивка снимка по именам процессов.</summary>
+        public static IReadOnlyList<(string Name, int Count)> DescribeProcesses(
+            IEnumerable<OneCProcessInfo> snapshot) =>
+            snapshot
+                .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => (Name: g.Key, Count: g.Select(p => p.Pid).Distinct().Count()))
+                .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
         /// <summary>Имя маркера блокировки файловой базы в её каталоге.</summary>
         public const string BlockMarkerFileName = "1Cv8.blocked";
