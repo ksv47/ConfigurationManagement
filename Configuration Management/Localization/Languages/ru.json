@@ -251,6 +251,7 @@
     "Settings.Platforms.RefreshTooltip": "Обновить список установленных версий платформы (стандартные и дополнительные пути)",
     "Settings.AdditionalPaths.Hint": "Укажите папки, в которых установлены платформы 1С вне стандартных каталогов Program Files. Можно указать корень установки, каталог 1cv8 или папку конкретной версии.",
     "Settings.AdditionalPaths.HintLinux": "Укажите каталоги, где установлена платформа 1С помимо стандартных (/opt/1cv8, /usr/local/1cv8, ~/.1cv8). Можно указать корень установки, каталог с версиями или папку конкретной версии.",
+    "Settings.Bases.TemplateDirsHintLinux": "Как в стартере 1С. Пустой список — пути из настроек 1С и стандартный каталог tmplts (~/.local/share/1C/1cv8/tmplts).",
     "Settings.AdditionalPaths.ListTooltip": "Дополнительные каталоги для поиска версий платформы",
     "Settings.AdditionalPaths.Add": "Добавить папку",
     "Settings.AdditionalPaths.AddTooltip": "Добавить папку для поиска платформы 1С",
