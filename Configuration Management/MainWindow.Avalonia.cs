@@ -1180,11 +1180,30 @@ namespace Configuration_Management
             panel.Children.Add(hintBlock);
 
             // Основное действие (primary) — крупная акцентная кнопка вверху.
-            panel.Children.Add(PrimaryActionButton("IconPlay", LocalizationManager.T("Main.LaunchEnterprise"), "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
+            panel.Children.Add(BuildLaunchSplitButton(
+                "IconPlay",
+                LocalizationManager.T("Main.LaunchEnterprise"),
+                "LaunchEnterpriseCommand",
+                LocalizationManager.T("Main.LaunchEnterpriseTooltip"),
+                primary: true,
+                new[]
+                {
+                    (LocalizationManager.T("Main.LaunchWithParams"), "LaunchEnterpriseWithParamsCommand"),
+                    (LocalizationManager.T("Main.LaunchWithAuth"), "LaunchEnterpriseWithAuthCommand")
+                }));
 
             // Секции secondary-действий, сгруппированные по смыслу.
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionConfigurator"), "IconConfiguration",
-                SecondaryActionButton("IconWrench", LocalizationManager.T("Main.LaunchConfiguratorSection"), "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip"))));
+                BuildLaunchSplitButton(
+                    "IconWrench",
+                    LocalizationManager.T("Main.LaunchConfiguratorSection"),
+                    "LaunchConfiguratorCommand",
+                    LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip"),
+                    primary: false,
+                    new[]
+                    {
+                        (LocalizationManager.T("Main.LaunchWithParams"), "LaunchConfiguratorWithParamsCommand")
+                    })));
 
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionMaintenance"), "IconWrench",
                 BuildClearCacheSplitButton(),
@@ -1445,6 +1464,84 @@ namespace Configuration_Management
             arrow.Click += (_, _) => menu.Open(arrow);
 
             // Объединяем обе части в один визуально цельный контрол.
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Grid.SetColumn(main, 0);
+            Grid.SetColumn(arrow, 1);
+            grid.Children.Add(main);
+            grid.Children.Add(arrow);
+            return grid;
+        }
+
+        /// <summary>
+        /// Кнопка запуска со стрелкой и меню дополнительных вариантов, как
+        /// в WPF-версии. Пункт «от имени администратора» не переносится:
+        /// на Linux нет повышения прав через оболочку, параметр runAsAdmin
+        /// в лаунчере не используется, а запуск клиента 1С от root оставил бы
+        /// в домашнем каталоге пользователя файлы, которые ему не принадлежат.
+        /// </summary>
+        private static Control BuildLaunchSplitButton(
+            string iconKey,
+            string text,
+            string commandPath,
+            string tooltip,
+            bool primary,
+            IReadOnlyList<(string Header, string Command)> menuItems)
+        {
+            var radius = UiMetrics.RadiusLg;
+            var mainCorner = new CornerRadius(radius, 0, 0, radius);
+
+            var main = primary
+                ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", mainCorner)
+                : new PanelButton("SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush",
+                    "SecondaryButtonPressedBrush", "BorderColorBrush", mainCorner);
+
+            var contentBrush = primary ? "TextOnAccentBrush" : "ButtonTextBrush";
+            main.Content = ThemedIconAndText(iconKey, text, contentBrush, UiMetrics.Scaled(primary ? 18 : 16), centered: primary);
+            main.HorizontalContentAlignment = primary ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+            main.HorizontalAlignment = HorizontalAlignment.Stretch;
+            main.Margin = new Thickness(0, 0, 0, primary ? UiMetrics.SectionMarginBottom : 2);
+            main.Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV);
+            ToolTip.SetTip(main, tooltip);
+            main.Bind(Button.CommandProperty, new Binding(commandPath));
+
+            var menu = new ContextMenu();
+            foreach (var (header, command) in menuItems)
+            {
+                if (header.Length == 0)
+                {
+                    menu.Items.Add(new Separator());
+                    continue;
+                }
+
+                var item = new MenuItem { Header = header };
+                item.Bind(MenuItem.CommandProperty, new Binding(command));
+                menu.Items.Add(item);
+            }
+
+            var arrowCorner = new CornerRadius(0, radius, radius, 0);
+            var arrow = primary
+                ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", arrowCorner)
+                : new PanelButton("SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush",
+                    "SecondaryButtonPressedBrush", "BorderColorBrush", arrowCorner);
+            arrow.Width = 36;
+            arrow.Padding = new Thickness(0);
+            arrow.Margin = main.Margin;
+
+            var arrowGlyph = new TextBlock
+            {
+                Text = "▾",
+                FontSize = UiMetrics.Scaled(14),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            ThemeBrushes.Bind(arrowGlyph, TextBlock.ForegroundProperty, contentBrush);
+            arrow.Content = arrowGlyph;
+            ToolTip.SetTip(arrow, tooltip);
+            arrow.ContextMenu = menu;
+            arrow.Click += (_, _) => menu.Open(arrow);
+
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));

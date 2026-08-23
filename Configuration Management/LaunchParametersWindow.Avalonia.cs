@@ -52,6 +52,11 @@ namespace Configuration_Management
         private Control BuildRoot()
         {
             var grid = new Grid { Margin = new Thickness(16) };
+            // Шесть строк по числу элементов: заголовок, подсказка, поле ввода,
+            // подпись справочника, сам справочник и кнопки. Строк было пять,
+            // поэтому кнопки уезжали за нижний край окна, а тянулась по высоте
+            // подпись, а не список.
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
