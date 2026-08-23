@@ -164,7 +164,7 @@ namespace Configuration_Management
             LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         }
 
-        private void OnLanguageChanged(object? sender, EventArgs e)
+        protected virtual void OnLanguageChanged(object? sender, EventArgs e)
         {
             if (_lastCancelText is not null)
                 _lastCancelText.Text = LocalizationManager.T("Common.Cancel");
