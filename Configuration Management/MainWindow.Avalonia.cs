@@ -58,7 +58,9 @@ namespace Configuration_Management
         private const double WheelScrollStep = 50;
 
         private ScrollBar? _listVerticalBar;
+        private ScrollViewer? _listScroll;
         private ScrollViewer? _boundTreeScroll;
+        private ScrollBar? _boundScrollBar;
         private readonly List<IDisposable> _scrollBarLinks = new();
         private bool _syncingScrollBar;
         private bool _columnHeaderRefreshQueued;
@@ -530,6 +532,7 @@ namespace Configuration_Management
                 VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Content = _listContent
             };
+            _listScroll = listArea;
 
             // Вертикальная полоса вынесена из области горизонтальной прокрутки
             // и стоит отдельным столбцом справа. Собственная полоса дерева
@@ -548,26 +551,49 @@ namespace Configuration_Management
                 Visibility = ScrollBarVisibility.Auto,
                 Minimum = 0,
                 Maximum = 0,
-                ViewportSize = 0,
-                HorizontalAlignment = HorizontalAlignment.Right
+                ViewportSize = 0
             };
             // Полоса не входит в шаблон ScrollViewer, поэтому колесо над ней
-            // некому переадресовать. Шаг взят из ScrollContentPresenter платформы.
+            // некому переадресовать. Шаг и разбор осей взяты из
+            // ScrollContentPresenter платформы: с Shift вертикальная дельта
+            // становится горизонтальной, и в версии для Windows сделано так же.
+            // Вертикаль ведёт прокрутка дерева, горизонталь общая с шапкой.
             _listVerticalBar.PointerWheelChanged += (_, e) =>
             {
-                if (TreeScroll is not { } scroll)
-                    return;
-                var hidden = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
-                if (hidden <= 0)
-                    return;
-                scroll.Offset = scroll.Offset.WithY(
-                    Math.Clamp(scroll.Offset.Y - e.Delta.Y * WheelScrollStep, 0, hidden));
-                e.Handled = true;
+                var delta = e.Delta;
+                if (e.KeyModifiers == KeyModifiers.Shift && delta.X == 0)
+                    delta = new Vector(delta.Y, delta.X);
+
+                var handled = false;
+                if (delta.Y != 0 && TreeScroll is { } vertical)
+                {
+                    var hidden = Math.Max(0, vertical.Extent.Height - vertical.Viewport.Height);
+                    if (hidden > 0)
+                    {
+                        vertical.Offset = vertical.Offset.WithY(
+                            Math.Clamp(vertical.Offset.Y - delta.Y * WheelScrollStep, 0, hidden));
+                        handled = true;
+                    }
+                }
+
+                if (delta.X != 0 && _listScroll is { } horizontal)
+                {
+                    var hidden = Math.Max(0, horizontal.Extent.Width - horizontal.Viewport.Width);
+                    if (hidden > 0)
+                    {
+                        horizontal.Offset = horizontal.Offset.WithX(
+                            Math.Clamp(horizontal.Offset.X - delta.X * WheelScrollStep, 0, hidden));
+                        handled = true;
+                    }
+                }
+
+                e.Handled = handled;
             };
             // Прокручиваются только строки, поэтому полоса начинается под шапкой
             // колонок. Высота шапки меняется вместе с компактным режимом и темой.
+            var verticalBar = _listVerticalBar;
             columnHeader.GetObservable(Visual.BoundsProperty).Subscribe(new PropertyObserver<Rect>(bounds =>
-                _listVerticalBar.Margin = new Thickness(0, bounds.Height, 0, 0)));
+                verticalBar.Margin = new Thickness(0, bounds.Height, 0, 0)));
             _listVerticalBar.GetObservable(RangeBase.ValueProperty).Subscribe(new PropertyObserver<double>(value =>
             {
                 // Флаг разводит два направления: пользователь тянет полосу,
@@ -579,11 +605,16 @@ namespace Configuration_Management
                 finally { _syncingScrollBar = false; }
             }));
 
-            // Полоса лежит поверх правого края области. Отдельным столбцом её
-            // держать нельзя: в покое она узкая, при наведении расширяется,
-            // и столбец с шириной Auto каждый раз раздвигал бы список. Штатные
-            // полосы Avalonia рисуются поверх содержимого по той же причине.
+            // Полоса занимает свой столбец, как в версии для Windows. Ширина
+            // ей задана темой и при наведении не меняется, поэтому список от неё
+            // не дёргается, а пока прокручивать нечего, полоса скрыта и столбец
+            // пуст. Поверх списка её класть нельзя: она забирала бы клики,
+            // контекстное меню и перетаскивание по правой кромке строк.
             var listWithBar = new Grid();
+            listWithBar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            listWithBar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Grid.SetColumn(listArea, 0);
+            Grid.SetColumn(_listVerticalBar, 1);
             listWithBar.Children.Add(listArea);
             listWithBar.Children.Add(_listVerticalBar);
 
@@ -2846,13 +2877,14 @@ namespace Configuration_Management
             // полоса остаётся подписанной на выброшенный ScrollViewer.
             if (_listVerticalBar is not { } bar || TreeScroll is not { } scroll)
                 return;
-            if (ReferenceEquals(_boundTreeScroll, scroll))
+            if (ReferenceEquals(_boundTreeScroll, scroll) && ReferenceEquals(_boundScrollBar, bar))
                 return;
 
             foreach (var link in _scrollBarLinks)
                 link.Dispose();
             _scrollBarLinks.Clear();
             _boundTreeScroll = scroll;
+            _boundScrollBar = bar;
 
             void Sync()
             {
