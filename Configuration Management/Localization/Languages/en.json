@@ -355,6 +355,10 @@
     "Settings.General.ShowTrayIcon": "Icon in the notification area",
     "Settings.General.CloseToTray": "Minimize to tray on close",
     "Settings.General.EscapeToTray": "Minimize to tray on Esc",
+    "Settings.General.AfterLaunchAction": "After launching a base or Designer",
+    "Settings.General.AfterLaunchAction.None": "Do nothing",
+    "Settings.General.AfterLaunchAction.MinimizeToTray": "Minimize the window",
+    "Settings.General.AfterLaunchAction.Close": "Hide the window to tray",
     "Settings.General.RememberWindowLayout": "Remember window position, size and monitor",
 
     "Settings.Ibases.Description": "Synchronization of the application with the standard 1C base list file (ibases.v8i).",
