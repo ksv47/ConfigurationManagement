@@ -54,6 +54,7 @@ namespace Configuration_Management
         private ColumnDefinition? _headerOffsetColumn;
         private Control? _headerPinMark;
         private double _headerToolbarWidth;
+        private StackPanel? _groupToolbar;
         private Grid? _listContent;
         /// <summary>Шаг прокрутки колесом, как у штатного ScrollContentPresenter.</summary>
         private const double WheelScrollStep = 50;
@@ -2026,6 +2027,16 @@ namespace Configuration_Management
         private static double GroupToolbarWidth => ToolbarButtonWidth * 4 + 6 + UiMetrics.Scaled(6);
 
         /// <summary>
+        /// Расчётная ширина переключателя тегов: он сделан сегментной кнопкой
+        /// с горизонтальным отступом 12 и иконкой 15, то есть заметно шире
+        /// обычной кнопки панели.
+        /// </summary>
+        private const double TagsToggleWidth = 12 * 2 + 15;
+
+        /// <summary>Зазор между блоком кнопок и подписью «Название».</summary>
+        private const double HeaderToolbarGap = 2;
+
+        /// <summary>
         /// Номер колонки заголовка с именем базы: компенсатор отступа дерева,
         /// звезда, булавка, иконка.
         /// </summary>
@@ -2147,9 +2158,12 @@ namespace Configuration_Management
             _columnHeaderRow.ColumnDefinitions.Clear();
 
             var columns = ListColumns();
-            // Ширина блока кнопок: четыре кнопки групп при группировке плюс
-            // переключатель тегов, который показывается всегда.
-            _headerToolbarWidth = (_vm.ShowExpandCollapseButtons ? GroupToolbarWidth : 0) + ToolbarButtonWidth + 2;
+            // Ширина блока кнопок нужна, чтобы подпись «Название» встала правее
+            // него. Здесь она только расчётная: панель ещё не создана, а Bounds
+            // прежней панели относятся к прежнему составу кнопок. Измеренную
+            // ширину подставляет AlignHeaderToRows, когда панель разложена.
+            _headerToolbarWidth = (_vm.ShowExpandCollapseButtons ? GroupToolbarWidth : 0)
+                + TagsToggleWidth + HeaderToolbarGap;
             var favoriteWidth = _vm.ShowFavoritesButton ? FavoriteColumnWidth : 0;
             var pinWidth = _vm.ShowPinnedButton ? PinColumnWidth : 0;
 
@@ -2215,6 +2229,25 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Измеренная ширина блока кнопок; null, пока он не разложен.
+        /// Панель зажата в узкие колонки заголовка, поэтому её собственный
+        /// Bounds обрезан по ним, а кнопки рисуются дальше: ширину берём
+        /// по самому правому краю содержимого.
+        /// </summary>
+        private double? MeasuredToolbarWidth
+        {
+            get
+            {
+                if (_groupToolbar is null)
+                    return null;
+                var right = 0d;
+                foreach (var child in _groupToolbar.Children)
+                    right = Math.Max(right, child.Bounds.Right);
+                return right > 0 ? right : null;
+            }
+        }
+
+        /// <summary>
         /// Блок кнопок над списком: развернуть и свернуть все группы и две
         /// сортировки групп (только при группировке), а также переключатель
         /// тегов в строках, который нужен всегда.
@@ -2241,7 +2274,14 @@ namespace Configuration_Management
                     LocalizationManager.T("Main.SortGroupsDescending"), "SortGroupsDescendingCommand"));
             }
 
-            panel.Children.Add(BuildTagsInListToggle());
+            var tagsToggle = BuildTagsInListToggle();
+            panel.Children.Add(tagsToggle);
+            tagsToggle.GetObservable(Visual.BoundsProperty).Subscribe(new PropertyObserver<Rect>(_ => QueueHeaderAlign()));
+
+            _groupToolbar = panel;
+            // Ширина известна только после раскладки, а подпись выравнивается
+            // по ней: пересчитываем, когда блок получил размер.
+            panel.GetObservable(Visual.BoundsProperty).Subscribe(new PropertyObserver<Rect>(_ => QueueHeaderAlign()));
             return panel;
         }
 
@@ -2714,15 +2754,29 @@ namespace Configuration_Management
                 if (left is null || origin.Value.X < left.Value)
                     left = origin.Value.X;
             }
-            if (left is null)
-                return;
+            // Строк может не быть вовсе: список пуст, всё отобрано фильтром
+            // или группы свёрнуты. Выходить нельзя, иначе подпись «Название»
+            // остаётся под блоком кнопок и он её перекрывает.
 
             // Пустые колонки звезды, булавки и иконки заголовка кнопки перекрывают,
             // а на подпись «Название» налезать не должны, отсюда нижняя граница.
             var lead = _columnHeaderRow.ColumnDefinitions[1].ActualWidth
                 + _columnHeaderRow.ColumnDefinitions[2].ActualWidth
                 + _columnHeaderRow.ColumnDefinitions[3].ActualWidth;
-            var offset = Math.Max(Math.Max(0, _headerToolbarWidth - lead), left.Value);
+            // Измеренная ширина точнее расчётной, и она же нужна минимуму
+            // области списка: там расчёт по константам оставил бы пустоту
+            // или лишнюю прокрутку.
+            if (MeasuredToolbarWidth is { } measured)
+            {
+                var target = measured + HeaderToolbarGap;
+                if (Math.Abs(target - _headerToolbarWidth) > 0.5)
+                {
+                    _headerToolbarWidth = target;
+                    UpdateListMinWidth();
+                }
+            }
+
+            var offset = Math.Max(Math.Max(0, _headerToolbarWidth - lead), left ?? 0);
             if (Math.Abs(offset - _headerOffsetColumn.Width.Value) > 0.5)
                 _headerOffsetColumn.Width = new GridLength(offset);
 
