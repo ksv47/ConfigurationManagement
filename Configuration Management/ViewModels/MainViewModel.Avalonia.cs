@@ -912,9 +912,12 @@ public class MainViewModel : ViewModelBase
         RebuildTagFilters();
         ApplyFilter();
 
-        if (selectedGroupId is not null || selectedKey is not null)
+        // Пустой идентификатор группы штатно возможен (значение по умолчанию
+        // в модели), и сравнение по нему совпало бы с первой попавшейся группой.
+        var hasGroupId = !string.IsNullOrEmpty(selectedGroupId);
+        if (hasGroupId || selectedKey is not null)
             SelectedGroupNode = FindNode(node =>
-                selectedGroupId is not null
+                hasGroupId
                 && string.Equals(node.Group?.Id, selectedGroupId, StringComparison.OrdinalIgnoreCase))
                 ?? (selectedKey is null ? null : FindNode(node =>
                     string.Equals(node.NodeKey, selectedKey, StringComparison.OrdinalIgnoreCase)));
@@ -1085,6 +1088,12 @@ public class MainViewModel : ViewModelBase
                     GroupNodes.Add(root);
             }
         }
+
+        // Выбранный узел мог исчезнуть из дерева: поиск и отключение группировки
+        // подменяют его плоским списком. Иначе правая панель продолжила бы
+        // показывать группу, которой в дереве уже нет.
+        if (SelectedGroupNode is { } selected && FindNode(node => ReferenceEquals(node, selected)) is null)
+            SelectedGroupNode = null;
     }
 
     private bool MatchesFilter(Infobase ib)
