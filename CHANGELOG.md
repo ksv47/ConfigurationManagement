@@ -5,6 +5,35 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.27] — 2026-08-23
+
+### Слияние исправлений от ksv47
+
+- **Влит PR #54 «Linux/Avalonia: доведение до сборки, запуска и работы с платформой 1С»** (ветка `ksv47/linux-fixes`). Все изменения этого PR **выполнены автором ksv47**. Это крупный объём работ по доведению Linux/Avalonia-версии приложения до полноценной сборки, запуска и работы с платформой 1С:Предприятие. По функциональным направлениям:
+  - **Запуск и работа с платформой 1С**: поиск платформы на штатной раскладке установки 1С, корректные пути к данным 1С и каталогам (`binDir`, корень кеша), читаемость тёмной темы, определение окружения рабочего стола (Linux), корректная работа файловых менеджеров.
+  - **Список баз как таблица с колонками**: сортировка кликом по заголовкам, изменение ширины колонок перетаскиванием разделителя, панель инструментов над списком.
+  - **Теги и дерево**: панель отбора по тегам, теги в строке базы и переключатель их показа, состояние дерева, сортировка групп и порядок узлов, сохранение свёрнутости только для групп и служебных узлов.
+  - **Сессия, контекстное меню и действия**: блок текущей сессии и полные сведения о подключении, контекстное меню строки, горячие клавиши и их переназначение, удаление базы и группы, переход по ссылке.
+  - **Настройки**: вкладки «Отображение», «Платформы», «Базы» и автосинхронизация с `ibases.v8i`, редактор цветовых схем.
+  - **Качество**: устранены утечки подписок содержимого, двойная пересборка, синхронные диалоги больше не вешают интерфейс, корректный выход на старте.
+  - Детальные описания конкретных правок Linux/Avalonia-версии уже зафиксированы в записях **0.3.3.12–0.3.3.24** ниже; настоящая запись оформляет само слияние PR #54 и фиксирует авторство.
+- **Авторство изменений:** все правки, вошедшие в этот merge, выполнены **ksv47** ([`PR #54`](https://github.com/ksv47)) — см. также раздел «Благодарности» в [`README.md`](README.md).
+- **Версия обновлена до 0.3.3.27** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.27 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.27.
+
+## [0.3.3.26] — 2026-08-23
+
+### Добавлено
+
+- **Глобальная настройка «После запуска базы или конфигуратора»** (обе платформы) — определяет, что делать с окном приложения сразу после успешного запуска информационной базы или конфигуратора 1С: **«Ничего»** (по умолчанию, окно остаётся как было), **«Свернуть в трей»** или **«Закрыть (уйти в трей)»**. Настройка расположена в **Настройки → Настройки** и хранится в [`AppSettings`](Configuration Management/Models/AppSettings.cs) (`AfterLaunchAction`, новые ключи локализации `Settings.General.AfterLaunchAction*` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json)). Реализовано для Windows (WPF) через событие `AfterLaunchRequested` ([`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs), [`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml)) и для Linux (Avalonia) ([`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs), [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs), [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs)). Уведомление выполняется после успешного запуска из главного окна, по горячей клавише избранного и из меню трея; «Свернуть в трей» сворачивает окно, «Закрыть» уводит его в трей, не завершая приложение.
+- **Версия обновлена до 0.3.3.26** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.26 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.26.
+
+## [0.3.3.25] — 2026-08-22
+
+### Изменено
+
+- **Исправлено сброс цветового оформления на дефолтные при переключении светлой/тёмной темы** — выбранная пользовательская цветовая схема больше не затирается встроенной ([`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs), [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs), [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs)). Ранее переключение темы (кнопка на верхней панели и радиокнопки Светлая/Тёмная в настройках) применяло встроенную схему по умолчанию, полностью теряя кастомизированные цвета; в WPF-версии это дополнительно безвозвратно заменяло сохранённую активную схему. Теперь переключается только базовый вариант (светлый/тёмный): если для целевой темы есть сохранённая схема — применяется она, иначе применяются встроенные цвета, а сохранённая схема остаётся нетронутой и восстанавливается при возврате к её базовой теме.
+- **Версия обновлена до 0.3.3.25** (`Version`/`AssemblyVersion`/`FileVersion` = 0.3.3, `InformationalVersion` = 0.3.3.25 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены до 0.3.3.25.
+
 ## [0.3.3.24] — 2026-08-22
 
 ### Изменено
