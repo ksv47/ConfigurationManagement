@@ -1700,8 +1700,7 @@ public class MainViewModel : ViewModelBase
             _dialog.ShowInfo(
                 unknown == 0
                     ? LocalizationManager.T("Main.MissingNone")
-                    : LocalizationManager.T("Main.MissingNone") + "\n\n"
-                      + string.Format(LocalizationManager.T("Main.MissingUnchecked"), unknown),
+                    : string.Format(LocalizationManager.T("Main.MissingOnlyUnchecked"), unknown),
                 LocalizationManager.T("Main.CheckFileBasesTitle"));
             return;
         }
@@ -1720,7 +1719,8 @@ public class MainViewModel : ViewModelBase
         // Сначала запись, потом замена списка в памяти: при ошибке диска
         // пользователь остался бы с урезанным списком в окне и полным на диске,
         // а следующее сохранение записало бы урезанный поверх.
-        var remaining = _allInfobases.Except(missing).ToList();
+        var removing = new HashSet<Infobase>(missing, ReferenceEqualityComparer.Instance as IEqualityComparer<Infobase>);
+        var remaining = _allInfobases.Where(ib => !removing.Contains(ib)).ToList();
         if (!SaveList(remaining))
         {
             _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
@@ -1735,7 +1735,6 @@ public class MainViewModel : ViewModelBase
             SelectedInfobase = null;
 
         RebuildTree();
-        ExportToIbasesAfterLocalChange();
         _logger.Info($"Удалено отсутствующих файловых баз: {missing.Count}");
 
         _dialog.ShowInfo(
@@ -1796,9 +1795,20 @@ public class MainViewModel : ViewModelBase
 
         // Пустые списки пишутся на диск до того, как очищается память:
         // иначе при отказе записи в окне пусто, а на диске прежнее, и первое
-        // же следующее сохранение затирает уцелевшее.
-        if (!SaveList(new List<Infobase>()) || !SaveGroupList(new List<Group>()))
+        // же следующее сохранение затирает уцелевшее. Файла два, поэтому при
+        // отказе на втором первый возвращается обратно: иначе на диске
+        // оставался бы пустой список баз при живых группах.
+        var previousInfobases = _allInfobases.ToList();
+        if (!SaveList(new List<Infobase>()))
         {
+            _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
+                LocalizationManager.T("Main.ClearAllTitle"));
+            return;
+        }
+
+        if (!SaveGroupList(new List<Group>()))
+        {
+            SaveList(previousInfobases);
             _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
                 LocalizationManager.T("Main.ClearAllTitle"));
             return;
@@ -1808,8 +1818,10 @@ public class MainViewModel : ViewModelBase
         _groups.Clear();
         SelectedInfobase = null;
 
+        // Выгрузка в ibases.v8i намеренно не вызывается, как и в версии
+        // для Windows: экспорт убирает из файла записи, которых нет
+        // в приложении, и очистка списка вынесла бы пусковой список платформы.
         RebuildTree();
-        ExportToIbasesAfterLocalChange();
         _logger.Info("Список баз и групп очищен");
 
         _dialog.ShowInfo(LocalizationManager.T("Main.ClearAllDone"),
@@ -2289,11 +2301,7 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>Сохраняет группы, возвращая признак успеха: ошибка идёт в журнал.</summary>
-    private bool SaveGroupsSilently()
-    {
-        try { _repository.SaveGroups(_groups); return true; }
-        catch (Exception ex) { _logger.Error("Не удалось сохранить группы", ex); return false; }
-    }
+    private bool SaveGroupsSilently() => SaveGroupList(_groups);
 
     /// <summary>Главное окно как владелец модального диалога.</summary>
     private static Avalonia.Controls.Window? OwnerWindow() =>
@@ -3130,11 +3138,7 @@ public class MainViewModel : ViewModelBase
     // ======================= Сохранение =======================
 
     /// <summary>Сохраняет список баз, возвращая признак успеха: ошибка идёт в журнал.</summary>
-    private bool SaveSilently()
-    {
-        try { _repository.Save(_allInfobases); return true; }
-        catch (Exception ex) { _logger.Error("Не удалось сохранить список баз", ex); return false; }
-    }
+    private bool SaveSilently() => SaveList(_allInfobases);
 
     private void SaveSettingsSilently()
     {

@@ -183,10 +183,25 @@ namespace Configuration_Management.Services
 
                 if (!Directory.Exists(path))
                 {
-                    // Родительский каталог недоступен: сказать «базы нет» нельзя.
-                    var parent = Path.GetDirectoryName(path);
-                    if (!string.IsNullOrEmpty(parent) && !Directory.Exists(parent))
+                    // Directory.Exists отвечает ложью и когда каталога нет,
+                    // и когда его не прочитать. Различает только запрос
+                    // атрибутов: он бросает разные исключения.
+                    try
+                    {
+                        File.GetAttributes(path);
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        return FileBaseState.Missing;
+                    }
+                    catch (DirectoryNotFoundException)
+                    {
+                        return FileBaseState.Missing;
+                    }
+                    catch (Exception)
+                    {
                         return FileBaseState.Unknown;
+                    }
 
                     return FileBaseState.Missing;
                 }
@@ -206,26 +221,8 @@ namespace Configuration_Management.Services
             }
         }
 
-        /// <summary>Проверяет, существует ли файловая база (каталог или 1Cv8.1CD).</summary>
-        public static bool FileBaseExists(Infobase ib)
-        {
-            if (ib.Connection.Type != ConnectionType.File)
-                return true;
-
-            var path = ib.Connection.FilePath?.Trim() ?? string.Empty;
-            if (string.IsNullOrEmpty(path))
-                return false;
-
-            if (File.Exists(path))
-                return true;
-            if (Directory.Exists(path))
-            {
-                if (File.Exists(Path.Combine(path, "1Cv8.1CD")))
-                    return true;
-                return Directory.EnumerateFiles(path, "1Cv8.1CD", SearchOption.TopDirectoryOnly).Any();
-            }
-            return false;
-        }
+        /// <summary>Существует ли файловая база. «Проверить не удалось» считается существованием.</summary>
+        public static bool FileBaseExists(Infobase ib) => GetFileBaseState(ib) != FileBaseState.Missing;
 
         /// <summary>Каталог файловой базы (родитель 1Cv8.1CD или сам путь-каталог).</summary>
         public static string? GetFileBaseDirectory(Infobase ib)
@@ -431,12 +428,18 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>Завершает процессы платформы 1С. Возвращает число завершённых.</summary>
-        /// <summary>Запущенный процесс платформы: то, что нужно окну и завершению.</summary>
-        public readonly record struct OneCProcessInfo(int Pid, string Name);
+        /// <summary>
+        /// Запущенный процесс платформы. Время старта хранится вместе с номером:
+        /// номер ядро переиспользует, и без сверки можно завершить чужой процесс,
+        /// занявший номер, пока открыт вопрос пользователю.
+        /// </summary>
+        public readonly record struct OneCProcessInfo(int Pid, string Name, string? StartTime);
 
         /// <summary>Снимок запущенных процессов платформы.</summary>
         public static IReadOnlyList<OneCProcessInfo> SnapshotOneCProcesses() =>
-            LinuxProc.Enumerate1C().Select(p => new OneCProcessInfo(p.Pid, p.Name)).ToList();
+            LinuxProc.Enumerate1C()
+                .Select(p => new OneCProcessInfo(p.Pid, p.Name, p.StartTime))
+                .ToList();
 
         /// <summary>
         /// Завершает процессы из снимка. Работа идёт по снимку, показанному
@@ -444,12 +447,8 @@ namespace Configuration_Management.Services
         /// успевает измениться.
         /// </summary>
         public static (int Killed, int Failed) KillOneCProcesses(IEnumerable<OneCProcessInfo> snapshot) =>
-            LinuxProc.KillOneC(snapshot.Select(p => p.Pid));
+            LinuxProc.KillOneC(snapshot.Select(p => (p.Pid, p.StartTime)));
 
-        public static int KillOneCProcesses() => KillOneCProcesses(SnapshotOneCProcesses()).Killed;
-
-
-        public static int CountOneCProcesses() => LinuxProc.CountOneC();
 
         /// <summary>Разбивка снимка по именам процессов.</summary>
         public static IReadOnlyList<(string Name, int Count)> DescribeProcesses(
