@@ -3476,6 +3476,13 @@ public string HotkeyEnterprise
         return dark ? Models.ColorScheme.CreateDark() : Models.ColorScheme.CreateLight();
     }
 
+    /// <summary>
+    /// Возвращает схему для базовой темы («Light»/«Dark»): сохранённую пользовательскую
+    /// (если есть) или встроенную по умолчанию. Не изменяет настройки.
+    /// </summary>
+    public Models.ColorScheme GetSchemeForTheme(string theme)
+        => SchemeForTheme(IsDarkTheme(theme));
+
     private static bool IsDarkTheme(string? theme)
         => string.Equals(theme, Themes.ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
 

@@ -201,7 +201,21 @@ namespace Configuration_Management
                 return;
             if (SchemeComboBox.SelectedItem is SchemeComboItem item)
             {
-                var scheme = ResolveScheme(item.Name);
+                ColorScheme? scheme;
+                if (item.IsBuiltIn)
+                {
+                    // Встроенная «Светлая»/«Тёмная» — переключение базовой темы: подхватываем
+                    // сохранённую кастомизацию этой темы (если есть), иначе встроенные цвета,
+                    // чтобы переключение тем не сбрасывало настроенное оформление.
+                    var dark = string.Equals(item.Name, BuiltInDarkName, StringComparison.OrdinalIgnoreCase);
+                    scheme = _viewModel.GetSchemeForTheme(
+                        dark ? Themes.ThemeManager.DarkThemeName : Themes.ThemeManager.LightThemeName).Clone();
+                }
+                else
+                {
+                    scheme = ResolveScheme(item.Name);
+                }
+
                 if (scheme != null)
                 {
                     _colorScheme = scheme;
