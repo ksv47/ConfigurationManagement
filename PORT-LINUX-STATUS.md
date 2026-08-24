@@ -2104,6 +2104,63 @@ Linux-сборки, ни учёта в поведении.
 в `MainWindow.xaml` (шаблон, косвенно содержащий сам себя), уведомления
 в `MainViewModel.cs` и `GroupNodeViewModel.cs`.
 
+### Состояние на 25.08.2026: оба PR приняты, апстрим ушёл вперёд
+
+`gh pr list` показывает MERGED у обоих: PR 60 (обслуживание баз, настройки трея,
+язык окна настроек, упаковка) влит 23.08 в 19:03, PR 61 (шапка списка,
+справочник ключей запуска, меню трея) влит 23.08 в 23:23.
+
+Наши правки в апстриме целы, задвоения при слиянии нет: проверено поиском по
+`origin/main` (`MeasuredToolbarWidth`, `FillTrayMenu`, `QueueTrayMenuRefresh`,
+`SetPropertyWithRelated`, `TagsToggleWidth`, `HeaderToolbarGap` на месте,
+каждое объявление ровно в одном экземпляре; размеры окна параметров запуска
+800 на 640 сохранились).
+
+После мержа автор сделал девять коммитов и сам взялся за Linux-часть, чего
+раньше не было:
+
+* `MainWindow.Avalonia.cs` — 276 строк правок, `SettingsWindow.Avalonia.cs` — 156,
+  `MainViewModel.Avalonia.cs` — 156, `Controls/UiMetrics.Avalonia.cs` — 33;
+* два новых сервиса: `Services/ProfileBackupService.cs` (резервная копия
+  и восстановление профиля при старте) и `Services/TechnicalInfoService.cs`;
+* переработаны темы: вместо одной `ActiveColorScheme` теперь раздельные
+  `LightColorScheme` и `DarkColorScheme` со старым полем как миграцией;
+* правки в `MainWindow.xaml`, `MainWindow.xaml.cs`, `SettingsWindow.xaml.cs`,
+  `Models/AppSettings.cs`, `Services/InfobaseRepository.cs`, обе языковые
+  разметки по 36 строк.
+
+Апстрим на Linux собирается (0 ошибок) и запускается: проверено сборкой
+`build.sh Release publish` и прогоном на чистом профиле, окно живёт.
+
+Наша ветка `linux-port` отстала на 28 коммитов, слияние ещё не делалось.
+Помнить про прецедент: `git merge` уже дважды задваивал наш же код в файлах,
+где правки есть с обеих сторон, и ловила это только сборка.
+
+#### Что автор занёс в репозиторий по недосмотру
+
+* `dist/win-x64/ConfigurationManagement.exe` и
+  `Configuration Management/dist/win-x64/ConfigurationManagement.exe` —
+  два собранных бинарника по 75,5 МБ каждый, попали в коммите `6069b96`.
+  Каталог `.git` вырос до 222 МБ, и дальше будет расти с каждой пересборкой:
+  из истории такое убирается только переписыванием;
+* `Configuration Management/Configuration Management_q0vbhlhq_wpftmp.csproj` —
+  временный файл MSBuild на 443 строки.
+
+#### Найденный дефект: молчаливый выход при недоступном каталоге настроек
+
+Если `XDG_CONFIG_HOME` указывает на несуществующий каталог, приложение
+завершается с кодом 0 сразу после инициализации локализации: ни окна, ни
+записи в журнал, ни `errors.log`. Воспроизводится на апстриме
+(`XDG_CONFIG_HOME=<несуществующий путь>` даёт выход за секунду).
+
+Причина видна в логе: `LoadSettings` печатает правильный путь, а
+`Initialize` получает `dataDir=ConfigurationManagement`, то есть относительный.
+Путь считают два разных механизма: репозиторий через `PlatformPaths`
+и `App.DataDirectory` через `Environment.GetFolderPath(SpecialFolder.ApplicationData)`.
+Второй на Linux возвращает пустую строку, когда каталог из `XDG_CONFIG_HOME`
+не существует, и `Path.Combine` даёт относительный путь. На практике это
+случай удалённого или недоступного `~/.config`.
+
 ## Известные дефекты, ещё не закрытые
 
 * ~~Подсветка выбранной строки теряется при пересоздании строк.~~ **Закрыто**
