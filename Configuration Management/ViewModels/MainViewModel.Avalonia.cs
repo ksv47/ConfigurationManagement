@@ -3267,6 +3267,8 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>
     /// Применяет схему указанной базовой темы, обновляя активную схему и настройки.
+    /// Каждая базовая тема (светлая/тёмная) имеет собственную схему, поэтому правки
+    /// одной темы не влияют на другую.
     /// </summary>
     private void ApplySchemeForTheme(bool dark)
     {

@@ -5,6 +5,13 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.56] — 2026-08-24
+
+### Изменено
+
+- **Исправлено сбрасывание своей цветовой схемы на дефолтные при переключении светлой/тёмной темы** ([`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs), [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs), [`App.xaml.cs`](Configuration Management/App.xaml.cs), [`App.axaml.cs`](Configuration Management/App.axaml.cs)). Ранее при переключении темы активная схема подменялась встроенной (по умолчанию) схемой другой темы, из-за чего кастомизированное оформление «сбрасывалось». Теперь пользовательские схемы для светлой и тёмной базовой темы хранятся **раздельно и независимо** (`LightColorScheme` / `DarkColorScheme` в [`AppSettings.cs`](Configuration Management/Models/AppSettings.cs)): переключение темы применяет схему целевой темы (сохранённую пользовательскую или встроенную), а правки цветов в настройках влияют **только на выбранную тему**, не затрагивая другую. Для старых настроек предусмотрена миграция с одиночного `ActiveColorScheme`. Добавлена временная диагностика `%TEMP%\cm_theme_debug.log` для подтверждения корректности.
+- **Версия обновлена до 0.3.3.56** (`InformationalVersion` = 0.3.3.56 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.3.55] — 2026-08-24
 
 ### Изменено

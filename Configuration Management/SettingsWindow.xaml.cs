@@ -47,6 +47,14 @@ namespace Configuration_Management
         // ---- Цветовое оформление ----
         private ColorScheme _colorScheme = ColorScheme.CreateLight();
         private readonly ObservableCollection<ColorItem> _colorItems = new();
+        /// <summary>
+        /// Рабочие копии схем по идентификатору темы (встроенной «Светлая»/«Тёмная»
+        /// или пользовательской). Хранят незаконченные правки каждой темы отдельно,
+        /// поэтому переключение между темами не сбрасывает внесённые изменения.
+        /// </summary>
+        private readonly Dictionary<string, ColorScheme> _editingSchemes = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Идентификаторы тем, реально изменённых в ходе редактирования (сохраняются при нажатии «ОК»).</summary>
+        private readonly HashSet<string> _dirtySchemes = new(StringComparer.OrdinalIgnoreCase);
         private bool _suppressSchemeEvent;
         private const string BuiltInLightName = "Светлая";
         private const string BuiltInDarkName = "Тёмная";
@@ -264,6 +272,9 @@ namespace Configuration_Management
         private void InitializeColorSchemes()
         {
             _colorScheme = _viewModel.ActiveColorScheme.Clone();
+            // Регистрируем активную тему в карте правок, чтобы её настройки сохранялись
+            // при переключении на другие темы и обратно.
+            _editingSchemes[_colorScheme.Name] = _colorScheme;
             ColorItemsControl.ItemsSource = _colorItems;
             RefreshSchemeComboBox();
             RefreshColorItems();
@@ -337,6 +348,62 @@ namespace Configuration_Management
                 .FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase))?.Clone();
         }
 
+        /// <summary>true, если имя соответствует встроенной теме («Светлая»/«Тёмная»).</summary>
+        private static bool IsBuiltInName(string name)
+            => string.Equals(name, BuiltInLightName, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(name, BuiltInDarkName, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Возвращает рабочую копию схемы для редактирования по идентификатору темы.
+        /// Если тема уже открыта в редакторе (есть незаконченные правки) — возвращает её,
+        /// иначе загружает сохранённое состояние (слот базовой темы для встроенных,
+        /// JSON-файл для пользовательских). Так каждая тема хранит собственные настройки
+        /// во время редактирования, и переключение между темами не теряет правки.
+        /// </summary>
+        private ColorScheme LoadEditableScheme(string name)
+        {
+            if (_editingSchemes.TryGetValue(name, out var cached))
+                return cached;
+
+            ColorScheme? source;
+            if (IsBuiltInName(name))
+            {
+                var dark = string.Equals(name, BuiltInDarkName, StringComparison.OrdinalIgnoreCase);
+                source = _viewModel.GetSchemeForTheme(
+                    dark ? Themes.ThemeManager.DarkThemeName : Themes.ThemeManager.LightThemeName).Clone();
+                source.Name = dark ? BuiltInDarkName : BuiltInLightName;
+            }
+            else
+            {
+                source = ResolveScheme(name);
+            }
+
+            if (source is null)
+                source = ColorScheme.Create(name, false);
+
+            _editingSchemes[name] = source;
+            return source;
+        }
+
+        /// <summary>
+        /// Сохраняет все темы, изменённые во время редактирования вкладки «Цветовое оформление».
+        /// Встроенные темы сохраняются в слот соответствующей базовой темы (светлой/тёмной),
+        /// пользовательские — в их JSON-файл. Правки одной темы не затрагивают остальные.
+        /// </summary>
+        private void PersistEditedSchemes()
+        {
+            foreach (var name in _dirtySchemes.ToList())
+            {
+                if (!_editingSchemes.TryGetValue(name, out var scheme))
+                    continue;
+                if (IsBuiltInName(name))
+                    _viewModel.SaveColorSchemeSlot(scheme);
+                else
+                    _viewModel.SaveCustomColorScheme(scheme);
+            }
+            _dirtySchemes.Clear();
+        }
+
         /// <summary>Обновляет доступность кнопок «Переименовать»/«Удалить» для встроенных тем.</summary>
         private void UpdateSchemeButtons()
         {
@@ -352,28 +419,33 @@ namespace Configuration_Management
                 return;
             if (SchemeComboBox.SelectedItem is SchemeComboItem item)
             {
-                ColorScheme? scheme;
-                if (item.IsBuiltIn)
-                {
-                    // Встроенная «Светлая»/«Тёмная» — переключение базовой темы: подхватываем
-                    // сохранённую кастомизацию этой темы (если есть), иначе встроенные цвета,
-                    // чтобы переключение тем не сбрасывало настроенное оформление.
-                    var dark = string.Equals(item.Name, BuiltInDarkName, StringComparison.OrdinalIgnoreCase);
-                    scheme = _viewModel.GetSchemeForTheme(
-                        dark ? Themes.ThemeManager.DarkThemeName : Themes.ThemeManager.LightThemeName).Clone();
-                }
-                else
-                {
-                    scheme = ResolveScheme(item.Name);
-                }
+                // Берём рабочую копию темы (с уже внесёнными правками, если они есть),
+                // чтобы переключение между темами не сбрасывало редактирование.
+                // Встроенные «Светлая»/«Тёмная» используют слот своей базовой темы,
+                // пользовательские — свой JSON-файл.
+                var scheme = LoadEditableScheme(item.Name);
 
                 if (scheme != null)
                 {
                     _colorScheme = scheme;
+                    ThemeDebug($"SchemeCombo select '{item.Name}' -> '{_colorScheme.Name}' (isDark={_colorScheme.IsDark}, colors={_colorScheme.Colors.Count})");
                     RefreshColorItems();
                     UpdateSchemeButtons();
                 }
             }
+    
+        }
+
+        /// <summary>Диагностика переключения/применения темы (пишет во временный файл).</summary>
+        private static void ThemeDebug(string message)
+        {
+            try
+            {
+                System.IO.File.AppendAllText(
+                    System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cm_theme_debug.log"),
+                    "[settings] " + message + System.Environment.NewLine);
+            }
+            catch { /* не критично */ }
         }
 
         /// <summary>Применяет выбранную тему и цвета сразу (предпросмотр, без сохранения настроек).</summary>
@@ -396,6 +468,9 @@ namespace Configuration_Management
             {
                 item.Hex = picker.Result;
                 _colorScheme.Colors[item.Key] = picker.Result;
+                // Фиксируем правку именно этой темы, чтобы она сохранилась независимо.
+                _editingSchemes[_colorScheme.Name] = _colorScheme;
+                _dirtySchemes.Add(_colorScheme.Name);
             }
         }
 
@@ -417,6 +492,8 @@ namespace Configuration_Management
             copy.Name = name;
             _viewModel.SaveCustomColorScheme(copy);
             _colorScheme = copy;
+            // Регистрируем новую тему в карте правок для дальнейшего редактирования.
+            _editingSchemes[name] = copy;
             RefreshSchemeComboBox();
             RefreshColorItems();
         }
@@ -442,13 +519,18 @@ namespace Configuration_Management
                 return;
             }
 
-            // Сохраняем под новым именем и удаляем старый файл.
-            var scheme = ResolveScheme(item.Name);
-            if (scheme != null)
+            // Сохраняем под новым именем и удаляем старый файл. Если тема уже открыта
+            // в редакторе с незаконченными правками — переносим её рабочую копию на новое имя.
+            var toSave = _editingSchemes.TryGetValue(item.Name, out var working) ? working : ResolveScheme(item.Name);
+            if (toSave != null)
             {
                 _viewModel.DeleteCustomColorScheme(item.Name);
-                scheme.Name = name;
-                _viewModel.SaveCustomColorScheme(scheme);
+                toSave.Name = name;
+                _viewModel.SaveCustomColorScheme(toSave);
+                _editingSchemes.Remove(item.Name);
+                _editingSchemes[name] = toSave;
+                if (_dirtySchemes.Remove(item.Name))
+                    _dirtySchemes.Add(name);
             }
 
             if (string.Equals(_colorScheme.Name, item.Name, StringComparison.OrdinalIgnoreCase))
@@ -473,11 +555,14 @@ namespace Configuration_Management
                 return;
 
             _viewModel.DeleteCustomColorScheme(item.Name);
+            _editingSchemes.Remove(item.Name);
+            _dirtySchemes.Remove(item.Name);
 
             // Если удалили активную — переключаемся на базовую встроенную тему.
             if (string.Equals(_colorScheme.Name, item.Name, StringComparison.OrdinalIgnoreCase))
             {
                 _colorScheme = _colorScheme.IsDark ? ColorScheme.CreateDark() : ColorScheme.CreateLight();
+                _editingSchemes[_colorScheme.Name] = _colorScheme;
             }
             RefreshSchemeComboBox();
             RefreshColorItems();
@@ -486,9 +571,12 @@ namespace Configuration_Management
         /// <summary>Сбрасывает цвета выбранной темы на значения по умолчанию.</summary>
         private void OnResetSchemeColors_Click(object sender, RoutedEventArgs e)
         {
+            // Сбрасываем цвета ТОЛЬКО выбранной темы: остальные схемы не затрагиваются.
             var wasDark = _colorScheme.IsDark;
             var name = _colorScheme.Name;
             _colorScheme = ColorScheme.Create(name, wasDark);
+            _editingSchemes[name] = _colorScheme;
+            _dirtySchemes.Add(name);
             RefreshColorItems();
         }
 
@@ -542,6 +630,7 @@ namespace Configuration_Management
 
             _viewModel.SaveCustomColorScheme(scheme);
             _colorScheme = scheme;
+            _editingSchemes[scheme.Name] = scheme;
             RefreshSchemeComboBox();
             RefreshColorItems();
             MessageBox.Show(string.Format(LocalizationManager.T("Settings.ImportedOk"), scheme.Name),
@@ -1601,7 +1690,11 @@ namespace Configuration_Management
             // Порядок горячих клавиш избранного.
             _viewModel.SetFavoriteHotkeyOrder(_favoriteHotkeyItems.Select(i => i.Key));
 
-            // Сохраняем выбранную цветовую схему (тему оформления).
+            // Сохраняем все темы, изменённые во вкладке «Цветовое оформление»: каждая тема
+            // хранит собственные настройки независимо (встроенные — в своём слоте базовой
+            // темы, пользовательские — в своём JSON-файле).
+            PersistEditedSchemes();
+            ThemeDebug($"Settings OK: applying '{_colorScheme.Name}' (isDark={_colorScheme.IsDark}, colors={_colorScheme.Colors.Count})");
             _viewModel.ApplyColorScheme(_colorScheme);
 
             // Сохраняем настройки шрифта интерфейса (общий и отдельных областей).

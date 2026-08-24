@@ -3534,16 +3534,20 @@ public string HotkeyEnterprise
         var targetDark = !Themes.ThemeManager.CurrentScheme.IsDark;
         ApplySchemeForTheme(targetDark);
         SaveSettings();
+        LogTheme($"ToggleTheme -> dark={targetDark}, scheme='{_activeColorScheme?.Name}' (isDark={_activeColorScheme?.IsDark}), darkSlot='{_darkColorScheme?.Name}', lightSlot='{_lightColorScheme?.Name}'");
     }
 
     /// <summary>
     /// Применяет схему для указанной базовой темы, обновляя активную схему и сохранённую тему.
+    /// Каждая базовая тема (светлая/тёмная) имеет собственную схему, поэтому правки одной
+    /// темы не влияют на другую.
     /// </summary>
     private void ApplySchemeForTheme(bool dark)
     {
         _activeColorScheme = SchemeForTheme(dark);
         _savedTheme = _activeColorScheme.BaseThemeName;
         Themes.ThemeManager.ApplyScheme(_activeColorScheme);
+        LogTheme($"ApplySchemeForTheme(dark={dark}) -> active='{_activeColorScheme.Name}' (isDark={_activeColorScheme.IsDark})");
     }
 
     /// <summary>
@@ -3584,6 +3588,39 @@ public string HotkeyEnterprise
             _lightColorScheme = _activeColorScheme;
         Themes.ThemeManager.ApplyScheme(_activeColorScheme);
         SaveSettings();
+        LogTheme($"ApplyColorScheme('{scheme.Name}', isDark={scheme.IsDark}, colors={scheme.Colors.Count}) -> active='{_activeColorScheme.Name}', darkSlot='{_darkColorScheme?.Name}', lightSlot='{_lightColorScheme?.Name}'");
+    }
+
+    /// <summary>
+    /// Сохраняет правки схемы в слот соответствующей базовой темы (светлой/тёмной),
+    /// не меняя активную тему и не трогая интерфейс. Используется редактором цветов
+    /// во вкладке «Цветовое оформление», чтобы каждая тема хранила собственные настройки
+    /// независимо от остальных.
+    /// </summary>
+    public void SaveColorSchemeSlot(ColorScheme scheme)
+    {
+        if (scheme is null)
+            return;
+        var clone = scheme.Clone();
+        if (clone.IsDark)
+            _darkColorScheme = clone;
+        else
+            _lightColorScheme = clone;
+        SaveSettings();
+        LogTheme($"SaveColorSchemeSlot('{scheme.Name}', isDark={scheme.IsDark}, colors={scheme.Colors.Count}) -> darkSlot='{_darkColorScheme?.Name}', lightSlot='{_lightColorScheme?.Name}'");
+    }
+
+    /// <summary>Диагностика переключения/применения темы (пишет в лог и во временный файл).</summary>
+    private void LogTheme(string message)
+    {
+        try { _logger.Info("[theme-debug] " + message); } catch { /* не критично */ }
+        try
+        {
+            System.IO.File.AppendAllText(
+                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cm_theme_debug.log"),
+                "[theme-debug] " + message + Environment.NewLine);
+        }
+        catch { /* не критично */ }
     }
 
     /// <summary>

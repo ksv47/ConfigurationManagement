@@ -129,6 +129,15 @@ namespace Configuration_Management
                 ThemeManager.ApplyScheme(scheme ?? (isDark
                     ? Configuration_Management.Models.ColorScheme.CreateDark()
                     : Configuration_Management.Models.ColorScheme.CreateLight()));
+                try
+                {
+                    System.IO.File.AppendAllText(
+                        System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cm_theme_debug.log"),
+                        $"[startup] theme='{themeName}' dark={isDark} applied='{ThemeManager.CurrentScheme.Name}' " +
+                        $"darkSlot='{settings.DarkColorScheme?.Name}' lightSlot='{settings.LightColorScheme?.Name}' " +
+                        $"active='{settings.ActiveColorScheme?.Name}'{System.Environment.NewLine}");
+                }
+                catch { /* не критично */ }
 
                 var mainWindow = AppServices.GetRequiredService<MainWindow>();
                 MainWindow = mainWindow;
