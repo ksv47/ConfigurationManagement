@@ -1,4 +1,4 @@
-#if WINDOWS
+﻿#if WINDOWS
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -4869,10 +4869,11 @@ public string HotkeyEnterprise
         var ib = parameter as Infobase ?? SelectedInfobase;
         if (ib is null) return;
 
-        // Пользователь попросил явно — снимаем защёлку недоступности COM: причина сбоя
-        // могла быть разовой (антивирус, нехватка памяти), а иначе до перезапуска
-        // приложения команда молча отвечала бы отказом.
-        ComReadHost.ResetAvailability();
+        // Пользователь попросил явно — снимаем оба вердикта о недоступности COM: кэш
+        // реестра и сессионную защёлку агента. Причина сбоя могла быть разовой (антивирус,
+        // нехватка памяти) или уже устранённой (платформу поставили после запуска),
+        // а иначе до перезапуска приложения команда молча отвечала бы отказом.
+        OneCComConnector.ResetComVerdicts();
 
         var baseName = ib.Name;
         _ = Task.Run(() =>
@@ -4921,9 +4922,6 @@ public string HotkeyEnterprise
     /// </summary>
     private void RefreshAllConfigurationInfo()
     {
-        // Явное действие пользователя — даём COM ещё один шанс (см. RefreshConfigurationInfo).
-        ComReadHost.ResetAvailability();
-
         var targets = Infobases.ToList();
         if (targets.Count == 0)
         {
@@ -4936,6 +4934,10 @@ public string HotkeyEnterprise
                 string.Format(LocalizationManager.T("Main.RefreshAllConfigConfirm"), targets.Count),
                 LocalizationManager.T("Main.RefreshAllConfigTitle")))
             return;
+
+        // Сброс вердиктов о недоступности COM — только после подтверждения: при отмене
+        // ничего не изменилось, и снимать защёлку не за что.
+        OneCComConnector.ResetComVerdicts();
 
         var updated = 0;
         var failed = 0;
@@ -4978,9 +4980,6 @@ public string HotkeyEnterprise
     /// </summary>
     private void RegisterComConnector(object? parameter)
     {
-        // После регистрации коннектора прежний вердикт «недоступен» устарел.
-        ComReadHost.ResetAvailability();
-
         var ib = parameter as Infobase ?? SelectedInfobase;
         var version = ib?.PlatformVersion ?? string.Empty;
         var architecture = ib is not null && (ib.Architecture == "64" || ib.Architecture == "x64") ? "64" : "32";
@@ -5043,9 +5042,10 @@ public string HotkeyEnterprise
 
                 if (result.Success && result.ProgIdVisible)
                 {
-                    // После регистрации сбрасываем кэш доступности, чтобы следующие
-                    // попытки COM-подключения снова проверили реестр.
-                    OneCComConnector.ResetAvailabilityCache();
+                    // После успешной регистрации сбрасываем оба вердикта о недоступности:
+                    // кэш реестра и сессионную защёлку процесса-агента. Раньше сброс стоял
+                    // в начале команды и срабатывал даже при отмене.
+                    OneCComConnector.ResetComVerdicts();
                     _logger.Info("COM-коннектор 1С успешно зарегистрирован.");
                     _dialogs.ShowInfo(sb.ToString().TrimEnd(),
                         LocalizationManager.T("Main.ComRegTitle"));

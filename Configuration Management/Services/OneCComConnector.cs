@@ -201,7 +201,10 @@ public sealed class OneCComConnector : IOneCComConnector
             return result.Info;
         }
 
-        LastError = DescribeFailure(result);
+        // Маскировка обязательна: текст ошибки приходит от 1С и может цитировать строку
+        // подключения вместе с Pwd="…". Отсюда он идёт и в журнал, и в диалог пользователю,
+        // а MaskCredentials до этой правки прикрывал только путь через ConnectCore.
+        LastError = MaskCredentials(DescribeFailure(result));
 
         if (!alreadyDisabled)
             _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{infobase.Name}»: {LastError}");
@@ -223,15 +226,33 @@ public sealed class OneCComConnector : IOneCComConnector
             LocalizationManager.T("Com.AgentCrashedFormat"), result.Detail ?? string.Empty),
         ComFailureKind.Timeout => string.Format(
             LocalizationManager.T("Com.TimeoutReadFormat"), result.Detail ?? string.Empty),
+        // Тот же текст, что и у быстрого отказа по кэшу (SetConnectorUnavailableError):
+        // одно состояние — одна подсказка, включая совет установить платформу.
         ComFailureKind.NotRegistered => LocalizationManager.T("Com.NotFound")
-                                        + " " + DescribeProgIdStatus(),
+                                        + " " + DescribeProgIdStatus()
+                                        + " " + LocalizationManager.T("Com.NotFoundInstallHint"),
         ComFailureKind.NoConnection => string.Format(
             LocalizationManager.T("Com.ProgIdNoConnectionFormat"), result.Detail ?? string.Empty),
         ComFailureKind.MetadataProperty => LocalizationManager.T("Com.MetadataPropertyFailed"),
         ComFailureKind.MetadataRead => LocalizationManager.T("Com.MetadataReadFailed"),
         ComFailureKind.DatabaseError => result.Detail ?? LocalizationManager.T("Com.MetadataReadFailed"),
+        // Сбой обмена: подробность (текст исключения канала) полезнее общей фразы.
+        ComFailureKind.Transport => string.IsNullOrWhiteSpace(result.Detail)
+            ? LocalizationManager.T("Com.AgentNoResult")
+            : result.Detail,
         _ => LocalizationManager.T("Com.AgentNoResult")
     };
+
+    /// <summary>
+    /// Сбрасывает оба вердикта о недоступности COM: кэш реестра этого класса и сессионную
+    /// защёлку процесса-агента. Их два, и снимать надо оба — иначе после установки платформы
+    /// команда обновления по-прежнему молча откажет по устаревшему кэшу.
+    /// </summary>
+    public static void ResetComVerdicts()
+    {
+        ResetAvailabilityCache();
+        ComReadHost.ResetAvailability();
+    }
 
     /// <summary>
     /// Устанавливает подключение в текущем (STA) потоке, перебирая известные ProgID.
@@ -372,12 +393,22 @@ public sealed class OneCComConnector : IOneCComConnector
     }
 
     /// <summary>
-    /// Скрывает пароль в строке подключения перед записью в лог.
+    /// Скрывает пароль перед записью в журнал или показом пользователю.
+    /// <para>
+    /// Применяется не только к самой строке подключения, но и к произвольному тексту:
+    /// сообщения об ошибках, приходящие от 1С, умеют цитировать строку подключения целиком.
+    /// Поэтому покрываются обе формы записи — в кавычках и без них.
+    /// </para>
     /// </summary>
-    private static string MaskCredentials(string connectString)
+    private static string MaskCredentials(string text)
     {
-        if (string.IsNullOrEmpty(connectString)) return connectString;
-        return Regex.Replace(connectString, @"Pwd=""[^""]*""", "Pwd=\"***\"", RegexOptions.IgnoreCase);
+        if (string.IsNullOrEmpty(text)) return text;
+
+        // Pwd="секрет"
+        var masked = Regex.Replace(text, @"Pwd\s*=\s*""[^""]*""", "Pwd=\"***\"", RegexOptions.IgnoreCase);
+        // Pwd=секрет; — без кавычек, до разделителя или конца строки
+        masked = Regex.Replace(masked, @"Pwd\s*=\s*(?!"")[^;\r\n]*", "Pwd=***", RegexOptions.IgnoreCase);
+        return masked;
     }
 
     /// <summary>
