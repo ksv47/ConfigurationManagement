@@ -641,27 +641,60 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="MenuItem">
-                    <Border x:Name="border"
-                            Background="Transparent"
-                            CornerRadius="4"
-                            Padding="{TemplateBinding Padding}"
-                            Margin="2,1">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <ContentPresenter Grid.Column="0"
-                                              ContentSource="Icon"
-                                              VerticalAlignment="Center"
-                                              Margin="0,0,8,0"/>
-                            <ContentPresenter Grid.Column="1"
-                                              ContentSource="Header"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True"/>
-                        </Grid>
-                    </Border>
+                    <!-- Корневой Grid прозрачен, чтобы подменю (Popup) не обрезалось
+                         рамкой Border и не перехватывало наведение за её пределами. -->
+                    <Grid Background="Transparent">
+                        <Border x:Name="border"
+                                Background="Transparent"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}"
+                                Margin="2,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Grid.Column="0"
+                                                  ContentSource="Icon"
+                                                  VerticalAlignment="Center"
+                                                  Margin="0,0,8,0"/>
+                                <ContentPresenter Grid.Column="1"
+                                                  ContentSource="Header"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True"/>
+                                <!-- Стрелка раскрытия подменю (видна только у пунктов-контейнеров). -->
+                                <Path Grid.Column="2"
+                                      x:Name="SubmenuArrow"
+                                      VerticalAlignment="Center"
+                                      Margin="10,0,0,0"
+                                      Data="M 0,0 L 5,4.5 L 0,9 Z"
+                                      Fill="{DynamicResource TextSecondaryBrush}"
+                                      Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        <!-- Подменю (пункт с дочерними элементами): показывается правее пункта. -->
+                        <Popup x:Name="PART_Popup"
+                               Placement="Right"
+                               HorizontalOffset="4"
+                               AllowsTransparency="True"
+                               Focusable="False"
+                               PopupAnimation="Fade"
+                               IsOpen="{TemplateBinding IsSubmenuOpen}">
+                            <Border Background="{DynamicResource CardBackgroundBrush}"
+                                    BorderBrush="{DynamicResource BorderBrushColor}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="4"
+                                    Margin="2,0,0,0">
+                                <ItemsPresenter/>
+                            </Border>
+                        </Popup>
+                    </Grid>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="Role" Value="SubmenuHeader">
+                            <Setter TargetName="SubmenuArrow" Property="Visibility" Value="Visible"/>
+                        </Trigger>
                         <Trigger Property="IsHighlighted" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
                         </Trigger>

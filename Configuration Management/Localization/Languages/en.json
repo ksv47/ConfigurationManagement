@@ -410,7 +410,7 @@
     "Settings.About.Author": "Author: Sivatorov",
     "Settings.About.Infostart": "Publication on Infostart:",
     "Settings.About.GitHub": "GitHub repository:",
-    "Settings.About.HelpText": "Version: 0.3.3.50.\n\nThis is a desktop application for managing 1C:Enterprise 8.3 infobases — a replacement for the standard 1C base list.\n\n• In many windows there is a ? icon next to elements — click it to see a hint about how that element works.\n• A full description of features and architecture is in the README.md file of the repository.",
+    "Settings.About.HelpText": "Version: 0.3.3.51.\n\nThis is a desktop application for managing 1C:Enterprise 8.3 infobases — a replacement for the standard 1C base list.\n\n• In many windows there is a ? icon next to elements — click it to see a hint about how that element works.\n• A full description of features and architecture is in the README.md file of the repository.",
 
     "AddEdit.Title": "Add to list",
     "DeleteInfobase.Title": "Delete infobase",

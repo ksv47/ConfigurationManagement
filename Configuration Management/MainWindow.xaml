@@ -1273,9 +1273,22 @@
                                 <MenuItem Header="{loc:Loc Main.Pin}" Command="{Binding TogglePinCommand}" InputGestureText="{Binding HotkeyPin}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Pin" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="{loc:Loc Main.ClearCache}" Style="{DynamicResource ModernMenuItem}">
-                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
-                                    <MenuItem Header="{loc:Loc Main.ClearProgramCache}" Command="{Binding ClearProgramCacheCommand}" InputGestureText="{Binding HotkeyClearCache}" Style="{DynamicResource ModernMenuItem}"/>
+                                <!-- «Очистить кеш» по аналогии со split-кнопкой правой панели:
+                                     сам пункт открывает окно очистки кеша, а стрелка справа —
+                                     выпадающее меню с выбором типа кеша. -->
+                                <MenuItem Style="{DynamicResource ModernMenuItem}" InputGestureText="{Binding HotkeyClearCache}">
+                                    <MenuItem.Icon>
+                                        <materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/>
+                                    </MenuItem.Icon>
+                                    <MenuItem.Header>
+                                        <Button Click="OnClearCacheSplitClick" Cursor="Hand"
+                                                Background="Transparent" BorderThickness="0" Padding="0" Focusable="False"
+                                                HorizontalContentAlignment="Left" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Loc Main.ClearCache}" VerticalAlignment="Center"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=MenuItem}}"/>
+                                        </Button>
+                                    </MenuItem.Header>
+                                    <MenuItem Header="{loc:Loc Main.ClearProgramCache}" Command="{Binding ClearProgramCacheCommand}" Style="{DynamicResource ModernMenuItem}"/>
                                     <MenuItem Header="{loc:Loc Main.ClearUserCache}" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}"/>
                                     <Separator/>
                                     <MenuItem Header="{loc:Loc Main.ClearCacheBoth}" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}"/>

@@ -5,6 +5,13 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.51] — 2026-08-24
+
+### Изменено
+
+- **Исправлена команда «Очистить кеш» в контекстном меню дерева баз** ([`MainWindow.xaml`](Configuration Management/MainWindow.xaml), [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs), [`LightTheme.xaml`](Configuration Management/Themes/LightTheme.xaml), [`DarkTheme.xaml`](Configuration Management/Themes/DarkTheme.xaml)). Ранее пункт «Очистить кеш» был просто контейнером подменю, а шаблон пункта меню `ModernMenuItem` не выводил ни стрелку раскрытия, ни само подменю (Popup), поэтому клик по пункту ничего не делал. Теперь пункт устроен по аналогии со split-кнопкой «Очистить кеш» в правой панели: сам заголовок «Очистить кеш» открывает окно очистки кеша (команда `ClearCacheCommand`), а стрелка справа раскрывает подменю с выбором типа кеша («Программный кеш», «Пользовательский кеш», «Программный и пользовательский»). Для этого шаблон `ModernMenuItem` дополнен поддержкой подменю (`Role = SubmenuHeader`: стрелка + `Popup` с оформлением под контекстное меню) в светлой и тёмной темах.
+- **Версия обновлена до 0.3.3.51** (`InformationalVersion` = 0.3.3.51 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.3.50] — 2026-08-24
 
 ### Изменено
