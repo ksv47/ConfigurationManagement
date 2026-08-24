@@ -908,11 +908,12 @@ public class MainViewModel : ViewModelBase
                 SynchronizeSilently();
             RestartAutoSync();
 
-            // Применяем сохранённую тему, если активная схема не задана.
-            if (_settings.ActiveColorScheme is { Colors.Count: > 0 })
-                ThemeManager.ApplyScheme(_settings.ActiveColorScheme);
-            else
-                ThemeManager.ApplyTheme(string.IsNullOrWhiteSpace(_themeName) ? ThemeManager.LightThemeName : _themeName);
+            // Применяем сохранённую схему активной базовой темы (раздельные схемы
+            // для светлой/тёмной темы), иначе — встроенные цвета.
+            var activeTheme = string.IsNullOrWhiteSpace(_themeName)
+                ? (_settings.ActiveColorScheme?.IsDark == true ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName)
+                : _themeName;
+            ThemeManager.ApplyScheme(SchemeForTheme(IsDarkTheme(activeTheme)));
         }
         catch (Exception ex)
         {
@@ -1637,16 +1638,100 @@ public class MainViewModel : ViewModelBase
         RestartAutoSync();
     }
 
+    // ---- Профиль: резервное копирование и восстановление ----
+
+    /// <summary>Каталог резервной копии профиля (настройки, базы, пользователи/пароли, ibases.v8i).</summary>
+    public string ProfileBackupDirectory => _settings.ProfileBackupDirectory;
+
+    /// <summary>Восстанавливать профиль из каталога резервной копии при каждом запуске.</summary>
+    public bool ProfileRestoreOnStartup => _settings.ProfileRestoreOnStartup;
+
+    /// <summary>Применяет настройки резервного копирования профиля из окна настроек.</summary>
+    public void ApplyProfileBackupSettings(string backupDirectory, bool restoreOnStartup)
+    {
+        _settings.ProfileBackupDirectory = backupDirectory?.Trim() ?? string.Empty;
+        _settings.ProfileRestoreOnStartup = restoreOnStartup;
+        SaveSettingsSilently();
+    }
+
     /// <summary>
-    /// Запоминает выбранную цветовую схему как активную: без этого правка
-    /// цветов держалась только до перезапуска, потому что при старте
-    /// применяется ActiveColorScheme из настроек.
+    /// Сохраняет текущий профиль (настройки, список баз с пользователями и паролями,
+    /// группы, ibases.v8i) в настроенный каталог. Возвращает true при успехе.
+    /// </summary>
+    public bool BackupProfile()
+    {
+        var dir = _settings.ProfileBackupDirectory;
+        if (string.IsNullOrWhiteSpace(dir))
+        {
+            _dialog.ShowWarning(LocalizationManager.T("Settings.Profile.NoDirectory"));
+            return false;
+        }
+        try
+        {
+            var count = ProfileBackupService.Backup(dir, _settings.IbasesSyncFilePath);
+            _logger.Info($"Резервная копия профиля сохранена в {dir} ({count} файлов)");
+            _dialog.ShowInfo(string.Format(LocalizationManager.T("Settings.Profile.BackupDone"), count));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка резервного копирования профиля", ex);
+            _dialog.ShowError(string.Format(LocalizationManager.T("Settings.Profile.BackupFailed"), ex.Message));
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Восстанавливает профиль из настроенного каталога и перезагружает данные,
+    /// чтобы они применились без перезапуска. Возвращает true при успехе.
+    /// </summary>
+    public bool RestoreProfile()
+    {
+        var dir = _settings.ProfileBackupDirectory;
+        if (string.IsNullOrWhiteSpace(dir))
+        {
+            _dialog.ShowWarning(LocalizationManager.T("Settings.Profile.NoDirectory"));
+            return false;
+        }
+        if (!ProfileBackupService.HasBackup(dir))
+        {
+            _dialog.ShowWarning(LocalizationManager.T("Settings.Profile.NoBackup"));
+            return false;
+        }
+        try
+        {
+            var count = ProfileBackupService.Restore(dir, _settings.IbasesSyncFilePath);
+            _logger.Info($"Профиль восстановлен из {dir} ({count} файлов)");
+            // Перезагружаем настройки, список баз и группы, чтобы они применились сразу.
+            Initialize();
+            _dialog.ShowInfo(string.Format(LocalizationManager.T("Settings.Profile.RestoreDone"), count));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка восстановления профиля", ex);
+            _dialog.ShowError(string.Format(LocalizationManager.T("Settings.Profile.RestoreFailed"), ex.Message));
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Запоминает выбранную цветовую схему как активную и сохраняет её в слот
+    /// соответствующей базовой темы (светлой/тёмной), чтобы переключение тем
+    /// не сбрасывало настроенное оформление.
     /// </summary>
     public void ApplyColorScheme(Models.ColorScheme scheme)
     {
-        ThemeManager.ApplyScheme(scheme);
-        _settings.ActiveColorScheme = scheme;
-        _settings.Theme = scheme.IsDark ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName;
+        if (scheme is null)
+            return;
+        var clone = scheme.Clone();
+        ThemeManager.ApplyScheme(clone);
+        _settings.ActiveColorScheme = clone;
+        if (clone.IsDark)
+            _settings.DarkColorScheme = clone;
+        else
+            _settings.LightColorScheme = clone;
+        _settings.Theme = clone.BaseThemeName;
         _themeName = _settings.Theme;
         SaveSettingsSilently();
         OnPropertyChanged(nameof(ThemeName));
@@ -3163,10 +3248,55 @@ public class MainViewModel : ViewModelBase
 
     private void ToggleTheme()
     {
-        ThemeName = ThemeManager.ToggleTheme();
-        _settings.Theme = ThemeName;
-        SaveSettingsSilently();
+        var targetDark = !ThemeManager.CurrentScheme.IsDark;
+        ApplySchemeForTheme(targetDark);
     }
+
+    /// <summary>Применяет выбранную базовую тему (светлую/тёмную), сохраняя раздельные схемы.</summary>
+    public void ApplyTheme(string theme)
+    {
+        ApplySchemeForTheme(IsDarkTheme(theme));
+    }
+
+    /// <summary>
+    /// Возвращает схему для базовой темы («Light»/«Dark»): сохранённую пользовательскую
+    /// (если есть) или встроенную по умолчанию. Не изменяет настройки.
+    /// </summary>
+    public Models.ColorScheme GetSchemeForTheme(string theme)
+        => SchemeForTheme(IsDarkTheme(theme));
+
+    /// <summary>
+    /// Применяет схему указанной базовой темы, обновляя активную схему и настройки.
+    /// Каждая базовая тема (светлая/тёмная) имеет собственную схему, поэтому правки
+    /// одной темы не влияют на другую.
+    /// </summary>
+    private void ApplySchemeForTheme(bool dark)
+    {
+        var scheme = SchemeForTheme(dark);
+        ThemeManager.ApplyScheme(scheme);
+        _settings.ActiveColorScheme = scheme;
+        _settings.Theme = scheme.BaseThemeName;
+        _themeName = _settings.Theme;
+        SaveSettingsSilently();
+        OnPropertyChanged(nameof(ThemeName));
+    }
+
+    /// <summary>
+    /// Возвращает схему для базовой темы: сохранённую пользовательскую (если есть),
+    /// иначе — встроенную по умолчанию (миграция со старого одиночного ActiveColorScheme).
+    /// </summary>
+    private Models.ColorScheme SchemeForTheme(bool dark)
+    {
+        var slot = dark ? _settings.DarkColorScheme : _settings.LightColorScheme;
+        if (slot is { Colors.Count: > 0 })
+            return slot;
+        if (_settings.ActiveColorScheme is { Colors.Count: > 0 } && _settings.ActiveColorScheme.IsDark == dark)
+            return _settings.ActiveColorScheme;
+        return dark ? Models.ColorScheme.CreateDark() : Models.ColorScheme.CreateLight();
+    }
+
+    private static bool IsDarkTheme(string? theme)
+        => string.Equals(theme, ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Применяет выбранный язык интерфейса и сохраняет его в настройках.

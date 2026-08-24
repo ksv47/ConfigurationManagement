@@ -17,6 +17,14 @@ public class InfobaseRepository : IInfobaseRepository
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };
 
+    /// <summary>
+    /// Текущая версия схемы файла <c>settings.json</c>. Увеличивается при изменении модели
+    /// настроек, несовместимом со старыми файлами. Файлы с большей версией схемы (созданные
+    /// более новой версией приложения) не читаются: они откладываются в резервную копию,
+    /// а приложение стартует с настройками по умолчанию.
+    /// </summary>
+    private const int ConfigSchemaVersion = 1;
+
     private readonly string _filePath;
     private readonly string _groupsFilePath;
     private readonly string _settingsFilePath;
@@ -46,8 +54,10 @@ public class InfobaseRepository : IInfobaseRepository
         }
         catch (Exception ex)
         {
-            // При ошибке десериализации возвращаем пустой список, чтобы не падать при повреждённом файле.
+            // При ошибке десериализации возвращаем пустой список, а повреждённый файл
+            // откладываем в резервную копию, чтобы не спотыкаться о него на каждом старте.
             System.Diagnostics.Debug.WriteLine($"Ошибка загрузки баз: {ex.Message}");
+            QuarantineCorruptFile(_filePath, "corrupt");
             return new List<Infobase>();
         }
     }
@@ -88,6 +98,7 @@ public class InfobaseRepository : IInfobaseRepository
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Ошибка загрузки групп: {ex.Message}");
+            QuarantineCorruptFile(_groupsFilePath, "corrupt");
             return new List<Group>();
         }
     }
@@ -158,12 +169,26 @@ public class InfobaseRepository : IInfobaseRepository
         {
             var json = File.ReadAllText(_settingsFilePath);
             var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+
+            // Файл создан более новой версией приложения, чем текущая: его схема нам может
+            // быть незнакома, безопасно прочитать его нельзя. Откладываем файл в резервную
+            // копию и стартуем с чистыми настройками — вместо зависания на непонятных данных.
+            if (loaded.SchemaVersion > ConfigSchemaVersion)
+            {
+                System.Diagnostics.Debug.WriteLine($"Схема настроек {loaded.SchemaVersion} новее поддерживаемой {ConfigSchemaVersion}: сброс к настройкам по умолчанию.");
+                QuarantineCorruptFile(_settingsFilePath, "future-schema");
+                return new AppSettings();
+            }
+
             Console.Error.WriteLine("[l10n-debug] LoadSettings: Language=" + loaded.Language + ", file=" + _settingsFilePath);
             return loaded;
         }
         catch (Exception ex)
         {
+            // Повреждённый или несовместимый файл настроек: делаем резервную копию и стартуем
+            // с настройками по умолчанию, чтобы приложение гарантированно открылось.
             System.Diagnostics.Debug.WriteLine($"Ошибка загрузки настроек: {ex.Message}");
+            QuarantineCorruptFile(_settingsFilePath, "corrupt");
             return new AppSettings();
         }
     }
@@ -174,6 +199,7 @@ public class InfobaseRepository : IInfobaseRepository
     public void SaveSettings(AppSettings settings)
     {
         Console.Error.WriteLine("[l10n-debug] SaveSettings: Language=" + settings.Language + ", file=" + _settingsFilePath);
+        settings.SchemaVersion = ConfigSchemaVersion;
         WriteAtomic(_settingsFilePath, JsonSerializer.Serialize(settings, JsonOptions));
     }
 
@@ -192,8 +218,34 @@ public class InfobaseRepository : IInfobaseRepository
 
     public async Task SaveSettingsAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
+        settings.SchemaVersion = ConfigSchemaVersion;
         var json = JsonSerializer.Serialize(settings, JsonOptions);
         await WriteAtomicAsync(_settingsFilePath, json, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Откладывает повреждённый или несовместимый конфигурационный файл в резервную копию,
+    /// чтобы он не мешал запуску. Оригинал переименовывается в «<имя>.<причина>.<метка времени>.bak»
+    /// в том же каталоге. Любые ошибки глушатся — карантин не должен блокировать запуск.
+    /// </summary>
+    private static void QuarantineCorruptFile(string path, string reason)
+    {
+        try
+        {
+            if (!File.Exists(path))
+                return;
+
+            var directory = Path.GetDirectoryName(path);
+            var name = Path.GetFileNameWithoutExtension(path);
+            var ext = Path.GetExtension(path);
+            var stamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+            var backupPath = Path.Combine(directory ?? "", $"{name}.{reason}.{stamp}{ext}.bak");
+            File.Move(path, backupPath);
+        }
+        catch
+        {
+            // Игнорируем: карантин — вспомогательная операция и не должен ломать запуск.
+        }
     }
 
     /// <summary>

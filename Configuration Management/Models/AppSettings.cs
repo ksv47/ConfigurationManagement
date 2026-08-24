@@ -5,6 +5,15 @@ namespace Configuration_Management.Models;
 /// </summary>
 public class AppSettings
 {
+    /// <summary>
+    /// Версия схемы файла <c>settings.json</c> (см. <see cref="Configuration_Management.Services.InfobaseRepository.ConfigSchemaVersion"/>).
+    /// Используется для обратной совместимости и безопасной миграции: если файл создан более
+    /// новой версией приложения, чем текущая, он откладывается в резервную копию, а приложение
+    /// стартует с чистыми настройками вместо того, чтобы зависнуть на незнакомых данных.
+    /// Значение 0 означает легаси-файл, созданный до введения версии схемы.
+    /// </summary>
+    public int SchemaVersion { get; set; }
+
     /// <summary>Показывать только избранные базы.</summary>
     public bool ShowFavoritesOnly { get; set; }
 
@@ -35,9 +44,24 @@ public class AppSettings
     /// <summary>
     /// Активная цветовая схема (тема оформления). Если задана — применяется при запуске.
     /// Если отсутствует — используется встроенная светлая/тёмная схема по свойству
-    /// <see cref="Theme"/>.
+    /// <see cref="Theme"/>. Поле сохраняется для обратной совместимости; новые версии
+    /// предпочитают раздельные схемы <see cref="LightColorScheme"/> / <see cref="DarkColorScheme"/>.
     /// </summary>
     public ColorScheme? ActiveColorScheme { get; set; }
+
+    /// <summary>
+    /// Пользовательская цветовая схема для светлой базовой темы. Если задана (с непустым
+    /// набором цветов) — применяется при включении светлой темы, иначе используются встроенные
+    /// цвета. Кастомизация светлой темы сохраняется независимо от тёмной.
+    /// </summary>
+    public ColorScheme? LightColorScheme { get; set; }
+
+    /// <summary>
+    /// Пользовательская цветовая схема для тёмной базовой темы. Если задана (с непустым
+    /// набором цветов) — применяется при включении тёмной темы, иначе используются встроенные
+    /// цвета. Кастомизация тёмной темы сохраняется независимо от светлой.
+    /// </summary>
+    public ColorScheme? DarkColorScheme { get; set; }
 
     /// <summary>Имена групп, свёрнутых в списке баз.</summary>
     public List<string> CollapsedGroups { get; set; } = new();
@@ -337,5 +361,20 @@ public class AppSettings
     /// Ключи — из <see cref="Themes.ThemeManager.FontDefault"/>, <see cref="Themes.ThemeManager.FontList"/> и т.д.
     /// </summary>
     public Dictionary<string, ElementFontSettings> ElementFonts { get; set; } = new();
+
+    /// <summary>
+    /// Каталог резервного копирования «профиля» приложения: сюда сохраняются настройки,
+    /// список баз (включая пользователей и пароли запуска), группы и файл ibases.v8i.
+    /// Пусто — резервное копирование не настроено. После переустановки системы достаточно
+    /// указать этот каталог, чтобы восстановить привычное состояние приложения.
+    /// </summary>
+    public string ProfileBackupDirectory { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Восстанавливать профиль из каталога <see cref="ProfileBackupDirectory"/> при каждом
+    /// запуске приложения. Включается после переустановки системы, чтобы сразу получить
+    /// привычно настроенное приложение без ручных действий.
+    /// </summary>
+    public bool ProfileRestoreOnStartup { get; set; }
 
 }

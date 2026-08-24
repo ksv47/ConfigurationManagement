@@ -1273,9 +1273,22 @@
                                 <MenuItem Header="{loc:Loc Main.Pin}" Command="{Binding TogglePinCommand}" InputGestureText="{Binding HotkeyPin}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Pin" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="{loc:Loc Main.ClearCache}" Style="{DynamicResource ModernMenuItem}">
-                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
-                                    <MenuItem Header="{loc:Loc Main.ClearProgramCache}" Command="{Binding ClearProgramCacheCommand}" InputGestureText="{Binding HotkeyClearCache}" Style="{DynamicResource ModernMenuItem}"/>
+                                <!-- «Очистить кеш» по аналогии со split-кнопкой правой панели:
+                                     сам пункт открывает окно очистки кеша, а стрелка справа —
+                                     выпадающее меню с выбором типа кеша. -->
+                                <MenuItem Style="{DynamicResource ModernMenuItem}" InputGestureText="{Binding HotkeyClearCache}">
+                                    <MenuItem.Icon>
+                                        <materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/>
+                                    </MenuItem.Icon>
+                                    <MenuItem.Header>
+                                        <Button Click="OnClearCacheSplitClick" Cursor="Hand"
+                                                Background="Transparent" BorderThickness="0" Padding="0" Focusable="False"
+                                                HorizontalContentAlignment="Left" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Loc Main.ClearCache}" VerticalAlignment="Center"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=MenuItem}}"/>
+                                        </Button>
+                                    </MenuItem.Header>
+                                    <MenuItem Header="{loc:Loc Main.ClearProgramCache}" Command="{Binding ClearProgramCacheCommand}" Style="{DynamicResource ModernMenuItem}"/>
                                     <MenuItem Header="{loc:Loc Main.ClearUserCache}" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}"/>
                                     <Separator/>
                                     <MenuItem Header="{loc:Loc Main.ClearCacheBoth}" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}"/>
@@ -1320,15 +1333,15 @@
                     HorizontalAlignment="Left">
                 <Border.Style>
                     <Style TargetType="Border">
-                        <Setter Property="Width" Value="360"/>
-                        <Setter Property="MinWidth" Value="300"/>
+                        <Setter Property="Width" Value="320"/>
+                        <Setter Property="MinWidth" Value="280"/>
                         <Setter Property="HorizontalAlignment" Value="Stretch"/>
                         <Style.Triggers>
                             <!-- Компактный режим: ширина по самой длинной подписи кнопки, без лишнего зазора -->
                             <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
                                 <Setter Property="Width" Value="Auto"/>
                                 <Setter Property="MinWidth" Value="0"/>
-                                <Setter Property="MaxWidth" Value="280"/>
+                                <Setter Property="MaxWidth" Value="260"/>
                                 <Setter Property="HorizontalAlignment" Value="Left"/>
                             </DataTrigger>
                         </Style.Triggers>
@@ -1337,11 +1350,11 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <ScrollViewer.Style>
                         <Style TargetType="ScrollViewer">
-                            <Setter Property="Padding" Value="16,14"/>
+                            <Setter Property="Padding" Value="12,10"/>
                             <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                    <Setter Property="Padding" Value="2,8,4,8"/>
+                                    <Setter Property="Padding" Value="2,6,4,6"/>
                                     <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
                                 </DataTrigger>
                             </Style.Triggers>
@@ -1537,11 +1550,11 @@
                                    Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
 
                         <!-- Split-кнопки запуска: единый блок «действие | ▼» -->
-                        <Border Margin="6,0,6,8" CornerRadius="10"
+                        <Border Margin="4,0,4,4" CornerRadius="10"
                                 Background="{DynamicResource AccentBrush}">
                             <Border.Style>
                                 <Style TargetType="Border">
-                                    <Setter Property="Margin" Value="6,0,6,8"/>
+                                    <Setter Property="Margin" Value="4,0,4,4"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
                                             <Setter Property="Margin" Value="0,0,0,4"/>
@@ -1557,7 +1570,7 @@
                                 </Grid.ColumnDefinitions>
                                 <Button Grid.Column="0" Command="{Binding LaunchEnterpriseCommand}"
                                         Cursor="Hand" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
-                                        Background="Transparent" BorderThickness="0" Padding="10,12,4,12" MinHeight="40">
+                                        Background="Transparent" BorderThickness="0" Padding="8,8,4,8" MinHeight="34">
                                     <Button.ToolTip>
                                         <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
                                             <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
@@ -1633,12 +1646,12 @@
                             </Grid>
                         </Border>
 
-                        <Border Margin="6,0,6,8" CornerRadius="10"
+                        <Border Margin="4,0,4,4" CornerRadius="10"
                                 Background="{DynamicResource CardBackgroundBrush}"
                                 BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
                             <Border.Style>
                                 <Style TargetType="Border">
-                                    <Setter Property="Margin" Value="6,0,6,8"/>
+                                    <Setter Property="Margin" Value="4,0,4,4"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
                                             <Setter Property="Margin" Value="0,0,0,4"/>
@@ -1654,7 +1667,7 @@
                                 </Grid.ColumnDefinitions>
                                 <Button Grid.Column="0" Command="{Binding LaunchConfiguratorCommand}"
                                         Cursor="Hand" HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
-                                        Background="Transparent" BorderThickness="0" Padding="10,12,4,12" MinHeight="40">
+                                        Background="Transparent" BorderThickness="0" Padding="8,8,4,8" MinHeight="34">
                                     <Button.ToolTip>
                                         <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
                                             <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
@@ -1729,8 +1742,8 @@
                                 HorizontalContentAlignment="Left">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
-                                    <Setter Property="Padding" Value="10,10"/>
-                                    <Setter Property="Margin" Value="8,0,8,8"/>
+                                    <Setter Property="Padding" Value="8,6"/>
+                                    <Setter Property="Margin" Value="4,0,4,4"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
                                             <Setter Property="Padding" Value="6,8"/>
@@ -1853,7 +1866,7 @@
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
-                                    <Setter Property="Margin" Value="8,0,8,8"/>
+                                    <Setter Property="Margin" Value="4,0,4,4"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
                                             <Setter Property="Padding" Value="6,8"/>
@@ -1902,7 +1915,7 @@
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
-                                    <Setter Property="Margin" Value="8,0,8,8"/>
+                                    <Setter Property="Margin" Value="4,0,4,4"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
                                             <Setter Property="Padding" Value="6,8"/>
@@ -1951,7 +1964,7 @@
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
-                                    <Setter Property="Margin" Value="8,0,8,8"/>
+                                    <Setter Property="Margin" Value="4,0,4,4"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
                                             <Setter Property="Padding" Value="6,8"/>
@@ -1986,7 +1999,7 @@
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
                                     <Setter Property="Padding" Value="14,11"/>
-                                    <Setter Property="Margin" Value="8,0,8,8"/>
+                                    <Setter Property="Margin" Value="4,0,4,4"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
                                             <Setter Property="Padding" Value="6,8"/>
@@ -2022,7 +2035,7 @@
                                 Background="{DynamicResource SecondaryButtonBackgroundBrush}">
                             <Border.Style>
                                 <Style TargetType="Border">
-                                    <Setter Property="Margin" Value="8,0,8,8"/>
+                                    <Setter Property="Margin" Value="4,0,4,4"/>
                                     <!-- Единая высота с кнопками ActionPanelSecondaryButton
                                          (40 в развёрнутом / 32 в компактном режиме), чтобы
                                          split-блок «Очистить кеш» был одного размера с соседними. -->

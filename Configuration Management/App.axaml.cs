@@ -72,6 +72,29 @@ namespace Configuration_Management
                 try { settings = repository.LoadSettings(); }
                 catch { settings = new AppSettings(); }
 
+                // Восстановление профиля из указанного каталога резервной копии
+                // (например, после переустановки системы): настройки, список баз
+                // (с пользователями и паролями запуска), группы и ibases.v8i.
+                // Файлы копируются до загрузки данных главным окном, поэтому приложение
+                // сразу открывается с привычным состоянием. Настройки перечитываются,
+                // чтобы последующие этапы запуска использовали восстановленные значения.
+                if (settings.ProfileRestoreOnStartup
+                    && !string.IsNullOrWhiteSpace(settings.ProfileBackupDirectory)
+                    && ProfileBackupService.HasBackup(settings.ProfileBackupDirectory))
+                {
+                    try
+                    {
+                        ProfileBackupService.Restore(settings.ProfileBackupDirectory, settings.IbasesSyncFilePath);
+                        try { settings = repository.LoadSettings(); }
+                        catch { /* оставляем уже прочитанные настройки */ }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Сбой восстановления не должен блокировать запуск.
+                        Console.Error.WriteLine("[profile] Ошибка восстановления профиля: " + ex.Message);
+                    }
+                }
+
                 // Инициализируем локализацию: выбранный или системный язык, а также
                 // загружаем внешние языки (.json) из папок Languages (рядом с приложением
                 // и в каталоге данных).
@@ -101,14 +124,25 @@ namespace Configuration_Management
                 {
                     _desktopLifetime = desktop;
 
-                    // Применяем сохранённую цветовую схему (тему оформления).
-                    if (settings.ActiveColorScheme is { Colors.Count: > 0 })
-                        ThemeManager.ApplyScheme(settings.ActiveColorScheme);
-                    else
-                        ThemeManager.ApplyTheme(
-                            string.IsNullOrWhiteSpace(settings.Theme)
-                                ? ThemeManager.LightThemeName
-                                : settings.Theme);
+                    // Применяем сохранённую цветовую схему активной базовой темы. Предпочитаем
+                    // раздельную схему для светлой/тёмной темы, иначе — старый одиночный
+                    // ActiveColorScheme (миграция) или встроенные цвета.
+                    var activeTheme = string.IsNullOrWhiteSpace(settings.Theme)
+                        ? (settings.ActiveColorScheme?.IsDark == true ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName)
+                        : settings.Theme;
+                    var isDark = string.Equals(activeTheme, ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
+                    Configuration_Management.Models.ColorScheme? activeScheme = isDark
+                        ? settings.DarkColorScheme
+                        : settings.LightColorScheme;
+                    if (activeScheme is not { Colors.Count: > 0 }
+                        && settings.ActiveColorScheme is { Colors.Count: > 0 }
+                        && settings.ActiveColorScheme.IsDark == isDark)
+                    {
+                        activeScheme = settings.ActiveColorScheme;
+                    }
+                    ThemeManager.ApplyScheme(activeScheme ?? (isDark
+                        ? Configuration_Management.Models.ColorScheme.CreateDark()
+                        : Configuration_Management.Models.ColorScheme.CreateLight()));
 
                     // Компактный режим интерфейса (влияет на метрики отступов/иконок,
                     // должен быть установлен до построения главного окна).

@@ -40,9 +40,21 @@ namespace Configuration_Management
         private readonly Dictionary<string, Models.ElementFontSettings> _elementFonts = new();
         private string _currentElement = Themes.ThemeManager.FontDefault;
 
+        // ---- Резервное копирование профиля ----
+        private System.Windows.Controls.TextBox _profileDirBox = null!;
+        private System.Windows.Controls.CheckBox _profileRestoreCheck = null!;
+
         // ---- Цветовое оформление ----
         private ColorScheme _colorScheme = ColorScheme.CreateLight();
         private readonly ObservableCollection<ColorItem> _colorItems = new();
+        /// <summary>
+        /// Рабочие копии схем по идентификатору темы (встроенной «Светлая»/«Тёмная»
+        /// или пользовательской). Хранят незаконченные правки каждой темы отдельно,
+        /// поэтому переключение между темами не сбрасывает внесённые изменения.
+        /// </summary>
+        private readonly Dictionary<string, ColorScheme> _editingSchemes = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Идентификаторы тем, реально изменённых в ходе редактирования (сохраняются при нажатии «ОК»).</summary>
+        private readonly HashSet<string> _dirtySchemes = new(StringComparer.OrdinalIgnoreCase);
         private bool _suppressSchemeEvent;
         private const string BuiltInLightName = "Светлая";
         private const string BuiltInDarkName = "Тёмная";
@@ -69,6 +81,153 @@ namespace Configuration_Management
             InitializeExportTimestampSettings();
             InitializeColorSchemes();
             InitializeLanguage();
+            InitializeProfileBackupTab();
+        }
+
+        /// <summary>
+        /// Строит вкладку «Резервное копирование» профиля: каталог, флажок восстановления
+        /// при запуске и кнопки «Сохранить профиль» / «Восстановить профиль».
+        /// </summary>
+        private void InitializeProfileBackupTab()
+        {
+            var tab = new TabItem();
+            try { tab.Style = (Style)FindResource("SettingsTabItem"); } catch { /* стандартный вид */ }
+            var tabIcon = new MaterialDesignThemes.Wpf.PackIcon
+            {
+                Kind = MaterialDesignThemes.Wpf.PackIconKind.BackupRestore,
+                Width = 18,
+                Height = 18,
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            tabIcon.SetBinding(MaterialDesignThemes.Wpf.PackIcon.ForegroundProperty,
+                new System.Windows.Data.Binding("Foreground")
+                {
+                    RelativeSource = new System.Windows.Data.RelativeSource(
+                        System.Windows.Data.RelativeSourceMode.FindAncestor,
+                        typeof(System.Windows.Controls.TabItem), 1)
+                });
+            var tabHeader = new StackPanel { Orientation = Orientation.Horizontal };
+            tabHeader.Children.Add(tabIcon);
+            tabHeader.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.TabProfile"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            tab.Header = tabHeader;
+
+            var panel = new StackPanel { Margin = new Thickness(4, 12, 4, 0) };
+
+            panel.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Profile.Description"),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 13,
+                Foreground = SecondaryBrush(),
+                Margin = new Thickness(0, 0, 0, 8)
+            });
+            panel.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Profile.Includes"),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Foreground = SecondaryBrush(),
+                Margin = new Thickness(0, 0, 0, 10)
+            });
+
+            // Каталог резервной копии.
+            var dirGroup = new GroupBox
+            {
+                Header = LocalizationManager.T("Settings.Profile.Directory"),
+                Padding = new Thickness(8),
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            var dirDock = new DockPanel();
+            var browse = new Button
+            {
+                Content = LocalizationManager.T("Settings.Profile.Browse"),
+                Padding = new Thickness(10, 4, 10, 4),
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            DockPanel.SetDock(browse, Dock.Right);
+            browse.Click += (_, _) => OnBrowseProfileDir_Click();
+            _profileDirBox = new TextBox
+            {
+                Text = _viewModel.ProfileBackupDirectory,
+                Height = 28,
+                VerticalContentAlignment = VerticalAlignment.Center
+            };
+            dirDock.Children.Add(browse);
+            dirDock.Children.Add(_profileDirBox);
+            dirGroup.Content = dirDock;
+            panel.Children.Add(dirGroup);
+
+            _profileRestoreCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.Profile.RestoreOnStartup"),
+                IsChecked = _viewModel.ProfileRestoreOnStartup,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            panel.Children.Add(_profileRestoreCheck);
+            panel.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Profile.RestoreOnStartupHint"),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Foreground = SecondaryBrush(),
+                Margin = new Thickness(24, 0, 0, 12)
+            });
+
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+            var backup = new Button { Content = LocalizationManager.T("Settings.Profile.BackupNow"), Padding = new Thickness(12, 6, 12, 6), Margin = new Thickness(0, 0, 8, 0) };
+            backup.Click += (_, _) => OnProfileBackup_Click();
+            var restore = new Button { Content = LocalizationManager.T("Settings.Profile.RestoreNow"), Padding = new Thickness(12, 6, 12, 6) };
+            restore.Click += (_, _) => OnProfileRestore_Click();
+            buttons.Children.Add(backup);
+            buttons.Children.Add(restore);
+            panel.Children.Add(buttons);
+
+            tab.Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            // Вставляем перед последней вкладкой («О программе»), чтобы она шла выше.
+            SettingsTabs.Items.Insert(Math.Max(0, SettingsTabs.Items.Count - 1), tab);
+        }
+
+        /// <summary>Кисть вторичного текста темы (с запасным серым цветом).</summary>
+        private Brush SecondaryBrush()
+        {
+            try { return (Brush)FindResource("TextSecondaryBrush"); }
+            catch { return Brushes.Gray; }
+        }
+
+        /// <summary>Выбор каталога резервной копии профиля.</summary>
+        private void OnBrowseProfileDir_Click()
+        {
+            var dlg = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = LocalizationManager.T("Settings.Profile.Directory"),
+                SelectedPath = _profileDirBox?.Text ?? string.Empty
+            };
+            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK && !string.IsNullOrWhiteSpace(dlg.SelectedPath)
+                && _profileDirBox is not null)
+                _profileDirBox.Text = dlg.SelectedPath;
+        }
+
+        /// <summary>«Сохранить профиль»: копирует настройки в выбранный каталог.</summary>
+        private void OnProfileBackup_Click()
+        {
+            _viewModel.ApplyProfileBackupSettings(_profileDirBox.Text, _profileRestoreCheck.IsChecked == true);
+            _viewModel.BackupProfile();
+        }
+
+        /// <summary>«Восстановить профиль»: копирует настройки из каталога и закрывает окно.</summary>
+        private void OnProfileRestore_Click()
+        {
+            _viewModel.ApplyProfileBackupSettings(_profileDirBox.Text, _profileRestoreCheck.IsChecked == true);
+            if (_viewModel.RestoreProfile())
+            {
+                DialogResult = true;
+                Close();
+            }
         }
 
         /// <summary>Заполняет список доступных языков интерфейса и выбирает текущий.</summary>
@@ -113,6 +272,9 @@ namespace Configuration_Management
         private void InitializeColorSchemes()
         {
             _colorScheme = _viewModel.ActiveColorScheme.Clone();
+            // Регистрируем активную тему в карте правок, чтобы её настройки сохранялись
+            // при переключении на другие темы и обратно.
+            _editingSchemes[_colorScheme.Name] = _colorScheme;
             ColorItemsControl.ItemsSource = _colorItems;
             RefreshSchemeComboBox();
             RefreshColorItems();
@@ -186,6 +348,62 @@ namespace Configuration_Management
                 .FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase))?.Clone();
         }
 
+        /// <summary>true, если имя соответствует встроенной теме («Светлая»/«Тёмная»).</summary>
+        private static bool IsBuiltInName(string name)
+            => string.Equals(name, BuiltInLightName, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(name, BuiltInDarkName, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Возвращает рабочую копию схемы для редактирования по идентификатору темы.
+        /// Если тема уже открыта в редакторе (есть незаконченные правки) — возвращает её,
+        /// иначе загружает сохранённое состояние (слот базовой темы для встроенных,
+        /// JSON-файл для пользовательских). Так каждая тема хранит собственные настройки
+        /// во время редактирования, и переключение между темами не теряет правки.
+        /// </summary>
+        private ColorScheme LoadEditableScheme(string name)
+        {
+            if (_editingSchemes.TryGetValue(name, out var cached))
+                return cached;
+
+            ColorScheme? source;
+            if (IsBuiltInName(name))
+            {
+                var dark = string.Equals(name, BuiltInDarkName, StringComparison.OrdinalIgnoreCase);
+                source = _viewModel.GetSchemeForTheme(
+                    dark ? Themes.ThemeManager.DarkThemeName : Themes.ThemeManager.LightThemeName).Clone();
+                source.Name = dark ? BuiltInDarkName : BuiltInLightName;
+            }
+            else
+            {
+                source = ResolveScheme(name);
+            }
+
+            if (source is null)
+                source = ColorScheme.Create(name, false);
+
+            _editingSchemes[name] = source;
+            return source;
+        }
+
+        /// <summary>
+        /// Сохраняет все темы, изменённые во время редактирования вкладки «Цветовое оформление».
+        /// Встроенные темы сохраняются в слот соответствующей базовой темы (светлой/тёмной),
+        /// пользовательские — в их JSON-файл. Правки одной темы не затрагивают остальные.
+        /// </summary>
+        private void PersistEditedSchemes()
+        {
+            foreach (var name in _dirtySchemes.ToList())
+            {
+                if (!_editingSchemes.TryGetValue(name, out var scheme))
+                    continue;
+                if (IsBuiltInName(name))
+                    _viewModel.SaveColorSchemeSlot(scheme);
+                else
+                    _viewModel.SaveCustomColorScheme(scheme);
+            }
+            _dirtySchemes.Clear();
+        }
+
         /// <summary>Обновляет доступность кнопок «Переименовать»/«Удалить» для встроенных тем.</summary>
         private void UpdateSchemeButtons()
         {
@@ -201,14 +419,33 @@ namespace Configuration_Management
                 return;
             if (SchemeComboBox.SelectedItem is SchemeComboItem item)
             {
-                var scheme = ResolveScheme(item.Name);
+                // Берём рабочую копию темы (с уже внесёнными правками, если они есть),
+                // чтобы переключение между темами не сбрасывало редактирование.
+                // Встроенные «Светлая»/«Тёмная» используют слот своей базовой темы,
+                // пользовательские — свой JSON-файл.
+                var scheme = LoadEditableScheme(item.Name);
+
                 if (scheme != null)
                 {
                     _colorScheme = scheme;
+                    ThemeDebug($"SchemeCombo select '{item.Name}' -> '{_colorScheme.Name}' (isDark={_colorScheme.IsDark}, colors={_colorScheme.Colors.Count})");
                     RefreshColorItems();
                     UpdateSchemeButtons();
                 }
             }
+    
+        }
+
+        /// <summary>Диагностика переключения/применения темы (пишет во временный файл).</summary>
+        private static void ThemeDebug(string message)
+        {
+            try
+            {
+                System.IO.File.AppendAllText(
+                    System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cm_theme_debug.log"),
+                    "[settings] " + message + System.Environment.NewLine);
+            }
+            catch { /* не критично */ }
         }
 
         /// <summary>Применяет выбранную тему и цвета сразу (предпросмотр, без сохранения настроек).</summary>
@@ -231,6 +468,9 @@ namespace Configuration_Management
             {
                 item.Hex = picker.Result;
                 _colorScheme.Colors[item.Key] = picker.Result;
+                // Фиксируем правку именно этой темы, чтобы она сохранилась независимо.
+                _editingSchemes[_colorScheme.Name] = _colorScheme;
+                _dirtySchemes.Add(_colorScheme.Name);
             }
         }
 
@@ -252,6 +492,8 @@ namespace Configuration_Management
             copy.Name = name;
             _viewModel.SaveCustomColorScheme(copy);
             _colorScheme = copy;
+            // Регистрируем новую тему в карте правок для дальнейшего редактирования.
+            _editingSchemes[name] = copy;
             RefreshSchemeComboBox();
             RefreshColorItems();
         }
@@ -277,13 +519,18 @@ namespace Configuration_Management
                 return;
             }
 
-            // Сохраняем под новым именем и удаляем старый файл.
-            var scheme = ResolveScheme(item.Name);
-            if (scheme != null)
+            // Сохраняем под новым именем и удаляем старый файл. Если тема уже открыта
+            // в редакторе с незаконченными правками — переносим её рабочую копию на новое имя.
+            var toSave = _editingSchemes.TryGetValue(item.Name, out var working) ? working : ResolveScheme(item.Name);
+            if (toSave != null)
             {
                 _viewModel.DeleteCustomColorScheme(item.Name);
-                scheme.Name = name;
-                _viewModel.SaveCustomColorScheme(scheme);
+                toSave.Name = name;
+                _viewModel.SaveCustomColorScheme(toSave);
+                _editingSchemes.Remove(item.Name);
+                _editingSchemes[name] = toSave;
+                if (_dirtySchemes.Remove(item.Name))
+                    _dirtySchemes.Add(name);
             }
 
             if (string.Equals(_colorScheme.Name, item.Name, StringComparison.OrdinalIgnoreCase))
@@ -308,11 +555,14 @@ namespace Configuration_Management
                 return;
 
             _viewModel.DeleteCustomColorScheme(item.Name);
+            _editingSchemes.Remove(item.Name);
+            _dirtySchemes.Remove(item.Name);
 
             // Если удалили активную — переключаемся на базовую встроенную тему.
             if (string.Equals(_colorScheme.Name, item.Name, StringComparison.OrdinalIgnoreCase))
             {
                 _colorScheme = _colorScheme.IsDark ? ColorScheme.CreateDark() : ColorScheme.CreateLight();
+                _editingSchemes[_colorScheme.Name] = _colorScheme;
             }
             RefreshSchemeComboBox();
             RefreshColorItems();
@@ -321,9 +571,12 @@ namespace Configuration_Management
         /// <summary>Сбрасывает цвета выбранной темы на значения по умолчанию.</summary>
         private void OnResetSchemeColors_Click(object sender, RoutedEventArgs e)
         {
+            // Сбрасываем цвета ТОЛЬКО выбранной темы: остальные схемы не затрагиваются.
             var wasDark = _colorScheme.IsDark;
             var name = _colorScheme.Name;
             _colorScheme = ColorScheme.Create(name, wasDark);
+            _editingSchemes[name] = _colorScheme;
+            _dirtySchemes.Add(name);
             RefreshColorItems();
         }
 
@@ -377,6 +630,7 @@ namespace Configuration_Management
 
             _viewModel.SaveCustomColorScheme(scheme);
             _colorScheme = scheme;
+            _editingSchemes[scheme.Name] = scheme;
             RefreshSchemeComboBox();
             RefreshColorItems();
             MessageBox.Show(string.Format(LocalizationManager.T("Settings.ImportedOk"), scheme.Name),
@@ -1327,6 +1581,9 @@ namespace Configuration_Management
                 IbasesBackupEnabledCheck.IsChecked ?? true,
                 int.TryParse(IbasesBackupKeepCountBox.Text, out var keep) && keep > 0 ? keep : 5);
 
+            // Сохраняем настройки резервного копирования профиля.
+            _viewModel.ApplyProfileBackupSettings(_profileDirBox.Text, _profileRestoreCheck.IsChecked == true);
+
             // Сохраняем настройки отображения списка баз.
             _viewModel.ApplyDisplaySettings(
                 ShowFavoritesButtonCheck.IsChecked ?? false,
@@ -1433,7 +1690,11 @@ namespace Configuration_Management
             // Порядок горячих клавиш избранного.
             _viewModel.SetFavoriteHotkeyOrder(_favoriteHotkeyItems.Select(i => i.Key));
 
-            // Сохраняем выбранную цветовую схему (тему оформления).
+            // Сохраняем все темы, изменённые во вкладке «Цветовое оформление»: каждая тема
+            // хранит собственные настройки независимо (встроенные — в своём слоте базовой
+            // темы, пользовательские — в своём JSON-файле).
+            PersistEditedSchemes();
+            ThemeDebug($"Settings OK: applying '{_colorScheme.Name}' (isDark={_colorScheme.IsDark}, colors={_colorScheme.Colors.Count})");
             _viewModel.ApplyColorScheme(_colorScheme);
 
             // Сохраняем настройки шрифта интерфейса (общий и отдельных областей).
@@ -1525,6 +1786,31 @@ namespace Configuration_Management
                     });
                 }
                 catch { /* ignore */ }
+            }
+        }
+
+        /// <summary>
+        /// Копирует обезличенную техническую информацию о системе и приложении в буфер обмена
+        /// (для диагностики проблемы разработчику). Работает в Windows и Linux.
+        /// </summary>
+        private void OnCopyTechInfo_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Windows.Clipboard.SetText(TechnicalInfoService.Collect());
+                MessageBox.Show(
+                    LocalizationManager.T("Settings.About.TechInfoCopied"),
+                    LocalizationManager.T("Common.Information"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    LocalizationManager.T("Settings.About.TechInfoCopyFailed") + "\n" + ex.Message,
+                    LocalizationManager.T("Common.Error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
 

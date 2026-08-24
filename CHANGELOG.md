@@ -5,6 +5,210 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.4.1] — 2026-08-24
+
+### Добавлено
+
+- **Кнопка «Скопировать техническую информацию» во вкладке «О программе» окна настроек** (обе платформы). Одна кнопка копирует в буфер обмена **обезличенный** технический отчёт, по которому можно понять, в чём проблема: версия приложения, тип интерфейса (WPF/Avalonia), ОС, архитектура, среда выполнения .NET, число логических процессоров, объём физической памяти и памяти процесса, язык/регион. Личные данные (имя пользователя, имя компьютера, домен, сетевые адреса, пути профилей) намеренно исключены.
+  - **Кросс-платформенный сервис** [`TechnicalInfoService.cs`](Configuration Management/Services/TechnicalInfoService.cs) — собирает отчёт через кроссплатформенные API .NET (`RuntimeInformation`, `Environment`, `GC`); физическая память читается через `GlobalMemoryStatusEx` на Windows и `/proc/meminfo` на Linux.
+  - **Windows/WPF**: кнопка в [`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml), обработчик `OnCopyTechInfo_Click` в [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs) (`Clipboard.SetText`).
+  - **Linux/Avalonia**: кнопка в [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs) (`Clipboard.SetTextAsync`), подтверждение через `MessageWindow`.
+  - **Локализация**: ключи `Settings.About.CopyTechInfo`, `Settings.About.TechInfoCopied/CopyFailed`, `Settings.About.TechInfo.*` добавлены в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+- **Версия обновлена до 0.3.4.1** (`InformationalVersion` = 0.3.4.1 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.58] — 2026-08-24
+
+### Исправлено
+
+- **Зависание Windows-версии при запуске с пустым списком баз (диалог «Импорт» → «Выход»)** ([`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs)). Предложение загрузить базы из `ibases.v8i` показывалось модальным `MessageBox` прямо из конструктора вьюмодели — до того, как главное окно было показано. Модальный диалог без активного окна-владельца на Windows зависал (в т.ч. при нажатии «Выход»). Запрос теперь откладывается через `Dispatcher` до завершения отрисовки первого кадра, когда окно уже на экране и модальный цикл сообщений работает корректно.
+- **Версия обновлена до 0.3.3.58** (`InformationalVersion` = 0.3.3.58 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.57] — 2026-08-24
+
+### Исправлено
+
+- **Зависание при запуске (в т.ч. после действий «Импорт» / «Выход») из-за отложенной инициализации главного окна** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)). Изменение из `0.3.3.55` («окно быстрее появляется на старте») переносило загрузку данных на следующий кадр через `Dispatcher.UIThread.Post`. Внутри отложенного колбэка могли открываться модальные диалоги (импорт/восстановление конфига), чей вложенный цикл сообщений не завершался корректно, и приложение зависало. Отложенная инициализация **отменена**: данные снова загружаются синхронно при загрузке окна, как до `0.3.3.55`. Защита от зависания на повреждённых/старых конфиг-файлах (`0.3.3.52`) сохранена.
+- **Версия обновлена до 0.3.3.57** (`InformationalVersion` = 0.3.3.57 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.56] — 2026-08-24
+
+### Изменено
+
+- **Исправлено сбрасывание своей цветовой схемы на дефолтные при переключении светлой/тёмной темы** ([`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs), [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs), [`App.xaml.cs`](Configuration Management/App.xaml.cs), [`App.axaml.cs`](Configuration Management/App.axaml.cs)). Ранее при переключении темы активная схема подменялась встроенной (по умолчанию) схемой другой темы, из-за чего кастомизированное оформление «сбрасывалось». Теперь пользовательские схемы для светлой и тёмной базовой темы хранятся **раздельно и независимо** (`LightColorScheme` / `DarkColorScheme` в [`AppSettings.cs`](Configuration Management/Models/AppSettings.cs)): переключение темы применяет схему целевой темы (сохранённую пользовательскую или встроенную), а правки цветов в настройках влияют **только на выбранную тему**, не затрагивая другую. Для старых настроек предусмотрена миграция с одиночного `ActiveColorScheme`. Добавлена временная диагностика `%TEMP%\cm_theme_debug.log` для подтверждения корректности.
+- **Версия обновлена до 0.3.3.56** (`InformationalVersion` = 0.3.3.56 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.55] — 2026-08-24
+
+### Изменено
+
+- **Главное окно быстрее появляется на старте** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)). Инициализация данных (загрузка списка баз/групп, построение дерева, повторное сканирование платформ и шаблонов после восстановления конфига) теперь откладывается на следующий кадр: окно показывается сразу, а тяжёлая работа выполняется сразу после отрисовки первого кадра. Первый запуск после обновления (когда конфиг самовосстанавливается) становится визуально заметно быстрее.
+- **Версия обновлена до 0.3.3.55** (`InformationalVersion` = 0.3.3.55 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.54] — 2026-08-24
+
+### Изменено
+
+- **Вкладка «Резервное копирование» поднята выше и получила значок** ([`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs), [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs)). В WPF-версии вкладка теперь вставляется перед «О программе», а не в самый конец (в Avalonia она и так шла выше «О программе»). К названию вкладки добавлен значок слева: `PackIcon BackupRestore` в WPF ([`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs)) и контурная иконка базы через `StreamGeometry` в Avalonia ([`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs)) — как у остальных вкладок окна настроек.
+- **Версия обновлена до 0.3.3.54** (`InformationalVersion` = 0.3.3.54 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.53] — 2026-08-24
+
+### Добавлено
+
+- **Резервное копирование профиля приложения в произвольный каталог и его восстановление после переустановки системы** (обе платформы). Новая вкладка **«Резервное копирование»** в окне настроек позволяет указать произвольный каталог и одной кнопкой сохранить туда весь «профиль» приложения: настройки интерфейса (`settings.json`), список информационных баз вместе с пользователями и паролями запуска (`infobases.json`), дерево групп (`groups.json`) и стандартный файл списка баз 1С `ibases.v8i`. После переустановки системы достаточно указать тот же каталог и нажать «Восстановить профиль» либо включить флажок «Восстанавливать профиль при запуске» — тогда при каждом запуске файлы профиля автоматически копируются обратно в каталог данных, и приложение сразу открывается привычно настроенным.
+  - **Кросс-платформенный сервис** [`ProfileBackupService.cs`](Configuration Management/Services/ProfileBackupService.cs) — копирует/восстанавливает файлы поимённо; источник и цель `ibases.v8i` определяются по настроенному пути или стандартному месту 1С.
+  - **Linux/Avalonia**: вкладка в [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs), методы в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs), восстановление при запуске в [`App.axaml.cs`](Configuration Management/App.axaml.cs).
+  - **Windows/WPF**: вкладка строится в [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs) и добавляется в `TabControl` ([`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml)), поля и методы в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), восстановление при запуске в [`App.xaml.cs`](Configuration Management/App.xaml.cs).
+  - **Настройки** [`AppSettings.cs`](Configuration Management/Models/AppSettings.cs) — добавлены `ProfileBackupDirectory` и `ProfileRestoreOnStartup` (добавление обратносовместимо).
+  - Восстановление при запуске выполняется до загрузки данных главного окна, поэтому базы, группы, настройки и `ibases.v8i` подхватываются без ручных действий.
+- **Версия обновлена до 0.3.3.53** (`InformationalVersion` = 0.3.3.53 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.52] — 2026-08-24
+
+### Исправлено
+
+- **Зависание при запуске со старыми или повреждёнными конфигурационными файлами** ([`InfobaseRepository.cs`](Configuration Management/Services/InfobaseRepository.cs), [`AppSettings.cs`](Configuration Management/Models/AppSettings.cs)). В настройки добавлена версия схемы (`settings.json`): если файл настроек повреждён или создан более новой версией приложения, чем текущая, он автоматически откладывается в резервную копию (`*.bak`), а приложение стартует с чистыми настройками вместо зависания. Повреждённые `infobases.json` и `groups.json` при ошибке чтения также переносятся в резервную копию и заменяются пустыми списками. Резервные копии сохраняются рядом с исходными файлами в каталоге данных приложения; текущая версия схемы проставляется при сохранении настроек.
+- **Версия обновлена до 0.3.3.52** (`InformationalVersion` = 0.3.3.52 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.51] — 2026-08-24
+
+### Изменено
+
+- **Исправлена команда «Очистить кеш» в контекстном меню дерева баз** ([`MainWindow.xaml`](Configuration Management/MainWindow.xaml), [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs), [`LightTheme.xaml`](Configuration Management/Themes/LightTheme.xaml), [`DarkTheme.xaml`](Configuration Management/Themes/DarkTheme.xaml)). Ранее пункт «Очистить кеш» был просто контейнером подменю, а шаблон пункта меню `ModernMenuItem` не выводил ни стрелку раскрытия, ни само подменю (Popup), поэтому клик по пункту ничего не делал. Теперь пункт устроен по аналогии со split-кнопкой «Очистить кеш» в правой панели: сам заголовок «Очистить кеш» открывает окно очистки кеша (команда `ClearCacheCommand`), а стрелка справа раскрывает подменю с выбором типа кеша («Программный кеш», «Пользовательский кеш», «Программный и пользовательский»). Для этого шаблон `ModernMenuItem` дополнен поддержкой подменю (`Role = SubmenuHeader`: стрелка + `Popup` с оформлением под контекстное меню) в светлой и тёмной темах.
+- **Версия обновлена до 0.3.3.51** (`InformationalVersion` = 0.3.3.51 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.50] — 2026-08-24
+
+### Изменено
+
+- **Исправлен сброс цветового оформления на дефолтные при переключении светлой/тёмной темы** ([`AppSettings.cs`](Configuration Management/Models/AppSettings.cs), [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs), [`App.xaml.cs`](Configuration Management/App.xaml.cs), [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs), [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs), [`App.axaml.cs`](Configuration Management/App.axaml.cs)). Ранее настройки цвета хранились в единственном `ActiveColorScheme`, и переключение темы (кнопка на верхней панели, радиокнопки «Светлая/Тёмная» в настройках) применяло встроенную схему по умолчанию, затирая кастомизированное оформление; при настройке цветов на светлой теме сохранённая тема могла сбрасываться на дефолт. Теперь пользовательские схемы для светлой и тёмной базовой темы хранятся раздельно (`LightColorScheme` / `DarkColorScheme`): переключение темы применяет схему целевой темы (сохранённую пользовательскую или встроенную), ни одна из настроенных схем не теряется; кастомизация светлой темы больше не затрагивает тёмную и наоборот. Для старых настроек предусмотрена миграция с одиночного `ActiveColorScheme`.
+- **Версия обновлена до 0.3.3.50** (`InformationalVersion` = 0.3.3.50 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены.
+
+## [0.3.3.49] — 2026-08-24
+
+### Слияние исправлений от ksv47
+
+- **Влит PR #61 «Порт на Linux: читаемый справочник ключей в параметрах запуска, кнопка тегов и меню трея, показывающее текущее состояние списка»** (ветка `ksv47/linux-fixes-2`). Все изменения этого PR **выполнены автором ksv47**. По функциональным направлениям:
+  - **Читаемый справочник ключей в параметрах запуска** ([`LaunchParametersWindow.Avalonia.cs`](Configuration Management/LaunchParametersWindow.Avalonia.cs)) — размеры приведены к WPF-версии: окно 800 при минимуме 720, колонка ключа 220 с зазором между колонками, обрезка длинных значений многоточием. Длинные ключи (например `/RunModeManagedApplication`) теперь помещаются целиком, а не слипаются с описанием.
+  - **Кнопка тегов больше не налезает на подпись «Название»** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)) — ширина блока кнопок шапки измеряется по правому краю содержимого (Bounds панели обрезан узкими колонками заголовка), измеренная ширина сохраняется и обновляет минимум области списка; расчёт по константам остаётся только оценкой до первой раскладки. Также: фокусная рамка сегментной кнопки больше не меняет её ширину (подпись не уезжает на четыре пикселя при обходе с клавиатуры), а подписка на размеры шапки — одна вместо двух.
+  - **Меню трея показывает текущее состояние списка** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs), [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)) — меню собиралось один раз при создании значка и предлагало базу, выбранную на момент запуска, и устаревший список недавних. Штатный `NativeMenu.NeedsUpdate` под KDE не приходит, поэтому меню пересобирается по событию открытия и по изменению самих данных (переименование, импорт, синхронизация, удаление), пересборка ставится в очередь диспетчера и сверяет отпечаток состава (одно действие больше не даёт несколько полных пересборок), а запуск из меню проверяет, что база ещё в списке.
+  - **Исправлена перегрузка `SetProperty` со списком связанных свойств** ([`ViewModelBase.Avalonia.cs`](Configuration Management/ViewModels/ViewModelBase.Avalonia.cs)) — перегрузка вызывала базовую без имени, `CallerMemberName` подставлял «SetProperty» вместо имени свойства, и подписчики на имя свойства не получали уведомлений. Перегрузка переименована в `SetPropertyWithRelated`, имя свойства передаётся явно (все четыре места использования исправлены, включая пятый вызов `SessionClient`).
+- **Авторство изменений:** все правки, вошедшие в этот merge, выполнены **ksv47** ([`PR #61`](https://github.com/ksv47/linux-fixes-2)) — см. также раздел «Благодарности» в [`README.md`](README.md).
+- **Версия обновлена до 0.3.3.49** (`InformationalVersion` = 0.3.3.49 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.48] — 2026-08-24
+
+### Слияние исправлений от ksv47
+
+- **Влит PR #60 «Linux/Avalonia: обслуживание и опасные операции на вкладке „Базы“, трей и упаковка в deb/AppImage»** (ветка `ksv47/linux-fixes`). Все изменения этого PR **выполнены автором ksv47**. По функциональным направлениям:
+  - **Обслуживание и опасные операции на вкладке «Базы»** ([`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs), [`InfobaseMaintenanceService.Linux.cs`](Configuration Management/Services/InfobaseMaintenanceService.Linux.cs), [`LinuxProcess.cs`](Configuration Management/Services/LinuxProcess.cs), [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)) — перенесены блоки удаления отсутствующих файловых баз, завершения процессов 1С и очистки всего списка. Признак процесса 1С стал надёжным (исполняемый файл в каталоге установки платформы либо известное имя, а не подстрока «1cv8» в командной строке); счёт, разбивка по именам и завершение работают по одному снимку `/proc`; перед сигналом сверяется время старта PID (ядро переиспользует номера); завершение уносит дерево потомков, ожидание выхода — один общий цикл; итог называется числом («завершено N, не удалось M»). Удаление отсутствующих баз использует трёхзначную проверку (есть / точно нет / проверить не удалось — недоступность через `Directory.Exists` не считается отсутствием), операции пишут на диск до изменения списка в памяти, снята зависимость от регистра имени `1Cv8.1CD`.
+  - **Трей** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs), [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs)) — настройки «Значок в области уведомлений», «Сворачивать в трей при закрытии» и «По Esc сворачивать в трей» начали работать: значок создаётся всегда, настройка управляет видимостью и применяется сразу; закрытие/Esc уводят в трей по условиям (Esc только при включённом значке, закрытие — только когда его инициировал пользователь, чтобы не прерывать завершение сеанса рабочего стола); модальные окна не встают поверх спрятанного окна; окно-владелец выбирается одинаково во вьюмодели и диалоговом сервисе.
+  - **Очистка кеша** ([`CacheCleanWindow.Avalonia.cs`](Configuration Management/CacheCleanWindow.Avalonia.cs)) — окно открывается модально с владельцем и получает копию списка баз (пока оно открыто, список нельзя изменить из главного окна); счётчик «Выбрано: N из M» перенесён в шапку списка и окрашен цветом темы; откат при очистке проверяется.
+  - **Упаковка в deb и AppImage** (`package/linux/*`) — сборка доведена до работающей: `DEBIAN/control` получил завершающую пустую строку, версия пакета берётся из `csproj` (а не расходится с ним), размер установки считается по собранному дереву, `appimagetool` находит desktop-файл и иконку (кладутся и в корень AppDir, и `.DirIcon`). Устранена уязвимость `AppRun` (`$SELF/usr/lib` давала завершающее двоеточие — поиск библиотек в текущем каталоге), зависимости перечислены по нуждам .NET/Avalonia с GTK в `Recommends`, права каталогов фиксированы (`umask 022`), добавлены файл о лицензии, контрольные суммы и поле `Homepage`, имя AppImage содержит версию, `.desktop` получил языковые ключи, скриптам возвращён исполняемый бит. Артефакты упаковки добавлены в `.gitignore`.
+  - **Прочее** — окно настроек переключает язык целиком (подписка на смену языка включается явно); предупреждение про остановку кластера показывается только когда серверные процессы действительно найдены; итог завершения считается по факту.
+- **Авторство изменений:** все правки, вошедшие в этот merge, выполнены **ksv47** ([`PR #60`](https://github.com/ksv47/linux-fixes)) — см. также раздел «Благодарности» в [`README.md`](README.md).
+- **Версия обновлена до 0.3.3.48** (`InformationalVersion` = 0.3.3.48 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)).
+
+## [0.3.3.47] — 2026-08-24
+
+### Слияние исправлений от ksv47
+
+- **Влит PR #59 «Linux/Avalonia: каталоги шаблонов и операции со списком баз на вкладке „Базы“»** (ветка `ksv47/linux-fixes`). Все изменения этого PR **выполнены автором ksv47**. По функциональным направлениям:
+  - **Каталоги шаблонов конфигураций** ([`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs), [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)) — на вкладку «Базы» перенесён блок каталогов шаблонов (как в WPF-версии): список путей с добавлением, изменением, удалением и кнопкой «Из 1С», которая берёт пути из настроек платформы и стандартного каталога `tmplts`. Список каталогов теперь отдаётся сервису поиска шаблонов при запуске и при каждом сохранении настроек; пустые элементы в списке больше не роняют окно.
+  - **Операции со списком баз** — выгрузка в JSON, загрузка из JSON с заменой текущего списка и разовый импорт из `ibases.v8i`. Метка времени в имени файла выгрузки и её шаблон настраиваются там же, предпросмотр собран теми же ключами локализации, что и в оригинале; диалог сохранения дописывает расширение из предложенного имени.
+  - **Безопасный импорт из `ibases.v8i`** ([`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)) — импорт идёт в копии списков, при удалениях спрашивается подтверждение с числами, рабочие списки заменяются только после согласия; защита от пустого файла. Результат импорта показывается диалогом с добавленными, обновлёнными, пропущенными и созданными группами (как в Windows-версии). Неудачная запись на диск больше не выдаётся за успех; ручная синхронизация с `ibases.v8i` сведена к тому же пути (сохраняет созданные импортом группы и не оставляет выбор на удалённой базе).
+  - **Прочее** — подсказка про каталоги шаблонов добавлена отдельным ключом локализации (в авторской указан путь Windows, здесь нужен Linux); добавлены ключи `ru.json`/`en.json` и расширен [`AvaloniaDialogService.cs`](Configuration Management/Services/AvaloniaDialogService.cs).
+- **Авторство изменений:** все правки, вошедшие в этот merge, выполнены **ksv47** ([`PR #59`](https://github.com/ksv47/linux-fixes)) — см. также раздел «Благодарности» в [`README.md`](README.md).
+- **Версия обновлена до 0.3.3.47** (`InformationalVersion` = 0.3.3.47 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)).
+
+## [0.3.3.46] — 2026-08-24
+
+### Слияние исправлений от ksv47
+
+- **Влит PR #58 «Linux/Avalonia: выпадающие меню кнопок запуска, вертикальная полоса прокрутки списка, клавиши прокрутки и разовый запуск с параметрами/авторизацией»** (ветка `ksv47/linux-fixes`). Все изменения этого PR **выполнены автором ksv47**. По функциональным направлениям:
+  - **Выпадающие меню у кнопок запуска** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)) — кнопки «1С:Предприятие» и «Конфигуратор» превращены в split-кнопки: `BuildLaunchSplitButton` строит основную кнопку со стрелкой и контекстным меню дополнительных вариантов (как в WPF-версии). Для «1С:Предприятие» доступны пункты «Запустить с выбором параметров» (`LaunchEnterpriseWithParamsCommand`) и «Запустить с аутентификацией» (`LaunchEnterpriseWithAuthCommand`); для «Конфигуратора» — «Запустить с выбором параметров» (`LaunchConfiguratorWithParamsCommand`). Пункт «от имени администратора» на Linux не переносится: повышения прав через оболочку нет, а запуск клиента 1С от root оставил бы в домашнем каталоге пользователя файлы, которые ему не принадлежат. Подсказка стрелки — `Main.MoreLaunchOptions`.
+  - **Запуск с разовыми параметрами и разовой авторизацией** ([`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)) — новые команды `LaunchEnterpriseWithParamsCommand`, `LaunchConfiguratorWithParamsCommand` и `LaunchEnterpriseWithAuthCommand`. `LaunchWithParams(kind)` открывает [`LaunchParametersWindow`](Configuration Management/LaunchParametersWindow.Avalonia.cs), правит параметры базы только на один запуск и в `finally` возвращает сохранённое значение + вызывает `SaveSilently()` (успешный запуск сохраняет базы изнутри, иначе подменённые параметры остались бы на диске навсегда). `LaunchWithAuth()` на один раз очищает сохранённые имя/пароль и режим аутентификации (включая отдельную авторизацию Предприятия `EnterpriseAuth` базы), чтобы платформа спросила учётные данные сама; прежние значения возвращаются в `finally` + `SaveSilently()`.
+  - **Вертикальная полоса прокрутки списка баз больше не уезжает за границу** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)) — полоса вынесена отдельным столбцом справа, вне области горизонтальной прокрутки, поэтому остаётся у правого края даже когда колонки шире окна (собственная полоса дерева раньше рисовалась у края содержимого и уезжала). `AttachVerticalScrollBar()` связывает внешнюю полосу с внутренней прокруткой дерева (`ScrollViewer`), синхронизируя `Offset`/`Extent`/`Viewport`/`SmallChange`/`LargeChange` через `PropertyObserver<T>`; колесо мыши над полосой обрабатывается с шагом 50 (с `Shift` дельта становится горизонтальной); полоса начинается под шапкой колонок.
+  - **Клавиши `Home`/`End`/`PageUp`/`PageDown` прокручивают список** ([`LeveledTreeView.Avalonia.cs`](Configuration Management/Controls/LeveledTreeView.Avalonia.cs)) — туннельный обработчик `KeyDownEvent` (`OnNavigationKeyDown`): голые клавиши переносят выделение (Home → начало, End → конец, PageUp/PageDown → на страницу по координатам), с `Ctrl` — прокручивают, не трогая выделение (`ScrollBy`). Защита от внутренней прокрутки дерева (она помечает PageUp/PageDown обработанными), гашение события на пустом списке, `VisibleRows()` собирает строки по контейнерам, `PageStep()` считает шаг по координатам, а не по числу строк.
+  - **Компоновка окна «Параметры запуска»** ([`LaunchParametersWindow.Avalonia.cs`](Configuration Management/LaunchParametersWindow.Avalonia.cs)) — порядок `RowDefinition` исправлен: звёздочка (`Star`) у справочника стоит после `Auto`-строк, поэтому по высоте тянется справочник, а подпись не выдавливает кнопки за край окна.
+  - **Убраны задвоенные ключи локализации** — из [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json) удалены продублированные ключи `Settings.General.AfterLaunchAction*` (вариант без завершающего двоеточия), оставлен актуальный.
+- **Авторство изменений:** все правки, вошедшие в этот merge, выполнены **ksv47** ([`PR #58`](https://github.com/ksv47/linux-fixes)) — см. также раздел «Благодарности» в [`README.md`](README.md).
+- **Версия обновлена до 0.3.3.46** (`InformationalVersion` = 0.3.3.46 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.45] — 2026-08-24
+
+### Слияние исправлений от ksv47
+
+- **Влит PR #56 «Linux/Avalonia: освобождение подписок, оформление окон сообщений темой, кисти через динамический ресурс и прокрутка после пересборки дерева»** (ветка `ksv47/linux-fixes`). Все изменения этого PR **выполнены автором ksv47**. По функциональным направлениям:
+  - **Устранение утечек подписок диалогов на ресурсы темы и локализацию** ([`ModalWindowBase.cs`](Configuration Management/ModalWindowBase.cs)) — переопределён `OnClosed`: окно отписывается от `LocalizationManager.Instance.LanguageChanged` (событие живёт у синглтона локализации, а обработчик — метод экземпляра; без отписки закрытое окно оставалось бы достижимым). Кисти темы отписывать не нужно — их привязку держит сам элемент. Подписки диалогов освобождены также в [`ColorPickerWindow.Avalonia.cs`](Configuration Management/ColorPickerWindow.Avalonia.cs), [`GroupPickerWindow.Avalonia.cs`](Configuration Management/GroupPickerWindow.Avalonia.cs), [`GroupSettingsWindow.Avalonia.cs`](Configuration Management/GroupSettingsWindow.Avalonia.cs) и [`PlatformVersionPickerWindow.Avalonia.cs`](Configuration Management/PlatformVersionPickerWindow.Avalonia.cs).
+  - **Окна сообщений оформлены темой** ([`AvaloniaDialogService.cs`](Configuration Management/Services/AvaloniaDialogService.cs)) — `MessageWindow` красится кистями темы через `ThemeBrushes.Bind`: фон окна (`ContentBackgroundColorBrush`), текст сообщения (`TextPrimaryColorBrush`), кнопка OK (`AccentColorBrush`/`TextOnAccentColorBrush`) и кнопка отмены (`SecondaryButtonBackgroundColorBrush`/`ButtonTextColorBrush`). Значение `Result` по умолчанию теперь отрицательное для вопроса (закрытие крестиком или Alt+F4 не должно означать согласие перед удалением базы/группы/схемы), а для сообщения — всегда положительное. Кнопки вопроса локализованы как «Да»/«Нет» (`Common.Yes`/`Common.No`) вместо «OK/Отмена».
+  - **Кисти темы через динамический ресурс вместо ручных подписок** ([`ThemeBrushes.Avalonia.cs`](Configuration Management/Themes/ThemeBrushes.Avalonia.cs)) — `Bind` переведён на `DynamicResourceExtension` (привязку отслеживает сам элемент, освобождать её не нужно и нельзя); добавлен `Observe(target, brushKey, apply)` для кистей в код, зависящих от состояния (наведение/фокус), подписка живёт вместе с элементом через `AttachedToVisualTree`/`DetachedFromVisualTree`, чтобы не удерживать пересобранное содержимое окна сильной ссылкой. Привязка ресурса ищется по цепочке логических родителей до окна. Аналогично доработаны [`IconHelper.Avalonia.cs`](Configuration Management/Converters/Avalonia/IconHelper.Avalonia.cs) и [`UiMetrics.Avalonia.cs`](Configuration Management/Controls/UiMetrics.Avalonia.cs).
+  - **Прокрутка переживает пересборку дерева** ([`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs), [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)) — введено событие `TreeRebuilding` (поднимается до смены состава списка — окно запоминает прокрутку) и `TreeRebuilt` (после обновления — возвращает выделение строки и позицию прокрутки). События поднимаются в `ApplyFilter()`, потому что список меняет состав и мимо полной пересборки: через поиск, вкладки «Все базы/Избранное/Недавние», отбор по тегам, переключатель тегов и группировки.
+- **Авторство изменений:** все правки, вошедшие в этот merge, выполнены **ksv47** ([`PR #56`](https://github.com/ksv47/linux-fixes)) — см. также раздел «Благодарности» в [`README.md`](README.md).
+- **Версия обновлена до 0.3.3.45** (`InformationalVersion` = 0.3.3.45 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)).
+
+## [0.3.3.44] — 2026-08-23
+
+### Локализация (Windows/WPF)
+
+- **Исправлена регрессия: вместо переводов отображались сырые ключи локализации (например «Main.AllBases»)** — [`LocExtension.cs`](Configuration Management/Localization/LocExtension.cs) возвращён к КОНВЕРТЕРНОЙ привязке (`Source = LocalizationManager.Instance.Source`, `Mode = BindingMode.OneWay`, `Converter = LocalizationValueConverter.Instance`, `ConverterParameter = Key`). Ранее (в 0.3.3.43) привязка была заменена на индексаторную (`Path = new PropertyPath($"[{EscapeIndexerKey(Key)}]")`), которая некорректно резолвится в индексатор `LocalizationSource[string]` и возвращала сырой ключ вместо перевода. Убраны ставшие ненужными `using System.Text;`, `using System.Windows;` и метод `EscapeIndexerKey`.
+- **Надёжное динамическое обновление через регистрацию выражений привязки** — в [`LocalizationSource.cs`](Configuration Management/Localization/LocalizationSource.cs) добавлен платформонезависимый механизм: `RegisterForUpdate(object target, Action<object> update)` хранит СЛАБУЮ ссылку на объект и делегат обновления (без захвата target), а `NotifyAll()` после поднятия `PropertyChanged("Item[]")`/`PropertyChanged(string.Empty)` вызывает `UpdateTarget()` у всех зарегистрированных выражений (обёртка в try/catch, защита от выброшенных/отвязанных ссылок, периодическая очистка «мёртвых» ссылок по достижении порога). `LocExtension.ProvideValue` регистрирует полученный `BindingExpression`. `LocalizationSource` не зависит от WPF-типа `BindingExpression` напрямую, поэтому сборка Avalonia (Linux) не ломается.
+- **Сохранён проход по визуальному дереву** — в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs) `RefreshAllBindingsOnVisualTree()` в `RebuildAfterLanguageChange()` остался без изменений: он по-прежнему закрывает MultiBinding-подсказки кнопок запуска (`Path="Source"` + конвертер), которые регистрация из п.2 не покрывает.
+- Переводы снова корректно отображаются при загрузке и обновляются динамически при смене языка без перезапуска приложения.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.44** (`InformationalVersion` = 0.3.3.44 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.43] — 2026-08-23
+
+### Локализация (Windows/WPF)
+
+- **Исправлено: статичные подписи главного окна не переводились сразу при смене языка** — корневая причина устранена в [`LocExtension.cs`](Configuration Management/Localization/LocExtension.cs). Раньше `ProvideValue` создавал привязку с пустым `Path` (`Source` + конвертер по `ConverterParameter=Key`), а привязка WPF без пути НЕ подписывается на `INotifyPropertyChanged` источника, поэтому `LocalizationSource.NotifyAll()` (`PropertyChanged(string.Empty)`) не обновляла такие элементы — они получали значение один раз при создании и оставались на старом языке до перезапуска.
+  Теперь `ProvideValue` строит ИНДЕКСАТОРНУЮ привязку: `Path = new PropertyPath($"[{EscapeIndexerKey(Key)}]")` (с экранированием `\` и `"` в ключе), `Source = LocalizationManager.Instance.Source`, `Mode = BindingMode.OneWay`. Конвертер больше не используется — источник возвращает перевод через `this[string key]`. Индексаторные привязки WPF корректно реагируют на `PropertyChanged("Item[]")`, которое поднимает `NotifyAll()`, поэтому все `{loc:Loc}` в любом окне (вкладки «Все базы/Избранное/Недавние», кнопки панели, заголовки колонок, пункты меню и т.п.) переводятся мгновенно, без перезапуска.
+- **Принудительное обновление привязок по визуальному дереву окна** — в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs) в `RebuildAfterLanguageChange()` после обновления заголовка/темы/трея теперь вызывается `RefreshAllBindingsOnVisualTree()`, который через `VisualTreeHelper` (с переходом в логическое дерево, где необходимо) обходит все `DependencyObject` окна и для каждой локальной привязки (`GetLocalValueEnumerator()` + `BindingOperations.GetBindingExpressionBase(dp).UpdateTarget()`) принудительно обновляет целевое значение. Это закрывает и те элементы, которые не реагируют на `PropertyChanged("Item[]")` (например MultiBinding-подсказки кнопок запуска с `Path="Source"` + конвертер). Всё обёрнуто в try/catch — сбой одной привязки не прерывает пересборку интерфейса. Существующая подписка/обработчик смены языка сохранены.
+- Смена языка работает в обе стороны (ru ↔ en) и на внешние языки; главное окно полностью переводится без перезапуска.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.43** (`InformationalVersion` = 0.3.3.43 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.42] — 2026-08-23
+
+### Локализация (Windows/WPF)
+
+- **Полная динамическая смена языка интерфейса без перезапуска для локализованных свойств VM и дерева групп** — [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) (Windows/#if WINDOWS) теперь подписывается на `LocalizationManager.Instance.LanguageChanged` в конструкторе. Новый обработчик `OnLanguageChanged` (с маршалингом на UI-поток через `Dispatcher`) вызывает `HandleLanguageChanged()`, который:
+  - вызывает `OnPropertyChanged(string.Empty)` — WPF пересчитывает все привязки к VM, обновляя локализованные свойства (`StatusBarInfo`, `ExportIndicatorTooltip`, `RightPanelToggleTooltip`, `GroupByGroupText`, `SyncMessage` и др.), которые возвращают `LocalizationManager.T(...)` на лету;
+  - вызывает `RebuildGroupTree()` — дерево пересобирается целиком, поэтому служебные узлы («Все базы», «Без группы», «Избранное») через `GroupNodeViewModel.DisplayName` сразу получают тексты на новом языке.
+  Работает для любого направления (ru ↔ en и внешние языки). Ранее эти элементы обновлялись только после перезапуска, хотя XAML-привязки `{loc:Loc}` уже обновлялись через `Source.NotifyAll()`.
+- **Корректная отписка от события** — добавлен публичный метод `UnsubscribeLanguageChanged()` с флагом `_languageChangedSubscribed` (защищает от дублирования подписки); вызывается из `MainWindow.OnClosing` при полном закрытии окна, чтобы не было утечек.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.42** (`InformationalVersion` = 0.3.3.42 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.41] — 2026-08-23
+
+### Локализация (Windows/WPF)
+
+- **Динамическая смена языка интерфейса без перезапуска (Windows/WPF)** — главное окно [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs) теперь подписывается на `LocalizationManager.Instance.LanguageChanged` (по аналогии с Avalonia-версией [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)). При смене языка в настройках новый обработчик `OnLanguageChanged`/`RebuildAfterLanguageChange` вручную обновляет элементы, заданные в code-behind: заголовок окна (`Title` с версией — локальное значение перекрывает XAML-привязку `{loc:Loc App.Title}`), подсказку кнопки смены темы ([`UpdateThemeButton()`](Configuration Management/MainWindow.xaml.cs)), а также текст и меню трея ([`RebuildTrayMenu()`](Configuration Management/MainWindow.xaml.cs)). Событие обрабатывается на UI-потоке через диспетчер (`Dispatcher.CheckAccess`/`BeginInvoke`) — работает для любого направления (ru ↔ en и внешние языки).
+- **Корректная отписка от события** — в [`OnClosing`](Configuration Management/MainWindow.xaml.cs) (ветка реального закрытия, не сворачивания в трей) выполняется `LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged`, что исключает утечку памяти (окно не удерживается менеджером локализации после закрытия).
+- Остальные тексты главного окна (кнопки, колонки, тултипы, empty-state и т.п.) объявлены в XAML через `{loc:Loc ...}` и обновляются автоматически через `LocalizationManager.Source.NotifyAll()`, поэтому дополнительной перестройки не требуют.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.41** (`InformationalVersion` = 0.3.3.41 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в `README.md` обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.40] — 2026-08-23
+
+### Локализация / сохранение настроек
+
+- **Исправлено: язык интерфейса терялся при закрытии окна (Windows/WPF)** — метод `SaveSettings()` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs:3282) при построении нового объекта `AppSettings` не задавал свойство `Language`, из-за чего оно сохранялось пустым (`""`). При закрытии главного окна (`MainWindow.OnClosing` → `_viewModel.SaveSettings()`) файл настроек перезаписывался с пустым языком, и при следующем запуске `LocalizationManager.Initialize(settings.Language)` выбирал язык системы вместо выбранного пользователем. Теперь `SaveSettings()` всегда записывает актуальный код языка через `LocalizationManager.Instance.CurrentLanguage` в создаваемый объект `AppSettings.Language`.
+
+### Документация
+
+- **Версия обновлена до 0.3.3.40** (`InformationalVersion` = 0.3.3.40 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в `README.md` обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.3.39] — 2026-08-23
 
 ### Локализация / сохранение настроек

@@ -59,6 +59,29 @@ namespace Configuration_Management
                     settings = new AppSettings();
                 }
 
+                // Восстановление профиля из указанного каталога резервной копии
+                // (например, после переустановки системы): настройки, список баз
+                // (с пользователями и паролями запуска), группы и ibases.v8i.
+                // Файлы копируются до загрузки данных главным окном, поэтому приложение
+                // сразу открывается с привычным состоянием. Настройки перечитываются,
+                // чтобы последующие этапы запуска использовали восстановленные значения.
+                if (settings.ProfileRestoreOnStartup
+                    && !string.IsNullOrWhiteSpace(settings.ProfileBackupDirectory)
+                    && ProfileBackupService.HasBackup(settings.ProfileBackupDirectory))
+                {
+                    try
+                    {
+                        ProfileBackupService.Restore(settings.ProfileBackupDirectory, settings.IbasesSyncFilePath);
+                        try { settings = repository.LoadSettings(); }
+                        catch { /* оставляем уже прочитанные настройки */ }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Сбой восстановления не должен блокировать запуск.
+                        System.Diagnostics.Debug.WriteLine("[profile] Ошибка восстановления профиля: " + ex.Message);
+                    }
+                }
+
                 // Инициализируем локализацию: выбираем сохранённый язык, иначе язык
                 // системы. Внешние языки (.json) подгружаются из папки Languages.
                 try
@@ -87,19 +110,34 @@ namespace Configuration_Management
 
                 base.OnStartup(e);
 
-                // Применяем сохранённую цветовую схему (тему оформления).
-                if (settings.ActiveColorScheme is { Colors.Count: > 0 })
+                // Применяем сохранённую цветовую схему (тему оформления). Предпочитаем раздельную
+                // схему для активной базовой темы (Light/Dark), иначе — старый одиночный
+                // ActiveColorScheme (миграция) или встроенные цвета.
+                var themeName = string.IsNullOrWhiteSpace(settings.Theme)
+                    ? ThemeManager.LightThemeName
+                    : settings.Theme;
+                var isDark = string.Equals(themeName, ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
+                Configuration_Management.Models.ColorScheme? scheme = isDark
+                    ? settings.DarkColorScheme
+                    : settings.LightColorScheme;
+                if (scheme is not { Colors.Count: > 0 }
+                    && settings.ActiveColorScheme is { Colors.Count: > 0 }
+                    && settings.ActiveColorScheme.IsDark == isDark)
                 {
-                    ThemeManager.ApplyScheme(settings.ActiveColorScheme);
+                    scheme = settings.ActiveColorScheme;
                 }
-                else
+                ThemeManager.ApplyScheme(scheme ?? (isDark
+                    ? Configuration_Management.Models.ColorScheme.CreateDark()
+                    : Configuration_Management.Models.ColorScheme.CreateLight()));
+                try
                 {
-                    // Обратная совместимость: только имя темы Light/Dark.
-                    var theme = string.IsNullOrWhiteSpace(settings.Theme)
-                        ? ThemeManager.LightThemeName
-                        : settings.Theme;
-                    ThemeManager.ApplyTheme(theme);
+                    System.IO.File.AppendAllText(
+                        System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cm_theme_debug.log"),
+                        $"[startup] theme='{themeName}' dark={isDark} applied='{ThemeManager.CurrentScheme.Name}' " +
+                        $"darkSlot='{settings.DarkColorScheme?.Name}' lightSlot='{settings.LightColorScheme?.Name}' " +
+                        $"active='{settings.ActiveColorScheme?.Name}'{System.Environment.NewLine}");
                 }
+                catch { /* не критично */ }
 
                 var mainWindow = AppServices.GetRequiredService<MainWindow>();
                 MainWindow = mainWindow;

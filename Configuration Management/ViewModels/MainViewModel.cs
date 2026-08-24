@@ -39,6 +39,12 @@ public class MainViewModel : ViewModelBase
     private string _noGroupIcon = string.Empty;
     private string _savedTheme = string.Empty;
     private ColorScheme? _activeColorScheme;
+    /// <summary>Пользовательская схема светлой темы (кастомизация хранится независимо от тёмной).</summary>
+    private ColorScheme? _lightColorScheme;
+    /// <summary>Пользовательская схема тёмной темы (кастомизация хранится независимо от светлой).</summary>
+    private ColorScheme? _darkColorScheme;
+    /// <summary>Флаг подписки на событие смены языка (предотвращает дублирование подписки).</summary>
+    private bool _languageChangedSubscribed;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
     private List<string> _installedPlatformVersions = new();
     private List<string> _additionalPlatformSearchPaths = new();
@@ -94,6 +100,9 @@ public class MainViewModel : ViewModelBase
     private IbasesSyncMode _ibasesSyncMode = IbasesSyncMode.None;
     private string _ibasesSyncFilePath = string.Empty;
     private IbasesSyncTrigger _ibasesSyncTrigger = IbasesSyncTrigger.OnStartup;
+    // ---- Профиль: резервное копирование в произвольный каталог ----
+    private string _profileBackupDirectory = string.Empty;
+    private bool _profileRestoreOnStartup;
     private int _ibasesSyncIntervalMinutes = 30;
     private string _ibasesSyncScheduleTime = "09:00";
     private bool _ibasesBackupEnabled = true;
@@ -185,17 +194,24 @@ public class MainViewModel : ViewModelBase
         _elementFonts = settings.ElementFonts is null
             ? new Dictionary<string, Models.ElementFontSettings>()
             : new Dictionary<string, Models.ElementFontSettings>(settings.ElementFonts);
-        // Активная цветовая схема: если сохранена пользовательская/настроенная тема — используем её,
-        // иначе встроенную схему по выбранной теме оформления.
+        // Раздельные пользовательские схемы для светлой и тёмной темы: кастомизация
+        // каждой базовой темы хранится независимо, поэтому переключение тем не затирает
+        // настроенное оформление.
+        _lightColorScheme = settings.LightColorScheme;
+        _darkColorScheme = settings.DarkColorScheme;
+        // Миграция: если задан только старый одиночный ActiveColorScheme, переносим его
+        // в слот соответствующей базовой темы.
         if (settings.ActiveColorScheme is { Colors.Count: > 0 })
         {
-            _activeColorScheme = settings.ActiveColorScheme;
+            if (settings.ActiveColorScheme.IsDark && _darkColorScheme is not { Colors.Count: > 0 })
+                _darkColorScheme = settings.ActiveColorScheme;
+            else if (!settings.ActiveColorScheme.IsDark && _lightColorScheme is not { Colors.Count: > 0 })
+                _lightColorScheme = settings.ActiveColorScheme;
         }
-        else
-        {
-            var baseTheme = string.IsNullOrWhiteSpace(_savedTheme) ? Themes.ThemeManager.LightThemeName : _savedTheme;
-            _activeColorScheme = Themes.ThemeManager.GetBuiltInScheme(baseTheme) ?? Models.ColorScheme.CreateLight();
-        }
+        var baseTheme = string.IsNullOrWhiteSpace(_savedTheme)
+            ? ((_darkColorScheme is { Colors.Count: > 0 }) ? Themes.ThemeManager.DarkThemeName : Themes.ThemeManager.LightThemeName)
+            : _savedTheme;
+        _activeColorScheme = SchemeForTheme(IsDarkTheme(baseTheme));
         _additionalPlatformSearchPaths = new List<string>(settings.AdditionalPlatformSearchPaths ?? new List<string>());
         PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformSearchPaths);
         // Актуальный список с диска (Program Files + доп. пути, напр. E:\1cPlatform)
@@ -252,6 +268,8 @@ public class MainViewModel : ViewModelBase
         _ibasesSyncScheduleTime = settings.IbasesSyncScheduleTime;
         _ibasesBackupEnabled = settings.IbasesBackupEnabled;
         _ibasesBackupKeepCount = settings.IbasesBackupKeepCount > 0 ? settings.IbasesBackupKeepCount : 5;
+        _profileBackupDirectory = settings.ProfileBackupDirectory ?? string.Empty;
+        _profileRestoreOnStartup = settings.ProfileRestoreOnStartup;
         _addTimestampToExportFileName = settings.AddTimestampToExportFileName;
         _exportTimestampFormat = string.IsNullOrWhiteSpace(settings.ExportTimestampFormat)
             ? "yyyyMMdd_HHmmss"
@@ -314,6 +332,13 @@ public class MainViewModel : ViewModelBase
         // Дерево групп (отображается в виде «группа в группе»).
         GroupNodes = new ObservableCollection<GroupNodeViewModel>();
         RebuildGroupTree();
+
+        // Смена языка интерфейса: локализованные свойства VM и служебные узлы дерева
+        // обновляются на лету без перезапуска. XAML-привязки {loc:Loc} обновляются сами
+        // через LocalizationManager.Source.NotifyAll(), а здесь обновляем свойства VM,
+        // возвращающие LocalizationManager.T(...), и пересобираем дерево групп.
+        LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
+        _languageChangedSubscribed = true;
 
         // Раскрываем ветку, содержащую последнюю выбранную строку, чтобы её контейнер
         // в виртуализированном дереве создался сразу при первой отрисовке и выделение
@@ -392,9 +417,23 @@ public class MainViewModel : ViewModelBase
         RegisterComConnectorCommand = new RelayCommand(RegisterComConnector);
 
         // Если список баз пуст — предлагаем загрузить базы из файла ibases.v8i.
+        // Диалог нельзя показывать прямо из конструктора: главное окно ещё не показано,
+        // и модальный MessageBox, открытый до появления окна, зависает (в т.ч. при нажатии
+        // «Выход»/отмены). Откладываем запрос до завершения раскладки и отрисовки первого
+        // кадра, когда окно уже на экране и модальный цикл сообщений работает корректно.
         if (Infobases.Count == 0)
         {
-            PromptImportFromIbasesV8i();
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher is not null)
+            {
+                dispatcher.BeginInvoke(
+                    new Action(PromptImportFromIbasesV8i),
+                    System.Windows.Threading.DispatcherPriority.ContextIdle);
+            }
+            else
+            {
+                PromptImportFromIbasesV8i();
+            }
         }
     }
 
@@ -814,6 +853,80 @@ public class MainViewModel : ViewModelBase
         _ibasesBackupKeepCount = backupKeepCount > 0 ? backupKeepCount : 5;
         SaveSettings();
         RestartAutoSync();
+    }
+
+    // ---- Профиль: резервное копирование и восстановление ----
+
+    /// <summary>Каталог резервной копии профиля (настройки, базы, пользователи/пароли, ibases.v8i).</summary>
+    public string ProfileBackupDirectory => _profileBackupDirectory;
+
+    /// <summary>Восстанавливать профиль из каталога резервной копии при каждом запуске.</summary>
+    public bool ProfileRestoreOnStartup => _profileRestoreOnStartup;
+
+    /// <summary>Применяет настройки резервного копирования профиля из окна настроек.</summary>
+    public void ApplyProfileBackupSettings(string backupDirectory, bool restoreOnStartup)
+    {
+        _profileBackupDirectory = backupDirectory?.Trim() ?? string.Empty;
+        _profileRestoreOnStartup = restoreOnStartup;
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Сохраняет текущий профиль (настройки, список баз с пользователями и паролями,
+    /// группы, ibases.v8i) в настроенный каталог. Возвращает true при успехе.
+    /// </summary>
+    public bool BackupProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_profileBackupDirectory))
+        {
+            _dialogs.ShowWarning(LocalizationManager.T("Settings.Profile.NoDirectory"));
+            return false;
+        }
+        try
+        {
+            var count = ProfileBackupService.Backup(_profileBackupDirectory, _ibasesSyncFilePath);
+            _logger.Info($"Резервная копия профиля сохранена в {_profileBackupDirectory} ({count} файлов)");
+            _dialogs.ShowInfo(string.Format(LocalizationManager.T("Settings.Profile.BackupDone"), count));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка резервного копирования профиля", ex);
+            _dialogs.ShowError(string.Format(LocalizationManager.T("Settings.Profile.BackupFailed"), ex.Message));
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Восстанавливает профиль из настроенного каталога. Файлы копируются на диск;
+    /// для полного применения рекомендуется перезапуск приложения (либо включённое
+    /// восстановление при запуске). Возвращает true при успехе.
+    /// </summary>
+    public bool RestoreProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_profileBackupDirectory))
+        {
+            _dialogs.ShowWarning(LocalizationManager.T("Settings.Profile.NoDirectory"));
+            return false;
+        }
+        if (!ProfileBackupService.HasBackup(_profileBackupDirectory))
+        {
+            _dialogs.ShowWarning(LocalizationManager.T("Settings.Profile.NoBackup"));
+            return false;
+        }
+        try
+        {
+            var count = ProfileBackupService.Restore(_profileBackupDirectory, _ibasesSyncFilePath);
+            _logger.Info($"Профиль восстановлен из {_profileBackupDirectory} ({count} файлов)");
+            _dialogs.ShowInfo(string.Format(LocalizationManager.T("Settings.Profile.RestoreDone"), count));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка восстановления профиля", ex);
+            _dialogs.ShowError(string.Format(LocalizationManager.T("Settings.Profile.RestoreFailed"), ex.Message));
+            return false;
+        }
     }
 
     /// <summary>
@@ -3283,11 +3396,16 @@ public string HotkeyEnterprise
     {
         _repository.SaveSettings(new AppSettings
         {
+            // Актуальный язык интерфейса сохраняется всегда, чтобы выбор
+            // пользователя не затирался при закрытии окна (OnClosing).
+            Language = Configuration_Management.Localization.LocalizationManager.Instance.CurrentLanguage,
             ShowFavoritesOnly = _showFavoritesOnly,
             GroupByGroup = _groupByGroup,
             ShowEmptyGroups = _showEmptyGroups,
             Theme = _savedTheme,
             ActiveColorScheme = _activeColorScheme,
+            LightColorScheme = _lightColorScheme,
+            DarkColorScheme = _darkColorScheme,
             CollapsedGroups = _collapsedGroups.ToList(),
             InstalledPlatformVersions = _installedPlatformVersions,
             AdditionalPlatformSearchPaths = _additionalPlatformSearchPaths,
@@ -3367,7 +3485,9 @@ public string HotkeyEnterprise
             FontStyle = _fontStyle,
             ElementFonts = _elementFonts,
             LastSelectedInfobaseId = _lastSelectedInfobaseId,
-            LastSelectedGroupPath = _lastSelectedGroupPath
+            LastSelectedGroupPath = _lastSelectedGroupPath,
+            ProfileBackupDirectory = _profileBackupDirectory,
+            ProfileRestoreOnStartup = _profileRestoreOnStartup
         });
     }
 
@@ -3419,37 +3539,56 @@ public string HotkeyEnterprise
     }
 
     /// <summary>
-    /// Переключает базовую тему (светлую/тёмную), сохраняя выбранную пользовательскую схему:
-    /// если для целевой темы есть активная схема — применяется она; иначе применяются встроенные
-    /// цвета, а сохранённая пользовательская схема не затирается (восстановится при возврате
-    /// к её базовой теме).
+    /// Переключает базовую тему (светлую/тёмную), сохраняя пользовательские схемы каждой темы:
+    /// применяется схема целевой темы (сохранённая пользовательская или встроенная по умолчанию),
+    /// ни одна из сохранённых схем не затирается.
     /// </summary>
     public void ToggleTheme()
     {
         var targetDark = !Themes.ThemeManager.CurrentScheme.IsDark;
-        ApplyBaseThemePreserving(targetDark);
+        ApplySchemeForTheme(targetDark);
         SaveSettings();
+        LogTheme($"ToggleTheme -> dark={targetDark}, scheme='{_activeColorScheme?.Name}' (isDark={_activeColorScheme?.IsDark}), darkSlot='{_darkColorScheme?.Name}', lightSlot='{_lightColorScheme?.Name}'");
     }
 
     /// <summary>
-    /// Применяет базовый вариант темы, не заменяя активную пользовательскую схему встроенной.
+    /// Применяет схему для указанной базовой темы, обновляя активную схему и сохранённую тему.
+    /// Каждая базовая тема (светлая/тёмная) имеет собственную схему, поэтому правки одной
+    /// темы не влияют на другую.
     /// </summary>
-    private void ApplyBaseThemePreserving(bool dark)
+    private void ApplySchemeForTheme(bool dark)
     {
-        if (_activeColorScheme is { Colors.Count: > 0 } && _activeColorScheme.IsDark == dark)
-        {
-            _savedTheme = _activeColorScheme.BaseThemeName;
-            Themes.ThemeManager.ApplyScheme(_activeColorScheme);
-            return;
-        }
-
-        var builtIn = dark ? Models.ColorScheme.CreateDark() : Models.ColorScheme.CreateLight();
-        _savedTheme = builtIn.BaseThemeName;
-        Themes.ThemeManager.ApplyScheme(builtIn);
+        _activeColorScheme = SchemeForTheme(dark);
+        _savedTheme = _activeColorScheme.BaseThemeName;
+        Themes.ThemeManager.ApplyScheme(_activeColorScheme);
+        LogTheme($"ApplySchemeForTheme(dark={dark}) -> active='{_activeColorScheme.Name}' (isDark={_activeColorScheme.IsDark})");
     }
+
+    /// <summary>
+    /// Возвращает схему для базовой темы: сохранённую пользовательскую (если есть), иначе встроенную.
+    /// </summary>
+    private Models.ColorScheme SchemeForTheme(bool dark)
+    {
+        var slot = dark ? _darkColorScheme : _lightColorScheme;
+        if (slot is { Colors.Count: > 0 })
+            return slot;
+        return dark ? Models.ColorScheme.CreateDark() : Models.ColorScheme.CreateLight();
+    }
+
+    /// <summary>
+    /// Возвращает схему для базовой темы («Light»/«Dark»): сохранённую пользовательскую
+    /// (если есть) или встроенную по умолчанию. Не изменяет настройки.
+    /// </summary>
+    public Models.ColorScheme GetSchemeForTheme(string theme)
+        => SchemeForTheme(IsDarkTheme(theme));
+
+    private static bool IsDarkTheme(string? theme)
+        => string.Equals(theme, Themes.ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Применяет цветовую схему, сохраняет её как активную и записывает настройки.
+    /// Кастомизация записывается в слот соответствующей базовой темы (светлой/тёмной),
+    /// поэтому переключение тем не сбрасывает настроенное оформление.
     /// </summary>
     public void ApplyColorScheme(ColorScheme scheme)
     {
@@ -3457,8 +3596,45 @@ public string HotkeyEnterprise
             return;
         _activeColorScheme = scheme.Clone();
         _savedTheme = _activeColorScheme.BaseThemeName;
+        if (_activeColorScheme.IsDark)
+            _darkColorScheme = _activeColorScheme;
+        else
+            _lightColorScheme = _activeColorScheme;
         Themes.ThemeManager.ApplyScheme(_activeColorScheme);
         SaveSettings();
+        LogTheme($"ApplyColorScheme('{scheme.Name}', isDark={scheme.IsDark}, colors={scheme.Colors.Count}) -> active='{_activeColorScheme.Name}', darkSlot='{_darkColorScheme?.Name}', lightSlot='{_lightColorScheme?.Name}'");
+    }
+
+    /// <summary>
+    /// Сохраняет правки схемы в слот соответствующей базовой темы (светлой/тёмной),
+    /// не меняя активную тему и не трогая интерфейс. Используется редактором цветов
+    /// во вкладке «Цветовое оформление», чтобы каждая тема хранила собственные настройки
+    /// независимо от остальных.
+    /// </summary>
+    public void SaveColorSchemeSlot(ColorScheme scheme)
+    {
+        if (scheme is null)
+            return;
+        var clone = scheme.Clone();
+        if (clone.IsDark)
+            _darkColorScheme = clone;
+        else
+            _lightColorScheme = clone;
+        SaveSettings();
+        LogTheme($"SaveColorSchemeSlot('{scheme.Name}', isDark={scheme.IsDark}, colors={scheme.Colors.Count}) -> darkSlot='{_darkColorScheme?.Name}', lightSlot='{_lightColorScheme?.Name}'");
+    }
+
+    /// <summary>Диагностика переключения/применения темы (пишет в лог и во временный файл).</summary>
+    private void LogTheme(string message)
+    {
+        try { _logger.Info("[theme-debug] " + message); } catch { /* не критично */ }
+        try
+        {
+            System.IO.File.AppendAllText(
+                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cm_theme_debug.log"),
+                "[theme-debug] " + message + Environment.NewLine);
+        }
+        catch { /* не критично */ }
     }
 
     /// <summary>
@@ -3743,6 +3919,55 @@ public string HotkeyEnterprise
     /// Группы и подгруппы, не содержащие баз (в том числе при активном фильтре «Только избранные»),
     /// в дерево не попадают.
     /// </summary>
+    /// <summary>
+    /// Обработчик смены языка интерфейса (Windows): пересчитывает все привязки к VM
+    /// и пересобирает дерево групп, чтобы локализованные свойства и служебные узлы
+    /// («Все базы», «Без группы», «Избранное») обновились без перезапуска.
+    /// Работает для любого направления (ru ↔ en и внешние языки).
+    /// </summary>
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        // Событие поднимается на UI-потоке (SettingsWindow), но добавляем страховку:
+        // если вызов пришёл с другого потока — маршализуем на диспетчер приложения.
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            HandleLanguageChanged();
+            return;
+        }
+
+        dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.DataBind,
+            new Action(HandleLanguageChanged));
+    }
+
+    /// <summary>
+    /// Непосредственно применяет смену языка: уведомляет об изменении всех свойств VM
+    /// (WPF пересчитает StatusBarInfo, ExportIndicatorTooltip, RightPanelToggleTooltip,
+    /// GroupByGroupText, SyncMessage и пр.) и пересобирает дерево групп.
+    /// </summary>
+    private void HandleLanguageChanged()
+    {
+        // Пустое имя свойства означает «изменились все свойства» — WPF пересчитает
+        // все активные привязки к VM.
+        OnPropertyChanged(string.Empty);
+        // Дерево перестраиваем целиком: узлы со спецмаркерами возвращают
+        // LocalizationManager.T(...) на лету (см. GroupNodeViewModel.DisplayName).
+        RebuildGroupTree();
+    }
+
+    /// <summary>
+    /// Отписывается от события смены языка. Вызывается при полном закрытии главного
+    /// окна (MainWindow.OnClosing), чтобы избежать утечек и дублирования подписки.
+    /// </summary>
+    public void UnsubscribeLanguageChanged()
+    {
+        if (!_languageChangedSubscribed)
+            return;
+        LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
+        _languageChangedSubscribed = false;
+    }
+
     public void RebuildGroupTree()
     {
         // Один проход по базам без CollectionView.Refresh (он дорогой на больших списках).

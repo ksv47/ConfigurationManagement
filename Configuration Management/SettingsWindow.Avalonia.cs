@@ -12,6 +12,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
+using Configuration_Management.Services;
 using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
 
@@ -103,13 +104,21 @@ namespace Configuration_Management
             // ===== Настройки =====
             var settings = new StackPanel { Spacing = 14 };
 
-            // Тема оформления
+            // Тема оформления. Редактируемая схема и колбэк обновления редактора объявляются
+            // здесь, чтобы радиокнопки «Светлая/Тёмная» переключали базовую тему именно той
+            // схемы, которую пользователь редактирует (и которая сохраняется по «Применить»).
+            var editedScheme = _viewModel.ActiveColorScheme.Clone();
+            System.Action? refreshEditedScheme = null;
             var themeLabel = new TextBlock { Text = LocalizationManager.T("Settings.ThemeLabel"), FontWeight = FontWeight.SemiBold };
             settings.Children.Add(themeLabel);
             var themePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
             var lightTheme = new RadioButton { Content = LocalizationManager.T("Main.LightTheme"), GroupName = "Theme", IsChecked = !ThemeManager.CurrentScheme.IsDark };
             var darkTheme = new RadioButton { Content = LocalizationManager.T("Main.DarkTheme"), GroupName = "Theme", IsChecked = ThemeManager.CurrentScheme.IsDark };
-            ThemeChanged(lightTheme, darkTheme);
+            ThemeChanged(lightTheme, darkTheme, _viewModel, theme =>
+            {
+                editedScheme = _viewModel.GetSchemeForTheme(theme);
+                refreshEditedScheme?.Invoke();
+            });
             themePanel.Children.Add(lightTheme);
             themePanel.Children.Add(darkTheme);
             settings.Children.Add(themePanel);
@@ -345,7 +354,7 @@ namespace Configuration_Management
 
             // Правки идут по копии сохранённой схемы, а не применённой предпросмотром:
             // закрытие окна крестиком не должно оставлять редактор на непринятых цветах.
-            var editedScheme = _viewModel.ActiveColorScheme.Clone();
+            editedScheme = _viewModel.ActiveColorScheme.Clone();
 
             var schemeBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
             var colorsPanel = new StackPanel { Spacing = 2 };
@@ -433,6 +442,7 @@ namespace Configuration_Management
 
             ReloadSchemes();
             RefreshColors();
+            refreshEditedScheme = () => { ReloadSchemes(editedScheme.Name); RefreshColors(); };
             appearance.Children.Add(schemeBox);
 
             var schemeButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
@@ -917,6 +927,95 @@ namespace Configuration_Management
                 }
             });
 
+            // ===== Резервное копирование профиля =====
+            var profile = new StackPanel { Spacing = 6 };
+
+            profile.Children.Add(GroupTitle(LocalizationManager.T("Settings.TabProfile")));
+            profile.Children.Add(Hint(LocalizationManager.T("Settings.Profile.Description")));
+            profile.Children.Add(Hint(LocalizationManager.T("Settings.Profile.Includes")));
+
+            profile.Children.Add(GroupTitle(LocalizationManager.T("Settings.Profile.Directory")));
+            var profileDirGrid = new Grid();
+            profileDirGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            profileDirGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            var profileDirBox = new TextBox
+            {
+                Text = _viewModel.ProfileBackupDirectory,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            var profileBrowse = new Button { Content = LocalizationManager.T("Settings.Profile.Browse"), Margin = new Thickness(8, 0, 0, 0) };
+            ToolTip.SetTip(profileBrowse, LocalizationManager.T("Settings.Profile.BrowseTooltip"));
+            profileBrowse.Click += (_, _) =>
+            {
+                var picked = _viewModel.PickFolder(LocalizationManager.T("Settings.Profile.Directory"));
+                if (!string.IsNullOrWhiteSpace(picked))
+                    profileDirBox.Text = picked;
+            };
+            Grid.SetColumn(profileDirBox, 0);
+            Grid.SetColumn(profileBrowse, 1);
+            profileDirGrid.Children.Add(profileDirBox);
+            profileDirGrid.Children.Add(profileBrowse);
+            profile.Children.Add(profileDirGrid);
+
+            var profileRestoreCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.Profile.RestoreOnStartup"),
+                IsChecked = _viewModel.ProfileRestoreOnStartup,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            profile.Children.Add(profileRestoreCheck);
+            profile.Children.Add(Hint(LocalizationManager.T("Settings.Profile.RestoreOnStartupHint")));
+
+            var profileButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
+            var backupNow = new Button { Content = LocalizationManager.T("Settings.Profile.BackupNow") };
+            ToolTip.SetTip(backupNow, LocalizationManager.T("Settings.Profile.BackupNowTooltip"));
+            backupNow.Click += (_, _) =>
+            {
+                // Применяем выбранный каталог перед сохранением, чтобы профиль ушёл туда.
+                _viewModel.ApplyProfileBackupSettings(profileDirBox.Text, profileRestoreCheck.IsChecked == true);
+                _viewModel.BackupProfile();
+            };
+            var restoreNow = new Button { Content = LocalizationManager.T("Settings.Profile.RestoreNow") };
+            ToolTip.SetTip(restoreNow, LocalizationManager.T("Settings.Profile.RestoreNowTooltip"));
+            restoreNow.Click += (_, _) =>
+            {
+                // Применяем выбранный каталог перед восстановлением.
+                _viewModel.ApplyProfileBackupSettings(profileDirBox.Text, profileRestoreCheck.IsChecked == true);
+                // При успехе данные уже перезагружены; окно закрываем, чтобы не затереть
+                // восстановленные настройки старыми значениями из полей формы.
+                if (_viewModel.RestoreProfile())
+                {
+                    DialogResult = true;
+                    Close();
+                }
+            };
+            profileButtons.Children.Add(backupNow);
+            profileButtons.Children.Add(restoreNow);
+            profile.Children.Add(profileButtons);
+
+            // Заголовок вкладки со значком слева от названия.
+            var profileHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            profileHeader.Children.Add(new Avalonia.Controls.Shapes.Path
+            {
+                Data = StreamGeometry.Parse("M2,2 L22,2 L22,22 L2,22 Z M5,6 L19,6 M5,10 L19,10 M5,14 L19,14 M5,18 L13,18"),
+                Width = 16,
+                Height = 16,
+                Stroke = Brushes.Gray,
+                StrokeThickness = 1.5,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            profileHeader.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.TabProfile"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            tabs.Items.Add(new TabItem
+            {
+                Header = profileHeader,
+                Content = new ScrollViewer { Content = profile, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+            });
+
             // ===== Клавиши =====
             var hotkeys = new StackPanel { Spacing = 10 };
             hotkeys.Children.Add(new TextBlock
@@ -1009,6 +1108,8 @@ namespace Configuration_Management
                     scheduleBox.Text?.Trim() ?? string.Empty,
                     backupCheck.IsChecked == true,
                     int.TryParse(keepBox.Text, out var keep) && keep > 0 ? keep : 5);
+
+                _viewModel.ApplyProfileBackupSettings(profileDirBox.Text, profileRestoreCheck.IsChecked == true);
 
                 _viewModel.ApplyHotkeys(
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
@@ -1129,17 +1230,21 @@ namespace Configuration_Management
             IsChecked = value
         };
 
-        private static void ThemeChanged(RadioButton light, RadioButton dark)
+        private static void ThemeChanged(
+            RadioButton light, RadioButton dark, MainViewModel viewModel,
+            Action<string> onTheme)
         {
             light.IsCheckedChanged += (_, _) =>
             {
-                if (light.IsChecked == true)
-                    ThemeManager.ApplyTheme(ThemeManager.LightThemeName);
+                if (light.IsChecked != true)
+                    return;
+                onTheme(ThemeManager.LightThemeName);
             };
             dark.IsCheckedChanged += (_, _) =>
             {
-                if (dark.IsChecked == true)
-                    ThemeManager.ApplyTheme(ThemeManager.DarkThemeName);
+                if (dark.IsChecked != true)
+                    return;
+                onTheme(ThemeManager.DarkThemeName);
             };
         }
 
@@ -1272,7 +1377,42 @@ namespace Configuration_Management
                 Opacity = 0.7
             });
 
+            var copyButton = new Button
+            {
+                Content = LocalizationManager.T("Settings.About.CopyTechInfo"),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 8, 0, 0),
+                Padding = new Thickness(14, 8)
+            };
+            copyButton.Click += async (_, _) =>
+            {
+                try
+                {
+                    var text = TechnicalInfoService.Collect();
+                    if (this.Clipboard is { } cb)
+                        await cb.SetTextAsync(text);
+                    ShowAboutMessage(LocalizationManager.T("Settings.About.TechInfoCopied"));
+                }
+                catch
+                {
+                    ShowAboutMessage(LocalizationManager.T("Settings.About.TechInfoCopyFailed"));
+                }
+            };
+            panel.Children.Add(copyButton);
+
             return panel;
+        }
+
+        /// <summary>
+        /// Показывает информационное окно поверх текущего окна настроек.
+        /// </summary>
+        private void ShowAboutMessage(string message)
+        {
+            var win = new MessageWindow(message, LocalizationManager.T("Common.Information"), MessageWindowKind.Info)
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            _ = win.ShowDialog(this);
         }
     }
 }
