@@ -165,71 +165,40 @@ public sealed class OneCComConnector : IOneCComConnector
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Чтение выполняется не здесь, а в дочернем процессе (<see cref="ComReadHost"/>).
+    /// Под CoreCLR вызов <c>Connect</c> у comcntr.dll обрывает процесс нативным fast-fail
+    /// (0xC0000409) без управляемого исключения — перехватить его в этом процессе нельзя,
+    /// поэтому COM изолирован. Подробности и история — в комментарии к ComReadHost.
+    /// </remarks>
     public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000)
     {
         if (infobase is null) return null;
 
-        // Быстрый отказ: коннектор не зарегистрирован — не создаём поток и не ловим COMException.
+        // Быстрый отказ: коннектор не зарегистрирован — не запускаем процесс-агент.
         if (!IsComConnectorAvailable())
         {
             SetConnectorUnavailableError(infobase.Name);
             return null;
         }
 
-        OneCConfigInfo? result = null;
-        Exception? error = null;
-
-        var thread = new Thread(() =>
+        var connectString = BuildComConnectString(infobase);
+        if (string.IsNullOrWhiteSpace(connectString))
         {
-            try
-            {
-                using var connection = ConnectCore(infobase);
-                if (connection is null) return;
-
-                var metadata = connection.GetConnectionProperty("Metadata");
-                if (metadata is null)
-                {
-                    LastError ??= LocalizationManager.T("Com.MetadataPropertyFailed");
-                    return;
-                }
-
-                var name = connection.GetString(metadata, "Name")
-                           ?? connection.GetString(metadata, "Synonym")
-                           ?? string.Empty;
-                var version = connection.GetString(metadata, "Version") ?? string.Empty;
-
-                if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(version))
-                {
-                    LastError = LocalizationManager.T("Com.MetadataReadFailed");
-                    return;
-                }
-
-                LastError = null;
-                result = new OneCConfigInfo(name, version);
-            }
-            catch (Exception ex)
-            {
-                error = ex;
-                LastError = ex.Message;
-                _logger.Error($"Ошибка чтения информации о конфигурации через COM для базы «{infobase.Name}».", ex);
-            }
-        })
-        {
-            IsBackground = true,
-            Name = "1C-COM-ConfigRead"
-        };
-
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-
-        if (!thread.Join(timeoutMs))
-        {
-            LastError ??= string.Format(LocalizationManager.T("Com.TimeoutReadFormat"), timeoutMs);
-            _logger.Error($"Превышен таймаут чтения конфигурации для базы «{infobase.Name}».");
+            LastError = LocalizationManager.T("Com.ConnStringBuildFailed");
             return null;
         }
-        if (error is not null)
-            return null;
+
+        // Запоминаем состояние до вызова: если COM был отключён ещё раньше, повторно
+        // писать об этом в журнал незачем — на списке из десятков баз это дало бы
+        // десятки одинаковых строк подряд на каждом старте.
+        var alreadyDisabled = ComReadHost.ComUnavailable;
+
+        var result = ComReadHost.Read(connectString, timeoutMs);
+        LastError = result is null ? ComReadHost.LastError : null;
+
+        if (result is null && !alreadyDisabled && ComReadHost.LastError is not null)
+            _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{infobase.Name}»: {ComReadHost.LastError}");
 
         return result;
     }

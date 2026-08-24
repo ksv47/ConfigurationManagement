@@ -22,6 +22,16 @@ namespace Configuration_Management
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Режим дочернего COM-агента: выполняем одно чтение и выходим, не создавая окон
+            // и не трогая проверку единственного экземпляра. COM вынесен в отдельный процесс,
+            // потому что comcntr.dll под CoreCLR обрывает процесс нативным fast-fail
+            // (0xC0000409) — подробности в комментарии к ComReadHost.
+            if (ComReadHost.TryHandleCommandLine(e.Args))
+            {
+                Environment.Exit(0);
+                return;
+            }
+
             // Показываем любые необработанные ошибки — иначе окно просто не появляется.
             DispatcherUnhandledException += (_, args) =>
             {
