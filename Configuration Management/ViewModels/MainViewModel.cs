@@ -100,6 +100,9 @@ public class MainViewModel : ViewModelBase
     private IbasesSyncMode _ibasesSyncMode = IbasesSyncMode.None;
     private string _ibasesSyncFilePath = string.Empty;
     private IbasesSyncTrigger _ibasesSyncTrigger = IbasesSyncTrigger.OnStartup;
+    // ---- Профиль: резервное копирование в произвольный каталог ----
+    private string _profileBackupDirectory = string.Empty;
+    private bool _profileRestoreOnStartup;
     private int _ibasesSyncIntervalMinutes = 30;
     private string _ibasesSyncScheduleTime = "09:00";
     private bool _ibasesBackupEnabled = true;
@@ -265,6 +268,8 @@ public class MainViewModel : ViewModelBase
         _ibasesSyncScheduleTime = settings.IbasesSyncScheduleTime;
         _ibasesBackupEnabled = settings.IbasesBackupEnabled;
         _ibasesBackupKeepCount = settings.IbasesBackupKeepCount > 0 ? settings.IbasesBackupKeepCount : 5;
+        _profileBackupDirectory = settings.ProfileBackupDirectory ?? string.Empty;
+        _profileRestoreOnStartup = settings.ProfileRestoreOnStartup;
         _addTimestampToExportFileName = settings.AddTimestampToExportFileName;
         _exportTimestampFormat = string.IsNullOrWhiteSpace(settings.ExportTimestampFormat)
             ? "yyyyMMdd_HHmmss"
@@ -834,6 +839,80 @@ public class MainViewModel : ViewModelBase
         _ibasesBackupKeepCount = backupKeepCount > 0 ? backupKeepCount : 5;
         SaveSettings();
         RestartAutoSync();
+    }
+
+    // ---- Профиль: резервное копирование и восстановление ----
+
+    /// <summary>Каталог резервной копии профиля (настройки, базы, пользователи/пароли, ibases.v8i).</summary>
+    public string ProfileBackupDirectory => _profileBackupDirectory;
+
+    /// <summary>Восстанавливать профиль из каталога резервной копии при каждом запуске.</summary>
+    public bool ProfileRestoreOnStartup => _profileRestoreOnStartup;
+
+    /// <summary>Применяет настройки резервного копирования профиля из окна настроек.</summary>
+    public void ApplyProfileBackupSettings(string backupDirectory, bool restoreOnStartup)
+    {
+        _profileBackupDirectory = backupDirectory?.Trim() ?? string.Empty;
+        _profileRestoreOnStartup = restoreOnStartup;
+        SaveSettings();
+    }
+
+    /// <summary>
+    /// Сохраняет текущий профиль (настройки, список баз с пользователями и паролями,
+    /// группы, ibases.v8i) в настроенный каталог. Возвращает true при успехе.
+    /// </summary>
+    public bool BackupProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_profileBackupDirectory))
+        {
+            _dialogs.ShowWarning(LocalizationManager.T("Settings.Profile.NoDirectory"));
+            return false;
+        }
+        try
+        {
+            var count = ProfileBackupService.Backup(_profileBackupDirectory, _ibasesSyncFilePath);
+            _logger.Info($"Резервная копия профиля сохранена в {_profileBackupDirectory} ({count} файлов)");
+            _dialogs.ShowInfo(string.Format(LocalizationManager.T("Settings.Profile.BackupDone"), count));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка резервного копирования профиля", ex);
+            _dialogs.ShowError(string.Format(LocalizationManager.T("Settings.Profile.BackupFailed"), ex.Message));
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Восстанавливает профиль из настроенного каталога. Файлы копируются на диск;
+    /// для полного применения рекомендуется перезапуск приложения (либо включённое
+    /// восстановление при запуске). Возвращает true при успехе.
+    /// </summary>
+    public bool RestoreProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_profileBackupDirectory))
+        {
+            _dialogs.ShowWarning(LocalizationManager.T("Settings.Profile.NoDirectory"));
+            return false;
+        }
+        if (!ProfileBackupService.HasBackup(_profileBackupDirectory))
+        {
+            _dialogs.ShowWarning(LocalizationManager.T("Settings.Profile.NoBackup"));
+            return false;
+        }
+        try
+        {
+            var count = ProfileBackupService.Restore(_profileBackupDirectory, _ibasesSyncFilePath);
+            _logger.Info($"Профиль восстановлен из {_profileBackupDirectory} ({count} файлов)");
+            _dialogs.ShowInfo(string.Format(LocalizationManager.T("Settings.Profile.RestoreDone"), count));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка восстановления профиля", ex);
+            _dialogs.ShowError(string.Format(LocalizationManager.T("Settings.Profile.RestoreFailed"), ex.Message));
+            return false;
+        }
     }
 
     /// <summary>
@@ -3392,7 +3471,9 @@ public string HotkeyEnterprise
             FontStyle = _fontStyle,
             ElementFonts = _elementFonts,
             LastSelectedInfobaseId = _lastSelectedInfobaseId,
-            LastSelectedGroupPath = _lastSelectedGroupPath
+            LastSelectedGroupPath = _lastSelectedGroupPath,
+            ProfileBackupDirectory = _profileBackupDirectory,
+            ProfileRestoreOnStartup = _profileRestoreOnStartup
         });
     }
 

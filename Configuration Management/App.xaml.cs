@@ -59,6 +59,29 @@ namespace Configuration_Management
                     settings = new AppSettings();
                 }
 
+                // Восстановление профиля из указанного каталога резервной копии
+                // (например, после переустановки системы): настройки, список баз
+                // (с пользователями и паролями запуска), группы и ibases.v8i.
+                // Файлы копируются до загрузки данных главным окном, поэтому приложение
+                // сразу открывается с привычным состоянием. Настройки перечитываются,
+                // чтобы последующие этапы запуска использовали восстановленные значения.
+                if (settings.ProfileRestoreOnStartup
+                    && !string.IsNullOrWhiteSpace(settings.ProfileBackupDirectory)
+                    && ProfileBackupService.HasBackup(settings.ProfileBackupDirectory))
+                {
+                    try
+                    {
+                        ProfileBackupService.Restore(settings.ProfileBackupDirectory, settings.IbasesSyncFilePath);
+                        try { settings = repository.LoadSettings(); }
+                        catch { /* оставляем уже прочитанные настройки */ }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Сбой восстановления не должен блокировать запуск.
+                        System.Diagnostics.Debug.WriteLine("[profile] Ошибка восстановления профиля: " + ex.Message);
+                    }
+                }
+
                 // Инициализируем локализацию: выбираем сохранённый язык, иначе язык
                 // системы. Внешние языки (.json) подгружаются из папки Languages.
                 try

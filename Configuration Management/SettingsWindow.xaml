@@ -249,7 +249,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TabControl Grid.Row="0" Grid.RowSpan="2" Style="{StaticResource SettingsTabControl}"
+        <TabControl x:Name="SettingsTabs" Grid.Row="0" Grid.RowSpan="2" Style="{StaticResource SettingsTabControl}"
                     HorizontalAlignment="Stretch">
             <TabControl.ItemsPanel>
                 <ItemsPanelTemplate>

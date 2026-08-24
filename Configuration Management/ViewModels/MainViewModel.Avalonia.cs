@@ -1638,6 +1638,83 @@ public class MainViewModel : ViewModelBase
         RestartAutoSync();
     }
 
+    // ---- Профиль: резервное копирование и восстановление ----
+
+    /// <summary>Каталог резервной копии профиля (настройки, базы, пользователи/пароли, ibases.v8i).</summary>
+    public string ProfileBackupDirectory => _settings.ProfileBackupDirectory;
+
+    /// <summary>Восстанавливать профиль из каталога резервной копии при каждом запуске.</summary>
+    public bool ProfileRestoreOnStartup => _settings.ProfileRestoreOnStartup;
+
+    /// <summary>Применяет настройки резервного копирования профиля из окна настроек.</summary>
+    public void ApplyProfileBackupSettings(string backupDirectory, bool restoreOnStartup)
+    {
+        _settings.ProfileBackupDirectory = backupDirectory?.Trim() ?? string.Empty;
+        _settings.ProfileRestoreOnStartup = restoreOnStartup;
+        SaveSettingsSilently();
+    }
+
+    /// <summary>
+    /// Сохраняет текущий профиль (настройки, список баз с пользователями и паролями,
+    /// группы, ibases.v8i) в настроенный каталог. Возвращает true при успехе.
+    /// </summary>
+    public bool BackupProfile()
+    {
+        var dir = _settings.ProfileBackupDirectory;
+        if (string.IsNullOrWhiteSpace(dir))
+        {
+            _dialog.ShowWarning(LocalizationManager.T("Settings.Profile.NoDirectory"));
+            return false;
+        }
+        try
+        {
+            var count = ProfileBackupService.Backup(dir, _settings.IbasesSyncFilePath);
+            _logger.Info($"Резервная копия профиля сохранена в {dir} ({count} файлов)");
+            _dialog.ShowInfo(string.Format(LocalizationManager.T("Settings.Profile.BackupDone"), count));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка резервного копирования профиля", ex);
+            _dialog.ShowError(string.Format(LocalizationManager.T("Settings.Profile.BackupFailed"), ex.Message));
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Восстанавливает профиль из настроенного каталога и перезагружает данные,
+    /// чтобы они применились без перезапуска. Возвращает true при успехе.
+    /// </summary>
+    public bool RestoreProfile()
+    {
+        var dir = _settings.ProfileBackupDirectory;
+        if (string.IsNullOrWhiteSpace(dir))
+        {
+            _dialog.ShowWarning(LocalizationManager.T("Settings.Profile.NoDirectory"));
+            return false;
+        }
+        if (!ProfileBackupService.HasBackup(dir))
+        {
+            _dialog.ShowWarning(LocalizationManager.T("Settings.Profile.NoBackup"));
+            return false;
+        }
+        try
+        {
+            var count = ProfileBackupService.Restore(dir, _settings.IbasesSyncFilePath);
+            _logger.Info($"Профиль восстановлен из {dir} ({count} файлов)");
+            // Перезагружаем настройки, список баз и группы, чтобы они применились сразу.
+            Initialize();
+            _dialog.ShowInfo(string.Format(LocalizationManager.T("Settings.Profile.RestoreDone"), count));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка восстановления профиля", ex);
+            _dialog.ShowError(string.Format(LocalizationManager.T("Settings.Profile.RestoreFailed"), ex.Message));
+            return false;
+        }
+    }
+
     /// <summary>
     /// Запоминает выбранную цветовую схему как активную и сохраняет её в слот
     /// соответствующей базовой темы (светлой/тёмной), чтобы переключение тем

@@ -3065,22 +3065,30 @@ namespace Configuration_Management
 
         private void OnWindowLoaded(object? sender, RoutedEventArgs e)
         {
-            _vm?.Initialize();
-            RegisterHotkeys();
-            // Шаблон дерева готов только после загрузки окна, раньше внутренней
-            // прокрутки ещё нет.
-            AttachVerticalScrollBar();
-            if (_vm is not null)
+            // Загрузка данных и построение дерева могут занимать заметное время на первом
+            // запуске после обновления (самовосстановление конфига, повторное сканирование
+            // платформ/шаблонов после сброса настроек). Чтобы окно показалось сразу, а не
+            // «висело» пустым, инициализация откладывается на следующий кадр и выполняется
+            // сразу после отрисовки первого кадра.
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                // Переназначение клавиш меняет и привязки, и подписи в меню.
-                _vm.HotkeysChanged += (_, _) =>
+                _vm?.Initialize();
+                RegisterHotkeys();
+                // Шаблон дерева готов только после загрузки окна, раньше внутренней
+                // прокрутки ещё нет.
+                AttachVerticalScrollBar();
+                if (_vm is not null)
                 {
-                    RegisterHotkeys();
-                    if (_tree is not null)
-                        _tree.ContextMenu = BuildRowContextMenu();
-                };
-            }
-            SetupTray();
+                    // Переназначение клавиш меняет и привязки, и подписи в меню.
+                    _vm.HotkeysChanged += (_, _) =>
+                    {
+                        RegisterHotkeys();
+                        if (_tree is not null)
+                            _tree.ContextMenu = BuildRowContextMenu();
+                    };
+                }
+                SetupTray();
+            });
         }
 
         /// <summary>

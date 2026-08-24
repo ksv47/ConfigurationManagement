@@ -5,6 +5,39 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.55] — 2026-08-24
+
+### Изменено
+
+- **Главное окно быстрее появляется на старте** ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)). Инициализация данных (загрузка списка баз/групп, построение дерева, повторное сканирование платформ и шаблонов после восстановления конфига) теперь откладывается на следующий кадр: окно показывается сразу, а тяжёлая работа выполняется сразу после отрисовки первого кадра. Первый запуск после обновления (когда конфиг самовосстанавливается) становится визуально заметно быстрее.
+- **Версия обновлена до 0.3.3.55** (`InformationalVersion` = 0.3.3.55 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.54] — 2026-08-24
+
+### Изменено
+
+- **Вкладка «Резервное копирование» поднята выше и получила значок** ([`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs), [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs)). В WPF-версии вкладка теперь вставляется перед «О программе», а не в самый конец (в Avalonia она и так шла выше «О программе»). К названию вкладки добавлен значок слева: `PackIcon BackupRestore` в WPF ([`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs)) и контурная иконка базы через `StreamGeometry` в Avalonia ([`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs)) — как у остальных вкладок окна настроек.
+- **Версия обновлена до 0.3.3.54** (`InformationalVersion` = 0.3.3.54 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.53] — 2026-08-24
+
+### Добавлено
+
+- **Резервное копирование профиля приложения в произвольный каталог и его восстановление после переустановки системы** (обе платформы). Новая вкладка **«Резервное копирование»** в окне настроек позволяет указать произвольный каталог и одной кнопкой сохранить туда весь «профиль» приложения: настройки интерфейса (`settings.json`), список информационных баз вместе с пользователями и паролями запуска (`infobases.json`), дерево групп (`groups.json`) и стандартный файл списка баз 1С `ibases.v8i`. После переустановки системы достаточно указать тот же каталог и нажать «Восстановить профиль» либо включить флажок «Восстанавливать профиль при запуске» — тогда при каждом запуске файлы профиля автоматически копируются обратно в каталог данных, и приложение сразу открывается привычно настроенным.
+  - **Кросс-платформенный сервис** [`ProfileBackupService.cs`](Configuration Management/Services/ProfileBackupService.cs) — копирует/восстанавливает файлы поимённо; источник и цель `ibases.v8i` определяются по настроенному пути или стандартному месту 1С.
+  - **Linux/Avalonia**: вкладка в [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs), методы в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs), восстановление при запуске в [`App.axaml.cs`](Configuration Management/App.axaml.cs).
+  - **Windows/WPF**: вкладка строится в [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs) и добавляется в `TabControl` ([`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml)), поля и методы в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), восстановление при запуске в [`App.xaml.cs`](Configuration Management/App.xaml.cs).
+  - **Настройки** [`AppSettings.cs`](Configuration Management/Models/AppSettings.cs) — добавлены `ProfileBackupDirectory` и `ProfileRestoreOnStartup` (добавление обратносовместимо).
+  - Восстановление при запуске выполняется до загрузки данных главного окна, поэтому базы, группы, настройки и `ibases.v8i` подхватываются без ручных действий.
+- **Версия обновлена до 0.3.3.53** (`InformationalVersion` = 0.3.3.53 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.3.52] — 2026-08-24
+
+### Исправлено
+
+- **Зависание при запуске со старыми или повреждёнными конфигурационными файлами** ([`InfobaseRepository.cs`](Configuration Management/Services/InfobaseRepository.cs), [`AppSettings.cs`](Configuration Management/Models/AppSettings.cs)). В настройки добавлена версия схемы (`settings.json`): если файл настроек повреждён или создан более новой версией приложения, чем текущая, он автоматически откладывается в резервную копию (`*.bak`), а приложение стартует с чистыми настройками вместо зависания. Повреждённые `infobases.json` и `groups.json` при ошибке чтения также переносятся в резервную копию и заменяются пустыми списками. Резервные копии сохраняются рядом с исходными файлами в каталоге данных приложения; текущая версия схемы проставляется при сохранении настроек.
+- **Версия обновлена до 0.3.3.52** (`InformationalVersion` = 0.3.3.52 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.3.51] — 2026-08-24
 
 ### Изменено
