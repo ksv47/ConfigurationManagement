@@ -1,7 +1,6 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Microsoft.Win32;
@@ -194,7 +193,9 @@ public sealed class OneCComConnector : IOneCComConnector
         // десятки одинаковых строк подряд на каждом старте.
         var alreadyDisabled = ComReadHost.ComUnavailable;
 
-        var result = ComReadHost.Read(connectString, timeoutMs);
+        // Пароль передаём отдельно: агент вырежет его из текста ошибки 1С буквальным
+        // вхождением ещё до отправки, поэтому секрет не попадёт даже в канал обмена.
+        var result = ComReadHost.Read(connectString, infobase.Connection?.Password, timeoutMs);
         if (result.Failure == ComFailureKind.None && result.Info is not null)
         {
             LastError = null;
@@ -222,8 +223,11 @@ public sealed class OneCComConnector : IOneCComConnector
         ComFailureKind.Disabled => LocalizationManager.T("Com.DisabledForSession"),
         ComFailureKind.AgentStart => string.Format(
             LocalizationManager.T("Com.AgentStartFailedFormat"), result.Detail ?? string.Empty),
-        ComFailureKind.AgentCrashed => string.Format(
-            LocalizationManager.T("Com.AgentCrashedFormat"), result.Detail ?? string.Empty),
+        // Код возврата известен не всегда: если процесс придерживает Windows Error
+        // Reporting, снять его не удаётся. Показывать «(код возврата )» нельзя.
+        ComFailureKind.AgentCrashed => string.IsNullOrEmpty(result.Detail)
+            ? LocalizationManager.T("Com.AgentCrashedUnknownCode")
+            : string.Format(LocalizationManager.T("Com.AgentCrashedFormat"), result.Detail),
         ComFailureKind.Timeout => string.Format(
             LocalizationManager.T("Com.TimeoutReadFormat"), result.Detail ?? string.Empty),
         // Тот же текст, что и у быстрого отказа по кэшу (SetConnectorUnavailableError):
@@ -434,9 +438,16 @@ public sealed class OneCComConnector : IOneCComConnector
                 continue;
             }
 
-            var afterValueStart = SkipSpaces(text, i + name.Length) + 1; // пропускаем '='
-            var end = afterValueStart;
-            while (end < text.Length && text[end] != ';' && text[end] != '\r' && text[end] != '\n')
+            var end = SkipSpaces(text, i + name.Length) + 1; // пропускаем '='
+            var quoted = end < text.Length && text[end] == '"';
+
+            // Закавыченное значение (так строит BuildComConnectString) тянем до разделителя:
+            // внутри кавычек может быть что угодно, включая сами кавычки. Незакавыченное
+            // встречается только в свободном тексте от 1С, и там значение обрывается ещё
+            // и пробелом — иначе маска съедала бы всю оставшуюся диагностику.
+            while (end < text.Length
+                   && text[end] != ';' && text[end] != '\r' && text[end] != '\n'
+                   && (quoted || !char.IsWhiteSpace(text[end])))
                 end++;
 
             sb.Append(name).Append("=***");
