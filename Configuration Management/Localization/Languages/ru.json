@@ -952,6 +952,7 @@
     "ConnectionSettings.TabConfigurator": "Конфигуратор",
 
     "Settings.DefaultClientLabel": "Клиент по умолчанию:",
+    "Settings.AvaloniaPendingTabs": "В Linux-версии на вкладке «Базы» пока нет каталогов шаблонов, экспорта и импорта списка баз.",
     "Settings.AvaloniaHotkeysPending": "Изменение назначения клавиш (переназначение) отложено — доступен справочный список текущих сочетаний.",
     "Settings.About.Version": "Версия: v{0}",
     "Settings.About.AvaloniaText": "Приложение для управления списком информационных баз 1С:Предприятие.\nПортируемая версия для Linux (Avalonia) — Этап 3: диалоговые окна.",
