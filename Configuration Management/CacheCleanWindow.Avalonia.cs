@@ -157,7 +157,7 @@ namespace Configuration_Management
         /// чтобы диалог можно было вызывать из ViewModel (не наследника окна).
         /// </summary>
         /// <returns>True, если пользователь подтвердил очистку.</returns>
-        public bool ShowSync() => ShowDialogSync();
+        public bool ShowSync(Window? owner = null) => ShowDialogSync(owner);
 
         /// <summary>
         /// Формирует содержимое чекбокса типа кеша: название и поле текущего размера.
@@ -298,18 +298,29 @@ namespace Configuration_Management
             DockPanel.SetDock(_searchBox, Dock.Top);
             dock.Children.Add(_searchBox);
 
-            var toolbar = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 12,
-                Margin = new Thickness(8, 2, 8, 4)
-            };
+            var toolbar = new Grid { Margin = new Thickness(8, 2, 8, 4) };
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            var toolbarButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
             var selectAll = new Button { Content = IconHelper.IconAndText("IconCheck", LocalizationManager.T("CacheClean.SelectAll")), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
             selectAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = true; UpdateCount(); UpdateCleanEnabled(); };
             var clearAll = new Button { Content = IconHelper.IconAndText("IconUncheck", LocalizationManager.T("CacheClean.ClearAll")), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
             clearAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = false; UpdateCount(); UpdateCleanEnabled(); };
-            toolbar.Children.Add(selectAll);
-            toolbar.Children.Add(clearAll);
+            toolbarButtons.Children.Add(selectAll);
+            toolbarButtons.Children.Add(clearAll);
+            toolbar.Children.Add(toolbarButtons);
+
+            // Кегль и цвет как у заголовков колонок рядом: счётчик встал с ними
+            // в один ряд, и умолчания выбивались из строя.
+            _basesCountText.VerticalAlignment = VerticalAlignment.Center;
+            _basesCountText.HorizontalAlignment = HorizontalAlignment.Right;
+            _basesCountText.TextTrimming = TextTrimming.CharacterEllipsis;
+            _basesCountText.FontSize = 12;
+            // Цвет из темы, как в оригинале: постоянный серый мимо палитры
+            // тёмной схемы, где вторичный текст светлее фона.
+            Themes.ThemeBrushes.Bind(_basesCountText, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            Grid.SetColumn(_basesCountText, 1);
+            toolbar.Children.Add(_basesCountText);
             DockPanel.SetDock(toolbar, Dock.Top);
             dock.Children.Add(toolbar);
 
@@ -344,8 +355,6 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center
             };
             leftPanel.Children.Add(_orphanCacheCheck);
-            _basesCountText.VerticalAlignment = VerticalAlignment.Center;
-            leftPanel.Children.Add(_basesCountText);
             Grid.SetColumn(leftPanel, 0);
             bottom.Children.Add(leftPanel);
 

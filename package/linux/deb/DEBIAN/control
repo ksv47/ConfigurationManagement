@@ -1,12 +1,13 @@
 Package: configuration-management
-Version: 0.3.1.1
+Version: @VERSION@
 Section: utils
 Priority: optional
 Architecture: amd64
 Maintainer: Configuration Management Team <support@example.com>
-Installed-Size: 120000
-Depends: libc6 (>= 2.31), libgtk-3-0, libglib2.0-0
-Recommends: xdg-utils
+Homepage: https://github.com/sivatorov/ConfigurationManagement
+Installed-Size: @INSTALLED_SIZE@
+Depends: libc6 (>= 2.31), libstdc++6, libgcc-s1, libicu76 | libicu74 | libicu72 | libicu71 | libicu70 | libicu67, libfontconfig1, libfreetype6, libexpat1, libpng16-16 | libpng16-16t64, zlib1g, libbz2-1.0, libbrotli1, libx11-6, libxext6, libxi6, libxrandr2, libxcursor1, libxfixes3
+Recommends: xdg-utils, libgtk-3-0 | libgtk-3-0t64, libgl1, libice6, libsm6, desktop-file-utils, hicolor-icon-theme
 Description: Управление конфигурациями 1С
  Десктопное приложение для управления информационными базами
  1С:Предприятие 8.3: запуск в режимах «1С:Предприятие» и «Конфигуратор»,
@@ -14,4 +15,7 @@ Description: Управление конфигурациями 1С
  синхронизация с ibases.v8i, системный трей, светлая и тёмная темы.
  .
  Пакет является self-contained single-file сборкой (.NET 10, Avalonia),
- поэтому не требует установки .NET Runtime.
+ поэтому не требует установки .NET Runtime. Библиотеки ICU нужны самой
+ платформе .NET, X11 и шрифтовые библиотеки — отрисовке Avalonia.
+ GTK нужен только как запасной путь для файловых диалогов, когда
+ недоступен портал рабочего стола, поэтому он в Recommends.

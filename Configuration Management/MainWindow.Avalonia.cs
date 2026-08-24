@@ -108,6 +108,7 @@ namespace Configuration_Management
 
             // Подписка здесь, а не в построении содержимого: компактный режим
             // пересобирает содержимое, и обработчики копились бы на каждый показ.
+            _vm.TraySettingsChanged += ApplyTrayVisibility;
             _vm.TreeRebuilding += RememberTreeScroll;
             _vm.TreeRebuilt += RestoreTreeSelection;
 
@@ -130,8 +131,11 @@ namespace Configuration_Management
         /// работает только пока включён режим единственного экземпляра.
         /// </summary>
         private bool CanRestoreHiddenWindow =>
-            (_trayIconCreated && !Services.LinuxDesktopEnvironment.TrayMayBeUnavailable)
+            (_trayIconCreated && TrayIconWanted && !Services.LinuxDesktopEnvironment.TrayMayBeUnavailable)
             || _vm?.AllowMultipleInstances == false;
+
+        /// <summary>Нужен ли значок по настройкам: сам значок либо закрытие в трей.</summary>
+        private bool TrayIconWanted => _vm is null || _vm.ShowTrayIcon || _vm.CloseToTray;
 
         /// <summary>
         /// Уводит окно в трей после успешного запуска, как это делает WPF-версия
@@ -3153,6 +3157,19 @@ namespace Configuration_Management
         {
             if (e.Handled || _vm is null)
                 return;
+
+            // Esc уводит окно в трей, если так задано настройкой. В поле ввода
+            // клавиша остаётся своей: там ей отменяют правку.
+            if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None
+                && _vm.EscapeToTray && _vm.ShowTrayIcon && CanRestoreHiddenWindow
+                && FocusManager?.GetFocusedElement() is not TextBox)
+            {
+                _vm.PersistSettings();
+                ApplyTrayVisibility();
+                Hide();
+                e.Handled = true;
+                return;
+            }
             if (!Controls.HotkeyBox.TryParse(_vm.HotkeyDelete, out var gesture) || gesture is null)
                 return;
             if (e.Key != gesture.Key || e.KeyModifiers != gesture.KeyModifiers)
@@ -3262,6 +3279,8 @@ namespace Configuration_Management
                     _trayIconCreated = true;
                 }
 
+                ApplyTrayVisibility();
+
                 // На GNOME Shell без расширения AppIndicator иконка трея не появится,
                 // и приложение об этом никак не узнает: ошибки не будет, значка просто
                 // не будет. Пишем в журнал, чтобы это не выглядело поломкой приложения.
@@ -3332,12 +3351,40 @@ namespace Configuration_Management
         protected override void OnClosing(WindowClosingEventArgs e)
         {
             base.OnClosing(e);
-            if (_allowCloseToTray && _vm is not null)
+            if (_allowCloseToTray && _vm is { CloseToTray: true } && CanRestoreHiddenWindow
+                && e.CloseReason == WindowCloseReason.WindowClosing)
             {
                 _vm.PersistSettings();
+                ApplyTrayVisibility();
                 e.Cancel = true;
                 Hide();
             }
+        }
+
+        /// <summary>
+        /// Показывает или прячет значок по настройкам. Значок нужен и когда сам
+        /// он выключен, но закрытие уводит окно в трей: иначе окно нечем вернуть.
+        /// </summary>
+        private void ApplyTrayVisibility()
+        {
+            if (_trayIcon is null)
+            {
+                // Значок не создался при загрузке: пробуем ещё раз, иначе
+                // включение настройки не даст ничего до перезапуска.
+                if (TrayIconWanted)
+                    SetupTray();
+                return;
+            }
+
+            var wanted = TrayIconWanted;
+
+            // Пока окно спрятано, значок обязан оставаться видимым: он
+            // единственный надёжный путь назад. Если настройки требуют его
+            // убрать, сперва возвращаем окно.
+            if (!wanted && !IsVisible)
+                ShowAndActivate();
+
+            _trayIcon.IsVisible = wanted;
         }
 
         /// <summary>Позволяет повторно показать окно из трея/активации.</summary>

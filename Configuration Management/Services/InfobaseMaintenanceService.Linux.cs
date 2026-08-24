@@ -1,6 +1,7 @@
 #if LINUX
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
@@ -13,11 +14,6 @@ namespace Configuration_Management.Services
     /// </summary>
     public static class InfobaseMaintenanceService
     {
-        private static readonly string[] OneCProcessNames =
-        {
-            "1cv8", "1cv8c", "1cv8s", "1cv8a", "ragent", "rmngr", "rphost"
-        };
-
         /// <summary>
         /// Открывает каталог файловой базы в файловом менеджере. Если путь указывает
         /// на файл 1Cv8.1CD (или каталог базы содержит его) — файл выделяется
@@ -152,26 +148,81 @@ namespace Configuration_Management.Services
             }
         }
 
-        /// <summary>Проверяет, существует ли файловая база (каталог или 1Cv8.1CD).</summary>
-        public static bool FileBaseExists(Infobase ib)
+        /// <summary>Что известно о файле базы на диске.</summary>
+        public enum FileBaseState
+        {
+            /// <summary>База на месте.</summary>
+            Exists,
+
+            /// <summary>Ни каталога, ни файла базы нет.</summary>
+            Missing,
+
+            /// <summary>Проверить не удалось: нет прав, ресурс недоступен.</summary>
+            Unknown
+        }
+
+        /// <summary>
+        /// Состояние файловой базы. Отдельный ответ для «проверить не удалось»
+        /// нужен потому, что Directory.Exists возвращает ложь и при отказе
+        /// в доступе, и при отвалившемся сетевом ресурсе: без этого базы
+        /// с недоступного диска попадали бы в список на удаление.
+        /// </summary>
+        public static FileBaseState GetFileBaseState(Infobase ib)
         {
             if (ib.Connection.Type != ConnectionType.File)
-                return true;
+                return FileBaseState.Exists;
 
             var path = ib.Connection.FilePath?.Trim() ?? string.Empty;
             if (string.IsNullOrEmpty(path))
-                return false;
+                return FileBaseState.Missing;
 
-            if (File.Exists(path))
-                return true;
-            if (Directory.Exists(path))
+            try
             {
-                if (File.Exists(Path.Combine(path, "1Cv8.1CD")))
-                    return true;
-                return Directory.EnumerateFiles(path, "1Cv8.1CD", SearchOption.TopDirectoryOnly).Any();
+                if (File.Exists(path))
+                    return FileBaseState.Exists;
+
+                if (!Directory.Exists(path))
+                {
+                    // Directory.Exists отвечает ложью и когда каталога нет,
+                    // и когда его не прочитать. Различает только запрос
+                    // атрибутов: он бросает разные исключения.
+                    try
+                    {
+                        File.GetAttributes(path);
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        return FileBaseState.Missing;
+                    }
+                    catch (DirectoryNotFoundException)
+                    {
+                        return FileBaseState.Missing;
+                    }
+                    catch (Exception)
+                    {
+                        return FileBaseState.Unknown;
+                    }
+
+                    return FileBaseState.Missing;
+                }
+
+                // Имена файлов на Linux регистрозависимы, поэтому маска
+                // сравнивается своими силами, а не через EnumerateFiles.
+                var found = Directory
+                    .EnumerateFiles(path, "*", SearchOption.TopDirectoryOnly)
+                    .Any(f => string.Equals(Path.GetFileName(f), "1Cv8.1CD", StringComparison.OrdinalIgnoreCase));
+
+                return found ? FileBaseState.Exists : FileBaseState.Missing;
             }
-            return false;
+            catch (Exception)
+            {
+                // Нет прав на чтение каталога, ресурс исчез посреди проверки.
+                return FileBaseState.Unknown;
+            }
         }
+
+        /// <summary>Существует ли файловая база. «Проверить не удалось» считается существованием.</summary>
+        public static bool FileBaseExists(Infobase ib) => GetFileBaseState(ib) != FileBaseState.Missing;
 
         /// <summary>Каталог файловой базы (родитель 1Cv8.1CD или сам путь-каталог).</summary>
         public static string? GetFileBaseDirectory(Infobase ib)
@@ -376,66 +427,35 @@ namespace Configuration_Management.Services
             return v.Contains(' ') ? $"\"{v}\"" : v;
         }
 
-        /// <summary>Завершает процессы платформы 1С. Возвращает число завершённых.</summary>
-        public static int KillOneCProcesses()
-        {
-            var killed = 0;
-            foreach (var name in OneCProcessNames)
-            {
-                Process[] list;
-                try
-                {
-                    list = Process.GetProcessesByName(name);
-                }
-                catch
-                {
-                    continue;
-                }
+        /// <summary>
+        /// Запущенный процесс платформы. Время старта хранится вместе с номером:
+        /// номер ядро переиспользует, и без сверки можно завершить чужой процесс,
+        /// занявший номер, пока открыт вопрос пользователю.
+        /// </summary>
+        public readonly record struct OneCProcessInfo(int Pid, string Name, string? StartTime);
 
-                foreach (var p in list)
-                {
-                    try
-                    {
-                        if (!p.HasExited)
-                        {
-                            p.Kill(entireProcessTree: true);
-                            killed++;
-                        }
-                    }
-                    catch
-                    {
-                        // нет прав / уже завершён
-                    }
-                    finally
-                    {
-                        p.Dispose();
-                    }
-                }
-            }
+        /// <summary>Снимок запущенных процессов платформы.</summary>
+        public static IReadOnlyList<OneCProcessInfo> SnapshotOneCProcesses() =>
+            LinuxProc.Enumerate1C()
+                .Select(p => new OneCProcessInfo(p.Pid, p.Name, p.StartTime))
+                .ToList();
 
-            // Страховка: процессы, не видимые GetProcessesByName (др. пользователь).
-            killed += LinuxProc.KillAllOneC();
-            return killed;
-        }
+        /// <summary>
+        /// Завершает процессы из снимка. Работа идёт по снимку, показанному
+        /// пользователю: иначе между вопросом и действием множество процессов
+        /// успевает измениться.
+        /// </summary>
+        public static (int Killed, int Failed) KillOneCProcesses(IEnumerable<OneCProcessInfo> snapshot) =>
+            LinuxProc.KillOneC(snapshot.Select(p => (p.Pid, p.StartTime)));
 
-        /// <summary>Число запущенных процессов 1С.</summary>
-        public static int CountOneCProcesses()
-        {
-            var count = 0;
-            foreach (var name in OneCProcessNames)
-            {
-                try
-                {
-                    count += Process.GetProcessesByName(name).Length;
-                }
-                catch
-                {
-                    // ignore
-                }
-            }
-            count += LinuxProc.CountOneC();
-            return count;
-        }
+        /// <summary>Разбивка снимка по именам процессов.</summary>
+        public static IReadOnlyList<(string Name, int Count)> DescribeProcesses(
+            IEnumerable<OneCProcessInfo> snapshot) =>
+            snapshot
+                .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => (Name: g.Key, Count: g.Select(p => p.Pid).Distinct().Count()))
+                .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
         /// <summary>Имя маркера блокировки файловой базы в её каталоге.</summary>
         public const string BlockMarkerFileName = "1Cv8.blocked";

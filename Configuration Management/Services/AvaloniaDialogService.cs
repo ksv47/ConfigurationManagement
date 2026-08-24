@@ -118,8 +118,11 @@ namespace Configuration_Management.Services
         {
             if (CurrentOwner() is TopLevel topLevel)
                 return topLevel.StorageProvider;
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-                return TopLevel.GetTopLevel(desktop.MainWindow)?.StorageProvider;
+            // Спрятанное окно не годится и здесь: у невидимого окна нет
+            // площадки, а файловый диалог просят и при работе из трея.
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                && desktop.MainWindow is { IsVisible: true } main)
+                return TopLevel.GetTopLevel(main)?.StorageProvider;
             return null;
         }
 
@@ -222,11 +225,14 @@ namespace Configuration_Management.Services
             // окну, и модальность с фокусом на Linux вели бы себя странно.
             foreach (var window in desktop.Windows)
             {
-                if (window.IsActive)
+                if (window.IsActive && window.IsVisible)
                     return window;
             }
 
-            return desktop.MainWindow;
+            // Спрятанное в трей окно остаётся в списке, но владельцем быть
+            // не может: показ диалога поверх невидимого окна роняет приложение.
+            // Без владельца диалог открывается по центру экрана, это ниже.
+            return desktop.MainWindow is { IsVisible: true } main ? main : null;
         }
     }
 

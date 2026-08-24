@@ -105,6 +105,32 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public bool AllowMultipleInstances => _settings.AllowMultipleInstances;
 
+    /// <summary>Показывать ли значок в области уведомлений.</summary>
+    public bool ShowTrayIcon => _settings.ShowTrayIcon;
+
+    /// <summary>Уводить ли окно в трей вместо выхода при закрытии.</summary>
+    public bool CloseToTray => _settings.CloseToTray;
+
+    /// <summary>Уводить ли окно в трей по клавише Esc.</summary>
+    public bool EscapeToTray => _settings.EscapeToTray;
+
+    /// <summary>Настройки трея изменились: окну нужно обновить значок.</summary>
+    public event Action? TraySettingsChanged;
+
+    /// <summary>Применяет настройки поведения трея из окна настроек.</summary>
+    public void ApplyTraySettings(bool showTrayIcon, bool closeToTray, bool escapeToTray)
+    {
+        _settings.ShowTrayIcon = showTrayIcon;
+        _settings.CloseToTray = closeToTray;
+        _settings.EscapeToTray = escapeToTray;
+        if (!SaveSettingsSafe())
+            _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
+                LocalizationManager.T("Settings.Title"));
+        // Значок показывается и прячется сразу, как в версии для Windows,
+        // иначе настройка действовала бы только после перезапуска.
+        TraySettingsChanged?.Invoke();
+    }
+
     /// <summary>Запрос к главному окну выполнить действие после успешного запуска.</summary>
     public event Action<Models.AfterLaunchAction>? AfterLaunchRequested;
 
@@ -1676,6 +1702,176 @@ public class MainViewModel : ViewModelBase
     private void ApplyAdditionalSearchPaths() =>
         PlatformVersionService.SetAdditionalSearchPaths(_settings.AdditionalPlatformSearchPaths);
 
+    /// <summary>
+    /// Убирает из списка файловые базы, у которых нет каталога или файла базы.
+    /// Перед удалением показывается список того, что будет убрано.
+    /// </summary>
+    public void RemoveMissingFileBases()
+    {
+        var states = _allInfobases
+            .Select(ib => (Infobase: ib, State: InfobaseMaintenanceService.GetFileBaseState(ib)))
+            .ToList();
+
+        var missing = states
+            .Where(x => x.State == InfobaseMaintenanceService.FileBaseState.Missing)
+            .Select(x => x.Infobase)
+            .ToList();
+
+        // Базы с недоступного диска в удаление не идут: «проверить не удалось»
+        // это не «нет». О них сказано отдельно.
+        var unknown = states.Count(x => x.State == InfobaseMaintenanceService.FileBaseState.Unknown);
+
+        if (missing.Count == 0)
+        {
+            _dialog.ShowInfo(
+                unknown == 0
+                    ? LocalizationManager.T("Main.MissingNone")
+                    : string.Format(LocalizationManager.T("Main.MissingOnlyUnchecked"), unknown),
+                LocalizationManager.T("Main.CheckFileBasesTitle"));
+            return;
+        }
+
+        var preview = string.Join("\n", missing.Take(15).Select(ib => "• " + ib.Name));
+        if (missing.Count > 15)
+            preview += string.Format(LocalizationManager.T("Main.MissingMore"), missing.Count - 15);
+        if (unknown > 0)
+            preview += "\n\n" + string.Format(LocalizationManager.T("Main.MissingUnchecked"), unknown);
+
+        if (!_dialog.Confirm(
+                string.Format(LocalizationManager.T("Main.MissingConfirm"), missing.Count, preview),
+                LocalizationManager.T("Main.RemoveMissingTitle")))
+            return;
+
+        // Сначала запись, потом замена списка в памяти: при ошибке диска
+        // пользователь остался бы с урезанным списком в окне и полным на диске,
+        // а следующее сохранение записало бы урезанный поверх.
+        var removing = new HashSet<Infobase>(missing, ReferenceEqualityComparer.Instance as IEqualityComparer<Infobase>);
+        var remaining = _allInfobases.Where(ib => !removing.Contains(ib)).ToList();
+        if (!SaveList(remaining))
+        {
+            _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
+                LocalizationManager.T("Main.RemoveMissingTitle"));
+            return;
+        }
+
+        _allInfobases.Clear();
+        _allInfobases.AddRange(remaining);
+
+        if (SelectedInfobase is { } selected && !_allInfobases.Contains(selected))
+            SelectedInfobase = null;
+
+        RebuildTree();
+        _logger.Info($"Удалено отсутствующих файловых баз: {missing.Count}");
+
+        _dialog.ShowInfo(
+            string.Format(LocalizationManager.T("Main.MissingRemoved"), missing.Count),
+            LocalizationManager.T("Main.RemoveMissingTitle"));
+    }
+
+    /// <summary>Завершает запущенные процессы платформы 1С.</summary>
+    public void KillOneCProcesses()
+    {
+        // Один снимок на вопрос и на действие: между ними процессы приходят
+        // и уходят, и завершать пришлось бы не то, что показано.
+        var snapshot = InfobaseMaintenanceService.SnapshotOneCProcesses();
+        if (snapshot.Count == 0)
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Main.NoProcesses"),
+                LocalizationManager.T("Main.OneCProcessesTitle"));
+            return;
+        }
+
+        // Разбивка и предупреждение идут перед вопросом: ключ подтверждения
+        // общий с версией для Windows и заканчивается словом «Продолжить?»,
+        // поэтому дописывать предупреждение после него нельзя.
+        var breakdown = InfobaseMaintenanceService.DescribeProcesses(snapshot);
+        var details = string.Format(LocalizationManager.T("Main.KillProcessesBreakdown"),
+            string.Join(", ", breakdown.Select(p => $"{p.Name}: {p.Count}")));
+
+        // Про остановку кластера предупреждаем только когда серверные процессы
+        // действительно в списке.
+        if (breakdown.Any(p => ServerProcessNames.Contains(p.Name, StringComparer.OrdinalIgnoreCase)))
+            details += " " + LocalizationManager.T("Main.KillProcessesServerNote");
+
+        var question = details + "\n\n"
+            + string.Format(LocalizationManager.T("Main.KillProcessesConfirm"), snapshot.Count);
+
+        if (!_dialog.Confirm(question, LocalizationManager.T("Main.KillProcessesTitle")))
+            return;
+
+        var (killed, failed) = InfobaseMaintenanceService.KillOneCProcesses(snapshot);
+        _logger.Info($"Завершено процессов 1С: {killed}, не удалось: {failed}");
+
+        var message = string.Format(LocalizationManager.T("Main.ProcessesKilled"), killed);
+        if (failed > 0)
+            message += "\n" + string.Format(LocalizationManager.T("Main.ProcessesKillFailed"), failed);
+
+        _dialog.ShowInfo(message, LocalizationManager.T("Main.OneCProcessesTitle"));
+    }
+
+    /// <summary>Очищает список баз и групп целиком. Сами базы на диске не трогает.</summary>
+    public void ClearAllInfobases()
+    {
+        if (_allInfobases.Count == 0 && _groups.Count == 0)
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Main.ClearAllAlreadyEmpty"),
+                LocalizationManager.T("Main.ClearAllTitle"));
+            return;
+        }
+
+        if (!_dialog.Confirm(
+                string.Format(LocalizationManager.T("Main.ClearAllConfirm"), _allInfobases.Count, _groups.Count),
+                LocalizationManager.T("Main.ClearAllTitle")))
+            return;
+
+        // Пустые списки пишутся на диск до того, как очищается память:
+        // иначе при отказе записи в окне пусто, а на диске прежнее, и первое
+        // же следующее сохранение затирает уцелевшее. Файла два, поэтому при
+        // отказе на втором первый возвращается обратно: иначе на диске
+        // оставался бы пустой список баз при живых группах.
+        var previousInfobases = _allInfobases.ToList();
+        if (!SaveList(new List<Infobase>()))
+        {
+            _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
+                LocalizationManager.T("Main.ClearAllTitle"));
+            return;
+        }
+
+        if (!SaveGroupList(new List<Group>()))
+        {
+            // Список баз уже записан пустым, возвращаем прежний. Если и это
+            // не удалось, на диске пусто, а в памяти нет: чтобы состояния
+            // сошлись, память тоже очищается, и об этом сказано отдельно.
+            if (!SaveList(previousInfobases))
+            {
+                _allInfobases.Clear();
+                _groups.Clear();
+                SelectedInfobase = null;
+                RebuildTree();
+                _dialog.ShowError(LocalizationManager.T("Main.ClearAllPartial"),
+                    LocalizationManager.T("Main.ClearAllTitle"));
+                return;
+            }
+
+            _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
+                LocalizationManager.T("Main.ClearAllTitle"));
+            return;
+        }
+
+        _allInfobases.Clear();
+        _groups.Clear();
+        SelectedInfobase = null;
+
+        // Выгрузка в ibases.v8i намеренно не вызывается, как и в версии
+        // для Windows: экспорт убирает из файла записи, которых нет
+        // в приложении, и очистка списка вынесла бы пусковой список платформы.
+        RebuildTree();
+        _logger.Info("Список баз и групп очищен");
+
+        _dialog.ShowInfo(LocalizationManager.T("Main.ClearAllDone"),
+            LocalizationManager.T("Main.ClearAllTitle"));
+    }
+
     /// <summary>Добавлять ли метку времени к имени файла выгрузки.</summary>
     public bool AddTimestampToExportFileName => _settings.AddTimestampToExportFileName;
 
@@ -1927,6 +2123,27 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Процессы, завершение которых бьёт не по клиентскому сеансу: кластер
+    /// серверов, сервер отладки, сервер данных и утилиты, держащие базу.
+    /// </summary>
+    private static readonly string[] ServerProcessNames =
+    {
+        "ragent", "rmngr", "rphost", "ras", "rac", "dbgs", "dbda", "ibsrv", "ibcmd", "crserver"
+    };
+
+    private bool SaveList(List<Infobase> infobases)
+    {
+        try { _repository.Save(infobases); return true; }
+        catch (Exception ex) { _logger.Error("Не удалось сохранить список баз", ex); return false; }
+    }
+
+    private bool SaveGroupList(List<Group> groups)
+    {
+        try { _repository.SaveGroups(groups); return true; }
+        catch (Exception ex) { _logger.Error("Не удалось сохранить группы", ex); return false; }
+    }
+
     /// <summary>Каталоги шаблонов конфигураций, заданные пользователем.</summary>
     public IReadOnlyList<string> TemplateCatalogPaths => _settings.TemplateCatalogPaths;
 
@@ -2134,16 +2351,26 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>Сохраняет группы, возвращая признак успеха: ошибка идёт в журнал.</summary>
-    private bool SaveGroupsSilently()
-    {
-        try { _repository.SaveGroups(_groups); return true; }
-        catch (Exception ex) { _logger.Error("Не удалось сохранить группы", ex); return false; }
-    }
+    private bool SaveGroupsSilently() => SaveGroupList(_groups);
 
-    /// <summary>Главное окно как владелец модального диалога.</summary>
-    private static Avalonia.Controls.Window? OwnerWindow() =>
-        (Avalonia.Application.Current?.ApplicationLifetime
-            as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+    /// <summary>
+    /// Окно-владелец для модальных окон. Спрятанное в трей окно владельцем
+    /// быть не может: показ поверх невидимого окна роняет приложение.
+    /// </summary>
+    private static Avalonia.Controls.Window? OwnerWindow()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+
+        foreach (var window in desktop.Windows)
+        {
+            if (window.IsActive && window.IsVisible)
+                return window;
+        }
+
+        return desktop.MainWindow is { IsVisible: true } main ? main : null;
+    }
 
     private void DeleteInfobase()
     {
@@ -2646,19 +2873,13 @@ public class MainViewModel : ViewModelBase
     private void OpenSettings()
     {
         var settings = new Configuration_Management.SettingsWindow(this);
-        if (Avalonia.Application.Current?.ApplicationLifetime
-            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            var owner = desktop.MainWindow;
-            if (owner is not null)
-                settings.ShowDialog(owner);
-            else
-                settings.Show();
-        }
+        // Владелец берётся только видимый: окно, спрятанное в трей, остаётся
+        // в списке окон приложения, и показ поверх него ничего не показывает.
+        // Настройки открываются из меню трея именно в таком состоянии.
+        if (OwnerWindow() is { } owner)
+            settings.ShowDialog(owner);
         else
-        {
             settings.Show();
-        }
     }
 
     /// <summary>
@@ -2991,10 +3212,13 @@ public class MainViewModel : ViewModelBase
     // ======================= Сохранение =======================
 
     /// <summary>Сохраняет список баз, возвращая признак успеха: ошибка идёт в журнал.</summary>
-    private bool SaveSilently()
+    private bool SaveSilently() => SaveList(_allInfobases);
+
+    /// <summary>Сохраняет настройки и сообщает, удалось ли.</summary>
+    private bool SaveSettingsSafe()
     {
-        try { _repository.Save(_allInfobases); return true; }
-        catch (Exception ex) { _logger.Error("Не удалось сохранить список баз", ex); return false; }
+        try { _repository.SaveSettings(_settings); return true; }
+        catch (Exception ex) { _logger.Error("Не удалось сохранить настройки", ex); return false; }
     }
 
     private void SaveSettingsSilently()
@@ -3124,8 +3348,11 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
-        var dialog = new CacheCleanWindow(Infobases, kind, SelectedInfobase);
-        if (!dialog.ShowSync())
+        // Список отдаётся копией и окно открывается модально: иначе пока оно
+        // открыто, список баз можно очистить из главного окна, и очистка
+        // остатков посчитает остатками уже весь кеш.
+        var dialog = new CacheCleanWindow(Infobases.ToList(), kind, SelectedInfobase);
+        if (!dialog.ShowSync(OwnerWindow()))
             return;
 
         var infobases = dialog.SelectedInfobases;

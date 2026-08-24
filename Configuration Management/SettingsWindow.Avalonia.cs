@@ -47,6 +47,9 @@ namespace Configuration_Management
             // не находили свойств и всегда стояли пустыми.
             DataContext = viewModel;
             Content = BuildRoot();
+            // Кнопки окно строит само, поэтому подписку на смену языка
+            // базовый класс не включает: включаем явно.
+            EnsureLanguageSubscription();
         }
 
         /// <summary>Наблюдатель за значением свойства контрола.</summary>
@@ -69,6 +72,25 @@ namespace Configuration_Management
             "yyyyMMdd",
             "HHmmss"
         };
+
+        /// <summary>
+        /// Пересобирает окно при смене языка: подписи вкладок, флажков и кнопок
+        /// создаются в коде через LocalizationManager.T, поэтому сами по себе
+        /// они не переключаются. Базовая реализация обновляет только ОК и
+        /// Отмену, а язык здесь применяется сразу при выборе в списке, и без
+        /// пересборки окно оставалось наполовину на прежнем языке.
+        /// Введённые, но не сохранённые значения при этом читаются заново
+        /// из настроек: сменить язык посреди правки означает начать её заново.
+        /// </summary>
+        protected override void OnLanguageChanged(object? sender, EventArgs e)
+        {
+            base.OnLanguageChanged(sender, e);
+
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                Content = BuildRoot();
+            else
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => Content = BuildRoot());
+        }
 
         private Control BuildRoot()
         {
@@ -122,6 +144,29 @@ namespace Configuration_Management
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.7
             });
+
+            // Поведение значка в области уведомлений. До этого три настройки
+            // жили только в файле и в версии для Windows: в Linux-сборке ни
+            // флажков, ни учёта не было.
+            var trayIconCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.General.ShowTrayIcon"),
+                IsChecked = _viewModel.ShowTrayIcon,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            var closeToTrayCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.General.CloseToTray"),
+                IsChecked = _viewModel.CloseToTray
+            };
+            var escapeToTrayCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.General.EscapeToTray"),
+                IsChecked = _viewModel.EscapeToTray
+            };
+            settings.Children.Add(trayIconCheck);
+            settings.Children.Add(closeToTrayCheck);
+            settings.Children.Add(escapeToTrayCheck);
 
             // Компактный режим интерфейса.
             var compactToggle = new CheckBox
@@ -752,6 +797,36 @@ namespace Configuration_Management
                 .Subscribe(new SettingsObserver<string?>(_ => UpdateTimestampPreview()));
             UpdateTimestampPreview();
 
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Maintenance")));
+            bases.Children.Add(Hint(LocalizationManager.T("Settings.Bases.MaintenanceHint")));
+
+            var maintenanceButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
+
+            var removeMissing = new Button { Content = LocalizationManager.T("Settings.Bases.RemoveMissing") };
+            ToolTip.SetTip(removeMissing, LocalizationManager.T("Settings.Bases.RemoveMissingTooltip"));
+            removeMissing.Click += (_, _) => _viewModel.RemoveMissingFileBases();
+
+            var killProcesses = new Button { Content = LocalizationManager.T("Settings.Bases.KillProcesses") };
+            ToolTip.SetTip(killProcesses, LocalizationManager.T("Settings.Bases.KillProcessesTooltip"));
+            killProcesses.Click += (_, _) => _viewModel.KillOneCProcesses();
+
+            maintenanceButtons.Children.Add(removeMissing);
+            maintenanceButtons.Children.Add(killProcesses);
+            bases.Children.Add(maintenanceButtons);
+
+            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.DangerousOps")));
+            bases.Children.Add(Hint(LocalizationManager.T("Settings.Bases.DangerousHint")));
+
+            var clearAll = new Button
+            {
+                Content = LocalizationManager.T("Settings.Bases.ClearAll"),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            ToolTip.SetTip(clearAll, LocalizationManager.T("Settings.Bases.ClearAllTooltip"));
+            clearAll.Click += (_, _) => _viewModel.ClearAllInfobases();
+            bases.Children.Add(clearAll);
+
             bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.TabIbases")));
             bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.Description")));
 
@@ -813,10 +888,11 @@ namespace Configuration_Management
             intervalRow.Children.Add(scheduleBox);
             bases.Children.Add(intervalRow);
 
-            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Maintenance")));
+            // Подписи как в оригинале: флажок называет само действие, а строка
+            // про имена копий идёт пояснением под числом хранимых копий.
             var backupCheck = new CheckBox
             {
-                Content = LocalizationManager.T("Settings.Ibases.BackupNote"),
+                Content = LocalizationManager.T("Settings.BackupBeforeSync"),
                 IsChecked = _viewModel.IbasesBackupEnabled
             };
             bases.Children.Add(backupCheck);
@@ -825,6 +901,7 @@ namespace Configuration_Management
             var keepBox = new TextBox { Text = _viewModel.IbasesBackupKeepCount.ToString(), Width = 80 };
             keepRow.Children.Add(keepBox);
             bases.Children.Add(keepRow);
+            bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.BackupNote")));
 
             tabs.Items.Add(new TabItem
             {
@@ -880,6 +957,23 @@ namespace Configuration_Management
             var ok = new Button { Content = LocalizationManager.T("Common.Ok"), MinWidth = 110, IsDefault = true };
             ok.Click += (_, _) =>
             {
+                // Проверка дублей идёт первой: иначе при конфликте окно
+                // остаётся открытым, а часть настроек уже на диске.
+                var assignments = new (string Action, Controls.HotkeyBox Box)[]
+                {
+                    (LocalizationManager.T("Main.LaunchEnterprise"), hotkeyEnterprise),
+                    (LocalizationManager.T("Main.SectionConfigurator"), hotkeyConfigurator),
+                    (LocalizationManager.T("Main.EditSettings"), hotkeyEdit),
+                    (LocalizationManager.T("Main.AddBaseOrGroup"), hotkeyAdd),
+                    (LocalizationManager.T("Main.Favorites"), hotkeyFavorite),
+                    (LocalizationManager.T("Main.Pin"), hotkeyPin),
+                    (LocalizationManager.T("Common.Delete"), hotkeyDelete),
+                    (LocalizationManager.T("Main.ClearCache"), hotkeyClearCache)
+                };
+
+                if (!ValidateHotkeys(assignments))
+                    return;
+
                 if (langBox.SelectedItem is LanguageInfo li &&
                     !string.Equals(li.Code, LocalizationManager.Instance.CurrentLanguage, StringComparison.Ordinal))
                 {
@@ -891,6 +985,10 @@ namespace Configuration_Management
                 _viewModel.ApplyColorScheme(editedScheme);
 
                 _viewModel.ApplyPlatformSettings(paths, archBox.SelectedItem as string ?? "X64");
+                _viewModel.ApplyTraySettings(
+                    trayIconCheck.IsChecked == true,
+                    closeToTrayCheck.IsChecked == true,
+                    escapeToTrayCheck.IsChecked == true);
                 _viewModel.ApplyTemplateCatalogPaths(templatePaths);
                 ApplyExportFileNameSettings();
 
@@ -911,21 +1009,6 @@ namespace Configuration_Management
                     scheduleBox.Text?.Trim() ?? string.Empty,
                     backupCheck.IsChecked == true,
                     int.TryParse(keepBox.Text, out var keep) && keep > 0 ? keep : 5);
-
-                var assignments = new (string Action, Controls.HotkeyBox Box)[]
-                {
-                    (LocalizationManager.T("Main.LaunchEnterprise"), hotkeyEnterprise),
-                    (LocalizationManager.T("Main.SectionConfigurator"), hotkeyConfigurator),
-                    (LocalizationManager.T("Main.EditSettings"), hotkeyEdit),
-                    (LocalizationManager.T("Main.AddBaseOrGroup"), hotkeyAdd),
-                    (LocalizationManager.T("Main.Favorites"), hotkeyFavorite),
-                    (LocalizationManager.T("Main.Pin"), hotkeyPin),
-                    (LocalizationManager.T("Common.Delete"), hotkeyDelete),
-                    (LocalizationManager.T("Main.ClearCache"), hotkeyClearCache)
-                };
-
-                if (!ValidateHotkeys(assignments))
-                    return;
 
                 _viewModel.ApplyHotkeys(
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
