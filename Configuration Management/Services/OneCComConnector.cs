@@ -231,6 +231,10 @@ public sealed class OneCComConnector : IOneCComConnector
         ComFailureKind.NotRegistered => LocalizationManager.T("Com.NotFound")
                                         + " " + DescribeProgIdStatus()
                                         + " " + LocalizationManager.T("Com.NotFoundInstallHint"),
+        // Коннектор в реестре есть, но не создаётся. Говорить «не найден» здесь нельзя:
+        // текст противоречил бы и реестру, и быстрой проверке доступности.
+        ComFailureKind.InstanceFailed => string.Format(
+            LocalizationManager.T("Com.ProgIdInstanceFailedFormat"), result.Detail ?? string.Empty),
         ComFailureKind.NoConnection => string.Format(
             LocalizationManager.T("Com.ProgIdNoConnectionFormat"), result.Detail ?? string.Empty),
         ComFailureKind.MetadataProperty => LocalizationManager.T("Com.MetadataPropertyFailed"),
@@ -393,22 +397,89 @@ public sealed class OneCComConnector : IOneCComConnector
     }
 
     /// <summary>
+    /// Имена параметров, значение которых нельзя показывать. Имя пользователя (Usr)
+    /// намеренно не маскируется: это логин, а не секрет, и он нужен для разбора отказов
+    /// аутентификации. Так же вела себя и прежняя реализация.
+    /// </summary>
+    private static readonly string[] SecretParameters = { "Pwd", "Password" };
+
+    /// <summary>
     /// Скрывает пароль перед записью в журнал или показом пользователю.
     /// <para>
     /// Применяется не только к самой строке подключения, но и к произвольному тексту:
     /// сообщения об ошибках, приходящие от 1С, умеют цитировать строку подключения целиком.
-    /// Поэтому покрываются обе формы записи — в кавычках и без них.
+    /// </para>
+    /// <para>
+    /// Значение считается идущим до ближайшего <c>;</c> или конца строки — это грамматика
+    /// строки подключения. Разбирать баланс кавычек нельзя: <see cref="BuildComConnectString"/>
+    /// кавычку внутри пароля не экранирует, поэтому маскировка по кавычкам пропускала хвост
+    /// пароля наружу. Правило по разделителю устойчиво ко всем формам записи — в кавычках,
+    /// без кавычек, с удвоенными кавычками, с кавычкой внутри значения и с незакрытой кавычкой —
+    /// и при этом сохраняет диагностику, идущую после разделителя.
     /// </para>
     /// </summary>
     private static string MaskCredentials(string text)
     {
         if (string.IsNullOrEmpty(text)) return text;
 
-        // Pwd="секрет"
-        var masked = Regex.Replace(text, @"Pwd\s*=\s*""[^""]*""", "Pwd=\"***\"", RegexOptions.IgnoreCase);
-        // Pwd=секрет; — без кавычек, до разделителя или конца строки
-        masked = Regex.Replace(masked, @"Pwd\s*=\s*(?!"")[^;\r\n]*", "Pwd=***", RegexOptions.IgnoreCase);
-        return masked;
+        var sb = new StringBuilder(text.Length);
+        var i = 0;
+        while (i < text.Length)
+        {
+            var name = MatchSecretParameter(text, i);
+            if (name is null)
+            {
+                sb.Append(text[i]);
+                i++;
+                continue;
+            }
+
+            var afterValueStart = SkipSpaces(text, i + name.Length) + 1; // пропускаем '='
+            var end = afterValueStart;
+            while (end < text.Length && text[end] != ';' && text[end] != '\r' && text[end] != '\n')
+                end++;
+
+            sb.Append(name).Append("=***");
+            i = end;
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Возвращает имя секретного параметра, если в позиции <paramref name="i"/> начинается
+    /// именно он и за ним следует присваивание. Проверяются обе границы слова, иначе
+    /// под маскировку попадали бы посторонние параметры вроде <c>NotPwd</c> и <c>PwdHint</c>.
+    /// </summary>
+    private static string? MatchSecretParameter(string text, int i)
+    {
+        if (i > 0)
+        {
+            var prev = text[i - 1];
+            if (char.IsLetterOrDigit(prev) || prev == '_')
+                return null;
+        }
+
+        foreach (var name in SecretParameters)
+        {
+            if (i + name.Length > text.Length)
+                continue;
+            if (string.Compare(text, i, name, 0, name.Length, StringComparison.OrdinalIgnoreCase) != 0)
+                continue;
+
+            var k = SkipSpaces(text, i + name.Length);
+            if (k < text.Length && text[k] == '=')
+                return text.Substring(i, name.Length);
+        }
+
+        return null;
+    }
+
+    private static int SkipSpaces(string text, int i)
+    {
+        while (i < text.Length && (text[i] == ' ' || text[i] == '\t'))
+            i++;
+        return i;
     }
 
     /// <summary>
