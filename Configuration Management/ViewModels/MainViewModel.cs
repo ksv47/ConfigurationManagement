@@ -417,9 +417,23 @@ public class MainViewModel : ViewModelBase
         RegisterComConnectorCommand = new RelayCommand(RegisterComConnector);
 
         // Если список баз пуст — предлагаем загрузить базы из файла ibases.v8i.
+        // Диалог нельзя показывать прямо из конструктора: главное окно ещё не показано,
+        // и модальный MessageBox, открытый до появления окна, зависает (в т.ч. при нажатии
+        // «Выход»/отмены). Откладываем запрос до завершения раскладки и отрисовки первого
+        // кадра, когда окно уже на экране и модальный цикл сообщений работает корректно.
         if (Infobases.Count == 0)
         {
-            PromptImportFromIbasesV8i();
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher is not null)
+            {
+                dispatcher.BeginInvoke(
+                    new Action(PromptImportFromIbasesV8i),
+                    System.Windows.Threading.DispatcherPriority.ContextIdle);
+            }
+            else
+            {
+                PromptImportFromIbasesV8i();
+            }
         }
     }
 
