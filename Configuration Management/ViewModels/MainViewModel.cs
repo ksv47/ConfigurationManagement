@@ -4869,6 +4869,11 @@ public string HotkeyEnterprise
         var ib = parameter as Infobase ?? SelectedInfobase;
         if (ib is null) return;
 
+        // Пользователь попросил явно — снимаем защёлку недоступности COM: причина сбоя
+        // могла быть разовой (антивирус, нехватка памяти), а иначе до перезапуска
+        // приложения команда молча отвечала бы отказом.
+        ComReadHost.ResetAvailability();
+
         var baseName = ib.Name;
         _ = Task.Run(() =>
         {
@@ -4916,6 +4921,9 @@ public string HotkeyEnterprise
     /// </summary>
     private void RefreshAllConfigurationInfo()
     {
+        // Явное действие пользователя — даём COM ещё один шанс (см. RefreshConfigurationInfo).
+        ComReadHost.ResetAvailability();
+
         var targets = Infobases.ToList();
         if (targets.Count == 0)
         {
@@ -4970,6 +4978,9 @@ public string HotkeyEnterprise
     /// </summary>
     private void RegisterComConnector(object? parameter)
     {
+        // После регистрации коннектора прежний вердикт «недоступен» устарел.
+        ComReadHost.ResetAvailability();
+
         var ib = parameter as Infobase ?? SelectedInfobase;
         var version = ib?.PlatformVersion ?? string.Empty;
         var architecture = ib is not null && (ib.Architecture == "64" || ib.Architecture == "x64") ? "64" : "32";

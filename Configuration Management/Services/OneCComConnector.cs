@@ -195,13 +195,43 @@ public sealed class OneCComConnector : IOneCComConnector
         var alreadyDisabled = ComReadHost.ComUnavailable;
 
         var result = ComReadHost.Read(connectString, timeoutMs);
-        LastError = result is null ? ComReadHost.LastError : null;
+        if (result.Failure == ComFailureKind.None && result.Info is not null)
+        {
+            LastError = null;
+            return result.Info;
+        }
 
-        if (result is null && !alreadyDisabled && ComReadHost.LastError is not null)
-            _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{infobase.Name}»: {ComReadHost.LastError}");
+        LastError = DescribeFailure(result);
 
-        return result;
+        if (!alreadyDisabled)
+            _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{infobase.Name}»: {LastError}");
+
+        return null;
     }
+
+    /// <summary>
+    /// Переводит разряд отказа в текст для пользователя. Тексты подбираются здесь, а не в агенте:
+    /// в агенте локализация не поднята (он выходит до инициализации приложения), да и передавать
+    /// по каналу код надёжнее, чем готовую строку.
+    /// </summary>
+    private static string DescribeFailure(ComReadResult result) => result.Failure switch
+    {
+        ComFailureKind.Disabled => LocalizationManager.T("Com.DisabledForSession"),
+        ComFailureKind.AgentStart => string.Format(
+            LocalizationManager.T("Com.AgentStartFailedFormat"), result.Detail ?? string.Empty),
+        ComFailureKind.AgentCrashed => string.Format(
+            LocalizationManager.T("Com.AgentCrashedFormat"), result.Detail ?? string.Empty),
+        ComFailureKind.Timeout => string.Format(
+            LocalizationManager.T("Com.TimeoutReadFormat"), result.Detail ?? string.Empty),
+        ComFailureKind.NotRegistered => LocalizationManager.T("Com.NotFound")
+                                        + " " + DescribeProgIdStatus(),
+        ComFailureKind.NoConnection => string.Format(
+            LocalizationManager.T("Com.ProgIdNoConnectionFormat"), result.Detail ?? string.Empty),
+        ComFailureKind.MetadataProperty => LocalizationManager.T("Com.MetadataPropertyFailed"),
+        ComFailureKind.MetadataRead => LocalizationManager.T("Com.MetadataReadFailed"),
+        ComFailureKind.DatabaseError => result.Detail ?? LocalizationManager.T("Com.MetadataReadFailed"),
+        _ => LocalizationManager.T("Com.AgentNoResult")
+    };
 
     /// <summary>
     /// Устанавливает подключение в текущем (STA) потоке, перебирая известные ProgID.
