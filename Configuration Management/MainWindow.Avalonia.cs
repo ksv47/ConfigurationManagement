@@ -727,9 +727,10 @@ namespace Configuration_Management
             {
                 Name = "RightPanelBorder",
                 Content = BuildRightPanel(),
+                // Более плотные отступы — кнопки и карточки занимают меньше места.
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Padding = new Thickness(UiMetrics.Scaled(16), UiMetrics.Scaled(14)),
+                Padding = new Thickness(UiMetrics.Scaled(12), UiMetrics.Scaled(10)),
                 MinWidth = UiMetrics.RightPanelMin,
                 MaxWidth = UiMetrics.RightPanelMax
             };
@@ -1286,28 +1287,44 @@ namespace Configuration_Management
 
         private Control BuildRightPanel()
         {
-            var panel = new StackPanel { HorizontalAlignment = HorizontalAlignment.Stretch };
+            // Компактная правая панель: primary-запуски на всю ширину, вторичные
+            // действия — в двухколоночной сетке, секции без тяжёлых карточек.
+            var panel = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Spacing = UiMetrics.ActionGridGap
+            };
 
             // Заголовок базы
-            var nameBlock = new TextBlock { FontSize = 16, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
+            var nameBlock = new TextBlock
+            {
+                FontSize = UiMetrics.Scaled(15),
+                FontWeight = FontWeight.SemiBold,
+                TextWrapping = TextWrapping.Wrap
+            };
             nameBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelTitle"));
 
-            var groupBlock = new TextBlock { FontSize = 12, Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
+            var groupBlock = new TextBlock
+            {
+                FontSize = UiMetrics.Scaled(11.5),
+                Opacity = 0.7,
+                TextWrapping = TextWrapping.Wrap
+            };
             groupBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelSubtitle"));
 
             // Заголовок сеткой, а не горизонтальной панелью: в панели подпись
             // получала бы бесконечную ширину и не переносилась бы по словам.
-            var header = new Grid { Margin = new Thickness(0, 0, 0, 12), ColumnSpacing = 10 };
+            var header = new Grid { Margin = new Thickness(0, 0, 0, 4), ColumnSpacing = 8 };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             // Значок базы показывается только когда база выбрана: при выбранной
             // группе и при пустом выборе он висел бы один без подписи.
-            var headerIcon = IconHelper.MakeIcon("IconDatabase", 28);
+            var headerIcon = IconHelper.MakeIcon("IconDatabase", UiMetrics.Scaled(24));
             headerIcon.Bind(Avalonia.Controls.Shapes.Path.DataProperty,
                 new Binding("RightPanelIconKey") { Converter = IconKeyConverter });
             headerIcon.Bind(Control.IsVisibleProperty, new Binding("HasRightPanelIcon"));
             header.Children.Add(headerIcon);
-            var headerText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            var headerText = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 1 };
             headerText.Children.Add(nameBlock);
             headerText.Children.Add(groupBlock);
             header.Children.Add(headerText);
@@ -1317,17 +1334,17 @@ namespace Configuration_Management
             // как в WPF: там она видна, пока база не выбрана.
             var hintBlock = new TextBlock
             {
-                FontSize = 12,
+                FontSize = UiMetrics.Scaled(11.5),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.7,
-                Margin = new Thickness(0, 0, 0, 12)
+                Margin = new Thickness(0, 0, 0, 4)
             };
             hintBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelHint"));
             hintBlock.Bind(Control.IsVisibleProperty, new Binding("!IsInfobaseSelected"));
             panel.Children.Add(header);
             panel.Children.Add(hintBlock);
 
-            // Основное действие (primary) — крупная акцентная кнопка вверху.
+            // Основное действие (primary) — акцентная кнопка запуска.
             panel.Children.Add(BuildLaunchSplitButton(
                 "IconPlay",
                 LocalizationManager.T("Main.LaunchEnterprise"),
@@ -1340,34 +1357,33 @@ namespace Configuration_Management
                     (LocalizationManager.T("Main.LaunchWithAuth"), "LaunchEnterpriseWithAuthCommand")
                 }));
 
-            // Секции secondary-действий, сгруппированные по смыслу.
-            panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionConfigurator"), "IconConfiguration",
-                BuildLaunchSplitButton(
-                    "IconWrench",
-                    LocalizationManager.T("Main.LaunchConfiguratorSection"),
-                    "LaunchConfiguratorCommand",
-                    LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip"),
-                    primary: false,
-                    new[]
-                    {
-                        (LocalizationManager.T("Main.LaunchWithParams"), "LaunchConfiguratorWithParamsCommand")
-                    })));
+            // Конфигуратор — secondary full-width (без отдельной тяжёлой карточки).
+            panel.Children.Add(BuildLaunchSplitButton(
+                "IconWrench",
+                LocalizationManager.T("Main.LaunchConfiguratorSection"),
+                "LaunchConfiguratorCommand",
+                LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip"),
+                primary: false,
+                new[]
+                {
+                    (LocalizationManager.T("Main.LaunchWithParams"), "LaunchConfiguratorWithParamsCommand")
+                }));
 
-            panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionMaintenance"), "IconWrench",
-                BuildClearCacheSplitButton(),
-                SecondaryActionButton("IconEdit", LocalizationManager.T("Main.EditSettings"), "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")),
-                SecondaryActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
-                SecondaryActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
-                SecondaryActionButton("IconWeb", LocalizationManager.T("LinkInput.Title"), "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip"))));
+            // Очистка кеша (split) — на всю ширину, затем сетка вторичных действий.
+            panel.Children.Add(BuildClearCacheSplitButton());
 
-            panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionBaseList"), "IconList",
-                SecondaryActionButton("IconAdd", LocalizationManager.T("Main.AddBaseOrGroup"), "AddInfobaseCommand", LocalizationManager.T("Main.AddBaseOrGroupTooltip")),
-                SecondaryActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand", LocalizationManager.T("Main.DesktopShortcutTooltip")),
-                SecondaryActionButton("IconDelete", LocalizationManager.T("Main.Delete"), "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"))));
-
-            panel.Children.Add(SectionCard(LocalizationManager.T("Main.SectionMarks"), "IconStar",
-                SecondaryActionButton("IconFavorite", LocalizationManager.T("Main.ToFavorites"), "ToggleFavoriteCommand", LocalizationManager.T("Main.ToggleFavoriteTooltip")),
-                SecondaryActionButton("IconPin", LocalizationManager.T("Main.Pin"), "TogglePinCommand", LocalizationManager.T("Main.PinBaseTooltip"))));
+            // Двухколоночная сетка вторичных действий: экономит вертикальное место.
+            panel.Children.Add(BuildActionGrid(
+                CompactActionButton("IconEdit", LocalizationManager.T("Main.EditSettings"), "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")),
+                CompactActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
+                CompactActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
+                CompactActionButton("IconWeb", LocalizationManager.T("LinkInput.Title"), "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip")),
+                CompactActionButton("IconAdd", LocalizationManager.T("Main.AddBaseOrGroup"), "AddInfobaseCommand", LocalizationManager.T("Main.AddBaseOrGroupTooltip")),
+                CompactActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand", LocalizationManager.T("Main.DesktopShortcutTooltip")),
+                CompactActionButton("IconFavorite", LocalizationManager.T("Main.ToFavorites"), "ToggleFavoriteCommand", LocalizationManager.T("Main.ToggleFavoriteTooltip")),
+                CompactActionButton("IconPin", LocalizationManager.T("Main.Pin"), "TogglePinCommand", LocalizationManager.T("Main.PinBaseTooltip")),
+                CompactActionButton("IconDelete", LocalizationManager.T("Main.Delete"), "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"))
+            ));
 
             // Информация о подключении.
             // Блок сведений подчинён переключателю подробностей правой панели,
@@ -1390,14 +1406,99 @@ namespace Configuration_Management
             panel.Children.Add(BuildSessionCard());
 
             // Описание.
-            var desc = new TextBlock { TextWrapping = TextWrapping.Wrap };
+            var desc = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = UiMetrics.Scaled(12) };
             desc.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.Description"));
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.Description"), "IconInfo", desc));
 
-            panel.Children.Add(SecondaryActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand",
-                LocalizationManager.T("Main.ExitTooltip")));
+            // Выход — компактная кнопка внизу, без лишней «карточки».
+            var exitBtn = CompactActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand",
+                LocalizationManager.T("Main.ExitTooltip"));
+            exitBtn.Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, 0);
+            panel.Children.Add(exitBtn);
 
             return panel;
+        }
+
+        /// <summary>
+        /// Двухколоночная сетка компактных кнопок действий правой панели.
+        /// Равномерно заполняет ширину и заметно экономит вертикальное место
+        /// по сравнению со стеком полноширинных secondary-кнопок.
+        /// </summary>
+        private static Control BuildActionGrid(params Control[] buttons)
+        {
+            var gap = UiMetrics.ActionGridGap;
+            var grid = new UniformGrid
+            {
+                Columns = 2,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+
+            // UniformGrid не поддерживает Spacing в старых версиях Avalonia —
+            // оборачиваем каждую кнопку в контейнер с симметричным отступом.
+            foreach (var btn in buttons)
+            {
+                var wrap = new Border
+                {
+                    Child = btn,
+                    Margin = new Thickness(gap / 2)
+                };
+                grid.Children.Add(wrap);
+            }
+
+            // Компенсируем внешние половины gap, чтобы сетка совпадала с краями панели.
+            return new Border
+            {
+                Child = grid,
+                Margin = new Thickness(-gap / 2)
+            };
+        }
+
+        /// <summary>
+        /// Компактная кнопка действия правой панели: иконка + текст, низкая высота,
+        /// растягивается на ячейку сетки. Подходит для 2-колоночного layout.
+        /// </summary>
+        private static Control CompactActionButton(string iconKey, string text, string commandPath, string tooltip)
+        {
+            var btn = new PanelButton(
+                "SecondaryButtonBackgroundBrush",
+                "SecondaryButtonHoverBrush",
+                "SecondaryButtonPressedBrush",
+                "BorderColorBrush",
+                new CornerRadius(UiMetrics.RadiusMd))
+            {
+                Content = CompactIconAndText(iconKey, text, "ButtonTextBrush"),
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                MinHeight = UiMetrics.ActionButtonMinHeight,
+                Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV),
+                Margin = new Thickness(0)
+            };
+            ToolTip.SetTip(btn, tooltip);
+            btn.Bind(Button.CommandProperty, new Binding(commandPath));
+            return btn;
+        }
+
+        /// <summary>Компактное содержимое кнопки: иконка + подпись меньшего размера.</summary>
+        private static Control CompactIconAndText(string iconKey, string text, string brushKey)
+        {
+            var sp = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            sp.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.ActionIconSize, brushKey));
+            var tb = new TextBlock
+            {
+                Text = text,
+                FontSize = UiMetrics.ActionFontSize,
+                FontWeight = FontWeight.Medium,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+            sp.Children.Add(tb);
+            return sp;
         }
 
         /// <summary>
@@ -1470,28 +1571,40 @@ namespace Configuration_Management
         private static readonly Avalonia.Data.Converters.FuncValueConverter<string?, Geometry?> IconKeyConverter =
             new(key => string.IsNullOrEmpty(key) ? null : IconHelper.Geometry(key));
 
-        /// <summary>Карточка-секция: скруглённый фон/граница из темы + заголовок с иконкой и вложенные элементы.</summary>
+        /// <summary>
+        /// Карточка-секция: лёгкий фон/граница из темы + компактный заголовок с иконкой.
+        /// Без тяжёлой тени — правая панель выглядит современнее и занимает меньше места.
+        /// </summary>
         private static Control SectionCard(string title, string iconKey, params Control[] children)
         {
             var card = new Border
             {
-                CornerRadius = new CornerRadius(UiMetrics.RadiusXl),
+                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(UiMetrics.SectionPad),
-                Margin = new Thickness(0, 0, 0, UiMetrics.SectionMarginBottom),
+                Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
             ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundBrush");
             ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
-            // Мягкая тень и плавные переходы цвета у секций-карточек.
-            UiMetrics.AddSoftShadow(card);
             UiMetrics.AddBrushTransition(card);
 
             var content = new StackPanel { Spacing = UiMetrics.Gap };
 
-            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 2) };
-            header.Children.Add(IconHelper.MakeIcon(iconKey, 16, "TextSecondaryBrush"));
-            var titleBlock = new TextBlock { Text = title, FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            var header = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                Margin = new Thickness(0, 0, 0, 2)
+            };
+            header.Children.Add(IconHelper.MakeIcon(iconKey, 14, "TextSecondaryBrush"));
+            var titleBlock = new TextBlock
+            {
+                Text = title,
+                FontSize = UiMetrics.Scaled(12),
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             header.Children.Add(titleBlock);
             content.Children.Add(header);
@@ -1527,12 +1640,15 @@ namespace Configuration_Management
                 "SecondaryButtonBackgroundBrush",
                 "SecondaryButtonHoverBrush",
                 "SecondaryButtonPressedBrush",
-                "BorderColorBrush")
+                "BorderColorBrush",
+                new CornerRadius(UiMetrics.RadiusMd))
             {
-                Content = ThemedIconAndText(iconKey, text, "ButtonTextBrush", 16, centered: false),
+                Content = ThemedIconAndText(iconKey, text, "ButtonTextBrush", UiMetrics.ActionIconSize, centered: false),
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Margin = new Thickness(0, 0, 0, 2)
+                MinHeight = UiMetrics.ActionButtonMinHeight,
+                Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV),
+                Margin = new Thickness(0, 0, 0, UiMetrics.ActionGridGap / 2)
             };
             ToolTip.SetTip(btn, tooltip);
             btn.Bind(Button.CommandProperty, new Binding(commandPath));
@@ -1558,10 +1674,13 @@ namespace Configuration_Management
                 "BorderColorBrush",
                 new CornerRadius(radius, 0, 0, radius))
             {
-                Content = ThemedIconAndText("IconDelete", LocalizationManager.T("Main.ClearCache"), "ButtonTextBrush", 16, centered: false),
+                Content = ThemedIconAndText("IconDelete", LocalizationManager.T("Main.ClearCache"), "ButtonTextBrush",
+                    UiMetrics.ActionIconSize, centered: false),
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Margin = new Thickness(0, 0, 0, 2)
+                MinHeight = UiMetrics.ActionButtonMinHeight,
+                Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV),
+                Margin = new Thickness(0)
             };
             ToolTip.SetTip(main, LocalizationManager.T("Main.ClearCacheTooltip"));
             main.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
@@ -1594,14 +1713,15 @@ namespace Configuration_Management
                 "BorderColorBrush",
                 new CornerRadius(0, radius, radius, 0))
             {
-                Width = 36,
+                Width = 32,
+                MinHeight = UiMetrics.ActionButtonMinHeight,
                 Padding = new Thickness(0),
-                Margin = new Thickness(0, 0, 0, 2)
+                Margin = new Thickness(0)
             };
             var arrowGlyph = new TextBlock
             {
                 Text = "▾",
-                FontSize = UiMetrics.Scaled(14),
+                FontSize = UiMetrics.Scaled(12),
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
@@ -1646,10 +1766,13 @@ namespace Configuration_Management
                     "SecondaryButtonPressedBrush", "BorderColorBrush", mainCorner);
 
             var contentBrush = primary ? "TextOnAccentBrush" : "ButtonTextBrush";
-            main.Content = ThemedIconAndText(iconKey, text, contentBrush, primary ? UiMetrics.Scaled(18) : 16, centered: primary);
+            main.Content = ThemedIconAndText(iconKey, text, contentBrush,
+                primary ? UiMetrics.Scaled(16) : UiMetrics.ActionIconSize, centered: primary);
             main.HorizontalContentAlignment = primary ? HorizontalAlignment.Center : HorizontalAlignment.Left;
             main.HorizontalAlignment = HorizontalAlignment.Stretch;
-            main.Margin = new Thickness(0, 0, 0, primary ? UiMetrics.SectionMarginBottom : 2);
+            main.MinHeight = UiMetrics.ActionButtonMinHeight + (primary ? 4 : 0);
+            main.Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV + (primary ? 2 : 0));
+            main.Margin = new Thickness(0);
             ToolTip.SetTip(main, tooltip);
             main.Bind(Button.CommandProperty, new Binding(commandPath));
 
@@ -1672,14 +1795,15 @@ namespace Configuration_Management
                 ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", arrowCorner)
                 : new PanelButton("SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush",
                     "SecondaryButtonPressedBrush", "BorderColorBrush", arrowCorner);
-            arrow.Width = 36;
+            arrow.Width = 32;
+            arrow.MinHeight = main.MinHeight;
             arrow.Padding = new Thickness(0);
-            arrow.Margin = main.Margin;
+            arrow.Margin = new Thickness(0);
 
             var arrowGlyph = new TextBlock
             {
                 Text = "▾",
-                FontSize = UiMetrics.Scaled(14),
+                FontSize = UiMetrics.Scaled(12),
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
@@ -1689,7 +1813,7 @@ namespace Configuration_Management
             arrow.ContextMenu = menu;
             arrow.Click += (_, _) => menu.Open(arrow);
 
-            var grid = new Grid();
+            var grid = new Grid { Margin = new Thickness(0, 0, 0, 0) };
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             Grid.SetColumn(main, 0);
@@ -1702,16 +1826,17 @@ namespace Configuration_Management
         /// <summary>Содержимое кнопки: иконка + подпись, окрашенные кистью ресурса темы.</summary>
         private static Control ThemedIconAndText(string iconKey, string text, string brushKey, double iconSize, bool centered)
         {
-            var sp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             if (centered)
                 sp.HorizontalAlignment = HorizontalAlignment.Center;
             sp.Children.Add(IconHelper.MakeIcon(iconKey, iconSize, brushKey));
             var tb = new TextBlock
             {
                 Text = text,
-                FontSize = UiMetrics.Scaled(13),
+                FontSize = UiMetrics.ActionFontSize + (centered ? 0.5 : 0),
                 FontWeight = FontWeight.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
             };
             ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
             sp.Children.Add(tb);
@@ -1720,15 +1845,24 @@ namespace Configuration_Management
 
         private Control DetailRow(string label, Binding binding)
         {
-            var grid = new Grid { Margin = new Thickness(0, 0, 0, 5) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+            var grid = new Grid { Margin = new Thickness(0, 0, 0, 3) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var labelBlock = new TextBlock { Text = label, FontSize = 12, Opacity = 0.7 };
+            var labelBlock = new TextBlock
+            {
+                Text = label,
+                FontSize = UiMetrics.Scaled(11.5),
+                Opacity = 0.7
+            };
             grid.Children.Add(labelBlock);
             Grid.SetColumn(labelBlock, 0);
 
-            var valueBlock = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
+            var valueBlock = new TextBlock
+            {
+                FontSize = UiMetrics.Scaled(11.5),
+                TextWrapping = TextWrapping.Wrap
+            };
             valueBlock.Bind(TextBlock.TextProperty, binding);
             grid.Children.Add(valueBlock);
             Grid.SetColumn(valueBlock, 1);

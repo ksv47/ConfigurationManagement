@@ -1218,10 +1218,10 @@
         <Setter Property="Background" Value="{DynamicResource SecondaryButtonBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <!-- Явная общая высота кнопок панели действий: единый MinHeight гарантирует,
+        <!-- Компактная высота кнопок панели действий: единый MinHeight гарантирует,
              что split-кнопка «Очистить кеш» и соседние кнопки («Закрепить», «Удалить»
              и др.) имеют одинаковый размер в обоих состояниях правой панели. -->
-        <Setter Property="MinHeight" Value="40"/>
+        <Setter Property="MinHeight" Value="32"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -1248,7 +1248,7 @@
         </Setter>
         <Style.Triggers>
             <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                <Setter Property="MinHeight" Value="32"/>
+                <Setter Property="MinHeight" Value="28"/>
             </DataTrigger>
         </Style.Triggers>
     </Style>

@@ -27,9 +27,9 @@ namespace Configuration_Management.Controls
 
         // ---- Отступы ----
         /// <summary>Внутренний отступ секций-карточек правой панели (обычный режим).</summary>
-        public const double PaddingSection = 14;
+        public const double PaddingSection = 10;
         /// <summary>Внутренний отступ управляющих элементов (обычный режим).</summary>
-        public const double PaddingControl = 10;
+        public const double PaddingControl = 8;
 
         // ---- Компактный режим ----
         private static bool _compact;
@@ -59,20 +59,33 @@ namespace Configuration_Management.Controls
         public static double TopBarH => Compact ? 8 : 12;
 
         /// <summary>Внутренний отступ секций-карточек правой панели.</summary>
-        public static double SectionPad => Compact ? 8 : PaddingSection;
+        public static double SectionPad => Compact ? 6 : PaddingSection;
         /// <summary>Нижний отступ между секциями-карточками.</summary>
-        public static double SectionMarginBottom => Compact ? 6 : 12;
+        public static double SectionMarginBottom => Compact ? 4 : 8;
 
         /// <summary>Внутренний отступ управляющих элементов (кнопки, поля).</summary>
-        public static double ControlPad => Compact ? 7 : PaddingControl;
+        public static double ControlPad => Compact ? 6 : PaddingControl;
 
         /// <summary>Стандартный вертикальный промежуток между строками внутри секции.</summary>
-        public static double Gap => Compact ? 5 : 8;
+        public static double Gap => Compact ? 4 : 6;
 
         /// <summary>Вертикальный padding кнопок (primary/secondary).</summary>
-        public static double ButtonPadV => Compact ? 5 : 9;
+        public static double ButtonPadV => Compact ? 4 : 7;
         /// <summary>Горизонтальный padding кнопок (primary/secondary).</summary>
-        public static double ButtonPadH => Compact ? 8 : 12;
+        public static double ButtonPadH => Compact ? 6 : 10;
+
+        /// <summary>Вертикальный padding компактных кнопок действий правой панели.</summary>
+        public static double ActionButtonPadV => Compact ? 4 : 6;
+        /// <summary>Горизонтальный padding компактных кнопок действий правой панели.</summary>
+        public static double ActionButtonPadH => Compact ? 6 : 8;
+        /// <summary>Минимальная высота кнопки действия в правой панели.</summary>
+        public static double ActionButtonMinHeight => Compact ? 28 : 32;
+        /// <summary>Размер иконки на кнопке действия правой панели.</summary>
+        public static double ActionIconSize => Compact ? 13 : 14;
+        /// <summary>Размер шрифта подписи кнопки действия правой панели.</summary>
+        public static double ActionFontSize => Compact ? 11.5 : 12;
+        /// <summary>Промежуток между ячейками сетки действий правой панели.</summary>
+        public static double ActionGridGap => Compact ? 4 : 6;
 
         /// <summary>Размер квадратной подложки под иконку статуса базы в списке.</summary>
         public static double RowIconBox => Compact ? 28 : 38;
@@ -84,9 +97,9 @@ namespace Configuration_Management.Controls
         public static double RowSecondaryFont => Compact ? 10 : 11;
 
         /// <summary>Минимальная ширина правой панели сведений.</summary>
-        public static double RightPanelMin => Compact ? 230 : 300;
+        public static double RightPanelMin => Compact ? 220 : 280;
         /// <summary>Максимальная ширина правой панели сведений.</summary>
-        public static double RightPanelMax => Compact ? 290 : 380;
+        public static double RightPanelMax => Compact ? 280 : 340;
 
         // ---- Анимации ----
         /// <summary>Длительность плавного перехода цвета/прозрачности.</summary>

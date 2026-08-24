@@ -103,13 +103,21 @@ namespace Configuration_Management
             // ===== Настройки =====
             var settings = new StackPanel { Spacing = 14 };
 
-            // Тема оформления
+            // Тема оформления. Редактируемая схема и колбэк обновления редактора объявляются
+            // здесь, чтобы радиокнопки «Светлая/Тёмная» переключали базовую тему именно той
+            // схемы, которую пользователь редактирует (и которая сохраняется по «Применить»).
+            var editedScheme = _viewModel.ActiveColorScheme.Clone();
+            System.Action? refreshEditedScheme = null;
             var themeLabel = new TextBlock { Text = LocalizationManager.T("Settings.ThemeLabel"), FontWeight = FontWeight.SemiBold };
             settings.Children.Add(themeLabel);
             var themePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
             var lightTheme = new RadioButton { Content = LocalizationManager.T("Main.LightTheme"), GroupName = "Theme", IsChecked = !ThemeManager.CurrentScheme.IsDark };
             var darkTheme = new RadioButton { Content = LocalizationManager.T("Main.DarkTheme"), GroupName = "Theme", IsChecked = ThemeManager.CurrentScheme.IsDark };
-            ThemeChanged(lightTheme, darkTheme, _viewModel);
+            ThemeChanged(lightTheme, darkTheme, _viewModel, theme =>
+            {
+                editedScheme = _viewModel.GetSchemeForTheme(theme);
+                refreshEditedScheme?.Invoke();
+            });
             themePanel.Children.Add(lightTheme);
             themePanel.Children.Add(darkTheme);
             settings.Children.Add(themePanel);
@@ -345,7 +353,7 @@ namespace Configuration_Management
 
             // Правки идут по копии сохранённой схемы, а не применённой предпросмотром:
             // закрытие окна крестиком не должно оставлять редактор на непринятых цветах.
-            var editedScheme = _viewModel.ActiveColorScheme.Clone();
+            editedScheme = _viewModel.ActiveColorScheme.Clone();
 
             var schemeBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
             var colorsPanel = new StackPanel { Spacing = 2 };
@@ -433,6 +441,7 @@ namespace Configuration_Management
 
             ReloadSchemes();
             RefreshColors();
+            refreshEditedScheme = () => { ReloadSchemes(editedScheme.Name); RefreshColors(); };
             appearance.Children.Add(schemeBox);
 
             var schemeButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
@@ -1129,17 +1138,21 @@ namespace Configuration_Management
             IsChecked = value
         };
 
-        private static void ThemeChanged(RadioButton light, RadioButton dark, MainViewModel viewModel)
+        private static void ThemeChanged(
+            RadioButton light, RadioButton dark, MainViewModel viewModel,
+            Action<string> onTheme)
         {
             light.IsCheckedChanged += (_, _) =>
             {
-                if (light.IsChecked == true)
-                    viewModel.ApplyTheme(ThemeManager.LightThemeName);
+                if (light.IsChecked != true)
+                    return;
+                onTheme(ThemeManager.LightThemeName);
             };
             dark.IsCheckedChanged += (_, _) =>
             {
-                if (dark.IsChecked == true)
-                    viewModel.ApplyTheme(ThemeManager.DarkThemeName);
+                if (dark.IsChecked != true)
+                    return;
+                onTheme(ThemeManager.DarkThemeName);
             };
         }
 

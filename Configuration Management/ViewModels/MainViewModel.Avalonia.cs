@@ -3182,6 +3182,13 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Возвращает схему для базовой темы («Light»/«Dark»): сохранённую пользовательскую
+    /// (если есть) или встроенную по умолчанию. Не изменяет настройки.
+    /// </summary>
+    public Models.ColorScheme GetSchemeForTheme(string theme)
+        => SchemeForTheme(IsDarkTheme(theme));
+
+    /// <summary>
     /// Применяет схему указанной базовой темы, обновляя активную схему и настройки.
     /// </summary>
     private void ApplySchemeForTheme(bool dark)
