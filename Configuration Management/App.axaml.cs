@@ -101,14 +101,25 @@ namespace Configuration_Management
                 {
                     _desktopLifetime = desktop;
 
-                    // Применяем сохранённую цветовую схему (тему оформления).
-                    if (settings.ActiveColorScheme is { Colors.Count: > 0 })
-                        ThemeManager.ApplyScheme(settings.ActiveColorScheme);
-                    else
-                        ThemeManager.ApplyTheme(
-                            string.IsNullOrWhiteSpace(settings.Theme)
-                                ? ThemeManager.LightThemeName
-                                : settings.Theme);
+                    // Применяем сохранённую цветовую схему активной базовой темы. Предпочитаем
+                    // раздельную схему для светлой/тёмной темы, иначе — старый одиночный
+                    // ActiveColorScheme (миграция) или встроенные цвета.
+                    var activeTheme = string.IsNullOrWhiteSpace(settings.Theme)
+                        ? (settings.ActiveColorScheme?.IsDark == true ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName)
+                        : settings.Theme;
+                    var isDark = string.Equals(activeTheme, ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
+                    Configuration_Management.Models.ColorScheme? activeScheme = isDark
+                        ? settings.DarkColorScheme
+                        : settings.LightColorScheme;
+                    if (activeScheme is not { Colors.Count: > 0 }
+                        && settings.ActiveColorScheme is { Colors.Count: > 0 }
+                        && settings.ActiveColorScheme.IsDark == isDark)
+                    {
+                        activeScheme = settings.ActiveColorScheme;
+                    }
+                    ThemeManager.ApplyScheme(activeScheme ?? (isDark
+                        ? Configuration_Management.Models.ColorScheme.CreateDark()
+                        : Configuration_Management.Models.ColorScheme.CreateLight()));
 
                     // Компактный режим интерфейса (влияет на метрики отступов/иконок,
                     // должен быть установлен до построения главного окна).

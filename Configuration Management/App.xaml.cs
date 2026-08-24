@@ -87,19 +87,25 @@ namespace Configuration_Management
 
                 base.OnStartup(e);
 
-                // Применяем сохранённую цветовую схему (тему оформления).
-                if (settings.ActiveColorScheme is { Colors.Count: > 0 })
+                // Применяем сохранённую цветовую схему (тему оформления). Предпочитаем раздельную
+                // схему для активной базовой темы (Light/Dark), иначе — старый одиночный
+                // ActiveColorScheme (миграция) или встроенные цвета.
+                var themeName = string.IsNullOrWhiteSpace(settings.Theme)
+                    ? ThemeManager.LightThemeName
+                    : settings.Theme;
+                var isDark = string.Equals(themeName, ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
+                Configuration_Management.Models.ColorScheme? scheme = isDark
+                    ? settings.DarkColorScheme
+                    : settings.LightColorScheme;
+                if (scheme is not { Colors.Count: > 0 }
+                    && settings.ActiveColorScheme is { Colors.Count: > 0 }
+                    && settings.ActiveColorScheme.IsDark == isDark)
                 {
-                    ThemeManager.ApplyScheme(settings.ActiveColorScheme);
+                    scheme = settings.ActiveColorScheme;
                 }
-                else
-                {
-                    // Обратная совместимость: только имя темы Light/Dark.
-                    var theme = string.IsNullOrWhiteSpace(settings.Theme)
-                        ? ThemeManager.LightThemeName
-                        : settings.Theme;
-                    ThemeManager.ApplyTheme(theme);
-                }
+                ThemeManager.ApplyScheme(scheme ?? (isDark
+                    ? Configuration_Management.Models.ColorScheme.CreateDark()
+                    : Configuration_Management.Models.ColorScheme.CreateLight()));
 
                 var mainWindow = AppServices.GetRequiredService<MainWindow>();
                 MainWindow = mainWindow;

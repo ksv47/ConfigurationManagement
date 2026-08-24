@@ -109,7 +109,7 @@ namespace Configuration_Management
             var themePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
             var lightTheme = new RadioButton { Content = LocalizationManager.T("Main.LightTheme"), GroupName = "Theme", IsChecked = !ThemeManager.CurrentScheme.IsDark };
             var darkTheme = new RadioButton { Content = LocalizationManager.T("Main.DarkTheme"), GroupName = "Theme", IsChecked = ThemeManager.CurrentScheme.IsDark };
-            ThemeChanged(lightTheme, darkTheme);
+            ThemeChanged(lightTheme, darkTheme, _viewModel);
             themePanel.Children.Add(lightTheme);
             themePanel.Children.Add(darkTheme);
             settings.Children.Add(themePanel);
@@ -1129,17 +1129,17 @@ namespace Configuration_Management
             IsChecked = value
         };
 
-        private static void ThemeChanged(RadioButton light, RadioButton dark)
+        private static void ThemeChanged(RadioButton light, RadioButton dark, MainViewModel viewModel)
         {
             light.IsCheckedChanged += (_, _) =>
             {
                 if (light.IsChecked == true)
-                    ThemeManager.ApplyTheme(ThemeManager.LightThemeName);
+                    viewModel.ApplyTheme(ThemeManager.LightThemeName);
             };
             dark.IsCheckedChanged += (_, _) =>
             {
                 if (dark.IsChecked == true)
-                    ThemeManager.ApplyTheme(ThemeManager.DarkThemeName);
+                    viewModel.ApplyTheme(ThemeManager.DarkThemeName);
             };
         }
 

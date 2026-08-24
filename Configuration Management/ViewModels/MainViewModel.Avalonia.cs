@@ -908,11 +908,12 @@ public class MainViewModel : ViewModelBase
                 SynchronizeSilently();
             RestartAutoSync();
 
-            // Применяем сохранённую тему, если активная схема не задана.
-            if (_settings.ActiveColorScheme is { Colors.Count: > 0 })
-                ThemeManager.ApplyScheme(_settings.ActiveColorScheme);
-            else
-                ThemeManager.ApplyTheme(string.IsNullOrWhiteSpace(_themeName) ? ThemeManager.LightThemeName : _themeName);
+            // Применяем сохранённую схему активной базовой темы (раздельные схемы
+            // для светлой/тёмной темы), иначе — встроенные цвета.
+            var activeTheme = string.IsNullOrWhiteSpace(_themeName)
+                ? (_settings.ActiveColorScheme?.IsDark == true ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName)
+                : _themeName;
+            ThemeManager.ApplyScheme(SchemeForTheme(IsDarkTheme(activeTheme)));
         }
         catch (Exception ex)
         {
@@ -1638,15 +1639,22 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Запоминает выбранную цветовую схему как активную: без этого правка
-    /// цветов держалась только до перезапуска, потому что при старте
-    /// применяется ActiveColorScheme из настроек.
+    /// Запоминает выбранную цветовую схему как активную и сохраняет её в слот
+    /// соответствующей базовой темы (светлой/тёмной), чтобы переключение тем
+    /// не сбрасывало настроенное оформление.
     /// </summary>
     public void ApplyColorScheme(Models.ColorScheme scheme)
     {
-        ThemeManager.ApplyScheme(scheme);
-        _settings.ActiveColorScheme = scheme;
-        _settings.Theme = scheme.IsDark ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName;
+        if (scheme is null)
+            return;
+        var clone = scheme.Clone();
+        ThemeManager.ApplyScheme(clone);
+        _settings.ActiveColorScheme = clone;
+        if (clone.IsDark)
+            _settings.DarkColorScheme = clone;
+        else
+            _settings.LightColorScheme = clone;
+        _settings.Theme = clone.BaseThemeName;
         _themeName = _settings.Theme;
         SaveSettingsSilently();
         OnPropertyChanged(nameof(ThemeName));
@@ -3163,10 +3171,46 @@ public class MainViewModel : ViewModelBase
 
     private void ToggleTheme()
     {
-        ThemeName = ThemeManager.ToggleTheme();
-        _settings.Theme = ThemeName;
-        SaveSettingsSilently();
+        var targetDark = !ThemeManager.CurrentScheme.IsDark;
+        ApplySchemeForTheme(targetDark);
     }
+
+    /// <summary>Применяет выбранную базовую тему (светлую/тёмную), сохраняя раздельные схемы.</summary>
+    public void ApplyTheme(string theme)
+    {
+        ApplySchemeForTheme(IsDarkTheme(theme));
+    }
+
+    /// <summary>
+    /// Применяет схему указанной базовой темы, обновляя активную схему и настройки.
+    /// </summary>
+    private void ApplySchemeForTheme(bool dark)
+    {
+        var scheme = SchemeForTheme(dark);
+        ThemeManager.ApplyScheme(scheme);
+        _settings.ActiveColorScheme = scheme;
+        _settings.Theme = scheme.BaseThemeName;
+        _themeName = _settings.Theme;
+        SaveSettingsSilently();
+        OnPropertyChanged(nameof(ThemeName));
+    }
+
+    /// <summary>
+    /// Возвращает схему для базовой темы: сохранённую пользовательскую (если есть),
+    /// иначе — встроенную по умолчанию (миграция со старого одиночного ActiveColorScheme).
+    /// </summary>
+    private Models.ColorScheme SchemeForTheme(bool dark)
+    {
+        var slot = dark ? _settings.DarkColorScheme : _settings.LightColorScheme;
+        if (slot is { Colors.Count: > 0 })
+            return slot;
+        if (_settings.ActiveColorScheme is { Colors.Count: > 0 } && _settings.ActiveColorScheme.IsDark == dark)
+            return _settings.ActiveColorScheme;
+        return dark ? Models.ColorScheme.CreateDark() : Models.ColorScheme.CreateLight();
+    }
+
+    private static bool IsDarkTheme(string? theme)
+        => string.Equals(theme, ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Применяет выбранный язык интерфейса и сохраняет его в настройках.

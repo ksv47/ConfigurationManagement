@@ -5,6 +5,13 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.3.50] — 2026-08-24
+
+### Изменено
+
+- **Исправлен сброс цветового оформления на дефолтные при переключении светлой/тёмной темы** ([`AppSettings.cs`](Configuration Management/Models/AppSettings.cs), [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs), [`App.xaml.cs`](Configuration Management/App.xaml.cs), [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs), [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs), [`App.axaml.cs`](Configuration Management/App.axaml.cs)). Ранее настройки цвета хранились в единственном `ActiveColorScheme`, и переключение темы (кнопка на верхней панели, радиокнопки «Светлая/Тёмная» в настройках) применяло встроенную схему по умолчанию, затирая кастомизированное оформление; при настройке цветов на светлой теме сохранённая тема могла сбрасываться на дефолт. Теперь пользовательские схемы для светлой и тёмной базовой темы хранятся раздельно (`LightColorScheme` / `DarkColorScheme`): переключение темы применяет схему целевой темы (сохранённую пользовательскую или встроенную), ни одна из настроенных схем не теряется; кастомизация светлой темы больше не затрагивает тёмную и наоборот. Для старых настроек предусмотрена миграция с одиночного `ActiveColorScheme`.
+- **Версия обновлена до 0.3.3.50** (`InformationalVersion` = 0.3.3.50 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены.
+
 ## [0.3.3.49] — 2026-08-24
 
 ### Слияние исправлений от ksv47

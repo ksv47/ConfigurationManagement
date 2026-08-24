@@ -39,6 +39,10 @@ public class MainViewModel : ViewModelBase
     private string _noGroupIcon = string.Empty;
     private string _savedTheme = string.Empty;
     private ColorScheme? _activeColorScheme;
+    /// <summary>Пользовательская схема светлой темы (кастомизация хранится независимо от тёмной).</summary>
+    private ColorScheme? _lightColorScheme;
+    /// <summary>Пользовательская схема тёмной темы (кастомизация хранится независимо от светлой).</summary>
+    private ColorScheme? _darkColorScheme;
     /// <summary>Флаг подписки на событие смены языка (предотвращает дублирование подписки).</summary>
     private bool _languageChangedSubscribed;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
@@ -187,17 +191,24 @@ public class MainViewModel : ViewModelBase
         _elementFonts = settings.ElementFonts is null
             ? new Dictionary<string, Models.ElementFontSettings>()
             : new Dictionary<string, Models.ElementFontSettings>(settings.ElementFonts);
-        // Активная цветовая схема: если сохранена пользовательская/настроенная тема — используем её,
-        // иначе встроенную схему по выбранной теме оформления.
+        // Раздельные пользовательские схемы для светлой и тёмной темы: кастомизация
+        // каждой базовой темы хранится независимо, поэтому переключение тем не затирает
+        // настроенное оформление.
+        _lightColorScheme = settings.LightColorScheme;
+        _darkColorScheme = settings.DarkColorScheme;
+        // Миграция: если задан только старый одиночный ActiveColorScheme, переносим его
+        // в слот соответствующей базовой темы.
         if (settings.ActiveColorScheme is { Colors.Count: > 0 })
         {
-            _activeColorScheme = settings.ActiveColorScheme;
+            if (settings.ActiveColorScheme.IsDark && _darkColorScheme is not { Colors.Count: > 0 })
+                _darkColorScheme = settings.ActiveColorScheme;
+            else if (!settings.ActiveColorScheme.IsDark && _lightColorScheme is not { Colors.Count: > 0 })
+                _lightColorScheme = settings.ActiveColorScheme;
         }
-        else
-        {
-            var baseTheme = string.IsNullOrWhiteSpace(_savedTheme) ? Themes.ThemeManager.LightThemeName : _savedTheme;
-            _activeColorScheme = Themes.ThemeManager.GetBuiltInScheme(baseTheme) ?? Models.ColorScheme.CreateLight();
-        }
+        var baseTheme = string.IsNullOrWhiteSpace(_savedTheme)
+            ? ((_darkColorScheme is { Colors.Count: > 0 }) ? Themes.ThemeManager.DarkThemeName : Themes.ThemeManager.LightThemeName)
+            : _savedTheme;
+        _activeColorScheme = SchemeForTheme(IsDarkTheme(baseTheme));
         _additionalPlatformSearchPaths = new List<string>(settings.AdditionalPlatformSearchPaths ?? new List<string>());
         PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformSearchPaths);
         // Актуальный список с диска (Program Files + доп. пути, напр. E:\1cPlatform)
@@ -3300,6 +3311,8 @@ public string HotkeyEnterprise
             ShowEmptyGroups = _showEmptyGroups,
             Theme = _savedTheme,
             ActiveColorScheme = _activeColorScheme,
+            LightColorScheme = _lightColorScheme,
+            DarkColorScheme = _darkColorScheme,
             CollapsedGroups = _collapsedGroups.ToList(),
             InstalledPlatformVersions = _installedPlatformVersions,
             AdditionalPlatformSearchPaths = _additionalPlatformSearchPaths,
@@ -3431,37 +3444,45 @@ public string HotkeyEnterprise
     }
 
     /// <summary>
-    /// Переключает базовую тему (светлую/тёмную), сохраняя выбранную пользовательскую схему:
-    /// если для целевой темы есть активная схема — применяется она; иначе применяются встроенные
-    /// цвета, а сохранённая пользовательская схема не затирается (восстановится при возврате
-    /// к её базовой теме).
+    /// Переключает базовую тему (светлую/тёмную), сохраняя пользовательские схемы каждой темы:
+    /// применяется схема целевой темы (сохранённая пользовательская или встроенная по умолчанию),
+    /// ни одна из сохранённых схем не затирается.
     /// </summary>
     public void ToggleTheme()
     {
         var targetDark = !Themes.ThemeManager.CurrentScheme.IsDark;
-        ApplyBaseThemePreserving(targetDark);
+        ApplySchemeForTheme(targetDark);
         SaveSettings();
     }
 
     /// <summary>
-    /// Применяет базовый вариант темы, не заменяя активную пользовательскую схему встроенной.
+    /// Применяет схему для указанной базовой темы, обновляя активную схему и сохранённую тему.
     /// </summary>
-    private void ApplyBaseThemePreserving(bool dark)
+    private void ApplySchemeForTheme(bool dark)
     {
-        if (_activeColorScheme is { Colors.Count: > 0 } && _activeColorScheme.IsDark == dark)
-        {
-            _savedTheme = _activeColorScheme.BaseThemeName;
-            Themes.ThemeManager.ApplyScheme(_activeColorScheme);
-            return;
-        }
-
-        var builtIn = dark ? Models.ColorScheme.CreateDark() : Models.ColorScheme.CreateLight();
-        _savedTheme = builtIn.BaseThemeName;
-        Themes.ThemeManager.ApplyScheme(builtIn);
+        _activeColorScheme = SchemeForTheme(dark);
+        _savedTheme = _activeColorScheme.BaseThemeName;
+        Themes.ThemeManager.ApplyScheme(_activeColorScheme);
     }
 
     /// <summary>
+    /// Возвращает схему для базовой темы: сохранённую пользовательскую (если есть), иначе встроенную.
+    /// </summary>
+    private Models.ColorScheme SchemeForTheme(bool dark)
+    {
+        var slot = dark ? _darkColorScheme : _lightColorScheme;
+        if (slot is { Colors.Count: > 0 })
+            return slot;
+        return dark ? Models.ColorScheme.CreateDark() : Models.ColorScheme.CreateLight();
+    }
+
+    private static bool IsDarkTheme(string? theme)
+        => string.Equals(theme, Themes.ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Применяет цветовую схему, сохраняет её как активную и записывает настройки.
+    /// Кастомизация записывается в слот соответствующей базовой темы (светлой/тёмной),
+    /// поэтому переключение тем не сбрасывает настроенное оформление.
     /// </summary>
     public void ApplyColorScheme(ColorScheme scheme)
     {
@@ -3469,6 +3490,10 @@ public string HotkeyEnterprise
             return;
         _activeColorScheme = scheme.Clone();
         _savedTheme = _activeColorScheme.BaseThemeName;
+        if (_activeColorScheme.IsDark)
+            _darkColorScheme = _activeColorScheme;
+        else
+            _lightColorScheme = _activeColorScheme;
         Themes.ThemeManager.ApplyScheme(_activeColorScheme);
         SaveSettings();
     }
