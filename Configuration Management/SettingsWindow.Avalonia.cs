@@ -12,6 +12,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
+using Configuration_Management.Services;
 using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
 
@@ -1376,7 +1377,42 @@ namespace Configuration_Management
                 Opacity = 0.7
             });
 
+            var copyButton = new Button
+            {
+                Content = LocalizationManager.T("Settings.About.CopyTechInfo"),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 8, 0, 0),
+                Padding = new Thickness(14, 8)
+            };
+            copyButton.Click += async (_, _) =>
+            {
+                try
+                {
+                    var text = TechnicalInfoService.Collect();
+                    if (this.Clipboard is { } cb)
+                        await cb.SetTextAsync(text);
+                    ShowAboutMessage(LocalizationManager.T("Settings.About.TechInfoCopied"));
+                }
+                catch
+                {
+                    ShowAboutMessage(LocalizationManager.T("Settings.About.TechInfoCopyFailed"));
+                }
+            };
+            panel.Children.Add(copyButton);
+
             return panel;
+        }
+
+        /// <summary>
+        /// Показывает информационное окно поверх текущего окна настроек.
+        /// </summary>
+        private void ShowAboutMessage(string message)
+        {
+            var win = new MessageWindow(message, LocalizationManager.T("Common.Information"), MessageWindowKind.Info)
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            _ = win.ShowDialog(this);
         }
     }
 }

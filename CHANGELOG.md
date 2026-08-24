@@ -5,6 +5,17 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.4.1] — 2026-08-24
+
+### Добавлено
+
+- **Кнопка «Скопировать техническую информацию» во вкладке «О программе» окна настроек** (обе платформы). Одна кнопка копирует в буфер обмена **обезличенный** технический отчёт, по которому можно понять, в чём проблема: версия приложения, тип интерфейса (WPF/Avalonia), ОС, архитектура, среда выполнения .NET, число логических процессоров, объём физической памяти и памяти процесса, язык/регион. Личные данные (имя пользователя, имя компьютера, домен, сетевые адреса, пути профилей) намеренно исключены.
+  - **Кросс-платформенный сервис** [`TechnicalInfoService.cs`](Configuration Management/Services/TechnicalInfoService.cs) — собирает отчёт через кроссплатформенные API .NET (`RuntimeInformation`, `Environment`, `GC`); физическая память читается через `GlobalMemoryStatusEx` на Windows и `/proc/meminfo` на Linux.
+  - **Windows/WPF**: кнопка в [`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml), обработчик `OnCopyTechInfo_Click` в [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs) (`Clipboard.SetText`).
+  - **Linux/Avalonia**: кнопка в [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs) (`Clipboard.SetTextAsync`), подтверждение через `MessageWindow`.
+  - **Локализация**: ключи `Settings.About.CopyTechInfo`, `Settings.About.TechInfoCopied/CopyFailed`, `Settings.About.TechInfo.*` добавлены в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+- **Версия обновлена до 0.3.4.1** (`InformationalVersion` = 0.3.4.1 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.3.58] — 2026-08-24
 
 ### Исправлено

@@ -1441,6 +1441,15 @@
                                    Text="https://github.com/sivatorov/ConfigurationManagement"
                                    MouseLeftButtonUp="OnAboutLink_Click"
                                    Tag="https://github.com/sivatorov/ConfigurationManagement"/>
+                        <Button Margin="0,24,0,0" Padding="14,8" HorizontalAlignment="Left"
+                                Style="{DynamicResource SecondaryButton}" Cursor="Hand"
+                                Click="OnCopyTechInfo_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16"
+                                                         Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.About.CopyTechInfo}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

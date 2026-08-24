@@ -1790,6 +1790,31 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Копирует обезличенную техническую информацию о системе и приложении в буфер обмена
+        /// (для диагностики проблемы разработчику). Работает в Windows и Linux.
+        /// </summary>
+        private void OnCopyTechInfo_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Windows.Clipboard.SetText(TechnicalInfoService.Collect());
+                MessageBox.Show(
+                    LocalizationManager.T("Settings.About.TechInfoCopied"),
+                    LocalizationManager.T("Common.Information"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    LocalizationManager.T("Settings.About.TechInfoCopyFailed") + "\n" + ex.Message,
+                    LocalizationManager.T("Common.Error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
         /// Компаратор для сортировки версий по убыванию.
         /// Учитывает суффикс разрядности «(32)» / «(64)»: в пределах одной версии
         /// 64-битный вариант считается более новым.
