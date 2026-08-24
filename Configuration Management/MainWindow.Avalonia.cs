@@ -1426,31 +1426,22 @@ namespace Configuration_Management
         /// </summary>
         private static Control BuildActionGrid(params Control[] buttons)
         {
-            var gap = UiMetrics.ActionGridGap;
-            var grid = new UniformGrid
+            // Кнопки идут в один столбец, как в версии для Windows. Двухколоночная
+            // раскладка экономила высоту, но подписи в неё не помещались ни при
+            // какой ширине панели: при её пределе 340 на ячейку остаётся около 160
+            // пикселей, а «Ярлык на рабочем столе» требует почти 190, и подпись
+            // обрывалась на середине слова.
+            var stack = new StackPanel
             {
-                Columns = 2,
+                Orientation = Orientation.Vertical,
+                Spacing = UiMetrics.ActionGridGap,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
 
-            // UniformGrid не поддерживает Spacing в старых версиях Avalonia —
-            // оборачиваем каждую кнопку в контейнер с симметричным отступом.
             foreach (var btn in buttons)
-            {
-                var wrap = new Border
-                {
-                    Child = btn,
-                    Margin = new Thickness(gap / 2)
-                };
-                grid.Children.Add(wrap);
-            }
+                stack.Children.Add(btn);
 
-            // Компенсируем внешние половины gap, чтобы сетка совпадала с краями панели.
-            return new Border
-            {
-                Child = grid,
-                Margin = new Thickness(-gap / 2)
-            };
+            return stack;
         }
 
         /// <summary>
@@ -2192,6 +2183,7 @@ namespace Configuration_Management
 
         /// <summary>Зазор между блоком кнопок и подписью «Название».</summary>
         private const double HeaderToolbarGap = 2;
+
 
         /// <summary>
         /// Номер колонки заголовка с именем базы: компенсатор отступа дерева,
