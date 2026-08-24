@@ -29,9 +29,9 @@ namespace Configuration_Management
         public LaunchParametersWindow(string currentParameters)
         {
             Title = LocalizationManager.T("LaunchParams.Title");
-            Width = 620;
-            Height = 560;
-            MinWidth = 540;
+            Width = 800;
+            Height = 640;
+            MinWidth = 720;
             MinHeight = 480;
 
             _txtCustom = new TextBox
@@ -94,14 +94,28 @@ namespace Configuration_Management
             list.ItemTemplate = new FuncDataTemplate<ParamRef>((item, _) =>
             {
                 var panel = new Grid { Margin = new Thickness(2, 3) };
-                panel.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(150)));
+                // 220 под текст, как в колонке WPF, плюс зазор до описания.
+                panel.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(232)));
                 panel.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
 
-                var key = new TextBlock { Text = item.Key, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+                var key = new TextBlock
+                {
+                    Text = item.Key,
+                    FontWeight = FontWeight.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    Margin = new Thickness(0, 0, 12, 0)
+                };
                 Grid.SetColumn(key, 0);
                 panel.Children.Add(key);
 
-                var desc = new TextBlock { Text = item.Description, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+                var desc = new TextBlock
+                {
+                    Text = item.Description,
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
                 Grid.SetColumn(desc, 1);
                 panel.Children.Add(desc);
                 return panel;

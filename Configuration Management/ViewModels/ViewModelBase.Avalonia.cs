@@ -38,10 +38,14 @@ public abstract class ViewModelBase : INotifyPropertyChanged
 
     /// <summary>
     /// Устанавливает значение и дополнительно уведомляет о связанных свойствах.
+    /// Имя своего свойства передаётся первым: у одноимённой перегрузки первый
+    /// строковый аргумент означал бы ровно обратное, и перепутать их было бы легко.
     /// </summary>
-    protected bool SetProperty<T>(ref T field, T value, params string[] relatedProperties)
+    protected bool SetPropertyWithRelated<T>(ref T field, T value, string propertyName, params string[] relatedProperties)
     {
-        if (!SetProperty(ref field, value))
+        // Имя передаётся явно: при вызове без него CallerMemberName подставлял
+        // имя самого метода, и подписчики на имя свойства не получали ничего.
+        if (!SetProperty(ref field, value, propertyName))
             return false;
         foreach (var name in relatedProperties)
             OnPropertyChanged(name);
