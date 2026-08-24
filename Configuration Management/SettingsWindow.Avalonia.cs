@@ -148,7 +148,7 @@ namespace Configuration_Management
             settings.Children.Add(langBox);
             settings.Children.Add(new TextBlock
             {
-                Text = LocalizationManager.T("Settings.LanguageHint"),
+                Text = LocalizationManager.T("Settings.Language.AppliedHint"),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.7
@@ -226,14 +226,6 @@ namespace Configuration_Management
             };
             afterLaunchBox.SelectedIndex = (int)Models.AfterLaunchActionHelper.Parse(_viewModel.AfterLaunchAction);
             settings.Children.Add(afterLaunchBox);
-
-            settings.Children.Add(new TextBlock
-            {
-                Text = LocalizationManager.T("Settings.AvaloniaPendingTabs"),
-                FontSize = 12,
-                TextWrapping = TextWrapping.Wrap,
-                Opacity = 0.7
-            });
 
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabGeneral"), Content = new ScrollViewer { Content = settings, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
