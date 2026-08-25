@@ -4907,6 +4907,12 @@ public string HotkeyEnterprise
         var ib = parameter as Infobase ?? SelectedInfobase;
         if (ib is null) return;
 
+        // Пользователь попросил явно — снимаем оба вердикта о недоступности COM: кэш
+        // реестра и сессионную защёлку агента. Причина сбоя могла быть разовой (антивирус,
+        // нехватка памяти) или уже устранённой (платформу поставили после запуска),
+        // а иначе до перезапуска приложения команда молча отвечала бы отказом.
+        OneCComConnector.ResetComVerdicts();
+
         var baseName = ib.Name;
         _ = Task.Run(() =>
         {
@@ -5089,9 +5095,10 @@ public string HotkeyEnterprise
 
                 if (result.Success && result.ProgIdVisible)
                 {
-                    // После регистрации сбрасываем кэш доступности, чтобы следующие
-                    // попытки COM-подключения снова проверили реестр.
-                    OneCComConnector.ResetAvailabilityCache();
+                    // После успешной регистрации сбрасываем оба вердикта о недоступности:
+                    // кэш реестра и сессионную защёлку процесса-агента. Вердиктов два, и
+                    // снимать надо оба, иначе чтение по-прежнему откажет по устаревшему кэшу.
+                    OneCComConnector.ResetComVerdicts();
                     _logger.Info("COM-коннектор 1С успешно зарегистрирован.");
                     _dialogs.ShowInfo(sb.ToString().TrimEnd(),
                         LocalizationManager.T("Main.ComRegTitle"));

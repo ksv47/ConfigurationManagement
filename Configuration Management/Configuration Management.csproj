@@ -12,6 +12,10 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <!-- Точка входа написана вручную (Program.cs), а не сгенерирована из App.xaml:
+         режим COM-агента нужно перехватывать до создания App и загрузки словарей тем.
+         См. Program.Main и комментарий к ComReadHost. -->
+    <StartupObject>Configuration_Management.Program</StartupObject>
   </PropertyGroup>
 
   <!-- ======================================================================
@@ -64,12 +68,26 @@
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
   </PropertyGroup>
 
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <!-- Тестам нужны чистые функции протокола и сборки строки подключения. Публичными
+         их делать незачем: за пределами сборки они не имеют смысла. -->
+    <InternalsVisibleTo Include="ConfigurationManagement.Tests" />
+  </ItemGroup>
+
   <!-- WPF-ресурсы иконок (embedded, только Windows) -->
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <Resource Include="app.ico" />
     <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
     <Resource Include="tray.ico" />
     <EmbeddedResource Include="tray.ico" LogicalName="tray.ico" />
+  </ItemGroup>
+
+  <!-- App.xaml как Page, а не ApplicationDefinition: тогда генератор даёт
+       InitializeComponent(), но не собственный Main, и точкой входа остаётся
+       Program.Main из StartupObject выше. -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" SubType="Designer" Generator="MSBuild:Compile" />
   </ItemGroup>
 
   <!-- Пакеты: общие для обеих платформ -->
@@ -174,6 +192,7 @@
     <Compile Remove="Services\OneCLauncher.cs" />
     <Compile Remove="Services\OneCComConnector.cs" />
     <Compile Remove="Services\OneCComConnectorRegistrar.cs" />
+    <Compile Remove="Services\ComReadHost.cs" />
     <Compile Remove="Services\PlatformVersionService.cs" />
     <Compile Remove="Services\InfobaseMaintenanceService.cs" />
     <!-- OneCTemplateService портирован на Linux (Этап 4): пути tmplts, чтение
