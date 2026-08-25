@@ -30,11 +30,15 @@ namespace Configuration_Management
         private const string LockFileName = "configuration-management.lock";
         private const string ActivateFileName = "activate";
 
-        /// <summary>Каталог данных приложения (например ~/.config/ConfigurationManagement).</summary>
+        /// <summary>
+        /// Каталог данных приложения (например ~/.config/ConfigurationManagement).
+        /// Считается тем же механизмом, что и у репозитория настроек: расчёт
+        /// напрямую через SpecialFolder.ApplicationData на Linux даёт пустую
+        /// строку, когда каталога из XDG_CONFIG_HOME нет, путь становится
+        /// относительным, и приложение молча не запускается.
+        /// </summary>
         private static string DataDirectory =>
-            _dataDir ??= Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "ConfigurationManagement");
+            _dataDir ??= Services.PlatformPaths.AppDataDirectory;
 
         public override void Initialize()
         {
