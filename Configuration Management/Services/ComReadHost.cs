@@ -82,8 +82,7 @@ internal readonly record struct ComReadResult(
 /// Разбирать такой текст бесполезно: <see cref="OneCComConnector"/> строит строку без
 /// экранирования, поэтому кавычка, <c>;</c> или перевод строки внутри пароля делают её
 /// неоднозначной; а сообщение вдобавок может прийти усечённым посреди значения. Любое
-/// правило разбора при этом либо выпускает хвост пароля, либо съедает диагностику —
-/// на этом сгорело пять редакций подряд.
+/// правило разбора при этом либо выпускает хвост пароля, либо съедает диагностику.
 /// </para>
 /// <para>
 /// Поэтому агент отдаёт и текст ошибки, и опознавательный код, а решение принимает родитель —
@@ -272,7 +271,15 @@ internal static class ComReadHost
             var input = _agentInput;
             var output = _agentOutput;
             if (input is null || output is null)
+            {
+                // Та же оговорка, что и выше: Shutdown обнуляет каналы вне монитора и может
+                // успеть между удачным EnsureAgent и этой строкой. Закрытие приложения —
+                // не отказ COM, иначе в журнал уходила бы ложная ошибка запуска.
+                if (Volatile.Read(ref _shuttingDown) != 0)
+                    return ComReadResult.Fail(ComFailureKind.Transport);
+
                 return RegisterFailure(epoch, ComFailureKind.AgentStart, null);
+            }
 
             var seq = unchecked(++_sequence);
 
@@ -606,7 +613,13 @@ internal static class ComReadHost
         if (parts.Length == 4 && string.Equals(parts[1], "OK", StringComparison.Ordinal))
         {
             if (!TryDecode(parts[2], out var name) || !TryDecode(parts[3], out var version))
+            {
+                // Повреждённая нагрузка успеха — такая же рассинхронизация, как и у ошибки.
+                // Иначе битый ответ молча превращался бы в разовый сбой обмена, агент
+                // оставался бы жить, и следующий ответ снова читался бы не тот.
+                desynchronized = true;
                 return ComReadResult.Fail(ComFailureKind.Transport);
+            }
 
             return ComReadResult.Ok(new OneCConfigInfo(name, version));
         }
@@ -621,17 +634,17 @@ internal static class ComReadHost
                 return ComReadResult.Fail(ComFailureKind.Transport);
             }
 
-            var kind = parts[2] switch
+            // Неопознанный разряд не отображаем в Transport с сохранением текста: подробность
+            // Transport показывается пользователю мимо решения о пароле, и тогда свободный
+            // текст 1С поехал бы в журнал и в диалог в обход этого решения. Правило «весь
+            // свободный текст 1С проходит через признак пароля» должно держаться на разборе,
+            // а не на том, что два списка разрядов в разных концах файла совпадают.
+            if (!TryMapToken(parts[2], out var kind))
             {
-                "NOTREG" => ComFailureKind.NotRegistered,
-                "NOINST" => ComFailureKind.InstanceFailed,
-                "TIMEOUT" => ComFailureKind.Timeout,
-                "NOCONN" => ComFailureKind.NoConnection,
-                "METAPROP" => ComFailureKind.MetadataProperty,
-                "METAREAD" => ComFailureKind.MetadataRead,
-                "DBERR" => ComFailureKind.DatabaseError,
-                _ => ComFailureKind.Transport
-            };
+                desynchronized = true;
+                return ComReadResult.Fail(ComFailureKind.Transport);
+            }
+
             // Код и текст приходят раздельно: текст может быть отброшен родителем,
             // если у базы есть пароль, а код останется в любом случае.
             return ComReadResult.Fail(kind, errText, errCode);
@@ -753,18 +766,21 @@ internal static class ComReadHost
 
     private static string HandleRequest(string[] parts, string seq)
     {
-        // Формат запроса: seq \t timeoutMs \t base64(строка подключения) \t признак учётных данных.
+        // Формат запроса: seq \t timeoutMs \t base64(строка подключения). Ровно три поля.
         // Пароль агенту не передаётся: решение, показывать ли текст ошибки, принимает родитель.
-        if (parts.Length < 3)
-            return Error(seq, "DBERR", null, "malformed request");
+        //
+        // Повреждённый запрос — это сбой обмена, а не ошибка базы. Раньше он отвечал DBERR,
+        // и у родителя получался ложный диагноз «ошибка 1С при подключении», а внутренний
+        // английский текст доезжал до диалога пользователя. Отвечаем отдельным разрядом
+        // и без текста: родителю здесь сказать нечего, кроме локализованной общей фразы.
+        if (parts.Length != 3)
+            return Error(seq, "BADREQ", null, null);
 
         var timeoutMs = int.TryParse(parts[1], NumberStyles.Integer,
             CultureInfo.InvariantCulture, out var parsed) && parsed > 0 ? parsed : 8000;
 
-        var connectString = Decode(parts[2]);
-
-        if (connectString.Length == 0)
-            return Error(seq, "DBERR", null, "empty request");
+        if (!TryDecode(parts[2], out var connectString) || connectString.Length == 0)
+            return Error(seq, "BADREQ", null, null);
 
         var info = ReadInProcess(connectString, timeoutMs, out var kind, out var detail, out var code);
 
@@ -783,16 +799,6 @@ internal static class ComReadHost
     private static string Error(string seq, string token, string? code, string? text) =>
         ResultPrefix + seq + "\tERR\t" + token + "\t" + Encode(code) + "\t" + Encode(text);
 
-    /// <summary>
-    /// Опознавательные сведения об исключении: имя типа и код. Пользовательских данных
-    /// не содержат, поэтому отдаются всегда — даже когда текст ошибки пришлось скрыть.
-    /// <para>
-    /// Разворачиваем до самого глубокого вложенного исключения: <c>InvokeMember</c> оборачивает
-    /// COM-ошибку в <c>TargetInvocationException</c>, а при двойной обёртке разворот на один
-    /// уровень отдавал бы код промежуточной обёртки вместо настоящего. Нулевой код не показываем:
-    /// «0x00000000» в качестве причины отказа бессмысленно.
-    /// </para>
-    /// </summary>
     /// <summary>Самое глубокое вложенное исключение — настоящая причина, а не обёртка.</summary>
     private static Exception Deepest(Exception ex)
     {
@@ -805,6 +811,13 @@ internal static class ComReadHost
     /// Осмысленность разряда отказа. Диагноз с большим весом вытесняет меньший: ошибка
     /// самой базы полезнее, чем «коннектор не создался» от версии, которой тут и не место.
     /// Возвращает true, если новый разряд надо принять.
+    /// <para>
+    /// При равном весе принимается более поздний. Это поведение апстрима: он переписывал
+    /// LastError на каждой итерации перебора, поэтому до пользователя доходила причина от
+    /// последнего опробованного ProgID. Удерживать первую было бы хуже именно там, ради
+    /// чего перебор и существует: база 8.2 через V83 отвечает «несовместимая версия», а
+    /// настоящую причину — например, неверный пароль — называет только V82.
+    /// </para>
     /// </summary>
     private static bool Promote(ref int rank, ComFailureKind kind)
     {
@@ -816,13 +829,23 @@ internal static class ComReadHost
             _ => 1
         };
 
-        if (weight <= rank)
+        if (weight < rank)
             return false;
 
         rank = weight;
         return true;
     }
 
+    /// <summary>
+    /// Опознавательные сведения об исключении: имя типа и код. Пользовательских данных
+    /// не содержат, поэтому отдаются всегда — даже когда текст ошибки пришлось скрыть.
+    /// <para>
+    /// Разворачиваем до самого глубокого вложенного исключения: <c>InvokeMember</c> оборачивает
+    /// COM-ошибку в <c>TargetInvocationException</c>, а при двойной обёртке разворот на один
+    /// уровень отдавал бы код промежуточной обёртки вместо настоящего. Нулевой код не показываем:
+    /// «0x00000000» в качестве причины отказа бессмысленно.
+    /// </para>
+    /// </summary>
     private static string Hresult(Exception ex)
     {
         var inner = Deepest(ex);
@@ -832,16 +855,56 @@ internal static class ComReadHost
             : name + " 0x" + inner.HResult.ToString("X8", CultureInfo.InvariantCulture);
     }
 
-    private static string KindToToken(ComFailureKind kind) => kind switch
+    /// <summary>
+    /// Единственная таблица соответствия разрядов и токенов протокола. Обе стороны выводятся
+    /// из неё: пока таблица одна, добавить разряд в отправку и забыть в разборе невозможно,
+    /// а раньше именно это расхождение позволяло свободному тексту 1С доехать до пользователя
+    /// в обход решения о пароле.
+    /// </summary>
+    private static readonly (ComFailureKind Kind, string Token)[] TokenMap =
     {
-        ComFailureKind.NotRegistered => "NOTREG",
-        ComFailureKind.InstanceFailed => "NOINST",
-        ComFailureKind.Timeout => "TIMEOUT",
-        ComFailureKind.NoConnection => "NOCONN",
-        ComFailureKind.MetadataProperty => "METAPROP",
-        ComFailureKind.MetadataRead => "METAREAD",
-        _ => "DBERR"
+        (ComFailureKind.NotRegistered, "NOTREG"),
+        (ComFailureKind.InstanceFailed, "NOINST"),
+        (ComFailureKind.Timeout, "TIMEOUT"),
+        (ComFailureKind.NoConnection, "NOCONN"),
+        (ComFailureKind.MetadataProperty, "METAPROP"),
+        (ComFailureKind.MetadataRead, "METAREAD"),
+        (ComFailureKind.DatabaseError, "DBERR"),
+        // Повреждённый запрос. Разряд общий со сбоем канала — для родителя это одно и то же:
+        // обмен не состоялся. Со стороны агента этот токен приходит только из разбора запроса,
+        // потому что ReadInProcess разряда Transport не порождает.
+        (ComFailureKind.Transport, "BADREQ")
     };
+
+    private static string KindToToken(ComFailureKind kind)
+    {
+        foreach (var (k, token) in TokenMap)
+        {
+            if (k == kind)
+                return token;
+        }
+
+        return "DBERR";
+    }
+
+    /// <summary>
+    /// Обратное отображение. Возвращает false для неизвестного токена: разбирать такой кадр
+    /// нельзя, потому что мы не знаем, что означают его поля.
+    /// </summary>
+    private static bool TryMapToken(string token, out ComFailureKind kind)
+    {
+        foreach (var (k, t) in TokenMap)
+        {
+            if (string.Equals(t, token, StringComparison.Ordinal))
+            {
+                kind = k;
+                return true;
+            }
+        }
+
+        kind = ComFailureKind.Transport;
+        return false;
+    }
 
     /// <summary>
     /// Собственно COM-обращение. Живёт только в агенте: именно здесь возможен нативный обрыв,
@@ -963,13 +1026,11 @@ internal static class ComReadHost
                         localCode = Hresult(ex);
                     }
 
-                    // Перебор продолжаем — как это делал апстрим. Ограничивать его я пробовал
-                    // (из соображения, что повтор набивает счётчик блокировки учётной записи),
-                    // и оба раза ломал живой сценарий: база 8.2 через V83 даёт управляемое
-                    // исключение о несовместимости, коннектор при этом создаётся нормально,
-                    // ветка InstanceFailed его не ловит, а рабочий V82 — ловит. Менять чужую
-                    // семантику ради соображения, которого у апстрима не было, эта правка
-                    // не должна: она про то, чтобы приложение не падало.
+                    // Перебор продолжаем на любой ошибке подключения — так же, как в исходном
+                    // ConnectCore. Отсеивать по разряду отказа нельзя: база 8.2 через V83 даёт
+                    // обычное исключение о несовместимости версий, коннектор при этом создаётся
+                    // нормально, ветка InstanceFailed такой случай не ловит, а рабочий V82
+                    // находится только следующей итерацией.
                 }
                 finally
                 {

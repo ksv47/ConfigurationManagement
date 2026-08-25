@@ -1244,7 +1244,7 @@
     "Com.AgentCrashedUnknownCode": "The 1C COM connector aborted the helper process.",
     "Com.UnknownCode": "code unknown",
     "Com.DbErrorCodeOnlyFormat": "1C error while connecting to the infobase ({0}).",
-    "Com.DbErrorHiddenFormat": "1C error while connecting to the infobase ({0}). The error text is hidden: it contains the infobase password.",
+    "Com.DbErrorHiddenFormat": "1C error while connecting to the infobase ({0}). The error text is hidden: the infobase has a password and the text may contain it.",
     "Com.AgentNoResult": "The helper process returned no result.",
     "Com.ConnStringBuildFailed": "Failed to build the COM connection string (server/database or file infobase path is not specified).",
     "Com.ProgIdTypeFailedFormat": "Failed to get the COM type {0}: {1}",

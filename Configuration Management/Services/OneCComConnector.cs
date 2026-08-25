@@ -190,7 +190,10 @@ public sealed class OneCComConnector : IOneCComConnector
             return null;
         }
 
-        var connectString = BuildComConnectString(infobase);
+        // Признак пароля берём у того, кто строку собирает: он единственный знает наверняка,
+        // положил ли туда Pwd. Разбирать уже собранную строку обратно — лишний источник
+        // расхождений: список секретных параметров пришлось бы держать синхронным в двух местах.
+        var connectString = BuildComConnectString(infobase, out var hasSecret);
         if (string.IsNullOrWhiteSpace(connectString))
         {
             LastError = LocalizationManager.T("Com.ConnStringBuildFailed");
@@ -209,11 +212,10 @@ public sealed class OneCComConnector : IOneCComConnector
             return result.Info;
         }
 
-        // Решение о тексте ошибки принимаем здесь, и принимаем его по строке подключения,
-        // а не по тексту: если параметра Pwd в строке нет, то 1С пароля не видела и
-        // процитировать не могла — текст безопасен по построению. Если есть — текст
-        // не выпускаем вовсе. Никаких догадок о том, что именно 1С процитировала.
-        var hasSecret = ContainsParameter(connectString, "Pwd");
+        // Решение о тексте ошибки принимаем здесь, и принимаем его по тому, что сами
+        // положили в строку подключения, а не по тексту ответа: если пароля в строке нет,
+        // то 1С его не видела и процитировать не могла — текст безопасен по построению.
+        // Если есть — текст не выпускаем вовсе. Никаких догадок о том, что процитировала 1С.
         LastError = MaskCredentials(DescribeFailure(result, hasSecret));
 
         if (!alreadyDisabled)
@@ -265,12 +267,12 @@ public sealed class OneCComConnector : IOneCComConnector
     /// <summary>
     /// Решает, показывать ли свободный текст ошибки 1С.
     /// <para>
-    /// Решение принимается по строке подключения, а не по содержимому текста. Искать в
-    /// тексте пароль бесполезно: строка не экранирована, сообщение может прийти усечённым
-    /// посреди значения, и проверка на начало пароля пропускала почти любой процитированный
-    /// фрагмент, а проверка на короткий пароль глушила диагностику без всякого повода —
-    /// обе ошибки измерены аудитом. Здесь работает простое и доказуемое правило: нет
-    /// параметра Pwd в строке — 1С пароля не видела и процитировать не могла.
+    /// Решение принимается по тому, что положено в строку подключения, а не по содержимому
+    /// текста. Искать пароль в тексте бесполезно: строка не экранирована, сообщение может
+    /// прийти усечённым посреди значения, и проверка на начало пароля пропускает почти любой
+    /// процитированный фрагмент, а проверка на короткий пароль глушит диагностику без повода.
+    /// Здесь работает простое правило: пароля в строке нет — значит 1С его не видела
+    /// и процитировать не могла.
     /// </para>
     /// </summary>
     private static string DescribeDatabaseError(ComReadResult result, bool hasSecret)
@@ -285,34 +287,6 @@ public sealed class OneCComConnector : IOneCComConnector
         return string.IsNullOrWhiteSpace(result.Detail)
             ? string.Format(LocalizationManager.T("Com.DbErrorCodeOnlyFormat"), code)
             : result.Detail;
-    }
-
-    /// <summary>Есть ли в строке подключения параметр с указанным именем.</summary>
-    private static bool ContainsParameter(string text, string name)
-    {
-        if (string.IsNullOrEmpty(text))
-            return false;
-
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (i > 0)
-            {
-                var prev = text[i - 1];
-                if (char.IsLetterOrDigit(prev) || prev == '_')
-                    continue;
-            }
-
-            if (i + name.Length > text.Length)
-                break;
-            if (string.Compare(text, i, name, 0, name.Length, StringComparison.OrdinalIgnoreCase) != 0)
-                continue;
-
-            var k = SkipSpaces(text, i + name.Length);
-            if (k < text.Length && text[k] == '=')
-                return true;
-        }
-
-        return false;
     }
 
     /// <summary>
@@ -394,12 +368,14 @@ public sealed class OneCComConnector : IOneCComConnector
             }
             catch (Exception ex)
             {
-                LastError = string.Format(LocalizationManager.T("Com.ConnectFailedFormat"), progId, ex.Message);
-                    // Строку подключения в журнал не пишем: она не экранирована, и маскировка
-                // на ней принципиально ненадёжна — пароль с кавычкой, точкой с запятой или
-                // переводом строки пробивает любое правило разбора. Имени ProgID для разбора
-                // достаточно.
-                _logger.Error($"COM-подключение через {progId} не удалось.", ex);
+                LastError = string.Format(
+                    LocalizationManager.T("Com.ConnectFailedFormat"), progId, MaskCredentials(ex.Message));
+                // Ни строку подключения, ни само исключение в журнал не отдаём. Строка не
+                // экранирована, и маскировка на ней принципиально ненадёжна — пароль с кавычкой,
+                // точкой с запятой или переводом строки пробивает любое правило разбора.
+                // Исключение передавать нельзя отдельно: логгер дописывает Message как есть,
+                // а именно этот текст 1С и умеет процитировать строкой подключения целиком.
+                _logger.Error($"COM-подключение через {progId} не удалось: {MaskCredentials(ex.Message)}");
                 // Пробуем следующий ProgID.
                 TryComRelease(connection);
                 TryComRelease(connector);
@@ -519,7 +495,7 @@ public sealed class OneCComConnector : IOneCComConnector
                 // свободный текст ошибки не отдаёт вовсе. Прежнее широкое правило «до
                 // последней кавычки во всём остатке» закрывало этот случай, зато съедало
                 // диагностику: из многострочного сообщения 1С исчезали строки с настоящей
-                // причиной сбоя, а измерения показали потерю текста примерно в 7-8 % входов.
+                // причиной сбоя.
                 var close = FindClosingQuote(text, quoteAt + 1);
                 end = close >= 0 ? close + 1 : FindLineEnd(text, quoteAt);
             }
@@ -615,7 +591,17 @@ public sealed class OneCComConnector : IOneCComConnector
     /// Для веб-публикации COM-подключение обычно неприменимо.
     /// </summary>
     private static string BuildComConnectString(Infobase infobase)
+        => BuildComConnectString(infobase, out _);
+
+    /// <summary>
+    /// То же, но дополнительно сообщает, попал ли в строку пароль. Признак отдаёт именно
+    /// сборщик: он единственный знает это точно, тогда как обратный разбор готовой строки
+    /// зависит от списка имён секретных параметров и от экранирования, которого здесь нет.
+    /// </summary>
+    private static string BuildComConnectString(Infobase infobase, out bool hasSecret)
     {
+        hasSecret = false;
+
         var c = infobase.Connection;
         if (c is null) return string.Empty;
 
@@ -644,7 +630,10 @@ public sealed class OneCComConnector : IOneCComConnector
         {
             sb.Append("Usr=\"").Append(c.User).Append("\";");
             if (!string.IsNullOrWhiteSpace(c.Password))
+            {
                 sb.Append("Pwd=\"").Append(c.Password).Append("\";");
+                hasSecret = true;
+            }
         }
 
         return sb.ToString();
