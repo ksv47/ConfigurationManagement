@@ -193,19 +193,17 @@ public sealed class OneCComConnector : IOneCComConnector
         // десятки одинаковых строк подряд на каждом старте.
         var alreadyDisabled = ComReadHost.ComUnavailable;
 
-        // Пароль передаём отдельно: агент вырежет его из текста ошибки 1С буквальным
-        // вхождением ещё до отправки, поэтому секрет не попадёт даже в канал обмена.
-        // Но только если он там действительно есть: BuildComConnectString вставляет Pwd
-        // не всегда (нужен режим «по логину и паролю» и заполненный пользователь), а
-        // вырезание постороннего значения портило бы ответ. Проверяем по факту вхождения,
-        // а не повторением условий сборки — иначе условия разъедутся при первой же правке.
+        // Агенту передаём не пароль, а лишь признак, что он в строке есть: этого довольно,
+        // чтобы тот не отдавал наружу свободный текст ошибки 1С. Сам пароль родительский
+        // процесс не покидает отдельным полем, и вырезать его из чужих полей больше не надо —
+        // прежняя схема вычищала совпавшую подстроку из имени сервера, базы и пользователя.
+        // Признак считаем по факту вхождения, а не повторением условий сборки строки:
+        // BuildComConnectString вставляет Pwd не всегда, и условия иначе разъедутся.
         var password = infobase.Connection?.Password;
-        var secret = !string.IsNullOrWhiteSpace(password)
-                     && connectString.Contains(password, StringComparison.Ordinal)
-            ? password
-            : null;
+        var hasSecret = !string.IsNullOrWhiteSpace(password)
+                        && connectString.Contains(password, StringComparison.Ordinal);
 
-        var result = ComReadHost.Read(connectString, secret, timeoutMs);
+        var result = ComReadHost.Read(connectString, hasSecret, timeoutMs);
         if (result.Failure == ComFailureKind.None && result.Info is not null)
         {
             LastError = null;
@@ -454,14 +452,16 @@ public sealed class OneCComConnector : IOneCComConnector
 
             if (quoteAt < text.Length && text[quoteAt] == '"')
             {
-                // Закавыченное значение — так строит BuildComConnectString. Кавычки внутри
-                // значения он не экранирует, поэтому на их баланс полагаться нельзя: тянем
-                // до последней кавычки, за которой идёт разделитель или конец текста.
-                // Искать нужно по всему остатку, а не в пределах строки: перевод строки
-                // может стоять внутри самого значения. Прежнее правило «до первого ;»
-                // отдавало наружу хвост такого пароля.
+                // Закавыченное значение. Берём первую кавычку, за которой идёт разделитель
+                // или конец строки, и за пределы строки не выходим.
+                // Правило намеренно узкое. Оно не покрывает пароль, внутри которого стоит
+                // «";», — но такой текст сюда и не попадает: при наличии пароля агент
+                // свободный текст ошибки не отдаёт вовсе. Прежнее широкое правило «до
+                // последней кавычки во всём остатке» закрывало этот случай, зато съедало
+                // диагностику: из многострочного сообщения 1С исчезали строки с настоящей
+                // причиной сбоя, а измерения показали потерю текста примерно в 7-8 % входов.
                 var close = FindClosingQuote(text, quoteAt + 1);
-                end = close >= 0 ? close + 1 : text.Length;
+                end = close >= 0 ? close + 1 : FindLineEnd(text, quoteAt);
             }
             else
             {
@@ -520,21 +520,31 @@ public sealed class OneCComConnector : IOneCComConnector
     }
 
     /// <summary>
-    /// Последняя кавычка, за которой идёт разделитель или конец текста. Именно она
-    /// закрывает значение, даже если внутри него встречались кавычки, точки с запятой
-    /// или переводы строк. −1, если такой кавычки нет (значение не закрыто).
+    /// Первая кавычка в пределах строки, за которой идёт разделитель или конец строки.
+    /// −1, если такой кавычки в строке нет (значение не закрыто).
     /// </summary>
     private static int FindClosingQuote(string text, int from)
     {
-        var found = -1;
         for (var i = from; i < text.Length; i++)
         {
+            if (text[i] == '\r' || text[i] == '\n')
+                return -1;
             if (text[i] != '"')
                 continue;
-            if (i + 1 >= text.Length || text[i + 1] == ';')
-                found = i;
+            if (i + 1 >= text.Length || text[i + 1] == ';'
+                || text[i + 1] == '\r' || text[i + 1] == '\n')
+                return i;
         }
-        return found;
+        return -1;
+    }
+
+    /// <summary>Конец текущей строки или конец текста.</summary>
+    private static int FindLineEnd(string text, int from)
+    {
+        for (var i = from; i < text.Length; i++)
+            if (text[i] == '\r' || text[i] == '\n')
+                return i;
+        return text.Length;
     }
 
     /// <summary>

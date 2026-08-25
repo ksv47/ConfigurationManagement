@@ -70,11 +70,14 @@ internal readonly record struct ComReadResult(OneCConfigInfo? Info, ComFailureKi
 /// </para>
 /// <para>
 /// Пароль. Текст ошибки, который возвращает 1С, умеет цитировать строку подключения целиком.
-/// Разбирать такой текст по грамматике бесполезно: <see cref="OneCComConnector"/> строит
-/// строку без экранирования, поэтому и кавычка, и <c>;</c>, и перевод строки внутри пароля
-/// делают её неоднозначной, и любое правило разбора ломается на очередном спецсимволе.
-/// Поэтому пароль передаётся агенту отдельным полем и вырезается из ответа буквальным
-/// вхождением, ещё до отправки — так секрет не попадает даже в канал.
+/// Разбирать такой текст бесполезно: <see cref="OneCComConnector"/> строит строку без
+/// экранирования, поэтому кавычка, <c>;</c> или перевод строки внутри пароля делают её
+/// неоднозначной; а сообщение вдобавок может прийти усечённым посреди значения. Любое
+/// правило разбора при этом либо выпускает хвост пароля, либо съедает диагностику.
+/// Поэтому свободный текст ошибки наружу не отдаётся вовсе, когда у базы есть пароль, —
+/// вместо него возвращается код ошибки COM. Сам пароль агенту не передаётся: ему довольно
+/// признака, что тот есть. Для баз без пароля (а это большинство, файловые) текст
+/// сохраняется целиком, и диагностика не страдает.
 /// </para>
 /// </summary>
 internal static class ComReadHost
@@ -85,9 +88,6 @@ internal static class ComReadHost
     /// <summary>Префикс строки результата в стандартном выводе агента.</summary>
     private const string ResultPrefix = "CFGINFO\t";
 
-    /// <summary>Чем заменяется вырезанный секрет.</summary>
-    private const string Redacted = "***";
-
     /// <summary>Запас к таймауту запроса: агент должен успеть ответить сам, прежде чем его убьют.</summary>
     private const int AgentGraceMs = 2000;
 
@@ -96,6 +96,13 @@ internal static class ComReadHost
     /// из диспетчера) не должен глушить COM на всю сессию, а систематический — обязан.
     /// </summary>
     private const int FailuresBeforeLatch = 2;
+
+    /// <summary>
+    /// Порог для сбоев канала. Мягче общего: разовые обрывы лечатся перезапуском агента,
+    /// глушить из-за них COM на сессию незачем. Но и совсем не считать нельзя — иначе
+    /// систематический мусор в потоке агента давал бы бесконечную череду перезапусков.
+    /// </summary>
+    private const int TransportFailuresBeforeLatch = 5;
 
     /// <summary>
     /// Сколько ждать, пока умирающий процесс завершится сам, прежде чем убивать его.
@@ -208,12 +215,16 @@ internal static class ComReadHost
     /// Основной процесс не пострадает, даже если COM-вызов оборвёт агента.
     /// </summary>
     /// <param name="connectString">Строка подключения (может содержать пароль).</param>
-    /// <param name="secret">
-    /// Пароль в чистом виде — чтобы агент вырезал его из текста ошибки 1С до отправки.
-    /// Пустая строка означает, что вырезать нечего.
+    /// <param name="hasSecret">
+    /// Содержит ли строка подключения пароль. Сам пароль агенту не передаётся: ему довольно
+    /// знать, что свободный текст ошибки 1С возвращать нельзя — тот умеет цитировать строку
+    /// подключения целиком, а восстановить границы неэкранированного, да ещё и, возможно,
+    /// усечённого значения постфактум надёжно невозможно. Признак заодно управляет перебором
+    /// ProgID: повторять подключение с учётными данными нельзя, это набивает счётчик
+    /// блокировки учётной записи.
     /// </param>
     /// <param name="timeoutMs">Предельное время COM-вызова.</param>
-    public static ComReadResult Read(string connectString, string? secret, int timeoutMs)
+    public static ComReadResult Read(string connectString, bool hasSecret, int timeoutMs)
     {
         if (string.IsNullOrWhiteSpace(connectString))
             return ComReadResult.Fail(ComFailureKind.Transport);
@@ -256,7 +267,7 @@ internal static class ComReadHost
                     seq.ToString(CultureInfo.InvariantCulture),
                     timeoutMs.ToString(CultureInfo.InvariantCulture),
                     Encode(connectString),
-                    Encode(secret ?? string.Empty)));
+                    hasSecret ? "1" : "0"));
 
                 var pending = Task.Run(() => output.ReadLine());
                 // Задачу мы можем бросить, не дождавшись. Штатно она завершается сама
@@ -364,9 +375,13 @@ internal static class ComReadHost
         // Проверка поколения и изменение счётчика — одной неделимой операцией. Сброс,
         // случившийся после начала запроса, отменяет право этого запроса защёлкивать:
         // пользователь уже попросил попробовать снова.
+        var threshold = kind == ComFailureKind.Transport
+            ? TransportFailuresBeforeLatch
+            : FailuresBeforeLatch;
+
         lock (StateLock)
         {
-            if (_resetEpoch == epoch && ++_consecutiveFailures >= FailuresBeforeLatch)
+            if (_resetEpoch == epoch && ++_consecutiveFailures >= threshold)
                 _comUnavailable = 1;
         }
 
@@ -424,7 +439,7 @@ internal static class ComReadHost
         // поэтому диагностические дампы у него отключаем принудительно — независимо от
         // того, что настроено снаружи для основного приложения.
         foreach (var variable in DumpEnvironmentVariables)
-            psi.Environment[variable] = string.Empty;
+            psi.Environment.Remove(variable);
 
         // Запуск через `dotnet App.dll`: ProcessPath указывает на dotnet.exe, и одного ключа мало.
         if (IsDotnetHost(host))
@@ -679,11 +694,11 @@ internal static class ComReadHost
             }
             catch (Exception ex)
             {
-                // Секрет здесь по построению не встречается, но полагаться на это нельзя:
-                // достаточно будущей правки, которая положит строку запроса в текст
-                // исключения. Режем и тут — секрет уже раскодирован рядом.
-                var secret = parts.Length > 3 ? Decode(parts[3]) : null;
-                response = ResultPrefix + seq + "\tERR\tDBERR\t" + Encode(Redact(ex.Message, secret));
+                // Если у базы есть пароль, свободный текст наружу не отдаём вовсе —
+                // тот же принцип, что и для ошибок 1С.
+                var hasSecret = parts.Length > 3 && parts[3] == "1";
+                response = ResultPrefix + seq + "\tERR\tDBERR\t"
+                           + Encode(hasSecret ? Hresult(ex) : ex.Message);
             }
 
             output.WriteLine(response);
@@ -700,36 +715,31 @@ internal static class ComReadHost
             CultureInfo.InvariantCulture, out var parsed) && parsed > 0 ? parsed : 8000;
 
         var connectString = Decode(parts[2]);
-        var secret = Decode(parts[3]);
+        var hasSecret = parts[3] == "1";
 
         if (connectString.Length == 0)
             return ResultPrefix + seq + "\tERR\tDBERR\t" + Encode("empty request");
 
-        var info = ReadInProcess(connectString, timeoutMs, out var kind, out var detail);
+        var info = ReadInProcess(connectString, hasSecret, timeoutMs, out var kind, out var detail);
 
-        // Имя и версию конфигурации не режем: они приходят из Metadata и строку подключения
-        // содержать не могут, а вырезание по совпадению портило их до неузнаваемости —
-        // числовой пароль превращал версию «1.2.1» в «***.2.***», и это сохранялось в данные.
-        // Резать нужно только текст ошибки, который приходит от 1С в свободной форме.
+        // Имя и версия конфигурации приходят из Metadata и строку подключения содержать
+        // не могут — их отдаём как есть.
         return info is null
-            ? ResultPrefix + seq + "\tERR\t" + KindToToken(kind) + "\t" + Encode(Redact(detail, secret))
+            ? ResultPrefix + seq + "\tERR\t" + KindToToken(kind) + "\t" + Encode(detail)
             : ResultPrefix + seq + "\tOK\t" + Encode(info.Value.Name)
               + "\t" + Encode(info.Value.Version);
     }
 
     /// <summary>
-    /// Вырезает секрет из текста буквальным вхождением. Работает независимо от того,
-    /// как значение записано в строке подключения — в кавычках, без них, с разделителем
-    /// или переводом строки внутри, — потому что не разбирает грамматику вовсе.
-    /// Побочный эффект короткого пароля: из текста может исчезнуть лишнее. Это
-    /// сознательный размен в пользу безопасности.
+    /// Код ошибки COM вместо её текста. Отдаётся, когда у базы есть пароль: текст 1С умеет
+    /// цитировать строку подключения, а вырезать оттуда пароль надёжно нельзя — строка
+    /// не экранирована, и сообщение может прийти усечённым посреди значения. Код при этом
+    /// сохраняет главное для разбора: чем именно 1С ответила.
     /// </summary>
-    private static string? Redact(string? text, string? secret)
+    private static string Hresult(Exception ex)
     {
-        if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(secret))
-            return text;
-
-        return text.Replace(secret, Redacted, StringComparison.Ordinal);
+        var inner = ex.InnerException ?? ex;
+        return "0x" + inner.HResult.ToString("X8", CultureInfo.InvariantCulture);
     }
 
     private static string KindToToken(ComFailureKind kind) => kind switch
@@ -748,7 +758,7 @@ internal static class ComReadHost
     /// который мы и изолируем. ProgID перебираются, как в OneCComConnector.KnownProgIds.
     /// </summary>
     private static OneCConfigInfo? ReadInProcess(
-        string connectString, int timeoutMs, out ComFailureKind kind, out string? detail)
+        string connectString, bool hasSecret, int timeoutMs, out ComFailureKind kind, out string? detail)
     {
         OneCConfigInfo? result = null;
         var localKind = ComFailureKind.NotRegistered;
@@ -823,16 +833,21 @@ internal static class ComReadHost
                 }
                 catch (Exception ex)
                 {
-                    // Ошибка подключения к конкретной базе — перебор прекращаем.
-                    // Продолжать нельзя: на машине с двумя коннекторами один неверный
-                    // пароль давал бы две-три неудачные аутентификации на сервере 1С,
-                    // втрое быстрее набивая счётчик блокировки учётной записи, а итоговый
-                    // диагноз доставался бы от последнего ProgID — про базу 8.3 пользователь
-                    // читал бы сообщение от V81. Случай «коннектор непригоден» уже покрыт
-                    // веткой InstanceFailed, которая срабатывает до Connect.
                     localKind = ComFailureKind.DatabaseError;
-                    localDetail = (ex.InnerException ?? ex).Message;
-                    return;
+                    // Текст ошибки 1С умеет цитировать строку подключения целиком. Если в
+                    // ней есть пароль — отдаём только код, вырезать его из свободного текста
+                    // надёжно нельзя.
+                    localDetail = hasSecret ? Hresult(ex) : (ex.InnerException ?? ex).Message;
+
+                    // Перебор продолжаем только без учётных данных. С ними повтор означал бы
+                    // две-три неудачные аутентификации на сервере 1С за одно чтение, а это
+                    // втрое быстрее набивает счётчик блокировки учётной записи. Без пароля
+                    // такой цены нет, и перебор полезен: база 8.2 через V83 даёт управляемое
+                    // исключение о несовместимости, коннектор при этом создаётся нормально,
+                    // поэтому ветка InstanceFailed этот случай не ловит, а рабочий V82 —
+                    // ловит.
+                    if (hasSecret)
+                        return;
                 }
                 finally
                 {
