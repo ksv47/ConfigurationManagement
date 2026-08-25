@@ -143,6 +143,9 @@ public class AppSettings
     /// <summary>Ширина колонки «Конфигурация» (0 — по умолчанию).</summary>
     public double ConfigurationColumnWidth { get; set; }
 
+    /// <summary>Ширина колонки «Действия» в списке баз (0 — по умолчанию).</summary>
+    public double ActionsColumnWidth { get; set; }
+
     /// <summary>Показывать колонку «Режим запуска» в списке баз.</summary>
     public bool ShowLaunchModeColumn { get; set; } = true;
 
@@ -157,6 +160,13 @@ public class AppSettings
 
     /// <summary>Ширина колонки «Размер» (0 — по умолчанию).</summary>
     public double SizeColumnWidth { get; set; }
+
+    /// <summary>
+    /// Порядок колонок списка баз слева направо (кроме фиксированных колонок
+    /// «Название» и «Действия»). Пустой список — порядок по умолчанию
+    /// (колонка «Конфигурация» в самом конце).
+    /// </summary>
+    public List<string> ColumnOrder { get; set; } = new();
 
     /// <summary>Ширина колонки «База» в окне «Очистка кэша» (0 — растягивается).</summary>
     public double CacheCleanBaseColumnWidth { get; set; }

@@ -325,6 +325,70 @@ namespace Configuration_Management
             foreach (var check in new[] { versionCheck, configurationCheck, launchModeCheck, serverCheck, lastLaunchCheck, sizeCheck })
                 display.Children.Add(check);
 
+            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Columns.OrderTitle")));
+            display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
+
+            // Порядок колонок редактируется кнопками «Вверх»/«Вниз» по выбранной
+            // строке; список хранит ключи колонок, а показывает локализованные имена.
+            record ColumnOrderItem(string Key, string Display)
+            {
+                public override string ToString() => Display;
+            }
+
+            static string ColumnOrderLabel(string key) => LocalizationManager.T(key switch
+            {
+                "Version" => "Column.Version",
+                "Configuration" => "Column.Configuration",
+                "LaunchMode" => "Column.LaunchMode",
+                "ServerBase" => "Column.ServerBase",
+                "LastLaunch" => "Column.LastLaunch",
+                "Size" => "Column.Size",
+                _ => "Column.Name"
+            });
+
+            var orderItems = new ObservableCollection<ColumnOrderItem>(
+                _viewModel.ColumnOrderKeys.Select(k => new ColumnOrderItem(k, ColumnOrderLabel(k))));
+            var orderList = new ListBox
+            {
+                ItemsSource = orderItems,
+                MinHeight = 120,
+                MaxHeight = 200,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            display.Children.Add(orderList);
+
+            var orderButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+            var moveUp = new Button { Content = LocalizationManager.T("Settings.Columns.OrderUp"), Margin = new Thickness(0, 0, 6, 0), IsEnabled = false };
+            var moveDown = new Button { Content = LocalizationManager.T("Settings.Columns.OrderDown"), IsEnabled = false };
+
+            void UpdateOrderButtons()
+            {
+                var idx = orderList.SelectedIndex;
+                moveUp.IsEnabled = idx > 0;
+                moveDown.IsEnabled = idx >= 0 && idx < orderItems.Count - 1;
+            }
+            orderList.SelectionChanged += (_, _) => UpdateOrderButtons();
+
+            moveUp.Click += (_, _) =>
+            {
+                var idx = orderList.SelectedIndex;
+                if (idx <= 0) return;
+                orderItems.Move(idx, idx - 1);
+                orderList.SelectedIndex = idx - 1;
+                UpdateOrderButtons();
+            };
+            moveDown.Click += (_, _) =>
+            {
+                var idx = orderList.SelectedIndex;
+                if (idx < 0 || idx >= orderItems.Count - 1) return;
+                orderItems.Move(idx, idx + 1);
+                orderList.SelectedIndex = idx + 1;
+                UpdateOrderButtons();
+            };
+            orderButtons.Children.Add(moveUp);
+            orderButtons.Children.Add(moveDown);
+            display.Children.Add(orderButtons);
+
             display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Panels")));
             display.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails);
@@ -1122,7 +1186,8 @@ namespace Configuration_Management
                     rightPanelCheck.IsChecked == true,
                     sessionPanelCheck.IsChecked == true,
                     groupByGroupCheck.IsChecked == true,
-                    emptyGroupsCheck.IsChecked == true);
+                    emptyGroupsCheck.IsChecked == true,
+                    orderItems.Select(o => o.Key).ToList());
 
                 DialogResult = true;
                 Close();

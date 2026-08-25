@@ -64,6 +64,7 @@ public class MainViewModel : ViewModelBase
     private bool _showVersionColumn = true;
     private bool _showConfigurationColumn = true;
     private double _configurationColumnWidth;
+    private double _actionsColumnWidth;
     private bool _showRightPanelDetails = true;
     private bool _statusShowConnectionPath = true;
     private bool _statusShowArchitecture = true;
@@ -88,6 +89,7 @@ public class MainViewModel : ViewModelBase
     private bool _showLastLaunchColumn = true;
     private bool _showSizeColumn = true;
     private double _sizeColumnWidth;
+    private List<string> _columnOrder = new();
     private double _windowWidth;
     private double _windowHeight;
     private double _windowLeft;
@@ -231,6 +233,7 @@ public class MainViewModel : ViewModelBase
         _showVersionColumn = settings.ShowVersionColumn;
         _showConfigurationColumn = settings.ShowConfigurationColumn;
         _configurationColumnWidth = settings.ConfigurationColumnWidth;
+        _actionsColumnWidth = settings.ActionsColumnWidth;
         _showRightPanelDetails = settings.ShowRightPanelDetails;
         _showSessionLaunchPanel = settings.ShowSessionLaunchPanel;
         if (Enum.TryParse<SessionClientMode>(settings.SessionClientMode, true, out var scm))
@@ -255,6 +258,9 @@ public class MainViewModel : ViewModelBase
         _showLastLaunchColumn = settings.ShowLastLaunchColumn;
         _showSizeColumn = settings.ShowSizeColumn;
         _sizeColumnWidth = settings.SizeColumnWidth;
+        _columnOrder = settings.ColumnOrder is { Count: > 0 }
+            ? new List<string>(settings.ColumnOrder)
+            : new List<string>();
         _windowWidth = settings.WindowWidth;
         _windowHeight = settings.WindowHeight;
         _windowLeft = settings.WindowLeft;
@@ -1619,6 +1625,21 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Ширина колонки «Действия» в списке баз (0 — по умолчанию).</summary>
+    public double ActionsColumnWidth
+    {
+        get => _actionsColumnWidth;
+        set
+        {
+            if (_actionsColumnWidth != value)
+            {
+                _actionsColumnWidth = value;
+                OnPropertyChanged();
+                ScheduleSaveSettings();
+            }
+        }
+    }
+
     /// <summary>Показывать подробности в правой панели (иначе — только кнопки).</summary>
     public bool ShowRightPanelDetails
     {
@@ -1820,6 +1841,21 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Порядок колонок списка баз по умолчанию (колонка «Конфигурация» в самом
+    /// конце). Используется, пока пользователь не задал собственный порядок.
+    /// </summary>
+    private static readonly string[] DefaultColumnOrder =
+        { "Version", "LaunchMode", "ServerBase", "LastLaunch", "Size", "Configuration" };
+
+    /// <summary>
+    /// Порядок колонок списка баз слева направо (кроме фиксированных колонок
+    /// «Название» и «Действия»). Если порядок не задан или пуст — возвращается
+    /// порядок по умолчанию с колонкой «Конфигурация» в конце.
+    /// </summary>
+    public IReadOnlyList<string> ColumnOrderKeys =>
+        _columnOrder is { Count: > 0 } ? _columnOrder : DefaultColumnOrder;
+
+    /// <summary>
     /// Применяет настройки содержимого нижней панели (строки состояния).
     /// </summary>
     public void ApplyStatusBarSettings(
@@ -1857,7 +1893,8 @@ public class MainViewModel : ViewModelBase
     public void ApplyDisplaySettings(bool showFavoritesButton, bool showPinnedButton, bool showTags,
         bool showVersionColumn, bool showLaunchModeColumn, bool showServerColumn, bool showLastLaunchColumn,
         bool groupByGroup, bool showFavoritesOnly, bool showSizeColumn = true,
-        bool showConfigurationColumn = true, bool showEmptyGroups = false)
+        bool showConfigurationColumn = true, bool showEmptyGroups = false,
+        List<string>? columnOrder = null)
     {
         _showFavoritesButton = showFavoritesButton;
         _showPinnedButton = showPinnedButton;
@@ -1883,6 +1920,10 @@ public class MainViewModel : ViewModelBase
         GroupByGroup = groupByGroup;
         ShowFavoritesOnly = showFavoritesOnly;
         ShowEmptyGroups = showEmptyGroups;
+
+        // Пользовательский порядок колонок (пустой — вернуть порядок по умолчанию).
+        _columnOrder = columnOrder is { Count: > 0 } ? new List<string>(columnOrder) : new List<string>();
+        OnPropertyChanged(nameof(ColumnOrderKeys));
 
         SaveSettings();
     }
@@ -3459,6 +3500,7 @@ public string HotkeyEnterprise
             ShowVersionColumn = _showVersionColumn,
             ShowConfigurationColumn = _showConfigurationColumn,
             ConfigurationColumnWidth = _configurationColumnWidth,
+            ActionsColumnWidth = _actionsColumnWidth,
             ShowRightPanelDetails = _showRightPanelDetails,
             ShowSessionLaunchPanel = _showSessionLaunchPanel,
             SessionClientMode = _sessionClientMode.ToString(),
@@ -3478,6 +3520,7 @@ public string HotkeyEnterprise
             ShowLastLaunchColumn = _showLastLaunchColumn,
             ShowSizeColumn = _showSizeColumn,
             SizeColumnWidth = _sizeColumnWidth,
+            ColumnOrder = _columnOrder.ToList(),
             WindowWidth = _windowWidth,
             WindowHeight = _windowHeight,
             WindowLeft = _windowLeft,
@@ -3531,7 +3574,7 @@ public string HotkeyEnterprise
     /// <summary>
     /// Сохраняет ширины колонок списка баз в настройках.
     /// </summary>
-    public void SaveColumnWidths(double nameWidth, double versionWidth, double configurationWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth)
+    public void SaveColumnWidths(double nameWidth, double versionWidth, double configurationWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth, double actionsWidth)
     {
         NameColumnWidth = nameWidth;
         VersionColumnWidth = versionWidth;
@@ -3539,6 +3582,7 @@ public string HotkeyEnterprise
         LaunchModeColumnWidth = launchModeWidth;
         ServerColumnWidth = serverWidth;
         LastLaunchColumnWidth = lastLaunchWidth;
+        ActionsColumnWidth = actionsWidth;
         SaveSettings();
     }
 
@@ -3546,7 +3590,7 @@ public string HotkeyEnterprise
     /// Обновляет ширины колонок в памяти (без сохранения в файл).
     /// Используется для синхронизации колонок строк во время перетаскивания разделителя.
     /// </summary>
-    public void UpdateColumnWidths(double nameWidth, double versionWidth, double configurationWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth)
+    public void UpdateColumnWidths(double nameWidth, double versionWidth, double configurationWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth, double actionsWidth)
     {
         NameColumnWidth = nameWidth;
         VersionColumnWidth = versionWidth;
@@ -3554,6 +3598,7 @@ public string HotkeyEnterprise
         LaunchModeColumnWidth = launchModeWidth;
         ServerColumnWidth = serverWidth;
         LastLaunchColumnWidth = lastLaunchWidth;
+        ActionsColumnWidth = actionsWidth;
     }
 
     /// <summary>

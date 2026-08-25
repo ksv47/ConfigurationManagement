@@ -1452,6 +1452,270 @@ namespace Configuration_Management
             {
                 Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
             }
+            else if (e.PropertyName == nameof(MainViewModel.ColumnOrderKeys))
+            {
+                // Пользователь поменял порядок колонок в настройках: пересобираем
+                // заголовок и все уже созданные строки баз.
+                Dispatcher.BeginInvoke(new Action(ApplyColumnOrder), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+        }
+
+        // ---- Динамический порядок колонок списка баз ----
+
+        // Статический порядок колонок данных в сетке (заголовке и строке базы) после
+        // фиксированных колонок слева (кнопки групп, компенсатор, избранное, закрепление,
+        // название). Колонка «Действия» всегда стоит сразу после «Режим запуска».
+        private static readonly string[] StaticDataColumnKeys =
+            { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
+
+        // Индекс первой колонки данных в сетке заголовка / строки базы.
+        // Строка базы и заголовок имеют одинаковый набор ведущих колонок
+        // (кнопки групп + компенсатор + избранное + закрепление + название),
+        // поэтому данные строк точно совпадают по горизонтали с заголовками.
+        private const int HeaderFirstDataColumn = 5; // после «Названия» заголовка
+        private const int RowFirstDataColumn = 5;    // после «Названия» строки базы (как у заголовка)
+
+        // Метка сетки строки базы: по ней находим созданные строки при обходе дерева.
+        private static readonly object RowGridMarker = new();
+        // Метка сетки заголовка группы: строки групп тоже перестраиваются по порядку колонок,
+        // чтобы команды группы оставались в колонке «Действия» на уровне строк баз.
+        private static readonly object GroupGridMarker = new();
+
+        /// <summary>
+        /// Ключ логической колонки элемента сетки (для динамического порядка колонок).
+        /// Используется вместо Tag, т.к. Tag занят другими целями (сортировка, двойной клик).
+        /// </summary>
+        public static readonly DependencyProperty ColumnKeyProperty =
+            DependencyProperty.RegisterAttached(
+                "ColumnKey", typeof(string), typeof(MainWindow), new PropertyMetadata(null));
+
+        public static void SetColumnKey(DependencyObject obj, string? value) =>
+            obj.SetValue(ColumnKeyProperty, value);
+
+        public static string? GetColumnKey(DependencyObject obj) =>
+            (string?)obj.GetValue(ColumnKeyProperty);
+
+        /// <summary>
+        /// Строит целевую последовательность колонок (логические ключи) по выбранному
+        /// пользователем порядку. Колонка «Действия» встаёт сразу после «Режим запуска»
+        /// (или в самый конец, если та отсутствует в порядке).
+        /// </summary>
+        private List<string> BuildColumnLayout()
+        {
+            var known = new[] { "Version", "LaunchMode", "ServerBase", "LastLaunch", "Size", "Configuration" };
+            var keys = new List<string>();
+            foreach (var k in known)
+                if (_viewModel?.ColumnOrderKeys.Contains(k) == true && !keys.Contains(k))
+                    keys.Add(k);
+            // Гарантируем, что все известные колонки присутствуют (незнакомые ключи
+            // из сохранённого порядка пропускаются, как в Avalonia-версии).
+            foreach (var k in known)
+                if (!keys.Contains(k))
+                    keys.Add(k);
+
+            var layout = new List<string>(keys.Count + 1);
+            var offset = keys.IndexOf("LaunchMode") + 1;
+            if (offset == 0)
+                offset = keys.Count;
+            for (var i = 0; i < keys.Count; i++)
+            {
+                if (i == offset)
+                    layout.Add("Actions");
+                layout.Add(keys[i]);
+            }
+            if (offset >= keys.Count)
+                layout.Add("Actions");
+            return layout;
+        }
+
+        /// <summary>
+        /// Перестраивает колонки данных сетки <paramref name="grid"/> (заголовка, строки базы
+        /// или заголовка группы) под выбранный порядок: передвигает определения колонок и
+        /// обновляет позиции размещённых в них элементов. Фиксированные колонки слева и
+        /// «Название» не трогаются.
+        /// </summary>
+        private void ReorderGridColumns(Grid grid, int firstDataCol)
+        {
+            if (grid is null || _viewModel is null)
+                return;
+
+            var layout = BuildColumnLayout();
+            var leading = firstDataCol;
+            var dataCount = grid.ColumnDefinitions.Count - leading;
+            if (dataCount <= 0)
+                return;
+
+            // Первый проход: определяем логический ключ для каждого перемещаемого элемента
+            // региона данных по статической раскладке. Ключ сохраняется в attached-свойстве
+            // ColumnKey (Tag занят — сортировка/двойной клик), поэтому повторные вызовы
+            // корректно работают и после перестановок, и для уже перестроенных сеток.
+            foreach (var obj in grid.Children)
+            {
+                if (obj is not FrameworkElement fe)
+                    continue;
+                if (Grid.GetColumnSpan(fe) != 1)
+                    continue; // объединённые ячейки (название/теги) двигаются отдельно
+                var c = Grid.GetColumn(fe);
+                if (c < leading || c >= leading + dataCount)
+                    continue;
+                if (string.IsNullOrEmpty(GetColumnKey(fe)))
+                    SetColumnKey(fe, StaticDataColumnKeys[c - leading]);
+            }
+
+            // Сопоставление «позиция колонки данных -> логический ключ» по ключам детей.
+            var defKey = new string[dataCount];
+            foreach (var obj in grid.Children)
+            {
+                if (obj is not FrameworkElement fe)
+                    continue;
+                var s = GetColumnKey(fe);
+                if (string.IsNullOrEmpty(s))
+                    continue;
+                if (Grid.GetColumnSpan(fe) != 1)
+                    continue;
+                var c = Grid.GetColumn(fe);
+                if (c >= leading && c < leading + dataCount)
+                    defKey[c - leading] = s;
+            }
+
+            // Для сеток без дочерних элементов в части колонок данных (например, строка группы,
+            // где заполнена только колонка «Действия») ключ незаполненных колонок берём по
+            // статической раскладке: такие сетки всегда создаются в статическом порядке.
+            for (var i = 0; i < dataCount; i++)
+                if (string.IsNullOrEmpty(defKey[i]))
+                    defKey[i] = StaticDataColumnKeys[i];
+
+            // Новый порядок определений колонок под нужную раскладку.
+            var defs = grid.ColumnDefinitions;
+            var newOrder = new List<ColumnDefinition>(dataCount);
+            var placed = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var token in layout)
+            {
+                for (var i = 0; i < dataCount; i++)
+                {
+                    if (defKey[i] == token && placed.Add(token))
+                    {
+                        newOrder.Add(defs[leading + i]);
+                        break;
+                    }
+                }
+            }
+            for (var i = 0; i < dataCount; i++)
+                if (!placed.Contains(defKey[i]))
+                {
+                    newOrder.Add(defs[leading + i]);
+                    placed.Add(defKey[i]);
+                }
+
+            // Пересобираем коллекцию определений: фиксированные слева + новый порядок данных.
+            var leadingDefs = new List<ColumnDefinition>(leading);
+            for (var i = 0; i < leading; i++)
+                leadingDefs.Add(defs[i]);
+            defs.Clear();
+            foreach (var d in leadingDefs)
+                defs.Add(d);
+            foreach (var d in newOrder)
+                defs.Add(d);
+
+            // Обновляем позиции детей и span широких ячеек (до «Действий»).
+            // Заголовок группы: имя/счётчик занимают область названия и тянутся до «Действий».
+            var actionsColumn = leading + layout.IndexOf("Actions");
+            var isGroup = ReferenceEquals(grid.Tag, GroupGridMarker);
+            foreach (var obj in grid.Children)
+            {
+                if (obj is not FrameworkElement fe)
+                    continue;
+                var s = GetColumnKey(fe);
+                if (!string.IsNullOrEmpty(s))
+                {
+                    var ti = layout.IndexOf(s);
+                    if (ti >= 0)
+                        Grid.SetColumn(fe, leading + ti);
+                }
+                else if (isGroup && Grid.GetRow(fe) == 0 && Grid.GetColumn(fe) == 0 && Grid.GetColumnSpan(fe) > 1)
+                {
+                    Grid.SetColumnSpan(fe, actionsColumn);
+                }
+                else if (Grid.GetRow(fe) == 1 && Grid.GetColumn(fe) == 0 && Grid.GetColumnSpan(fe) > 1)
+                {
+                    Grid.SetColumnSpan(fe, actionsColumn);
+                }
+            }
+        }
+
+        /// <summary>Рекурсивно собирает уже созданные сетки строк баз/заголовков групп по маркеру.</summary>
+        private static List<Grid> FindRowGrids(DependencyObject? root, object marker)
+        {
+            var result = new List<Grid>();
+            FindRowGridsCore(root, marker, result);
+            return result;
+        }
+
+        private static void FindRowGridsCore(DependencyObject? parent, object marker, List<Grid> acc)
+        {
+            if (parent is null)
+                return;
+            if (parent is Grid g && ReferenceEquals(g.Tag, marker))
+                acc.Add(g);
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+                FindRowGridsCore(VisualTreeHelper.GetChild(parent, i), marker, acc);
+        }
+
+        /// <summary>
+        /// Находит первую сетку с указанным маркером внутри <paramref name="root"/>
+        /// (используется для выравнивания заголовка по строке базы).
+        /// </summary>
+        private static Grid? FindGridByMarker(DependencyObject? root, object marker)
+        {
+            if (root is Grid g && ReferenceEquals(g.Tag, marker))
+                return g;
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                var found = FindGridByMarker(VisualTreeHelper.GetChild(root, i), marker);
+                if (found is not null)
+                    return found;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Применяет выбранный порядок колонок к заголовку и всем созданным строкам баз
+        /// и заголовкам групп. Вызывается при старте (после компоновки) и при изменении
+        /// порядка в настройках.
+        /// </summary>
+        private void ApplyColumnOrder()
+        {
+            if (HeaderGrid is not null)
+                ReorderGridColumns(HeaderGrid, HeaderFirstDataColumn);
+            foreach (var grid in FindRowGrids(MainTree, RowGridMarker))
+                ReorderGridColumns(grid, RowFirstDataColumn);
+            foreach (var grid in FindRowGrids(MainTree, GroupGridMarker))
+                ReorderGridColumns(grid, RowFirstDataColumn);
+        }
+
+        /// <summary>
+        /// Обработчик Loaded сетки строки базы в шаблоне: применяет выбранный порядок
+        /// колонок к каждой вновь созданной строке (включая строки, появляющиеся при
+        /// виртуализации/прокрутке дерева).
+        /// </summary>
+        private void OnInfobaseRowGrid_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Grid grid)
+                return;
+            ReorderGridColumns(grid, RowFirstDataColumn);
+            grid.Tag = RowGridMarker;
+        }
+
+        /// <summary>
+        /// Обработчик Loaded сетки заголовка группы в шаблоне: применяет выбранный порядок
+        /// колонок, чтобы команды группы оставались в колонке «Действия» на уровне строк баз.
+        /// </summary>
+        private void OnGroupRowGrid_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Grid grid)
+                return;
+            ReorderGridColumns(grid, RowFirstDataColumn);
+            grid.Tag = GroupGridMarker;
         }
 
         /// <summary>
@@ -1472,6 +1736,9 @@ namespace Configuration_Management
             // Повторное выравнивание после завершения первичной компоновки,
             // когда уже известны реальные размеры контейнеров дерева.
             Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+
+            // Применяем сохранённый пользователем порядок колонок списка баз.
+            Dispatcher.BeginInvoke(new Action(ApplyColumnOrder), System.Windows.Threading.DispatcherPriority.Loaded);
 
             // Применяем сохранённый компактный режим при старте. Делаем это здесь, на
             // событии Loaded, когда визуальное дерево окна уже построено (ApplyCompact
@@ -1525,34 +1792,42 @@ namespace Configuration_Management
 
         /// <summary>
         /// Подстраивает ширину колонки-компенсатора заголовка (HeaderOffsetColumn) так,
-        /// чтобы колонка «Название» заголовка совпадала с колонкой «Название» первой
-        /// видимой строки базы в дереве.
+        /// чтобы первая колонка данных заголовка точно совпадала по горизонтали с первой
+        /// колонкой данных строки базы. Строка базы и заголовок имеют одинаковый набор
+        /// ведущих колонок, поэтому колонки данных всех строк (которые не смещаются
+        /// отступами вложенности) оказываются на одной линии с заголовками.
         /// </summary>
         private void AlignHeaderToData()
         {
-            if (HeaderOffsetColumn is null || MainTree is null)
+            if (HeaderGrid is null || HeaderOffsetColumn is null || MainTree is null)
                 return;
 
             var item = FindFirstInfobaseItem(MainTree);
             if (item is null)
                 return;
 
-            var nameCell = FindNameCell(item);
-            if (nameCell is null)
+            var rowGrid = FindGridByMarker(item, RowGridMarker);
+            if (rowGrid is null)
                 return;
 
-            // Положение колонки «Название» данных относительно дерева (левого края списка).
-            // В заголовке слева: [кнопки развернуть/свернуть 56] + [Offset] + [★ 28] + [📌 26] + Название.
-            // Кнопки — отдельная колонка; Offset только подгоняет выравнивание с деревом.
-            var dataX = nameCell.TranslatePoint(new Point(0, 0), MainTree).X;
-            var depth = CountAncestorTreeViewItems(nameCell);
-            // Сдвиг блока ★/📌/название = (depth-1)*step + ExpanderWidth (26), чтобы ★
-            // совпадала по X с иконкой папки родительской группы.
-            var parentLevel = depth > 0 ? depth - 1 : 0;
-            var nameIndent = parentLevel * GroupTreeIndentStep + GroupTreeExpanderWidth;
-            // Вычитаем [кнопки 56]+[★ 28]+[📌 26]=110 и этот сдвиг → offset≈0.
-            var offset = Math.Max(0, dataX - 110 - nameIndent);
-            HeaderOffsetColumn.Width = new GridLength(offset);
+            // Позиция первой колонки данных строки базы (отсчитывается от левого края сетки).
+            double rowStart = 0;
+            for (var i = 0; i < RowFirstDataColumn; i++)
+                rowStart += rowGrid.ColumnDefinitions[i].ActualWidth;
+            var rowOrigin = rowGrid.TransformToAncestor(this).Transform(new Point(0, 0)).X;
+
+            // Позиция первой колонки данных заголовка без учёта текущей ширины компенсатора Offset.
+            double headerStart = 0;
+            for (var i = 0; i < HeaderFirstDataColumn; i++)
+            {
+                if (!ReferenceEquals(HeaderGrid.ColumnDefinitions[i], HeaderOffsetColumn))
+                    headerStart += HeaderGrid.ColumnDefinitions[i].ActualWidth;
+            }
+            var headerOrigin = HeaderGrid.TransformToAncestor(this).Transform(new Point(0, 0)).X;
+
+            var offset = Math.Max(0, (rowOrigin + rowStart) - (headerOrigin + headerStart));
+            if (Math.Abs(offset - HeaderOffsetColumn.Width.Value) > 0.5)
+                HeaderOffsetColumn.Width = new GridLength(offset);
 
             SyncHeaderWidthWithList();
         }
@@ -2140,6 +2415,8 @@ namespace Configuration_Management
                 return ConfigurationColumn;
             if (ReferenceEquals(sender, LaunchModeSplitter))
                 return LaunchModeColumn;
+            if (ReferenceEquals(sender, ActionsSplitter))
+                return ActionsColumn;
             if (ReferenceEquals(sender, ServerSplitter))
                 return ServerColumn;
             if (ReferenceEquals(sender, LastLaunchSplitter))
@@ -2199,7 +2476,8 @@ namespace Configuration_Management
                 ReferenceEquals(_resizeColumn, ConfigurationColumn) ? newWidth : ConfigurationColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, LaunchModeColumn) ? newWidth : LaunchModeColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, ServerColumn) ? newWidth : ServerColumn?.ActualWidth ?? 0,
-                ReferenceEquals(_resizeColumn, LastLaunchColumn) ? newWidth : LastLaunchColumn?.ActualWidth ?? 0);
+                ReferenceEquals(_resizeColumn, LastLaunchColumn) ? newWidth : LastLaunchColumn?.ActualWidth ?? 0,
+                ReferenceEquals(_resizeColumn, ActionsColumn) ? newWidth : ActionsColumn?.ActualWidth ?? 0);
         }
 
         /// <summary>
@@ -2218,7 +2496,8 @@ namespace Configuration_Management
                     ConfigurationColumn?.ActualWidth ?? 0,
                     LaunchModeColumn?.ActualWidth ?? 0,
                     ServerColumn?.ActualWidth ?? 0,
-                    LastLaunchColumn?.ActualWidth ?? 0);
+                    LastLaunchColumn?.ActualWidth ?? 0,
+                    ActionsColumn?.ActualWidth ?? 0);
                 SyncHeaderWidthWithList();
             }
 

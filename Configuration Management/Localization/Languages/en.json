@@ -306,6 +306,10 @@
     "Settings.Columns.Description": "Visible columns in the infobase table.",
     "Settings.Columns.Configuration": "Configuration (name and version)",
     "Settings.Columns.Size": "Size (file-based)",
+    "Settings.Columns.OrderTitle": "Column order",
+    "Settings.Columns.OrderHint": "Set the left-to-right order of columns in the infobase list (the Name and Actions columns are fixed).",
+    "Settings.Columns.OrderUp": "Up",
+    "Settings.Columns.OrderDown": "Down",
 
     "Settings.Panels.Description": "Right action panel and related options.",
     "Settings.Panels.RightPanelDetails": "Details in the right panel (name, connection, tags)",
@@ -438,7 +442,7 @@
     "Settings.About.Author": "Author: Sivatorov",
     "Settings.About.Infostart": "Publication on Infostart:",
     "Settings.About.GitHub": "GitHub repository:",
-    "Settings.About.HelpText": "Version: 0.3.4.4.\n\nThis is a desktop application for managing 1C:Enterprise 8.3 infobases — a replacement for the standard 1C base list.\n\n• In many windows there is a ? icon next to elements — click it to see a hint about how that element works.\n• A full description of features and architecture is in the README.md file of the repository.",
+    "Settings.About.HelpText": "Version: 0.3.5.2.\n\nThis is a desktop application for managing 1C:Enterprise 8.3 infobases — a replacement for the standard 1C base list.\n\n• In many windows there is a ? icon next to elements — click it to see a hint about how that element works.\n• A full description of features and architecture is in the README.md file of the repository.",
 
     "AddEdit.Title": "Add to list",
     "DeleteInfobase.Title": "Delete infobase",

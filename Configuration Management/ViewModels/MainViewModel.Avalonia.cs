@@ -169,7 +169,8 @@ public class MainViewModel : ViewModelBase
         bool showVersionColumn, bool showConfigurationColumn, bool showLaunchModeColumn,
         bool showServerColumn, bool showLastLaunchColumn, bool showSizeColumn,
         bool showRightPanelDetails, bool showSessionLaunchPanel,
-        bool groupByGroup, bool showEmptyGroups)
+        bool groupByGroup, bool showEmptyGroups,
+        List<string>? columnOrder)
     {
         var previousShowFavoritesButton = _settings.ShowFavoritesButton;
         var previousShowPinnedButton = _settings.ShowPinnedButton;
@@ -180,6 +181,7 @@ public class MainViewModel : ViewModelBase
         var previousShowServerColumn = _settings.ShowServerColumn;
         var previousShowLastLaunchColumn = _settings.ShowLastLaunchColumn;
         var previousShowSizeColumn = _settings.ShowSizeColumn;
+        var previousColumnOrder = _settings.ColumnOrder ?? new List<string>();
         var previousGroupByGroup = _groupByGroup;
         var previousShowEmptyGroups = _showEmptyGroups;
 
@@ -193,6 +195,7 @@ public class MainViewModel : ViewModelBase
         _settings.ShowServerColumn = showServerColumn;
         _settings.ShowLastLaunchColumn = showLastLaunchColumn;
         _settings.ShowSizeColumn = showSizeColumn;
+        _settings.ColumnOrder = columnOrder ?? new List<string>();
         _settings.ShowRightPanelDetails = showRightPanelDetails;
         _settings.ShowSessionLaunchPanel = showSessionLaunchPanel;
         _settings.GroupByGroup = groupByGroup;
@@ -215,7 +218,8 @@ public class MainViewModel : ViewModelBase
             || showLaunchModeColumn != previousShowLaunchModeColumn
             || showServerColumn != previousShowServerColumn
             || showLastLaunchColumn != previousShowLastLaunchColumn
-            || showSizeColumn != previousShowSizeColumn;
+            || showSizeColumn != previousShowSizeColumn
+            || !previousColumnOrder.SequenceEqual(_settings.ColumnOrder);
 
         SaveSettingsSilently();
 
@@ -640,6 +644,22 @@ public class MainViewModel : ViewModelBase
     public event EventHandler? HotkeysChanged;
 
     // ---- Видимость колонок ----
+
+    /// <summary>
+    /// Порядок колонок списка баз по умолчанию (колонка «Конфигурация» в самом
+    /// конце). Используется, пока пользователь не задал собственный порядок.
+    /// </summary>
+    private static readonly string[] DefaultColumnOrder =
+        { "Version", "LaunchMode", "ServerBase", "LastLaunch", "Size", "Configuration" };
+
+    /// <summary>
+    /// Порядок колонок списка баз слева направо (кроме фиксированных колонок
+    /// «Название» и «Действия»). Если порядок не задан или пуст — возвращается
+    /// порядок по умолчанию с колонкой «Конфигурация» в конце.
+    /// </summary>
+    public IReadOnlyList<string> ColumnOrderKeys =>
+        _settings.ColumnOrder is { Count: > 0 } ? _settings.ColumnOrder : DefaultColumnOrder;
+
     public bool ShowExpandCollapseButtons => GroupByGroup;
     public bool ShowFavoritesButton => _settings.ShowFavoritesButton;
     public bool ShowPinnedButton => _settings.ShowPinnedButton;
@@ -3574,6 +3594,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ServerColumnWidth));
         OnPropertyChanged(nameof(LastLaunchColumnWidth));
         OnPropertyChanged(nameof(SizeColumnWidth));
+        OnPropertyChanged(nameof(ColumnOrderKeys));
     }
 
     private void NotifySessionSettings()
