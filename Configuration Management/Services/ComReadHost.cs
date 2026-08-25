@@ -147,11 +147,22 @@ internal static class ComReadHost
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     /// <summary>
-    /// Переменные среды, которыми рантайм включает запись аварийного дампа. У агента
-    /// их гасим: в его памяти в момент падения лежит строка подключения с паролем.
+    /// Переменные среды, которыми рантайм включает запись аварийного дампа или пускает
+    /// в процесс чужой код. У агента их гасим: в его памяти в момент падения лежит строка
+    /// подключения с паролем.
+    /// <para>
+    /// Мера действует по возможности, а не гарантированно. Настоящий <c>__fastfail</c>
+    /// по своему назначению уходит в отчёт мимо обработчиков, а машинную политику
+    /// Windows Error Reporting из падающего процесса не отключить.
+    /// </para>
     /// </summary>
     private static readonly string[] DumpEnvironmentVariables =
     {
+        // Профилировщик и стартовые перехватчики — тоже способ снять память процесса.
+        "CORECLR_ENABLE_PROFILING",
+        "CORECLR_PROFILER",
+        "CORECLR_PROFILER_PATH",
+        "DOTNET_STARTUP_HOOKS",
         "DOTNET_DbgEnableMiniDump",
         "DOTNET_DbgMiniDumpType",
         "DOTNET_DbgMiniDumpName",
@@ -168,8 +179,13 @@ internal static class ComReadHost
     private static readonly UTF8Encoding Utf8Strict = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     private static Process? _agent;
-    private static StreamWriter? _agentInput;
-    private static StreamReader? _agentOutput;
+
+    // Каналы обнуляются в Shutdown и StopAgent вне общего монитора — намеренно, чтобы
+    // закрытие окна не ждало конца текущего чтения. Поэтому доступ к ним объявляем
+    // volatile: иначе упорядоченность записи и чтения держалась бы на модели памяти
+    // конкретной архитектуры, а не на языке.
+    private static volatile StreamWriter? _agentInput;
+    private static volatile StreamReader? _agentOutput;
     private static int _comUnavailable;
     private static int _hardFailures;
     private static int _transportFailures;

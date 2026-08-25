@@ -1239,7 +1239,7 @@
     "Com.MetadataPropertyFailed": "Failed to get the Metadata property from the connection.",
     "Com.MetadataReadFailed": "Failed to read the configuration name/version from Metadata.",
     "Com.DisabledForSession": "The 1C COM connector is unavailable: it was disabled after failures. To try again, run \"Refresh configuration info\" or register the COM connector.",
-    "Com.AgentStartFailedFormat": "Failed to start the helper process for reading configuration info ({0}).",
+    "Com.AgentStartFailed": "Failed to start the helper process for reading configuration info.",
     "Com.AgentCrashedFormat": "The 1C COM connector aborted the helper process (exit code {0}).",
     "Com.AgentCrashedUnknownCode": "The 1C COM connector aborted the helper process.",
     "Com.UnknownCode": "code unknown",

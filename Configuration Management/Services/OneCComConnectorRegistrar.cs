@@ -87,7 +87,18 @@ public sealed class OneCComConnectorRegistrar : IOneCComConnectorRegistrar
         }
 
         // 3. Проверяем фактическую доступность ProgID в текущем процессе (той же разрядности).
-        var progIdVisible = Type.GetTypeFromProgID("V83.COMConnector") != null;
+        // Проверяем весь список, а не один V83: платформа 8.5 регистрирует собственный
+        // ProgID с собственным CLSID, и проверка по V83 объявила бы удачную регистрацию
+        // неудачной — а заодно не дала бы сбросить кэш недоступности.
+        var progIdVisible = false;
+        foreach (var progId in OneCComConnector.KnownProgIds)
+        {
+            if (Type.GetTypeFromProgID(progId) is not null)
+            {
+                progIdVisible = true;
+                break;
+            }
+        }
         string? note = null;
         if (!progIdVisible && items.Count > 0)
         {

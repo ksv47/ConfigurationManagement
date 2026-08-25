@@ -234,7 +234,13 @@ public sealed class OneCComConnector : IOneCComConnector
         // добавляло бы в журнал по строке на каждую оставшуюся базу — защёлка такие отказы
         // намеренно не считает и поток записей не останавливает.
         if (!alreadyDisabled && !ComReadHost.IsShuttingDown)
-            _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{infobase.Name}»: {LastError}");
+        {
+            // Внутреннее имя шага в журнал добавляем, а в сообщение пользователю — нет.
+            var trace = result.Failure == ComFailureKind.AgentStart && !string.IsNullOrEmpty(result.Detail)
+                ? $" ({result.Detail})"
+                : string.Empty;
+            _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{infobase.Name}»: {LastError}{trace}");
+        }
 
         return null;
     }
@@ -247,8 +253,10 @@ public sealed class OneCComConnector : IOneCComConnector
     private static string DescribeFailure(ComReadResult result, bool hasSecret) => result.Failure switch
     {
         ComFailureKind.Disabled => LocalizationManager.T("Com.DisabledForSession"),
-        ComFailureKind.AgentStart => string.Format(
-            LocalizationManager.T("Com.AgentStartFailedFormat"), result.Detail ?? string.Empty),
+        // Подробность здесь — внутреннее имя шага («Process.Start», «dotnet host»). Оно
+        // помогает разбирать отказ по журналу, но пользователю в диалоге не говорит ничего,
+        // и переводу не подлежит, поэтому в сообщение не идёт: в журнал его пишут отдельно.
+        ComFailureKind.AgentStart => LocalizationManager.T("Com.AgentStartFailed"),
         // Код возврата известен не всегда: если процесс придерживает Windows Error
         // Reporting, снять его не удаётся. Показывать «(код возврата )» нельзя.
         ComFailureKind.AgentCrashed => string.IsNullOrEmpty(result.Detail)
@@ -413,8 +421,10 @@ public sealed class OneCComConnector : IOneCComConnector
     }
 
     /// <summary>
-    /// Возвращает описание наличия ProgID V83.COMConnector в реестре (64-битное и 32-битное представления),
-    /// чтобы отличить «платформа не установлена» от «несоответствие разрядности».
+    /// Возвращает описание наличия ProgID COM-коннектора 1С в реестре (64-битное и 32-битное
+    /// представления), чтобы отличить «платформа не установлена» от «несоответствие разрядности».
+    /// Проверяется весь список известных ProgID: у платформы 8.5 он свой, и проверка по одному
+    /// V83 объявляла бы установленную 8.5 отсутствующей.
     /// </summary>
     private static string DescribeProgIdStatus()
     {
@@ -435,12 +445,19 @@ public sealed class OneCComConnector : IOneCComConnector
         try
         {
             using var classesRoot = RegistryKey.OpenBaseKey(RegistryHive.ClassesRoot, view);
-            using var progIdKey = classesRoot?.OpenSubKey("V83.COMConnector");
-            if (progIdKey is null) return false;
-            var clsid = progIdKey.GetValue("CLSID")?.ToString();
-            if (string.IsNullOrWhiteSpace(clsid)) return false;
-            using var clsidKey = classesRoot?.OpenSubKey($"CLSID\\{clsid}");
-            return clsidKey is not null;
+            if (classesRoot is null) return false;
+
+            foreach (var progId in KnownProgIds)
+            {
+                using var progIdKey = classesRoot.OpenSubKey(progId);
+                var clsid = progIdKey?.GetValue("CLSID")?.ToString();
+                if (string.IsNullOrWhiteSpace(clsid)) continue;
+
+                using var clsidKey = classesRoot.OpenSubKey($"CLSID\\{clsid}");
+                if (clsidKey is not null) return true;
+            }
+
+            return false;
         }
         catch
         {
@@ -627,14 +644,14 @@ public sealed class OneCComConnector : IOneCComConnector
         {
             case ConnectionType.File:
                 if (string.IsNullOrWhiteSpace(c.FilePath)) return string.Empty;
-                sb.Append("File=\"").Append(c.FilePath.Trim().TrimEnd('\\', '/')).Append("\";");
+                AppendParameter(sb, "File", c.FilePath.Trim().TrimEnd('\\', '/'));
                 break;
 
             case ConnectionType.ClientServer:
                 if (string.IsNullOrWhiteSpace(c.Server) || string.IsNullOrWhiteSpace(c.DatabaseName))
                     return string.Empty;
-                sb.Append("Srvr=\"").Append(c.GetServerWithPort()).Append("\";");
-                sb.Append("Ref=\"").Append(c.DatabaseName).Append("\";");
+                AppendParameter(sb, "Srvr", c.GetServerWithPort());
+                AppendParameter(sb, "Ref", c.DatabaseName);
                 break;
 
             default:
@@ -645,14 +662,29 @@ public sealed class OneCComConnector : IOneCComConnector
         if (c.AuthenticationMode == AuthenticationMode.Credentials
             && !string.IsNullOrWhiteSpace(c.User))
         {
-            sb.Append("Usr=\"").Append(c.User).Append("\";");
+            AppendParameter(sb, "Usr", c.User);
             if (!string.IsNullOrWhiteSpace(c.Password))
             {
-                sb.Append("Pwd=\"").Append(c.Password).Append("\";");
+                AppendParameter(sb, "Pwd", c.Password);
                 hasSecret = true;
             }
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Добавляет параметр строки подключения, экранируя значение.
+    /// <para>
+    /// Кавычка внутри значения удваивается — это правило самой грамматики строки подключения 1С.
+    /// Без экранирования значение может закрыть себя и дописать любой другой параметр: путь вида
+    /// <c>C:\Base";Pwd=…;x="</c> добавлял в строку пароль, о котором вызывающий не знал. От этого
+    /// ломались сразу две вещи: подключение к базе, в пароле которой есть кавычка, и признак
+    /// наличия пароля, на котором держится решение о показе текста ошибки 1С.
+    /// </para>
+    /// </summary>
+    private static void AppendParameter(StringBuilder sb, string name, string value)
+    {
+        sb.Append(name).Append("=\"").Append(value.Replace("\"", "\"\"")).Append("\";");
     }
 }
