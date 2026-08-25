@@ -105,7 +105,33 @@ internal static class ComReadHost
     private const int SelfExitGraceMs = 3000;
 
     private static readonly object Sync = new();
+
+    /// <summary>
+    /// Короткий монитор только для состояния защёлки. Отдельный от <see cref="Sync"/>:
+    /// тот удерживается всё время запроса, а состояние меняется в том числе из потока
+    /// интерфейса. Держится наносекунды и никогда — во время ввода-вывода, поэтому
+    /// заморозить интерфейс не может. Раньше поля менялись по отдельности атомарными
+    /// записями, и между проверкой поколения и записью защёлки оставалась щель, в которую
+    /// проваливалась команда пользователя.
+    /// </summary>
+    private static readonly object StateLock = new();
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
+
+    /// <summary>
+    /// Переменные среды, которыми рантайм включает запись аварийного дампа. У агента
+    /// их гасим: в его памяти в момент падения лежит строка подключения с паролем.
+    /// </summary>
+    private static readonly string[] DumpEnvironmentVariables =
+    {
+        "DOTNET_DbgEnableMiniDump",
+        "DOTNET_DbgMiniDumpType",
+        "DOTNET_DbgMiniDumpName",
+        "DOTNET_CreateDumpDiagnostics",
+        "DOTNET_EnableCrashReport",
+        "COMPlus_DbgEnableMiniDump",
+        "COMPlus_DbgMiniDumpType",
+        "COMPlus_DbgMiniDumpName"
+    };
 
     /// <summary>Строгий декодер: недопустимую последовательность нельзя молча превращать в U+FFFD.</summary>
     private static readonly UTF8Encoding Utf8Strict = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
@@ -129,7 +155,10 @@ internal static class ComReadHost
     /// COM признан неработоспособным в этой сессии. Дальнейшие попытки пропускаются
     /// без запуска процессов, пока не будет вызван <see cref="ResetAvailability"/>.
     /// </summary>
-    public static bool ComUnavailable => Volatile.Read(ref _comUnavailable) != 0;
+    public static bool ComUnavailable
+    {
+        get { lock (StateLock) return _comUnavailable != 0; }
+    }
 
     /// <summary>
     /// Снимает признак недоступности: явные действия пользователя (регистрация коннектора,
@@ -139,14 +168,37 @@ internal static class ComReadHost
     /// </summary>
     public static void ResetAvailability()
     {
-        // Монитор здесь брать нельзя: он удерживается всё время запроса, а метод вызывается
-        // из потока интерфейса по команде пользователя — окно замирало бы на время текущего
-        // чтения ровно тогда, когда пользователь пытается COM починить. Поколение поднимаем
-        // первым: летящий запрос, отказавший уже после сброса, увидит расхождение и не
-        // защёлкнет недоступность обратно.
-        Interlocked.Increment(ref _resetEpoch);
-        Volatile.Write(ref _comUnavailable, 0);
-        Interlocked.Exchange(ref _consecutiveFailures, 0);
+        lock (StateLock)
+        {
+            _resetEpoch++;
+            _comUnavailable = 0;
+            _consecutiveFailures = 0;
+        }
+    }
+
+    /// <summary>Текущее поколение сброса — снимок на время запроса.</summary>
+    private static int CurrentEpoch()
+    {
+        lock (StateLock) return _resetEpoch;
+    }
+
+    /// <summary>Успешное чтение обнуляет счётчик отказов.</summary>
+    private static void NoteSuccess()
+    {
+        lock (StateLock) _consecutiveFailures = 0;
+    }
+
+    /// <summary>
+    /// Глушит COM, если с начала запроса не было сброса. Отдельный метод нужен для
+    /// разрядов, которые защёлкивают сразу, без накопления счётчика.
+    /// </summary>
+    private static void LatchIfSameEpoch(int epoch)
+    {
+        lock (StateLock)
+        {
+            if (_resetEpoch == epoch)
+                _comUnavailable = 1;
+        }
     }
 
     // ---------------------------------------------------------------- сторона родителя
@@ -169,7 +221,7 @@ internal static class ComReadHost
         if (ComUnavailable)
             return ComReadResult.Fail(ComFailureKind.Disabled);
 
-        var epoch = Volatile.Read(ref _resetEpoch);
+        var epoch = CurrentEpoch();
 
         lock (Sync)
         {
@@ -180,6 +232,12 @@ internal static class ComReadHost
 
             if (!EnsureAgent(out var startDetail))
             {
+                // Закрытие приложения — не отказ COM. Иначе на выходе во время фонового
+                // дочитывания каждая следующая база писала бы в журнал ложную ошибку
+                // запуска и приближала защёлку.
+                if (Volatile.Read(ref _shuttingDown) != 0)
+                    return ComReadResult.Fail(ComFailureKind.Transport);
+
                 // Систематический отказ запуска — тоже отказ: иначе на списке из десятков баз
                 // мы будем пытаться и писать в журнал по разу на каждую, и так каждый старт.
                 return RegisterFailure(epoch, ComFailureKind.AgentStart, startDetail);
@@ -238,16 +296,17 @@ internal static class ComReadHost
                     // Ответ не от нашего запроса. Дальше соответствие «запрос — ответ» уже
                     // не восстановить, а молча продолжать нельзя: сведения о конфигурации
                     // начали бы приписываться чужим базам без единого признака ошибки.
+                    // Считаем отказом: систематический мусор в потоке агента иначе давал бы
+                    // бесконечную череду перезапусков процесса без всякого ограничителя.
                     StopAgent(graceMs: 0);
-                    return ComReadResult.Fail(ComFailureKind.Transport);
+                    return RegisterFailure(epoch, ComFailureKind.Transport, null);
                 }
 
                 switch (result.Failure)
                 {
                     case ComFailureKind.NotRegistered:
                         // Отсутствие коннектора само не изменится — глушим и убираем агента.
-                        if (Volatile.Read(ref _resetEpoch) == epoch)
-                            Volatile.Write(ref _comUnavailable, 1);
+                        LatchIfSameEpoch(epoch);
                         StopAgent(graceMs: 0);
                         break;
 
@@ -263,7 +322,7 @@ internal static class ComReadHost
                         // Счётчик сбрасывает только успех. Сбрасывать его на любой ответ
                         // означало бы, что на чередующемся списке двух отказов подряд
                         // не наберётся никогда.
-                        Interlocked.Exchange(ref _consecutiveFailures, 0);
+                        NoteSuccess();
                         break;
                 }
 
@@ -272,7 +331,12 @@ internal static class ComReadHost
             catch (Exception ex)
             {
                 StopAgent(graceMs: 0);
-                return ComReadResult.Fail(ComFailureKind.Transport, ex.Message);
+
+                // Обрыв канала при закрытии приложения отказом не считаем.
+                if (Volatile.Read(ref _shuttingDown) != 0)
+                    return ComReadResult.Fail(ComFailureKind.Transport);
+
+                return RegisterFailure(epoch, ComFailureKind.Transport, ex.Message);
             }
         }
     }
@@ -297,12 +361,13 @@ internal static class ComReadHost
     /// <summary>Учитывает отказ и решает, пора ли глушить COM на сессию.</summary>
     private static ComReadResult RegisterFailure(int epoch, ComFailureKind kind, string? detail)
     {
-        // Сброс, случившийся после начала запроса, отменяет право этого запроса защёлкивать:
+        // Проверка поколения и изменение счётчика — одной неделимой операцией. Сброс,
+        // случившийся после начала запроса, отменяет право этого запроса защёлкивать:
         // пользователь уже попросил попробовать снова.
-        if (Volatile.Read(ref _resetEpoch) == epoch
-            && Interlocked.Increment(ref _consecutiveFailures) >= FailuresBeforeLatch)
+        lock (StateLock)
         {
-            Volatile.Write(ref _comUnavailable, 1);
+            if (_resetEpoch == epoch && ++_consecutiveFailures >= FailuresBeforeLatch)
+                _comUnavailable = 1;
         }
 
         return ComReadResult.Fail(kind, detail);
@@ -353,6 +418,13 @@ internal static class ComReadHost
             StandardOutputEncoding = Utf8NoBom,
             StandardErrorEncoding = Utf8NoBom
         };
+
+        // Агент наследует окружение родителя, а рантайм умеет писать дамп по переменным
+        // среды. В памяти агента в момент падения лежит строка подключения с паролем,
+        // поэтому диагностические дампы у него отключаем принудительно — независимо от
+        // того, что настроено снаружи для основного приложения.
+        foreach (var variable in DumpEnvironmentVariables)
+            psi.Environment[variable] = string.Empty;
 
         // Запуск через `dotnet App.dll`: ProcessPath указывает на dotnet.exe, и одного ключа мало.
         if (IsDotnetHost(host))
@@ -607,8 +679,11 @@ internal static class ComReadHost
             }
             catch (Exception ex)
             {
-                // Секрета здесь нет: если запрос не разобрался, вырезать нечего.
-                response = ResultPrefix + seq + "\tERR\tDBERR\t" + Encode(ex.Message);
+                // Секрет здесь по построению не встречается, но полагаться на это нельзя:
+                // достаточно будущей правки, которая положит строку запроса в текст
+                // исключения. Режем и тут — секрет уже раскодирован рядом.
+                var secret = parts.Length > 3 ? Decode(parts[3]) : null;
+                response = ResultPrefix + seq + "\tERR\tDBERR\t" + Encode(Redact(ex.Message, secret));
             }
 
             output.WriteLine(response);
@@ -632,10 +707,14 @@ internal static class ComReadHost
 
         var info = ReadInProcess(connectString, timeoutMs, out var kind, out var detail);
 
+        // Имя и версию конфигурации не режем: они приходят из Metadata и строку подключения
+        // содержать не могут, а вырезание по совпадению портило их до неузнаваемости —
+        // числовой пароль превращал версию «1.2.1» в «***.2.***», и это сохранялось в данные.
+        // Резать нужно только текст ошибки, который приходит от 1С в свободной форме.
         return info is null
             ? ResultPrefix + seq + "\tERR\t" + KindToToken(kind) + "\t" + Encode(Redact(detail, secret))
-            : ResultPrefix + seq + "\tOK\t" + Encode(Redact(info.Value.Name, secret))
-              + "\t" + Encode(Redact(info.Value.Version, secret));
+            : ResultPrefix + seq + "\tOK\t" + Encode(info.Value.Name)
+              + "\t" + Encode(info.Value.Version);
     }
 
     /// <summary>
@@ -744,11 +823,16 @@ internal static class ComReadHost
                 }
                 catch (Exception ex)
                 {
-                    // Ошибка подключения к конкретной базе. Перебор продолжаем, как это
-                    // делал прежний ConnectCore: у V83 может быть повреждён диспетчер,
-                    // а рядом стоять работоспособный V82. Диагноз сохраняем.
+                    // Ошибка подключения к конкретной базе — перебор прекращаем.
+                    // Продолжать нельзя: на машине с двумя коннекторами один неверный
+                    // пароль давал бы две-три неудачные аутентификации на сервере 1С,
+                    // втрое быстрее набивая счётчик блокировки учётной записи, а итоговый
+                    // диагноз доставался бы от последнего ProgID — про базу 8.3 пользователь
+                    // читал бы сообщение от V81. Случай «коннектор непригоден» уже покрыт
+                    // веткой InstanceFailed, которая срабатывает до Connect.
                     localKind = ComFailureKind.DatabaseError;
                     localDetail = (ex.InnerException ?? ex).Message;
+                    return;
                 }
                 finally
                 {

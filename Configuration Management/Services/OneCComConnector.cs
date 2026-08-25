@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using Configuration_Management.Localization;
@@ -195,7 +195,17 @@ public sealed class OneCComConnector : IOneCComConnector
 
         // Пароль передаём отдельно: агент вырежет его из текста ошибки 1С буквальным
         // вхождением ещё до отправки, поэтому секрет не попадёт даже в канал обмена.
-        var result = ComReadHost.Read(connectString, infobase.Connection?.Password, timeoutMs);
+        // Но только если он там действительно есть: BuildComConnectString вставляет Pwd
+        // не всегда (нужен режим «по логину и паролю» и заполненный пользователь), а
+        // вырезание постороннего значения портило бы ответ. Проверяем по факту вхождения,
+        // а не повторением условий сборки — иначе условия разъедутся при первой же правке.
+        var password = infobase.Connection?.Password;
+        var secret = !string.IsNullOrWhiteSpace(password)
+                     && connectString.Contains(password, StringComparison.Ordinal)
+            ? password
+            : null;
+
+        var result = ComReadHost.Read(connectString, secret, timeoutMs);
         if (result.Failure == ComFailureKind.None && result.Info is not null)
         {
             LastError = null;
@@ -438,17 +448,33 @@ public sealed class OneCComConnector : IOneCComConnector
                 continue;
             }
 
-            var end = SkipSpaces(text, i + name.Length) + 1; // пропускаем '='
-            var quoted = end < text.Length && text[end] == '"';
+            var afterEq = SkipSpaces(text, i + name.Length) + 1; // за знаком равенства
+            var quoteAt = SkipSpaces(text, afterEq);
+            int end;
 
-            // Закавыченное значение (так строит BuildComConnectString) тянем до разделителя:
-            // внутри кавычек может быть что угодно, включая сами кавычки. Незакавыченное
-            // встречается только в свободном тексте от 1С, и там значение обрывается ещё
-            // и пробелом — иначе маска съедала бы всю оставшуюся диагностику.
-            while (end < text.Length
-                   && text[end] != ';' && text[end] != '\r' && text[end] != '\n'
-                   && (quoted || !char.IsWhiteSpace(text[end])))
-                end++;
+            if (quoteAt < text.Length && text[quoteAt] == '"')
+            {
+                // Закавыченное значение — так строит BuildComConnectString. Кавычки внутри
+                // значения он не экранирует, поэтому на их баланс полагаться нельзя: тянем
+                // до последней кавычки, за которой идёт разделитель или конец текста.
+                // Искать нужно по всему остатку, а не в пределах строки: перевод строки
+                // может стоять внутри самого значения. Прежнее правило «до первого ;»
+                // отдавало наружу хвост такого пароля.
+                var close = FindClosingQuote(text, quoteAt + 1);
+                end = close >= 0 ? close + 1 : text.Length;
+            }
+            else
+            {
+                // Незакавыченное значение встречается только в свободном тексте от 1С.
+                // Начинается сразу за знаком равенства и обрывается пробелом: пропускать
+                // пробелы после «=» нельзя, иначе в прозе «Pwd= is required» маска
+                // съедала бы следующее слово.
+                end = afterEq;
+                while (end < text.Length && text[end] != ';'
+                       && text[end] != '\r' && text[end] != '\n'
+                       && !char.IsWhiteSpace(text[end]))
+                    end++;
+            }
 
             sb.Append(name).Append("=***");
             i = end;
@@ -491,6 +517,24 @@ public sealed class OneCComConnector : IOneCComConnector
         while (i < text.Length && (text[i] == ' ' || text[i] == '\t'))
             i++;
         return i;
+    }
+
+    /// <summary>
+    /// Последняя кавычка, за которой идёт разделитель или конец текста. Именно она
+    /// закрывает значение, даже если внутри него встречались кавычки, точки с запятой
+    /// или переводы строк. −1, если такой кавычки нет (значение не закрыто).
+    /// </summary>
+    private static int FindClosingQuote(string text, int from)
+    {
+        var found = -1;
+        for (var i = from; i < text.Length; i++)
+        {
+            if (text[i] != '"')
+                continue;
+            if (i + 1 >= text.Length || text[i + 1] == ';')
+                found = i;
+        }
+        return found;
     }
 
     /// <summary>
