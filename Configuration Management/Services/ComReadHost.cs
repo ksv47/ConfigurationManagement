@@ -321,25 +321,52 @@ internal static class ComReadHost
                     timeoutMs.ToString(CultureInfo.InvariantCulture),
                     Encode(connectString)));
 
-                var pending = Task.Run(() => output.ReadLine());
-                // Задачу мы можем бросить, не дождавшись. Штатно она завершается сама
-                // (закрытый канал даёт null), но наблюдателя вешаем на случай исключения:
-                // иначе оно всплывёт в TaskScheduler.UnobservedTaskException, а тот
-                // показывает пользователю диалог о фатальной ошибке.
-                _ = pending.ContinueWith(static t => _ = t.Exception,
-                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+                // Диагноз, присланный агентом до гибели. Перебор ProgID идёт внутри агента,
+                // и коннектор, опрошенный раньше, успевает назвать настоящую причину — а
+                // следующий обрывает процесс нативным fast-fail и уносит её с собой. Родитель
+                // придерживает такую причину и предъявляет её вместо голого «агент завершился».
+                ComReadResult? partial = null;
+                var deadline = Environment.TickCount64 + timeoutMs + AgentGraceMs;
+                string? line;
 
-                if (!pending.Wait(timeoutMs + AgentGraceMs))
+                while (true)
                 {
-                    // Живой агент отвечает сам не позже собственного Join(timeoutMs), поэтому
-                    // молчание дольше бюджета означает, что агента уже нет. Ждать закрытия
-                    // канала нельзя: на машинах с включённым Windows Error Reporting упавший
-                    // процесс удерживается, и EOF приходит через десятки секунд — крах
-                    // выглядел бы обычным таймаутом, и защёлка не сработала бы никогда.
-                    return AgentGone(epoch, StopAgent(SelfExitGraceMs));
+                    var remaining = (int)(deadline - Environment.TickCount64);
+
+                    var pending = Task.Run(() => output.ReadLine());
+                    // Задачу мы можем бросить, не дождавшись. Штатно она завершается сама
+                    // (закрытый канал даёт null), но наблюдателя вешаем на случай исключения:
+                    // иначе оно всплывёт в TaskScheduler.UnobservedTaskException, а тот
+                    // показывает пользователю диалог о фатальной ошибке.
+                    _ = pending.ContinueWith(static t => _ = t.Exception,
+                        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+
+                    if (remaining <= 0 || !pending.Wait(remaining))
+                    {
+                        // Живой агент отвечает сам не позже собственного Join(timeoutMs), поэтому
+                        // молчание дольше бюджета означает, что агента уже нет. Ждать закрытия
+                        // канала нельзя: на машинах с включённым Windows Error Reporting упавший
+                        // процесс удерживается, и EOF приходит через десятки секунд — крах
+                        // выглядел бы обычным таймаутом, и защёлка не сработала бы никогда.
+                        var gone = AgentGone(epoch, StopAgent(SelfExitGraceMs));
+                        return partial ?? gone;
+                    }
+
+                    line = pending.Result;
+                    if (line is null)
+                        break;
+
+                    var frame = ParseResponse(line, seq, out var badFrame, out var isPartial);
+                    if (badFrame || !isPartial)
+                    {
+                        // Кадр окончательный (или испорченный) — разбираем его обычным путём ниже.
+                        break;
+                    }
+
+                    // Промежуточный диагноз: запоминаем последний и ждём окончательного ответа.
+                    partial = frame;
                 }
 
-                var line = pending.Result;
                 if (line is null)
                 {
                     // Закрытие приложения тоже обрывает канал. Это не отказ COM: считать
@@ -348,10 +375,11 @@ internal static class ComReadHost
                     if (Volatile.Read(ref _shuttingDown) != 0)
                         return ComReadResult.Fail(ComFailureKind.Transport);
 
-                    return AgentGone(epoch, StopAgent(SelfExitGraceMs));
+                    var gone = AgentGone(epoch, StopAgent(SelfExitGraceMs));
+                    return partial ?? gone;
                 }
 
-                var result = ParseResponse(line, seq, out var desynchronized);
+                var result = ParseResponse(line, seq, out var desynchronized, out _);
                 if (desynchronized)
                 {
                     // Ответ не от нашего запроса. Дальше соответствие «запрос — ответ» уже
@@ -641,9 +669,17 @@ internal static class ComReadHost
         return exitCode;
     }
 
-    private static ComReadResult ParseResponse(string line, int expectedSeq, out bool desynchronized)
+    /// <summary>
+    /// Разбирает кадр ответа агента.
+    /// <paramref name="isPartial"/> — промежуточный диагноз: перебор ProgID ещё идёт, и агент
+    /// присылает уже полученную причину заранее, на случай если следующий коннектор оборвёт
+    /// процесс. Такой кадр не завершает запрос.
+    /// </summary>
+    private static ComReadResult ParseResponse(
+        string line, int expectedSeq, out bool desynchronized, out bool isPartial)
     {
         desynchronized = false;
+        isPartial = false;
 
         if (!line.StartsWith(ResultPrefix, StringComparison.Ordinal))
         {
@@ -676,8 +712,14 @@ internal static class ComReadHost
             return ComReadResult.Ok(new OneCConfigInfo(name, version));
         }
 
-        if (parts.Length == 5 && string.Equals(parts[1], "ERR", StringComparison.Ordinal))
+        // Промежуточный кадр отличается только меткой: поля те же, что у ошибки.
+        var partialFrame = parts.Length == 5
+            && string.Equals(parts[1], "PARTIAL", StringComparison.Ordinal);
+
+        if (parts.Length == 5 && (partialFrame || string.Equals(parts[1], "ERR", StringComparison.Ordinal)))
         {
+            isPartial = partialFrame;
+
             // Поля ошибки разбираем так же строго, как поля успеха: повреждённое
             // содержимое — это сбой обмена, а не пустая подробность.
             if (!TryDecode(parts[3], out var errCode) || !TryDecode(parts[4], out var errText))
@@ -815,7 +857,7 @@ internal static class ComReadHost
             string response;
             try
             {
-                response = HandleRequest(parts, seq);
+                response = HandleRequest(parts, seq, output);
             }
             catch (Exception ex)
             {
@@ -826,7 +868,7 @@ internal static class ComReadHost
         }
     }
 
-    private static string HandleRequest(string[] parts, string seq)
+    private static string HandleRequest(string[] parts, string seq, StreamWriter output)
     {
         // Формат запроса: seq \t timeoutMs \t base64(строка подключения). Ровно три поля.
         // Пароль агенту не передаётся: решение, показывать ли текст ошибки, принимает родитель.
@@ -844,7 +886,15 @@ internal static class ComReadHost
         if (!TryDecode(parts[2], out var connectString) || connectString.Length == 0)
             return Error(seq, "BADREQ", null, null);
 
-        var info = ReadInProcess(connectString, timeoutMs, out var kind, out var detail, out var code);
+        // Промежуточные диагнозы отправляем сразу: следующий ProgID может оборвать процесс,
+        // и уже полученная причина иначе пропала бы вместе с ним. Пишет их поток COM, пока
+        // главный ждёт его в Join, так что одновременной записи в поток не бывает.
+        void SendPartial(string progId, string text, string errCode) =>
+            output.WriteLine(ResultPrefix + seq + "	PARTIAL	DBERR	"
+                + Encode(errCode) + "	" + Encode(progId + ": " + text));
+
+        var info = ReadInProcess(
+            connectString, timeoutMs, SendPartial, out var kind, out var detail, out var code);
 
         // Имя и версия конфигурации приходят из Metadata и строку подключения содержать
         // не могут — их отдаём как есть.
@@ -968,7 +1018,7 @@ internal static class ComReadHost
     /// который мы и изолируем. ProgID перебираются, как в OneCComConnector.KnownProgIds.
     /// </summary>
     private static OneCConfigInfo? ReadInProcess(
-        string connectString, int timeoutMs,
+        string connectString, int timeoutMs, Action<string, string, string>? onPartial,
         out ComFailureKind kind, out string? detail, out string? code)
     {
         OneCConfigInfo? result = null;
@@ -1083,9 +1133,12 @@ internal static class ComReadHost
                     // Текст берём с того же уровня, что и код: иначе пользователь получал бы
                     // «Exception has been thrown by the target of an invocation», а код
                     // рядом — от совсем другого исключения.
-                    dbErrors.Add((progId, Deepest(ex).Message, Hresult(ex)));
+                    var text = Deepest(ex).Message;
+                    var errCode = Hresult(ex);
+                    dbErrors.Add((progId, text, errCode));
                     Promote(ref rank, ComFailureKind.DatabaseError);
                     localKind = ComFailureKind.DatabaseError;
+                    try { onPartial?.Invoke(progId, text, errCode); } catch { /* канал закрыт */ }
 
                     // Перебор продолжаем на любой ошибке подключения — так же, как в исходном
                     // ConnectCore. Отсеивать по разряду отказа нельзя: база 8.2 через V83 даёт
