@@ -1288,7 +1288,7 @@ namespace Configuration_Management
         private Control BuildRightPanel()
         {
             // Компактная правая панель: primary-запуски на всю ширину, вторичные
-            // действия — в двухколоночной сетке, секции без тяжёлых карточек.
+            // действия — списком в один столбец, секции без тяжёлых карточек.
             var panel = new StackPanel
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -1372,8 +1372,8 @@ namespace Configuration_Management
             // Очистка кеша (split) — на всю ширину, затем сетка вторичных действий.
             panel.Children.Add(BuildClearCacheSplitButton());
 
-            // Двухколоночная сетка вторичных действий: экономит вертикальное место.
-            panel.Children.Add(BuildActionGrid(
+            // Вторичные действия списком, как в версии для Windows.
+            panel.Children.Add(BuildActionList(
                 CompactActionButton("IconEdit", LocalizationManager.T("Main.EditSettings"), "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")),
                 CompactActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
                 CompactActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
@@ -1424,38 +1424,29 @@ namespace Configuration_Management
         /// Равномерно заполняет ширину и заметно экономит вертикальное место
         /// по сравнению со стеком полноширинных secondary-кнопок.
         /// </summary>
-        private static Control BuildActionGrid(params Control[] buttons)
+        private static Control BuildActionList(params Control[] buttons)
         {
-            var gap = UiMetrics.ActionGridGap;
-            var grid = new UniformGrid
+            // Кнопки идут в один столбец, как в версии для Windows. Двухколоночная
+            // раскладка экономила высоту, но подписи в неё не помещались ни при
+            // какой ширине панели: при её пределе 340 на ячейку остаётся около 160
+            // пикселей, а «Ярлык на рабочем столе» требует почти 190, и подпись
+            // обрывалась на середине слова.
+            var stack = new StackPanel
             {
-                Columns = 2,
+                Orientation = Orientation.Vertical,
+                Spacing = UiMetrics.ActionGridGap,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
 
-            // UniformGrid не поддерживает Spacing в старых версиях Avalonia —
-            // оборачиваем каждую кнопку в контейнер с симметричным отступом.
             foreach (var btn in buttons)
-            {
-                var wrap = new Border
-                {
-                    Child = btn,
-                    Margin = new Thickness(gap / 2)
-                };
-                grid.Children.Add(wrap);
-            }
+                stack.Children.Add(btn);
 
-            // Компенсируем внешние половины gap, чтобы сетка совпадала с краями панели.
-            return new Border
-            {
-                Child = grid,
-                Margin = new Thickness(-gap / 2)
-            };
+            return stack;
         }
 
         /// <summary>
         /// Компактная кнопка действия правой панели: иконка + текст, низкая высота,
-        /// растягивается на ячейку сетки. Подходит для 2-колоночного layout.
+        /// растягивается на всю ширину панели.
         /// </summary>
         private static Control CompactActionButton(string iconKey, string text, string commandPath, string tooltip)
         {
@@ -1481,12 +1472,12 @@ namespace Configuration_Management
         /// <summary>Компактное содержимое кнопки: иконка + подпись меньшего размера.</summary>
         private static Control CompactIconAndText(string iconKey, string text, string brushKey)
         {
-            var sp = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 6,
-                VerticalAlignment = VerticalAlignment.Center
-            };
+            // Сеткой, а не горизонтальной панелью: панель меряет подпись
+            // бесконечной шириной, поэтому обрезка многоточием не срабатывает
+            // и длинный текст вылезает за кнопку вместо того, чтобы сократиться.
+            var sp = new Grid { ColumnSpacing = 6, VerticalAlignment = VerticalAlignment.Center };
+            sp.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            sp.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             sp.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.ActionIconSize, brushKey));
             var tb = new TextBlock
             {
@@ -1497,6 +1488,7 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
             ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+            Grid.SetColumn(tb, 1);
             sp.Children.Add(tb);
             return sp;
         }
