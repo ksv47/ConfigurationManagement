@@ -5,6 +5,13 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.4.3] — 2026-08-25
+
+### Исправлено
+
+- **Надписи в компактном режиме стали нечитаемо мелкими (обе платформы)**. В компактном режиме шрифты сжимались тем же агрессивным коэффициентом, что и геометрия (`Scale = 0.8` в Avalonia и единый `factor = 0.7` в WPF), из-за чего мелкие подписи «проваливались» до 8–10px. Теперь для текста введён отдельный, более мягкий коэффициент 0.9 — геометрия (отступы, иконки, поля) сжимается как раньше, а надписи уменьшаются лишь на 10% и остаются читаемыми. **Linux/Avalonia**: добавлен [`FontScale`](Configuration Management/Controls/UiMetrics.Avalonia.cs) и метод `ScaledFont(...)` в [`UiMetrics.Avalonia.cs`](Configuration Management/Controls/UiMetrics.Avalonia.cs), все шрифтовые вызовы в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs) переведены на `ScaledFont(...)`, увеличены размеры шрифта имени базы и вторичной информации в строке списка. **Windows/WPF**: в [`ThemeManager.cs`](Configuration Management/Themes/ThemeManager.cs) добавлен отдельный коэффициент `fontFactor` для шрифтов (0.9), тогда как отступы и ширины колонок по-прежнему сжимаются на 0.7.
+- **Версия обновлена до 0.3.4.3** (`InformationalVersion` = 0.3.4.3 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.4.2] — 2026-08-25
 
 ### Исправлено

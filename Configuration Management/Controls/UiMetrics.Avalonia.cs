@@ -53,6 +53,17 @@ namespace Configuration_Management.Controls
         /// <summary>Масштабирует значение на коэффициент компактного режима.</summary>
         public static double Scaled(double value) => value * Scale;
 
+        /// <summary>
+        /// Коэффициент масштабирования шрифтов при компактном режиме. Задаётся мягче,
+        /// чем <see cref="Scale"/> для геометрии: отступы и иконки сжимаются сильнее,
+        /// а текст остаётся читаемым (при общем Scale=0.8 мелкие надписи становились
+        /// практически неразличимыми).
+        /// </summary>
+        public static double FontScale => Compact ? 0.9 : 1.0;
+
+        /// <summary>Масштабирует размер шрифта на коэффициент компактного режима.</summary>
+        public static double ScaledFont(double value) => value * FontScale;
+
         /// <summary>Вертикальный отступ верхней панели.</summary>
         public static double TopBarV => Compact ? 6 : 10;
         /// <summary>Горизонтальный отступ верхней панели.</summary>
@@ -92,9 +103,9 @@ namespace Configuration_Management.Controls
         /// <summary>Размер самой иконки статуса внутри подложки.</summary>
         public static double RowIcon => Compact ? 14 : 20;
         /// <summary>Размер шрифта имени базы в строке списка.</summary>
-        public static double RowNameFont => Compact ? 13 : 14;
+        public static double RowNameFont => Compact ? 13.5 : 14;
         /// <summary>Размер шрифта вторичной информации в строке списка.</summary>
-        public static double RowSecondaryFont => Compact ? 10 : 11;
+        public static double RowSecondaryFont => 11;
 
         /// <summary>Минимальная ширина правой панели сведений.</summary>
         public static double RightPanelMin => Compact ? 220 : 280;

@@ -419,7 +419,7 @@ namespace Configuration_Management
         {
             var button = new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush")
             {
-                Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", UiMetrics.Scaled(15), centered: false),
+                Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", UiMetrics.ScaledFont(15), centered: false),
                 Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
@@ -436,7 +436,7 @@ namespace Configuration_Management
                 "SecondaryButtonPressedBrush",
                 "BorderColorBrush")
             {
-                Content = ThemedIconAndText(iconKey, text, "ButtonTextBrush", UiMetrics.Scaled(15), centered: false),
+                Content = ThemedIconAndText(iconKey, text, "ButtonTextBrush", UiMetrics.ScaledFont(15), centered: false),
                 Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
@@ -1082,7 +1082,7 @@ namespace Configuration_Management
             var text = new TextBlock
             {
                 Text = tag,
-                FontSize = UiMetrics.Scaled(10),
+                FontSize = UiMetrics.ScaledFont(10),
                 VerticalAlignment = VerticalAlignment.Center,
                 MaxWidth = UiMetrics.Scaled(180),
                 TextTrimming = TextTrimming.CharacterEllipsis
@@ -1150,7 +1150,7 @@ namespace Configuration_Management
             var text = new TextBlock
             {
                 Text = LocalizationManager.T("Main.AddTagShort"),
-                FontSize = UiMetrics.Scaled(10),
+                FontSize = UiMetrics.ScaledFont(10),
                 VerticalAlignment = VerticalAlignment.Center
             };
             ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush");
@@ -1298,7 +1298,7 @@ namespace Configuration_Management
             // Заголовок базы
             var nameBlock = new TextBlock
             {
-                FontSize = UiMetrics.Scaled(15),
+                FontSize = UiMetrics.ScaledFont(15),
                 FontWeight = FontWeight.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             };
@@ -1306,7 +1306,7 @@ namespace Configuration_Management
 
             var groupBlock = new TextBlock
             {
-                FontSize = UiMetrics.Scaled(11.5),
+                FontSize = UiMetrics.ScaledFont(11.5),
                 Opacity = 0.7,
                 TextWrapping = TextWrapping.Wrap
             };
@@ -1334,7 +1334,7 @@ namespace Configuration_Management
             // как в WPF: там она видна, пока база не выбрана.
             var hintBlock = new TextBlock
             {
-                FontSize = UiMetrics.Scaled(11.5),
+                FontSize = UiMetrics.ScaledFont(11.5),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.7,
                 Margin = new Thickness(0, 0, 0, 4)
@@ -1406,7 +1406,7 @@ namespace Configuration_Management
             panel.Children.Add(BuildSessionCard());
 
             // Описание.
-            var desc = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = UiMetrics.Scaled(12) };
+            var desc = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = UiMetrics.ScaledFont(12) };
             desc.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.Description"));
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.Description"), "IconInfo", desc));
 
@@ -1503,7 +1503,7 @@ namespace Configuration_Management
             var hint = new TextBlock
             {
                 Text = LocalizationManager.T("Main.SessionOnceHint"),
-                FontSize = UiMetrics.Scaled(11),
+                FontSize = UiMetrics.ScaledFont(11),
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 6)
             };
@@ -1535,7 +1535,7 @@ namespace Configuration_Management
             var block = new TextBlock
             {
                 Text = text,
-                FontSize = UiMetrics.Scaled(11),
+                FontSize = UiMetrics.ScaledFont(11),
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 6, 0, 2)
             };
@@ -1550,7 +1550,7 @@ namespace Configuration_Management
             {
                 Content = text,
                 GroupName = group,
-                FontSize = UiMetrics.Scaled(12),
+                FontSize = UiMetrics.ScaledFont(12),
                 Margin = new Thickness(0, 1)
             };
             option.Bind(RadioButton.IsCheckedProperty, new Binding(propertyPath) { Mode = BindingMode.TwoWay });
@@ -1593,7 +1593,7 @@ namespace Configuration_Management
             var titleBlock = new TextBlock
             {
                 Text = title,
-                FontSize = UiMetrics.Scaled(12),
+                FontSize = UiMetrics.ScaledFont(12),
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -1613,7 +1613,7 @@ namespace Configuration_Management
         {
             var btn = new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush")
             {
-                Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", UiMetrics.Scaled(18), centered: true),
+                Content = ThemedIconAndText(iconKey, text, "TextOnAccentBrush", UiMetrics.ScaledFont(18), centered: true),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Margin = new Thickness(0, 0, 0, UiMetrics.SectionMarginBottom),
@@ -1713,7 +1713,7 @@ namespace Configuration_Management
             var arrowGlyph = new TextBlock
             {
                 Text = "▾",
-                FontSize = UiMetrics.Scaled(12),
+                FontSize = UiMetrics.ScaledFont(12),
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
@@ -1759,7 +1759,7 @@ namespace Configuration_Management
 
             var contentBrush = primary ? "TextOnAccentBrush" : "ButtonTextBrush";
             main.Content = ThemedIconAndText(iconKey, text, contentBrush,
-                primary ? UiMetrics.Scaled(16) : UiMetrics.ActionIconSize, centered: primary);
+                primary ? UiMetrics.ScaledFont(16) : UiMetrics.ActionIconSize, centered: primary);
             main.HorizontalContentAlignment = primary ? HorizontalAlignment.Center : HorizontalAlignment.Left;
             main.HorizontalAlignment = HorizontalAlignment.Stretch;
             main.MinHeight = UiMetrics.ActionButtonMinHeight + (primary ? 4 : 0);
@@ -1795,7 +1795,7 @@ namespace Configuration_Management
             var arrowGlyph = new TextBlock
             {
                 Text = "▾",
-                FontSize = UiMetrics.Scaled(12),
+                FontSize = UiMetrics.ScaledFont(12),
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
@@ -1844,7 +1844,7 @@ namespace Configuration_Management
             var labelBlock = new TextBlock
             {
                 Text = label,
-                FontSize = UiMetrics.Scaled(11.5),
+                FontSize = UiMetrics.ScaledFont(11.5),
                 Opacity = 0.7
             };
             grid.Children.Add(labelBlock);
@@ -1852,7 +1852,7 @@ namespace Configuration_Management
 
             var valueBlock = new TextBlock
             {
-                FontSize = UiMetrics.Scaled(11.5),
+                FontSize = UiMetrics.ScaledFont(11.5),
                 TextWrapping = TextWrapping.Wrap
             };
             valueBlock.Bind(TextBlock.TextProperty, binding);
@@ -2943,7 +2943,7 @@ namespace Configuration_Management
             var block = new TextBlock
             {
                 Text = text,
-                FontSize = UiMetrics.Scaled(12),
+                FontSize = UiMetrics.ScaledFont(12),
                 FontWeight = FontWeight.SemiBold,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center
@@ -2964,7 +2964,7 @@ namespace Configuration_Management
             _tagClearButton = new Button
             {
                 Content = ThemedIconAndText("IconClose", LocalizationManager.T("Main.ClearTagFilters"),
-                    "ButtonTextBrush", UiMetrics.Scaled(12), centered: false),
+                    "ButtonTextBrush", UiMetrics.ScaledFont(12), centered: false),
                 Padding = new Thickness(8, 2),
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
@@ -2977,7 +2977,7 @@ namespace Configuration_Management
             // иначе переключатель «теги» выглядел бы неработающим. Раскладка как
             // в WPF-версии: подсказка и кнопка сброса сверху, чипы тегов под ними.
             var hint = ThemedIconAndText("IconTag", LocalizationManager.T("Main.TagFilterTitle"),
-                "TextSecondaryBrush", UiMetrics.Scaled(12), centered: false);
+                "TextSecondaryBrush", UiMetrics.ScaledFont(12), centered: false);
             hint.HorizontalAlignment = HorizontalAlignment.Left;
 
             var header = new Grid();
