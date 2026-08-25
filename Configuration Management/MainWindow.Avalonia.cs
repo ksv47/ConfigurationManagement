@@ -259,6 +259,12 @@ namespace Configuration_Management
             addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
             actions.Children.Add(addBtn);
 
+            // Очистить кеш выбранной базы: перенесено в верхнюю панель команд,
+            // действует на SelectedInfobase (недоступна, если база не выбрана).
+            var clearCacheBtn = TopBarIconButton("IconDelete", LocalizationManager.T("Main.ClearCacheTooltip"));
+            clearCacheBtn.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
+            actions.Children.Add(clearCacheBtn);
+
             var syncBtn = TopBarSecondaryButton("IconSync", LocalizationManager.T("Main.Sync"), LocalizationManager.T("Main.SyncWithIbases"));
             syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
             actions.Children.Add(syncBtn);
@@ -270,6 +276,38 @@ namespace Configuration_Management
             var settingsBtn = TopBarSecondaryButton("IconSettings", LocalizationManager.T("Main.Settings"), LocalizationManager.T("Main.SettingsTooltip"));
             settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
             actions.Children.Add(settingsBtn);
+
+            // Проверить доступность всех баз 1С: ручная команда вместо автопроверки при запуске.
+            // Иконка — зелёный гидролокатор (сонар), как экран на подводных лодках.
+            var checkAvailBtn = new PanelButton(
+                "SecondaryButtonBackgroundBrush",
+                "SecondaryButtonHoverBrush",
+                "SecondaryButtonPressedBrush",
+                "BorderColorBrush")
+            {
+                Content = new Path
+                {
+                    Width = UiMetrics.Scaled(16),
+                    Height = UiMetrics.Scaled(16),
+                    Data = IconHelper.Geometry("IconSonar"),
+                    Stretch = Stretch.Uniform,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Fill = new SolidColorBrush(Color.Parse("#14B8A6"))
+                },
+                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
+                HorizontalContentAlignment = HorizontalAlignment.Center
+            };
+            ToolTip.SetTip(checkAvailBtn, LocalizationManager.T("Main.CheckAvailabilityTooltip"));
+            checkAvailBtn.Bind(Button.CommandProperty, new Binding("CheckAvailabilityCommand"));
+            actions.Children.Add(checkAvailBtn);
+
+            // Подсказка «?»: справа, после всех команд верхней панели.
+            actions.Children.Add(new HelpLink
+            {
+                HelpText = LocalizationManager.T("Main.BaseListHelp"),
+                Margin = new Thickness(4, 0, 0, 0)
+            });
 
             grid.Children.Add(actions);
             Grid.SetColumn(actions, 3);
@@ -859,32 +897,89 @@ namespace Configuration_Management
 
         private Control BuildGroupRow(GroupNodeViewModel group)
         {
+            // Высота оформления группы и расстояние между группами берутся из метрик:
+            // в компактном режиме вертикальный padding заголовка и внешний отступ
+            // уменьшаются, чтобы группы занимали меньше места.
             var header = new Border
             {
                 CornerRadius = new CornerRadius(UiMetrics.RadiusSm),
-                Padding = new Thickness(6, 3),
-                Margin = new Thickness(0, 1)
+                Padding = new Thickness(6, UiMetrics.GroupHeaderPadV),
+                Margin = new Thickness(0, UiMetrics.GroupHeaderMarginV)
             };
             header.Bind(Border.BackgroundProperty, new Binding("HeaderBrush") { Source = group });
 
             // Имя и счётчик привязаны к узлу, а не подставлены строкой: состав узла
             // меняется и без пересборки дерева (закрепление базы), и тогда готовый
             // текст остался бы со старым числом.
-            var caption = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            var caption = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center
+            };
 
+            // Имя группы наследует применяемый к интерфейсу шрифт; в компактном режиме
+            // размер задаётся явно и уменьшается, чтобы строки групп были плотнее.
             var text = new TextBlock { FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            if (UiMetrics.Compact)
+                text.FontSize = UiMetrics.GroupNameFont;
             text.Bind(TextBlock.TextProperty, new Binding("DisplayName") { Source = group });
             text.Bind(TextBlock.ForegroundProperty, new Binding("HeaderTextBrush") { Source = group });
             caption.Children.Add(text);
 
             var count = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+            if (UiMetrics.Compact)
+                count.FontSize = UiMetrics.GroupNameFont;
             count.Bind(TextBlock.TextProperty,
                 new Binding("TotalInfobaseCount") { Source = group, StringFormat = "({0})" });
             count.Bind(TextBlock.ForegroundProperty, new Binding("HeaderTextBrush") { Source = group });
             caption.Children.Add(count);
 
-            header.Child = caption;
+            // Действия группы: «Изменить группу» и «Удалить группу» в правой зоне,
+            // той же ширины, что колонка «Действия» строк базы и заголовка.
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
+            row.Children.Add(caption);
+
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            actions.Children.Add(GroupRowActionButton(group, "IconEdit", "EditGroupCommand", LocalizationManager.T("Main.EditGroupTooltip")));
+            actions.Children.Add(GroupRowActionButton(group, "IconDelete", "DeleteGroupCommand", LocalizationManager.T("Main.DeleteGroupTooltip")));
+            Grid.SetColumn(actions, 1);
+            row.Children.Add(actions);
+
+            header.Child = row;
             return header;
+        }
+
+        /// <summary>
+        /// Кнопка действия в колонке «Действия» строки группы: иконка, команда из вьюмодели,
+        /// параметром служит узел группы строки.
+        /// </summary>
+        private Button GroupRowActionButton(GroupNodeViewModel group, string iconKey, string commandPath, string tooltip)
+        {
+            var button = new Button
+            {
+                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush"),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(4),
+                MinWidth = 0,
+                MinHeight = 0,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Cursor = new Cursor(StandardCursorType.Hand),
+                CommandParameter = group
+            };
+            ToolTip.SetTip(button, tooltip);
+            // Команда живёт во вьюмодели, а контекстом строки служит узел группы.
+            button.Bind(Button.CommandProperty, new Binding(commandPath) { Source = _vm });
+            return button;
         }
 
         private Control BuildInfobaseRow(Infobase ib)
@@ -915,6 +1010,10 @@ namespace Configuration_Management
             foreach (var column in columns)
                 grid.ColumnDefinitions.Add(
                     new ColumnDefinition { Width = new GridLength(column.Width), MinWidth = MinColumnWidth });
+
+            // Колонка «Действия»: фиксированная, кнопки управления конкретной базой строки.
+            // Ширина должна совпадать с колонкой «Действия» заголовка (см. RefreshColumnHeader).
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
 
             if (showFavorite)
             {
@@ -1011,6 +1110,24 @@ namespace Configuration_Management
                 grid.Children.Add(cell);
                 Grid.SetColumn(cell, i + 4);
             }
+
+            // Кнопки действий в колонке «Действия» (последняя): запуск, конфигуратор,
+            // изменить настройки, очистить кеш, удалить — по аналогии с WPF.
+            var actionsCol = grid.ColumnDefinitions.Count - 1;
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Spacing = 1
+            };
+            actions.Children.Add(RowActionButton(ib, "IconPlay", "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
+            actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
+            actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
+            actions.Children.Add(RowActionButton(ib, "IconDelete", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
+            actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip")));
+            grid.Children.Add(actions);
+            Grid.SetColumn(actions, actionsCol);
 
             if (_vm?.ShowTags == true)
             {
@@ -1243,6 +1360,31 @@ namespace Configuration_Management
             return button;
         }
 
+        /// <summary>
+        /// Кнопка действия в колонке «Действия» строки базы: иконка, команда из вьюмодели,
+        /// параметром служит сама информационная база строки.
+        /// </summary>
+        private Button RowActionButton(Infobase ib, string iconKey, string commandPath, string tooltip)
+        {
+            var button = new Button
+            {
+                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush"),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(4),
+                MinWidth = 0,
+                MinHeight = 0,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Cursor = new Cursor(StandardCursorType.Hand),
+                CommandParameter = ib
+            };
+            ToolTip.SetTip(button, tooltip);
+            // Команда живёт во вьюмодели, а контекстом строки служит сама база.
+            button.Bind(Button.CommandProperty, new Binding(commandPath) { Source = _vm });
+            return button;
+        }
+
         /// <summary>Освобождение по вызову действия: снятие подписки на событие модели.</summary>
         private sealed class ActionDisposable : IDisposable
         {
@@ -1344,7 +1486,8 @@ namespace Configuration_Management
             panel.Children.Add(header);
             panel.Children.Add(hintBlock);
 
-            // Основное действие (primary) — акцентная кнопка запуска.
+            // Запуск 1С:Предприятие (primary) — акцентная кнопка запуска с меню
+            // дополнительных вариантов.
             panel.Children.Add(BuildLaunchSplitButton(
                 "IconPlay",
                 LocalizationManager.T("Main.LaunchEnterprise"),
@@ -1369,20 +1512,14 @@ namespace Configuration_Management
                     (LocalizationManager.T("Main.LaunchWithParams"), "LaunchConfiguratorWithParamsCommand")
                 }));
 
-            // Очистка кеша (split) — на всю ширину, затем сетка вторичных действий.
-            panel.Children.Add(BuildClearCacheSplitButton());
-
-            // Вторичные действия списком, как в версии для Windows.
+            // Остальные действия («Очистить кеш», «Изменить настройки», «Удалить»,
+            // «Добавить») перенесены в колонку «Действия» строк базы и верхнюю панель
+            // команд. Здесь остаются вторичные действия списком.
             panel.Children.Add(BuildActionList(
-                CompactActionButton("IconEdit", LocalizationManager.T("Main.EditSettings"), "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")),
                 CompactActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
                 CompactActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
                 CompactActionButton("IconWeb", LocalizationManager.T("LinkInput.Title"), "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip")),
-                CompactActionButton("IconAdd", LocalizationManager.T("Main.AddBaseOrGroup"), "AddInfobaseCommand", LocalizationManager.T("Main.AddBaseOrGroupTooltip")),
-                CompactActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand", LocalizationManager.T("Main.DesktopShortcutTooltip")),
-                CompactActionButton("IconFavorite", LocalizationManager.T("Main.ToFavorites"), "ToggleFavoriteCommand", LocalizationManager.T("Main.ToggleFavoriteTooltip")),
-                CompactActionButton("IconPin", LocalizationManager.T("Main.Pin"), "TogglePinCommand", LocalizationManager.T("Main.PinBaseTooltip")),
-                CompactActionButton("IconDelete", LocalizationManager.T("Main.Delete"), "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"))
+                CompactActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand", LocalizationManager.T("Main.DesktopShortcutTooltip"))
             ));
 
             // Информация о подключении.
@@ -2162,6 +2299,9 @@ namespace Configuration_Management
         /// <summary>Ширина колонки булавки «закреплено» в заголовке и в строке базы.</summary>
         private static double PinColumnWidth => UiMetrics.Scaled(24);
 
+        /// <summary>Ширина фиксированной колонки «Действия» в заголовке и в строке базы.</summary>
+        private static double ActionsColumnWidth => UiMetrics.Scaled(170);
+
         /// <summary>
         /// Ширина колонки иконки базы: сама иконка и её правый отступ. В заголовке
         /// эта колонка пустая, но она есть, иначе подпись «Название» стояла бы
@@ -2327,6 +2467,9 @@ namespace Configuration_Management
                 _columnHeaderRow.ColumnDefinitions.Add(
                     new ColumnDefinition { Width = new GridLength(column.Width), MinWidth = MinColumnWidth });
 
+            // Колонка «Действия»: фиксированная, совпадает по ширине с колонкой строки базы.
+            _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
+
             _headerPinMark = null;
             if (_vm.ShowPinnedButton)
             {
@@ -2371,6 +2514,11 @@ namespace Configuration_Management
                 var grip = BuildResizeGrip(columns[i].Key, NameHeaderColumn + 1 + i);
                 _columnHeaderRow.Children.Add(grip);
             }
+
+            // Подпись колонки «Действия» — в последней колонке, без разделителя.
+            var actionsHeader = HeaderText(LocalizationManager.T("Column.Actions"));
+            _columnHeaderRow.Children.Add(actionsHeader);
+            Grid.SetColumn(actionsHeader, _columnHeaderRow.ColumnDefinitions.Count - 1);
 
             UpdateListMinWidth();
 
@@ -3033,6 +3181,7 @@ namespace Configuration_Management
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             _statusInfo = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
             _statusInfo.Bind(TextBlock.TextProperty, new Binding("StatusBarInfo"));
@@ -3044,11 +3193,17 @@ namespace Configuration_Management
             grid.Children.Add(_syncMessage);
             Grid.SetColumn(_syncMessage, 1);
 
+            var sessionToggleBtn = new Button { Content = IconHelper.MakeIcon("IconRecent", 16), Margin = new Thickness(4, 0, 0, 0) };
+            ToolTip.SetTip(sessionToggleBtn, LocalizationManager.T("Main.CurrentSession"));
+            sessionToggleBtn.Bind(Button.CommandProperty, new Binding("ToggleSessionLaunchPanelCommand"));
+            grid.Children.Add(sessionToggleBtn);
+            Grid.SetColumn(sessionToggleBtn, 2);
+
             var toggleBtn = new Button { Content = IconHelper.MakeIcon("IconPanel", 16), Margin = new Thickness(4, 0, 0, 0) };
             ToolTip.SetTip(toggleBtn, LocalizationManager.T("Main.RightPanel"));
             toggleBtn.Bind(Button.CommandProperty, new Binding("ToggleRightPanelDetailsCommand"));
             grid.Children.Add(toggleBtn);
-            Grid.SetColumn(toggleBtn, 2);
+            Grid.SetColumn(toggleBtn, 3);
 
             return new Border { Child = grid, Name = "StatusBarBorder", Padding = new Thickness(UiMetrics.TopBarH, 6) };
         }

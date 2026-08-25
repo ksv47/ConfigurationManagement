@@ -29,11 +29,15 @@ public class GroupOffsetConverter : IMultiValueConverter
     {
         var level = values.Length > 0 && values[0] is int i ? i : 0;
         var hasItems = values.Length > 1 && values[1] is bool b && b;
+        // В компактном режиме вертикальный зазор между группами убирается почти полностью,
+        // чтобы группы располагались плотнее (сохраняется только горизонтальный отступ уровня).
+        var compact = values.Length > 2 && values[2] is bool cb && cb;
         // У групп с дочерними элементами отступ уже обеспечивает кнопка разворота.
         // У пустых (листовых) групп компенсируем отсутствие кнопки, чтобы иерархия сохранялась.
         var offset = hasItems ? 0d : level * IndentStep + ExpanderWidth;
-        // Вертикальный 1px — как прежний Margin="0,1" у заголовка группы
-        return new Thickness(offset, 1, 0, 1);
+        // Вертикальный 1px — как прежний Margin="0,1" у заголовка группы (в компактном — 0).
+        var vert = compact ? 0d : 1d;
+        return new Thickness(offset, vert, 0, vert);
     }
 
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
