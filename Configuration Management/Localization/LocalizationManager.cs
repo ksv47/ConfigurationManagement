@@ -148,11 +148,11 @@ public sealed class LocalizationManager
     }
 
     /// <summary>Устанавливает активный язык и уведомляет подписчиков.</summary>
-    public void SetLanguage(string code)
+    public void SetLanguage(string? code)
     {
         Console.Error.WriteLine("[l10n-debug] SetLanguage(requested=" + (code ?? "null") + ", current=" + CurrentLanguage + ")");
 
-        if (!_languages.TryGetValue(code, out var lang))
+        if (code is null || !_languages.TryGetValue(code, out var lang))
             lang = _languages.TryGetValue(BuiltInRussian, out var ru) ? ru : _languages.Values.FirstOrDefault();
 
         if (lang is null)

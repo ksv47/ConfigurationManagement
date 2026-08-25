@@ -5,6 +5,13 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.4.2] — 2026-08-25
+
+### Исправлено
+
+- **Устранено предупреждение компилятора CS8604 (nullable) в [`LocalizationManager.cs`](Configuration Management/Localization/LocalizationManager.cs)**. Параметр `SetLanguage` (`code`) фактически мог принимать `null` (метод уже корректно обрабатывал это через `code ?? "null"` в диагностической строке), но `code` передавался в `Dictionary<string, LanguageFile>.TryGetValue` с non-nullable ключом, из-за чего сборка `Release` выдавала предупреждение «Возможно, аргумент-ссылка, допускающий значение NULL, для параметра "key"». Параметр объявлен как `string?`, перед поиском языка добавлена явная проверка `code is null`. Сборки `Debug` и `Release` теперь выполняются без ошибок и предупреждений (0 ошибок, 0 предупреждений).
+- **Версия обновлена до 0.3.4.2** (`InformationalVersion` = 0.3.4.2 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.4.1] — 2026-08-24
 
 ### Добавлено

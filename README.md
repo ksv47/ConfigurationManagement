@@ -1,8 +1,8 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.4.1-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.4.2-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.4.1**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.4.2**
 
 **Управление конфигурациями 1С** — это кроссплатформенное настольное приложение на платформе **.NET** (**WPF** на Windows и **Avalonia 11** на Linux), которое заменяет стандартный список баз 1С и предоставляет современный интерфейс для работы с информационными базами: запуск в режимах «1С:Предприятие» и «Конфигуратор», вкладки **Все базы / Избранное / Недавние**, иерархические группы, избранное с `Alt+1…9`, мультифильтр по тегам, очистка кеша, синхронизация с `ibases.v8i`, системный трей, светлая и тёмная темы. Одна кодовая база собирается под обе ОС: `net10.0-windows` (WPF) на Windows и `net10.0` (Avalonia) на Linux.
 
