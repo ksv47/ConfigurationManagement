@@ -1680,7 +1680,7 @@
                                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Main.Type}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionTypeDisplay}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
@@ -1702,6 +1702,8 @@
                                 <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding SelectedInfobase.LaunchParameters}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="9" Grid.Column="0" Text="{loc:Loc Main.LastLaunch}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
                                 <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding SelectedInfobase.LastLaunchDisplay}" FontSize="12" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="10" Grid.Column="0" Text="{loc:Loc Main.CacheSize}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding SelectedInfobase.CacheSizeDisplay}" FontSize="12" Margin="0,0,0,5"/>
                             </Grid>
 
                             <TextBlock Text="{loc:Loc Main.Description}" FontWeight="SemiBold" FontSize="12"

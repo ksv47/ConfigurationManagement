@@ -5,6 +5,16 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.4.15] — 2026-08-25
+
+### Добавлено
+
+- **Размер кеша выбранной базы отображается в правой панели главного окна (обе платформы)**. В блок сведений о подключении добавлена строка **«Размер кеша»**: WPF — [`MainWindow.xaml`](Configuration Management/MainWindow.xaml), Linux/Avalonia — [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs). Значение вычисляется асинхронно в фоновом потоке при выборе базы (метод `RefreshCacheSizeAsync` в [`Infobase.cs`](Configuration Management/Models/Infobase.cs), вызов из `SelectedInfobase` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs)) и показывается в человекочитаемом виде с локализованными единицами (Б/КБ/МБ/ГБ/ТБ или B/KB/MB/GB/TB); пока размер не определён, выводится «…». Добавлен ключ локализации `Main.CacheSize` в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.15** (`InformationalVersion` = 0.3.4.15 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.4.14] — 2026-08-25
 
 ### Добавлено

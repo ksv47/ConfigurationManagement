@@ -482,6 +482,9 @@ public class MainViewModel : ViewModelBase
                     _lastSelectedInfobaseId = value.Id ?? string.Empty;
                     _lastSelectedGroupPath = string.Empty;
                     ScheduleSaveSettings();
+
+                    // Размер кеша 1С вычисляется в фоне и отображается в правой панели.
+                    value.RefreshCacheSizeAsync();
                 }
 
                 CommandManager.InvalidateRequerySuggested();
