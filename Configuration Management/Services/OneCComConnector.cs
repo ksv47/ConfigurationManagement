@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -16,9 +17,19 @@ public sealed class OneCComConnector : IOneCComConnector
 {
     private readonly IAppLogger _logger;
 
-    /// <summary>ProgID COM-коннекторов 1С в порядке приоритета (от новых версий к старым).</summary>
+    /// <summary>
+    /// ProgID COM-коннекторов 1С в порядке приоритета (от новых версий к старым).
+    /// <para>
+    /// V85 добавлен: у платформы 8.5 собственный ProgID и собственный CLSID, прежний список
+    /// её не находил вовсе. Порядок важен вдвойне — некоторые сборки коннектора 8.3.27
+    /// (проверены 8.3.27.2130 и 8.3.27.2214) обрывают процесс нативным fast-fail на вызове
+    /// Connect, поэтому исправный V85 должен опрашиваться раньше них. Замерено, что коннектор
+    /// 8.5 читает базы 8.3 с тем же результатом, что и исправная сборка 8.3.
+    /// </para>
+    /// </summary>
     public static readonly string[] KnownProgIds =
     {
+        "V85.COMConnector",
         "V83.COMConnector",
         "V82.COMConnector",
         "V81.COMConnector"
@@ -218,7 +229,11 @@ public sealed class OneCComConnector : IOneCComConnector
         // Если есть — текст не выпускаем вовсе. Никаких догадок о том, что процитировала 1С.
         LastError = MaskCredentials(DescribeFailure(result, hasSecret));
 
-        if (!alreadyDisabled)
+        // На выходе из приложения писать в журнал нечего: отказ вызван нашим же закрытием,
+        // а не состоянием COM. Без этой проверки закрытие окна во время фонового дочитывания
+        // добавляло бы в журнал по строке на каждую оставшуюся базу — защёлка такие отказы
+        // намеренно не считает и поток записей не останавливает.
+        if (!alreadyDisabled && !ComReadHost.IsShuttingDown)
             _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{infobase.Name}»: {LastError}");
 
         return null;
@@ -368,14 +383,17 @@ public sealed class OneCComConnector : IOneCComConnector
             }
             catch (Exception ex)
             {
-                LastError = string.Format(
-                    LocalizationManager.T("Com.ConnectFailedFormat"), progId, MaskCredentials(ex.Message));
-                // Ни строку подключения, ни само исключение в журнал не отдаём. Строка не
-                // экранирована, и маскировка на ней принципиально ненадёжна — пароль с кавычкой,
-                // точкой с запятой или переводом строки пробивает любое правило разбора.
-                // Исключение передавать нельзя отдельно: логгер дописывает Message как есть,
-                // а именно этот текст 1С и умеет процитировать строкой подключения целиком.
-                _logger.Error($"COM-подключение через {progId} не удалось: {MaskCredentials(ex.Message)}");
+                // Ни строки подключения, ни текста ошибки 1С здесь не выпускаем — только
+                // опознавательные сведения об исключении. Текст 1С умеет процитировать строку
+                // подключения целиком, а строка не экранирована, поэтому маскировка на ней
+                // принципиально ненадёжна: пароль с кавычкой или разделителем пробивает любое
+                // правило разбора. Исключение нельзя и просто передать логгеру — тот дописывает
+                // Message как есть.
+                var reason = ex.GetType().Name + (ex.HResult == 0
+                    ? string.Empty
+                    : " 0x" + ex.HResult.ToString("X8", CultureInfo.InvariantCulture));
+                LastError = string.Format(LocalizationManager.T("Com.ConnectFailedFormat"), progId, reason);
+                _logger.Error($"COM-подключение через {progId} не удалось: {reason}");
                 // Пробуем следующий ProgID.
                 TryComRelease(connection);
                 TryComRelease(connector);
@@ -501,15 +519,14 @@ public sealed class OneCComConnector : IOneCComConnector
             }
             else
             {
-                // Незакавыченное значение встречается только в свободном тексте от 1С.
-                // Начинается сразу за знаком равенства и обрывается пробелом: пропускать
-                // пробелы после «=» нельзя, иначе в прозе «Pwd= is required» маска
-                // съедала бы следующее слово.
-                end = afterEq;
-                while (end < text.Length && text[end] != ';'
-                       && text[end] != '\r' && text[end] != '\n'
-                       && !char.IsWhiteSpace(text[end]))
-                    end++;
+                // Незакавыченную форму не трогаем. Пароль в строку подключения всегда кладётся
+                // в кавычках, поэтому здесь маскировать нечего, а вреда достаточно: путь вида
+                // «D:\Базы\Pwd=1\buh» — допустимое имя каталога, и правило «до пробела или
+                // разделителя» уничтожало бы хвост пути вместе с диагностикой у базы, у которой
+                // пароля нет вовсе.
+                sb.Append(text[i]);
+                i++;
+                continue;
             }
 
             sb.Append(name).Append("=***");

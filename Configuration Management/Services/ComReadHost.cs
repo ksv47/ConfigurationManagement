@@ -1,5 +1,6 @@
 #if WINDOWS
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -27,6 +28,13 @@ internal enum ComFailureKind
     Timeout,
     /// <summary>Сбой обмена с агентом (протокол, каналы).</summary>
     Transport,
+    /// <summary>
+    /// Агент не смог разобрать запрос. Разряд отдельный, а не общий с <see cref="Transport"/>:
+    /// у <see cref="Transport"/> подробность печатается пользователю дословно, поэтому он не
+    /// должен приезжать по протоколу вовсе — иначе подделанный кадр вынес бы произвольный
+    /// текст мимо решения о показе пароля.
+    /// </summary>
+    BadRequest,
     /// <summary>Ни один из известных ProgID не зарегистрирован.</summary>
     NotRegistered,
     /// <summary>ProgID зарегистрирован, но экземпляр коннектора создать не удалось.</summary>
@@ -183,6 +191,13 @@ internal static class ComReadHost
     {
         get { lock (StateLock) return _comUnavailable != 0; }
     }
+
+    /// <summary>
+    /// Приложение закрывается. Отказы, случившиеся после этого, не отражают состояние COM
+    /// и в журнал не пишутся: на выходе во время фонового дочитывания списка каждая
+    /// оставшаяся база иначе добавляла бы туда по строке.
+    /// </summary>
+    public static bool IsShuttingDown => Volatile.Read(ref _shuttingDown) != 0;
 
     /// <summary>
     /// Снимает признак недоступности: явные действия пользователя (регистрация коннектора,
@@ -351,6 +366,13 @@ internal static class ComReadHost
                         // на каждом старте — защёлка это никогда не останавливала.
                         return RegisterFailure(epoch, result.Failure, result.Detail, result.Code);
 
+                    case ComFailureKind.BadRequest:
+                        // Агент не понял запрос. Оставлять его нельзя: если он не понимает
+                        // протокол, не поймёт и следующий запрос, а без учёта отказа поток
+                        // непонятых запросов шёл бы бесконечно и без ограничителя.
+                        StopAgent(graceMs: 0);
+                        return RegisterFailure(epoch, result.Failure, null);
+
                     case ComFailureKind.None:
                         // Счётчик сбрасывает только успех. Сбрасывать его на любой ответ
                         // означало бы, что на чередующемся списке двух отказов подряд
@@ -411,7 +433,9 @@ internal static class ComReadHost
         // Счётчики раздельные. Общий с двумя порогами давал результат, зависящий от порядка:
         // один разовый сбой канала поднимал счётчик, и следующий настоящий крах защёлкивал
         // COM по жёсткому порогу, хотя ни один из разрядов своего порога не достиг.
-        var soft = kind is ComFailureKind.Transport or ComFailureKind.Timeout;
+        var soft = kind is ComFailureKind.Transport
+                        or ComFailureKind.Timeout
+                        or ComFailureKind.BadRequest;
 
         lock (StateLock)
         {
@@ -431,6 +455,15 @@ internal static class ComReadHost
 
         return ComReadResult.Fail(kind, detail, code);
     }
+
+    /// <summary>
+    /// Путь к сборке точки входа. Нужен только при запуске через <c>dotnet App.dll</c>;
+    /// в однофайловой публикации возвращает пустую строку, и вызывающий это учитывает.
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage(
+        "SingleFile", "IL3000:Avoid accessing Assembly file path when publishing as a single file",
+        Justification = "Ветка достижима только при запуске через dotnet.exe, где сборка не встроена; пустой результат обработан вызывающим.")]
+    private static string? EntryAssemblyLocation() => Assembly.GetEntryAssembly()?.Location;
 
     /// <summary>Код возврата для показа. Null — код неизвестен, это отдельный случай.</summary>
     private static string? FormatExitCode(int? exitCode) =>
@@ -488,7 +521,10 @@ internal static class ComReadHost
         // Запуск через `dotnet App.dll`: ProcessPath указывает на dotnet.exe, и одного ключа мало.
         if (IsDotnetHost(host))
         {
-            var entry = Assembly.GetEntryAssembly()?.Location;
+            // В single-file образе Location пуст, и анализатор об этом предупреждает. Ветка
+            // сюда не попадает: у single-file ProcessPath — это сам exe, а не dotnet.exe.
+            // Пустое значение всё равно обработано ниже, поэтому предупреждение подавляем.
+            var entry = EntryAssemblyLocation();
             if (string.IsNullOrEmpty(entry))
             {
                 detail = "dotnet host";
@@ -640,6 +676,16 @@ internal static class ComReadHost
             // свободный текст 1С проходит через признак пароля» должно держаться на разборе,
             // а не на том, что два списка разрядов в разных концах файла совпадают.
             if (!TryMapToken(parts[2], out var kind))
+            {
+                desynchronized = true;
+                return ComReadResult.Fail(ComFailureKind.Transport);
+            }
+
+            // Отказ разбора запроса не несёт ни кода, ни текста — так его формирует агент.
+            // Требуем этого и на приёме: иначе правило «текст показывается только по решению
+            // о пароле» держалось бы на дисциплине отправителя, а не на разборе.
+            if (kind == ComFailureKind.BadRequest
+                && (errCode.Length > 0 || errText.Length > 0))
             {
                 desynchronized = true;
                 return ComReadResult.Fail(ComFailureKind.Transport);
@@ -812,11 +858,9 @@ internal static class ComReadHost
     /// самой базы полезнее, чем «коннектор не создался» от версии, которой тут и не место.
     /// Возвращает true, если новый разряд надо принять.
     /// <para>
-    /// При равном весе принимается более поздний. Это поведение апстрима: он переписывал
-    /// LastError на каждой итерации перебора, поэтому до пользователя доходила причина от
-    /// последнего опробованного ProgID. Удерживать первую было бы хуже именно там, ради
-    /// чего перебор и существует: база 8.2 через V83 отвечает «несовместимая версия», а
-    /// настоящую причину — например, неверный пароль — называет только V82.
+    /// При равном весе удерживается уже принятый: выбирать между двумя одинаково осмысленными
+    /// диагнозами не нужно. Единственный разряд, где такой выбор был бы содержательным, —
+    /// ошибка самой базы, и там диагнозы копятся все до одного, а не вытесняют друг друга.
     /// </para>
     /// </summary>
     private static bool Promote(ref int rank, ComFailureKind kind)
@@ -829,7 +873,7 @@ internal static class ComReadHost
             _ => 1
         };
 
-        if (weight < rank)
+        if (weight <= rank)
             return false;
 
         rank = weight;
@@ -870,10 +914,7 @@ internal static class ComReadHost
         (ComFailureKind.MetadataProperty, "METAPROP"),
         (ComFailureKind.MetadataRead, "METAREAD"),
         (ComFailureKind.DatabaseError, "DBERR"),
-        // Повреждённый запрос. Разряд общий со сбоем канала — для родителя это одно и то же:
-        // обмен не состоялся. Со стороны агента этот токен приходит только из разбора запроса,
-        // потому что ReadInProcess разряда Transport не порождает.
-        (ComFailureKind.Transport, "BADREQ")
+        (ComFailureKind.BadRequest, "BADREQ")
     };
 
     private static string KindToToken(ComFailureKind kind)
@@ -924,6 +965,13 @@ internal static class ComReadHost
         // настоящая причина от работоспособного V82 («неправильное имя или пароль»)
         // до пользователя не доходила.
         var rank = 0;
+
+        // Ошибки самой базы не выбираем, а копим все. Выбор между двумя одинаково
+        // осмысленными диагнозами проигрывает в любую сторону: оставишь ранний — для базы
+        // 8.2 победит «несовместимая версия» от V83 вместо настоящей причины от V82;
+        // оставишь поздний — то же самое зеркально произойдёт с базой 8.3. Теряется
+        // диагностика в обоих случаях, поэтому не теряем ничего.
+        var dbErrors = new List<(string ProgId, string Text, string Code)>();
 
         var thread = new Thread(() =>
         {
@@ -1016,15 +1064,12 @@ internal static class ComReadHost
                     // Текст ошибки 1С умеет цитировать строку подключения целиком, но решать,
                     // показывать его или нет, будет родитель: только у него есть пароль.
                     // Здесь отдаём и текст, и опознавательный код — родитель выберет.
-                    if (Promote(ref rank, ComFailureKind.DatabaseError))
-                    {
-                        localKind = ComFailureKind.DatabaseError;
-                        // Текст берём с того же уровня, что и код: иначе пользователь
-                        // получал бы «Exception has been thrown by the target of an
-                        // invocation», а код рядом — от совсем другого исключения.
-                        localDetail = Deepest(ex).Message;
-                        localCode = Hresult(ex);
-                    }
+                    // Текст берём с того же уровня, что и код: иначе пользователь получал бы
+                    // «Exception has been thrown by the target of an invocation», а код
+                    // рядом — от совсем другого исключения.
+                    dbErrors.Add((progId, Deepest(ex).Message, Hresult(ex)));
+                    Promote(ref rank, ComFailureKind.DatabaseError);
+                    localKind = ComFailureKind.DatabaseError;
 
                     // Перебор продолжаем на любой ошибке подключения — так же, как в исходном
                     // ConnectCore. Отсеивать по разряду отказа нельзя: база 8.2 через V83 даёт
@@ -1037,6 +1082,23 @@ internal static class ComReadHost
                     Release(metadata);
                     Release(connection);
                     Release(connector);
+                }
+            }
+
+            // Перебор окончен без успеха. Если базу не пустил не один коннектор, а несколько,
+            // отдаём все причины разом, помечая каждую своим ProgID. Единственная причина
+            // отдаётся как раньше — без пометки, иначе привычное сообщение обросло бы шумом.
+            if (localKind == ComFailureKind.DatabaseError && dbErrors.Count > 0)
+            {
+                if (dbErrors.Count == 1)
+                {
+                    localDetail = dbErrors[0].Text;
+                    localCode = dbErrors[0].Code;
+                }
+                else
+                {
+                    localDetail = JoinDiagnoses(dbErrors, static e => e.Text);
+                    localCode = JoinDiagnoses(dbErrors, static e => e.Code);
                 }
             }
         })
@@ -1063,6 +1125,25 @@ internal static class ComReadHost
         detail = localDetail;
         code = localCode;
         return result;
+    }
+
+    /// <summary>
+    /// Склеивает диагнозы нескольких ProgID в одну строку вида «V83: причина; V82: причина».
+    /// Пометка обязательна: без неё две причины подряд читаются как одна бессвязная.
+    /// </summary>
+    private static string JoinDiagnoses(
+        List<(string ProgId, string Text, string Code)> items,
+        Func<(string ProgId, string Text, string Code), string> select)
+    {
+        var sb = new StringBuilder();
+        foreach (var item in items)
+        {
+            if (sb.Length > 0)
+                sb.Append("; ");
+            sb.Append(item.ProgId).Append(": ").Append(select(item));
+        }
+
+        return sb.ToString();
     }
 
     private static object? InvokeGet(object target, string property)

@@ -1252,7 +1252,7 @@
     "Com.ProgIdInstanceFailedFormat": "Failed to create an instance of the COM connector {0}.",
     "Com.ProgIdNoConnectionFormat": "COM connector {0} did not return a connection for the specified connection string.",
     "Com.ConnectFailedFormat": "COM connection via {0} failed: {1}",
-    "Com.NotFound": "1C COM connector not found (V83/V82/V81.COMConnector are not registered).",
+    "Com.NotFound": "1C COM connector not found (V85/V83/V82/V81.COMConnector are not registered).",
     "Com.NotFoundInstallHint": "Install the 1C:Enterprise platform on this machine (or register the COM connector via the menu).",
     "Com.ProgIdStatusBothVisible": "(V83.COMConnector is registered in both the 64-bit and 32-bit registry, but is not visible to the application process)",
     "Com.ProgIdStatusOnly64": "(V83.COMConnector is present only in the 64-bit registry; the application is probably running as 32-bit)",

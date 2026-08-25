@@ -1252,7 +1252,7 @@
     "Com.ProgIdInstanceFailedFormat": "Не удалось создать экземпляр COM-коннектора {0}.",
     "Com.ProgIdNoConnectionFormat": "COM-коннектор {0} не вернул соединение для указанной строки подключения.",
     "Com.ConnectFailedFormat": "COM-подключение через {0} не удалось: {1}",
-    "Com.NotFound": "COM-коннектор 1С не найден (не зарегистрированы V83/V82/V81.COMConnector).",
+    "Com.NotFound": "COM-коннектор 1С не найден (не зарегистрированы V85/V83/V82/V81.COMConnector).",
     "Com.NotFoundInstallHint": "Установите платформу 1С:Предприятие на этой машине (или зарегистрируйте COM-коннектор через меню).",
     "Com.ProgIdStatusBothVisible": "(V83.COMConnector зарегистрирован и в 64-битном, и в 32-битном реестре, но не виден процессу приложения)",
     "Com.ProgIdStatusOnly64": "(V83.COMConnector есть только в 64-битном реестре; приложение, вероятно, запущено как 32-битное)",
