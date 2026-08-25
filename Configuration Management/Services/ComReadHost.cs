@@ -41,11 +41,20 @@ internal enum ComFailureKind
     DatabaseError
 }
 
-/// <summary>Результат обращения к COM-коннектору: либо сведения, либо разряд отказа с подробностью.</summary>
-internal readonly record struct ComReadResult(OneCConfigInfo? Info, ComFailureKind Failure, string? Detail)
+/// <summary>
+/// Результат обращения к COM-коннектору: либо сведения, либо разряд отказа с подробностью.
+/// <para>
+/// <paramref name="Detail"/> — текст для показа; пуст, если показывать нечего или текст
+/// пришлось скрыть. <paramref name="Code"/> — код ошибки COM: он остаётся даже тогда, когда
+/// текст скрыт, и позволяет сказать пользователю хоть что-то определённое.
+/// </para>
+/// </summary>
+internal readonly record struct ComReadResult(
+    OneCConfigInfo? Info, ComFailureKind Failure, string? Detail, string? Code = null)
 {
     public static ComReadResult Ok(OneCConfigInfo info) => new(info, ComFailureKind.None, null);
-    public static ComReadResult Fail(ComFailureKind kind, string? detail = null) => new(null, kind, detail);
+    public static ComReadResult Fail(ComFailureKind kind, string? detail = null, string? code = null) =>
+        new(null, kind, detail, code);
 }
 
 /// <summary>
@@ -73,11 +82,17 @@ internal readonly record struct ComReadResult(OneCConfigInfo? Info, ComFailureKi
 /// Разбирать такой текст бесполезно: <see cref="OneCComConnector"/> строит строку без
 /// экранирования, поэтому кавычка, <c>;</c> или перевод строки внутри пароля делают её
 /// неоднозначной; а сообщение вдобавок может прийти усечённым посреди значения. Любое
-/// правило разбора при этом либо выпускает хвост пароля, либо съедает диагностику.
-/// Поэтому свободный текст ошибки наружу не отдаётся вовсе, когда у базы есть пароль, —
-/// вместо него возвращается код ошибки COM. Сам пароль агенту не передаётся: ему довольно
-/// признака, что тот есть. Для баз без пароля (а это большинство, файловые) текст
-/// сохраняется целиком, и диагностика не страдает.
+/// правило разбора при этом либо выпускает хвост пароля, либо съедает диагностику —
+/// на этом сгорело пять редакций подряд.
+/// </para>
+/// <para>
+/// Поэтому агент отдаёт и текст ошибки, и опознавательный код, а решение принимает родитель:
+/// только у него есть пароль. Если текст содержит пароль или его начало, он отбрасывается
+/// целиком и остаётся код. Решение «всё или ничего», поэтому чужие поля пострадать не могут,
+/// а для отказов, которые строку подключения не цитируют (неверный пароль, база занята,
+/// сервер недоступен), текст доходит до пользователя как есть. Сам пароль агенту не
+/// передаётся вовсе — ему сообщается лишь, есть ли в строке учётные данные, и нужно это
+/// только для того, чтобы не перебирать ProgID с повторными попытками входа.
 /// </para>
 /// </summary>
 internal static class ComReadHost
@@ -147,7 +162,8 @@ internal static class ComReadHost
     private static StreamWriter? _agentInput;
     private static StreamReader? _agentOutput;
     private static int _comUnavailable;
-    private static int _consecutiveFailures;
+    private static int _hardFailures;
+    private static int _transportFailures;
     private static int _shuttingDown;
     private static int _sequence;
 
@@ -179,7 +195,8 @@ internal static class ComReadHost
         {
             _resetEpoch++;
             _comUnavailable = 0;
-            _consecutiveFailures = 0;
+            _hardFailures = 0;
+            _transportFailures = 0;
         }
     }
 
@@ -192,7 +209,11 @@ internal static class ComReadHost
     /// <summary>Успешное чтение обнуляет счётчик отказов.</summary>
     private static void NoteSuccess()
     {
-        lock (StateLock) _consecutiveFailures = 0;
+        lock (StateLock)
+        {
+            _hardFailures = 0;
+            _transportFailures = 0;
+        }
     }
 
     /// <summary>
@@ -215,16 +236,15 @@ internal static class ComReadHost
     /// Основной процесс не пострадает, даже если COM-вызов оборвёт агента.
     /// </summary>
     /// <param name="connectString">Строка подключения (может содержать пароль).</param>
-    /// <param name="hasSecret">
-    /// Содержит ли строка подключения пароль. Сам пароль агенту не передаётся: ему довольно
-    /// знать, что свободный текст ошибки 1С возвращать нельзя — тот умеет цитировать строку
-    /// подключения целиком, а восстановить границы неэкранированного, да ещё и, возможно,
-    /// усечённого значения постфактум надёжно невозможно. Признак заодно управляет перебором
-    /// ProgID: повторять подключение с учётными данными нельзя, это набивает счётчик
-    /// блокировки учётной записи.
+    /// <param name="hasCredentials">
+    /// Содержит ли строка подключения учётные данные (параметр Usr). Управляет перебором
+    /// ProgID: повторять подключение с учётными данными нельзя — счётчик блокировки в 1С
+    /// считает неудачные входы по пользователю, и повтор набивает его втрое быстрее.
+    /// Пароль агенту не передаётся вовсе: решение, показывать ли текст ошибки, принимает
+    /// родитель, у которого пароль есть.
     /// </param>
     /// <param name="timeoutMs">Предельное время COM-вызова.</param>
-    public static ComReadResult Read(string connectString, bool hasSecret, int timeoutMs)
+    public static ComReadResult Read(string connectString, bool hasCredentials, int timeoutMs)
     {
         if (string.IsNullOrWhiteSpace(connectString))
             return ComReadResult.Fail(ComFailureKind.Transport);
@@ -267,7 +287,7 @@ internal static class ComReadHost
                     seq.ToString(CultureInfo.InvariantCulture),
                     timeoutMs.ToString(CultureInfo.InvariantCulture),
                     Encode(connectString),
-                    hasSecret ? "1" : "0"));
+                    hasCredentials ? "1" : "0"));
 
                 var pending = Task.Run(() => output.ReadLine());
                 // Задачу мы можем бросить, не дождавшись. Штатно она завершается сама
@@ -284,8 +304,7 @@ internal static class ComReadHost
                     // канала нельзя: на машинах с включённым Windows Error Reporting упавший
                     // процесс удерживается, и EOF приходит через десятки секунд — крах
                     // выглядел бы обычным таймаутом, и защёлка не сработала бы никогда.
-                    return RegisterFailure(epoch, ComFailureKind.AgentCrashed,
-                        FormatExitCode(StopAgent(SelfExitGraceMs)));
+                    return AgentGone(epoch, StopAgent(SelfExitGraceMs));
                 }
 
                 var line = pending.Result;
@@ -297,8 +316,7 @@ internal static class ComReadHost
                     if (Volatile.Read(ref _shuttingDown) != 0)
                         return ComReadResult.Fail(ComFailureKind.Transport);
 
-                    return RegisterFailure(epoch, ComFailureKind.AgentCrashed,
-                        FormatExitCode(StopAgent(SelfExitGraceMs)));
+                    return AgentGone(epoch, StopAgent(SelfExitGraceMs));
                 }
 
                 var result = ParseResponse(line, seq, out var desynchronized);
@@ -327,7 +345,10 @@ internal static class ComReadHost
                         // а поздний обрыв одного из них припишется чужому запросу. Грация здесь
                         // не нужна — мы точно знаем, что процесс жив.
                         StopAgent(graceMs: 0);
-                        break;
+                        // Учитываем по мягкому порогу: список недоступных клиент-серверных баз
+                        // иначе тратил бы полный таймаут и перезапуск процесса на каждую, и так
+                        // на каждом старте — защёлка это никогда не останавливала.
+                        return RegisterFailure(epoch, result.Failure, result.Detail, result.Code);
 
                     case ComFailureKind.None:
                         // Счётчик сбрасывает только успех. Сбрасывать его на любой ответ
@@ -369,23 +390,45 @@ internal static class ComReadHost
         KillAndDispose(process, graceMs: 0, waitAfterKillMs: 0);
     }
 
+    /// <summary>
+    /// Агент не ответил и исчез. Настоящий крах опознаётся по коду возврата; штатный выход
+    /// с нулевым кодом крахом не считаем — это внутренний сбой агента, и говорить
+    /// пользователю «аварийно завершил, код 0x00000000» было бы самопротиворечиво.
+    /// </summary>
+    private static ComReadResult AgentGone(int epoch, int? exitCode) =>
+        exitCode is null or 0
+            ? RegisterFailure(epoch, ComFailureKind.Transport, null)
+            : RegisterFailure(epoch, ComFailureKind.AgentCrashed, FormatExitCode(exitCode));
+
     /// <summary>Учитывает отказ и решает, пора ли глушить COM на сессию.</summary>
-    private static ComReadResult RegisterFailure(int epoch, ComFailureKind kind, string? detail)
+    private static ComReadResult RegisterFailure(
+        int epoch, ComFailureKind kind, string? detail, string? code = null)
     {
         // Проверка поколения и изменение счётчика — одной неделимой операцией. Сброс,
         // случившийся после начала запроса, отменяет право этого запроса защёлкивать:
         // пользователь уже попросил попробовать снова.
-        var threshold = kind == ComFailureKind.Transport
-            ? TransportFailuresBeforeLatch
-            : FailuresBeforeLatch;
+        // Счётчики раздельные. Общий с двумя порогами давал результат, зависящий от порядка:
+        // один разовый сбой канала поднимал счётчик, и следующий настоящий крах защёлкивал
+        // COM по жёсткому порогу, хотя ни один из разрядов своего порога не достиг.
+        var soft = kind is ComFailureKind.Transport or ComFailureKind.Timeout;
 
         lock (StateLock)
         {
-            if (_resetEpoch == epoch && ++_consecutiveFailures >= threshold)
+            if (_resetEpoch != epoch)
+                return ComReadResult.Fail(kind, detail, code);
+
+            if (soft)
+            {
+                if (++_transportFailures >= TransportFailuresBeforeLatch)
+                    _comUnavailable = 1;
+            }
+            else if (++_hardFailures >= FailuresBeforeLatch)
+            {
                 _comUnavailable = 1;
+            }
         }
 
-        return ComReadResult.Fail(kind, detail);
+        return ComReadResult.Fail(kind, detail, code);
     }
 
     /// <summary>Код возврата для показа. Null — код неизвестен, это отдельный случай.</summary>
@@ -574,7 +617,7 @@ internal static class ComReadHost
             return ComReadResult.Ok(new OneCConfigInfo(name, version));
         }
 
-        if (parts.Length == 4 && string.Equals(parts[1], "ERR", StringComparison.Ordinal))
+        if (parts.Length == 5 && string.Equals(parts[1], "ERR", StringComparison.Ordinal))
         {
             var kind = parts[2] switch
             {
@@ -587,7 +630,9 @@ internal static class ComReadHost
                 "DBERR" => ComFailureKind.DatabaseError,
                 _ => ComFailureKind.Transport
             };
-            return ComReadResult.Fail(kind, Decode(parts[3]));
+            // Код и текст приходят раздельно: текст может быть отброшен родителем,
+            // если в нём обнаружится пароль, а код останется в любом случае.
+            return ComReadResult.Fail(kind, Decode(parts[4]), Decode(parts[3]));
         }
 
         return ComReadResult.Fail(ComFailureKind.Transport);
@@ -694,11 +739,7 @@ internal static class ComReadHost
             }
             catch (Exception ex)
             {
-                // Если у базы есть пароль, свободный текст наружу не отдаём вовсе —
-                // тот же принцип, что и для ошибок 1С.
-                var hasSecret = parts.Length > 3 && parts[3] == "1";
-                response = ResultPrefix + seq + "\tERR\tDBERR\t"
-                           + Encode(hasSecret ? Hresult(ex) : ex.Message);
+                response = Error(seq, "DBERR", Hresult(ex), ex.Message);
             }
 
             output.WriteLine(response);
@@ -707,39 +748,58 @@ internal static class ComReadHost
 
     private static string HandleRequest(string[] parts, string seq)
     {
-        // Формат: seq \t timeoutMs \t base64(строка подключения) \t base64(пароль)
+        // Формат запроса: seq \t timeoutMs \t base64(строка подключения) \t признак учётных данных.
+        // Пароль агенту не передаётся: решение, показывать ли текст ошибки, принимает родитель.
         if (parts.Length < 4)
-            return ResultPrefix + seq + "\tERR\tDBERR\t" + Encode("malformed request");
+            return Error(seq, "DBERR", null, "malformed request");
 
         var timeoutMs = int.TryParse(parts[1], NumberStyles.Integer,
             CultureInfo.InvariantCulture, out var parsed) && parsed > 0 ? parsed : 8000;
 
         var connectString = Decode(parts[2]);
-        var hasSecret = parts[3] == "1";
+        var hasCredentials = parts[3] == "1";
 
         if (connectString.Length == 0)
-            return ResultPrefix + seq + "\tERR\tDBERR\t" + Encode("empty request");
+            return Error(seq, "DBERR", null, "empty request");
 
-        var info = ReadInProcess(connectString, hasSecret, timeoutMs, out var kind, out var detail);
+        var info = ReadInProcess(connectString, hasCredentials, timeoutMs,
+            out var kind, out var detail, out var code);
 
         // Имя и версия конфигурации приходят из Metadata и строку подключения содержать
         // не могут — их отдаём как есть.
         return info is null
-            ? ResultPrefix + seq + "\tERR\t" + KindToToken(kind) + "\t" + Encode(detail)
+            ? Error(seq, KindToToken(kind), code, detail)
             : ResultPrefix + seq + "\tOK\t" + Encode(info.Value.Name)
               + "\t" + Encode(info.Value.Version);
     }
 
     /// <summary>
-    /// Код ошибки COM вместо её текста. Отдаётся, когда у базы есть пароль: текст 1С умеет
-    /// цитировать строку подключения, а вырезать оттуда пароль надёжно нельзя — строка
-    /// не экранирована, и сообщение может прийти усечённым посреди значения. Код при этом
-    /// сохраняет главное для разбора: чем именно 1С ответила.
+    /// Ответ об ошибке: код и текст идут раздельными полями. Родитель может отбросить текст,
+    /// если найдёт в нём пароль, и всё равно сказать пользователю что-то определённое по коду.
+    /// </summary>
+    private static string Error(string seq, string token, string? code, string? text) =>
+        ResultPrefix + seq + "\tERR\t" + token + "\t" + Encode(code) + "\t" + Encode(text);
+
+    /// <summary>
+    /// Опознавательные сведения об исключении: имя типа и код. Пользовательских данных
+    /// не содержат, поэтому отдаются всегда — даже когда текст ошибки пришлось скрыть.
+    /// <para>
+    /// Разворачиваем до самого глубокого вложенного исключения: <c>InvokeMember</c> оборачивает
+    /// COM-ошибку в <c>TargetInvocationException</c>, а при двойной обёртке разворот на один
+    /// уровень отдавал бы код промежуточной обёртки вместо настоящего. Нулевой код не показываем:
+    /// «0x00000000» в качестве причины отказа бессмысленно.
+    /// </para>
     /// </summary>
     private static string Hresult(Exception ex)
     {
-        var inner = ex.InnerException ?? ex;
-        return "0x" + inner.HResult.ToString("X8", CultureInfo.InvariantCulture);
+        var inner = ex;
+        while (inner.InnerException is not null)
+            inner = inner.InnerException;
+
+        var name = inner.GetType().Name;
+        return inner.HResult == 0
+            ? name
+            : name + " 0x" + inner.HResult.ToString("X8", CultureInfo.InvariantCulture);
     }
 
     private static string KindToToken(ComFailureKind kind) => kind switch
@@ -758,11 +818,19 @@ internal static class ComReadHost
     /// который мы и изолируем. ProgID перебираются, как в OneCComConnector.KnownProgIds.
     /// </summary>
     private static OneCConfigInfo? ReadInProcess(
-        string connectString, bool hasSecret, int timeoutMs, out ComFailureKind kind, out string? detail)
+        string connectString, bool hasCredentials, int timeoutMs,
+        out ComFailureKind kind, out string? detail, out string? code)
     {
         OneCConfigInfo? result = null;
         var localKind = ComFailureKind.NotRegistered;
         string? localDetail = null;
+        string? localCode = null;
+
+        // Диагноз запоминаем от ПЕРВОГО ProgID, у которого он появился: перебор идёт от новых
+        // версий к старым, и сообщение от V83 про базу 8.3 полезнее, чем от V81 про
+        // несовместимость. Прежде каждая итерация затирала предыдущую, и наружу уходил
+        // вердикт самой старой версии.
+        var diagnosed = false;
 
         var thread = new Thread(() =>
         {
@@ -782,8 +850,12 @@ internal static class ComReadHost
                     connector = Activator.CreateInstance(type);
                     if (connector is null)
                     {
-                        localKind = ComFailureKind.InstanceFailed;
-                        localDetail = progId;
+                        if (!diagnosed)
+                        {
+                            diagnosed = true;
+                            localKind = ComFailureKind.InstanceFailed;
+                            localDetail = progId;
+                        }
                         continue;
                     }
                 }
@@ -792,8 +864,13 @@ internal static class ComReadHost
                     // ProgID есть, но объект не создаётся: битая регистрация, несоответствие
                     // разрядности, DLL занята. Причину запоминаем — иначе отказ выдаётся
                     // за «коннектор не зарегистрирован», а этот вердикт глушит COM сразу.
-                    localKind = ComFailureKind.InstanceFailed;
-                    localDetail = progId + ": " + (ex.InnerException ?? ex).Message;
+                    if (!diagnosed)
+                    {
+                        diagnosed = true;
+                        localKind = ComFailureKind.InstanceFailed;
+                        localDetail = progId + ": " + (ex.InnerException ?? ex).Message;
+                        localCode = Hresult(ex);
+                    }
                     continue;
                 }
 
@@ -806,8 +883,18 @@ internal static class ComReadHost
                         new object[] { connectString });
                     if (connection is null)
                     {
-                        localKind = ComFailureKind.NoConnection;
-                        localDetail = progId;
+                        if (!diagnosed)
+                        {
+                            diagnosed = true;
+                            localKind = ComFailureKind.NoConnection;
+                            localDetail = progId;
+                        }
+
+                        // Отказ подключения — это тоже попытка входа. С учётными данными
+                        // перебор прекращаем по той же причине, что и в ветке исключения:
+                        // счётчик блокировки в 1С считает неудачные входы по пользователю.
+                        if (hasCredentials)
+                            return;
                         continue;
                     }
 
@@ -833,20 +920,26 @@ internal static class ComReadHost
                 }
                 catch (Exception ex)
                 {
-                    localKind = ComFailureKind.DatabaseError;
-                    // Текст ошибки 1С умеет цитировать строку подключения целиком. Если в
-                    // ней есть пароль — отдаём только код, вырезать его из свободного текста
-                    // надёжно нельзя.
-                    localDetail = hasSecret ? Hresult(ex) : (ex.InnerException ?? ex).Message;
+                    // Текст ошибки 1С умеет цитировать строку подключения целиком, но решать,
+                    // показывать его или нет, будет родитель: только у него есть пароль.
+                    // Здесь отдаём и текст, и опознавательный код — родитель выберет.
+                    if (!diagnosed)
+                    {
+                        diagnosed = true;
+                        localKind = ComFailureKind.DatabaseError;
+                        localDetail = (ex.InnerException ?? ex).Message;
+                        localCode = Hresult(ex);
+                    }
 
                     // Перебор продолжаем только без учётных данных. С ними повтор означал бы
                     // две-три неудачные аутентификации на сервере 1С за одно чтение, а это
-                    // втрое быстрее набивает счётчик блокировки учётной записи. Без пароля
-                    // такой цены нет, и перебор полезен: база 8.2 через V83 даёт управляемое
-                    // исключение о несовместимости, коннектор при этом создаётся нормально,
-                    // поэтому ветка InstanceFailed этот случай не ловит, а рабочий V82 —
-                    // ловит.
-                    if (hasSecret)
+                    // втрое быстрее набивает счётчик блокировки учётной записи: 1С считает
+                    // неудачные входы по пользователю, и вход с пустым паролем его тоже
+                    // набивает. Без учётных данных такой цены нет, и перебор полезен: база 8.2
+                    // через V83 даёт управляемое исключение о несовместимости, коннектор при
+                    // этом создаётся нормально, поэтому ветка InstanceFailed его не ловит,
+                    // а рабочий V82 — ловит.
+                    if (hasCredentials)
                         return;
                 }
                 finally
@@ -872,11 +965,13 @@ internal static class ComReadHost
             // убьёт: внутри остался повисший COM-вызов, и переиспользовать процесс нельзя.
             kind = ComFailureKind.Timeout;
             detail = timeoutMs.ToString(CultureInfo.InvariantCulture);
+            code = null;
             return null;
         }
 
         kind = localKind;
         detail = localDetail;
+        code = localCode;
         return result;
     }
 

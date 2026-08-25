@@ -116,6 +116,15 @@ public sealed class OneCComConnector : IOneCComConnector
     public string BuildConnectString(Infobase infobase) => BuildComConnectString(infobase);
 
     /// <inheritdoc />
+    /// <remarks>
+    /// ОПАСНО: выполняет COM-вызов в текущем процессе, а под CoreCLR это обрывает приложение
+    /// нативным fast-fail 0xC0000409 без управляемого исключения. Вызывающих в приложении нет.
+    /// Атрибут продублирован здесь намеренно: на интерфейсе он не предупреждает того, кто
+    /// возьмёт конкретный тип.
+    /// </remarks>
+    [Obsolete("Выполняет COM-вызов в текущем процессе: под CoreCLR это обрывает приложение "
+              + "нативным fast-fail 0xC0000409 без управляемого исключения. "
+              + "Используйте путь через процесс-агент (ComReadHost).")]
     public OneCComConnection? Connect(Infobase infobase, int timeoutMs = 8000)
     {
         if (infobase is null) return null;
@@ -193,27 +202,24 @@ public sealed class OneCComConnector : IOneCComConnector
         // десятки одинаковых строк подряд на каждом старте.
         var alreadyDisabled = ComReadHost.ComUnavailable;
 
-        // Агенту передаём не пароль, а лишь признак, что он в строке есть: этого довольно,
-        // чтобы тот не отдавал наружу свободный текст ошибки 1С. Сам пароль родительский
-        // процесс не покидает отдельным полем, и вырезать его из чужих полей больше не надо —
-        // прежняя схема вычищала совпавшую подстроку из имени сервера, базы и пользователя.
-        // Признак считаем по факту вхождения, а не повторением условий сборки строки:
-        // BuildComConnectString вставляет Pwd не всегда, и условия иначе разъедутся.
-        var password = infobase.Connection?.Password;
-        var hasSecret = !string.IsNullOrWhiteSpace(password)
-                        && connectString.Contains(password, StringComparison.Ordinal);
+        // Агенту сообщаем лишь, есть ли в строке учётные данные, — и только для того,
+        // чтобы он не перебирал ProgID с повторными попытками входа. Смотрим на саму
+        // собранную строку, а не на поля модели: BuildComConnectString вставляет Usr
+        // не всегда, значение поля может не совпасть со строкой (её собрали раньше),
+        // а параметр может появиться и из чужого поля, если в него вписали разделители.
+        var hasCredentials = ContainsParameter(connectString, "Usr");
 
-        var result = ComReadHost.Read(connectString, hasSecret, timeoutMs);
+        var result = ComReadHost.Read(connectString, hasCredentials, timeoutMs);
         if (result.Failure == ComFailureKind.None && result.Info is not null)
         {
             LastError = null;
             return result.Info;
         }
 
-        // Маскировка обязательна: текст ошибки приходит от 1С и может цитировать строку
-        // подключения вместе с Pwd="…". Отсюда он идёт и в журнал, и в диалог пользователю,
-        // а MaskCredentials до этой правки прикрывал только путь через ConnectCore.
-        LastError = MaskCredentials(DescribeFailure(result));
+        // Решение о тексте ошибки принимаем здесь: только у родителя есть пароль.
+        // Маскировка остаётся вторым рубежом — на случай, если строку процитирует
+        // что-то, чего мы не предусмотрели.
+        LastError = MaskCredentials(DescribeFailure(result, infobase.Connection?.Password));
 
         if (!alreadyDisabled)
             _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{infobase.Name}»: {LastError}");
@@ -226,7 +232,7 @@ public sealed class OneCComConnector : IOneCComConnector
     /// в агенте локализация не поднята (он выходит до инициализации приложения), да и передавать
     /// по каналу код надёжнее, чем готовую строку.
     /// </summary>
-    private static string DescribeFailure(ComReadResult result) => result.Failure switch
+    private static string DescribeFailure(ComReadResult result, string? password) => result.Failure switch
     {
         ComFailureKind.Disabled => LocalizationManager.T("Com.DisabledForSession"),
         ComFailureKind.AgentStart => string.Format(
@@ -251,13 +257,93 @@ public sealed class OneCComConnector : IOneCComConnector
             LocalizationManager.T("Com.ProgIdNoConnectionFormat"), result.Detail ?? string.Empty),
         ComFailureKind.MetadataProperty => LocalizationManager.T("Com.MetadataPropertyFailed"),
         ComFailureKind.MetadataRead => LocalizationManager.T("Com.MetadataReadFailed"),
-        ComFailureKind.DatabaseError => result.Detail ?? LocalizationManager.T("Com.MetadataReadFailed"),
+        // Единственный разряд, где подробность — свободный текст от 1С. Показываем его,
+        // только если в нём нет пароля; иначе остаётся опознавательный код.
+        ComFailureKind.DatabaseError => DescribeDatabaseError(result, password),
         // Сбой обмена: подробность (текст исключения канала) полезнее общей фразы.
         ComFailureKind.Transport => string.IsNullOrWhiteSpace(result.Detail)
             ? LocalizationManager.T("Com.AgentNoResult")
             : result.Detail,
         _ => LocalizationManager.T("Com.AgentNoResult")
     };
+
+    /// <summary>
+    /// Наименьшая длина начала пароля, по которой текст считается небезопасным.
+    /// Нужна на случай, когда сообщение усечено посреди значения и целого пароля в нём
+    /// уже нет, а начало — есть.
+    /// </summary>
+    private const int MinSecretPrefix = 4;
+
+    /// <summary>
+    /// Решает, показывать ли свободный текст ошибки 1С. Решение принимается целиком, без
+    /// попыток вырезать пароль из текста: строка подключения не экранирована, а сообщение
+    /// может прийти усечённым, поэтому любое вырезание либо оставляет хвост, либо портит
+    /// чужие поля — на этом сгорели предыдущие редакции. Здесь всё или ничего.
+    /// </summary>
+    private static string DescribeDatabaseError(ComReadResult result, string? password)
+    {
+        var text = result.Detail;
+        var code = string.IsNullOrWhiteSpace(result.Code)
+            ? LocalizationManager.T("Com.UnknownCode")
+            : result.Code;
+
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Format(LocalizationManager.T("Com.DbErrorCodeOnlyFormat"), code);
+
+        if (RevealsSecret(text, password))
+        {
+            // Текст цитирует пароль — показываем только код и честно говорим почему,
+            // иначе отсутствие подробностей выглядит как поломка.
+            return string.Format(LocalizationManager.T("Com.DbErrorHiddenFormat"), code);
+        }
+
+        return text;
+    }
+
+    /// <summary>
+    /// Содержит ли текст пароль целиком или его начало достаточной длины.
+    /// Сравнение без учёта регистра: 1С может изменить регистр при выводе, а пароль,
+    /// раскрытый в другом регистре, всё равно раскрыт.
+    /// </summary>
+    private static bool RevealsSecret(string text, string? password)
+    {
+        if (string.IsNullOrEmpty(password))
+            return false;
+
+        var probe = password.Length <= MinSecretPrefix
+            ? password
+            : password[..MinSecretPrefix];
+
+        return text.Contains(probe, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Есть ли в строке подключения параметр с указанным именем.</summary>
+    private static bool ContainsParameter(string text, string name)
+    {
+        if (string.IsNullOrEmpty(text))
+            return false;
+
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (i > 0)
+            {
+                var prev = text[i - 1];
+                if (char.IsLetterOrDigit(prev) || prev == '_')
+                    continue;
+            }
+
+            if (i + name.Length > text.Length)
+                break;
+            if (string.Compare(text, i, name, 0, name.Length, StringComparison.OrdinalIgnoreCase) != 0)
+                continue;
+
+            var k = SkipSpaces(text, i + name.Length);
+            if (k < text.Length && text[k] == '=')
+                return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Сбрасывает оба вердикта о недоступности COM: кэш реестра этого класса и сессионную
@@ -520,7 +606,7 @@ public sealed class OneCComConnector : IOneCComConnector
     }
 
     /// <summary>
-    /// Первая кавычка в пределах строки, за которой идёт разделитель или конец строки.
+    /// Первая кавычка в пределах строки, за которой значение заканчивается.
     /// −1, если такой кавычки в строке нет (значение не закрыто).
     /// </summary>
     private static int FindClosingQuote(string text, int from)
@@ -531,8 +617,11 @@ public sealed class OneCComConnector : IOneCComConnector
                 return -1;
             if (text[i] != '"')
                 continue;
-            if (i + 1 >= text.Length || text[i + 1] == ';'
-                || text[i + 1] == '\r' || text[i + 1] == '\n')
+
+            // Закрывающей считаем кавычку перед любым несловообразующим символом, а не только
+            // перед «;». Прежнее узкое условие теряло остаток строки, если после значения шла
+            // запятая или пробел: «Pwd="p", причина: …» превращалось в «Pwd=***».
+            if (i + 1 >= text.Length || !char.IsLetterOrDigit(text[i + 1]))
                 return i;
         }
         return -1;
