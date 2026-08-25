@@ -326,8 +326,9 @@ public class MainViewModel : ViewModelBase
         SyncFavoriteHotkeys();
 
         // Размеры и маркеры блокировки файловых баз (фоново, не блокируя UI дольше необходимого).
+        // Автопроверка доступности всех баз 1С при запуске убрана: вместо неё — отдельная
+        // команда «Проверить доступность всех баз» в верхней панели команд.
         RefreshFileMetadata();
-        RefreshConfigurationInfoAsync();
 
         // Дерево групп (отображается в виде «группа в группе»).
         GroupNodes = new ObservableCollection<GroupNodeViewModel>();
@@ -349,15 +350,28 @@ public class MainViewModel : ViewModelBase
         RefreshCommand = new RelayCommand(Refresh);
         AddInfobaseCommand = new RelayCommand(AddInfobase);
         EditInfobaseCommand = new RelayCommand(EditInfobase,
-            _ => SelectedInfobase != null || SelectedGroupNode?.Group != null || IsNoGroupNodeSelected());
+            p => ResolveActionTarget(p) != null || SelectedGroupNode?.Group != null || IsNoGroupNodeSelected());
         DeleteInfobaseCommand = new RelayCommand(DeleteSelected,
-            _ => SelectedInfobase != null || SelectedGroupNode?.Group != null);
+            p => ResolveActionTarget(p) != null || SelectedGroupNode?.Group != null);
+        // Команды группы: параметр — узел группы или сама группа из строки дерева.
+        EditGroupCommand = new RelayCommand(p =>
+        {
+            var group = ResolveGroup(p);
+            if (group is not null)
+                EditGroup(group);
+        });
+        DeleteGroupCommand = new RelayCommand(p =>
+        {
+            var group = ResolveGroup(p);
+            if (group is not null)
+                DeleteGroup(group);
+        }, p => ResolveGroup(p) != null);
         ToggleFavoriteCommand = new RelayCommand(ToggleFavorite, _ => SelectedInfobase != null);
         ToggleFavoriteForCommand = new RelayCommand(ToggleFavoriteFor);
         LaunchCommand = new RelayCommand(p => Launch(p), _ => SelectedInfobase != null);
         // Обратная совместимость с XAML: отдельные команды делегируют в единую LaunchCommand.
-        LaunchEnterpriseCommand = new RelayCommand(_ => Launch(LaunchKind.Enterprise), _ => SelectedInfobase != null);
-        LaunchConfiguratorCommand = new RelayCommand(_ => Launch(LaunchKind.Configurator), _ => SelectedInfobase != null);
+        LaunchEnterpriseCommand = new RelayCommand(p => Launch(LaunchKind.Enterprise, false, p as Infobase), p => ResolveActionTarget(p) != null);
+        LaunchConfiguratorCommand = new RelayCommand(p => Launch(LaunchKind.Configurator, false, p as Infobase), p => ResolveActionTarget(p) != null);
         // Переключение вкладок списка баз (Все / Избранное / Недавние) по горячим клавишам.
         ShowAllCommand = new RelayCommand(_ => IsListModeAll = true);
         ShowFavoritesCommand = new RelayCommand(_ => IsListModeFavorites = true);
@@ -376,16 +390,18 @@ public class MainViewModel : ViewModelBase
         ExportToIbasesV8iCommand = new RelayCommand(_ => ExportToIbases());
         SynchronizeWithIbasesCommand = new RelayCommand(SynchronizeWithIbasesManual);
         ToggleRightPanelDetailsCommand = new RelayCommand(_ => ShowRightPanelDetails = !ShowRightPanelDetails);
+        ToggleSessionLaunchPanelCommand = new RelayCommand(_ => ShowSessionLaunchPanel = !ShowSessionLaunchPanel);
         ExportInfobasesCommand = new RelayCommand(ExportInfobases);
         ImportInfobasesCommand = new RelayCommand(ImportInfobases);
         ClearAllInfobasesCommand = new RelayCommand(ClearAllInfobases);
         TogglePinCommand = new RelayCommand(TogglePin, _ => SelectedInfobase != null);
         TogglePinForCommand = new RelayCommand(TogglePinFor);
         CopyConnectionStringCommand = new RelayCommand(CopyConnectionString, _ => SelectedInfobase != null);
-        // Команды очистки кеша доступны всегда (в т.ч. при выбранной группе): если база не
-        // выделена (например, выбрана группа), окно очистки открывается без выбранной базы
-        // (defaultSelected = null) — в списке не выделяется ни одна база.
-        ClearCacheCommand = new RelayCommand(ClearCache);
+        // Команда очистки кеша верхней панели действует на выбранную базу: если база не
+        // выделена — недоступна (CanExecute=false). В колонке «Действия» строка передаёт
+        // свою базу параметром, поэтому там кнопка включена независимо от глобального выбора.
+        ClearCacheCommand = new RelayCommand(ClearCache,
+            p => p is Infobase ? true : SelectedInfobase != null);
         ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program));
         ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User));
         ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));
@@ -413,7 +429,7 @@ public class MainViewModel : ViewModelBase
         OpenSettingsCommand = new RelayCommand(OpenSettings);
         OpenInfobaseByLinkCommand = new RelayCommand(OpenInfobaseByLink);
         RefreshConfigurationInfoCommand = new RelayCommand(RefreshConfigurationInfo, _ => SelectedInfobase != null);
-        RefreshAllConfigurationInfoCommand = new RelayCommand(_ => RefreshAllConfigurationInfo());
+        CheckAvailabilityCommand = new RelayCommand(_ => CheckAvailability());
         RegisterComConnectorCommand = new RelayCommand(RegisterComConnector);
 
         // Если список баз пуст — предлагаем загрузить базы из файла ibases.v8i.
@@ -1921,6 +1937,7 @@ public class MainViewModel : ViewModelBase
     public ICommand ExportToIbasesV8iCommand { get; }
     public ICommand SynchronizeWithIbasesCommand { get; }
     public ICommand ToggleRightPanelDetailsCommand { get; }
+    public ICommand ToggleSessionLaunchPanelCommand { get; }
 
     /// <summary>Команда экспорта списка информационных баз в файл.</summary>
     public ICommand ExportInfobasesCommand { get; }
@@ -1996,8 +2013,8 @@ public class MainViewModel : ViewModelBase
     /// <summary>Запросить и заполнить информацию о конфигурации выбранной базы (точечно).</summary>
     public ICommand RefreshConfigurationInfoCommand { get; }
 
-    /// <summary>Запросить и заполнить информацию о конфигурации по всем базам 1С.</summary>
-    public ICommand RefreshAllConfigurationInfoCommand { get; }
+    /// <summary>Проверить доступность всех баз 1С (файловая — наличие по пути; клиент-серверная — подключение).</summary>
+    public ICommand CheckAvailabilityCommand { get; }
 
     /// <summary>Зарегистрировать COM-коннектор 1С (comcntr.dll) в системе.</summary>
     public ICommand RegisterComConnectorCommand { get; }
@@ -2058,6 +2075,12 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Команда удаления выбранной базы.</summary>
     public ICommand DeleteInfobaseCommand { get; }
+
+    /// <summary>Команда редактирования конкретной группы (кнопка в колонке «Действия» строки группы).</summary>
+    public ICommand EditGroupCommand { get; }
+
+    /// <summary>Команда удаления конкретной группы (кнопка в колонке «Действия» строки группы).</summary>
+    public ICommand DeleteGroupCommand { get; }
 
 
     /// <summary>Команда добавления/удаления из избранного.</summary>
@@ -2123,7 +2146,6 @@ public class MainViewModel : ViewModelBase
         Save();
         RebuildGroupTree();
         RefreshFileMetadata();
-        RefreshConfigurationInfoAsync();
     }
 
     /// <summary>
@@ -2246,6 +2268,20 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Возвращает информационную базу для команд действия строки: если команда вызвана с
+    /// параметром-Infobase (кнопка в колонке «Действия»), используется она, иначе — выбранная база.
+    /// </summary>
+    private Infobase? ResolveActionTarget(object? parameter) =>
+        parameter as Infobase ?? SelectedInfobase;
+
+    /// <summary>
+    /// Возвращает группу из параметра команды (кнопка в колонке «Действия» строки группы):
+    /// параметром служит либо сам узел группы, либо модель группы.
+    /// </summary>
+    private static Group? ResolveGroup(object? parameter) =>
+        parameter is Group g ? g : (parameter as GroupNodeViewModel)?.Group;
+
+    /// <summary>
     /// Редактирует выбранный элемент: базу — через окно подключения, группу — через окно группы.
     /// Тип элемента при редактировании изменить нельзя (база не станет группой и наоборот).
     /// </summary>
@@ -2265,10 +2301,11 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
-        if (SelectedInfobase is null)
+        var ib = parameter as Infobase ?? SelectedInfobase;
+        if (ib is null)
             return;
 
-        var dialog = new ConnectionSettingsWindow(SelectedInfobase, Groups, _installedPlatformVersions,
+        var dialog = new ConnectionSettingsWindow(ib, Groups, _installedPlatformVersions,
             availableServers: GetAvailableServers(), availablePorts: GetAvailablePorts())
         {
             Owner = Application.Current.MainWindow
@@ -2277,7 +2314,7 @@ public class MainViewModel : ViewModelBase
         {
             // Применяем изменения к существующему объекту, а не заменяем его новым.
             // Это важно, потому что на объект могут ссылаться и основной список, и представление.
-            var target = SelectedInfobase;
+            var target = ib;
             target.Id = dialog.Result.Id;
             target.Name = dialog.Result.Name;
             target.Group = dialog.Result.Group;
@@ -2376,10 +2413,9 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
-        if (SelectedInfobase is null)
+        var ib = parameter as Infobase ?? SelectedInfobase;
+        if (ib is null)
             return;
-
-        var ib = SelectedInfobase;
         var dlg = new Configuration_Management.DeleteInfobaseWindow(ib)
         {
             Owner = Application.Current?.MainWindow
@@ -3154,9 +3190,10 @@ public string HotkeyEnterprise
     /// Единая точка запуска 1С. parameter — LaunchKind, строка имени enum или null (Enterprise).
     /// Для Enterprise учитываются переопределения «Текущая сессия» (клиент и разрядность).
     /// </summary>
-    private void Launch(object? parameter, bool runAsAdmin = false)
+    private void Launch(object? parameter, bool runAsAdmin = false, Infobase? target = null)
     {
-        if (SelectedInfobase is null)
+        var ib = target ?? SelectedInfobase;
+        if (ib is null)
             return;
 
         var kind = ResolveLaunchKind(parameter);
@@ -3164,22 +3201,22 @@ public string HotkeyEnterprise
         switch (kind)
         {
             case LaunchKind.Configurator:
-                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Configurator, runAsAdmin);
+                ok = _launcher.Launch(ib, OneCLaunchMode.Configurator, runAsAdmin);
                 break;
             case LaunchKind.Thin32:
-                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thin, OneCArchitecture.x86, runAsAdmin);
+                ok = _launcher.Launch(ib, OneCLaunchMode.Enterprise, OneCClientType.Thin, OneCArchitecture.x86, runAsAdmin);
                 break;
             case LaunchKind.Thick32:
-                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x86, runAsAdmin);
+                ok = _launcher.Launch(ib, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x86, runAsAdmin);
                 break;
             case LaunchKind.Thin64:
-                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thin, OneCArchitecture.x64, runAsAdmin);
+                ok = _launcher.Launch(ib, OneCLaunchMode.Enterprise, OneCClientType.Thin, OneCArchitecture.x64, runAsAdmin);
                 break;
             case LaunchKind.Thick64:
-                ok = _launcher.Launch(SelectedInfobase, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x64, runAsAdmin);
+                ok = _launcher.Launch(ib, OneCLaunchMode.Enterprise, OneCClientType.Thick, OneCArchitecture.x64, runAsAdmin);
                 break;
             default:
-                ok = LaunchEnterpriseWithSessionOverrides(SelectedInfobase, runAsAdmin);
+                ok = LaunchEnterpriseWithSessionOverrides(ib, runAsAdmin);
                 break;
         }
 
@@ -3188,15 +3225,15 @@ public string HotkeyEnterprise
             var sessionDetails = string.Format(
                 LocalizationManager.T("Main.LaunchHistorySessionDetails"),
                 _sessionClientMode, _sessionArchitecture);
-            SelectedInfobase.AddLaunchHistory(kind.ToString(), sessionDetails);
+            ib.AddLaunchHistory(kind.ToString(), sessionDetails);
             InfobasesView.Refresh();
             Save();
-            _logger.Info($"Запущена база «{SelectedInfobase.Name}» ({kind}, клиент={_sessionClientMode}, арх={_sessionArchitecture})");
+            _logger.Info($"Запущена база «{ib.Name}» ({kind}, клиент={_sessionClientMode}, арх={_sessionArchitecture})");
             NotifyAfterLaunch();
         }
         else
         {
-            _logger.Warn($"Не удалось запустить базу «{SelectedInfobase.Name}» ({kind})");
+            _logger.Warn($"Не удалось запустить базу «{ib.Name}» ({kind})");
         }
     }
 
@@ -4631,14 +4668,15 @@ public string HotkeyEnterprise
     /// </summary>
     private void ClearCache(object? parameter)
     {
-        OpenCacheClean(OneCCacheKind.All);
+        OpenCacheClean(OneCCacheKind.All, parameter as Infobase);
     }
 
     /// <summary>
     /// Открывает диалог выбора типа кеша и баз 1С, после подтверждения выполняет очистку.
     /// </summary>
     /// <param name="kind">Тип кеша, выбранный по умолчанию.</param>
-    private void OpenCacheClean(OneCCacheKind kind)
+    /// <param name="defaultInfobase">База, выделенная по умолчанию (если указана).</param>
+    private void OpenCacheClean(OneCCacheKind kind, Infobase? defaultInfobase = null)
     {
         if (Infobases.Count == 0)
         {
@@ -4647,7 +4685,7 @@ public string HotkeyEnterprise
             return;
         }
 
-        var dialog = new CacheCleanWindow(Infobases, kind, SelectedInfobase)
+        var dialog = new CacheCleanWindow(Infobases, kind, defaultInfobase ?? SelectedInfobase)
         {
             Owner = Application.Current.MainWindow
         };
@@ -4917,60 +4955,75 @@ public string HotkeyEnterprise
     }
 
     /// <summary>
-    /// Запрашивает и заполняет информацию о конфигурации по всем базам 1С.
-    /// Перезаписывает уже заполненные значения; итог выводится по завершении.
+    /// Проверяет доступность всех баз 1С и помечает недоступные красным крестиком
+    /// в списке баз. Для файловых баз — наличие каталога/файла по пути; для
+    /// клиент-серверных — реальная попытка подключения через COM-коннектор;
+    /// для веб-баз — заполненность адреса. Проверки выполняются в фоне, чтобы
+    /// не блокировать UI.
     /// </summary>
-    private void RefreshAllConfigurationInfo()
+    private void CheckAvailability()
     {
         var targets = Infobases.ToList();
         if (targets.Count == 0)
         {
             _dialogs.ShowInfo(LocalizationManager.T("Main.ConfigListEmpty"),
-                LocalizationManager.T("Main.ConfigInfoListTitle"));
+                LocalizationManager.T("Main.AvailabilityTitle"));
             return;
         }
 
-        if (!_dialogs.Confirm(
-                string.Format(LocalizationManager.T("Main.RefreshAllConfigConfirm"), targets.Count),
-                LocalizationManager.T("Main.RefreshAllConfigTitle")))
-            return;
-
-        // Сброс вердиктов о недоступности COM — только после подтверждения: при отмене
-        // ничего не изменилось, и снимать защёлку не за что.
-        OneCComConnector.ResetComVerdicts();
-
-        var updated = 0;
-        var failed = 0;
-
         _ = Task.Run(() =>
         {
+            // Результаты собираем заранее, чтобы не трогать модель из фонового потока.
+            var results = new List<(Infobase Base, bool Available)>(targets.Count);
             foreach (var ib in targets)
-            {
-                try
-                {
-                    if (ConfigurationInfoService.ReadAndApply(ib, overwriteExisting: true) is not null)
-                        updated++;
-                    else
-                        failed++;
-                }
-                catch
-                {
-                    failed++;
-                }
-            }
+                results.Add((ib, IsBaseAvailable(ib)));
 
             Application.Current?.Dispatcher.Invoke(() =>
             {
+                foreach (var (ib, available) in results)
+                    ib.SetCheckedAvailability(available);
                 InfobasesView?.Refresh();
-                Save();
-                _logger.Info(
-                    $"Обновление информации о конфигурациях завершено: обновлено {updated}, " +
-                    $"ошибок {failed} из {targets.Count}");
-                _dialogs.ShowInfo(
-                    string.Format(LocalizationManager.T("Main.RefreshAllConfigDone"), updated, failed, targets.Count),
-                    LocalizationManager.T("Main.ConfigInfoListTitle"));
+
+                var total = results.Count;
+                var unavailable = results.Count(r => !r.Available);
+                SyncMessage = string.Format(
+                    LocalizationManager.T("Main.AvailabilityStatus"), total, unavailable);
+                ScheduleClearSyncMessage();
             });
         });
+    }
+
+    /// <summary>
+    /// Доступность отдельной базы. Файловая — есть ли каталог/файл по пути;
+    /// клиент-серверная — удалось ли подключиться; веб-база — заполнен ли адрес.
+    /// </summary>
+    private static bool IsBaseAvailable(Infobase ib)
+    {
+        try
+        {
+            switch (ib.Connection?.Type)
+            {
+                case ConnectionType.File:
+                    return InfobaseMaintenanceService.FileBaseExists(ib);
+
+                case ConnectionType.ClientServer:
+                {
+                    var connector = AppServices.GetRequiredService<IOneCComConnector>();
+                    using var connection = connector.Connect(ib, timeoutMs: 8000);
+                    return connection is not null;
+                }
+
+                case ConnectionType.WebServer:
+                    return !string.IsNullOrWhiteSpace(ib.Connection.WebUrl);
+
+                default:
+                    return false;
+            }
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>

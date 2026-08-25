@@ -55,6 +55,7 @@ public class MainViewModel : ViewModelBase
     // ---- Строка состояния ----
     private string _statusBarInfo = LocalizationManager.T("Main.Ready");
     private string _syncMessage = string.Empty;
+    private System.Threading.CancellationTokenSource? _statusMessageCts;
 
     // ---- Тема ----
     private string _themeName = ThemeManager.LightThemeName;
@@ -145,7 +146,18 @@ public class MainViewModel : ViewModelBase
     // ---- Текущая сессия ----
 
     /// <summary>Показывать блок «Текущая сессия» в правой панели.</summary>
-    public bool ShowSessionLaunchPanel => _settings.ShowSessionLaunchPanel;
+    public bool ShowSessionLaunchPanel
+    {
+        get => _settings.ShowSessionLaunchPanel;
+        set
+        {
+            if (_settings.ShowSessionLaunchPanel == value)
+                return;
+            _settings.ShowSessionLaunchPanel = value;
+            SaveSettingsSilently();
+            OnPropertyChanged(nameof(ShowSessionLaunchPanel));
+        }
+    }
 
     /// <summary>
     /// Применяет настройки вкладки «Отображение» и сохраняет их разом, как это
@@ -298,6 +310,8 @@ public class MainViewModel : ViewModelBase
     public ICommand EditInfobaseCommand { get; private set; } = null!;
     public ICommand AddInfobaseCommand { get; private set; } = null!;
     public ICommand DeleteInfobaseCommand { get; private set; } = null!;
+    public ICommand EditGroupCommand { get; private set; } = null!;
+    public ICommand DeleteGroupCommand { get; private set; } = null!;
     public ICommand OpenInfobaseByLinkCommand { get; private set; } = null!;
     public ICommand ToggleFavoriteCommand { get; private set; } = null!;
     public ICommand TogglePinCommand { get; private set; } = null!;
@@ -311,9 +325,10 @@ public class MainViewModel : ViewModelBase
     public ICommand SynchronizeWithIbasesCommand { get; private set; } = null!;
     public ICommand ToggleThemeCommand { get; private set; } = null!;
     public ICommand ToggleRightPanelDetailsCommand { get; private set; } = null!;
+    public ICommand ToggleSessionLaunchPanelCommand { get; private set; } = null!;
     public ICommand ExitCommand { get; private set; } = null!;
     public ICommand CopyConnectionStringCommand { get; private set; } = null!;
-    public ICommand RefreshAllConfigurationInfoCommand { get; private set; } = null!;
+    public ICommand CheckAvailabilityCommand { get; private set; } = null!;
     public ICommand OpenInfobaseFolderCommand { get; private set; } = null!;
     public ICommand CreateDesktopShortcutCommand { get; private set; } = null!;
     public ICommand OpenNativeStarterCommand { get; private set; } = null!;
@@ -339,6 +354,19 @@ public class MainViewModel : ViewModelBase
         AddInfobaseCommand = new RelayCommand(AddInfobase);
         DeleteInfobaseCommand = new RelayCommand(_ => DeleteInfobase(),
             _ => SelectedInfobase is not null || SelectedGroupNode?.Group is not null);
+        // Команды группы: параметр — узел группы или сама группа из строки дерева.
+        EditGroupCommand = new RelayCommand(p =>
+        {
+            var group = ResolveGroup(p);
+            if (group is not null)
+                EditGroup(group);
+        });
+        DeleteGroupCommand = new RelayCommand(p =>
+        {
+            var group = ResolveGroup(p);
+            if (group is not null)
+                DeleteGroup(group);
+        }, p => ResolveGroup(p) != null);
         OpenInfobaseByLinkCommand = new RelayCommand(OpenInfobaseByLink);
         ToggleFavoriteCommand = new RelayCommand(_ => ToggleFavorite(), _ => SelectedInfobase is not null);
         TogglePinCommand = new RelayCommand(_ => TogglePin(), _ => SelectedInfobase is not null);
@@ -352,17 +380,20 @@ public class MainViewModel : ViewModelBase
         SynchronizeWithIbasesCommand = new RelayCommand(SynchronizeWithIbases);
         ToggleThemeCommand = new RelayCommand(ToggleTheme);
         ToggleRightPanelDetailsCommand = new RelayCommand(() => ShowRightPanelDetails = !ShowRightPanelDetails);
+        ToggleSessionLaunchPanelCommand = new RelayCommand(() => ShowSessionLaunchPanel = !ShowSessionLaunchPanel);
         ExitCommand = new RelayCommand(ExitApplication);
         CopyConnectionStringCommand = new RelayCommand(_ => CopyConnectionString(), _ => SelectedInfobase is not null);
-        RefreshAllConfigurationInfoCommand = new RelayCommand(RefreshAllConfigurationInfo);
+        CheckAvailabilityCommand = new RelayCommand(CheckAvailability);
         OpenInfobaseFolderCommand = new RelayCommand(_ => OpenInfobaseFolder(),
             _ => SelectedInfobase?.Connection.Type == ConnectionType.File);
         CreateDesktopShortcutCommand = new RelayCommand(_ => CreateDesktopShortcut(), _ => SelectedInfobase is not null);
         OpenNativeStarterCommand = new RelayCommand(OpenNativeStarter);
         QuickClearCacheCommand = new RelayCommand(QuickClearCache, _ => SelectedInfobase is not null);
-        // Команды очистки кеша доступны всегда (в т.ч. при выбранной группе): если база не
-        // выделена, окно очистки открывается без выбранной базы (defaultSelected = null).
-        ClearCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));
+        // Кнопка «Очистить кеш» верхней панели действует на выбранную базу: если база не
+        // выделена — недоступна (CanExecute=false). В колонке «Действия» строка передаёт
+        // свою базу параметром, поэтому там кнопка включена независимо от глобального выбора.
+        ClearCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All),
+            p => p is Infobase ? true : SelectedInfobase is not null);
         ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program));
         ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User));
         ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));
@@ -2500,6 +2531,35 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Открывает диалог редактирования конкретной группы (кнопка в колонке
+    /// «Действия» строки группы). Сохраняет изменения в существующем объекте,
+    /// чтобы иерархия по ParentId и все привязки остались валидными.
+    /// </summary>
+    private void EditGroup(Group group)
+    {
+        var dialog = new Configuration_Management.GroupEditWindow(_groups, group.ParentId, group);
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        group.Name = dialog.Result.Name;
+        group.Description = dialog.Result.Description;
+        group.Color = dialog.Result.Color;
+        group.IconColor = dialog.Result.IconColor ?? string.Empty;
+        group.Icon = dialog.Result.Icon ?? string.Empty;
+        group.ParentId = dialog.Result.ParentId;
+
+        SaveGroupsSilently();
+        RebuildTree();
+    }
+
+    /// <summary>
+    /// Возвращает группу из параметра команды (кнопка в колонке «Действия» строки группы):
+    /// параметром служит либо сам узел группы, либо модель группы.
+    /// </summary>
+    private static Group? ResolveGroup(object? parameter) =>
+        parameter is Group g ? g : (parameter as GroupNodeViewModel)?.Group;
+
+    /// <summary>
     /// Удаляет группу. Группа с подгруппами или базами не удаляется: сначала
     /// её надо освободить, как и в WPF-версии.
     /// </summary>
@@ -2985,9 +3045,111 @@ public class MainViewModel : ViewModelBase
             main.ApplyCompactMode(compact);
     }
 
-    private void RefreshAllConfigurationInfo()
+    /// <summary>
+    /// Проверяет доступность всех баз 1С и помечает недоступные красным крестиком
+    /// в списке баз. Ручная команда верхней панели команд вместо автопроверки при
+    /// запуске: старт не блокируется запросами ко всем базам. Доступность
+    /// определяется по факту: для файловых баз — наличие каталога/файла базы по
+    /// пути, для клиент-серверных — реальная попытка подключения, для веб-баз —
+    /// заполненность адреса. Проверки выполняются в фоне, чтобы не блокировать UI.
+    /// </summary>
+    private void CheckAvailability()
     {
-        _dialog.ShowInfo(LocalizationManager.T("Main.RefreshConfigInfoMsg"));
+        var targets = Infobases.ToList();
+        if (targets.Count == 0)
+        {
+            ShowTemporaryStatusMessage(LocalizationManager.T("Main.ConfigListEmpty"));
+            return;
+        }
+
+        _ = Task.Run(() =>
+        {
+            // Результаты собираем заранее, чтобы не трогать модель из фонового потока.
+            var results = new List<(Infobase Base, bool Available)>(targets.Count);
+            foreach (var ib in targets)
+                results.Add((ib, IsBaseAvailable(ib)));
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                foreach (var (ib, available) in results)
+                    ib.SetCheckedAvailability(available);
+                RebuildTree();
+
+                var total = results.Count;
+                var unavailable = results.Count(r => !r.Available);
+                ShowTemporaryStatusMessage(string.Format(
+                    LocalizationManager.T("Main.AvailabilityStatus"), total, unavailable));
+            });
+        });
+    }
+
+    /// <summary>
+    /// Показывает сообщение в нижней строке состояния на 10 секунд, после чего
+    /// возвращает обычный текст. Повторный вызов сбрасывает предыдущий таймер.
+    /// </summary>
+    private void ShowTemporaryStatusMessage(string message)
+    {
+        _statusMessageCts?.Cancel();
+        _statusMessageCts?.Dispose();
+        _statusMessageCts = null;
+
+        StatusBarInfo = message;
+
+        var cts = new System.Threading.CancellationTokenSource();
+        _statusMessageCts = cts;
+        var token = cts.Token;
+        _ = ClearStatusMessageAfterDelayAsync(token);
+    }
+
+    private async Task ClearStatusMessageAfterDelayAsync(System.Threading.CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10), token).ConfigureAwait(true);
+            if (!token.IsCancellationRequested)
+                UpdateStatus();
+        }
+        catch (TaskCanceledException)
+        {
+            // новое сообщение заменило предыдущее
+        }
+    }
+
+    /// <summary>
+    /// Доступность отдельной базы. Файловая — есть ли каталог/файл по пути;
+    /// клиент-серверная — удалось ли подключиться; веб-база — заполнен ли адрес.
+    /// Для клиент-серверных баз выполняется реальная попытка подключения через
+    /// COM-коннектор (на Linux недоступна, поэтому такие базы считаются недоступными).
+    /// </summary>
+    private static bool IsBaseAvailable(Infobase ib)
+    {
+        try
+        {
+            switch (ib.Connection?.Type)
+            {
+                case ConnectionType.File:
+                    // Наличие каталога или файла базы по пути.
+                    return InfobaseMaintenanceService.FileBaseExists(ib);
+
+                case ConnectionType.ClientServer:
+                {
+                    // Реальная попытка подключения.
+                    var connector = AppServices.GetRequiredService<IOneCComConnector>();
+                    using var connection = connector.Connect(ib, timeoutMs: 8000);
+                    return connection is not null;
+                }
+
+                case ConnectionType.WebServer:
+                    return !string.IsNullOrWhiteSpace(ib.Connection.WebUrl);
+
+                default:
+                    return false;
+            }
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     // ======================= Этап 6: папки / ярлыки / стартер =======================

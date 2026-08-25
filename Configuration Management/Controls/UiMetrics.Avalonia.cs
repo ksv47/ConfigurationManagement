@@ -53,6 +53,17 @@ namespace Configuration_Management.Controls
         /// <summary>Масштабирует значение на коэффициент компактного режима.</summary>
         public static double Scaled(double value) => value * Scale;
 
+        /// <summary>
+        /// Коэффициент масштабирования шрифтов при компактном режиме. Задаётся мягче,
+        /// чем <see cref="Scale"/> для геометрии: отступы и иконки сжимаются сильнее,
+        /// а текст остаётся читаемым (при общем Scale=0.8 мелкие надписи становились
+        /// практически неразличимыми).
+        /// </summary>
+        public static double FontScale => Compact ? 0.9 : 1.0;
+
+        /// <summary>Масштабирует размер шрифта на коэффициент компактного режима.</summary>
+        public static double ScaledFont(double value) => value * FontScale;
+
         /// <summary>Вертикальный отступ верхней панели.</summary>
         public static double TopBarV => Compact ? 6 : 10;
         /// <summary>Горизонтальный отступ верхней панели.</summary>
@@ -75,15 +86,15 @@ namespace Configuration_Management.Controls
         public static double ButtonPadH => Compact ? 6 : 10;
 
         /// <summary>Вертикальный padding компактных кнопок действий правой панели.</summary>
-        public static double ActionButtonPadV => Compact ? 4 : 6;
+        public static double ActionButtonPadV => Compact ? 3 : 6;
         /// <summary>Горизонтальный padding компактных кнопок действий правой панели.</summary>
         public static double ActionButtonPadH => Compact ? 6 : 8;
         /// <summary>Минимальная высота кнопки действия в правой панели.</summary>
-        public static double ActionButtonMinHeight => Compact ? 28 : 32;
+        public static double ActionButtonMinHeight => Compact ? 26 : 32;
         /// <summary>Размер иконки на кнопке действия правой панели.</summary>
         public static double ActionIconSize => Compact ? 13 : 14;
         /// <summary>Размер шрифта подписи кнопки действия правой панели.</summary>
-        public static double ActionFontSize => Compact ? 11.5 : 12;
+        public static double ActionFontSize => Compact ? 11 : 12;
         /// <summary>Промежуток между ячейками сетки действий правой панели.</summary>
         public static double ActionGridGap => Compact ? 4 : 6;
 
@@ -92,14 +103,26 @@ namespace Configuration_Management.Controls
         /// <summary>Размер самой иконки статуса внутри подложки.</summary>
         public static double RowIcon => Compact ? 14 : 20;
         /// <summary>Размер шрифта имени базы в строке списка.</summary>
-        public static double RowNameFont => Compact ? 13 : 14;
+        public static double RowNameFont => Compact ? 12.5 : 14;
         /// <summary>Размер шрифта вторичной информации в строке списка.</summary>
-        public static double RowSecondaryFont => Compact ? 10 : 11;
+        public static double RowSecondaryFont => 11;
+
+        /// <summary>
+        /// Размер шрифта имени группы в списке. В обычном режиме имя группы наследует
+        /// применяемый к интерфейсу шрифт (без жёсткого размера), поэтому значение имеет
+        /// смысл только в компактном режиме, где имя группы задаётся явно и уменьшается.
+        /// </summary>
+        public static double GroupNameFont => 12.5;
+
+        /// <summary>Вертикальный внутренний отступ заголовка группы (высота оформления группы).</summary>
+        public static double GroupHeaderPadV => Compact ? 2 : 3;
+        /// <summary>Вертикальный внешний отступ заголовка группы (расстояние между группами).</summary>
+        public static double GroupHeaderMarginV => Compact ? 0.5 : 1;
 
         /// <summary>Минимальная ширина правой панели сведений.</summary>
-        public static double RightPanelMin => Compact ? 220 : 280;
+        public static double RightPanelMin => Compact ? 200 : 280;
         /// <summary>Максимальная ширина правой панели сведений.</summary>
-        public static double RightPanelMax => Compact ? 280 : 340;
+        public static double RightPanelMax => Compact ? 255 : 340;
 
         // ---- Анимации ----
         /// <summary>Длительность плавного перехода цвета/прозрачности.</summary>

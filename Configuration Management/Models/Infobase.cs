@@ -337,20 +337,47 @@ public class Infobase : INotifyPropertyChanged
         _ => LocalizationManager.T("Infobase.Type.ClientServer")
     };
 
+    private bool? _checkedAvailability;
+
     /// <summary>
-    /// Доступность базы. Для файловых баз — наличие каталога/файла на диске.
-    /// Для клиент-серверных и веб-баз реальная доступность удалённо не проверяется
-    /// (чтобы не блокировать интерфейс сетевыми запросами); недоступными считаются
-    /// базы с незаполненными параметрами подключения.
+    /// Доступность базы. По умолчанию — расчёт по параметрам подключения: для файловых
+    /// баз — наличие каталога/файла на диске, для клиент-серверных и веб-баз реальная
+    /// доступность удалённо не проверяется (чтобы не блокировать интерфейс сетевыми
+    /// запросами). Если команда «Проверить доступность» задала результат проверки
+    /// через <see cref="SetCheckedAvailability"/>, используется именно он.
     /// </summary>
-    public bool IsAvailable => Connection.Type switch
+    public bool IsAvailable
     {
-        ConnectionType.File => !string.IsNullOrWhiteSpace(Connection.FilePath)
-            && (Directory.Exists(Connection.FilePath) || File.Exists(Connection.FilePath)),
-        ConnectionType.WebServer => !string.IsNullOrWhiteSpace(Connection.WebUrl),
-        _ => !string.IsNullOrWhiteSpace(Connection.Server)
-            || !string.IsNullOrWhiteSpace(Connection.DatabaseName)
-    };
+        get
+        {
+            if (_checkedAvailability.HasValue)
+                return _checkedAvailability.Value;
+            return Connection.Type switch
+            {
+                ConnectionType.File => !string.IsNullOrWhiteSpace(Connection.FilePath)
+                    && (Directory.Exists(Connection.FilePath) || File.Exists(Connection.FilePath)),
+                ConnectionType.WebServer => !string.IsNullOrWhiteSpace(Connection.WebUrl),
+                _ => !string.IsNullOrWhiteSpace(Connection.Server)
+                    || !string.IsNullOrWhiteSpace(Connection.DatabaseName)
+            };
+        }
+    }
+
+    /// <summary>
+    /// Задаёт результат фактической проверки доступности базы (или null — вернуть
+    /// расчётное значение по параметрам подключения). Обновляет статусные свойства,
+    /// влияющие на иконку базы в списке (ключ, цвет, подсказка).
+    /// </summary>
+    public void SetCheckedAvailability(bool? available)
+    {
+        if (_checkedAvailability == available)
+            return;
+        _checkedAvailability = available;
+        OnPropertyChanged(nameof(IsAvailable));
+        OnPropertyChanged(nameof(StatusIconKey));
+        OnPropertyChanged(nameof(StatusColorHex));
+        OnPropertyChanged(nameof(StatusDisplay));
+    }
 
     /// <summary>
     /// Ключ иконки статуса базы для списка баз (геометрия из Icons.xaml / Icons.axaml):

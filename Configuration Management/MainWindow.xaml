@@ -269,8 +269,18 @@
 
                 <!-- Синхронизация + тема + настройки (добавление — в правой панели и контекстном меню) -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                    <controls:HelpLink Margin="0,0,4,0"
-                                       HelpText="{loc:Loc Main.BaseListHelp}"/>
+                    <!-- Добавить базу: перенесено из правой панели в верхнюю панель команд -->
+                    <Button Command="{Binding AddInfobaseCommand}"
+                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                            ToolTip="{loc:Loc Main.AddBase}">
+                        <materialDesign:PackIcon Kind="Plus" Width="18" Height="18" Foreground="#22C55E"/>
+                    </Button>
+                    <!-- Очистить кеш выбранной базы: доступно при выбранной базе (SelectedInfobase) -->
+                    <Button Command="{Binding ClearCacheCommand}"
+                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                            ToolTip="{loc:Loc Main.ClearCacheTooltip}">
+                        <materialDesign:PackIcon Kind="Broom" Width="18" Height="18" Foreground="#F59E0B"/>
+                    </Button>
                     <!-- Индикатор выгрузки .dt/.cf: появляется при запуске пакетной операции,
                          анимируется (стрелка вверх подпрыгивает) и скрывается по её завершении.
                          При наведении показывает сводку о текущей выгрузке. -->
@@ -291,10 +301,11 @@
                             ToolTip="{loc:Loc Main.SyncDetailedTooltip}">
                         <materialDesign:PackIcon Kind="Sync" Width="18" Height="18" Foreground="#14B8A6"/>
                     </Button>
-                    <Button Command="{Binding RefreshAllConfigurationInfoCommand}"
+                    <Button Command="{Binding CheckAvailabilityCommand}"
                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                            ToolTip="{loc:Loc Main.RefreshAllConfigInfo}">
-                        <materialDesign:PackIcon Kind="CloudDownload" Width="18" Height="18" Foreground="#0EA5E9"/>
+                            ToolTip="{loc:Loc Main.CheckAvailabilityTooltip}">
+                        <Path Width="18" Height="18" Stretch="Uniform"
+                              Data="{StaticResource IconSonar}" Fill="#14B8A6"/>
                     </Button>
                     <Button x:Name="ThemeToggleButton" Click="OnToggleTheme_Click"
                             Style="{DynamicResource IconButton}" Margin="0,0,2,0" ToolTip="{loc:Loc Main.Theme}">
@@ -312,6 +323,9 @@
                             ToolTip="{loc:Loc Main.SettingsTooltip}">
                         <materialDesign:PackIcon Kind="Cog" Width="18" Height="18" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </Button>
+                    <!-- Подсказка «?»: справа, после всех команд верхней панели -->
+                    <controls:HelpLink Margin="4,0,0,0"
+                                       HelpText="{loc:Loc Main.BaseListHelp}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -532,6 +546,8 @@
                                             </MultiBinding>
                                         </ColumnDefinition.Width>
                                     </ColumnDefinition>
+                                    <!-- Фиксированная колонка «Действия»: кнопки управления базой в каждой строке -->
+                                    <ColumnDefinition Width="170"/>
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Кнопки «развернуть/свернуть все группы» в заголовке слева -->
@@ -610,6 +626,10 @@
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
                                            ToolTip="{loc:Loc Main.ColumnSizeTooltip}"/>
+                                <TextBlock Grid.Column="11" Text="{loc:Loc Column.Actions}" FontWeight="SemiBold" FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                           HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
+                                           ToolTip="{loc:Loc Main.Actions}"/>
 
                                 <!-- Современные разделители колонок: тонкая линия + широкая зона захвата -->
                                 <Border x:Name="NameSplitter" Grid.Column="4"
@@ -742,23 +762,29 @@
                                 <!-- Заголовок группы без собственного горизонтального отступа:
                                      сдвиг иерархии даёт отступ Expander по Level (в ItemContainerStyle).
                                      Фон/выделение начинаются сразу после кнопки разворота. -->
-                                <Border CornerRadius="6" Padding="8,6">
+                                <Border CornerRadius="6">
                                     <!-- Отступ заголовка группы по уровню вложенности. У групп с дочерними
                                          элементами сдвиг даёт кнопка разворота; у пустых (листовых) групп её нет,
-                                         поэтому GroupOffset добавляет такой же отступ, чтобы иерархия сохранялась. -->
+                                         поэтому GroupOffset добавляет такой же отступ, чтобы иерархия сохранялась.
+                                         Третье значение MultiBinding — флаг компактного режима: в нём вертикальный
+                                         зазор между группами убирается (см. GroupOffsetConverter). -->
                                     <Border.Margin>
                                         <MultiBinding Converter="{StaticResource GroupOffset}">
                                             <Binding Path="(controls:LeveledTreeView.Level)"
                                                      RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
                                             <Binding Path="HasItems"
                                                      RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                            <Binding Path="DataContext.CompactMode"
+                                                     RelativeSource="{RelativeSource AncestorType=Window}"/>
                                         </MultiBinding>
                                     </Border.Margin>
                                     <Border.Style>
-                                        <!-- Стиль подсветки выбранной группы: при выделении (IsSelected)
-                                             рамка акцентного цвета, чтобы выделение было видно поверх цвета группы. -->
+                                        <!-- Стиль заголовка группы: фон/граница/выделение и компактные отступы.
+                                             Padding задаётся здесь (а не атрибутом), чтобы триггер компактного
+                                             режима мог его уменьшить и убрать лишнее пустое место вокруг названия. -->
                                         <Style TargetType="Border">
                                             <!-- Готовая кисть с узла — без поиска группы и GetFullPath при каждой отрисовке -->
+                                            <Setter Property="Padding" Value="8,6"/>
                                             <Setter Property="Background" Value="{Binding HeaderBrush}"/>
                                             <Setter Property="BorderBrush" Value="Transparent"/>
                                             <Setter Property="BorderThickness" Value="2"/>
@@ -766,21 +792,85 @@
                                                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                     <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                                                 </DataTrigger>
+                                                <DataTrigger Binding="{Binding DataContext.CompactMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                    <Setter Property="Padding" Value="6,1"/>
+                                                </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Width="18" Height="18" Stretch="Uniform" Margin="0,0,8,0"
-                                              VerticalAlignment="Center"
-                                              Fill="{Binding IconBrush}"
-                                              Data="{Binding Icon, Converter={StaticResource IconKeyToGeometryConverter}}"/>
-                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="15"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{Binding HeaderTextBrush}"/>
-                                        <TextBlock Text="{Binding TotalInfobaseCount, StringFormat=' ({0})'}" FontSize="13"
-                                                   VerticalAlignment="Center" Margin="6,0,0,0"
-                                                   Foreground="{Binding HeaderTextBrush}"/>
-                                    </StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <!-- Колонка «Действия» группы: той же ширины, что у строк баз и заголовка. -->
+                                            <ColumnDefinition Width="170"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Stretch="Uniform" Margin="0,0,8,0"
+                                                  VerticalAlignment="Center"
+                                                  Fill="{Binding IconBrush}"
+                                                  Data="{Binding Icon, Converter={StaticResource IconKeyToGeometryConverter}}">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Setter Property="Width" Value="18"/>
+                                                        <Setter Property="Height" Value="18"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding DataContext.CompactMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                <Setter Property="Width" Value="14"/>
+                                                                <Setter Property="Height" Value="14"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{Binding HeaderTextBrush}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="FontSize" Value="15"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding DataContext.CompactMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                <Setter Property="FontSize" Value="12"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding TotalInfobaseCount, StringFormat=' ({0})'}"
+                                                       VerticalAlignment="Center" Margin="6,0,0,0"
+                                                       Foreground="{Binding HeaderTextBrush}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="FontSize" Value="13"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding DataContext.CompactMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                <Setter Property="FontSize" Value="11"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <!-- Действия группы: «Изменить группу» и «Удалить группу» в той же правой зоне,
+                                             что и кнопки строк баз. -->
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Button Command="{Binding DataContext.EditGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{DynamicResource IconButton}" Margin="1,0"
+                                                    ToolTip="{loc:Loc Main.EditGroupTooltip}">
+                                                <materialDesign:PackIcon Kind="Pencil" Width="15" Height="15"
+                                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Button>
+                                            <Button Command="{Binding DataContext.DeleteGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{DynamicResource IconButton}" Margin="1,0"
+                                                    ToolTip="{loc:Loc Main.DeleteGroupTooltip}">
+                                                <materialDesign:PackIcon Kind="Delete" Width="15" Height="15"
+                                                                         Foreground="#DC2626"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
                                 </Border>
                             </HierarchicalDataTemplate>
 
@@ -865,6 +955,8 @@
                                                     </MultiBinding>
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
+                                            <!-- Колонка «Действия»: фиксированная, совпадает с заголовком -->
+                                            <ColumnDefinition Width="170"/>
                                         </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
@@ -997,6 +1089,46 @@
                                         <TextBlock Grid.Column="9" Text="{Binding FileSizeDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
+
+                                        <!-- Колонка «Действия»: кнопки управления конкретной базой этой строки -->
+                                        <StackPanel Grid.Column="10" Grid.RowSpan="2" Orientation="Horizontal"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Button Command="{Binding DataContext.LaunchEnterpriseCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{DynamicResource IconButton}" Margin="1,0"
+                                                    ToolTip="{loc:Loc Main.LaunchEnterpriseTooltip}">
+                                                <materialDesign:PackIcon Kind="Play" Width="15" Height="15"
+                                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Button>
+                                            <Button Command="{Binding DataContext.LaunchConfiguratorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{DynamicResource IconButton}" Margin="1,0"
+                                                    ToolTip="{loc:Loc Main.LaunchConfiguratorSectionTooltip}">
+                                                <materialDesign:PackIcon Kind="Wrench" Width="15" Height="15"
+                                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Button>
+                                            <Button Command="{Binding DataContext.EditInfobaseCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{DynamicResource IconButton}" Margin="1,0"
+                                                    ToolTip="{loc:Loc Main.EditBaseTooltip}">
+                                                <materialDesign:PackIcon Kind="Pencil" Width="15" Height="15"
+                                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Button>
+                                            <Button Command="{Binding DataContext.ClearCacheCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{DynamicResource IconButton}" Margin="1,0"
+                                                    ToolTip="{loc:Loc Main.ClearCacheTooltip}">
+                                                <materialDesign:PackIcon Kind="Broom" Width="15" Height="15"
+                                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Button>
+                                            <Button Command="{Binding DataContext.DeleteInfobaseCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{DynamicResource IconButton}" Margin="1,0"
+                                                    ToolTip="{loc:Loc Main.DeleteTooltip}">
+                                                <materialDesign:PackIcon Kind="Delete" Width="15" Height="15"
+                                                                         Foreground="#DC2626"/>
+                                            </Button>
+                                        </StackPanel>
 
                                         <!-- Теги базы: тот же сдвиг, старт с колонки 0 как у ★/📌/названия -->
                                         <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="9"
@@ -1337,11 +1469,13 @@
                         <Setter Property="MinWidth" Value="280"/>
                         <Setter Property="HorizontalAlignment" Value="Stretch"/>
                         <Style.Triggers>
-                            <!-- Компактный режим: ширина по самой длинной подписи кнопки, без лишнего зазора -->
+                            <!-- Компактный режим: ширина по самой длинной подписи кнопки, без лишнего зазора.
+                                 MaxWidth убран почти полностью, чтобы панель максимально сжималась по ширине
+                                 длин названий команд и выпадающих меню. -->
                             <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
                                 <Setter Property="Width" Value="Auto"/>
                                 <Setter Property="MinWidth" Value="0"/>
-                                <Setter Property="MaxWidth" Value="260"/>
+                                <Setter Property="MaxWidth" Value="200"/>
                                 <Setter Property="HorizontalAlignment" Value="Left"/>
                             </DataTrigger>
                         </Style.Triggers>
@@ -1855,329 +1989,9 @@
                             </StackPanel>
                         </Border>
 
-                        <Button Command="{Binding EditInfobaseCommand}">
-                            <Button.ToolTip>
-                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
-                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
-                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.EditBaseTooltip"/>
-                                    <Binding Path="HotkeyEdit"/>
-                                </MultiBinding>
-                            </Button.ToolTip>
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
-                                    <Setter Property="Padding" Value="14,11"/>
-                                    <Setter Property="Margin" Value="4,0,4,4"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                            <Setter Property="Padding" Value="6,8"/>
-                                            <Setter Property="Margin" Value="0,0,0,4"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Margin="0,0,4,0"
-                                                             Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center"/>
-                                    <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource ButtonTextBrush}">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="{loc:Loc Main.EditSettings}"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                        <Setter Property="Text" Value="{loc:Loc Main.EditShort}"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding HotkeyEdit}"
-                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
-                                           Foreground="{DynamicResource ButtonTextBrush}" Opacity="0.75"
-                                           Margin="8,0,0,0"
-                                           Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
-                            </Grid>
-                        </Button>
-                        <Button Command="{Binding AddInfobaseCommand}">
-                            <Button.ToolTip>
-                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
-                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
-                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.AddBaseOrGroupTooltip"/>
-                                    <Binding Path="HotkeyAdd"/>
-                                </MultiBinding>
-                            </Button.ToolTip>
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
-                                    <Setter Property="Padding" Value="14,11"/>
-                                    <Setter Property="Margin" Value="4,0,4,4"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                            <Setter Property="Padding" Value="6,8"/>
-                                            <Setter Property="Margin" Value="0,0,0,4"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" Margin="0,0,4,0"
-                                                             Foreground="#22C55E" VerticalAlignment="Center"/>
-                                    <TextBlock VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource ButtonTextBrush}">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="{loc:Loc Main.AddBaseOrGroup}"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding DataContext.ShowRightPanelDetails, RelativeSource={RelativeSource AncestorType=Window}}" Value="False">
-                                                        <Setter Property="Text" Value="{loc:Loc Main.AddShort}"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding HotkeyAdd}"
-                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
-                                           Foreground="{DynamicResource ButtonTextBrush}" Opacity="0.75"
-                                           Margin="8,0,0,0"
-                                           Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
-                            </Grid>
-                        </Button>
-                        <Button Command="{Binding ToggleFavoriteCommand}">
-                            <Button.ToolTip>
-                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
-                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
-                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.FavoritesTooltipShort"/>
-                                    <Binding Path="HotkeyFavorite"/>
-                                </MultiBinding>
-                            </Button.ToolTip>
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
-                                    <Setter Property="Padding" Value="14,11"/>
-                                    <Setter Property="Margin" Value="4,0,4,4"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                            <Setter Property="Padding" Value="6,8"/>
-                                            <Setter Property="Margin" Value="0,0,0,4"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="Star" Width="16" Height="16" Foreground="#B45309" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{loc:Loc Main.Favorites}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="#B45309"/>
-                                </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding HotkeyFavorite}"
-                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
-                                           Foreground="#B45309" Opacity="0.85" Margin="8,0,0,0"
-                                           Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
-                            </Grid>
-                        </Button>
-                        <Button Command="{Binding TogglePinCommand}">
-                            <Button.ToolTip>
-                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
-                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
-                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.PinBaseTooltip"/>
-                                    <Binding Path="HotkeyPin"/>
-                                </MultiBinding>
-                            </Button.ToolTip>
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
-                                    <Setter Property="Padding" Value="14,11"/>
-                                    <Setter Property="Margin" Value="4,0,4,4"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                            <Setter Property="Padding" Value="6,8"/>
-                                            <Setter Property="Margin" Value="0,0,0,4"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="Pin" Width="16" Height="16" Foreground="#6D28D9" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{loc:Loc Main.Pin}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource ButtonTextBrush}"/>
-                                </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding HotkeyPin}"
-                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
-                                           Foreground="{DynamicResource ButtonTextBrush}" Opacity="0.75"
-                                           Margin="8,0,0,0"
-                                           Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
-                            </Grid>
-                        </Button>
-                        <!-- Split-кнопка «Очистить кеш» по аналогии с кнопкой запуска 1С:Предприятие:
-                             основная часть открывает окно очистки кеша, правая стрелка — выпадающее
-                             меню с выбором типа кеша. Доступна даже при выбранной группе. -->
-                        <!-- Локальный Margin не задаём: он управляется только через Border.Style
-                             (включая компактный режим), иначе локальное значение перекрывало бы
-                             триггер и отступ не менялся бы при сворачивании/разворачивании панели. -->
-                        <Border CornerRadius="8"
-                                Background="{DynamicResource SecondaryButtonBackgroundBrush}">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Margin" Value="4,0,4,4"/>
-                                    <!-- Единая высота с кнопками ActionPanelSecondaryButton
-                                         (40 в развёрнутом / 32 в компактном режиме), чтобы
-                                         split-блок «Очистить кеш» был одного размера с соседними. -->
-                                    <Setter Property="MinHeight" Value="40"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                            <Setter Property="Margin" Value="0,0,0,4"/>
-                                            <Setter Property="MinHeight" Value="32"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Command="{Binding ClearCacheCommand}" Cursor="Hand"
-                                        HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
-                                        Background="Transparent" BorderThickness="0"
-                                        ToolTip="{loc:Loc Main.ClearCacheTooltip}">
-                                    <Button.Style>
-                                        <Style TargetType="Button">
-                                            <Setter Property="Padding" Value="14,11"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                                    <Setter Property="Padding" Value="6,8"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="bd" Background="Transparent" CornerRadius="8,0,0,8"
-                                                    Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource SecondaryButtonHoverBrush}"/>
-                                                </Trigger>
-                                                <Trigger Property="IsPressed" Value="True">
-                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource SecondaryButtonPressedBrush}"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Orientation="Horizontal" Grid.Column="0">
-                                            <materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Margin="0,0,4,0"
-                                                                     Foreground="{DynamicResource ButtonTextBrush}" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Main.ClearCache}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource ButtonTextBrush}"/>
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="1" Text="{Binding HotkeyClearCache}"
-                                                   VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
-                                                   Foreground="{DynamicResource ButtonTextBrush}" Opacity="0.75"
-                                                   Margin="8,0,0,0"
-                                                   Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
-                                    </Grid>
-                                </Button>
-                                <Border Grid.Column="1" Width="1" Background="{DynamicResource BorderBrushColor}" Margin="0,6"/>
-                                <Button Grid.Column="2" x:Name="ClearCacheMenuButton" Width="28" MinWidth="28" Cursor="Hand"
-                                        Click="OnClearCacheMenuClick" ToolTip="{loc:Loc Main.ClearCacheTooltip}"
-                                        Background="Transparent" BorderThickness="0" Padding="0">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="bd" Background="Transparent" CornerRadius="0,8,8,0">
-                                                <materialDesign:PackIcon Kind="ChevronDown" Width="16" Height="16"
-                                                                         Foreground="{DynamicResource ButtonTextBrush}"
-                                                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource SecondaryButtonHoverBrush}"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                    <Button.ContextMenu>
-                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
-                                            <MenuItem Header="{loc:Loc Main.ClearProgramCacheTitle}" Command="{Binding ClearProgramCacheCommand}" Style="{DynamicResource ModernMenuItem}">
-                                                <MenuItem.Icon><materialDesign:PackIcon Kind="Broom" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="{loc:Loc Main.ClearUserCacheTitle}" Command="{Binding ClearUserCacheCommand}" Style="{DynamicResource ModernMenuItem}">
-                                                <MenuItem.Icon><materialDesign:PackIcon Kind="Account" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
-                                            </MenuItem>
-                                            <Separator/>
-                                            <MenuItem Header="{loc:Loc Main.ClearBothCaches}" Command="{Binding ClearCacheBothCommand}" Style="{DynamicResource ModernMenuItem}">
-                                                <MenuItem.Icon><materialDesign:PackIcon Kind="DeleteSweep" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
-                                            </MenuItem>
-                                        </ContextMenu>
-                                    </Button.ContextMenu>
-                                </Button>
-                            </Grid>
-                        </Border>
-                        <Border Height="1" Background="{DynamicResource BorderBrushColor}" Margin="0,6,0,8"
-                                Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
-
-                        <Button Command="{Binding DeleteInfobaseCommand}">
-                            <Button.ToolTip>
-                                <MultiBinding Converter="{StaticResource MultiFormat}" ConverterParameter="{}{0} ({1})">
-                                    <Binding Source="{x:Static loc:LocalizationManager.Instance}" Path="Source"
-                                             Converter="{x:Static loc:LocalizationValueConverter.Instance}" ConverterParameter="Main.DeleteTooltip"/>
-                                    <Binding Path="HotkeyDelete"/>
-                                </MultiBinding>
-                            </Button.ToolTip>
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource ActionPanelSecondaryButton}">
-                                    <Setter Property="Padding" Value="14,11"/>
-                                    <Setter Property="Margin" Value="8,0,8,0"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                            <Setter Property="Padding" Value="6,8"/>
-                                            <Setter Property="Margin" Value="0,0,0,0"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#DC2626" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center" Foreground="#DC2626" FontSize="12" FontWeight="SemiBold"/>
-                                </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding HotkeyDelete}"
-                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"
-                                           Foreground="#DC2626" Opacity="0.85" Margin="8,0,0,0"
-                                           Visibility="{Binding ShowRightPanelDetails, Converter={StaticResource BoolToVis}}"/>
-                            </Grid>
-                        </Button>
-
                         <!-- Отдельная кнопка «Перейти по ссылке» (аналог стандартного загрузчика 1С) -->
-                        <Border Height="1" Background="{DynamicResource BorderBrushColor}">
+                        <Border Height="1" Background="{DynamicResource BorderBrushColor}"
+                                Visibility="{Binding ShowSessionLaunchPanel, Converter={StaticResource BoolToVis}}">
                             <Border.Style>
                                 <Style TargetType="Border">
                                     <Setter Property="Margin" Value="8,6,8,10"/>
@@ -2291,6 +2105,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding StatusBarInfo}"
                            Foreground="{DynamicResource TextOnAccentBrush}" FontSize="12"
@@ -2313,7 +2128,15 @@
                            VerticalAlignment="Center" Margin="16,0,8,0"
                            TextTrimming="CharacterEllipsis"
                            ToolTip="{loc:Loc Main.SyncResultTooltip}"/>
-                <Button Grid.Column="2" Command="{Binding ToggleRightPanelDetailsCommand}"
+                <Button Grid.Column="2" Command="{Binding ToggleSessionLaunchPanelCommand}"
+                        Style="{DynamicResource StatusBarIconButton}"
+                        Margin="4,0,0,0"
+                        ToolTip="{loc:Loc Main.CurrentSession}"
+                        VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="ClockOutline" Width="18" Height="18"
+                                             Foreground="{DynamicResource TextOnAccentBrush}"/>
+                </Button>
+                <Button Grid.Column="3" Command="{Binding ToggleRightPanelDetailsCommand}"
                         Style="{DynamicResource StatusBarIconButton}"
                         Margin="4,0,0,0"
                         ToolTip="{Binding RightPanelToggleTooltip}"

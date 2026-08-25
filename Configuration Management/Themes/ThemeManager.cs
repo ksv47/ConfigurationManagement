@@ -269,9 +269,10 @@ namespace Configuration_Management.Themes
         private static readonly Dictionary<ColumnDefinition, double> _compactColumn = new();
 
         /// <summary>
-        /// Применяет компактный режим к главному окну: уменьшает отступы, внутренние поля,
-        /// шрифты (в т.ч. унаследованные — заголовки колонок, строки списка) и ширины
-        /// фиксированных колонок на коэффициент 0.7 (восстанавливает при выключении).
+        /// Применяет компактный режим к главному окну: уменьшает отступы, внутренние поля
+        /// и ширины фиксированных колонок на коэффициент 0.7, а шрифты (в т.ч. унаследованные —
+        /// заголовки колонок, строки списка) — на более мягкий коэффициент 0.9, чтобы надписи
+        /// оставались читаемыми (восстанавливает при выключении).
         /// Высоты и минимальные размеры не трогаются, чтобы не создавать артефакты-разделители.
         /// Вызывается из настроек при переключении и при запуске приложения.
         /// </summary>
@@ -280,11 +281,14 @@ namespace Configuration_Management.Themes
             var window = Application.Current?.MainWindow;
             if (window is null)
                 return;
+            // Геометрия (отступы, поля, ширины колонок) сжимается сильнее (0.7),
+            // а шрифты — мягче (0.9), чтобы текст оставался читаемым.
             var factor = compact ? 0.7 : 1.0;
-            ApplyCompactElement(window, factor);
+            var fontFactor = compact ? 0.9 : 1.0;
+            ApplyCompactElement(window, factor, fontFactor);
         }
 
-        private static void ApplyCompactElement(DependencyObject d, double factor)
+        private static void ApplyCompactElement(DependencyObject d, double factor, double fontFactor)
         {
             if (d is null)
                 return;
@@ -320,7 +324,7 @@ namespace Configuration_Management.Themes
                     origFont = fontVal;
                     _compactFont[d] = origFont;
                 }
-                d.SetValue(TextElement.FontSizeProperty, Math.Max(origFont * factor, 8));
+                d.SetValue(TextElement.FontSizeProperty, Math.Max(origFont * fontFactor, 8));
             }
 
             // Уменьшаем фиксированные ширины колонок Grid (заголовки колонок идут за содержимым).
@@ -347,7 +351,7 @@ namespace Configuration_Management.Themes
 
             int count = VisualTreeHelper.GetChildrenCount(d);
             for (int i = 0; i < count; i++)
-                ApplyCompactElement(VisualTreeHelper.GetChild(d, i), factor);
+                ApplyCompactElement(VisualTreeHelper.GetChild(d, i), factor, fontFactor);
         }
 
         private static Thickness ScaleThickness(Thickness t, double factor)
