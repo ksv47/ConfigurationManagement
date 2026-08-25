@@ -68,13 +68,13 @@
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
   </PropertyGroup>
 
-  <!-- WPF-ресурсы иконок (embedded, только Windows) -->
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <!-- Тестам нужны чистые функции протокола и сборки строки подключения. Публичными
          их делать незачем: за пределами сборки они не имеют смысла. -->
     <InternalsVisibleTo Include="ConfigurationManagement.Tests" />
   </ItemGroup>
 
+  <!-- WPF-ресурсы иконок (embedded, только Windows) -->
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <Resource Include="app.ico" />
     <EmbeddedResource Include="app.ico" LogicalName="app.ico" />

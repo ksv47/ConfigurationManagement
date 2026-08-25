@@ -1246,6 +1246,7 @@
     "Com.DbErrorCodeOnlyFormat": "1C error while connecting to the infobase ({0}).",
     "Com.DbErrorHiddenFormat": "1C error while connecting to the infobase ({0}). The error text is hidden: the infobase has a password and the text may contain it.",
     "Com.AgentNoResult": "The helper process returned no result.",
+    "Com.AgentBadRequest": "The helper process rejected the configuration read request.",
     "Com.ConnStringBuildFailed": "Failed to build the COM connection string (server/database or file infobase path is not specified).",
     "Com.ProgIdTypeFailedFormat": "Failed to get the COM type {0}: {1}",
     "Com.ProgIdNotRegisteredFormat": "COM connector {0} is not registered on the system.",

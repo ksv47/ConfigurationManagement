@@ -275,6 +275,10 @@ public sealed class OneCComConnector : IOneCComConnector
             LocalizationManager.T("Com.ProgIdInstanceFailedFormat"), result.Detail ?? string.Empty),
         ComFailureKind.NoConnection => string.Format(
             LocalizationManager.T("Com.ProgIdNoConnectionFormat"), result.Detail ?? string.Empty),
+        // Агент не разобрал запрос. Разряд заведён именно ради того, чтобы отличать этот
+        // случай от молчания агента, поэтому и текст у него собственный. Подробности
+        // у разряда нет по построению: разбор её не пропускает.
+        ComFailureKind.BadRequest => LocalizationManager.T("Com.AgentBadRequest"),
         ComFailureKind.MetadataProperty => LocalizationManager.T("Com.MetadataPropertyFailed"),
         ComFailureKind.MetadataRead => LocalizationManager.T("Com.MetadataReadFailed"),
         // Единственный разряд, где подробность — свободный текст от 1С. Показываем его,
@@ -298,7 +302,7 @@ public sealed class OneCComConnector : IOneCComConnector
     /// и процитировать не могла.
     /// </para>
     /// </summary>
-    private static string DescribeDatabaseError(ComReadResult result, bool hasSecret)
+    internal static string DescribeDatabaseError(ComReadResult result, bool hasSecret)
     {
         var code = string.IsNullOrWhiteSpace(result.Code)
             ? LocalizationManager.T("Com.UnknownCode")
@@ -428,8 +432,27 @@ public sealed class OneCComConnector : IOneCComConnector
     /// </summary>
     private static string DescribeProgIdStatus()
     {
-        var in64 = IsProgIdRegistered(RegistryView.Registry64);
-        var in32 = IsProgIdRegistered(RegistryView.Registry32);
+        // Сравнивать надо один и тот же ProgID в обеих ветвях реестра. Проверка «есть хоть
+        // какой-нибудь из списка» ломает единственное, ради чего эта функция существует:
+        // при 64-разрядной 8.5 и 32-разрядной 8.3 она отвечала бы «зарегистрирован и там,
+        // и там», хотя ни один коннектор в обеих ветвях не присутствует, и подсказка
+        // о несоответствии разрядности не появилась бы.
+        var in64 = false;
+        var in32 = false;
+        foreach (var progId in KnownProgIds)
+        {
+            var here64 = IsProgIdRegistered(progId, RegistryView.Registry64);
+            var here32 = IsProgIdRegistered(progId, RegistryView.Registry32);
+
+            if (here64 && here32)
+            {
+                in64 = in32 = true;
+                break;
+            }
+
+            in64 |= here64;
+            in32 |= here32;
+        }
 
         if (in64 && in32)
             return LocalizationManager.T("Com.ProgIdStatusBothVisible");
@@ -440,24 +463,17 @@ public sealed class OneCComConnector : IOneCComConnector
         return LocalizationManager.T("Com.ProgIdStatusAbsent");
     }
 
-    private static bool IsProgIdRegistered(RegistryView view)
+    private static bool IsProgIdRegistered(string progId, RegistryView view)
     {
         try
         {
             using var classesRoot = RegistryKey.OpenBaseKey(RegistryHive.ClassesRoot, view);
-            if (classesRoot is null) return false;
+            using var progIdKey = classesRoot?.OpenSubKey(progId);
+            var clsid = progIdKey?.GetValue("CLSID")?.ToString();
+            if (string.IsNullOrWhiteSpace(clsid)) return false;
 
-            foreach (var progId in KnownProgIds)
-            {
-                using var progIdKey = classesRoot.OpenSubKey(progId);
-                var clsid = progIdKey?.GetValue("CLSID")?.ToString();
-                if (string.IsNullOrWhiteSpace(clsid)) continue;
-
-                using var clsidKey = classesRoot.OpenSubKey($"CLSID\\{clsid}");
-                if (clsidKey is not null) return true;
-            }
-
-            return false;
+            using var clsidKey = classesRoot?.OpenSubKey($"CLSID\\{clsid}");
+            return clsidKey is not null;
         }
         catch
         {

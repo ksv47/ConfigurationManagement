@@ -382,13 +382,17 @@ internal static class ComReadHost
                 var result = ParseResponse(line, seq, out var desynchronized, out _);
                 if (desynchronized)
                 {
+                    // Придержанный диагноз здесь дороже сообщения о сбое обмена: агент мог
+                    // назвать настоящую причину, а следом погибнуть посреди записи
+                    // окончательного кадра — тогда до нас доезжает обрывок.
                     // Ответ не от нашего запроса. Дальше соответствие «запрос — ответ» уже
                     // не восстановить, а молча продолжать нельзя: сведения о конфигурации
                     // начали бы приписываться чужим базам без единого признака ошибки.
                     // Считаем отказом: систематический мусор в потоке агента иначе давал бы
                     // бесконечную череду перезапусков процесса без всякого ограничителя.
                     StopAgent(graceMs: 0);
-                    return RegisterFailure(epoch, ComFailureKind.Transport, null);
+                    var broken = RegisterFailure(epoch, ComFailureKind.Transport, null);
+                    return partial ?? broken;
                 }
 
                 switch (result.Failure)
@@ -408,7 +412,12 @@ internal static class ComReadHost
                         // Учитываем по мягкому порогу: список недоступных клиент-серверных баз
                         // иначе тратил бы полный таймаут и перезапуск процесса на каждую, и так
                         // на каждом старте — защёлка это никогда не останавливала.
-                        return RegisterFailure(epoch, result.Failure, result.Detail, result.Code);
+                        //
+                        // Придержанный диагноз предъявляем и здесь: типичный случай — ранний
+                        // коннектор уже назвал причину, а следующий завис на недоступном
+                        // сервере. «Превышен таймаут» в этой паре — заведомо худший ответ.
+                        var timedOut = RegisterFailure(epoch, result.Failure, result.Detail, result.Code);
+                        return partial ?? timedOut;
 
                     case ComFailureKind.BadRequest:
                         // Агент не понял запрос. Оставлять его нельзя: если он не понимает
@@ -739,11 +748,17 @@ internal static class ComReadHost
                 return ComReadResult.Fail(ComFailureKind.Transport);
             }
 
-            // Отказ разбора запроса не несёт ни кода, ни текста — так его формирует агент.
-            // Требуем этого и на приёме: иначе правило «текст показывается только по решению
-            // о пароле» держалось бы на дисциплине отправителя, а не на разборе.
-            if (kind == ComFailureKind.BadRequest
-                && (errCode.Length > 0 || errText.Length > 0))
+            // Форма подробности проверяется на приёме для каждого разряда. Свободный текст
+            // разрешён единственному разряду — ошибке самой базы, и только он проходит через
+            // решение о показе пароля. Всем прочим разрядам подробность либо запрещена, либо
+            // обязана иметь проверяемый вид: число миллисекунд или имя известного ProgID.
+            //
+            // Раньше это правило держалось наполовину: строгость была введена только для
+            // отказа разбора запроса, а три разряда принимали произвольный текст, который
+            // затем подставлялся в сообщение пользователю мимо решения о пароле. Утечки
+            // не возникало лишь потому, что агент таких строк туда не клал, — то есть
+            // защита держалась на дисциплине отправителя. Здесь она держится на разборе.
+            if (!DetailAllowed(kind, errCode, errText))
             {
                 desynchronized = true;
                 return ComReadResult.Fail(ComFailureKind.Transport);
@@ -904,16 +919,27 @@ internal static class ComReadHost
                 if (finished)
                     return;
 
-                output.WriteLine(ResultPrefix + seq + "	PARTIAL	DBERR	"
-                    + Encode(errCode) + "	" + Encode(progId + ": " + text));
+                output.WriteLine(ResultPrefix + seq + "\tPARTIAL\tDBERR\t"
+                    + Encode(errCode) + "\t" + Encode(progId + ": " + text));
             }
         }
 
-        var info = ReadInProcess(
-            connectString, timeoutMs, SendPartial, out var kind, out var detail, out var code);
-
-        lock (writeLock)
-            finished = true;
+        OneCConfigInfo? info;
+        ComFailureKind kind;
+        string? detail;
+        string? code;
+        try
+        {
+            info = ReadInProcess(
+                connectString, timeoutMs, SendPartial, out kind, out detail, out code);
+        }
+        finally
+        {
+            // Через finally: если чтение бросит, окончательный кадр запишет вызывающий,
+            // и промежуточные к тому времени должны быть уже запрещены.
+            lock (writeLock)
+                finished = true;
+        }
 
         // Имя и версия конфигурации приходят из Metadata и строку подключения содержать
         // не могут — их отдаём как есть.
@@ -1014,6 +1040,45 @@ internal static class ComReadHost
     }
 
     /// <summary>
+    /// Допустима ли такая подробность у такого разряда.
+    /// <para>
+    /// Свободный текст 1С разрешён только разряду <see cref="ComFailureKind.DatabaseError"/> —
+    /// единственному, который проходит через решение о показе пароля. Остальные разряды несут
+    /// либо ничего, либо значение проверяемой формы, поэтому произвольный текст в кадре
+    /// означает, что мы читаем не то, что думаем.
+    /// </para>
+    /// </summary>
+    private static bool DetailAllowed(ComFailureKind kind, string code, string detail) => kind switch
+    {
+        // Ошибка базы: свободный текст и код исключения. Дальше решает признак пароля.
+        ComFailureKind.DatabaseError => true,
+
+        // Число миллисекунд — больше в этом разряде сказать нечего.
+        ComFailureKind.Timeout => code.Length == 0
+            && int.TryParse(detail, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
+
+        // Имя ProgID из известного списка. Сообщение исключения сюда не кладём: оно
+        // приходит от сторонней библиотеки и опознавательной ценности не добавляет,
+        // а разряд отказа и код уже сказаны отдельно.
+        ComFailureKind.InstanceFailed => IsKnownProgId(detail),
+        ComFailureKind.NoConnection => code.Length == 0 && IsKnownProgId(detail),
+
+        // Разряды без подробности.
+        _ => code.Length == 0 && detail.Length == 0
+    };
+
+    private static bool IsKnownProgId(string value)
+    {
+        foreach (var progId in OneCComConnector.KnownProgIds)
+        {
+            if (string.Equals(progId, value, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Обратное отображение. Возвращает false для неизвестного токена: разбирать такой кадр
     /// нельзя, потому что мы не знаем, что означают его поля.
     /// </summary>
@@ -1093,7 +1158,10 @@ internal static class ComReadHost
                     if (Promote(ref rank, ComFailureKind.InstanceFailed))
                     {
                         localKind = ComFailureKind.InstanceFailed;
-                        localDetail = progId + ": " + Deepest(ex).Message;
+                        // Только имя ProgID: сообщение об отказе создания объекта приходит
+                        // от сторонней библиотеки, проверить его форму нельзя, а всё
+                        // опознавательное уже есть в коде.
+                        localDetail = progId;
                         localCode = Hresult(ex);
                     }
                     continue;
@@ -1219,7 +1287,7 @@ internal static class ComReadHost
     /// Склеивает диагнозы нескольких ProgID в одну строку вида «V83: причина; V82: причина».
     /// Пометка обязательна: без неё две причины подряд читаются как одна бессвязная.
     /// </summary>
-    private static string JoinDiagnoses(
+    internal static string JoinDiagnoses(
         List<(string ProgId, string Text, string Code)> items,
         Func<(string ProgId, string Text, string Code), string> select)
     {

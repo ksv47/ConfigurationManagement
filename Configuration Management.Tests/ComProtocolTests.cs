@@ -77,7 +77,7 @@ public class ComProtocolTests
 
     [Theory]
     // Лишнее поле: мы читаем не то, что думаем.
-    [InlineData("1\tOK\tYWJj\tZGVm\tlишнее")]
+    [InlineData("1\tOK\tYWJj\tZGVm\tлишнее")]
     // Недостающее поле.
     [InlineData("1\tERR\tDBERR\tYWJj")]
     // Повреждённая нагрузка успеха.
@@ -147,6 +147,37 @@ public class ComProtocolTests
         // разойдясь, они однажды уже позволили свободному тексту 1С обойти решение о пароле.
         Assert.True(ComReadHost.TryMapToken(ComReadHost.KindToToken(kind), out var back));
         Assert.Equal(kind, back);
+    }
+
+    [Theory]
+    // Свободный текст разрешён только ошибке базы. Остальным разрядам подробность либо
+    // запрещена, либо обязана иметь проверяемый вид — иначе правило «текст показывается
+    // только по решению о пароле» держалось бы на дисциплине отправителя, а не на разборе.
+    [InlineData("TIMEOUT", "", "8000", false)]
+    [InlineData("TIMEOUT", "", "произвольный текст", true)]
+    [InlineData("TIMEOUT", "код", "8000", true)]
+    [InlineData("NOCONN", "", "V83.COMConnector", false)]
+    [InlineData("NOCONN", "", "V83.COMConnector: подробности", true)]
+    [InlineData("NOINST", "COMException 0x1", "V85.COMConnector", false)]
+    [InlineData("NOINST", "COMException 0x1", "V85.COMConnector: подробности", true)]
+    [InlineData("NOTREG", "", "", false)]
+    [InlineData("NOTREG", "", "текст", true)]
+    [InlineData("METAPROP", "", "", false)]
+    [InlineData("METAPROP", "", "текст", true)]
+    [InlineData("DBERR", "COMException 0x1", "любой текст от 1С", false)]
+    public void Форма_подробности_проверяется_на_приёме(
+        string token, string code, string detail, bool expectedDesync)
+    {
+        var line = Frame("5", "ERR", token, ComReadHost.Encode(code), ComReadHost.Encode(detail));
+
+        var result = ComReadHost.ParseResponse(line, 5, out var desync, out _);
+
+        Assert.Equal(expectedDesync, desync);
+        if (expectedDesync)
+        {
+            Assert.Equal(ComFailureKind.Transport, result.Failure);
+            Assert.True(string.IsNullOrEmpty(result.Detail));
+        }
     }
 
     [Fact]
