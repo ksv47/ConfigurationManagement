@@ -501,7 +501,7 @@ public sealed class OneCComConnector : IOneCComConnector
     /// и при этом сохраняет диагностику, идущую после разделителя.
     /// </para>
     /// </summary>
-    private static string MaskCredentials(string text)
+    internal static string MaskCredentials(string text)
     {
         if (string.IsNullOrEmpty(text)) return text;
 
@@ -632,7 +632,7 @@ public sealed class OneCComConnector : IOneCComConnector
     /// сборщик: он единственный знает это точно, тогда как обратный разбор готовой строки
     /// зависит от списка имён секретных параметров и от экранирования, которого здесь нет.
     /// </summary>
-    private static string BuildComConnectString(Infobase infobase, out bool hasSecret)
+    internal static string BuildComConnectString(Infobase infobase, out bool hasSecret)
     {
         hasSecret = false;
 

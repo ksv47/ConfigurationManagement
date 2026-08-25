@@ -675,7 +675,7 @@ internal static class ComReadHost
     /// присылает уже полученную причину заранее, на случай если следующий коннектор оборвёт
     /// процесс. Такой кадр не завершает запрос.
     /// </summary>
-    private static ComReadResult ParseResponse(
+    internal static ComReadResult ParseResponse(
         string line, int expectedSeq, out bool desynchronized, out bool isPartial)
     {
         desynchronized = false;
@@ -762,7 +762,7 @@ internal static class ComReadHost
 
     // Полезная нагрузка едет в Base64: строка подключения и сообщения 1С могут содержать
     // табуляцию и переводы строк, а протокол построчный и разделён табуляцией.
-    private static string Encode(string? value) =>
+    internal static string Encode(string? value) =>
         Convert.ToBase64String(Utf8NoBom.GetBytes(value ?? string.Empty));
 
     private static string Decode(string? value) =>
@@ -948,7 +948,7 @@ internal static class ComReadHost
     /// ошибка самой базы, и там диагнозы копятся все до одного, а не вытесняют друг друга.
     /// </para>
     /// </summary>
-    private static bool Promote(ref int rank, ComFailureKind kind)
+    internal static bool Promote(ref int rank, ComFailureKind kind)
     {
         var weight = kind switch
         {
@@ -1002,7 +1002,7 @@ internal static class ComReadHost
         (ComFailureKind.BadRequest, "BADREQ")
     };
 
-    private static string KindToToken(ComFailureKind kind)
+    internal static string KindToToken(ComFailureKind kind)
     {
         foreach (var (k, token) in TokenMap)
         {
@@ -1017,7 +1017,7 @@ internal static class ComReadHost
     /// Обратное отображение. Возвращает false для неизвестного токена: разбирать такой кадр
     /// нельзя, потому что мы не знаем, что означают его поля.
     /// </summary>
-    private static bool TryMapToken(string token, out ComFailureKind kind)
+    internal static bool TryMapToken(string token, out ComFailureKind kind)
     {
         foreach (var (k, t) in TokenMap)
         {
