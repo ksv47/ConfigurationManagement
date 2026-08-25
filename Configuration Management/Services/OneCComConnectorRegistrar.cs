@@ -107,7 +107,14 @@ public sealed class OneCComConnectorRegistrar : IOneCComConnectorRegistrar
         }
 
         var registered = items.Count > 0 && items.Any(i => i.Success);
-        var success = progIdVisible || registered;
+
+        // Успех команды определяется её собственным результатом, а не тем, что в системе
+        // и раньше был виден какой-то коннектор. Иначе при уже установленной платформе 8.5
+        // регистрация выбранной 8.3 могла провалиться целиком, а пользователю сообщили бы
+        // об успехе — и заодно сняли бы вердикт о недоступности COM. Когда регистрировать
+        // было нечего, отчёт по-прежнему опирается на видимость ProgID: это не результат
+        // операции, а состояние системы.
+        var success = items.Count > 0 ? registered : progIdVisible;
 
         return new ComConnectorRegistrationResult(success, usedVersion, binDir, progIdVisible, note, items);
     }

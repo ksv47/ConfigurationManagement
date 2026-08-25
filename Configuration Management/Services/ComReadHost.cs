@@ -887,14 +887,33 @@ internal static class ComReadHost
             return Error(seq, "BADREQ", null, null);
 
         // Промежуточные диагнозы отправляем сразу: следующий ProgID может оборвать процесс,
-        // и уже полученная причина иначе пропала бы вместе с ним. Пишет их поток COM, пока
-        // главный ждёт его в Join, так что одновременной записи в поток не бывает.
-        void SendPartial(string progId, string text, string errCode) =>
-            output.WriteLine(ResultPrefix + seq + "	PARTIAL	DBERR	"
-                + Encode(errCode) + "	" + Encode(progId + ": " + text));
+        // и уже полученная причина иначе пропала бы вместе с ним.
+        //
+        // Писать в поток могут два потока сразу. По таймауту главный поток перестаёт ждать
+        // COM-поток, но не убивает его: тот остался внутри COM-вызова, и прервать его нечем.
+        // Значит он может дописать промежуточный кадр уже после того, как главный отправил
+        // окончательный, — кадры перемешались бы, и родитель принял бы ответ за повреждённый.
+        // Поэтому запись сериализуем, а после окончательного кадра промежуточные запрещаем.
+        var writeLock = new object();
+        var finished = false;
+
+        void SendPartial(string progId, string text, string errCode)
+        {
+            lock (writeLock)
+            {
+                if (finished)
+                    return;
+
+                output.WriteLine(ResultPrefix + seq + "	PARTIAL	DBERR	"
+                    + Encode(errCode) + "	" + Encode(progId + ": " + text));
+            }
+        }
 
         var info = ReadInProcess(
             connectString, timeoutMs, SendPartial, out var kind, out var detail, out var code);
+
+        lock (writeLock)
+            finished = true;
 
         // Имя и версия конфигурации приходят из Metadata и строку подключения содержать
         // не могут — их отдаём как есть.
