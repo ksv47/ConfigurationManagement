@@ -5,17 +5,33 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
-## [0.3.5.2] — 2026-08-25
+## [0.3.4.14] — 2026-08-25
 
-### Исправлено
+### Добавлено
 
-- **Возвращена видимость колонки «Действия» в списке баз (Windows/WPF)**. В [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) в трёх местах (заголовок `ActionsColumn`, строка базы и строка группы) первое значение `MultiBinding` к конвертеру `ColumnVisibilityConverter` было задано как `<Binding Source="True"/>`. Литерал `True` в WPF ненадёжно приводится к `System.Boolean`: когда он не распознавался как `bool`, конвертер возвращал `new GridLength(0)` — колонка схлопывалась до нулевой ширины и полностью исчезала вместе с заголовком, кнопками строк баз и командами групп. Ширина колонки теперь задана простым binding к `ActionsColumnWidth` через существующий конвертер `DoubleToGridLength` (параметр «170» — ширина по умолчанию). Колонка гарантированно видима с шириной 170, если сохранённая ширина не задана.
+- **Колонка «Действия» стала перемещаемой в списке баз (Windows/WPF)**. Раньше колонка «Действия» была закреплена сразу после «Режим запуска» и отсутствовала в списке порядка колонок вкладки **«Отображение» → «Колонки»** окна настроек — изменить её местоположение было нельзя. Теперь она участвует в порядке колонок наравне с остальными: добавлена в `DefaultColumnOrder` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), учитывается в `BuildColumnLayout` ([`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs)), а её локализованное имя — в `ColumnOrderLabel` ([`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs)). Новый порядок применяется к заголовку, строкам баз и строкам групп.
+
+### Изменено
+
+- **Заголовок колонки «Действия» прижат к левому краю (Windows/WPF)**. Заголовок колонки «Действия» в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) был отцентрован (`HorizontalAlignment="Center"`), в отличие от остальных колонок — теперь он выровнен по левому краю, как остальные заголовки.
+- **Текст подсказки «Порядок колонок» уточнён**. `Settings.Columns.OrderHint` в `ru.json`/`en.json` больше не утверждает, что колонка «Действия» закреплена: теперь указано, что фиксирована только колонка «Название».
 
 ### Версия
 
-- **Версия обновлена до 0.3.5.2** (`InformationalVersion` = 0.3.5.2 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+- **Версия обновлена до 0.3.4.14** (`InformationalVersion` = 0.3.4.14 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
 
-## [0.3.5.1] — 2026-08-25
+## [0.3.4.13] — 2026-08-25
+
+### Исправлено
+
+- **Устранено предупреждение компилятора CS0618 (obsolete) в проверке доступности клиент-серверных баз (обе платформы)**. Метод `IsBaseAvailable` вызывал помеченный `[Obsolete]` `IOneCComConnector.Connect`, который под CoreCLR обрывает процесс нативным fast-fail (0xC0000409). В [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) (Windows/WPF) доступность теперь проверяется через безопасный путь [`ReadConfigurationInfo`](Configuration Management/Services/IOneCComConnector.cs) (процесс-агент `ComReadHost`); в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs) (Linux/Avalonia) клиент-серверные базы по-прежнему считаются недоступными (COM отсутствует), а устаревший вызов убран.
+- **Исправлена сборка решения [`Configuration Management.slnx`](Configuration Management.slnx)**. Из решения удалена битая ссылка на несуществующий проект `Configuration Management.Tests/Configuration Management.Tests.csproj`, из-за которой `dotnet build` падал с ошибкой MSB3202.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.13** (`InformationalVersion` = 0.3.4.13 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.11] — 2026-08-25
 
 ### Исправлено
 
@@ -26,9 +42,9 @@
 
 ### Версия
 
-- **Версия обновлена до 0.3.5.1** (`InformationalVersion` = 0.3.5.1 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+- **Версия обновлена до 0.3.4.11** (`InformationalVersion` = 0.3.4.11 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
 
-## [0.3.5.0] — 2026-08-25
+## [0.3.4.10] — 2026-08-25
 
 ### Добавлено
 
@@ -41,7 +57,7 @@
 
 ### Версия
 
-- **Версия обновлена до 0.3.5.0** (`InformationalVersion` = 0.3.5.0 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+- **Версия обновлена до 0.3.4.10** (`InformationalVersion` = 0.3.4.10 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
 
 ## [0.3.4.9] — 2026-08-25
 

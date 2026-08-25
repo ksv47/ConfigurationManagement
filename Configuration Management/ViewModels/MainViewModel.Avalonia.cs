@@ -3153,10 +3153,11 @@ public class MainViewModel : ViewModelBase
 
                 case ConnectionType.ClientServer:
                 {
-                    // Реальная попытка подключения.
-                    var connector = AppServices.GetRequiredService<IOneCComConnector>();
-                    using var connection = connector.Connect(ib, timeoutMs: 8000);
-                    return connection is not null;
+                    // На Linux COM-коннектор отсутствует (Connect возвращает null), поэтому
+                    // проверить доступность клиент-серверной базы по сети нельзя. Считать её
+                    // полным DumpCfg конфигуратора для каждой базы слишком дорого — не пробуем,
+                    // база считается недоступной (как и документировано выше).
+                    return false;
                 }
 
                 case ConnectionType.WebServer:

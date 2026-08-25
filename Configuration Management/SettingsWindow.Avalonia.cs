@@ -343,6 +343,7 @@ namespace Configuration_Management
                 "ServerBase" => "Column.ServerBase",
                 "LastLaunch" => "Column.LastLaunch",
                 "Size" => "Column.Size",
+                "Actions" => "Column.Actions",
                 _ => "Column.Name"
             });
 

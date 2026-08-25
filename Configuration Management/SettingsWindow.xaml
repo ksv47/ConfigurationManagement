@@ -549,7 +549,7 @@
                                     </StackPanel>
                                 </ToggleButton>
 
-                                <!-- Порядок колонок списка баз (кроме закреплённых «Название» и «Действия») -->
+                                <!-- Порядок колонок списка баз (кроме закреплённой «Название», которая всегда первая) -->
                                 <TextBlock Text="{loc:Loc Settings.Columns.OrderTitle}" FontWeight="SemiBold" FontSize="13"
                                            Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,16,0,4"/>
                                 <TextBlock Text="{loc:Loc Settings.Columns.OrderHint}"

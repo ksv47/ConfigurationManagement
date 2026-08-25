@@ -1845,12 +1845,13 @@ public class MainViewModel : ViewModelBase
     /// конце). Используется, пока пользователь не задал собственный порядок.
     /// </summary>
     private static readonly string[] DefaultColumnOrder =
-        { "Version", "LaunchMode", "ServerBase", "LastLaunch", "Size", "Configuration" };
+        { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
 
     /// <summary>
-    /// Порядок колонок списка баз слева направо (кроме фиксированных колонок
-    /// «Название» и «Действия»). Если порядок не задан или пуст — возвращается
-    /// порядок по умолчанию с колонкой «Конфигурация» в конце.
+    /// Порядок колонок списка баз слева направо (кроме фиксированной колонки
+    /// «Название», которая всегда первая). Если порядок не задан или пуст —
+    /// возвращается порядок по умолчанию: «Режим запуска» сразу после названия,
+    /// колонка «Действия» — за ним, «Конфигурация» — в конце.
     /// </summary>
     public IReadOnlyList<string> ColumnOrderKeys =>
         _columnOrder is { Count: > 0 } ? _columnOrder : DefaultColumnOrder;
@@ -5053,9 +5054,11 @@ public string HotkeyEnterprise
 
                 case ConnectionType.ClientServer:
                 {
+                    // Проверка доступности — через безопасный путь процесс-агента (ComReadHost).
+                    // Прямой Connect у comcntr.dll под CoreCLR обрывает процесс нативным
+                    // fast-fail (0xC0000409), поэтому метод помечен [Obsolete] и здесь не используется.
                     var connector = AppServices.GetRequiredService<IOneCComConnector>();
-                    using var connection = connector.Connect(ib, timeoutMs: 8000);
-                    return connection is not null;
+                    return connector.ReadConfigurationInfo(ib, timeoutMs: 8000) is not null;
                 }
 
                 case ConnectionType.WebServer:

@@ -1464,7 +1464,7 @@ namespace Configuration_Management
 
         // Статический порядок колонок данных в сетке (заголовке и строке базы) после
         // фиксированных колонок слева (кнопки групп, компенсатор, избранное, закрепление,
-        // название). Колонка «Действия» всегда стоит сразу после «Режим запуска».
+        // название). Совпадает с порядком по умолчанию: «Действия» сразу после «Режим запуска».
         private static readonly string[] StaticDataColumnKeys =
             { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
 
@@ -1497,12 +1497,12 @@ namespace Configuration_Management
 
         /// <summary>
         /// Строит целевую последовательность колонок (логические ключи) по выбранному
-        /// пользователем порядку. Колонка «Действия» встаёт сразу после «Режим запуска»
-        /// (или в самый конец, если та отсутствует в порядке).
+        /// пользователем порядку. Колонка «Действия» теперь участвует в порядке наравне
+        /// с остальными и размещается там, куда её поставил пользователь в настройках.
         /// </summary>
         private List<string> BuildColumnLayout()
         {
-            var known = new[] { "Version", "LaunchMode", "ServerBase", "LastLaunch", "Size", "Configuration" };
+            var known = new[] { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
             var keys = new List<string>();
             foreach (var k in known)
                 if (_viewModel?.ColumnOrderKeys.Contains(k) == true && !keys.Contains(k))
@@ -1513,19 +1513,7 @@ namespace Configuration_Management
                 if (!keys.Contains(k))
                     keys.Add(k);
 
-            var layout = new List<string>(keys.Count + 1);
-            var offset = keys.IndexOf("LaunchMode") + 1;
-            if (offset == 0)
-                offset = keys.Count;
-            for (var i = 0; i < keys.Count; i++)
-            {
-                if (i == offset)
-                    layout.Add("Actions");
-                layout.Add(keys[i]);
-            }
-            if (offset >= keys.Count)
-                layout.Add("Actions");
-            return layout;
+            return keys;
         }
 
         /// <summary>

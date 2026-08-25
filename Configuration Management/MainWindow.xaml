@@ -559,54 +559,61 @@
                                     </ColumnDefinition>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Кнопки «развернуть/свернуть все группы» в заголовке слева -->
-                                <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                            VerticalAlignment="Center" HorizontalAlignment="Center"
-                                            Margin="0,0,0,4"
-                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                                <!-- Кнопки групп, переключатель тегов и пометка закрепления в заголовке слева.
+                                     Блок занимает все ведущие колонки (кнопки групп + компенсатор отступа
+                                     дерева + колонки избранного и закрепления), поэтому «теги» стоят сразу
+                                     после «сортировки по убыванию», а значок «закрепить» — сразу после тегов.
+                                     Расширяющийся при группировке компенсатор не создаёт пустых зазоров между
+                                     ними. Кнопки групп видимы только при группировке, теги и пометка — всегда. -->
+                                <StackPanel Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal"
+                                            VerticalAlignment="Center" HorizontalAlignment="Left"
+                                            Margin="0,0,0,4">
                                     <Button Command="{Binding DataContext.ExpandAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                                            ToolTip="{loc:Loc Main.ExpandAllGroups}">
+                                            ToolTip="{loc:Loc Main.ExpandAllGroups}"
+                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                         <materialDesign:PackIcon Kind="ExpandAll" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.CollapseAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}" Margin="0,0,4,0"
-                                            ToolTip="{loc:Loc Main.CollapseAllGroups}">
+                                            ToolTip="{loc:Loc Main.CollapseAllGroups}"
+                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                         <materialDesign:PackIcon Kind="CollapseAll" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.SortGroupsAscendingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                                            ToolTip="{loc:Loc Main.SortGroupsAscending}">
+                                            ToolTip="{loc:Loc Main.SortGroupsAscending}"
+                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                         <materialDesign:PackIcon Kind="SortAscending" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.SortGroupsDescendingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}"
-                                            ToolTip="{loc:Loc Main.SortGroupsDescending}">
+                                            ToolTip="{loc:Loc Main.SortGroupsDescending}"
+                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                         <materialDesign:PackIcon Kind="SortDescending" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
+                                    <!-- Переключатель видимости тегов в списке (заменяет неактивный значок «Избранное») -->
+                                    <ToggleButton IsChecked="{Binding DataContext.ShowTags, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  Style="{DynamicResource ToolbarToggleButton}"
+                                                  VerticalAlignment="Center"
+                                                  Margin="2,0,0,0"
+                                                  ToolTip="{loc:Loc Main.ToggleListTags}">
+                                        <Path Width="14" Height="14" Stretch="Uniform"
+                                              Data="{StaticResource IconTag}"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                                    </ToggleButton>
+                                    <!-- Пометка закрепления — сразу после кнопки тегов, без зазора -->
+                                    <materialDesign:PackIcon Kind="Pin" Width="14" Height="14"
+                                                             VerticalAlignment="Center"
+                                                             Margin="4,0,0,0"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             ToolTip="{loc:Loc Main.Pinned}"
+                                                             Visibility="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
                                 </StackPanel>
-
-                                <!-- Переключатель видимости тегов в списке (заменяет неактивный значок «Избранное») -->
-                                <ToggleButton Grid.Column="2"
-                                              IsChecked="{Binding DataContext.ShowTags, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=Window}}"
-                                              Style="{DynamicResource ToolbarToggleButton}"
-                                              VerticalAlignment="Center" HorizontalAlignment="Center"
-                                              Margin="0,0,0,4"
-                                              ToolTip="{loc:Loc Main.ToggleListTags}">
-                                    <Path Width="14" Height="14" Stretch="Uniform"
-                                          Data="{StaticResource IconTag}"
-                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
-                                </ToggleButton>
-                                <materialDesign:PackIcon Grid.Column="3" Kind="Pin" Width="14" Height="14"
-                                                         VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                         Margin="0,0,0,4"
-                                                         Foreground="{DynamicResource TextSecondaryBrush}"
-                                                         ToolTip="{loc:Loc Main.Pinned}"
-                                                         Visibility="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
 
                                 <TextBlock Grid.Column="4" Text="{loc:Loc Column.Name}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
@@ -621,7 +628,7 @@
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
                                 <TextBlock Grid.Column="7" Text="{loc:Loc Column.Actions}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
+                                           HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
                                            ToolTip="{loc:Loc Main.Actions}"/>
                                 <TextBlock Grid.Column="8" Text="{loc:Loc Column.ServerBase}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
