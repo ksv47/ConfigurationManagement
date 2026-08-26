@@ -101,12 +101,47 @@ namespace Configuration_Management
                 if (_sortDesc.IsChecked != true) return;
                 _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree();
             };
-            sortPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("Common.SortLabel"), VerticalAlignment = VerticalAlignment.Center });
-            sortPanel.Children.Add(HelpLink("GroupPicker.Help"));
             sortPanel.Children.Add(_sortAsc);
             sortPanel.Children.Add(_sortDesc);
-            Grid.SetRow(sortPanel, 0);
-            grid.Children.Add(sortPanel);
+
+            // Верхняя строка: слева пояснение со справкой, справа сортировка.
+            // Строится сеткой, а не горизонтальной панелью: та даёт детям
+            // бесконечную ширину, перенос текста не срабатывает, и всё, что
+            // стоит после длинного пояснения, уезжает за край окна. Именно
+            // это случилось в версии для Windows (issue 78 в апстриме): там
+            // кнопка справки оказалась на 227 точек правее края.
+            // Три колонки, и пояснение лежит в звёздной напрямую: если завернуть
+            // его в горизонтальную панель, та снова даст бесконечную ширину
+            // и перенос не сработает. Проверено на себе: первая версия этой
+            // правки повторила ровно тот дефект, который чинила.
+            var topRow = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            topRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            topRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            topRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+
+            var hint = new TextBlock
+            {
+                Text = LocalizationManager.T("GroupPicker.Hint"),
+                FontSize = Controls.UiMetrics.ScaledFont(12),
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+            Themes.ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+
+            var help = HelpLink("GroupPicker.Help");
+            help.Margin = new Thickness(0, 0, 12, 0);
+
+            sortPanel.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(hint, 0);
+            Grid.SetColumn(help, 1);
+            Grid.SetColumn(sortPanel, 2);
+            topRow.Children.Add(hint);
+            topRow.Children.Add(help);
+            topRow.Children.Add(sortPanel);
+
+            Grid.SetRow(topRow, 0);
+            grid.Children.Add(topRow);
 
             // Дерево
             _tree.SelectionMode = SelectionMode.Single;
@@ -164,7 +199,9 @@ namespace Configuration_Management
             if (item is GroupNodeViewModel node)
             {
                 var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 2) };
-                var iconKey = node.Group is null ? "IconRootGroup" : "IconChevronRight";
+                // Папка, а не стрелка: у раскрываемых узлов стрелка встала бы
+                // рядом с раскрывателем дерева и читалась бы как две подряд.
+                var iconKey = node.Group is null ? "IconRootGroup" : "IconFolder";
                 panel.Children.Add(IconHelper.MakeIcon(iconKey, 14));
                 var text = new TextBlock { Text = node.DisplayName, VerticalAlignment = VerticalAlignment.Center };
                 panel.Children.Add(text);
