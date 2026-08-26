@@ -1,18 +1,15 @@
 #if LINUX
-using System;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Layout;
-using Avalonia.Media;
-using Configuration_Management.Localization;
+using Avalonia.Markup.Xaml;
 
 namespace Configuration_Management
 {
     /// <summary>
     /// Диалог ввода названия тега. Avalonia/Linux-версия WPF-окна <see cref="TagInputWindow"/>.
+    /// Раскладка лежит в TagInputWindow.axaml, здесь только поведение.
     /// </summary>
-    public class TagInputWindow : ModalWindowBase
+    public partial class TagInputWindow : ModalWindowBase
     {
         private readonly TextBox _tagBox;
 
@@ -21,33 +18,15 @@ namespace Configuration_Management
         /// </summary>
         public TagInputWindow()
         {
-            Title = LocalizationManager.T("TagInput.Title");
-            Width = 420;
-            SizeToContent = SizeToContent.Height;
-            CanResize = false;
-            SystemDecorations = SystemDecorations.Full;
+            AvaloniaXamlLoader.Load(this);
 
-            _tagBox = new TextBox { Padding = new Thickness(8, 6) };
+            _tagBox = this.FindControl<TextBox>("TagBox")!;
             _tagBox.KeyDown += OnTagBox_KeyDown;
 
-            var grid = new Grid { Margin = new Thickness(16) };
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-
-            var prompt = new TextBlock { Text = LocalizationManager.T("TagInput.Prompt"), Margin = new Thickness(0, 0, 0, 8) };
-            Grid.SetRow(prompt, 0);
-
-            Grid.SetRow(_tagBox, 1);
-
-            var buttons = BuildButtons(null, 130, OnOk_Click);
-            Grid.SetRow(buttons, 2);
-
-            grid.Children.Add(prompt);
-            grid.Children.Add(_tagBox);
-            grid.Children.Add(buttons);
-
-            Content = grid;
+            // Кнопки строит базовый класс: у них общий вид и поведение
+            // на все модальные окна, поэтому в разметке стоит только место.
+            var buttonsHost = this.FindControl<ContentControl>("ButtonsHost")!;
+            buttonsHost.Content = BuildButtons(null, 130, OnOk_Click);
 
             Opened += (_, _) =>
             {
