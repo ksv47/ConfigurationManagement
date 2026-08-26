@@ -19,7 +19,7 @@ namespace Configuration_Management
         private readonly Infobase _infobase;
         private readonly IDialogService _dialogs;
         private readonly CheckBox _physicalCheck;
-        private readonly StackPanel _physicalPanel;
+        private readonly Control _physicalPanel;
 
         /// <summary>Пользователь подтвердил удаление.</summary>
         public bool Confirmed { get; private set; }
@@ -34,7 +34,7 @@ namespace Configuration_Management
             _infobase = infobase;
             _dialogs = AppServices.GetRequiredService<IDialogService>();
 
-            _physicalPanel = this.FindControl<StackPanel>("PhysicalPanel")!;
+            _physicalPanel = this.FindControl<Border>("PhysicalPanel")!;
             _physicalCheck = this.FindControl<CheckBox>("PhysicalCheck")!;
 
             FillDetails();
@@ -67,11 +67,9 @@ namespace Configuration_Management
 
             if (_infobase.Connection.Type != ConnectionType.File)
             {
-                // Не файловая база: физически удалять нечего, остаётся пояснение.
+                // Не файловая база: физически удалять нечего, панель прячется целиком.
                 existsText.Text = LocalizationManager.T("DeleteInfobase.NonFileOnlyFromList");
-                ThemeBrushes.Bind(existsText, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
-                _physicalCheck.IsVisible = false;
-                hint.IsVisible = false;
+                _physicalPanel.IsVisible = false;
                 return;
             }
 
@@ -83,6 +81,8 @@ namespace Configuration_Management
                 existsText.Text = string.Format(LocalizationManager.T("DeleteInfobase.ExistsYes"), dir);
                 existsText.Foreground = new SolidColorBrush(Color.Parse("#2E8B57"));
                 _physicalCheck.IsEnabled = true;
+                // Подсказка из разметки общая, а здесь известен каталог,
+                // поэтому текст уточняется на предметный.
                 hint.Text = string.Format(LocalizationManager.T("DeleteInfobase.PhysicalHintDynamic"), dir);
                 return;
             }
@@ -90,10 +90,9 @@ namespace Configuration_Management
             existsText.Text = string.IsNullOrEmpty(dir)
                 ? LocalizationManager.T("DeleteInfobase.DirNotSpecified")
                 : string.Format(LocalizationManager.T("DeleteInfobase.DirNotFound"), dir);
-            // Серый статус «каталог не найден» — вторичный текст из темы.
-            ThemeBrushes.Bind(existsText, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
             _physicalCheck.IsEnabled = false;
             _physicalCheck.IsChecked = false;
+            this.FindControl<Border>("PhysicalHelp")!.IsVisible = false;
             hint.Text = LocalizationManager.T("DeleteInfobase.PhysicalUnavailable");
         }
 
