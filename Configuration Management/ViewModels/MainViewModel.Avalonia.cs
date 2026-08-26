@@ -237,6 +237,40 @@ public class MainViewModel : ViewModelBase
             RebuildTree();
     }
 
+    /// <summary>
+    /// Применяет состав нижней панели (строки состояния) и сразу пересобирает
+    /// её текст, чтобы изменение было видно без переключения базы.
+    /// </summary>
+    public void ApplyStatusBarSettings(
+        bool connectionPath, bool architecture, bool launchMode, bool port,
+        bool platformVersion, bool clientType, bool connectionType, bool user,
+        bool showId)
+    {
+        _settings.StatusShowConnectionPath = connectionPath;
+        _settings.StatusShowArchitecture = architecture;
+        _settings.StatusShowLaunchMode = launchMode;
+        _settings.StatusShowPort = port;
+        _settings.StatusShowPlatformVersion = platformVersion;
+        _settings.StatusShowClientType = clientType;
+        _settings.StatusShowConnectionType = connectionType;
+        _settings.StatusShowUser = user;
+        _settings.StatusShowId = showId;
+
+        SaveSettingsSilently();
+
+        OnPropertyChanged(nameof(StatusShowConnectionPath));
+        OnPropertyChanged(nameof(StatusShowPort));
+        OnPropertyChanged(nameof(StatusShowArchitecture));
+        OnPropertyChanged(nameof(StatusShowPlatformVersion));
+        OnPropertyChanged(nameof(StatusShowLaunchMode));
+        OnPropertyChanged(nameof(StatusShowClientType));
+        OnPropertyChanged(nameof(StatusShowConnectionType));
+        OnPropertyChanged(nameof(StatusShowUser));
+        OnPropertyChanged(nameof(StatusShowId));
+
+        UpdateStatus();
+    }
+
     private string _sessionClient = "Авто";
     private string _sessionArch = "Авто";
 
@@ -669,6 +703,20 @@ public class MainViewModel : ViewModelBase
     public bool ShowServerColumn => _settings.ShowServerColumn;
     public bool ShowLastLaunchColumn => _settings.ShowLastLaunchColumn;
     public bool ShowSizeColumn => _settings.ShowSizeColumn;
+
+    /// <summary>
+    /// Состав нижней панели: какие сведения о выбранной базе в неё попадают.
+    /// Набор и порядок повторяют версию для Windows.
+    /// </summary>
+    public bool StatusShowConnectionPath => _settings.StatusShowConnectionPath;
+    public bool StatusShowPort => _settings.StatusShowPort;
+    public bool StatusShowArchitecture => _settings.StatusShowArchitecture;
+    public bool StatusShowPlatformVersion => _settings.StatusShowPlatformVersion;
+    public bool StatusShowLaunchMode => _settings.StatusShowLaunchMode;
+    public bool StatusShowClientType => _settings.StatusShowClientType;
+    public bool StatusShowConnectionType => _settings.StatusShowConnectionType;
+    public bool StatusShowUser => _settings.StatusShowUser;
+    public bool StatusShowId => _settings.StatusShowId;
     /// <summary>
     /// Показывать теги в строках списка. Переключатель живёт в панели
     /// инструментов над списком, состояние хранится в настройках.
@@ -3551,12 +3599,48 @@ public class MainViewModel : ViewModelBase
         if (message is not null)
             StatusBarInfo = message;
         else if (SelectedInfobase is not null)
-            StatusBarInfo = string.Format(LocalizationManager.T("Main.StatusBase"),
-                SelectedInfobase.Name, SelectedInfobase.ServerDatabaseDisplay);
+            StatusBarInfo = ComposeStatusInfo(SelectedInfobase);
         else if (SelectedGroupNode is not null)
             StatusBarInfo = string.Format(LocalizationManager.T("Main.StatusGroup"), SelectedGroupNode.FullPath);
         else
             StatusBarInfo = LocalizationManager.T("Main.Ready");
+    }
+
+    /// <summary>
+    /// Собирает строку состояния по выбранной базе из включённых частей.
+    /// Состав, порядок и разделитель те же, что в версии для Windows.
+    /// Если не включена ни одна часть, остаётся имя базы: пустая панель
+    /// выглядела бы поломкой.
+    /// </summary>
+    private string ComposeStatusInfo(Infobase ib)
+    {
+        var parts = new List<string>();
+        if (StatusShowConnectionType)
+            parts.Add(ib.ConnectionTypeDisplay);
+        if (StatusShowConnectionPath)
+        {
+            var path = ib.Connection.Type == ConnectionType.File
+                ? (string.IsNullOrWhiteSpace(ib.Connection.FilePath) ? "-" : ib.Connection.FilePath)
+                : ib.ServerDatabaseDisplay;
+            if (!string.IsNullOrWhiteSpace(path))
+                parts.Add(path);
+        }
+        if (StatusShowPort && ib.Connection.Type == ConnectionType.ClientServer && ib.Connection.Port > 0)
+            parts.Add($"{LocalizationManager.T("Main.StatusPort")} {ib.Connection.Port}");
+        if (StatusShowPlatformVersion && !string.IsNullOrWhiteSpace(ib.PlatformVersion))
+            parts.Add($"{LocalizationManager.T("Main.StatusPlatform")} {ib.PlatformVersion}");
+        if (StatusShowArchitecture)
+            parts.Add(ib.ArchitectureDisplay);
+        if (StatusShowLaunchMode)
+            parts.Add(ib.ParsedLaunchMode);
+        if (StatusShowClientType && !string.IsNullOrWhiteSpace(ib.ClientType))
+            parts.Add(ib.ClientTypeDisplay);
+        if (StatusShowUser && !string.IsNullOrWhiteSpace(ib.Connection.User))
+            parts.Add($"{LocalizationManager.T("Main.StatusUser")} {ib.Connection.User}");
+        if (StatusShowId && !string.IsNullOrWhiteSpace(ib.Id))
+            parts.Add($"ID {ib.Id}");
+
+        return parts.Count > 0 ? string.Join("  ·  ", parts) : ib.Name;
     }
 
     private void RaiseCommandCanExecuteChanged()

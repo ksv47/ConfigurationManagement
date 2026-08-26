@@ -321,6 +321,7 @@ namespace Configuration_Management
             var displayIcons = new StackPanel { Spacing = 6 };
             var displayColumns = new StackPanel { Spacing = 6 };
             var displayPanels = new StackPanel { Spacing = 6 };
+            var displayStatus = new StackPanel { Spacing = 6 };
 
             displayIcons.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
             var favoritesCheck = DisplayCheck("Settings.Icons.FavoritesButton", _viewModel.ShowFavoritesButton);
@@ -508,13 +509,31 @@ namespace Configuration_Management
             foreach (var check in new[] { rightPanelCheck, sessionPanelCheck, groupByGroupCheck, emptyGroupsCheck })
                 displayPanels.Children.Add(check);
 
+            displayStatus.Children.Add(Hint(LocalizationManager.T("Settings.Status.Description")));
+            var statusPathCheck = DisplayCheck("Settings.Status.ConnectionPath", _viewModel.StatusShowConnectionPath);
+            var statusPortCheck = DisplayCheck("Settings.Status.Port", _viewModel.StatusShowPort);
+            var statusArchCheck = DisplayCheck("Settings.Status.Architecture", _viewModel.StatusShowArchitecture);
+            var statusVersionCheck = DisplayCheck("Column.Version", _viewModel.StatusShowPlatformVersion);
+            var statusLaunchModeCheck = DisplayCheck("Column.LaunchMode", _viewModel.StatusShowLaunchMode);
+            var statusClientTypeCheck = DisplayCheck("Settings.Status.ClientType", _viewModel.StatusShowClientType);
+            var statusConnectionTypeCheck = DisplayCheck("Settings.Status.ConnectionType", _viewModel.StatusShowConnectionType);
+            var statusUserCheck = DisplayCheck("Settings.Status.User", _viewModel.StatusShowUser);
+            var statusIdCheck = DisplayCheck("Settings.Status.Id", _viewModel.StatusShowId);
+            foreach (var check in new[]
+            {
+                statusPathCheck, statusPortCheck, statusArchCheck, statusVersionCheck, statusLaunchModeCheck,
+                statusClientTypeCheck, statusConnectionTypeCheck, statusUserCheck, statusIdCheck
+            })
+                displayStatus.Children.Add(check);
+
             // Раздел «Отображение» разложен по вложенным вкладкам, как в разметке WPF:
-            // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт». Последние
-            // две в Avalonia ещё не портированы, поэтому строка пока из трёх.
+            // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт».
+            // «Шрифт» в Avalonia ещё не портирован, поэтому строка пока из четырёх.
             var displayTabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
             displayTabs.Items.Add(SubTab("Settings.Subtab.Icons", "Settings.Subtab.IconsTooltip", "IconStar", displayIcons));
             displayTabs.Items.Add(SubTab("Settings.Subtab.Columns", "Settings.Subtab.ColumnsTooltip", "IconList", displayColumns));
             displayTabs.Items.Add(SubTab("Settings.Subtab.Panels", "Settings.Subtab.PanelsTooltip", "IconPanel", displayPanels));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Status", "Settings.Subtab.StatusTooltip", "IconMonitor", displayStatus));
 
             tabs.Items.Add(new TabItem
             {
@@ -1342,6 +1361,17 @@ namespace Configuration_Management
                     groupByGroupCheck.IsChecked == true,
                     emptyGroupsCheck.IsChecked == true,
                     orderItems.Select(o => o.Key).ToList());
+
+                _viewModel.ApplyStatusBarSettings(
+                    statusPathCheck.IsChecked == true,
+                    statusArchCheck.IsChecked == true,
+                    statusLaunchModeCheck.IsChecked == true,
+                    statusPortCheck.IsChecked == true,
+                    statusVersionCheck.IsChecked == true,
+                    statusClientTypeCheck.IsChecked == true,
+                    statusConnectionTypeCheck.IsChecked == true,
+                    statusUserCheck.IsChecked == true,
+                    statusIdCheck.IsChecked == true);
 
                 DialogResult = true;
                 Close();
