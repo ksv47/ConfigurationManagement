@@ -35,6 +35,7 @@ namespace Configuration_Management
         private bool _showServerColumn = true;
         private bool _showLastLaunchColumn = true;
         private readonly ObservableCollection<FavoriteHotkeyItem> _favoriteHotkeyItems = new();
+        private readonly ObservableCollection<ColumnOrderItem> _columnOrderItems = new();
 
         // ---- Шрифт интерфейса ----
         private readonly Dictionary<string, Models.ElementFontSettings> _elementFonts = new();
@@ -832,6 +833,76 @@ namespace Configuration_Management
             public string Display => $"Alt+{Number}: {Name}";
         }
 
+        /// <summary>Элемент списка порядка колонок: хранит ключ, показывает локализованное имя.</summary>
+        private sealed class ColumnOrderItem
+        {
+            public string Key { get; init; } = string.Empty;
+            public string Display { get; init; } = string.Empty;
+
+            public override string ToString() => Display;
+        }
+
+        /// <summary>Локализованное название колонки по её ключу.</summary>
+        private static string ColumnOrderLabel(string key) => LocalizationManager.T(key switch
+        {
+            "Version" => "Column.Version",
+            "Configuration" => "Column.Configuration",
+            "LaunchMode" => "Column.LaunchMode",
+            "ServerBase" => "Column.ServerBase",
+            "LastLaunch" => "Column.LastLaunch",
+            "Size" => "Column.Size",
+            "Actions" => "Column.Actions",
+            _ => "Column.Name"
+        });
+
+        /// <summary>Заполняет список порядка колонок текущим порядком из настроек.</summary>
+        private void InitializeColumnOrder()
+        {
+            _columnOrderItems.Clear();
+            foreach (var key in _viewModel.ColumnOrderKeys)
+                _columnOrderItems.Add(new ColumnOrderItem { Key = key, Display = ColumnOrderLabel(key) });
+            if (ColumnOrderList != null)
+                ColumnOrderList.ItemsSource = _columnOrderItems;
+            UpdateColumnOrderButtons();
+        }
+
+        /// <summary>Обновляет доступность кнопок «Вверх»/«Вниз» по выбранной строке.</summary>
+        private void UpdateColumnOrderButtons()
+        {
+            if (ColumnOrderList == null)
+                return;
+            var idx = ColumnOrderList.SelectedIndex;
+            if (ColumnOrderUpButton != null)
+                ColumnOrderUpButton.IsEnabled = idx > 0;
+            if (ColumnOrderDownButton != null)
+                ColumnOrderDownButton.IsEnabled = idx >= 0 && idx < _columnOrderItems.Count - 1;
+        }
+
+        private void OnColumnOrderList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+            => UpdateColumnOrderButtons();
+
+        private void OnColumnOrderUp_Click(object sender, RoutedEventArgs e)
+        {
+            var idx = ColumnOrderList?.SelectedIndex ?? -1;
+            if (idx <= 0 || ColumnOrderList == null)
+                return;
+            var item = _columnOrderItems[idx];
+            _columnOrderItems.Move(idx, idx - 1);
+            ColumnOrderList.SelectedIndex = idx - 1;
+            UpdateColumnOrderButtons();
+        }
+
+        private void OnColumnOrderDown_Click(object sender, RoutedEventArgs e)
+        {
+            var idx = ColumnOrderList?.SelectedIndex ?? -1;
+            if (idx < 0 || idx >= _columnOrderItems.Count - 1 || ColumnOrderList == null)
+                return;
+            var item = _columnOrderItems[idx];
+            _columnOrderItems.Move(idx, idx + 1);
+            ColumnOrderList.SelectedIndex = idx + 1;
+            UpdateColumnOrderButtons();
+        }
+
         /// <summary>
         /// Инициализирует вкладку «Отображение»: заполняет флажки текущими
         /// настройками отображения списка баз.
@@ -856,6 +927,8 @@ namespace Configuration_Management
             ShowLastLaunchColumnCheck.IsChecked = _showLastLaunchColumn;
             if (ShowSizeColumnCheck != null)
                 ShowSizeColumnCheck.IsChecked = _viewModel.ShowSizeColumn;
+
+            InitializeColumnOrder();
 
             ShowFavoritesButtonCheck.IsChecked = _showFavoritesButton;
             ShowPinnedButtonCheck.IsChecked = _showPinnedButton;
@@ -1597,7 +1670,8 @@ namespace Configuration_Management
                 ShowFavoritesOnlyCheck.IsChecked ?? false,
                 ShowSizeColumnCheck?.IsChecked ?? true,
                 ShowConfigurationColumnCheck?.IsChecked ?? true,
-                ShowEmptyGroupsCheck?.IsChecked ?? false);
+                ShowEmptyGroupsCheck?.IsChecked ?? false,
+                _columnOrderItems.Select(i => i.Key).ToList());
 
             _viewModel.ShowRightPanelDetails = ShowRightPanelDetailsCheck?.IsChecked ?? true;
             _viewModel.ShowSessionLaunchPanel = ShowSessionLaunchPanelCheck?.IsChecked ?? true;
@@ -1766,6 +1840,13 @@ namespace Configuration_Management
             var def = Configuration_Management.Services.OneCTemplateService.GetConfiguredOrDefaultTemplatePath();
             if (!string.IsNullOrEmpty(def) && !TemplatePathsList.Items.Cast<string>().Any(x => string.Equals(x, def, StringComparison.OrdinalIgnoreCase)))
                 TemplatePathsList.Items.Insert(0, def);
+        }
+
+        /// <summary>Открывает окно управления учётными записями (профилями).</summary>
+        private void OnManageProfiles_Click(object sender, RoutedEventArgs e)
+        {
+            var profiles = AppServices.GetRequiredService<IProfileService>();
+            new ProfilesWindow(profiles) { Owner = this }.ShowDialog();
         }
 
         private void OnCancel_Click(object sender, RoutedEventArgs e)

@@ -1,0 +1,95 @@
+<Window x:Class="Configuration_Management.ProfilesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
+        mc:Ignorable="d"
+        Title="{loc:Loc Profiles.Title}"
+        Icon="{StaticResource AppIcon}"
+        Height="520" Width="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ContentBackgroundBrush}">
+
+    <Window.Resources>
+        <!-- Implicit-стили для корректного отображения в тёмной теме -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}"/>
+        <Style TargetType="PasswordBox" BasedOn="{StaticResource ModernTextBox}"/>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ============ Подсказка и текущая запись ============ -->
+        <TextBlock Grid.Row="0" x:Name="CurrentAccountLabel" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,4"/>
+        <TextBlock Grid.Row="1" x:Name="HintLabel" Text="{loc:Loc Profiles.Hint}" TextWrapping="Wrap"
+                   Opacity="0.85" Margin="0,0,0,12"/>
+
+        <!-- ============ Список учётных записей ============ -->
+        <ListBox x:Name="ProfilesList" Grid.Row="2" Margin="0,0,0,12"
+                 DisplayMemberPath="Name" SelectionChanged="OnProfilesList_SelectionChanged"/>
+
+        <!-- ============ Редактирование выбранной записи ============ -->
+        <GroupBox Grid.Row="3" Header="{loc:Loc Profiles.Title}" Padding="10,8" Margin="0,0,0,12">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="{loc:Loc Profiles.Name}" VerticalAlignment="Center" Margin="0,0,8,0" Width="90"/>
+                    <TextBox x:Name="NameBox" Width="280" Padding="8,6"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="{loc:Loc Profiles.Password}" VerticalAlignment="Center" Margin="0,0,8,0" Width="90"/>
+                    <PasswordBox x:Name="PasswordInput" Width="280" Padding="8,6"/>
+                </StackPanel>
+                <CheckBox x:Name="ProtectCheck" Content="{loc:Loc Profiles.ProtectWithPassword}" Margin="98,0,0,0"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- ============ Ошибка ============ -->
+        <TextBlock Grid.Row="4" x:Name="ErrorLabel" Foreground="#E53935" TextWrapping="Wrap"
+                   Margin="0,0,0,12" Visibility="Collapsed"/>
+
+        <!-- ============ Кнопки ============ -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="DeleteButton" Width="110" Margin="0,0,8,0"
+                    Style="{StaticResource ModernButton}"
+                    Background="{DynamicResource ItemHoverBrush}"
+                    Foreground="{DynamicResource TextPrimaryBrush}"
+                    Click="OnDelete_Click">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🗑" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Profiles.Delete}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button x:Name="SaveButton" Width="130" Margin="0,0,8,0"
+                    Style="{StaticResource ModernButton}"
+                    Click="OnSave_Click">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="✔" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Profiles.Save}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            <Button x:Name="CreateButton" Width="130"
+                    Style="{StaticResource ModernButton}"
+                    Click="OnCreate_Click">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="＋" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Profiles.Create}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

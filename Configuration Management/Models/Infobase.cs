@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Configuration_Management.Localization;
 
 namespace Configuration_Management.Models;
@@ -577,5 +578,45 @@ public class Infobase : INotifyPropertyChanged
 
             return (parts[0][0].ToString() + parts[1][0].ToString()).ToUpperInvariant();
         }
+    }
+
+    private long _cacheSizeBytes = -1;
+    private int _cacheSizeGeneration;
+
+    /// <summary>
+    /// Размер локального кеша 1С базы в байтах (суммарно программный + пользовательский).
+    /// Значение -1 означает, что размер ещё не вычислен — в правой панели показывается «…».
+    /// </summary>
+    public long CacheSizeBytes
+    {
+        get => _cacheSizeBytes;
+        private set
+        {
+            if (SetProperty(ref _cacheSizeBytes, value))
+                OnPropertyChanged(nameof(CacheSizeDisplay));
+        }
+    }
+
+    /// <summary>Человекочитаемый размер кеша для правой панели («…», пока размер не вычислен).</summary>
+    public string CacheSizeDisplay =>
+        _cacheSizeBytes < 0 ? "…" : FormatSize(_cacheSizeBytes);
+
+    /// <summary>
+    /// Асинхронно вычисляет размер кеша базы (программный + пользовательский) в фоновом
+    /// потоке и обновляет <see cref="CacheSizeDisplay"/>. Устаревший результат игнорируется,
+    /// если за время вычисления было запрошено новое вычисление (например, перевыбрана база).
+    /// </summary>
+    public void RefreshCacheSizeAsync()
+    {
+        var generation = ++_cacheSizeGeneration;
+        CacheSizeBytes = -1;
+
+        _ = Task.Run(() => Services.OneCCacheCleaner.GetSize(this, Services.OneCCacheKind.All))
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted || t.IsCanceled || generation != _cacheSizeGeneration)
+                    return;
+                CacheSizeBytes = t.Result;
+            }, TaskScheduler.FromCurrentSynchronizationContext());
     }
 }

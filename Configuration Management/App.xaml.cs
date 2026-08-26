@@ -51,6 +51,28 @@ namespace Configuration_Management
                 // Загружаем настройки до показа окна, чтобы проверить запрет второго экземпляра.
                 AppServices.Configure();
 
+                // Инициализируем учётные записи (профили): загружаем реестр, при первом
+                // запуске мигрируем легаси-данные в профиль по умолчанию. Репозиторий
+                // читает/пишет файлы данных в каталог активного профиля.
+                var profileService = AppServices.GetRequiredService<IProfileService>();
+                profileService.EnsureInitialized();
+
+                // Если в приложении несколько учётных записей — показываем окно авторизации
+                // по аналогии со списком пользователей 1С. При одной записи входим без запроса.
+                if (profileService.Profiles.Count > 1)
+                {
+                    var selectedId = LoginWindow.ShowLogin(profileService);
+                    if (selectedId == null)
+                    {
+                        // Вход отменён — завершаем приложение.
+                        Shutdown();
+                        return;
+                    }
+                    profileService.SetCurrentProfile(selectedId);
+                }
+
+                ProfileBackupService.DataDirectoryResolver = () => profileService.CurrentProfileDataDirectory;
+
                 var repository = AppServices.GetRequiredService<IInfobaseRepository>();
                 AppSettings settings;
                 try

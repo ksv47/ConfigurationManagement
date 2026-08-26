@@ -48,7 +48,7 @@
     <Version>0.3.4</Version>
     <AssemblyVersion>0.3.4</AssemblyVersion>
     <FileVersion>0.3.4</FileVersion>
-    <InformationalVersion>0.3.4.5</InformationalVersion>
+    <InformationalVersion>0.3.4.21</InformationalVersion>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>

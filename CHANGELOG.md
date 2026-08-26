@@ -5,6 +5,198 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.4.21] — 2026-08-26
+
+### Изменено
+
+- **Окно выбора цвета: компактнее, кнопки всегда помещаются, палитра расширена**. Уменьшены высота градиентной области «полной палитры» и отступы — кнопки «ОК»/«Отмена» больше не выходят за пределы окна. Палитра предустановленных цветов расширена до **73 цветов** (было 48), плитки уменьшены до 16×16 (16 колонок). Аналогичные правки внесены в [`ColorPickerWindow.Avalonia.cs`](Configuration Management/ColorPickerWindow.Avalonia.cs) и [`ColorPickerWindow.xaml`](Configuration Management/ColorPickerWindow.xaml) / [`ColorPickerWindow.xaml.cs`](Configuration Management/ColorPickerWindow.xaml.cs).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.21** (`InformationalVersion` = 0.3.4.21 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.20] — 2026-08-26
+
+### Изменено
+
+- **Окно выбора цвета полностью переработано (обе платформы)**. В [`ColorPickerWindow.xaml`](Configuration Management/ColorPickerWindow.xaml) / [`ColorPickerWindow.Avalonia.cs`](Configuration Management/ColorPickerWindow.Avalonia.cs) вместо узкой палитры из 16 цветов добавлена большая градиентная область «полной палитры» (оттенок × насыщенность) с перетаскиваемым маркером — выбор любого цвета одним кликом и перетаскиванием. Добавлен бегунок **яркости**, расширена палитра предустановленных цветов (48 цветов вместо 16, плитки уменьшены для компактности). Цвет задаётся в HSV-модели: при изменении яркости градиентная палитра затемняется, а выбранный цвет синхронно обновляется во всех контролах. RGB-слайдеры и HEX-поле сохранены. Добавлены ключи локализации `ColorPicker.Brightness` и `ColorPicker.FullPalette` в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.20** (`InformationalVersion` = 0.3.4.20 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.19] — 2026-08-25
+
+### Добавлено
+
+- **Управление учётными записями в настройках (обе платформы)**. В **Настройки → Настройки** добавлена кнопка **«Управление учётными записями…»**, открывающая окно [`ProfilesWindow`](Configuration Management/ProfilesWindow.xaml) / [`ProfilesWindow.Avalonia.cs`](Configuration Management/ProfilesWindow.Avalonia.cs): список профилей, текущая учётная запись, создание новой записи, переименование, удаление (с подтверждением; последнюю запись удалить нельзя) и установка/снятие пароля через флажок «Защитить паролем». Смена текущей учётной записи выполняется при следующем запуске через окно входа. Добавлены ключи локализации `Settings.General.ManageProfiles` и `Profiles.*` в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.19** (`InformationalVersion` = 0.3.4.19 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.18] — 2026-08-25
+
+### Добавлено
+
+- **Окно авторизации по аналогии с 1С (обе платформы)**. Если в приложении создано несколько учётных записей (профилей), при запуске показывается окно выбора учётной записи [`LoginWindow`](Configuration Management/LoginWindow.xaml) / [`LoginWindow.Avalonia.cs`](Configuration Management/LoginWindow.Avalonia.cs): список профилей, как список пользователей в 1С. Для профиля, защищённого паролем, запрашивается пароль (при неверном пароле показывается ошибка и окно не закрывается); для незащищённого — вход сразу. Если в приложении всего одна учётная запись, окно не показывается и вход выполняется без запроса данных. При отмене выбора приложение завершает работу. Окно авторизации подключено в точки входа [`App.xaml.cs`](Configuration Management/App.xaml.cs) и [`App.axaml.cs`](Configuration Management/App.axaml.cs) — выбор профиля происходит до загрузки настроек и главного окна. Добавлены ключи локализации `Auth.*` в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.18** (`InformationalVersion` = 0.3.4.18 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.17] — 2026-08-25
+
+### Добавлено
+
+- **Пер-профильное хранение данных (обе платформы)**. Репозиторий [`InfobaseRepository`](Configuration Management/Services/InfobaseRepository.cs) теперь хранит `settings.json`, `infobases.json` и `groups.json` в каталоге активной учётной записи (`profiles/<Id>/`), а не в корне каталога данных приложения: у каждого профиля собственные настройки интерфейса и собственный список баз и групп. Пути вычисляются динамически из [`IProfileService.CurrentProfileDataDirectory`](Configuration Management/Services/IProfileService.cs); явный каталог поддерживается для режима совместимости/тестов. Резервное копирование/восстановление профиля ([`ProfileBackupService`](Configuration Management/Services/ProfileBackupService.cs)) переведено на резолвер каталога активного профиля (`DataDirectoryResolver`). При старте приложения сервис профилей инициализируется до загрузки настроек, а репозиторий читает данные из каталога выбранной учётной записи.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.17** (`InformationalVersion` = 0.3.4.17 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.16] — 2026-08-25
+
+### Добавлено
+
+- **Управление учётными записями (профилями): основа (обе платформы)**. Введены сервис [`ProfileService`](Configuration Management/Services/ProfileService.cs) (интерфейс [`IProfileService`](Configuration Management/Services/IProfileService.cs)) и модель [`UserProfile`](Configuration Management/Models/UserProfile.cs). Каждый профиль описывает отдельную учётную запись с собственным именем и необязательным паролем; реестр профилей хранится в файле `profiles.json` в каталоге данных приложения. При первом запуске существующие данные (`settings.json`, `infobases.json`, `groups.json`) автоматически мигрируют в профиль по умолчанию «Пользователь», чтобы ничего не потерялось. Пароль профиля хэшируется алгоритмом PBKDF2-SHA256 со случайной солью (`HashPassword`/`VerifyPasswordHash`) и никогда не сохраняется открытым текстом. Сервис зарегистрирован в контейнере зависимостей [`AppServices.cs`](Configuration Management/AppServices.cs) для обеих платформ.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.16** (`InformationalVersion` = 0.3.4.16 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.15] — 2026-08-25
+
+### Добавлено
+
+- **Размер кеша выбранной базы отображается в правой панели главного окна (обе платформы)**. В блок сведений о подключении добавлена строка **«Размер кеша»**: WPF — [`MainWindow.xaml`](Configuration Management/MainWindow.xaml), Linux/Avalonia — [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs). Значение вычисляется асинхронно в фоновом потоке при выборе базы (метод `RefreshCacheSizeAsync` в [`Infobase.cs`](Configuration Management/Models/Infobase.cs), вызов из `SelectedInfobase` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs)) и показывается в человекочитаемом виде с локализованными единицами (Б/КБ/МБ/ГБ/ТБ или B/KB/MB/GB/TB); пока размер не определён, выводится «…». Добавлен ключ локализации `Main.CacheSize` в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.15** (`InformationalVersion` = 0.3.4.15 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.14] — 2026-08-25
+
+### Добавлено
+
+- **Колонка «Действия» стала перемещаемой в списке баз (Windows/WPF)**. Раньше колонка «Действия» была закреплена сразу после «Режим запуска» и отсутствовала в списке порядка колонок вкладки **«Отображение» → «Колонки»** окна настроек — изменить её местоположение было нельзя. Теперь она участвует в порядке колонок наравне с остальными: добавлена в `DefaultColumnOrder` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), учитывается в `BuildColumnLayout` ([`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs)), а её локализованное имя — в `ColumnOrderLabel` ([`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs)). Новый порядок применяется к заголовку, строкам баз и строкам групп.
+
+### Изменено
+
+- **Заголовок колонки «Действия» прижат к левому краю (Windows/WPF)**. Заголовок колонки «Действия» в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) был отцентрован (`HorizontalAlignment="Center"`), в отличие от остальных колонок — теперь он выровнен по левому краю, как остальные заголовки.
+- **Текст подсказки «Порядок колонок» уточнён**. `Settings.Columns.OrderHint` в `ru.json`/`en.json` больше не утверждает, что колонка «Действия» закреплена: теперь указано, что фиксирована только колонка «Название».
+
+### Версия
+
+- **Версия обновлена до 0.3.4.14** (`InformationalVersion` = 0.3.4.14 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.13] — 2026-08-25
+
+### Исправлено
+
+- **Устранено предупреждение компилятора CS0618 (obsolete) в проверке доступности клиент-серверных баз (обе платформы)**. Метод `IsBaseAvailable` вызывал помеченный `[Obsolete]` `IOneCComConnector.Connect`, который под CoreCLR обрывает процесс нативным fast-fail (0xC0000409). В [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) (Windows/WPF) доступность теперь проверяется через безопасный путь [`ReadConfigurationInfo`](Configuration Management/Services/IOneCComConnector.cs) (процесс-агент `ComReadHost`); в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs) (Linux/Avalonia) клиент-серверные базы по-прежнему считаются недоступными (COM отсутствует), а устаревший вызов убран.
+- **Исправлена сборка решения [`Configuration Management.slnx`](Configuration Management.slnx)**. Из решения удалена битая ссылка на несуществующий проект `Configuration Management.Tests/Configuration Management.Tests.csproj`, из-за которой `dotnet build` падал с ошибкой MSB3202.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.13** (`InformationalVersion` = 0.3.4.13 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.11] — 2026-08-25
+
+### Исправлено
+
+- **Команды групп («Изменить группу» / «Удалить группу») размещены на уровне колонки «Действия» (Windows/WPF)**. Строка группы перестроена в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) по той же схеме ведущих колонок, что и строка базы/заголовок: имя/иконка/счётчик группы занимают область названия, а команды `EditGroupCommand`/`DeleteGroupCommand` — колонку «Действия» (та же горизонтальная позиция, что у кнопок строк баз). Строки групп участвуют в динамическом порядке колонок (`OnGroupRowGrid_Loaded`, `ApplyColumnOrder` в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs)), поэтому при смене порядка колонок команды группы остаются на уровне кнопок баз.
+- **Исправлено изменение размера колонок списка баз после динамической перестройки (Windows/WPF)**. Причина регрессии: при перестановке колонок элементы перемещались по `Tag`, который был занят другими целями (сортировка заголовка «Последний запуск» — `LastLaunchDate`, двойной клик по версии — `PlatformVersion`), из-за чего разделители/подписи/ячейки не следовали за своими колонками и перетаскивание ломалось. Введено attached-свойство `ColumnKey` ([`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs)) для хранения ключа колонки отдельно от `Tag`; `ReorderGridColumns` теперь корректно перемещает разделители, подписи и ячейки данных синхронно с перестановкой колонок. Ресайз работает и в порядке по умолчанию, и при пользовательском порядке колонок.
+- **Добавлено изменение размера колонки «Действия» (Windows/WPF)**. Добавлено поле ширины `ActionsColumnWidth` в [`AppSettings.cs`](Configuration Management/Models/AppSettings.cs) и [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) (включено в `UpdateColumnWidths`/`SaveColumnWidths`), ширина колонки в заголовке, строке базы и строке группы привязана к нему вместо жёсткого значения, а в заголовке добавлен разделитель `ActionsSplitter` (обработан в `GetSplitterTargetColumn`). Ручное перетаскивание меняет ширину синхронно во всех строках и сохраняется.
+- **Данные в списке баз выровнены с заголовком колонок (Windows/WPF)**. Строка базы и заголовок теперь имеют одинаковый набор ведущих колонок (кнопки групп + компенсатор + избранное + закрепление + название): в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) в сетку строки базы добавлена нулевая offset-колонка, а `AlignHeaderToData` переписан в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs) на измерение фактического положения первой колонки данных строки относительно заголовка. Колонки данных строк точно совпадают по горизонтали с заголовками.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.11** (`InformationalVersion` = 0.3.4.11 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.10] — 2026-08-25
+
+### Добавлено
+
+- **Редактор порядка колонок списка баз в настройках (Windows/WPF)**. В **Настройки → Отображение → Колонки** добавлен редактор порядка колонок с кнопками «Вверх»/«Вниз» по выбранной строке: пользователь задаёт последовательность колонок версии платформы, режима запуска, сервер/базы, последнего запуска, размера и конфигурации слева направо; колонки «Название» и «Действия» закреплены. Реализовано в [`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml) и [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs).
+- **Динамический порядок колонок заголовка и строк базы (Windows/WPF)**. Построение заголовка и шаблона строки базы переведено с фиксированного XAML на динамическое с учётом выбранного порядка: колонки переставляются в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs) (`ReorderGridColumns`, `ApplyColumnOrder`, `OnInfobaseRowGrid_Loaded`) по ключам из `ColumnOrderKeys`; колонка «Действия» встаёт сразу после «Режим запуска», а «Конфигурация» остаётся в конце. Сохранённый порядок хранится в поле `ColumnOrder` настроек ([`AppSettings.cs`](Configuration Management/Models/AppSettings.cs)) и применяется через [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) (`ColumnOrderKeys`, `DefaultColumnOrder`). Функциональность приведена в соответствие с Linux/Avalonia.
+
+### Локализация
+
+- Использованы существующие ключи `Settings.Columns.OrderTitle`, `Settings.Columns.OrderHint`, `Settings.Columns.OrderUp`, `Settings.Columns.OrderDown` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json) (добавлены ранее в 0.3.4.7 для Avalonia).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.10** (`InformationalVersion` = 0.3.4.10 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.9] — 2026-08-25
+
+### Изменено
+
+- **Колонка «Действия» списка баз встаёт сразу после колонки «Режим запуска» (Windows/WPF)**, а не у правого края. Колонки данных переставлены в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml): фиксированная колонка «Действия» (170) размещена между колонками «Режим запуска» и «Сервер/база» и в заголовке, и в шаблоне строки базы; соответствующим образом сдвинуты заголовки, значения, разделители колонок и область тегов (теги больше не заходят под колонку «Действия»). Поведение приведено в соответствие с Linux/Avalonia (`ActionsOffsetInColumns` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)).
+- **Колонка «Конфигурация» перенесена в самый конец списка колонок (Windows/WPF)** — после размера и остальных колонок данных, как уже сделано в Linux/Avalonia (порядок по умолчанию `DefaultColumnOrder` в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)). В Windows/WPF порядок колонок задан фиксированно в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.9** (`InformationalVersion` = 0.3.4.9 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.8] — 2026-08-25
+
+### Изменено
+
+- **Команды групп («Изменить группу» / «Удалить группу») выровнены по левому краю строки группы в Windows/WPF**; имя группы, иконка и счётчик следуют правее. Раньше команды групп располагались в правой колонке «Действия» и были выровнены по правому краю. Теперь колонки строки группы в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) переставлены: фиксированная колонка «Действия» (170) с кнопками `EditGroupCommand`/`DeleteGroupCommand` встала слева с выравниванием `HorizontalAlignment="Left"`, а имя/иконка/счётчик — в растягивающуюся колонку правее — как уже реализовано в Linux/Avalonia в `BuildGroupRow()` ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.8** (`InformationalVersion` = 0.3.4.8 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.7] — 2026-08-25
+
+### Изменено
+
+- **Настройка порядка колонок списка баз (Linux/Avalonia)**. В **Настройки → Отображение → Колонки** добавлен редактор порядка колонок (кнопки «Вверх»/«Вниз» по выбранной строке): пользователь задаёт последовательность колонок версии платформы, режима запуска, сервер/базы, последнего запуска, размера и конфигурации слева направо; колонки «Название» и «Действия» закреплены. Реализовано в [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs) и [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs) (поле `ColumnOrder` в настройках).
+- **Колонка «Конфигурация» перенесена в самый конец списка баз** — порядок колонок по умолчанию.
+- **Колонка «Действия» встаёт сразу после колонки «Режим запуска»** (а не у правого края). Если колонка «Режим запуска» скрыта или стоит последней — действия остаются в самом конце. Заголовок, строки баз и колонки значений теперь строятся с учётом позиции «Действий» в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs) (`RefreshColumnHeader`, `BuildInfobaseRow`, `ActionsOffsetInColumns`).
+- **Команды групп («Изменить группу» / «Удалить группу») выровнены по левому краю** строки группы; имя и счётчик группы следуют правее.
+
+### Локализация
+
+- Добавлены ключи `Settings.Columns.OrderTitle`, `Settings.Columns.OrderHint`, `Settings.Columns.OrderUp`, `Settings.Columns.OrderDown` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.7** (`InformationalVersion` = 0.3.4.7 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.6] — 2026-08-25
+
+> **Авторство изменений этого выпуска: [ksv47](https://github.com/ksv47)** — слияние ветки `win-debug` (PR #69).
+
+### Исправлено
+
+- **Приложение молча завершалось на старте с кодом 0xC0000409 (Windows/WPF)**. Причина — прямой COM-вызов (`comcntr.dll`) из процесса приложения: под CoreCLR (.NET 5+) `Connect` обрывает процесс нативным fast-fail **0xC0000409** без управляемого исключения, поэтому приложение «исчезало», не показывая ни окна, ни ошибки, а Windows могла предложить отладчик. Теперь COM-коннектор 1С вынесен в **отдельный вспомогательный процесс-агент**, и чтение сведений о конфигурации 1С выполняется там, а не в процессе приложения. Прямой метод [`IOneCComConnector.Connect`](Configuration Management/Services/IOneCComConnector.cs) помечен `[Obsolete]` и из приложения больше не вызывается.
+  - **Процесс-агент** [`ComReadHost.cs`](Configuration Management/Services/ComReadHost.cs) (~1300 строк): обслуживает запросы чтения сведений по протоколу `stdin`/`stdout`, сам закрывается при закрытии своего `stdin` и явно снимается через `ComReadHost.Shutdown()` при выходе приложения ([`App.xaml.cs`](Configuration Management/App.xaml.cs)).
+  - **Ручная точка входа** [`Program.Main`](Configuration Management/Program.cs) (Windows/WPF) вместо автоматически генерируемой из `App.xaml`: режим COM-агента перехватывается **до** создания `App` и загрузки словарей ресурсов (MaterialDesign, тема, иконки) — агенту они не нужны, а сбой загрузки XAML у агента не уходил бы в `stderr`. В [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj) задан `StartupObject=Configuration_Management.Program`, а `App.xaml` подключён как `Page`, а не `ApplicationDefinition`.
+  - **Подавление WER** (Windows Error Reporting), чтобы система не прерывала работу диалогом о сбое.
+- **Зависание/потеря диагноза при гибели агента**: при повреждённом окончательном кадре протокола и при таймауте (ранний коннектор уже назвал причину, следующий завис на недоступном сервере) придержанный диагноз молча терялся. Диагноз сохранён на обеих ветках, отказ по-прежнему учитывается.
+- **Ложный успех регистрации COM-коннектора** ([`OneCComConnectorRegistrar.cs`](Configuration Management/Services/OneCComConnectorRegistrar.cs)): результат команды теперь определяется её собственным результатом, а не тем, что в системе и раньше был виден какой-то коннектор — иначе при уже установленной платформе 8.5 регистрация выбранной 8.3 могла провалиться, а пользователю сообщили бы об успехе.
+
+### Добавлено
+
+- **Юнит-тесты на протокол COM-агента и сборку строки подключения** — новый тестовый проект [`Configuration Management.Tests`](Configuration Management.Tests/Configuration Management.Tests.csproj) (xUnit, 53 теста): разбор кадров протокола (успех, ошибка, промежуточный кадр, чужой seq, повреждённая нагрузка, неизвестный токен, подделанный BADREQ), взаимная обратимость разрядов и токенов, ранжирование диагнозов, сборка строки подключения с экранированием и признаком пароля, маскировка учётных данных и само решение о показе пароля. Проверяемые чистые функции открыты тестам через `InternalsVisibleTo` (публичными не становятся); целевая платформа тестов следует за основным проектом, сами тесты закрыты `#if WINDOWS`, поэтому на Linux решение не ломается. Проект добавлен в [`Configuration Management.slnx`](Configuration Management.slnx).
+
+### Изменено
+
+- **Пароль не передаётся в командной строке** — только по протоколу `stdin` процесса-агента. **Маскировка учётных данных** и **решение о показе текста ошибки** больше не строятся на догадке агента: решение принимает родитель/сборщик строки подключения. Если у базы задан пароль, текст ошибки 1С скрывается (он может содержать пароль), показывается только код (`Com.DbErrorHiddenFormat` / `Com.DbErrorCodeOnlyFormat`).
+- **Экранирование строки подключения** при сборке; значение поля не может закрыть себя и дописать чужой параметр; признак `Transport` по протоколу не приезжает.
+- **Честный таймаут** чтения сведений; **накопление диагнозов**; разряд `BadRequest` получил собственный текст (отличается от молчания агента).
+- **Поддержка платформы 8.5** в переборе `ProgID` ([`KnownProgIds`](Configuration Management/Services/OneCComConnector.cs) — теперь V85/V83/V82/V81): 8.5 регистрирует собственный ProgID/CLSID. **Диагностика разрядности** сравнивает один и тот же ProgID в обеих ветвях реестра по всему списку — это различает случай «64-битная 8.5 + 32-битная 8.3», который раньше врал.
+- **Сброс обоих вердиктов о недоступности COM** (кэш реестра и сессионная защёлка агента) через `OneCComConnector.ResetComVerdicts()`: теперь это делается по явной команде пользователя и после успешной регистрации коннектора, а не только кэша реестра ([`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs)).
+- **Локализация**: добавлены ключи `Com.DisabledForSession`, `Com.AgentStartFailed`, `Com.AgentCrashedFormat`, `Com.AgentCrashedUnknownCode`, `Com.UnknownCode`, `Com.DbErrorCodeOnlyFormat`, `Com.DbErrorHiddenFormat`, `Com.AgentNoResult`, `Com.AgentBadRequest`; `Com.NotFound` расширен до V85; переформулированы `Com.ProgIdStatus*` и `Main.ComRegProgId*` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.6** (`InformationalVersion` = 0.3.4.6 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.4.5] — 2026-08-25
 
 ### Изменено

@@ -935,23 +935,25 @@ namespace Configuration_Management
             count.Bind(TextBlock.ForegroundProperty, new Binding("HeaderTextBrush") { Source = group });
             caption.Children.Add(count);
 
-            // Действия группы: «Изменить группу» и «Удалить группу» в правой зоне,
-            // той же ширины, что колонка «Действия» строк базы и заголовка.
+            // Команды группы «Изменить группу» и «Удалить группу» выровнены по
+            // левому краю строки; имя и счётчик группы следуют за ними правее.
             var row = new Grid();
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
-            row.Children.Add(caption);
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var actions = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center
             };
             actions.Children.Add(GroupRowActionButton(group, "IconEdit", "EditGroupCommand", LocalizationManager.T("Main.EditGroupTooltip")));
             actions.Children.Add(GroupRowActionButton(group, "IconDelete", "DeleteGroupCommand", LocalizationManager.T("Main.DeleteGroupTooltip")));
-            Grid.SetColumn(actions, 1);
+            Grid.SetColumn(actions, 0);
             row.Children.Add(actions);
+
+            Grid.SetColumn(caption, 1);
+            row.Children.Add(caption);
 
             header.Child = row;
             return header;
@@ -1007,13 +1009,19 @@ namespace Configuration_Management
             // Колонки идут теми же ширинами, что и в заголовке, поэтому значения
             // строк выстраиваются под своими заголовками.
             var columns = ListColumns();
-            foreach (var column in columns)
+            // Колонка «Действия» встаёт сразу после колонки «Режим запуска», поэтому её
+            // определение встраивается в последовательность, как и в заголовке.
+            var actionsOffset = ActionsOffsetInColumns(columns);
+            for (var i = 0; i < columns.Count; i++)
+            {
+                if (i == actionsOffset)
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
                 grid.ColumnDefinitions.Add(
-                    new ColumnDefinition { Width = new GridLength(column.Width), MinWidth = MinColumnWidth });
-
-            // Колонка «Действия»: фиксированная, кнопки управления конкретной базой строки.
-            // Ширина должна совпадать с колонкой «Действия» заголовка (см. RefreshColumnHeader).
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
+                    new ColumnDefinition { Width = new GridLength(columns[i].Width), MinWidth = MinColumnWidth });
+            }
+            // «Режим запуска» скрыт или стоит последним — действия уходят в самый конец.
+            if (actionsOffset >= columns.Count)
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
 
             if (showFavorite)
             {
@@ -1102,18 +1110,22 @@ namespace Configuration_Management
             grid.Children.Add(content);
             Grid.SetColumn(content, 3);
 
+            var dataColumn = NameRowColumn + 1;
             for (var i = 0; i < columns.Count; i++)
             {
+                if (i == actionsOffset)
+                    dataColumn++;
                 var value = ColumnValue(ib, columns[i].Key);
                 var cell = SecondaryText(string.IsNullOrWhiteSpace(value) ? string.Empty : value, card);
                 cell.VerticalAlignment = VerticalAlignment.Center;
                 grid.Children.Add(cell);
-                Grid.SetColumn(cell, i + 4);
+                Grid.SetColumn(cell, dataColumn);
+                dataColumn++;
             }
 
-            // Кнопки действий в колонке «Действия» (последняя): запуск, конфигуратор,
-            // изменить настройки, очистить кеш, удалить — по аналогии с WPF.
-            var actionsCol = grid.ColumnDefinitions.Count - 1;
+            // Кнопки действий в колонке «Действия» (после колонки «Режим запуска»):
+            // запуск, конфигуратор, изменить настройки, очистить кеш, удалить.
+            var actionsCol = NameRowColumn + 1 + actionsOffset;
             var actions = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -1535,15 +1547,22 @@ namespace Configuration_Management
                 DetailRow(LocalizationManager.T("Main.Client"), new Binding("SelectedInfobase.ClientTypeDisplay")),
                 DetailRow(LocalizationManager.T("Main.Bitness"), new Binding("SelectedInfobase.ArchitectureDisplay")),
                 DetailRow(LocalizationManager.T("Main.Parameters"), new Binding("SelectedInfobase.LaunchParameters")),
-                DetailRow(LocalizationManager.T("Main.LastLaunch"), new Binding("SelectedInfobase.LastLaunchDisplay")));
+                DetailRow(LocalizationManager.T("Main.LastLaunch"), new Binding("SelectedInfobase.LastLaunchDisplay")),
+                DetailRow(LocalizationManager.T("Main.CacheSize"), new Binding("SelectedInfobase.CacheSizeDisplay")));
             connectionCard.Bind(Control.IsVisibleProperty, new Binding("ShowConnectionInfo"));
             panel.Children.Add(connectionCard);
 
             // Блок «Текущая сессия»: значения действуют только на следующий запуск.
             panel.Children.Add(BuildSessionCard());
 
-            // Описание.
-            var desc = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = UiMetrics.ScaledFont(12) };
+            // Описание (стиль из ConfigurationManagement): значение TextPrimaryBrush, нижний отступ.
+            var desc = new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = UiMetrics.ScaledFont(12),
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            ThemeBrushes.Bind(desc, TextBlock.ForegroundProperty, "TextPrimaryBrush");
             desc.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.Description"));
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.Description"), "IconInfo", desc));
 
@@ -2237,7 +2256,9 @@ namespace Configuration_Management
             /// <summary>Собирает содержимое «иконка + текст» с цветом по состоянию выбора.</summary>
             private void UpdateContent()
             {
-                var brushKey = IsChecked == true ? "TextOnAccentBrush" : "TextPrimaryBrush";
+                // Невыбранное состояние — приглушённый текст (как в WPF SegmentRadioButton),
+                // выбранное — контрастный текст на акцентной заливке.
+                var brushKey = IsChecked == true ? "TextOnAccentBrush" : "TextSecondaryBrush";
                 var sp = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
@@ -2372,13 +2393,46 @@ namespace Configuration_Management
                     columns.Add(new ListColumn(key, LocalizationManager.T(header), width > 0 ? width : fallback));
             }
 
-            Add(_vm.ShowVersionColumn, "Version", "Column.Version", _vm.VersionColumnWidth, 95);
-            Add(_vm.ShowConfigurationColumn, "Configuration", "Column.Configuration", _vm.ConfigurationColumnWidth, 140);
-            Add(_vm.ShowLaunchModeColumn, "LaunchMode", "Column.LaunchMode", _vm.LaunchModeColumnWidth, 115);
-            Add(_vm.ShowServerColumn, "ServerBase", "Column.ServerBase", _vm.ServerColumnWidth, 140);
-            Add(_vm.ShowLastLaunchColumn, "LastLaunch", "Column.LastLaunch", _vm.LastLaunchColumnWidth, 115);
-            Add(_vm.ShowSizeColumn, "Size", "Column.Size", _vm.SizeColumnWidth, 65);
+            // Порядок колонок берётся из настроек; неизвестные ключи пропускаются,
+            // поэтому пользовательский список не ломает сборку при изменении состава.
+            foreach (var key in _vm.ColumnOrderKeys)
+            {
+                switch (key)
+                {
+                    case "Version":
+                        Add(_vm.ShowVersionColumn, "Version", "Column.Version", _vm.VersionColumnWidth, 95);
+                        break;
+                    case "Configuration":
+                        Add(_vm.ShowConfigurationColumn, "Configuration", "Column.Configuration", _vm.ConfigurationColumnWidth, 140);
+                        break;
+                    case "LaunchMode":
+                        Add(_vm.ShowLaunchModeColumn, "LaunchMode", "Column.LaunchMode", _vm.LaunchModeColumnWidth, 115);
+                        break;
+                    case "ServerBase":
+                        Add(_vm.ShowServerColumn, "ServerBase", "Column.ServerBase", _vm.ServerColumnWidth, 140);
+                        break;
+                    case "LastLaunch":
+                        Add(_vm.ShowLastLaunchColumn, "LastLaunch", "Column.LastLaunch", _vm.LastLaunchColumnWidth, 115);
+                        break;
+                    case "Size":
+                        Add(_vm.ShowSizeColumn, "Size", "Column.Size", _vm.SizeColumnWidth, 65);
+                        break;
+                }
+            }
             return columns;
+        }
+
+        /// <summary>
+        /// Сколько колонок данных стоит до колонки «Действия»: она встаёт сразу
+        /// после колонки «Режим запуска» (или в самый конец, если та скрыта или
+        /// отсутствует в текущем порядке).
+        /// </summary>
+        private static int ActionsOffsetInColumns(List<ListColumn> columns)
+        {
+            for (var i = 0; i < columns.Count; i++)
+                if (columns[i].Key == "LaunchMode")
+                    return i + 1;
+            return columns.Count;
         }
 
         /// <summary>Значение колонки для конкретной базы.</summary>
@@ -2463,12 +2517,19 @@ namespace Configuration_Management
             _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(IconColumnWidth) });
             _columnHeaderRow.ColumnDefinitions.Add(
                 new ColumnDefinition { Width = NameColumnLength(), MinWidth = MinColumnWidth });
-            foreach (var column in columns)
+            // Колонка «Действия» встаёт сразу после колонки «Режим запуска», поэтому
+            // её определение встраивается в последовательность, а не добавляется в конец.
+            var actionsOffset = ActionsOffsetInColumns(columns);
+            for (var i = 0; i < columns.Count; i++)
+            {
+                if (i == actionsOffset)
+                    _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
                 _columnHeaderRow.ColumnDefinitions.Add(
-                    new ColumnDefinition { Width = new GridLength(column.Width), MinWidth = MinColumnWidth });
-
-            // Колонка «Действия»: фиксированная, совпадает по ширине с колонкой строки базы.
-            _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
+                    new ColumnDefinition { Width = new GridLength(columns[i].Width), MinWidth = MinColumnWidth });
+            }
+            // «Режим запуска» скрыт или стоит последним — действия уходят в самый конец.
+            if (actionsOffset >= columns.Count)
+                _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
 
             _headerPinMark = null;
             if (_vm.ShowPinnedButton)
@@ -2497,28 +2558,35 @@ namespace Configuration_Management
 
             _headerColumnIndex.Clear();
             _headerColumnIndex["Name"] = NameHeaderColumn;
-            for (var i = 0; i < columns.Count; i++)
-                _headerColumnIndex[columns[i].Key] = NameHeaderColumn + 1 + i;
 
             var nameGrip = BuildResizeGrip("Name", NameHeaderColumn);
             _columnHeaderRow.Children.Add(nameGrip);
 
+            // Заголовки идут по порядку колонок данных, перескакивая колонку
+            // «Действия», встроенную после «Режима запуска».
+            var dataColumn = NameHeaderColumn + 1;
             for (var i = 0; i < columns.Count; i++)
             {
+                if (i == actionsOffset)
+                    dataColumn++;
+                _headerColumnIndex[columns[i].Key] = dataColumn;
+
                 var text = HeaderText(columns[i].Header);
                 if (columns[i].Key == "LastLaunch")
                     MakeSortableHeader(text, "LastLaunchDate", LocalizationManager.T("Main.ColumnLastLaunchSortTooltip"));
                 _columnHeaderRow.Children.Add(text);
-                Grid.SetColumn(text, NameHeaderColumn + 1 + i);
+                Grid.SetColumn(text, dataColumn);
 
-                var grip = BuildResizeGrip(columns[i].Key, NameHeaderColumn + 1 + i);
+                var grip = BuildResizeGrip(columns[i].Key, dataColumn);
                 _columnHeaderRow.Children.Add(grip);
+                dataColumn++;
             }
 
-            // Подпись колонки «Действия» — в последней колонке, без разделителя.
+            // Подпись колонки «Действия» — сразу после колонки «Режим запуска»,
+            // без разделителя.
             var actionsHeader = HeaderText(LocalizationManager.T("Column.Actions"));
             _columnHeaderRow.Children.Add(actionsHeader);
-            Grid.SetColumn(actionsHeader, _columnHeaderRow.ColumnDefinitions.Count - 1);
+            Grid.SetColumn(actionsHeader, NameHeaderColumn + 1 + actionsOffset);
 
             UpdateListMinWidth();
 

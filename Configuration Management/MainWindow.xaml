@@ -228,7 +228,10 @@
                 </Border>
 
                 <!-- Вкладки Все / Избранное / Недавние -->
-                <StackPanel x:Name="TabsPanel" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                <Border Grid.Column="2" Background="{DynamicResource ContentBackgroundBrush}"
+                        CornerRadius="12" Padding="4" Margin="0,0,12,0" VerticalAlignment="Center"
+                        BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
+                    <StackPanel x:Name="TabsPanel" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                     <RadioButton GroupName="ListMode"
                                  IsChecked="{Binding IsListModeAll, Mode=TwoWay}"
                                  Style="{DynamicResource SegmentRadioButton}" Margin="0,0,4,0"
@@ -266,9 +269,13 @@
                         </StackPanel>
                     </RadioButton>
                 </StackPanel>
+        </Border>
 
-                <!-- Синхронизация + тема + настройки (добавление — в правой панели и контекстном меню) -->
-                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+        <!-- Синхронизация + тема + настройки (добавление — в правой панели и контекстном меню) -->
+                <Border Grid.Column="3" Background="{DynamicResource ContentBackgroundBrush}"
+                        CornerRadius="12" Padding="4" Margin="0,0,12,0" VerticalAlignment="Center"
+                        BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Добавить базу: перенесено из правой панели в верхнюю панель команд -->
                     <Button Command="{Binding AddInfobaseCommand}"
                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
@@ -327,6 +334,7 @@
                     <controls:HelpLink Margin="4,0,0,0"
                                        HelpText="{loc:Loc Main.BaseListHelp}"/>
                 </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
@@ -506,20 +514,22 @@
                                             </MultiBinding>
                                         </ColumnDefinition.Width>
                                     </ColumnDefinition>
-                                    <ColumnDefinition x:Name="ConfigurationColumn">
-                                        <ColumnDefinition.Width>
-                                            <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="160">
-                                                <Binding Path="DataContext.ShowConfigurationColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
-                                                <Binding Path="DataContext.ConfigurationColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
-                                            </MultiBinding>
-                                        </ColumnDefinition.Width>
-                                    </ColumnDefinition>
                                     <ColumnDefinition x:Name="LaunchModeColumn">
                                         <ColumnDefinition.Width>
                                             <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="120">
                                                 <Binding Path="DataContext.ShowLaunchModeColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                 <Binding Path="DataContext.LaunchModeColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                             </MultiBinding>
+                                        </ColumnDefinition.Width>
+                                    </ColumnDefinition>
+                                    <!-- Колонка «Действия»: встаёт сразу после «Режим запуска»,
+                                         ширина настраивается перетаскиванием разделителя. -->
+                                    <ColumnDefinition x:Name="ActionsColumn">
+                                        <!-- Колонка «Действия» всегда видима: ширина из ActionsColumnWidth,
+                                             по умолчанию 170. Не используем ColumnVis с Source=True, т.к. литерал True
+                                             ненадёжно приводится к bool и схлопывал ширину до 0 (0.3.5.1). -->
+                                        <ColumnDefinition.Width>
+                                            <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}" Converter="{StaticResource DoubleToGridLength}" ConverterParameter="170"/>
                                         </ColumnDefinition.Width>
                                     </ColumnDefinition>
                                     <ColumnDefinition x:Name="ServerColumn">
@@ -546,58 +556,72 @@
                                             </MultiBinding>
                                         </ColumnDefinition.Width>
                                     </ColumnDefinition>
-                                    <!-- Фиксированная колонка «Действия»: кнопки управления базой в каждой строке -->
-                                    <ColumnDefinition Width="170"/>
+                                    <!-- Колонка «Конфигурация» — всегда в самом конце списка колонок -->
+                                    <ColumnDefinition x:Name="ConfigurationColumn">
+                                        <ColumnDefinition.Width>
+                                            <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="160">
+                                                <Binding Path="DataContext.ShowConfigurationColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                <Binding Path="DataContext.ConfigurationColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                            </MultiBinding>
+                                        </ColumnDefinition.Width>
+                                    </ColumnDefinition>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Кнопки «развернуть/свернуть все группы» в заголовке слева -->
-                                <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                            VerticalAlignment="Center" HorizontalAlignment="Center"
-                                            Margin="0,0,0,4"
-                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                                <!-- Кнопки групп, переключатель тегов и пометка закрепления в заголовке слева.
+                                     Блок занимает все ведущие колонки (кнопки групп + компенсатор отступа
+                                     дерева + колонки избранного и закрепления), поэтому «теги» стоят сразу
+                                     после «сортировки по убыванию», а значок «закрепить» — сразу после тегов.
+                                     Расширяющийся при группировке компенсатор не создаёт пустых зазоров между
+                                     ними. Кнопки групп видимы только при группировке, теги и пометка — всегда. -->
+                                <StackPanel Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal"
+                                            VerticalAlignment="Center" HorizontalAlignment="Left"
+                                            Margin="0,0,0,4">
                                     <Button Command="{Binding DataContext.ExpandAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                                            ToolTip="{loc:Loc Main.ExpandAllGroups}">
+                                            ToolTip="{loc:Loc Main.ExpandAllGroups}"
+                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                         <materialDesign:PackIcon Kind="ExpandAll" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.CollapseAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}" Margin="0,0,4,0"
-                                            ToolTip="{loc:Loc Main.CollapseAllGroups}">
+                                            ToolTip="{loc:Loc Main.CollapseAllGroups}"
+                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                         <materialDesign:PackIcon Kind="CollapseAll" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.SortGroupsAscendingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                                            ToolTip="{loc:Loc Main.SortGroupsAscending}">
+                                            ToolTip="{loc:Loc Main.SortGroupsAscending}"
+                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                         <materialDesign:PackIcon Kind="SortAscending" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
                                     <Button Command="{Binding DataContext.SortGroupsDescendingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Style="{DynamicResource IconButton}"
-                                            ToolTip="{loc:Loc Main.SortGroupsDescending}">
+                                            ToolTip="{loc:Loc Main.SortGroupsDescending}"
+                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                         <materialDesign:PackIcon Kind="SortDescending" Width="15" Height="15"
                                                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Button>
+                                    <!-- Переключатель видимости тегов в списке (заменяет неактивный значок «Избранное») -->
+                                    <ToggleButton IsChecked="{Binding DataContext.ShowTags, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  Style="{DynamicResource ToolbarToggleButton}"
+                                                  VerticalAlignment="Center"
+                                                  Margin="2,0,0,0"
+                                                  ToolTip="{loc:Loc Main.ToggleListTags}">
+                                        <Path Width="14" Height="14" Stretch="Uniform"
+                                              Data="{StaticResource IconTag}"
+                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                                    </ToggleButton>
+                                    <!-- Пометка закрепления — сразу после кнопки тегов, без зазора -->
+                                    <materialDesign:PackIcon Kind="Pin" Width="14" Height="14"
+                                                             VerticalAlignment="Center"
+                                                             Margin="4,0,0,0"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             ToolTip="{loc:Loc Main.Pinned}"
+                                                             Visibility="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
                                 </StackPanel>
-
-                                <!-- Переключатель видимости тегов в списке (заменяет неактивный значок «Избранное») -->
-                                <ToggleButton Grid.Column="2"
-                                              IsChecked="{Binding DataContext.ShowTags, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=Window}}"
-                                              Style="{DynamicResource ToolbarToggleButton}"
-                                              VerticalAlignment="Center" HorizontalAlignment="Center"
-                                              Margin="0,0,0,4"
-                                              ToolTip="{loc:Loc Main.ToggleListTags}">
-                                    <Path Width="14" Height="14" Stretch="Uniform"
-                                          Data="{StaticResource IconTag}"
-                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
-                                </ToggleButton>
-                                <materialDesign:PackIcon Grid.Column="3" Kind="Pin" Width="14" Height="14"
-                                                         VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                         Margin="0,0,0,4"
-                                                         Foreground="{DynamicResource TextSecondaryBrush}"
-                                                         ToolTip="{loc:Loc Main.Pinned}"
-                                                         Visibility="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
 
                                 <TextBlock Grid.Column="4" Text="{loc:Loc Column.Name}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
@@ -607,13 +631,13 @@
                                 <TextBlock Grid.Column="5" Text="{loc:Loc Column.Version}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="6" Text="{loc:Loc Column.Configuration}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           ToolTip="{loc:Loc Main.ColumnNameTooltip}"/>
-                                <TextBlock Grid.Column="7" Text="{loc:Loc Column.LaunchMode}" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="6" Text="{loc:Loc Column.LaunchMode}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
+                                <TextBlock Grid.Column="7" Text="{loc:Loc Column.Actions}" FontWeight="SemiBold" FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                           HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
+                                           ToolTip="{loc:Loc Main.Actions}"/>
                                 <TextBlock Grid.Column="8" Text="{loc:Loc Column.ServerBase}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
@@ -626,10 +650,10 @@
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                            HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
                                            ToolTip="{loc:Loc Main.ColumnSizeTooltip}"/>
-                                <TextBlock Grid.Column="11" Text="{loc:Loc Column.Actions}" FontWeight="SemiBold" FontSize="12"
+                                <TextBlock Grid.Column="11" Text="{loc:Loc Column.Configuration}" FontWeight="SemiBold" FontSize="12"
                                            Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           ToolTip="{loc:Loc Main.Actions}"/>
+                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
+                                           ToolTip="{loc:Loc Main.ColumnNameTooltip}"/>
 
                                 <!-- Современные разделители колонок: тонкая линия + широкая зона захвата -->
                                 <Border x:Name="NameSplitter" Grid.Column="4"
@@ -655,11 +679,11 @@
                                             Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
                                             Margin="0,2,0,4"/>
                                 </Border>
-                                <Border x:Name="ConfigurationSplitter" Grid.Column="6"
+                                <Border x:Name="LaunchModeSplitter" Grid.Column="6"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
-                                        Visibility="{Binding DataContext.ShowConfigurationColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                        Visibility="{Binding DataContext.ShowLaunchModeColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
                                         MouseLeftButtonUp="OnColumnResize_MouseUp">
@@ -667,11 +691,10 @@
                                             Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
                                             Margin="0,2,0,4"/>
                                 </Border>
-                                <Border x:Name="LaunchModeSplitter" Grid.Column="7"
+                                <Border x:Name="ActionsSplitter" Grid.Column="7"
                                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
-                                        Visibility="{Binding DataContext.ShowLaunchModeColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
                                         MouseLeftButtonUp="OnColumnResize_MouseUp">
@@ -708,6 +731,18 @@
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
                                         Visibility="{Binding DataContext.ShowSizeColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                        MouseLeftButtonDown="OnColumnResize_MouseDown"
+                                        MouseMove="OnColumnResize_MouseMove"
+                                        MouseLeftButtonUp="OnColumnResize_MouseUp">
+                                    <Border Width="1" HorizontalAlignment="Center"
+                                            Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
+                                            Margin="0,2,0,4"/>
+                                </Border>
+                                <Border x:Name="ConfigurationSplitter" Grid.Column="11"
+                                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
+                                        Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
+                                        ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
+                                        Visibility="{Binding DataContext.ShowConfigurationColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
                                         MouseLeftButtonUp="OnColumnResize_MouseUp">
@@ -798,13 +833,82 @@
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
-                                    <Grid>
+                                    <Grid x:Name="GroupRowGrid" Loaded="OnGroupRowGrid_Loaded">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <!-- Колонка «Действия» группы: той же ширины, что у строк баз и заголовка. -->
-                                            <ColumnDefinition Width="170"/>
+                                            <!-- Сетка повторяет набор ведущих колонок строки базы и заголовка
+                                                 (кнопки групп + компенсатор + избранное + закрепление + название),
+                                                 чтобы команды группы оказывались в той же колонке «Действия»,
+                                                 что и кнопки строк баз, а имя/счётчик группы — в области названия. -->
+                                            <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=144}"/>
+                                            <ColumnDefinition Width="0"/>
+                                            <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
+                                            <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <Binding Path="DataContext.NameColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"
+                                                             Converter="{StaticResource NameColumnWidth}"/>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="120">
+                                                        <Binding Path="DataContext.ShowVersionColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.VersionColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="120">
+                                                        <Binding Path="DataContext.ShowLaunchModeColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.LaunchModeColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <!-- Колонка «Действия»: команды группы на уровне кнопок строк баз -->
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}" Converter="{StaticResource DoubleToGridLength}" ConverterParameter="170"/>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="200">
+                                                        <Binding Path="DataContext.ShowServerColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.ServerColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="140">
+                                                        <Binding Path="DataContext.ShowLastLaunchColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.LastLaunchColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="90">
+                                                        <Binding Path="DataContext.ShowSizeColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.SizeColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="160">
+                                                        <Binding Path="DataContext.ShowConfigurationColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.ConfigurationColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+
+                                        <!-- Имя группы и счётчик: область названия, тянется до колонки «Действия» -->
+                                        <StackPanel Grid.Column="0" Grid.ColumnSpan="7"
+                                                    Orientation="Horizontal" VerticalAlignment="Center"
+                                                    HorizontalAlignment="Left">
                                             <Path Stretch="Uniform" Margin="0,0,8,0"
                                                   VerticalAlignment="Center"
                                                   Fill="{Binding IconBrush}"
@@ -851,10 +955,9 @@
                                                 </TextBlock.Style>
                                             </TextBlock>
                                         </StackPanel>
-                                        <!-- Действия группы: «Изменить группу» и «Удалить группу» в той же правой зоне,
-                                             что и кнопки строк баз. -->
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <!-- Команды группы в колонке «Действия»: «Изменить группу» и «Удалить группу». -->
+                                        <StackPanel Grid.Column="7" Orientation="Horizontal"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <Button Command="{Binding DataContext.EditGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"
                                                     Style="{DynamicResource IconButton}" Margin="1,0"
@@ -894,11 +997,15 @@
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
-                                    <Grid x:Name="InfobaseRowGrid">
+                                    <Grid x:Name="InfobaseRowGrid" Loaded="OnInfobaseRowGrid_Loaded">
                                         <Grid.ColumnDefinitions>
-                                            <!-- Пустая колонка под кнопки «развернуть/свернуть» и «сортировка» групп в заголовке,
-                                                 чтобы колонки данных выравнивались с заголовком (сдвиг вложенности идёт только на название). -->
+                                            <!-- Ведущие колонки повторяют набор заголовка: кнопки групп + компенсатор +
+                                                 избранное + закрепление + название. Одинаковая структура ведущих колонок
+                                                 гарантирует, что колонки данных строк точно совпадают по горизонтали
+                                                 с заголовками. Компенсатор в строке всегда нулевой (сдвиг вложенности
+                                                 даёт отступ названия LevelToThickness). -->
                                             <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=144}"/>
+                                            <ColumnDefinition Width="0"/>
                                             <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
                                             <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
                                             <ColumnDefinition>
@@ -917,18 +1024,16 @@
                                             </ColumnDefinition>
                                             <ColumnDefinition>
                                                 <ColumnDefinition.Width>
-                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="160">
-                                                        <Binding Path="DataContext.ShowConfigurationColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
-                                                        <Binding Path="DataContext.ConfigurationColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
-                                                    </MultiBinding>
-                                                </ColumnDefinition.Width>
-                                            </ColumnDefinition>
-                                            <ColumnDefinition>
-                                                <ColumnDefinition.Width>
                                                     <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="120">
                                                         <Binding Path="DataContext.ShowLaunchModeColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                         <Binding Path="DataContext.LaunchModeColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                     </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <!-- Колонка «Действия»: встаёт сразу после «Режим запуска», совпадает с заголовком -->
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}" Converter="{StaticResource DoubleToGridLength}" ConverterParameter="170"/>
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
                                             <ColumnDefinition>
@@ -955,8 +1060,15 @@
                                                     </MultiBinding>
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
-                                            <!-- Колонка «Действия»: фиксированная, совпадает с заголовком -->
-                                            <ColumnDefinition Width="170"/>
+                                            <!-- Колонка «Конфигурация» — всегда в самом конце списка колонок -->
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="160">
+                                                        <Binding Path="DataContext.ShowConfigurationColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.ConfigurationColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
                                         </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
@@ -965,7 +1077,7 @@
 
                                         <!-- ★ + 📌 + название: старт с колонки 0 (под иконкой группы),
                                              без лишних пробелов; сдвиг только по уровню родителя (base). -->
-                                        <StackPanel Grid.Column="0" Grid.ColumnSpan="4"
+                                        <StackPanel Grid.Column="0" Grid.ColumnSpan="5"
                                                     Orientation="Horizontal" VerticalAlignment="Center">
                                             <StackPanel.Margin>
                                                 <MultiBinding Converter="{StaticResource LevelToThickness}" ConverterParameter="base">
@@ -1062,14 +1174,14 @@
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
 
-                                        <TextBlock Grid.Column="4" Text="{Binding PlatformVersion}" FontSize="12"
+                                        <TextBlock Grid.Column="5" Text="{Binding PlatformVersion}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"
                                                    Tag="PlatformVersion"
                                                    Cursor="Hand"
                                                    ToolTip="{loc:Loc Main.PlatformVersionTooltip}"/>
 
-                                        <TextBlock Grid.Column="5" Text="{Binding ConfigurationDisplay}" FontSize="12"
+                                        <TextBlock Grid.Column="11" Text="{Binding ConfigurationDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"
                                                    ToolTip="{Binding ConfigurationDisplay}"/>
@@ -1078,20 +1190,20 @@
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
 
-                                        <TextBlock Grid.Column="7" Text="{Binding ServerDatabaseDisplay}" FontSize="12"
+                                        <TextBlock Grid.Column="8" Text="{Binding ServerDatabaseDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
 
-                                        <TextBlock Grid.Column="8" Text="{Binding LastLaunchDisplay}" FontSize="12"
+                                        <TextBlock Grid.Column="9" Text="{Binding LastLaunchDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
 
-                                        <TextBlock Grid.Column="9" Text="{Binding FileSizeDisplay}" FontSize="12"
+                                        <TextBlock Grid.Column="10" Text="{Binding FileSizeDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"/>
 
-                                        <!-- Колонка «Действия»: кнопки управления конкретной базой этой строки -->
-                                        <StackPanel Grid.Column="10" Grid.RowSpan="2" Orientation="Horizontal"
+                                        <!-- Колонка «Действия»: встаёт сразу после «Режим запуска»; кнопки управления конкретной базой этой строки -->
+                                        <StackPanel Grid.Column="7" Grid.RowSpan="2" Orientation="Horizontal"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <Button Command="{Binding DataContext.LaunchEnterpriseCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"
@@ -1131,7 +1243,7 @@
                                         </StackPanel>
 
                                         <!-- Теги базы: тот же сдвиг, старт с колонки 0 как у ★/📌/названия -->
-                                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="9"
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="7"
                                                     Orientation="Horizontal"
                                                     Visibility="{Binding DataContext.ShowTags, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                             <StackPanel.Margin>
@@ -1565,41 +1677,55 @@
                                 </Border>
                             </WrapPanel>
 
-                            <TextBlock Text="{loc:Loc Main.SectionConnInfo}" FontWeight="SemiBold" FontSize="12"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Main.Type}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionTypeDisplay}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Main.ServerPath}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionPathDisplay}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Column.ServerBase}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedInfobase.ServerDatabaseDisplay}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Main.ConnectionString}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionStringDisplay}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc Main.Platform}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedInfobase.PlatformVersion}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc Main.LaunchMode}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedInfobase.ParsedLaunchMode}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="6" Grid.Column="0" Text="{loc:Loc Main.Client}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding SelectedInfobase.ClientTypeDisplay}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="7" Grid.Column="0" Text="{loc:Loc Main.Bitness}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding SelectedInfobase.ArchitectureDisplay}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="8" Grid.Column="0" Text="{loc:Loc Main.Parameters}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding SelectedInfobase.LaunchParameters}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="9" Grid.Column="0" Text="{loc:Loc Main.LastLaunch}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding SelectedInfobase.LastLaunchDisplay}" FontSize="12" Margin="0,0,0,5"/>
-                            </Grid>
-
+                            <!-- Основное -->
+                            <TextBlock Text="{loc:Loc Main.SectionConnInfo}" FontWeight="SemiBold" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
+                                       Typography.Capitals="AllSmallCaps"/>
+                            <Border Background="{DynamicResource ContentBackgroundBrush}" CornerRadius="12"
+                                    BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                                    Padding="12,10" Margin="0,0,0,14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Main.Type}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionTypeDisplay}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Main.ServerPath}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionPathDisplay}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Column.ServerBase}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedInfobase.ServerDatabaseDisplay}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Main.ConnectionString}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionStringDisplay}" FontSize="11" FontWeight="SemiBold"  TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc Main.Platform}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedInfobase.PlatformVersion}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc Main.LaunchMode}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedInfobase.ParsedLaunchMode}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="{loc:Loc Main.Client}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding SelectedInfobase.ClientTypeDisplay}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="0" Text="{loc:Loc Main.Bitness}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding SelectedInfobase.ArchitectureDisplay}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="8" Grid.Column="0" Text="{loc:Loc Main.Parameters}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding SelectedInfobase.LaunchParameters}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="9" Grid.Column="0" Text="{loc:Loc Main.LastLaunch}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding SelectedInfobase.LastLaunchDisplay}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="10" Grid.Column="0" Text="{loc:Loc Main.CacheSize}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding SelectedInfobase.CacheSizeDisplay}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                </Grid>
+                            </Border>
                             <TextBlock Text="{loc:Loc Main.Description}" FontWeight="SemiBold" FontSize="12"
                                        Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4"/>
                             <TextBlock Text="{Binding SelectedInfobase.Description}" FontSize="12" TextWrapping="Wrap"

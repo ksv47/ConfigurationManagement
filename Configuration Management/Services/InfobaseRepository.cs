@@ -6,6 +6,8 @@ namespace Configuration_Management.Services;
 
 /// <summary>
 /// Репозиторий для сохранения и загрузки настроек информационных баз в JSON-файл.
+/// Файлы данных хранятся в каталоге активного профиля (<see cref="IProfileService.CurrentProfileDataDirectory"/>),
+/// поэтому у каждой учётной записи свой список баз, групп и настроек.
 /// </summary>
 public class InfobaseRepository : IInfobaseRepository
 {
@@ -25,31 +27,42 @@ public class InfobaseRepository : IInfobaseRepository
     /// </summary>
     private const int ConfigSchemaVersion = 1;
 
-    private readonly string _filePath;
-    private readonly string _groupsFilePath;
-    private readonly string _settingsFilePath;
+    private readonly IProfileService? _profileService;
+    private readonly string? _explicitDirectory;
 
-    public InfobaseRepository(string? filePath = null)
+    /// <summary>
+    /// Создаёт репозиторий. Если передан явный <paramref name="directory"/> — файлы данных
+    /// читаются/пишутся в нём (режим совместимости/тестов). Иначе используется каталог данных
+    /// активного профиля (<see cref="IProfileService.CurrentProfileDataDirectory"/>), поэтому
+    /// у каждой учётной записи свой список баз, групп и настроек. Если сервис профилей не задан —
+    /// общий каталог данных приложения (легаси-режим).
+    /// </summary>
+    public InfobaseRepository(IProfileService? profileService = null, string? directory = null)
     {
-        var directory = filePath != null
-            ? Path.GetDirectoryName(filePath)
-            : PlatformPaths.AppDataDirectory;
-
-        _filePath = filePath ?? Path.Combine(directory!, "infobases.json");
-        _groupsFilePath = Path.Combine(directory!, "groups.json");
-        _settingsFilePath = Path.Combine(directory!, "settings.json");
+        _profileService = profileService;
+        _explicitDirectory = directory;
     }
+
+    /// <summary>Каталог, в котором репозиторий хранит файлы данных.</summary>
+    private string DataDirectory =>
+        !string.IsNullOrEmpty(_explicitDirectory)
+            ? _explicitDirectory!
+            : (_profileService?.CurrentProfileDataDirectory ?? PlatformPaths.AppDataDirectory);
+
+    private string InfobasesPath => Path.Combine(DataDirectory, "infobases.json");
+    private string GroupsPath => Path.Combine(DataDirectory, "groups.json");
+    private string SettingsPath => Path.Combine(DataDirectory, "settings.json");
 
     /// <summary>
     /// Загружает список информационных баз из файла. Если файл отсутствует — возвращает пустой список.
     /// </summary>
     public List<Infobase> Load()
     {
-        if (!File.Exists(_filePath))
+        if (!File.Exists(InfobasesPath))
             return new List<Infobase>();
         try
         {
-            var json = File.ReadAllText(_filePath);
+            var json = File.ReadAllText(InfobasesPath);
             return JsonSerializer.Deserialize<List<Infobase>>(json, JsonOptions) ?? new List<Infobase>();
         }
         catch (Exception ex)
@@ -57,7 +70,7 @@ public class InfobaseRepository : IInfobaseRepository
             // При ошибке десериализации возвращаем пустой список, а повреждённый файл
             // откладываем в резервную копию, чтобы не спотыкаться о него на каждом старте.
             System.Diagnostics.Debug.WriteLine($"Ошибка загрузки баз: {ex.Message}");
-            QuarantineCorruptFile(_filePath, "corrupt");
+            QuarantineCorruptFile(InfobasesPath, "corrupt");
             return new List<Infobase>();
         }
     }
@@ -67,7 +80,7 @@ public class InfobaseRepository : IInfobaseRepository
     /// </summary>
     public void Save(List<Infobase> infobases)
     {
-        WriteAtomic(_filePath, JsonSerializer.Serialize(infobases, JsonOptions));
+        WriteAtomic(InfobasesPath, JsonSerializer.Serialize(infobases, JsonOptions));
     }
 
     /// <summary>
@@ -77,11 +90,11 @@ public class InfobaseRepository : IInfobaseRepository
     /// </summary>
     public List<Group> LoadGroups()
     {
-        if (!File.Exists(_groupsFilePath))
+        if (!File.Exists(GroupsPath))
             return new List<Group>();
         try
         {
-            var json = File.ReadAllText(_groupsFilePath);
+            var json = File.ReadAllText(GroupsPath);
             var groups = JsonSerializer.Deserialize<List<Group>>(json, JsonOptions) ?? new List<Group>();
             var hadInvalidIds = groups.Any(g => string.IsNullOrWhiteSpace(g.Id));
             var hadDuplicateIds = groups.GroupBy(g => g.Id, StringComparer.OrdinalIgnoreCase)
@@ -98,7 +111,7 @@ public class InfobaseRepository : IInfobaseRepository
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Ошибка загрузки групп: {ex.Message}");
-            QuarantineCorruptFile(_groupsFilePath, "corrupt");
+            QuarantineCorruptFile(GroupsPath, "corrupt");
             return new List<Group>();
         }
     }
@@ -152,7 +165,7 @@ public class InfobaseRepository : IInfobaseRepository
     /// </summary>
     public void SaveGroups(List<Group> groups)
     {
-        WriteAtomic(_groupsFilePath, JsonSerializer.Serialize(groups, JsonOptions));
+        WriteAtomic(GroupsPath, JsonSerializer.Serialize(groups, JsonOptions));
     }
 
     /// <summary>
@@ -160,14 +173,14 @@ public class InfobaseRepository : IInfobaseRepository
     /// </summary>
     public AppSettings LoadSettings()
     {
-        if (!File.Exists(_settingsFilePath))
+        if (!File.Exists(SettingsPath))
         {
-            Console.Error.WriteLine("[l10n-debug] LoadSettings: file missing (" + _settingsFilePath + ")");
+            Console.Error.WriteLine("[l10n-debug] LoadSettings: file missing (" + SettingsPath + ")");
             return new AppSettings();
         }
         try
         {
-            var json = File.ReadAllText(_settingsFilePath);
+            var json = File.ReadAllText(SettingsPath);
             var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
 
             // Файл создан более новой версией приложения, чем текущая: его схема нам может
@@ -176,11 +189,11 @@ public class InfobaseRepository : IInfobaseRepository
             if (loaded.SchemaVersion > ConfigSchemaVersion)
             {
                 System.Diagnostics.Debug.WriteLine($"Схема настроек {loaded.SchemaVersion} новее поддерживаемой {ConfigSchemaVersion}: сброс к настройкам по умолчанию.");
-                QuarantineCorruptFile(_settingsFilePath, "future-schema");
+                QuarantineCorruptFile(SettingsPath, "future-schema");
                 return new AppSettings();
             }
 
-            Console.Error.WriteLine("[l10n-debug] LoadSettings: Language=" + loaded.Language + ", file=" + _settingsFilePath);
+            Console.Error.WriteLine("[l10n-debug] LoadSettings: Language=" + loaded.Language + ", file=" + SettingsPath);
             return loaded;
         }
         catch (Exception ex)
@@ -188,7 +201,7 @@ public class InfobaseRepository : IInfobaseRepository
             // Повреждённый или несовместимый файл настроек: делаем резервную копию и стартуем
             // с настройками по умолчанию, чтобы приложение гарантированно открылось.
             System.Diagnostics.Debug.WriteLine($"Ошибка загрузки настроек: {ex.Message}");
-            QuarantineCorruptFile(_settingsFilePath, "corrupt");
+            QuarantineCorruptFile(SettingsPath, "corrupt");
             return new AppSettings();
         }
     }
@@ -198,29 +211,29 @@ public class InfobaseRepository : IInfobaseRepository
     /// </summary>
     public void SaveSettings(AppSettings settings)
     {
-        Console.Error.WriteLine("[l10n-debug] SaveSettings: Language=" + settings.Language + ", file=" + _settingsFilePath);
+        Console.Error.WriteLine("[l10n-debug] SaveSettings: Language=" + settings.Language + ", file=" + SettingsPath);
         settings.SchemaVersion = ConfigSchemaVersion;
-        WriteAtomic(_settingsFilePath, JsonSerializer.Serialize(settings, JsonOptions));
+        WriteAtomic(SettingsPath, JsonSerializer.Serialize(settings, JsonOptions));
     }
 
 
     public async Task SaveAsync(List<Infobase> infobases, CancellationToken cancellationToken = default)
     {
         var json = JsonSerializer.Serialize(infobases, JsonOptions);
-        await WriteAtomicAsync(_filePath, json, cancellationToken).ConfigureAwait(false);
+        await WriteAtomicAsync(InfobasesPath, json, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task SaveGroupsAsync(List<Group> groups, CancellationToken cancellationToken = default)
     {
         var json = JsonSerializer.Serialize(groups, JsonOptions);
-        await WriteAtomicAsync(_groupsFilePath, json, cancellationToken).ConfigureAwait(false);
+        await WriteAtomicAsync(GroupsPath, json, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task SaveSettingsAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
         settings.SchemaVersion = ConfigSchemaVersion;
         var json = JsonSerializer.Serialize(settings, JsonOptions);
-        await WriteAtomicAsync(_settingsFilePath, json, cancellationToken).ConfigureAwait(false);
+        await WriteAtomicAsync(SettingsPath, json, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

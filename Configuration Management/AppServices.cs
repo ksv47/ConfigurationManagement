@@ -16,6 +16,7 @@ public static class AppServices
         var services = new ServiceCollection();
 
 #if WINDOWS
+        services.AddSingleton<IProfileService, ProfileService>();
         services.AddSingleton<IAppLogger, FileAppLogger>();
         services.AddSingleton<IDialogService, WpfDialogService>();
         services.AddSingleton<IInfobaseRepository, InfobaseRepository>();
@@ -30,6 +31,7 @@ public static class AppServices
         // Linux (Avalonia): полноценные реализации сервисов платформы 1С (Этап 5).
         // Регистратор COM-коннектора не подключается — на Linux COM отсутствует
         // (чтение конфигурации выполняется без COM: 1Cv8.1CD / DESIGNER).
+        services.AddSingleton<IProfileService, ProfileService>();
         services.AddSingleton<IAppLogger, FileAppLogger>();
         services.AddSingleton<IDialogService, AvaloniaDialogService>();
         services.AddSingleton<IInfobaseRepository, InfobaseRepository>();
