@@ -87,7 +87,18 @@ public sealed class OneCComConnectorRegistrar : IOneCComConnectorRegistrar
         }
 
         // 3. Проверяем фактическую доступность ProgID в текущем процессе (той же разрядности).
-        var progIdVisible = Type.GetTypeFromProgID("V83.COMConnector") != null;
+        // Проверяем весь список, а не один V83: платформа 8.5 регистрирует собственный
+        // ProgID с собственным CLSID, и проверка по V83 объявила бы удачную регистрацию
+        // неудачной — а заодно не дала бы сбросить кэш недоступности.
+        var progIdVisible = false;
+        foreach (var progId in OneCComConnector.KnownProgIds)
+        {
+            if (Type.GetTypeFromProgID(progId) is not null)
+            {
+                progIdVisible = true;
+                break;
+            }
+        }
         string? note = null;
         if (!progIdVisible && items.Count > 0)
         {
@@ -96,7 +107,14 @@ public sealed class OneCComConnectorRegistrar : IOneCComConnectorRegistrar
         }
 
         var registered = items.Count > 0 && items.Any(i => i.Success);
-        var success = progIdVisible || registered;
+
+        // Успех команды определяется её собственным результатом, а не тем, что в системе
+        // и раньше был виден какой-то коннектор. Иначе при уже установленной платформе 8.5
+        // регистрация выбранной 8.3 могла провалиться целиком, а пользователю сообщили бы
+        // об успехе — и заодно сняли бы вердикт о недоступности COM. Когда регистрировать
+        // было нечего, отчёт по-прежнему опирается на видимость ProgID: это не результат
+        // операции, а состояние системы.
+        var success = items.Count > 0 ? registered : progIdVisible;
 
         return new ComConnectorRegistrationResult(success, usedVersion, binDir, progIdVisible, note, items);
     }

@@ -548,6 +548,25 @@
                                         <TextBlock Text="{loc:Loc Settings.Columns.Size}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </ToggleButton>
+
+                                <!-- Порядок колонок списка баз (кроме закреплённой «Название», которая всегда первая) -->
+                                <TextBlock Text="{loc:Loc Settings.Columns.OrderTitle}" FontWeight="SemiBold" FontSize="13"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,16,0,4"/>
+                                <TextBlock Text="{loc:Loc Settings.Columns.OrderHint}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <ListBox x:Name="ColumnOrderList" Height="150"
+                                         SelectionChanged="OnColumnOrderList_SelectionChanged"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <Button x:Name="ColumnOrderUpButton"
+                                            Content="{loc:Loc Settings.Columns.OrderUp}"
+                                            IsEnabled="False" Margin="0,0,6,0"
+                                            Click="OnColumnOrderUp_Click"/>
+                                    <Button x:Name="ColumnOrderDownButton"
+                                            Content="{loc:Loc Settings.Columns.OrderDown}"
+                                            IsEnabled="False"
+                                            Click="OnColumnOrderDown_Click"/>
+                                </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

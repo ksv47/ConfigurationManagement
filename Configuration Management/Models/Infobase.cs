@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Configuration_Management.Localization;
 
 namespace Configuration_Management.Models;
@@ -337,20 +338,47 @@ public class Infobase : INotifyPropertyChanged
         _ => LocalizationManager.T("Infobase.Type.ClientServer")
     };
 
+    private bool? _checkedAvailability;
+
     /// <summary>
-    /// Доступность базы. Для файловых баз — наличие каталога/файла на диске.
-    /// Для клиент-серверных и веб-баз реальная доступность удалённо не проверяется
-    /// (чтобы не блокировать интерфейс сетевыми запросами); недоступными считаются
-    /// базы с незаполненными параметрами подключения.
+    /// Доступность базы. По умолчанию — расчёт по параметрам подключения: для файловых
+    /// баз — наличие каталога/файла на диске, для клиент-серверных и веб-баз реальная
+    /// доступность удалённо не проверяется (чтобы не блокировать интерфейс сетевыми
+    /// запросами). Если команда «Проверить доступность» задала результат проверки
+    /// через <see cref="SetCheckedAvailability"/>, используется именно он.
     /// </summary>
-    public bool IsAvailable => Connection.Type switch
+    public bool IsAvailable
     {
-        ConnectionType.File => !string.IsNullOrWhiteSpace(Connection.FilePath)
-            && (Directory.Exists(Connection.FilePath) || File.Exists(Connection.FilePath)),
-        ConnectionType.WebServer => !string.IsNullOrWhiteSpace(Connection.WebUrl),
-        _ => !string.IsNullOrWhiteSpace(Connection.Server)
-            || !string.IsNullOrWhiteSpace(Connection.DatabaseName)
-    };
+        get
+        {
+            if (_checkedAvailability.HasValue)
+                return _checkedAvailability.Value;
+            return Connection.Type switch
+            {
+                ConnectionType.File => !string.IsNullOrWhiteSpace(Connection.FilePath)
+                    && (Directory.Exists(Connection.FilePath) || File.Exists(Connection.FilePath)),
+                ConnectionType.WebServer => !string.IsNullOrWhiteSpace(Connection.WebUrl),
+                _ => !string.IsNullOrWhiteSpace(Connection.Server)
+                    || !string.IsNullOrWhiteSpace(Connection.DatabaseName)
+            };
+        }
+    }
+
+    /// <summary>
+    /// Задаёт результат фактической проверки доступности базы (или null — вернуть
+    /// расчётное значение по параметрам подключения). Обновляет статусные свойства,
+    /// влияющие на иконку базы в списке (ключ, цвет, подсказка).
+    /// </summary>
+    public void SetCheckedAvailability(bool? available)
+    {
+        if (_checkedAvailability == available)
+            return;
+        _checkedAvailability = available;
+        OnPropertyChanged(nameof(IsAvailable));
+        OnPropertyChanged(nameof(StatusIconKey));
+        OnPropertyChanged(nameof(StatusColorHex));
+        OnPropertyChanged(nameof(StatusDisplay));
+    }
 
     /// <summary>
     /// Ключ иконки статуса базы для списка баз (геометрия из Icons.xaml / Icons.axaml):
@@ -550,5 +578,45 @@ public class Infobase : INotifyPropertyChanged
 
             return (parts[0][0].ToString() + parts[1][0].ToString()).ToUpperInvariant();
         }
+    }
+
+    private long _cacheSizeBytes = -1;
+    private int _cacheSizeGeneration;
+
+    /// <summary>
+    /// Размер локального кеша 1С базы в байтах (суммарно программный + пользовательский).
+    /// Значение -1 означает, что размер ещё не вычислен — в правой панели показывается «…».
+    /// </summary>
+    public long CacheSizeBytes
+    {
+        get => _cacheSizeBytes;
+        private set
+        {
+            if (SetProperty(ref _cacheSizeBytes, value))
+                OnPropertyChanged(nameof(CacheSizeDisplay));
+        }
+    }
+
+    /// <summary>Человекочитаемый размер кеша для правой панели («…», пока размер не вычислен).</summary>
+    public string CacheSizeDisplay =>
+        _cacheSizeBytes < 0 ? "…" : FormatSize(_cacheSizeBytes);
+
+    /// <summary>
+    /// Асинхронно вычисляет размер кеша базы (программный + пользовательский) в фоновом
+    /// потоке и обновляет <see cref="CacheSizeDisplay"/>. Устаревший результат игнорируется,
+    /// если за время вычисления было запрошено новое вычисление (например, перевыбрана база).
+    /// </summary>
+    public void RefreshCacheSizeAsync()
+    {
+        var generation = ++_cacheSizeGeneration;
+        CacheSizeBytes = -1;
+
+        _ = Task.Run(() => Services.OneCCacheCleaner.GetSize(this, Services.OneCCacheKind.All))
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted || t.IsCanceled || generation != _cacheSizeGeneration)
+                    return;
+                CacheSizeBytes = t.Result;
+            }, TaskScheduler.FromCurrentSynchronizationContext());
     }
 }

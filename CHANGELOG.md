@@ -5,6 +5,190 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.4.15] — 2026-08-25
+
+### Добавлено
+
+- **Размер кеша выбранной базы отображается в правой панели главного окна (обе платформы)**. В блок сведений о подключении добавлена строка **«Размер кеша»**: WPF — [`MainWindow.xaml`](Configuration Management/MainWindow.xaml), Linux/Avalonia — [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs). Значение вычисляется асинхронно в фоновом потоке при выборе базы (метод `RefreshCacheSizeAsync` в [`Infobase.cs`](Configuration Management/Models/Infobase.cs), вызов из `SelectedInfobase` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs)) и показывается в человекочитаемом виде с локализованными единицами (Б/КБ/МБ/ГБ/ТБ или B/KB/MB/GB/TB); пока размер не определён, выводится «…». Добавлен ключ локализации `Main.CacheSize` в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.15** (`InformationalVersion` = 0.3.4.15 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.14] — 2026-08-25
+
+### Добавлено
+
+- **Колонка «Действия» стала перемещаемой в списке баз (Windows/WPF)**. Раньше колонка «Действия» была закреплена сразу после «Режим запуска» и отсутствовала в списке порядка колонок вкладки **«Отображение» → «Колонки»** окна настроек — изменить её местоположение было нельзя. Теперь она участвует в порядке колонок наравне с остальными: добавлена в `DefaultColumnOrder` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), учитывается в `BuildColumnLayout` ([`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs)), а её локализованное имя — в `ColumnOrderLabel` ([`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs)). Новый порядок применяется к заголовку, строкам баз и строкам групп.
+
+### Изменено
+
+- **Заголовок колонки «Действия» прижат к левому краю (Windows/WPF)**. Заголовок колонки «Действия» в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) был отцентрован (`HorizontalAlignment="Center"`), в отличие от остальных колонок — теперь он выровнен по левому краю, как остальные заголовки.
+- **Текст подсказки «Порядок колонок» уточнён**. `Settings.Columns.OrderHint` в `ru.json`/`en.json` больше не утверждает, что колонка «Действия» закреплена: теперь указано, что фиксирована только колонка «Название».
+
+### Версия
+
+- **Версия обновлена до 0.3.4.14** (`InformationalVersion` = 0.3.4.14 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.13] — 2026-08-25
+
+### Исправлено
+
+- **Устранено предупреждение компилятора CS0618 (obsolete) в проверке доступности клиент-серверных баз (обе платформы)**. Метод `IsBaseAvailable` вызывал помеченный `[Obsolete]` `IOneCComConnector.Connect`, который под CoreCLR обрывает процесс нативным fast-fail (0xC0000409). В [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) (Windows/WPF) доступность теперь проверяется через безопасный путь [`ReadConfigurationInfo`](Configuration Management/Services/IOneCComConnector.cs) (процесс-агент `ComReadHost`); в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs) (Linux/Avalonia) клиент-серверные базы по-прежнему считаются недоступными (COM отсутствует), а устаревший вызов убран.
+- **Исправлена сборка решения [`Configuration Management.slnx`](Configuration Management.slnx)**. Из решения удалена битая ссылка на несуществующий проект `Configuration Management.Tests/Configuration Management.Tests.csproj`, из-за которой `dotnet build` падал с ошибкой MSB3202.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.13** (`InformationalVersion` = 0.3.4.13 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.11] — 2026-08-25
+
+### Исправлено
+
+- **Команды групп («Изменить группу» / «Удалить группу») размещены на уровне колонки «Действия» (Windows/WPF)**. Строка группы перестроена в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) по той же схеме ведущих колонок, что и строка базы/заголовок: имя/иконка/счётчик группы занимают область названия, а команды `EditGroupCommand`/`DeleteGroupCommand` — колонку «Действия» (та же горизонтальная позиция, что у кнопок строк баз). Строки групп участвуют в динамическом порядке колонок (`OnGroupRowGrid_Loaded`, `ApplyColumnOrder` в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs)), поэтому при смене порядка колонок команды группы остаются на уровне кнопок баз.
+- **Исправлено изменение размера колонок списка баз после динамической перестройки (Windows/WPF)**. Причина регрессии: при перестановке колонок элементы перемещались по `Tag`, который был занят другими целями (сортировка заголовка «Последний запуск» — `LastLaunchDate`, двойной клик по версии — `PlatformVersion`), из-за чего разделители/подписи/ячейки не следовали за своими колонками и перетаскивание ломалось. Введено attached-свойство `ColumnKey` ([`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs)) для хранения ключа колонки отдельно от `Tag`; `ReorderGridColumns` теперь корректно перемещает разделители, подписи и ячейки данных синхронно с перестановкой колонок. Ресайз работает и в порядке по умолчанию, и при пользовательском порядке колонок.
+- **Добавлено изменение размера колонки «Действия» (Windows/WPF)**. Добавлено поле ширины `ActionsColumnWidth` в [`AppSettings.cs`](Configuration Management/Models/AppSettings.cs) и [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) (включено в `UpdateColumnWidths`/`SaveColumnWidths`), ширина колонки в заголовке, строке базы и строке группы привязана к нему вместо жёсткого значения, а в заголовке добавлен разделитель `ActionsSplitter` (обработан в `GetSplitterTargetColumn`). Ручное перетаскивание меняет ширину синхронно во всех строках и сохраняется.
+- **Данные в списке баз выровнены с заголовком колонок (Windows/WPF)**. Строка базы и заголовок теперь имеют одинаковый набор ведущих колонок (кнопки групп + компенсатор + избранное + закрепление + название): в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) в сетку строки базы добавлена нулевая offset-колонка, а `AlignHeaderToData` переписан в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs) на измерение фактического положения первой колонки данных строки относительно заголовка. Колонки данных строк точно совпадают по горизонтали с заголовками.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.11** (`InformationalVersion` = 0.3.4.11 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.10] — 2026-08-25
+
+### Добавлено
+
+- **Редактор порядка колонок списка баз в настройках (Windows/WPF)**. В **Настройки → Отображение → Колонки** добавлен редактор порядка колонок с кнопками «Вверх»/«Вниз» по выбранной строке: пользователь задаёт последовательность колонок версии платформы, режима запуска, сервер/базы, последнего запуска, размера и конфигурации слева направо; колонки «Название» и «Действия» закреплены. Реализовано в [`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml) и [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs).
+- **Динамический порядок колонок заголовка и строк базы (Windows/WPF)**. Построение заголовка и шаблона строки базы переведено с фиксированного XAML на динамическое с учётом выбранного порядка: колонки переставляются в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs) (`ReorderGridColumns`, `ApplyColumnOrder`, `OnInfobaseRowGrid_Loaded`) по ключам из `ColumnOrderKeys`; колонка «Действия» встаёт сразу после «Режим запуска», а «Конфигурация» остаётся в конце. Сохранённый порядок хранится в поле `ColumnOrder` настроек ([`AppSettings.cs`](Configuration Management/Models/AppSettings.cs)) и применяется через [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) (`ColumnOrderKeys`, `DefaultColumnOrder`). Функциональность приведена в соответствие с Linux/Avalonia.
+
+### Локализация
+
+- Использованы существующие ключи `Settings.Columns.OrderTitle`, `Settings.Columns.OrderHint`, `Settings.Columns.OrderUp`, `Settings.Columns.OrderDown` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json) (добавлены ранее в 0.3.4.7 для Avalonia).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.10** (`InformationalVersion` = 0.3.4.10 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.9] — 2026-08-25
+
+### Изменено
+
+- **Колонка «Действия» списка баз встаёт сразу после колонки «Режим запуска» (Windows/WPF)**, а не у правого края. Колонки данных переставлены в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml): фиксированная колонка «Действия» (170) размещена между колонками «Режим запуска» и «Сервер/база» и в заголовке, и в шаблоне строки базы; соответствующим образом сдвинуты заголовки, значения, разделители колонок и область тегов (теги больше не заходят под колонку «Действия»). Поведение приведено в соответствие с Linux/Avalonia (`ActionsOffsetInColumns` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)).
+- **Колонка «Конфигурация» перенесена в самый конец списка колонок (Windows/WPF)** — после размера и остальных колонок данных, как уже сделано в Linux/Avalonia (порядок по умолчанию `DefaultColumnOrder` в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs)). В Windows/WPF порядок колонок задан фиксированно в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.9** (`InformationalVersion` = 0.3.4.9 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.8] — 2026-08-25
+
+### Изменено
+
+- **Команды групп («Изменить группу» / «Удалить группу») выровнены по левому краю строки группы в Windows/WPF**; имя группы, иконка и счётчик следуют правее. Раньше команды групп располагались в правой колонке «Действия» и были выровнены по правому краю. Теперь колонки строки группы в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) переставлены: фиксированная колонка «Действия» (170) с кнопками `EditGroupCommand`/`DeleteGroupCommand` встала слева с выравниванием `HorizontalAlignment="Left"`, а имя/иконка/счётчик — в растягивающуюся колонку правее — как уже реализовано в Linux/Avalonia в `BuildGroupRow()` ([`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.8** (`InformationalVersion` = 0.3.4.8 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.7] — 2026-08-25
+
+### Изменено
+
+- **Настройка порядка колонок списка баз (Linux/Avalonia)**. В **Настройки → Отображение → Колонки** добавлен редактор порядка колонок (кнопки «Вверх»/«Вниз» по выбранной строке): пользователь задаёт последовательность колонок версии платформы, режима запуска, сервер/базы, последнего запуска, размера и конфигурации слева направо; колонки «Название» и «Действия» закреплены. Реализовано в [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs) и [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs) (поле `ColumnOrder` в настройках).
+- **Колонка «Конфигурация» перенесена в самый конец списка баз** — порядок колонок по умолчанию.
+- **Колонка «Действия» встаёт сразу после колонки «Режим запуска»** (а не у правого края). Если колонка «Режим запуска» скрыта или стоит последней — действия остаются в самом конце. Заголовок, строки баз и колонки значений теперь строятся с учётом позиции «Действий» в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs) (`RefreshColumnHeader`, `BuildInfobaseRow`, `ActionsOffsetInColumns`).
+- **Команды групп («Изменить группу» / «Удалить группу») выровнены по левому краю** строки группы; имя и счётчик группы следуют правее.
+
+### Локализация
+
+- Добавлены ключи `Settings.Columns.OrderTitle`, `Settings.Columns.OrderHint`, `Settings.Columns.OrderUp`, `Settings.Columns.OrderDown` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.7** (`InformationalVersion` = 0.3.4.7 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.6] — 2026-08-25
+
+> **Авторство изменений этого выпуска: [ksv47](https://github.com/ksv47)** — слияние ветки `win-debug` (PR #69).
+
+### Исправлено
+
+- **Приложение молча завершалось на старте с кодом 0xC0000409 (Windows/WPF)**. Причина — прямой COM-вызов (`comcntr.dll`) из процесса приложения: под CoreCLR (.NET 5+) `Connect` обрывает процесс нативным fast-fail **0xC0000409** без управляемого исключения, поэтому приложение «исчезало», не показывая ни окна, ни ошибки, а Windows могла предложить отладчик. Теперь COM-коннектор 1С вынесен в **отдельный вспомогательный процесс-агент**, и чтение сведений о конфигурации 1С выполняется там, а не в процессе приложения. Прямой метод [`IOneCComConnector.Connect`](Configuration Management/Services/IOneCComConnector.cs) помечен `[Obsolete]` и из приложения больше не вызывается.
+  - **Процесс-агент** [`ComReadHost.cs`](Configuration Management/Services/ComReadHost.cs) (~1300 строк): обслуживает запросы чтения сведений по протоколу `stdin`/`stdout`, сам закрывается при закрытии своего `stdin` и явно снимается через `ComReadHost.Shutdown()` при выходе приложения ([`App.xaml.cs`](Configuration Management/App.xaml.cs)).
+  - **Ручная точка входа** [`Program.Main`](Configuration Management/Program.cs) (Windows/WPF) вместо автоматически генерируемой из `App.xaml`: режим COM-агента перехватывается **до** создания `App` и загрузки словарей ресурсов (MaterialDesign, тема, иконки) — агенту они не нужны, а сбой загрузки XAML у агента не уходил бы в `stderr`. В [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj) задан `StartupObject=Configuration_Management.Program`, а `App.xaml` подключён как `Page`, а не `ApplicationDefinition`.
+  - **Подавление WER** (Windows Error Reporting), чтобы система не прерывала работу диалогом о сбое.
+- **Зависание/потеря диагноза при гибели агента**: при повреждённом окончательном кадре протокола и при таймауте (ранний коннектор уже назвал причину, следующий завис на недоступном сервере) придержанный диагноз молча терялся. Диагноз сохранён на обеих ветках, отказ по-прежнему учитывается.
+- **Ложный успех регистрации COM-коннектора** ([`OneCComConnectorRegistrar.cs`](Configuration Management/Services/OneCComConnectorRegistrar.cs)): результат команды теперь определяется её собственным результатом, а не тем, что в системе и раньше был виден какой-то коннектор — иначе при уже установленной платформе 8.5 регистрация выбранной 8.3 могла провалиться, а пользователю сообщили бы об успехе.
+
+### Добавлено
+
+- **Юнит-тесты на протокол COM-агента и сборку строки подключения** — новый тестовый проект [`Configuration Management.Tests`](Configuration Management.Tests/Configuration Management.Tests.csproj) (xUnit, 53 теста): разбор кадров протокола (успех, ошибка, промежуточный кадр, чужой seq, повреждённая нагрузка, неизвестный токен, подделанный BADREQ), взаимная обратимость разрядов и токенов, ранжирование диагнозов, сборка строки подключения с экранированием и признаком пароля, маскировка учётных данных и само решение о показе пароля. Проверяемые чистые функции открыты тестам через `InternalsVisibleTo` (публичными не становятся); целевая платформа тестов следует за основным проектом, сами тесты закрыты `#if WINDOWS`, поэтому на Linux решение не ломается. Проект добавлен в [`Configuration Management.slnx`](Configuration Management.slnx).
+
+### Изменено
+
+- **Пароль не передаётся в командной строке** — только по протоколу `stdin` процесса-агента. **Маскировка учётных данных** и **решение о показе текста ошибки** больше не строятся на догадке агента: решение принимает родитель/сборщик строки подключения. Если у базы задан пароль, текст ошибки 1С скрывается (он может содержать пароль), показывается только код (`Com.DbErrorHiddenFormat` / `Com.DbErrorCodeOnlyFormat`).
+- **Экранирование строки подключения** при сборке; значение поля не может закрыть себя и дописать чужой параметр; признак `Transport` по протоколу не приезжает.
+- **Честный таймаут** чтения сведений; **накопление диагнозов**; разряд `BadRequest` получил собственный текст (отличается от молчания агента).
+- **Поддержка платформы 8.5** в переборе `ProgID` ([`KnownProgIds`](Configuration Management/Services/OneCComConnector.cs) — теперь V85/V83/V82/V81): 8.5 регистрирует собственный ProgID/CLSID. **Диагностика разрядности** сравнивает один и тот же ProgID в обеих ветвях реестра по всему списку — это различает случай «64-битная 8.5 + 32-битная 8.3», который раньше врал.
+- **Сброс обоих вердиктов о недоступности COM** (кэш реестра и сессионная защёлка агента) через `OneCComConnector.ResetComVerdicts()`: теперь это делается по явной команде пользователя и после успешной регистрации коннектора, а не только кэша реестра ([`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs)).
+- **Локализация**: добавлены ключи `Com.DisabledForSession`, `Com.AgentStartFailed`, `Com.AgentCrashedFormat`, `Com.AgentCrashedUnknownCode`, `Com.UnknownCode`, `Com.DbErrorCodeOnlyFormat`, `Com.DbErrorHiddenFormat`, `Com.AgentNoResult`, `Com.AgentBadRequest`; `Com.NotFound` расширен до V85; переформулированы `Com.ProgIdStatus*` и `Main.ComRegProgId*` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.6** (`InformationalVersion` = 0.3.4.6 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.5] — 2026-08-25
+
+### Изменено
+
+- **Компактный режим стал плотнее (обе платформы)**: уменьшены шрифт имени базы 1С, шрифт имени групп, высота оформления групп и расстояние между группами, а также ширина правой панели (подстраивается под длину названий команд и выпадающих меню). **Linux/Avalonia**: метрики компактного режима пересмотрены в [`UiMetrics.Avalonia.cs`](Configuration Management/Controls/UiMetrics.Avalonia.cs) — имя базы `RowNameFont` 13.5 → 12.5; добавлены метрики имени группы `GroupNameFont`, высоты заголовка `GroupHeaderPadV` и расстояния между группами `GroupHeaderMarginV`; ширина правой панели `RightPanelMin` 220 → 200, `RightPanelMax` 280 → 255; шрифт кнопок действий `ActionFontSize` 11.5 → 11, минимальная высота кнопки `ActionButtonMinHeight` 28 → 26, вертикальный отступ `ActionButtonPadV` 4 → 3. Применение шрифта группы и её оформления обновлено в `BuildGroupRow()` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs): в обычном режиме имя группы по-прежнему наследует применяемый к интерфейсу шрифт, а в компактном — задаётся явно меньшим размером. **Windows/WPF**: в компактном режиме для заголовка группы добавлены явные триггеры в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) — шрифт имени 15 → 12, счётчика 13 → 11, иконка 18 → 14, внутренний отступ `Padding` 8,6 → 6,1 (меньше пустого места вокруг названия и ниже строка); промежуток между группами убирается в компактном режиме через [`GroupOffsetConverter.cs`](Configuration Management/Converters/GroupOffsetConverter.cs) (вертикальный зазор 1 → 0, в MultiBinding добавлен флаг `CompactMode`); предел ширины компактной правой панели `MaxWidth` уменьшен 260 → 200, чтобы панель максимально сжималась по длине названий команд и выпадающих меню.
+
+## [0.3.4.4] — 2026-08-25
+
+### Добавлено
+
+- **Отдельная команда «Проверить доступность всех баз 1С» в верхней панели команд вместо автопроверки при запуске (обе платформы)**. При запуске приложения больше не выполняется фоновая проверка доступности всех информационных баз 1С, поэтому старт не замедляется запросами ко всем базам. Проверка доступности всех баз выполняется только по явной команде из верхней панели — заметная кнопка с подписью «Доступность». **Windows/WPF**: убраны вызовы `RefreshConfigurationInfoAsync()` при инициализации и после перезагрузки списка в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs); кнопка `RefreshAllConfigurationInfoCommand` в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) оформлена как заметная вторичная кнопка с подписью. **Linux/Avalonia**: кнопка `RefreshAllConfigurationInfoCommand` добавлена в `BuildTopBar()` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs); метод `RefreshAllConfigurationInfo()` в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs) теперь проверяет доступность всех баз и выводит сводку с перечнем недоступных баз.
+- **Новая колонка «Действия» в списке информационных баз (обе платформы)**. В таблицу слева добавлена фиксированная колонка «Действия» с пятью кнопками-иконками для каждой строки-базы: «Запуск 1С:Предприятие» (`LaunchEnterpriseCommand`), «Конфигуратор» (`LaunchConfiguratorCommand`), «Изменить настройки» (`EditInfobaseCommand`), «Очистить кеш» (`ClearCacheCommand`) и «Удалить» (`DeleteInfobaseCommand`). **Windows/WPF**: колонка и кнопки добавлены в заголовок и в шаблон строки в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml); команды доработаны так, чтобы принимать параметр-`Infobase` (с откатом на `SelectedInfobase`) в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs). **Linux/Avalonia**: колонка и кнопки добавлены в строку базы (`BuildInfobaseRow`) и в заголовок (`RefreshColumnHeader`) в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs).
+- **Кнопка-подсказка «?» перенесена в конец верхней панели команд (обе платформы)**. Кнопка помощи `HelpLink` теперь расположена справа, после всех остальных команд. **Windows/WPF**: `HelpLink` перемещён после кнопки «Настройки» в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml). **Linux/Avalonia**: `HelpLink` добавлен в конец `BuildTopBar()` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs).
+- **Модель [`Infobase`](Configuration Management/Models/Infobase.cs): добавлено переопределение доступности**. Появилось свойство `IsAvailable`, учитывающее результат команды проверки, и метод `SetCheckedAvailability(bool?)`, который обновляет статусные свойства (`StatusIconKey`, `StatusColorHex`, `StatusDisplay`) — благодаря этому иконка базы в списке обновляется после проверки. При отсутствии заданного результата используется прежний расчёт по параметрам подключения.
+
+### Изменено
+
+- **Кнопка «Доступность» получила понятную иконку-сонар и вывод результата в нижнюю панель на 10 секунд (обе платформы)**. Иконка заменена на иконку подводного сонара `IconSonar` (эхолокатор; геометрия добавлена в [`Icons.axaml`](Configuration Management/Themes/Icons.axaml) и [`Icons.xaml`](Configuration Management/Themes/Icons.xaml); привязка кнопок обновлена в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) и [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)). После завершения проверки всех баз в **нижней строке состояния** показывается сообщение «Проверка доступности: всего {0}, недоступно {1}», которое автоматически скрывается через 10 секунд. **Linux/Avalonia**: добавлен механизм временного сообщения `ShowTemporaryStatusMessage(...)` + `ClearStatusMessageAfterDelayAsync(...)` в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs). **Windows/WPF**: сообщение выводится через существующий `SyncMessage` с автоскрытием `ScheduleClearSyncMessage()` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs).
+- **Команда «Доступность баз 1С» теперь проверяет фактическую доступность и помечает недоступные базы красным крестиком в списке (обе платформы)**. Кнопка «Доступность» в верхней панели команд больше не читает информацию о конфигурации и не показывает окно-сводку — вместо этого она проверяет доступность каждой базы по факту и сразу обновляет её иконку статуса в списке баз: недоступные базы помечаются красным крестиком. Для файловых баз доступность определяется наличием каталога/файла по пути; для клиент-серверных — реальной попыткой подключения через COM-коннектор (на Linux недоступен, поэтому такие базы считаются недоступными); для веб-баз — заполненностью адреса. Проверки выполняются в фоне, чтобы не блокировать интерфейс. Команда `RefreshAllConfigurationInfoCommand` переименована в `CheckAvailabilityCommand`, методы `RefreshAllConfigurationInfo()` заменены на `CheckAvailability()` + `IsBaseAvailable(...)` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) и [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs); привязка кнопок обновлена в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) и [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs).
+- **Кнопка «Доступность» стала иконко-кнопкой без подписи (обе платформы)**. В верхней панели команд кнопка больше не содержит текст «Доступность» — остаётся только иконка с подсказкой. Подобрана более подходящая иконка пульса (`IconPulse`): добавлена геометрия в [`Icons.axaml`](Configuration Management/Themes/Icons.axaml) и [`Icons.xaml`](Configuration Management/Themes/Icons.xaml). **Windows/WPF**: кнопка переведена со стиля `SecondaryButton` на `IconButton` в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml). **Linux/Avalonia**: кнопка переведена с `TopBarSecondaryButton` на `TopBarIconButton` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs).
+- **Кнопки «показать/скрыть правую панель» и «текущая сессия» поменялись местами (обе платформы)**. В строке состояния главного окна переключатель видимости блока «Текущая сессия» (`ToggleSessionLaunchPanelCommand`) теперь стоит раньше, а переключатель подробностей правой панели (`ToggleRightPanelDetailsCommand`) — правее. **Windows/WPF**: изменён порядок колонок (`Grid.Column`) кнопок в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml). **Linux/Avalonia**: переставлены `Grid.SetColumn(...)` кнопок в `BuildStatusBar()` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs).
+- **При скрытии блока «Текущая сессия» скрывается и разделитель между ним и кнопкой «Перейти по ссылке» (Windows/WPF)**. Разделитель-линия над кнопкой «Перейти по ссылке» (`OpenInfobaseByLinkCommand`) в правой панели теперь привязан к видимости блока сессии: когда `ShowSessionLaunchPanel == false`, разделитель тоже скрывается, чтобы между сессией и кнопкой не оставался лишний отступ. Изменено в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml).
+- **Кнопки «Добавить» и «Очистить кеш» перенесены в верхнюю панель команд (обе платформы)**. Кнопка «Добавить» (`AddInfobaseCommand`) переехала из правой панели действий в верхнюю полосу команд, рядом с кнопками синхронизации/темы/настроек; кнопка «Очистить кеш» (`ClearCacheCommand`) добавлена в ту же верхнюю панель и действует на выбранную базу (`SelectedInfobase`) — если база не выбрана, команда недоступна (`CanExecute=false`). В колонке «Действия» строки базы кнопка «Очистить кеш» передаёт свою базу параметром, поэтому остаётся включённой независимо от глобального выбора. **Windows/WPF**: кнопки добавлены в верхнюю панель команд и удалены из правой панели в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml); у [`ClearCacheCommand`](Configuration Management/ViewModels/MainViewModel.cs) добавлено `CanExecute` по `SelectedInfobase`. **Linux/Avalonia**: кнопки добавлены в `BuildTopBar()` и удалены из `BuildRightPanel()` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs); `ClearCacheCommand` получил `CanExecute` по `SelectedInfobase` в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs).
+- **Кнопки «Изменить группу» и «Удалить группу» перенесены в колонку «Действия» для строк-групп (обе платформы)**. В правой части строки каждой группы в дереве списка баз теперь показываются две кнопки-иконки: «Изменить группу» (`EditGroupCommand`) и «Удалить группу» (`DeleteGroupCommand`), размещённые в той же фиксированной правой зоне шириной ~170, что и кнопки строк баз. **Windows/WPF**: добавлены команды `EditGroupCommand`/`DeleteGroupCommand` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), а сами кнопки — в шаблон группы (`HierarchicalDataTemplate DataType=GroupNodeViewModel`) в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml). **Linux/Avalonia**: команды добавлены в [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs), а кнопки — в `BuildGroupRow()` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs). Правая панель от карточек/кнопок групп очищена; команды остаются доступны в контекстном меню.
+- **Кнопки действий убраны из правой панели (обе платформы)**. Из правой панели удалены кнопки/карточки «Запуск 1С:Предприятие», «Конфигуратор», «Изменить настройки», «Очистить кеш» и «Удалить»; команды остаются в контекстном меню и теперь доступны в колонке «Действия». **Windows/WPF**: удалены блоки из [`MainWindow.xaml`](Configuration Management/MainWindow.xaml). **Linux/Avalonia**: удалены карточки запуска/конфигуратора/очистки кеша и кнопки «Изменить»/«Удалить» из `BuildRightPanel()` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs).
+- **Интерпретация переноса «Очистить кеш» (зафиксировано).** Несмотря на то, что отдельная задача позже перенесёт «Добавить» и «Очистить кеш» в верхнюю панель команд, в этой задаче в новую колонку «Действия» добавлены **все пять** кнопок (включая «Очистить кеш»), а с правой панели убраны: запуск Предприятия, Конфигуратор, «Изменить настройки», «Очистить кеш» и «Удалить».
+- **Кнопки «Избранное» и «Закрепить» убраны из правой панели действий (обе платформы)**. Кнопки `ToggleFavoriteCommand` / `TogglePinCommand` больше не дублируются в правой панели — они остаются только в строке названия базы в списке баз и в контекстном меню. **Windows/WPF**: удалены обе кнопки из [`MainWindow.xaml`](Configuration Management/MainWindow.xaml). **Linux/Avalonia**: удалены две карточки `CompactActionButton(...)` из [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs). Команды остаются доступными.
+- **Кнопка показа/скрытия блока «Текущая сессия» в строке состояния (обе платформы)**. Рядом с переключателем правой панели добавлена аналогичная кнопка команды `ToggleSessionLaunchPanelCommand`, управляющая видимостью блока «Текущая сессия». Добавлены команда и свойство-переключатель `ShowSessionLaunchPanel` в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs) и [`MainViewModel.Avalonia.cs`](Configuration Management/ViewModels/MainViewModel.Avalonia.cs); кнопка добавлена в строку состояния [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) и [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs). Состояние сохраняется в настройках как прежде.
+- **Локализация**: добавлен ключ `Main.AvailabilityStatus` («Проверка доступности: всего {0}, недоступно {1}») в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json); добавлены ключи `Main.CheckAvailabilityTooltip`, `Main.AvailabilityTitle`, `Main.AvailabilityDone`, `Main.AvailabilityUnavailableList` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json); добавлены ключи `Main.EditGroupTooltip` и `Main.DeleteGroupTooltip` («Изменить группу» / «Удалить группу») в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json); добавлен ключ заголовка колонки `Column.Actions` («Действия» / «Actions») в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json). Tooltip-ключи кнопок переиспользуются существующие.
+
+### Исправлено
+
+- **Кнопки «Запуск 1С:Предприятие» и «Конфигуратор» возвращены на правую панель (обе платформы)**. Ранее они были ошибочно удалены из правой панели при переносе действий в новую колонку «Действия» списка баз. Кнопки восстановлены на правой панели и при этом сохранены в колонке «Действия» (оттуда их не удаляем). **Windows/WPF**: split-кнопки запуска — «Запуск 1С:Предприятие» (`LaunchEnterpriseCommand`, кнопка-меню `EnterpriseMenuButton`, пункты `LaunchEnterpriseWithParamsCommand`/`LaunchEnterpriseWithAuthCommand`/`LaunchEnterpriseAsAdminCommand`) и «Конфигуратор» (`LaunchConfiguratorCommand`, кнопка-меню `ConfiguratorMenuButton`, пункты `LaunchConfiguratorWithParamsCommand`/`LaunchConfiguratorAsAdminCommand`) — возвращены в блок «Действия» правой панели над кнопкой «Родной стартер» в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml). **Linux/Avalonia**: primary-кнопка запуска Предприятия (меню `LaunchEnterpriseWithParamsCommand`/`LaunchEnterpriseWithAuthCommand`) и secondary-кнопка Конфигуратора (меню `LaunchConfiguratorWithParamsCommand`) возвращены в `BuildRightPanel()` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs).
+
+### Версия
+
+- **Версия объединена в 0.3.4.4** (разделы 0.3.4.5–0.3.4.12 сведены в единый раздел; `InformationalVersion` = 0.3.4.4, `Version`/`AssemblyVersion`/`FileVersion` = 0.3.4). Бейдж и заголовок в [`README.md`](README.md); версия в `Settings.About.HelpText` в `ru.json` и `en.json`.
+
+## [0.3.4.3] — 2026-08-25
+
+### Исправлено
+
+- **Надписи в компактном режиме стали нечитаемо мелкими (обе платформы)**. В компактном режиме шрифты сжимались тем же агрессивным коэффициентом, что и геометрия (`Scale = 0.8` в Avalonia и единый `factor = 0.7` в WPF), из-за чего мелкие подписи «проваливались» до 8–10px. Теперь для текста введён отдельный, более мягкий коэффициент 0.9 — геометрия (отступы, иконки, поля) сжимается как раньше, а надписи уменьшаются лишь на 10% и остаются читаемыми. **Linux/Avalonia**: добавлен [`FontScale`](Configuration Management/Controls/UiMetrics.Avalonia.cs) и метод `ScaledFont(...)` в [`UiMetrics.Avalonia.cs`](Configuration Management/Controls/UiMetrics.Avalonia.cs), все шрифтовые вызовы в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs) переведены на `ScaledFont(...)`, увеличены размеры шрифта имени базы и вторичной информации в строке списка. **Windows/WPF**: в [`ThemeManager.cs`](Configuration Management/Themes/ThemeManager.cs) добавлен отдельный коэффициент `fontFactor` для шрифтов (0.9), тогда как отступы и ширины колонок по-прежнему сжимаются на 0.7.
+- **Версия обновлена до 0.3.4.3** (`InformationalVersion` = 0.3.4.3 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.2] — 2026-08-25
+
+### Исправлено
+
+- **Устранено предупреждение компилятора CS8604 (nullable) в [`LocalizationManager.cs`](Configuration Management/Localization/LocalizationManager.cs)**. Параметр `SetLanguage` (`code`) фактически мог принимать `null` (метод уже корректно обрабатывал это через `code ?? "null"` в диагностической строке), но `code` передавался в `Dictionary<string, LanguageFile>.TryGetValue` с non-nullable ключом, из-за чего сборка `Release` выдавала предупреждение «Возможно, аргумент-ссылка, допускающий значение NULL, для параметра "key"». Параметр объявлен как `string?`, перед поиском языка добавлена явная проверка `code is null`. Сборки `Debug` и `Release` теперь выполняются без ошибок и предупреждений (0 ошибок, 0 предупреждений).
+- **Версия обновлена до 0.3.4.2** (`InformationalVersion` = 0.3.4.2 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.4.1] — 2026-08-24
 
 ### Добавлено

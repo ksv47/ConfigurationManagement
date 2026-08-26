@@ -15,7 +15,11 @@ public class MultiFormatConverter : IMultiValueConverter
 {
     public static readonly MultiFormatConverter Instance = new();
 
-    private MultiFormatConverter() { }
+    /// <summary>
+    /// Публичный конструктор без параметров, требуемый WPF/XAML-парсером
+    /// для создания экземпляра при объявлении ресурса в XAML.
+    /// </summary>
+    public MultiFormatConverter() { }
 
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {

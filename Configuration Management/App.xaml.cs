@@ -22,6 +22,9 @@ namespace Configuration_Management
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Режим COM-агента перехватывается раньше, в Program.Main: агенту не нужны
+            // ни WPF, ни ресурсные словари тем. См. ComReadHost.
+
             // Показываем любые необработанные ошибки — иначе окно просто не появляется.
             DispatcherUnhandledException += (_, args) =>
             {
@@ -227,6 +230,17 @@ namespace Configuration_Management
 
         protected override void OnExit(ExitEventArgs e)
         {
+            // Процесс-агент COM закрывается сам, когда закроется его stdin, но при
+            // нештатном завершении лучше не полагаться на это и убрать его явно.
+            try
+            {
+                ComReadHost.Shutdown();
+            }
+            catch
+            {
+                // ignore
+            }
+
             try
             {
                 var logger = AppServices.GetRequiredService<IAppLogger>();

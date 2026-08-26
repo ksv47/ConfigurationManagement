@@ -5,6 +5,8 @@ obj/
 *.suo
 *.userosscache
 *.sln.docstates
+dist/
+*_wpftmp.csproj
 
 ## Build results
 [Dd]ebug/
