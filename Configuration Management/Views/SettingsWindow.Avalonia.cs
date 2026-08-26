@@ -334,6 +334,8 @@ namespace Configuration_Management
             // строки есть флажок видимости, а порядок задаётся кнопками «Вверх»/«Вниз»
             // по выбранной строке. Так не нужно держать две раздельные группы настроек.
             displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
+            displayColumns.Children.Add(GroupTitle(LocalizationManager.T("Settings.Columns.OrderTitle")));
+            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
 
             static string ColumnOrderLabel(string key) => LocalizationManager.T(key switch
             {
@@ -416,7 +418,54 @@ namespace Configuration_Management
                     return row;
                 })
             };
-            displayColumns.Children.Add(orderList);
+            // Колонка «Название» закреплена и всегда первая, её тумблер неактивен.
+            // В разметке WPF она стоит отдельной строкой над списком, за ней
+            // разделитель, и всё вместе лежит в карточке.
+            var nameRowContent = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            nameRowContent.Children.Add(IconHelper.MakeIcon(IconHelper.ColumnIconKey("Name"), 14, "AccentBrush"));
+            var nameRowLabel = new TextBlock
+            {
+                Text = LocalizationManager.T("Column.Name"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Themes.ThemeBrushes.Bind(nameRowLabel, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            nameRowContent.Children.Add(nameRowLabel);
+
+            var nameRow = new Grid { Margin = new Thickness(4, 3) };
+            nameRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            nameRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            var nameRowSwitch = new ToggleSwitch
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                OnContent = null,
+                OffContent = null,
+                IsChecked = true,
+                IsEnabled = false
+            };
+            Grid.SetColumn(nameRowContent, 0);
+            Grid.SetColumn(nameRowSwitch, 1);
+            nameRow.Children.Add(nameRowContent);
+            nameRow.Children.Add(nameRowSwitch);
+
+            var orderCard = new Border
+            {
+                CornerRadius = new CornerRadius(8),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(8, 6)
+            };
+            Themes.ThemeBrushes.Bind(orderCard, Border.BackgroundProperty, "CardBackgroundBrush");
+            Themes.ThemeBrushes.Bind(orderCard, Border.BorderBrushProperty, "BorderColorBrush");
+            var orderCardBody = new StackPanel();
+            orderCardBody.Children.Add(nameRow);
+            orderCardBody.Children.Add(new Separator { Margin = new Thickness(0, 2, 0, 4) });
+            orderCardBody.Children.Add(orderList);
+            orderCard.Child = orderCardBody;
+            displayColumns.Children.Add(orderCard);
 
             var orderButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
             var moveUp = new Button { Content = LocalizationManager.T("Settings.Columns.OrderUp"), Margin = new Thickness(0, 0, 6, 0), IsEnabled = false };
@@ -450,7 +499,6 @@ namespace Configuration_Management
             orderButtons.Children.Add(moveDown);
             displayColumns.Children.Add(orderButtons);
 
-            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
 
             displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails);
