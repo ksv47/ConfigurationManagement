@@ -1378,7 +1378,17 @@ public class MainViewModel : ViewModelBase
         if (!dialog.ShowDialogSync(OwnerWindow()))
             return;
 
-        var tag = dialog.Result?.Trim() ?? string.Empty;
+        AddTagInline(infobase, dialog.Result ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Добавляет базе тег без диалога: так работает ввод прямо в строке списка,
+    /// как в Windows-версии начиная с 0.3.5.1. Пустой и повторяющийся тег
+    /// молча пропускаются.
+    /// </summary>
+    public void AddTagInline(Infobase infobase, string rawTag)
+    {
+        var tag = rawTag.Trim();
         if (tag.Length == 0 || infobase.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
             return;
 
