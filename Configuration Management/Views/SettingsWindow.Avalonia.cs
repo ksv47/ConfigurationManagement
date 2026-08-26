@@ -1227,7 +1227,39 @@ namespace Configuration_Management
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Spacing = 8
             };
-            var ok = new Button { Content = LocalizationManager.T("Common.Ok"), MinWidth = 110, IsDefault = true };
+            // Подвал как в разметке WPF: зелёная «Сохранить» со значком дискеты
+            // и красная контурная «Отмена» со значком крестика.
+            // Цвета взяты из разметки WPF числами: зелёный фон сохранения и белый
+            // текст на нём заданы там напрямую, ключей темы под них нет.
+            var saveBrush = new SolidColorBrush(Color.Parse("#16A34A"));
+            var onSaveBrush = Brushes.White;
+            var okContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            okContent.Children.Add(new Avalonia.Controls.Shapes.Path
+            {
+                Width = UiMetrics.Scaled(16),
+                Height = UiMetrics.Scaled(16),
+                Data = IconHelper.Geometry("IconSave"),
+                Stretch = Stretch.Uniform,
+                Fill = onSaveBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            okContent.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Common.Save"),
+                FontWeight = FontWeight.SemiBold,
+                Foreground = onSaveBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var ok = new Button
+            {
+                Content = okContent,
+                MinWidth = UiMetrics.Scaled(140),
+                CornerRadius = new CornerRadius(8),
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                Background = saveBrush,
+                BorderThickness = new Thickness(0),
+                IsDefault = true
+            };
             ok.Click += (_, _) =>
             {
                 // Проверка дублей идёт первой: иначе при конфликте окно
@@ -1314,7 +1346,44 @@ namespace Configuration_Management
                 DialogResult = true;
                 Close();
             };
+            // Красный в этом проекте задан числом, а не ключом темы: в разметке WPF
+            // отмена нарисована цветом #EF4444 напрямую, кисти под него нет ни там,
+            // ни здесь.
+            var dangerBrush = new SolidColorBrush(Color.Parse("#EF4444"));
+            var cancelContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            cancelContent.Children.Add(new Avalonia.Controls.Shapes.Path
+            {
+                Width = UiMetrics.Scaled(16),
+                Height = UiMetrics.Scaled(16),
+                Data = IconHelper.Geometry("IconClose"),
+                Stretch = Stretch.Uniform,
+                Fill = dangerBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            cancelContent.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Common.Cancel"),
+                FontWeight = FontWeight.SemiBold,
+                Foreground = dangerBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var cancel = new Button
+            {
+                Content = cancelContent,
+                MinWidth = UiMetrics.Scaled(140),
+                CornerRadius = new CornerRadius(8),
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(1.5),
+                IsCancel = true
+            };
+            cancel.BorderBrush = dangerBrush;
+            // Отмена закрывает окно так же, как крестик: DialogResult остаётся
+            // ложным, и вызывающая сторона ничего не применяет.
+            cancel.Click += (_, _) => Close();
+
             buttons.Children.Add(ok);
+            buttons.Children.Add(cancel);
             Grid.SetRow(buttons, 1);
             grid.Children.Add(buttons);
 
