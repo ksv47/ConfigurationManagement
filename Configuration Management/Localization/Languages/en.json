@@ -598,6 +598,8 @@
     "Connection.ArchOnly64Hint": "Always the 64-bit client. Requires 64-bit Windows.",
     "Connection.Os64Text": "OS: 64-bit Windows — all options are available.",
     "Connection.Os32Text": "OS: 32-bit Windows — only the 32-bit client is available.",
+    "Connection.OsLinux64Text": "OS: 64-bit Linux — all options are available.",
+    "Connection.OsLinux32Text": "OS: 32-bit Linux — only the 32-bit client is available.",
     "Connection.Tab.Platform": "Platform",
     "Connection.GroupPlatform": "Platform version and parameters",
     "Connection.VersionLabel": "Version:",

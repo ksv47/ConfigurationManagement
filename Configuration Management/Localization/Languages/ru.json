@@ -598,6 +598,8 @@
     "Connection.ArchOnly64Hint": "Всегда 64-разрядный клиент. Нужна 64-битная Windows.",
     "Connection.Os64Text": "ОС: 64-разрядная Windows — доступны все варианты.",
     "Connection.Os32Text": "ОС: 32-разрядная Windows — доступен только 32-битный клиент.",
+    "Connection.OsLinux64Text": "ОС: 64-разрядная Linux — доступны все варианты.",
+    "Connection.OsLinux32Text": "ОС: 32-разрядная Linux — доступен только 32-битный клиент.",
     "Connection.Tab.Platform": "Платформа",
     "Connection.GroupPlatform": "Версия платформы и параметры",
     "Connection.VersionLabel": "Версия:",
