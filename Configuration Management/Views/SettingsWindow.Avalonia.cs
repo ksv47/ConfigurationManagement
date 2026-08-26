@@ -568,7 +568,14 @@ namespace Configuration_Management
             })
                 fontFamilyBox.Items.Add(family);
 
-            var fontSizeBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 8) };
+            // Размер можно и выбрать из списка, и набрать руками: в разметке WPF
+            // у этого списка стоит IsEditable, и в Avalonia он тоже есть.
+            var fontSizeBox = new ComboBox
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 0, 8),
+                IsEditable = true
+            };
             foreach (var size in new double[]
             {
                 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24,
@@ -649,7 +656,7 @@ namespace Configuration_Management
                 editedFonts[scope.Key] = new ElementFontSettings
                 {
                     FontFamily = fontFamilyBox.SelectedItem as string ?? ThemeManager.DefaultFontFamily,
-                    FontSize = fontSizeBox.SelectedItem is double size && size > 0 ? size : ThemeManager.DefaultFontSize,
+                    FontSize = SelectedFontSize(),
                     FontWeight = face.Weight,
                     FontStyle = face.Style
                 };
@@ -660,7 +667,7 @@ namespace Configuration_Management
             {
                 var face = fontFaceBox.SelectedItem as FontFaceItem ?? FontFaces[0];
                 fontPreview.FontFamily = new FontFamily(fontFamilyBox.SelectedItem as string ?? ThemeManager.DefaultFontFamily);
-                fontPreview.FontSize = fontSizeBox.SelectedItem is double size && size > 0 ? size : ThemeManager.DefaultFontSize;
+                fontPreview.FontSize = SelectedFontSize();
                 fontPreview.FontWeight = string.Equals(face.Weight, "Bold", StringComparison.OrdinalIgnoreCase)
                     ? Avalonia.Media.FontWeight.Bold : Avalonia.Media.FontWeight.Normal;
                 fontPreview.FontStyle = string.Equals(face.Style, "Italic", StringComparison.OrdinalIgnoreCase)
@@ -680,10 +687,18 @@ namespace Configuration_Management
                 fontFamilyBox.SelectedItem = fontFamilyBox.Items.OfType<string>()
                     .FirstOrDefault(f => string.Equals(f, fs.FontFamily, StringComparison.OrdinalIgnoreCase))
                     ?? ThemeManager.DefaultFontFamily;
-                fontSizeBox.SelectedItem = fontSizeBox.Items.OfType<double>()
+                var listed = fontSizeBox.Items.OfType<double>()
                     .FirstOrDefault(v => Math.Abs(v - fs.FontSize) < 0.01);
-                if (fontSizeBox.SelectedItem is null)
-                    fontSizeBox.SelectedItem = ThemeManager.DefaultFontSize;
+                if (listed > 0)
+                    fontSizeBox.SelectedItem = listed;
+                else
+                {
+                    // Размер задан вручную и в списке его нет: показываем текстом.
+                    fontSizeBox.SelectedItem = null;
+                    fontSizeBox.Text = fs.FontSize > 0
+                        ? fs.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                        : ThemeManager.DefaultFontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
                 fontFaceBox.SelectedItem = FontFaces.FirstOrDefault(x =>
                     string.Equals(x.Weight, fs.FontWeight, StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(x.Style, fs.FontStyle, StringComparison.OrdinalIgnoreCase)) ?? FontFaces[0];
@@ -692,6 +707,20 @@ namespace Configuration_Management
                 UpdateFontPreview();
             }
 
+            // Набранный руками размер приходит в Text, а не в SelectedItem.
+            double SelectedFontSize()
+            {
+                if (fontSizeBox.SelectedItem is double picked && picked > 0)
+                    return picked;
+                if (double.TryParse((fontSizeBox.Text ?? string.Empty).Trim().Replace(',', '.'),
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var typed)
+                    && typed >= 6 && typed <= 96)
+                    return typed;
+                return ThemeManager.DefaultFontSize;
+            }
+
+            fontSizeBox.GetObservable(ComboBox.TextProperty).Subscribe(new AnonymousObserver(() => StoreFontScope()));
             fontScopeBox.SelectionChanged += (_, _) => LoadFontScope();
             fontFamilyBox.SelectionChanged += (_, _) => StoreFontScope();
             fontSizeBox.SelectionChanged += (_, _) => StoreFontScope();
@@ -1660,6 +1689,16 @@ namespace Configuration_Management
 
             var name = dialog.Result?.Trim();
             return string.IsNullOrEmpty(name) ? null : name;
+        }
+
+        /// <summary>Наблюдатель, который просто зовёт действие на каждое значение.</summary>
+        private sealed class AnonymousObserver : IObserver<string?>
+        {
+            private readonly Action _onNext;
+            public AnonymousObserver(Action onNext) => _onNext = onNext;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(string? value) => _onNext();
         }
 
         /// <summary>Область интерфейса в списке подвкладки «Шрифт».</summary>
