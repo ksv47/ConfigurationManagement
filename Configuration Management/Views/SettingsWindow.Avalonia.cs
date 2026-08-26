@@ -510,8 +510,18 @@ namespace Configuration_Management
             var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel);
             var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup);
             var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups);
-            foreach (var check in new[] { rightPanelCheck, sessionPanelCheck, groupByGroupCheck, emptyGroupsCheck })
-                displayPanels.Children.Add(check);
+
+            // Пояснения под переключателями стоят там же, где в разметке WPF
+            // (SettingsWindow.xaml:628): у правой панели, у блока сессии
+            // и у пустых групп. Ключи для них были в локализации, но не
+            // использовались нигде.
+            displayPanels.Children.Add(rightPanelCheck);
+            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.RightPanelDetailsHint")));
+            displayPanels.Children.Add(sessionPanelCheck);
+            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.SessionLaunchPanelHint")));
+            displayPanels.Children.Add(groupByGroupCheck);
+            displayPanels.Children.Add(emptyGroupsCheck);
+            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.ShowEmptyGroupsHint")));
 
             displayStatus.Children.Add(Hint(LocalizationManager.T("Settings.Status.Description")));
             var statusPathCheck = DisplayCheck("Settings.Status.ConnectionPath", _viewModel.StatusShowConnectionPath);
