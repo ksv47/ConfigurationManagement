@@ -113,6 +113,8 @@ namespace Configuration_Management
                 if (_sortDesc.IsChecked != true) return;
                 _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree();
             };
+            ToolTip.SetTip(_sortAsc, LocalizationManager.T("PlatformVersionPicker.SortAscTooltip"));
+            ToolTip.SetTip(_sortDesc, LocalizationManager.T("PlatformVersionPicker.SortDescTooltip"));
             sortPanel.Children.Add(_sortAsc);
             sortPanel.Children.Add(_sortDesc);
             top.Children.Add(sortPanel);

@@ -300,8 +300,10 @@ namespace Configuration_Management
             toolbar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             var toolbarButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
             var selectAll = new Button { Content = IconHelper.IconAndText("IconCheck", LocalizationManager.T("CacheClean.SelectAll")), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+            ToolTip.SetTip(selectAll, LocalizationManager.T("CacheClean.SelectAllTooltip"));
             selectAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = true; UpdateCount(); UpdateCleanEnabled(); };
             var clearAll = new Button { Content = IconHelper.IconAndText("IconUncheck", LocalizationManager.T("CacheClean.ClearAll")), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+            ToolTip.SetTip(clearAll, LocalizationManager.T("CacheClean.ClearAllTooltip"));
             clearAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = false; UpdateCount(); UpdateCleanEnabled(); };
             toolbarButtons.Children.Add(selectAll);
             toolbarButtons.Children.Add(clearAll);

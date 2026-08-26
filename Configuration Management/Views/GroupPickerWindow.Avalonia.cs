@@ -102,6 +102,7 @@ namespace Configuration_Management
                 _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree();
             };
             sortPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("Common.SortLabel"), VerticalAlignment = VerticalAlignment.Center });
+            sortPanel.Children.Add(HelpLink("GroupPicker.Help"));
             sortPanel.Children.Add(_sortAsc);
             sortPanel.Children.Add(_sortDesc);
             Grid.SetRow(sortPanel, 0);

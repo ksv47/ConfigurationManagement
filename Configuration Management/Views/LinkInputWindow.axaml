@@ -19,7 +19,13 @@
                    TextWrapping="Wrap"
                    Margin="0,0,0,8"/>
 
-        <TextBox Grid.Row="1" x:Name="LinkBox" Padding="8,6"/>
+        <StackPanel Grid.Row="1" Spacing="4">
+            <TextBox x:Name="LinkBox" Padding="8,6"/>
+            <!-- Примеры допустимых ссылок, как под полем в разметке WPF. -->
+            <TextBlock Text="{loc:Loc LinkInput.Hint}" FontSize="11"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal"
                     HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
@@ -36,7 +42,7 @@
                     <Path Data="{DynamicResource IconOk}" Width="14" Height="14"
                           Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"
                           VerticalAlignment="Center"/>
-                    <TextBlock Text="{loc:Loc Common.Ok}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc LinkInput.Go}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
         </StackPanel>
