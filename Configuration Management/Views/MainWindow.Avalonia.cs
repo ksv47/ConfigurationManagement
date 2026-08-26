@@ -2554,6 +2554,9 @@ namespace Configuration_Management
             tools.ZIndex = 1;
 
             var nameHeader = ColumnHeader(LocalizationManager.T("Column.Name"), IconHelper.ColumnIconKey("Name"));
+            // У «Названия» отступ слева нулевой: заголовок равняется по тексту строк
+            // списка, а не по границе колонки. В разметке WPF так же (MainWindow.xaml:627).
+            nameHeader.Margin = new Thickness(0, 0, 8, 4);
             MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
             _columnHeaderRow.Children.Add(nameHeader);
             Grid.SetColumn(nameHeader, NameHeaderColumn);

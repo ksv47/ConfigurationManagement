@@ -1662,6 +1662,9 @@ public class MainViewModel : ViewModelBase
         RebuildTree();
         ExportToIbasesAfterLocalChange();
         SelectedInfobase = ib;
+        // Ссылка та же, поэтому сеттер молчит, а в строке состояния остаются
+        // прежние порт, версия, пользователь и путь. Пересобираем явно.
+        UpdateStatus();
     }
 
     private void AddInfobase()
@@ -3607,6 +3610,10 @@ public class MainViewModel : ViewModelBase
         {
             _logger.Error("Не удалось применить язык интерфейса", ex);
         }
+
+        // Строка состояния собрана из локализованных частей и хранится готовой,
+        // поэтому её надо пересобрать: сама она на смену языка не откликается.
+        UpdateStatus();
     }
 
     /// <summary>

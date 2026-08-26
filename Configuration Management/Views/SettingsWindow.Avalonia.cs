@@ -4,11 +4,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
+using Avalonia.Styling;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Configuration_Management.Controls;
 using Configuration_Management.Localization;
@@ -628,19 +631,25 @@ namespace Configuration_Management
 
             var fontApplyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             fontApplyContent.Children.Add(IconHelper.MakeIcon("IconTheme", UiMetrics.Scaled(16), "ButtonTextBrush"));
-            fontApplyContent.Children.Add(new TextBlock
+            var fontApplyLabel = new TextBlock
             {
                 Text = LocalizationManager.T("Common.Apply"),
                 VerticalAlignment = VerticalAlignment.Center
-            });
+            };
+            Themes.ThemeBrushes.Bind(fontApplyLabel, TextBlock.ForegroundProperty, "ButtonTextBrush");
+            fontApplyContent.Children.Add(fontApplyLabel);
             var fontApply = new Button
             {
                 Content = fontApplyContent,
                 Padding = new Thickness(12, 6),
                 HorizontalAlignment = HorizontalAlignment.Left
             };
-            // Кнопка акцентная, как ModernButton в разметке WPF.
+            // Кнопка акцентная, как ModernButton в разметке WPF. Состояния берутся
+            // из темы динамически, чтобы переживать смену цветовой схемы.
             Themes.ThemeBrushes.Bind(fontApply, Button.BackgroundProperty, "AccentBrush");
+            PaintButtonStates(fontApply, fontApply.Background ?? Brushes.Transparent,
+                new DynamicResourceExtension("AccentHoverBrush"),
+                new DynamicResourceExtension("AccentPressedBrush"));
             ToolTip.SetTip(fontApply, LocalizationManager.T("Settings.Font.ApplyTooltip"));
             displayFont.Children.Add(fontApply);
 
@@ -651,6 +660,10 @@ namespace Configuration_Management
             void StoreFontScope()
             {
                 if (suppressFontLoad || fontScopeBox.SelectedItem is not FontScopeItem scope)
+                    return;
+                // Пока поля не заполнены загрузкой области, писать нечего:
+                // иначе в набор уйдут значения по умолчанию вместо сохранённых.
+                if (fontFamilyBox.SelectedItem is null && fontFaceBox.SelectedItem is null)
                     return;
                 var face = fontFaceBox.SelectedItem as FontFaceItem ?? FontFaces[0];
                 editedFonts[scope.Key] = new ElementFontSettings
@@ -720,7 +733,6 @@ namespace Configuration_Management
                 return ThemeManager.DefaultFontSize;
             }
 
-            fontSizeBox.GetObservable(ComboBox.TextProperty).Subscribe(new AnonymousObserver(() => StoreFontScope()));
             fontScopeBox.SelectionChanged += (_, _) => LoadFontScope();
             fontFamilyBox.SelectionChanged += (_, _) => StoreFontScope();
             fontSizeBox.SelectionChanged += (_, _) => StoreFontScope();
@@ -731,6 +743,12 @@ namespace Configuration_Management
                 _viewModel.PreviewElementFonts(editedFonts);
             };
             LoadFontScope();
+
+            // Подписка идёт после загрузки области и только на ввод текста:
+            // GetObservable отдаёт текущее значение прямо при подписке, и до
+            // загрузки это записало бы в набор пустой выбор вместо сохранённого.
+            fontSizeBox.GetObservable(ComboBox.TextProperty)
+                .Subscribe(new AnonymousObserver(() => StoreFontScope()));
 
             // Раздел «Отображение» разложен по вложенным вкладкам, как в разметке WPF:
             // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт».
@@ -1481,10 +1499,12 @@ namespace Configuration_Management
                 MinWidth = UiMetrics.Scaled(140),
                 CornerRadius = new CornerRadius(8),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
-                Background = saveBrush,
                 BorderThickness = new Thickness(0),
                 IsDefault = true
             };
+            PaintButtonStates(ok, saveBrush,
+                new SolidColorBrush(Color.Parse("#15803D")),
+                new SolidColorBrush(Color.Parse("#166534")));
             ok.Click += (_, _) =>
             {
                 // Проверка дублей идёт первой: иначе при конфликте окно
@@ -1611,10 +1631,12 @@ namespace Configuration_Management
                 MinWidth = UiMetrics.Scaled(140),
                 CornerRadius = new CornerRadius(8),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
-                Background = Brushes.Transparent,
                 BorderThickness = new Thickness(1.5),
                 IsCancel = true
             };
+            PaintButtonStates(cancel, Brushes.Transparent,
+                new SolidColorBrush(Color.Parse("#FEF2F2")),
+                new SolidColorBrush(Color.Parse("#FEE2E2")));
             cancel.BorderBrush = dangerBrush;
             // Отмена закрывает окно так же, как крестик: DialogResult остаётся
             // ложным, и вызывающая сторона ничего не применяет.
@@ -1689,6 +1711,23 @@ namespace Configuration_Management
 
             var name = dialog.Result?.Trim();
             return string.IsNullOrEmpty(name) ? null : name;
+        }
+
+        /// <summary>
+        /// Красит кнопку с учётом наведения и нажатия. Своим свойством Background
+        /// этого не добиться: тема Fluent задаёт состояния вложенным стилем
+        /// на части шаблона и перекрывает значение кнопки.
+        /// </summary>
+        private static void PaintButtonStates(Button button, IBrush normal, object hover, object pressed)
+        {
+            button.Background = normal;
+            foreach (var (state, brush) in new[] { (":pointerover", hover), (":pressed", pressed) })
+            {
+                var style = new Style(x => x.OfType<Button>().Class(state)
+                    .Template().OfType<ContentPresenter>());
+                style.Setters.Add(new Setter(ContentPresenter.BackgroundProperty, brush));
+                button.Styles.Add(style);
+            }
         }
 
         /// <summary>Наблюдатель, который просто зовёт действие на каждое значение.</summary>
