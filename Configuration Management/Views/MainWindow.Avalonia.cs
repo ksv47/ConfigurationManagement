@@ -21,6 +21,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Utilities;
 using Avalonia.Platform;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Configuration_Management.Controls;
 using Configuration_Management.Localization;
@@ -1275,7 +1276,12 @@ namespace Configuration_Management
                 sink.Add(subscription);
         }
 
-        /// <summary>Кнопка «+ тег» в конце списка тегов строки.</summary>
+        /// <summary>
+        /// Кнопка «+ тег» и поле ввода на её месте. Начиная с 0.3.5.1 автор
+        /// заменил модальный диалог вводом прямо в строке: кнопка прячется,
+        /// на её месте появляется узкое поле, Enter добавляет тег, Esc отменяет,
+        /// потеря фокуса сохраняет непустое.
+        /// </summary>
         private Control BuildAddTagButton(Infobase infobase, ICollection<IDisposable> subscriptions)
         {
             var text = new TextBlock
@@ -1302,8 +1308,72 @@ namespace Configuration_Management
                 CommandParameter = infobase
             };
             ToolTip.SetTip(button, LocalizationManager.T("Main.AddTag"));
-            button.Bind(Button.CommandProperty, new Binding("AddTagCommand") { Source = _vm });
-            return button;
+
+            var box = new TextBox
+            {
+                IsVisible = false,
+                Width = UiMetrics.Scaled(120),
+                Height = UiMetrics.Scaled(22),
+                FontSize = UiMetrics.ScaledFont(12),
+                Padding = new Thickness(4, 2),
+                Margin = new Thickness(4, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                BorderThickness = new Thickness(1)
+            };
+            ThemeBrushes.Bind(box, TextBox.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(box, TextBox.ForegroundProperty, "TextPrimaryBrush");
+            ThemeBrushes.Bind(box, TextBox.BorderBrushProperty, "AccentBrush");
+            ToolTip.SetTip(box, LocalizationManager.T("Main.EnterTagHint"));
+
+            void Hide()
+            {
+                box.Text = string.Empty;
+                box.IsVisible = false;
+                button.IsVisible = true;
+            }
+
+            void Commit()
+            {
+                var tag = box.Text ?? string.Empty;
+                Hide();
+                _vm?.AddTagInline(infobase, tag);
+            }
+
+            button.Click += (_, _) =>
+            {
+                button.IsVisible = false;
+                box.Text = string.Empty;
+                box.IsVisible = true;
+                box.Focus();
+            };
+
+            box.KeyDown += (_, e) =>
+            {
+                if (e.Key == Key.Escape)
+                {
+                    Hide();
+                    e.Handled = true;
+                    return;
+                }
+                if (e.Key == Key.Enter)
+                {
+                    Commit();
+                    e.Handled = true;
+                }
+            };
+
+            // Клик мимо поля сначала переводит фокус, поэтому сохранение
+            // откладывается на следующий проход очереди, как в WPF-версии.
+            box.LostFocus += (_, _) => Dispatcher.UIThread.Post(() =>
+            {
+                if (box.IsVisible)
+                    Commit();
+            }, DispatcherPriority.Input);
+
+            var host = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            host.Children.Add(button);
+            host.Children.Add(box);
+            return host;
         }
 
         /// <summary>
