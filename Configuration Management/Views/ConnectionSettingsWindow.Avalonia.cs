@@ -300,13 +300,21 @@ namespace Configuration_Management
                 Radio("Auth", "IsAuthCredentials", LocalizationManager.T("ConnectionSettings.AuthAutoShort")),
                 Radio("Auth", "IsAuthWindows", LocalizationManager.T("ConnectionSettings.AuthOsShort")));
             conn.Children.Add(Field(LocalizationManager.T("ConnectionSettings.AuthLabel"), auth));
-            conn.Children.Add(Field(LocalizationManager.T("Connection.UserLabel"), Tb("User")));
+
+            // Имя и пароль показываются только в режиме «вход автоматически»:
+            // в остальных они не участвуют, и в разметке WPF они скрыты
+            // привязкой к IsCredentialsVisible (ConnectionSettingsWindow.xaml:523).
+            var userField = Field(LocalizationManager.T("Connection.UserLabel"), Tb("User"));
+            userField.Bind(Control.IsVisibleProperty, new Binding("IsCredentialsVisible") { Source = _viewModel });
+            conn.Children.Add(userField);
             _passwordBox.PasswordChanged += (_, _) =>
             {
                 if (_isSyncingPassword) return;
                 _viewModel.Password = _passwordBox.Password;
             };
-            conn.Children.Add(Field(LocalizationManager.T("Connection.PasswordLabel"), _passwordBox));
+            var passwordField = Field(LocalizationManager.T("Connection.PasswordLabel"), _passwordBox);
+            passwordField.Bind(Control.IsVisibleProperty, new Binding("IsCredentialsVisible") { Source = _viewModel });
+            conn.Children.Add(passwordField);
 
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Connection.Tab.Connection"), Content = new ScrollViewer { Content = conn, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
@@ -385,13 +393,19 @@ namespace Configuration_Management
                 Radio("ConfigAuth", "IsConfiguratorAuthPrompt", LocalizationManager.T("ConnectionSettings.AuthPromptShort")),
                 Radio("ConfigAuth", "IsConfiguratorAuthCredentials", LocalizationManager.T("ConnectionSettings.AuthAutoShort")),
                 Radio("ConfigAuth", "IsConfiguratorAuthWindows", LocalizationManager.T("ConnectionSettings.AuthOsShort")))));
-            config.Children.Add(Field(LocalizationManager.T("Connection.UserLabel"), Tb("ConfiguratorUser")));
+            var configUserField = Field(LocalizationManager.T("Connection.UserLabel"), Tb("ConfiguratorUser"));
+            configUserField.Bind(Control.IsVisibleProperty,
+                new Binding("IsConfiguratorCredentialsVisible") { Source = _viewModel });
+            config.Children.Add(configUserField);
             _configuratorPasswordBox.PasswordChanged += (_, _) =>
             {
                 if (_isSyncingConfiguratorPassword) return;
                 _viewModel.ConfiguratorPassword = _configuratorPasswordBox.Password;
             };
-            config.Children.Add(Field(LocalizationManager.T("Connection.PasswordLabel"), _configuratorPasswordBox));
+            var configPasswordField = Field(LocalizationManager.T("Connection.PasswordLabel"), _configuratorPasswordBox);
+            configPasswordField.Bind(Control.IsVisibleProperty,
+                new Binding("IsConfiguratorCredentialsVisible") { Source = _viewModel });
+            config.Children.Add(configPasswordField);
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("ConnectionSettings.TabConfigurator"), Content = new ScrollViewer { Content = config, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             return tabs;
