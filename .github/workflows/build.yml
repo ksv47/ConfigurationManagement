@@ -1,0 +1,52 @@
+# =============================================================================
+# Сборка обеих целей проекта на каждый push в main и на каждый pull request.
+#
+# Целевой фреймворк выбирается в csproj по операционной системе сборки:
+# на Windows это net10.0-windows (WPF), на Linux net10.0 (Avalonia).
+# Поэтому одной машиной обе цели не проверить: сборка на Windows не
+# компилирует ни одного файла *.Avalonia.cs, а сборка на Linux не
+# компилирует WPF-часть. Отсюда две задачи, по одной на систему.
+#
+# Каждая задача вызывает тот же скрипт, которым проект собирается вручную
+# (build.ps1 и build.sh), чтобы CI и локальная сборка не разъезжались:
+# в Release-конфигурации заданы RuntimeIdentifier и single-file, и оба
+# скрипта их гасят для обычной сборки.
+# =============================================================================
+name: Сборка
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows (WPF, net10.0-windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Установка .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Сборка Release
+        shell: pwsh
+        run: ./'Configuration Management'/build.ps1 -Configuration Release
+
+  linux:
+    name: Linux (Avalonia, net10.0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Установка .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # Через bash, а не напрямую: у build.sh в репозитории нет бита исполнения.
+      - name: Сборка Release
+        run: bash "Configuration Management/build.sh" Release
