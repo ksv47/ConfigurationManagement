@@ -381,7 +381,8 @@ namespace Configuration_Management.Controls
         {
             if (_capturedPointer is not null)
             {
-                _capturedPointer.Capture(null);
+                if (ReferenceEquals(_capturedPointer.Captured, _paletteCanvas))
+                    _capturedPointer.Capture(null);
                 _capturedPointer = null;
             }
         }
