@@ -48,7 +48,7 @@
     <Version>0.3.5</Version>
     <AssemblyVersion>0.3.5</AssemblyVersion>
     <FileVersion>0.3.5</FileVersion>
-    <InformationalVersion>0.3.5.1</InformationalVersion>
+    <InformationalVersion>0.3.5.2</InformationalVersion>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>
@@ -192,6 +192,8 @@
     <!-- Windows-only сервисы — Этап 5 -->
     <Compile Remove="Services\WpfDialogService.cs" />
     <Compile Remove="Services\OneCLauncher.cs" />
+    <Compile Remove="Services\OneCLauncher.DesignerBatch.cs" />
+    <Compile Remove="Services\OneCLauncher.Arguments.cs" />
     <Compile Remove="Services\OneCComConnector.cs" />
     <Compile Remove="Services\OneCComConnectorRegistrar.cs" />
     <Compile Remove="Services\ComReadHost.cs" />

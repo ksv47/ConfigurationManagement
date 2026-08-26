@@ -5,6 +5,37 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.5.3] — 2026-08-26
+
+### Изменено
+
+- **Углублён MVVM-вынос окна настроек** (Windows/WPF, без переделки XAML-привязок, поведение прежнее).
+  В [`ViewModels/SettingsViewModel.cs`](ViewModels/SettingsViewModel.cs) перенесена чистая бизнес-логика
+  двух вкладок:
+  - **«ibases.v8i» (синхронизация)** из [`Views/SettingsWindow.Sync.cs`](Views/SettingsWindow.Sync.cs):
+    рабочее состояние (`Sync`, вложенный класс `IbasesSyncSettings` — режим/путь/момент синхронизации)
+    и его преобразования — разрешение отображаемого пути (`ResolveDisplayPath`), построение
+    локализованного статус-текста (`BuildStatusText`) и разбор интервала (`ParseInterval`, дефолт 30).
+  - **«Шрифт» (шрифты областей)** из [`Views/SettingsWindow.Fonts.cs`](Views/SettingsWindow.Fonts.cs):
+    рабочие копии настроек шрифтов (`ElementFonts`) с загрузкой (`LoadElementFontWorkingCopies`) и
+    гарантированным созданием области (`EnsureElementFont`).
+  Поля `_syncMode`/`_syncFilePath`/`_syncTrigger`/`_syncIntervalMinutes`/`_syncScheduleTime`/`_elementFonts`
+  удалены из [`Views/SettingsWindow.xaml.cs`](Views/SettingsWindow.xaml.cs); в code-behind осталась только
+  работа с контролами и диалогами. Сборка Windows: **0 ошибок**.
+
+## [0.3.5.2] — 2026-08-26
+
+### Изменено
+
+- **`Services/OneCLauncher` разбит на частичные классы** (Windows-приоритет): монолит
+  (~1274 строк) разделён на три partial-файла без изменения поведения — каркас
+  [`OneCLauncher.cs`](Services/OneCLauncher.cs) (перечисления, поля/события, методы запуска),
+  [`OneCLauncher.DesignerBatch.cs`](Services/OneCLauncher.DesignerBatch.cs) (пакетные операции
+  DESIGNER и типы `DesignerBatchOperation`/`DesignerBatchInfo`) и
+  [`OneCLauncher.Arguments.cs`](Services/OneCLauncher.Arguments.cs) (аргументы командной строки,
+  ярлыки, ссылки, создание ИБ). Новые файлы исключены из Linux-сборки в `.csproj`, сборка
+  Windows: 0 ошибок.
+
 ## [0.3.5.1] — 2026-08-26
 
 ### Исправлено
