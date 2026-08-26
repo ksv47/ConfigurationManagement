@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
@@ -317,22 +318,24 @@ namespace Configuration_Management
             });
 
             // ===== Отображение =====
-            var display = new StackPanel { Spacing = 6 };
+            var displayIcons = new StackPanel { Spacing = 6 };
+            var displayColumns = new StackPanel { Spacing = 6 };
+            var displayPanels = new StackPanel { Spacing = 6 };
 
-            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Icons")));
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
+            displayIcons.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
             var favoritesCheck = DisplayCheck("Settings.Icons.FavoritesButton", _viewModel.ShowFavoritesButton);
             var pinnedCheck = DisplayCheck("Settings.Icons.PinButton", _viewModel.ShowPinnedButton);
             var tagsCheck = DisplayCheck("Settings.Icons.Tags", _viewModel.ShowTags);
             var tagPanelCheck = DisplayCheck("Settings.Icons.TagFilterPanel", _viewModel.ShowTagFilterPanel);
             foreach (var check in new[] { favoritesCheck, pinnedCheck, tagsCheck, tagPanelCheck })
-                display.Children.Add(check);
+                displayIcons.Children.Add(check);
 
             // Видимость и порядок колонок редактируются в одном списке: у каждой
             // строки есть флажок видимости, а порядок задаётся кнопками «Вверх»/«Вниз»
             // по выбранной строке. Так не нужно держать две раздельные группы настроек.
-            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Columns")));
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
+            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
+            displayColumns.Children.Add(GroupTitle(LocalizationManager.T("Settings.Columns.OrderTitle")));
+            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
 
             static string ColumnOrderLabel(string key) => LocalizationManager.T(key switch
             {
@@ -362,8 +365,8 @@ namespace Configuration_Management
             var orderList = new ListBox
             {
                 ItemsSource = orderItems,
-                MinHeight = 120,
-                MaxHeight = 200,
+                MinHeight = UiMetrics.Scaled(180),
+                MaxHeight = UiMetrics.Scaled(240),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 // Каждая строка — флажок видимости с именем колонки; переключение
                 // правит только видимость, порядок меняется кнопками ниже. Иконка
@@ -393,7 +396,14 @@ namespace Configuration_Management
                     content.Children.Add(label);
                     ToolTip.SetTip(content, LocalizationManager.T("Settings.Columns.RowSelectHint"));
 
-                    var check = new CheckBox { VerticalAlignment = VerticalAlignment.Center };
+                    // Тумблер-пилюля, как ColumnVisibilitySwitch в разметке WPF:
+                    // подписей у положений нет, отметка только цветом и позицией.
+                    var check = new ToggleSwitch
+                    {
+                        VerticalAlignment = VerticalAlignment.Center,
+                        OnContent = null,
+                        OffContent = null
+                    };
                     check.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
                         new Avalonia.Data.Binding(nameof(ColumnOrderItem.Visible))
                         { Mode = Avalonia.Data.BindingMode.TwoWay });
@@ -408,7 +418,54 @@ namespace Configuration_Management
                     return row;
                 })
             };
-            display.Children.Add(orderList);
+            // Колонка «Название» закреплена и всегда первая, её тумблер неактивен.
+            // В разметке WPF она стоит отдельной строкой над списком, за ней
+            // разделитель, и всё вместе лежит в карточке.
+            var nameRowContent = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            nameRowContent.Children.Add(IconHelper.MakeIcon(IconHelper.ColumnIconKey("Name"), 14, "AccentBrush"));
+            var nameRowLabel = new TextBlock
+            {
+                Text = LocalizationManager.T("Column.Name"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Themes.ThemeBrushes.Bind(nameRowLabel, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            nameRowContent.Children.Add(nameRowLabel);
+
+            var nameRow = new Grid { Margin = new Thickness(4, 3) };
+            nameRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            nameRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            var nameRowSwitch = new ToggleSwitch
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                OnContent = null,
+                OffContent = null,
+                IsChecked = true,
+                IsEnabled = false
+            };
+            Grid.SetColumn(nameRowContent, 0);
+            Grid.SetColumn(nameRowSwitch, 1);
+            nameRow.Children.Add(nameRowContent);
+            nameRow.Children.Add(nameRowSwitch);
+
+            var orderCard = new Border
+            {
+                CornerRadius = new CornerRadius(8),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(8, 6)
+            };
+            Themes.ThemeBrushes.Bind(orderCard, Border.BackgroundProperty, "CardBackgroundBrush");
+            Themes.ThemeBrushes.Bind(orderCard, Border.BorderBrushProperty, "BorderColorBrush");
+            var orderCardBody = new StackPanel();
+            orderCardBody.Children.Add(nameRow);
+            orderCardBody.Children.Add(new Separator { Margin = new Thickness(0, 2, 0, 4) });
+            orderCardBody.Children.Add(orderList);
+            orderCard.Child = orderCardBody;
+            displayColumns.Children.Add(orderCard);
 
             var orderButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
             var moveUp = new Button { Content = LocalizationManager.T("Settings.Columns.OrderUp"), Margin = new Thickness(0, 0, 6, 0), IsEnabled = false };
@@ -440,23 +497,29 @@ namespace Configuration_Management
             };
             orderButtons.Children.Add(moveUp);
             orderButtons.Children.Add(moveDown);
-            display.Children.Add(orderButtons);
+            displayColumns.Children.Add(orderButtons);
 
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
 
-            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Panels")));
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
+            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails);
             var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel);
             var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup);
             var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups);
             foreach (var check in new[] { rightPanelCheck, sessionPanelCheck, groupByGroupCheck, emptyGroupsCheck })
-                display.Children.Add(check);
+                displayPanels.Children.Add(check);
+
+            // Раздел «Отображение» разложен по вложенным вкладкам, как в разметке WPF:
+            // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт». Последние
+            // две в Avalonia ещё не портированы, поэтому строка пока из трёх.
+            var displayTabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Icons", "Settings.Subtab.IconsTooltip", "IconStar", displayIcons));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Columns", "Settings.Subtab.ColumnsTooltip", "IconList", displayColumns));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Panels", "Settings.Subtab.PanelsTooltip", "IconPanel", displayPanels));
 
             tabs.Items.Add(new TabItem
             {
                 Header = LocalizationManager.T("Settings.TabDisplay"),
-                Content = new ScrollViewer { Content = display, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+                Content = displayTabs
             });
 
             // ===== Оформление =====
@@ -1164,7 +1227,39 @@ namespace Configuration_Management
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Spacing = 8
             };
-            var ok = new Button { Content = LocalizationManager.T("Common.Ok"), MinWidth = 110, IsDefault = true };
+            // Подвал как в разметке WPF: зелёная «Сохранить» со значком дискеты
+            // и красная контурная «Отмена» со значком крестика.
+            // Цвета взяты из разметки WPF числами: зелёный фон сохранения и белый
+            // текст на нём заданы там напрямую, ключей темы под них нет.
+            var saveBrush = new SolidColorBrush(Color.Parse("#16A34A"));
+            var onSaveBrush = Brushes.White;
+            var okContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            okContent.Children.Add(new Avalonia.Controls.Shapes.Path
+            {
+                Width = UiMetrics.Scaled(16),
+                Height = UiMetrics.Scaled(16),
+                Data = IconHelper.Geometry("IconSave"),
+                Stretch = Stretch.Uniform,
+                Fill = onSaveBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            okContent.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Common.Save"),
+                FontWeight = FontWeight.SemiBold,
+                Foreground = onSaveBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var ok = new Button
+            {
+                Content = okContent,
+                MinWidth = UiMetrics.Scaled(140),
+                CornerRadius = new CornerRadius(8),
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                Background = saveBrush,
+                BorderThickness = new Thickness(0),
+                IsDefault = true
+            };
             ok.Click += (_, _) =>
             {
                 // Проверка дублей идёт первой: иначе при конфликте окно
@@ -1251,7 +1346,44 @@ namespace Configuration_Management
                 DialogResult = true;
                 Close();
             };
+            // Красный в этом проекте задан числом, а не ключом темы: в разметке WPF
+            // отмена нарисована цветом #EF4444 напрямую, кисти под него нет ни там,
+            // ни здесь.
+            var dangerBrush = new SolidColorBrush(Color.Parse("#EF4444"));
+            var cancelContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            cancelContent.Children.Add(new Avalonia.Controls.Shapes.Path
+            {
+                Width = UiMetrics.Scaled(16),
+                Height = UiMetrics.Scaled(16),
+                Data = IconHelper.Geometry("IconClose"),
+                Stretch = Stretch.Uniform,
+                Fill = dangerBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            cancelContent.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Common.Cancel"),
+                FontWeight = FontWeight.SemiBold,
+                Foreground = dangerBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var cancel = new Button
+            {
+                Content = cancelContent,
+                MinWidth = UiMetrics.Scaled(140),
+                CornerRadius = new CornerRadius(8),
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(1.5),
+                IsCancel = true
+            };
+            cancel.BorderBrush = dangerBrush;
+            // Отмена закрывает окно так же, как крестик: DialogResult остаётся
+            // ложным, и вызывающая сторона ничего не применяет.
+            cancel.Click += (_, _) => Close();
+
             buttons.Children.Add(ok);
+            buttons.Children.Add(cancel);
             Grid.SetRow(buttons, 1);
             grid.Children.Add(buttons);
 
@@ -1319,6 +1451,33 @@ namespace Configuration_Management
 
             var name = dialog.Result?.Trim();
             return string.IsNullOrEmpty(name) ? null : name;
+        }
+
+        /// <summary>
+        /// Вложенная вкладка раздела настроек: значок и подпись в заголовке,
+        /// содержимое в своей прокрутке. Повторяет заголовки подвкладок WPF.
+        /// </summary>
+        private static TabItem SubTab(string titleKey, string tooltipKey, string iconKey, Control content)
+        {
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            header.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), "TextSecondaryBrush"));
+            header.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T(titleKey),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            ToolTip.SetTip(header, LocalizationManager.T(tooltipKey));
+
+            return new TabItem
+            {
+                Header = header,
+                Content = new ScrollViewer
+                {
+                    Content = content,
+                    Padding = new Thickness(8, 4, 4, 4),
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                }
+            };
         }
 
         /// <summary>Заголовок группы настроек на вкладке.</summary>
