@@ -93,6 +93,8 @@ namespace Configuration_Management
             _vm = viewModel;
 
             Title = LocalizationManager.T("App.Title");
+            // Значок в заголовке окна — тот же app.ico, что и у приложения и трея.
+            Icon = Services.AppIconLoader.LoadAppIcon();
             Width = 1200;
             Height = 760;
             MinWidth = 900;
@@ -285,7 +287,7 @@ namespace Configuration_Management
                 "SecondaryButtonPressedBrush",
                 "BorderColorBrush")
             {
-                Content = new Avalonia.Controls.Shapes.Path
+                Content = new Path
                 {
                     Width = UiMetrics.Scaled(16),
                     Height = UiMetrics.Scaled(16),
@@ -3826,38 +3828,10 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Загружает иконку трея без System.Drawing — из PNG/ICO на диске либо из
-        /// встроенного ресурса (tray_icon_preview.png), через Avalonia WindowIcon.
+        /// Загружает иконку трея — тот же значок приложения (app.ico), что и у
+        /// заголовка окна. Без System.Drawing, через Avalonia WindowIcon.
         /// </summary>
-        private static WindowIcon? LoadTrayIcon()
-        {
-            try
-            {
-                foreach (var name in new[] { "tray_icon_preview.png", "app_icon_preview.png", "app.ico", "tray.ico" })
-                {
-                    foreach (var dir in new[] { AppContext.BaseDirectory, Environment.CurrentDirectory })
-                    {
-                        var path = System.IO.Path.Combine(dir, name);
-                        if (File.Exists(path))
-                            return new WindowIcon(new Bitmap(path));
-                    }
-
-                    // Встроенный ресурс (добавлен как EmbeddedResource в Linux-конфигурацию).
-                    if (name == "tray_icon_preview.png")
-                    {
-                        var asm = Assembly.GetExecutingAssembly();
-                        using var stream = asm.GetManifestResourceStream(name);
-                        if (stream is not null)
-                            return new WindowIcon(new Bitmap(stream));
-                    }
-                }
-            }
-            catch
-            {
-                // иконка не обязательна — трей будет без иконки/с иконкой по умолчанию
-            }
-            return null;
-        }
+        private static WindowIcon? LoadTrayIcon() => Services.AppIconLoader.LoadAppIcon();
 
         /// <summary>
         /// Закрытие окна уводит приложение в трей, а не завершает его

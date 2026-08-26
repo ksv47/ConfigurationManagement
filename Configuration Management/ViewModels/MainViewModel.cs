@@ -216,10 +216,12 @@ public class MainViewModel : ViewModelBase
         _activeColorScheme = SchemeForTheme(IsDarkTheme(baseTheme));
         _additionalPlatformSearchPaths = new List<string>(settings.AdditionalPlatformSearchPaths ?? new List<string>());
         PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformSearchPaths);
-        // Актуальный список с диска (Program Files + доп. пути, напр. E:\1cPlatform)
-        _installedPlatformVersions = PlatformVersionService.FindInstalledVersions(_additionalPlatformSearchPaths);
-        if (_installedPlatformVersions.Count == 0 && settings.InstalledPlatformVersions is { Count: > 0 })
-            _installedPlatformVersions = new List<string>(settings.InstalledPlatformVersions);
+        // Актуальный список версий платформы с диска (Program Files + доп. пути) собирается
+        // в фоне уже после показа окна: рекурсивное сканирование каталогов установки могло бы
+        // заметно задержать появление главного окна. Сразу берём сохранённый список из настроек,
+        // чтобы выпадающие списки выбора версии работали с самого начала.
+        _installedPlatformVersions = new List<string>(settings.InstalledPlatformVersions ?? new List<string>());
+        _ = RefreshInstalledPlatformVersionsInBackground();
         _nameColumnWidth = settings.NameColumnWidth;
         _versionColumnWidth = settings.VersionColumnWidth;
         _launchModeColumnWidth = settings.LaunchModeColumnWidth;
@@ -738,6 +740,32 @@ public class MainViewModel : ViewModelBase
     {
         _installedPlatformVersions = new List<string>(versions);
         SaveSettings();
+    }
+
+    /// <summary>
+    /// Запускает фоновое сканирование установленных версий платформы 1С (Program Files + доп.
+    /// пути) и обновляет <see cref="InstalledPlatformVersions"/>, когда результат готов. Выполняется
+    /// в фоне, чтобы рекурсивный обход каталогов не задерживал показ главного окна. При сбое или
+    /// пустом результате оставляет текущий (сохранённый из настроек) список.
+    /// </summary>
+    private async System.Threading.Tasks.Task RefreshInstalledPlatformVersionsInBackground()
+    {
+        // Снимок дополнительных путей на момент запуска сканирования.
+        var additionalPaths = _additionalPlatformSearchPaths.ToList();
+        try
+        {
+            var found = await System.Threading.Tasks.Task.Run(
+                () => PlatformVersionService.FindInstalledVersions(additionalPaths));
+            if (found.Count > 0)
+            {
+                _installedPlatformVersions = found;
+                OnPropertyChanged(nameof(InstalledPlatformVersions));
+            }
+        }
+        catch
+        {
+            // Сканирование не должно мешать работе приложения; остаётся сохранённый список.
+        }
     }
 
     /// <summary>
@@ -5164,18 +5192,28 @@ public string HotkeyEnterprise
         });
     }
 
-    /// <summary>Пересчёт размеров файловых баз.</summary>
-    private void RefreshFileMetadata()
+    /// <summary>
+    /// Пересчёт размеров файловых баз. Выполняется в фоне: для каталогов это рекурсивный обход
+    /// всей папки базы (включая 1Cv8.1CD и логи), который на UI-потоке заметно задерживал показ
+    /// окна при старте. Сами объекты баз обновляются уже после возврата на UI-поток (после await).
+    /// </summary>
+    private async void RefreshFileMetadata()
     {
-        foreach (var ib in Infobases)
+        // Снимок файловых баз на момент вызова: коллекция может меняться, пока считаются размеры.
+        var fileBases = Infobases.Where(ib => ib.Connection.Type == ConnectionType.File).ToList();
+        if (fileBases.Count == 0)
+            return;
+
+        var sizes = await System.Threading.Tasks.Task.Run(() =>
         {
-            if (ib.Connection.Type != ConnectionType.File)
-            {
-                ib.FileSizeBytes = null;
-                continue;
-            }
-            ib.FileSizeBytes = InfobaseMaintenanceService.CalculateFileBaseSize(ib);
-        }
+            var map = new Dictionary<Infobase, long?>();
+            foreach (var ib in fileBases)
+                map[ib] = InfobaseMaintenanceService.CalculateFileBaseSize(ib);
+            return map;
+        });
+
+        foreach (var kv in sizes)
+            kv.Key.FileSizeBytes = kv.Value;
         InfobasesView?.Refresh();
     }
 
