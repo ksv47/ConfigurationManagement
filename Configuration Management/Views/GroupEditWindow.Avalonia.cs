@@ -82,7 +82,12 @@ namespace Configuration_Management
             MinWidth = 460;
             MinHeight = 520;
             MaxHeight = 880;
-            SizeToContent = SizeToContent.Height;
+            // Высота задана числом, а не по содержимому: с SizeToContent окно
+            // меряет только первую вкладку и после переключения не пересчитывается,
+            // а прокрутка внутри при бесконечной высоте не включается вовсе.
+            // В итоге на вкладке цвета не было видно ни зелёного и синего
+            // бегунков, ни поля HEX, и добраться до них было нечем.
+            Height = 700;
             CanResize = true;
 
             _groups = groups.ToList();
