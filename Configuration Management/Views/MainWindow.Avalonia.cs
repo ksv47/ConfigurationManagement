@@ -3167,7 +3167,12 @@ namespace Configuration_Management
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                // Отступы как в разметке WPF (Margin="6,0,6,4"): без них подпись
+                // встаёт вплотную к соседней, а горизонтальный StackPanel меряет
+                // детей без ограничения по ширине, поэтому сам текст не подрезается.
+                Margin = new Thickness(6, 0, 6, 4),
+                ClipToBounds = true
             };
             panel.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(13), "TextSecondaryBrush"));
 
