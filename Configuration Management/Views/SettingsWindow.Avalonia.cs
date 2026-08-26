@@ -322,6 +322,7 @@ namespace Configuration_Management
             var displayColumns = new StackPanel { Spacing = 6 };
             var displayPanels = new StackPanel { Spacing = 6 };
             var displayStatus = new StackPanel { Spacing = 6 };
+            var displayFont = new StackPanel { Spacing = 6 };
 
             displayIcons.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
             var favoritesCheck = DisplayCheck("Settings.Icons.FavoritesButton", _viewModel.ShowFavoritesButton);
@@ -526,14 +527,190 @@ namespace Configuration_Management
             })
                 displayStatus.Children.Add(check);
 
+            // Подвкладка «Шрифт»: область интерфейса, семейство, размер, начертание,
+            // образец и кнопка предпросмотра. Состав и порядок из SettingsWindow.xaml:752.
+            var editedFonts = new Dictionary<string, ElementFontSettings>();
+            foreach (var kv in _viewModel.ElementFonts)
+                editedFonts[kv.Key] = kv.Value?.Clone() ?? new ElementFontSettings();
+            if (!editedFonts.ContainsKey(ThemeManager.FontDefault))
+                editedFonts[ThemeManager.FontDefault] = new ElementFontSettings
+                {
+                    FontFamily = _viewModel.FontFamily,
+                    FontSize = _viewModel.FontSize,
+                    FontWeight = _viewModel.FontWeight,
+                    FontStyle = _viewModel.FontStyle
+                };
+
+            displayFont.Children.Add(Hint(LocalizationManager.T("Settings.Font.Description")));
+            displayFont.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Font.Element"),
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+
+            var fontScopeBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var key in ThemeManager.AllFontScopes)
+                fontScopeBox.Items.Add(new FontScopeItem(key));
+            fontScopeBox.SelectedIndex = 0;
+            displayFont.Children.Add(fontScopeBox);
+
+            var fontGrid = new Grid { Margin = new Thickness(0, 8, 0, 8) };
+            fontGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
+            fontGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            for (var i = 0; i < 3; i++)
+                fontGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            var fontFamilyBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 8) };
+            foreach (var family in new[]
+            {
+                "Segoe UI", "Arial", "Calibri", "Tahoma", "Verdana",
+                "Trebuchet MS", "Georgia", "Times New Roman", "Courier New", "Consolas"
+            })
+                fontFamilyBox.Items.Add(family);
+
+            var fontSizeBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 8) };
+            foreach (var size in new double[]
+            {
+                8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24,
+                26, 28, 32, 36, 40, 48, 56, 64, 72
+            })
+                fontSizeBox.Items.Add(size);
+
+            var fontFaceBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var face in FontFaces)
+                fontFaceBox.Items.Add(face);
+
+            void AddFontRow(int row, string labelKey, Control editor)
+            {
+                var label = new TextBlock
+                {
+                    Text = LocalizationManager.T(labelKey),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 8, row < 2 ? 8 : 0)
+                };
+                Grid.SetRow(label, row);
+                Grid.SetColumn(label, 0);
+                Grid.SetRow(editor, row);
+                Grid.SetColumn(editor, 1);
+                fontGrid.Children.Add(label);
+                fontGrid.Children.Add(editor);
+            }
+
+            AddFontRow(0, "Settings.Font.Family", fontFamilyBox);
+            AddFontRow(1, "Settings.Font.Size", fontSizeBox);
+            AddFontRow(2, "Settings.Font.Style", fontFaceBox);
+            displayFont.Children.Add(fontGrid);
+
+            var fontPreview = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Font.Preview"),
+                TextWrapping = TextWrapping.Wrap
+            };
+            Themes.ThemeBrushes.Bind(fontPreview, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            var fontPreviewCard = new Border
+            {
+                CornerRadius = new CornerRadius(6),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(12, 10),
+                Margin = new Thickness(0, 0, 0, 10),
+                Child = fontPreview
+            };
+            Themes.ThemeBrushes.Bind(fontPreviewCard, Border.BackgroundProperty, "CardBackgroundBrush");
+            Themes.ThemeBrushes.Bind(fontPreviewCard, Border.BorderBrushProperty, "BorderColorBrush");
+            displayFont.Children.Add(fontPreviewCard);
+
+            var fontApplyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            fontApplyContent.Children.Add(IconHelper.MakeIcon("IconTheme", UiMetrics.Scaled(16), "ButtonTextBrush"));
+            fontApplyContent.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Common.Apply"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var fontApply = new Button
+            {
+                Content = fontApplyContent,
+                Padding = new Thickness(12, 6),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            // Кнопка акцентная, как ModernButton в разметке WPF.
+            Themes.ThemeBrushes.Bind(fontApply, Button.BackgroundProperty, "AccentBrush");
+            ToolTip.SetTip(fontApply, LocalizationManager.T("Settings.Font.ApplyTooltip"));
+            displayFont.Children.Add(fontApply);
+
+            // Правки живут в editedFonts: переключение области их не теряет,
+            // а «Сохранить» пишет весь набор разом.
+            var suppressFontLoad = false;
+
+            void StoreFontScope()
+            {
+                if (suppressFontLoad || fontScopeBox.SelectedItem is not FontScopeItem scope)
+                    return;
+                var face = fontFaceBox.SelectedItem as FontFaceItem ?? FontFaces[0];
+                editedFonts[scope.Key] = new ElementFontSettings
+                {
+                    FontFamily = fontFamilyBox.SelectedItem as string ?? ThemeManager.DefaultFontFamily,
+                    FontSize = fontSizeBox.SelectedItem is double size && size > 0 ? size : ThemeManager.DefaultFontSize,
+                    FontWeight = face.Weight,
+                    FontStyle = face.Style
+                };
+                UpdateFontPreview();
+            }
+
+            void UpdateFontPreview()
+            {
+                var face = fontFaceBox.SelectedItem as FontFaceItem ?? FontFaces[0];
+                fontPreview.FontFamily = new FontFamily(fontFamilyBox.SelectedItem as string ?? ThemeManager.DefaultFontFamily);
+                fontPreview.FontSize = fontSizeBox.SelectedItem is double size && size > 0 ? size : ThemeManager.DefaultFontSize;
+                fontPreview.FontWeight = string.Equals(face.Weight, "Bold", StringComparison.OrdinalIgnoreCase)
+                    ? Avalonia.Media.FontWeight.Bold : Avalonia.Media.FontWeight.Normal;
+                fontPreview.FontStyle = string.Equals(face.Style, "Italic", StringComparison.OrdinalIgnoreCase)
+                    ? Avalonia.Media.FontStyle.Italic : Avalonia.Media.FontStyle.Normal;
+            }
+
+            void LoadFontScope()
+            {
+                if (fontScopeBox.SelectedItem is not FontScopeItem scope)
+                    return;
+                if (!editedFonts.TryGetValue(scope.Key, out var fs) || fs is null)
+                    fs = editedFonts.TryGetValue(ThemeManager.FontDefault, out var def) && def is not null
+                        ? def.Clone()
+                        : new ElementFontSettings();
+
+                suppressFontLoad = true;
+                fontFamilyBox.SelectedItem = fontFamilyBox.Items.OfType<string>()
+                    .FirstOrDefault(f => string.Equals(f, fs.FontFamily, StringComparison.OrdinalIgnoreCase))
+                    ?? ThemeManager.DefaultFontFamily;
+                fontSizeBox.SelectedItem = fontSizeBox.Items.OfType<double>()
+                    .FirstOrDefault(v => Math.Abs(v - fs.FontSize) < 0.01);
+                if (fontSizeBox.SelectedItem is null)
+                    fontSizeBox.SelectedItem = ThemeManager.DefaultFontSize;
+                fontFaceBox.SelectedItem = FontFaces.FirstOrDefault(x =>
+                    string.Equals(x.Weight, fs.FontWeight, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(x.Style, fs.FontStyle, StringComparison.OrdinalIgnoreCase)) ?? FontFaces[0];
+                suppressFontLoad = false;
+
+                UpdateFontPreview();
+            }
+
+            fontScopeBox.SelectionChanged += (_, _) => LoadFontScope();
+            fontFamilyBox.SelectionChanged += (_, _) => StoreFontScope();
+            fontSizeBox.SelectionChanged += (_, _) => StoreFontScope();
+            fontFaceBox.SelectionChanged += (_, _) => StoreFontScope();
+            fontApply.Click += (_, _) =>
+            {
+                StoreFontScope();
+                _viewModel.PreviewElementFonts(editedFonts);
+            };
+            LoadFontScope();
+
             // Раздел «Отображение» разложен по вложенным вкладкам, как в разметке WPF:
             // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт».
-            // «Шрифт» в Avalonia ещё не портирован, поэтому строка пока из четырёх.
             var displayTabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
             displayTabs.Items.Add(SubTab("Settings.Subtab.Icons", "Settings.Subtab.IconsTooltip", "IconStar", displayIcons));
             displayTabs.Items.Add(SubTab("Settings.Subtab.Columns", "Settings.Subtab.ColumnsTooltip", "IconList", displayColumns));
             displayTabs.Items.Add(SubTab("Settings.Subtab.Panels", "Settings.Subtab.PanelsTooltip", "IconPanel", displayPanels));
             displayTabs.Items.Add(SubTab("Settings.Subtab.Status", "Settings.Subtab.StatusTooltip", "IconMonitor", displayStatus));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Font", "Settings.Subtab.FontTooltip", "IconEdit", displayFont));
 
             tabs.Items.Add(new TabItem
             {
@@ -1373,6 +1550,8 @@ namespace Configuration_Management
                     statusUserCheck.IsChecked == true,
                     statusIdCheck.IsChecked == true);
 
+                _viewModel.SaveElementFonts(editedFonts);
+
                 DialogResult = true;
                 Close();
             };
@@ -1483,6 +1662,38 @@ namespace Configuration_Management
             return string.IsNullOrEmpty(name) ? null : name;
         }
 
+        /// <summary>Область интерфейса в списке подвкладки «Шрифт».</summary>
+        private sealed class FontScopeItem
+        {
+            public FontScopeItem(string key) => Key = key;
+            public string Key { get; }
+            public override string ToString() => ThemeManager.FontScopeDisplayName(Key);
+        }
+
+        /// <summary>Начертание шрифта: пара «насыщенность и наклон» с локализованным именем.</summary>
+        private sealed class FontFaceItem
+        {
+            public FontFaceItem(string key, string weight, string style)
+            {
+                Key = key;
+                Weight = weight;
+                Style = style;
+            }
+
+            public string Key { get; }
+            public string Weight { get; }
+            public string Style { get; }
+            public override string ToString() => LocalizationManager.T(Key);
+        }
+
+        private static readonly FontFaceItem[] FontFaces =
+        {
+            new("Settings.Font.StyleNormal", "Normal", "Normal"),
+            new("Settings.Font.StyleBold", "Bold", "Normal"),
+            new("Settings.Font.StyleItalic", "Normal", "Italic"),
+            new("Settings.Font.StyleBoldItalic", "Bold", "Italic")
+        };
+
         /// <summary>
         /// Вложенная вкладка раздела настроек: значок и подпись в заголовке,
         /// содержимое в своей прокрутке. Повторяет заголовки подвкладок WPF.
@@ -1494,6 +1705,9 @@ namespace Configuration_Management
             header.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T(titleKey),
+                // Размер как в разметке WPF: с наследуемым от окна строка из пяти
+                // вкладок не влезает по ширине и переносится на второй ряд.
+                FontSize = UiMetrics.ScaledFont(13),
                 VerticalAlignment = VerticalAlignment.Center
             });
             ToolTip.SetTip(header, LocalizationManager.T(tooltipKey));

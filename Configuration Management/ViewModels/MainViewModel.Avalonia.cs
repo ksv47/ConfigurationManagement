@@ -717,6 +717,61 @@ public class MainViewModel : ViewModelBase
     public bool StatusShowConnectionType => _settings.StatusShowConnectionType;
     public bool StatusShowUser => _settings.StatusShowUser;
     public bool StatusShowId => _settings.StatusShowId;
+
+    /// <summary>Шрифт интерфейса по умолчанию и настройки отдельных областей.</summary>
+    public string FontFamily => _settings.FontFamily;
+    public double FontSize => _settings.FontSize;
+    public string FontWeight => _settings.FontWeight;
+    public string FontStyle => _settings.FontStyle;
+    public IReadOnlyDictionary<string, ElementFontSettings> ElementFonts => _settings.ElementFonts;
+
+    /// <summary>
+    /// Применяет шрифты областей к главному окну без сохранения: кнопка
+    /// «Применить» в настройках показывает результат до нажатия «Сохранить».
+    /// </summary>
+    public void PreviewElementFonts(Dictionary<string, ElementFontSettings> fonts)
+    {
+        if (MainWindowOrNull() is { } window)
+            ThemeManager.ApplyElementFonts(window, fonts);
+    }
+
+    /// <summary>
+    /// Сохраняет шрифты областей, применяет их ко всем окнам и пишет в настройки.
+    /// Область «По умолчанию» задаёт заодно общий шрифт приложения, как в версии
+    /// для Windows: он применяется ко всем окнам и при следующем запуске.
+    /// </summary>
+    public void SaveElementFonts(Dictionary<string, ElementFontSettings> fonts)
+    {
+        _settings.ElementFonts = fonts ?? new Dictionary<string, ElementFontSettings>();
+
+        if (_settings.ElementFonts.TryGetValue(ThemeManager.FontDefault, out var def)
+            && def is not null && def.FontSize > 0)
+        {
+            _settings.FontFamily = string.IsNullOrWhiteSpace(def.FontFamily)
+                ? ThemeManager.DefaultFontFamily : def.FontFamily;
+            _settings.FontSize = def.FontSize;
+            _settings.FontWeight = string.Equals(def.FontWeight, "Bold", StringComparison.OrdinalIgnoreCase)
+                ? "Bold" : ThemeManager.DefaultFontWeight;
+            _settings.FontStyle = string.Equals(def.FontStyle, "Italic", StringComparison.OrdinalIgnoreCase)
+                ? "Italic" : ThemeManager.DefaultFontStyle;
+        }
+
+        ThemeManager.ApplyFontToAllWindows(_settings.FontFamily, _settings.FontSize,
+            _settings.FontWeight, _settings.FontStyle);
+        PreviewElementFonts(_settings.ElementFonts);
+        SaveSettingsSilently();
+
+        OnPropertyChanged(nameof(FontFamily));
+        OnPropertyChanged(nameof(FontSize));
+        OnPropertyChanged(nameof(FontWeight));
+        OnPropertyChanged(nameof(FontStyle));
+    }
+
+    private static MainWindow? MainWindowOrNull()
+        => Avalonia.Application.Current?.ApplicationLifetime
+            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            ? desktop.MainWindow as MainWindow
+            : null;
     /// <summary>
     /// Показывать теги в строках списка. Переключатель живёт в панели
     /// инструментов над списком, состояние хранится в настройках.
