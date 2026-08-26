@@ -62,7 +62,12 @@ namespace Configuration_Management.Controls
         private readonly Border _colorPreview;
 
         // Элементы градиентной области палитры.
-        private readonly Canvas _paletteCanvas = new() { ClipToBounds = true };
+        // Слои палитры лежат в сетке и растягиваются на всю область, а канва
+        // нужна только под маркер: у детей канвы собственный размер, и пустой
+        // Border в ней вышел бы нулевым. Так же устроено в разметке WPF
+        // (Controls/ColorPickerControl.xaml:51).
+        private readonly Grid _paletteArea = new() { ClipToBounds = true };
+        private readonly Canvas _paletteCanvas = new();
         private readonly Border _brightnessOverlay;
         private readonly Border _marker = new()
         {
@@ -126,32 +131,37 @@ namespace Configuration_Management.Controls
             Grid.SetRow(paletteLabel, 1);
             root.Children.Add(paletteLabel);
 
-            _paletteCanvas.Cursor = new Cursor(StandardCursorType.Hand);
-            _paletteCanvas.Height = AreaHeight;
-            _paletteCanvas.Margin = new Thickness(0, 0, 0, 6);
+            _paletteArea.Cursor = new Cursor(StandardCursorType.Hand);
+            _paletteArea.Height = AreaHeight;
+            _paletteArea.Margin = new Thickness(0, 0, 0, 6);
+            // Панель без фона в Avalonia не участвует в проверке попадания,
+            // а все слои помечены непопадаемыми, поэтому щелчки по палитре
+            // не доходили бы ни до кого.
+            _paletteArea.Background = Brushes.Transparent;
 
             var rainbowBorder = new Border { IsHitTestVisible = false };
             rainbowBorder.Background = BuildRainbowBrush();
-            _paletteCanvas.Children.Add(rainbowBorder);
+            _paletteArea.Children.Add(rainbowBorder);
 
             var satOverlay = new Border { IsHitTestVisible = false };
             satOverlay.Background = BuildSaturationOverlay();
-            _paletteCanvas.Children.Add(satOverlay);
+            _paletteArea.Children.Add(satOverlay);
 
             _brightnessOverlay = new Border { IsHitTestVisible = false, Background = Brushes.Black };
-            _paletteCanvas.Children.Add(_brightnessOverlay);
+            _paletteArea.Children.Add(_brightnessOverlay);
 
             _marker.IsHitTestVisible = false;
             _marker.BoxShadow = new BoxShadows(new BoxShadow { Blur = 2, OffsetY = 1, Color = new Color(160, 0, 0, 0) });
             _paletteCanvas.Children.Add(_marker);
+            _paletteArea.Children.Add(_paletteCanvas);
 
-            _paletteCanvas.PointerPressed += OnPalette_PointerPressed;
-            _paletteCanvas.PointerMoved += OnPalette_PointerMoved;
-            _paletteCanvas.PointerReleased += OnPalette_PointerReleased;
-            _paletteCanvas.SizeChanged += (_, _) => UpdateMarker();
+            _paletteArea.PointerPressed += OnPalette_PointerPressed;
+            _paletteArea.PointerMoved += OnPalette_PointerMoved;
+            _paletteArea.PointerReleased += OnPalette_PointerReleased;
+            _paletteArea.SizeChanged += (_, _) => UpdateMarker();
 
-            Grid.SetRow(_paletteCanvas, 2);
-            root.Children.Add(_paletteCanvas);
+            Grid.SetRow(_paletteArea, 2);
+            root.Children.Add(_paletteArea);
 
             // Яркость
             var brightnessRow = BuildBrightnessRow();
@@ -357,8 +367,8 @@ namespace Configuration_Management.Controls
 
         private void UpdateMarker()
         {
-            var w = _paletteCanvas.Bounds.Width;
-            var h = _paletteCanvas.Bounds.Height;
+            var w = _paletteArea.Bounds.Width;
+            var h = _paletteArea.Bounds.Height;
             if (w <= 0 || h <= 0)
                 return;
 
@@ -368,20 +378,20 @@ namespace Configuration_Management.Controls
 
         private void OnPalette_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            var point = e.GetCurrentPoint(_paletteCanvas);
+            var point = e.GetCurrentPoint(_paletteArea);
             if (!point.Properties.IsLeftButtonPressed)
                 return;
 
-            ApplyPointer(_paletteCanvas, point.Position);
+            ApplyPointer(_paletteArea, point.Position);
             _capturedPointer = e.Pointer;
-            e.Pointer.Capture(_paletteCanvas);
+            e.Pointer.Capture(_paletteArea);
         }
 
         private void OnPalette_PointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             if (_capturedPointer is not null)
             {
-                if (ReferenceEquals(_capturedPointer.Captured, _paletteCanvas))
+                if (ReferenceEquals(_capturedPointer.Captured, _paletteArea))
                     _capturedPointer.Capture(null);
                 _capturedPointer = null;
             }
@@ -389,14 +399,14 @@ namespace Configuration_Management.Controls
 
         private void OnPalette_PointerMoved(object? sender, PointerEventArgs e)
         {
-            var point = e.GetCurrentPoint(_paletteCanvas);
+            var point = e.GetCurrentPoint(_paletteArea);
             if (!point.Properties.IsLeftButtonPressed)
                 return;
 
-            ApplyPointer(_paletteCanvas, point.Position);
+            ApplyPointer(_paletteArea, point.Position);
         }
 
-        private void ApplyPointer(Canvas canvas, Point position)
+        private void ApplyPointer(Control canvas, Point position)
         {
             var w = canvas.Bounds.Width;
             var h = canvas.Bounds.Height;

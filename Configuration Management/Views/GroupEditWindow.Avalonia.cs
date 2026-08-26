@@ -155,6 +155,12 @@ namespace Configuration_Management
             // ===== Вкладка «Общие» =====
             var general = new StackPanel { Spacing = 10 };
 
+            general.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("GroupEdit.BasicParams"),
+                FontWeight = FontWeight.SemiBold
+            });
+
             var nameLabel = new TextBlock { Text = LocalizationManager.T("GroupEdit.NameLabel") };
             general.Children.Add(nameLabel);
             general.Children.Add(_nameBox);
@@ -165,13 +171,24 @@ namespace Configuration_Management
             parentRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             parentRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             _parentPathBox.VerticalAlignment = VerticalAlignment.Center;
+            ToolTip.SetTip(_parentPathBox, LocalizationManager.T("GroupEdit.ParentTooltip"));
             Grid.SetColumn(_parentPathBox, 0);
             parentRow.Children.Add(_parentPathBox);
-            var selectParent = new Button { Content = LocalizationManager.T("GroupEdit.SelectParent"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var parentButtons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var selectParent = new Button { Content = LocalizationManager.T("GroupEdit.SelectParent"), MinWidth = 90 };
             selectParent.IsEnabled = !_noGroupMode;
             selectParent.Click += (_, _) => OnSelectParent_Click();
-            Grid.SetColumn(selectParent, 1);
-            parentRow.Children.Add(selectParent);
+            ToolTip.SetTip(selectParent, LocalizationManager.T("GroupEdit.SelectParentTooltip"));
+            parentButtons.Children.Add(selectParent);
+            parentButtons.Children.Add(HelpLink("GroupEdit.ParentHelp"));
+            Grid.SetColumn(parentButtons, 1);
+            parentRow.Children.Add(parentButtons);
             general.Children.Add(parentRow);
 
             var descLabel = new TextBlock { Text = LocalizationManager.T("GroupEdit.DescriptionLabel") };
@@ -183,12 +200,19 @@ namespace Configuration_Management
             // ===== Вкладка «Цвет» =====
             var colorTab = new StackPanel { Spacing = 10 };
             colorTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.TitleColor") });
+            colorTab.Children.Add(SectionHint("GroupEdit.ColorHint"));
             colorTab.Children.Add(_colorControl);
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("GroupEdit.TabColor"), Content = new ScrollViewer { Content = colorTab, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== Вкладка «Иконка» =====
             var iconTab = new StackPanel { Spacing = 10 };
+            iconTab.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("GroupEdit.IconAndColor"),
+                FontWeight = FontWeight.SemiBold
+            });
             iconTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.IconColorLabel") });
+            iconTab.Children.Add(SectionHint("GroupEdit.IconColorHint"));
             iconTab.Children.Add(_iconColorControl);
             iconTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.IconLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
             BuildIconPicker();
@@ -210,6 +234,19 @@ namespace Configuration_Management
             grid.Children.Add(buttons);
 
             return grid;
+        }
+
+        /// <summary>Серое пояснение под подписью поля, как в разметке WPF.</summary>
+        private static TextBlock SectionHint(string key)
+        {
+            var block = new TextBlock
+            {
+                Text = LocalizationManager.T(key),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap
+            };
+            Themes.ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            return block;
         }
 
         private void BuildIconPicker()
