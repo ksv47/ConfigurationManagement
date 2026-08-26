@@ -118,6 +118,14 @@ public class MainViewModel : ViewModelBase
     private bool _closeToTray;
     private bool _showTrayIcon = true;
     private bool _compactMode;
+
+    // ---- Быстрый запуск: индикатор загрузки и фоновое построение дерева ----
+    private bool _isLoading;
+    private string _loadingMessage = string.Empty;
+    private bool _startupInitCompleted;
+    /// <summary>Кеш размеров файловых ИБ (ускоряет запуск при большом списке баз).</summary>
+    private readonly Dictionary<string, Models.FileSizeCacheEntry> _fileSizeCache =
+        new(StringComparer.OrdinalIgnoreCase);
     private bool _escapeToTray = true;
     private string _afterLaunchAction = "None";
     private List<string> _templateCatalogPaths = new();
@@ -318,6 +326,14 @@ public class MainViewModel : ViewModelBase
             _collapsedGroups.Add(groupName);
         }
 
+        // Кеш размеров файловых ИБ из прошлых запусков: позволяет не сканировать диски
+        // заново для каждой базы при старте (см. RefreshFileMetadata / CalculateFileBaseSizeCached).
+        if (settings.FileSizeCache is { Count: > 0 })
+        {
+            foreach (var kv in settings.FileSizeCache)
+                _fileSizeCache[kv.Key] = kv.Value;
+        }
+
         // Загружаем базы из файла настроек.
         var saved = _repository.Load();
         Infobases = new ObservableCollection<Infobase>(saved);
@@ -330,17 +346,8 @@ public class MainViewModel : ViewModelBase
         InfobasesView.Filter = FilterInfobase;
         ApplySortDescriptions();
 
-        // Назначаем слоты Alt+1…9 уже существующим избранным и проставляем номера в UI.
-        SyncFavoriteHotkeys();
-
-        // Размеры и маркеры блокировки файловых баз (фоново, не блокируя UI дольше необходимого).
-        // Автопроверка доступности всех баз 1С при запуске убрана: вместо неё — отдельная
-        // команда «Проверить доступность всех баз» в верхней панели команд.
-        RefreshFileMetadata();
-
         // Дерево групп (отображается в виде «группа в группе»).
         GroupNodes = new ObservableCollection<GroupNodeViewModel>();
-        RebuildGroupTree();
 
         // Смена языка интерфейса: локализованные свойства VM и служебные узлы дерева
         // обновляются на лету без перезапуска. XAML-привязки {loc:Loc} обновляются сами
@@ -349,10 +356,14 @@ public class MainViewModel : ViewModelBase
         LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         _languageChangedSubscribed = true;
 
-        // Раскрываем ветку, содержащую последнюю выбранную строку, чтобы её контейнер
-        // в виртуализированном дереве создался сразу при первой отрисовке и выделение
-        // можно было восстановить (см. PrepareLastSelectionExpansion).
-        PrepareLastSelectionExpansion();
+        // Тяжёлая инициализация (построение дерева групп, назначение слотов Alt+1…9,
+        // восстановление последнего выделения, подсчёт размеров файловых баз) выполняется
+        // ПОСЛЕ показа окна в фоне с индикатором прогресса. Так главное окно появляется
+        // мгновенно даже при большом числе баз, а список достраивается без «зависания».
+        // См. CompleteStartupInitializationAsync.
+        IsLoading = true;
+        LoadingMessage = LocalizationManager.T("Main.LoadingInfobases");
+        _ = CompleteStartupInitializationAsync();
 
         SelectInfobaseCommand = new RelayCommand(SelectInfobase);
         RefreshCommand = new RelayCommand(Refresh);
@@ -466,6 +477,26 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Представление списка баз с группировкой и фильтрацией.</summary>
     public ICollectionView InfobasesView { get; }
+
+    /// <summary>Идёт фоновая инициализация главного окна после показа (показывается индикатор загрузки).</summary>
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set => SetProperty(ref _isLoading, value);
+    }
+
+    /// <summary>Текст индикатора загрузки на этапе фоновой инициализации.</summary>
+    public string LoadingMessage
+    {
+        get => _loadingMessage;
+        set => SetProperty(ref _loadingMessage, value);
+    }
+
+    /// <summary>
+    /// Событие завершения фоновой инициализации после показа окна. Позволяет интерфейсу
+    /// восстановить последнее выделение и пересчитать раскладку, когда дерево уже построено.
+    /// </summary>
+    public event EventHandler? StartupInitializationCompleted;
 
     /// <summary>Узлы дерева групп информационных баз для отображения «группа в группе».</summary>
     public ObservableCollection<GroupNodeViewModel> GroupNodes { get; private set; }
@@ -3599,7 +3630,8 @@ public string HotkeyEnterprise
             LastSelectedInfobaseId = _lastSelectedInfobaseId,
             LastSelectedGroupPath = _lastSelectedGroupPath,
             ProfileBackupDirectory = _profileBackupDirectory,
-            ProfileRestoreOnStartup = _profileRestoreOnStartup
+            ProfileRestoreOnStartup = _profileRestoreOnStartup,
+            FileSizeCache = new Dictionary<string, Models.FileSizeCacheEntry>(_fileSizeCache)
         });
     }
 
@@ -5197,6 +5229,55 @@ public string HotkeyEnterprise
     /// всей папки базы (включая 1Cv8.1CD и логи), который на UI-потоке заметно задерживал показ
     /// окна при старте. Сами объекты баз обновляются уже после возврата на UI-поток (после await).
     /// </summary>
+    /// <summary>
+    /// Фоновая инициализация после показа окна: строит дерево групп, назначает слоты
+    /// Alt+1…9, восстанавливает последнее выделение и пересчитывает размеры файловых баз.
+    /// Выполняется с индикатором прогресса и с отдачей управления диспетчеру между этапами,
+    /// чтобы окно отрисовалось как можно раньше и интерфейс не «завис» при большом числе баз.
+    /// </summary>
+    private async System.Threading.Tasks.Task CompleteStartupInitializationAsync()
+    {
+        if (_startupInitCompleted)
+            return;
+        _startupInitCompleted = true;
+        try
+        {
+            // Даём диспетчеру отрисовать окно и индикатор загрузки.
+            await System.Threading.Tasks.Task.Delay(30);
+
+            // Назначаем слоты Alt+1…9 уже существующим избранным и проставляем номера в UI.
+            LoadingMessage = LocalizationManager.T("Main.LoadingFavorites");
+            SyncFavoriteHotkeys();
+            await System.Threading.Tasks.Task.Delay(1);
+
+            // Восстанавливаем ветку, содержащую последнюю выбранную строку.
+            PrepareLastSelectionExpansion();
+            await System.Threading.Tasks.Task.Delay(1);
+
+            // Строим дерево групп — самая затратная операция при большом числе баз.
+            LoadingMessage = LocalizationManager.T("Main.LoadingTree");
+            RebuildGroupTree();
+            await System.Threading.Tasks.Task.Delay(1);
+
+            // Размеры файловых ИБ считаются в фоне с учётом кеша (не блокирует UI).
+            RefreshFileMetadata();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка фоновой инициализации главного окна: " + ex.Message);
+        }
+        finally
+        {
+            StartupInitializationCompleted?.Invoke(this, EventArgs.Empty);
+            IsLoading = false;
+            LoadingMessage = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Пересчитывает размеры файловых ИБ в фоне, используя кеш предыдущих вычислений:
+    /// если время последней записи пути не изменилось — диск повторно не сканируется.
+    /// </summary>
     private async void RefreshFileMetadata()
     {
         // Снимок файловых баз на момент вызова: коллекция может меняться, пока считаются размеры.
@@ -5208,14 +5289,73 @@ public string HotkeyEnterprise
         {
             var map = new Dictionary<Infobase, long?>();
             foreach (var ib in fileBases)
-                map[ib] = InfobaseMaintenanceService.CalculateFileBaseSize(ib);
+                map[ib] = CalculateFileBaseSizeCached(ib);
             return map;
         });
 
+        var changed = false;
         foreach (var kv in sizes)
-            kv.Key.FileSizeBytes = kv.Value;
+        {
+            if (kv.Key.FileSizeBytes != kv.Value)
+            {
+                kv.Key.FileSizeBytes = kv.Value;
+                changed = true;
+            }
+        }
+        if (changed)
+            SaveSettings();
         InfobasesView?.Refresh();
     }
+
+    /// <summary>
+    /// Возвращает размер файловой ИБ с учётом кеша: при совпадении времени последней записи
+    /// пути с сохранённым размер берётся без сканирования диска, иначе выполняется расчёт
+    /// и результат помещается в кеш.
+    /// </summary>
+    private long? CalculateFileBaseSizeCached(Infobase ib)
+    {
+        var path = ib.Connection.FilePath?.Trim() ?? "";
+        if (string.IsNullOrEmpty(path))
+            return null;
+        var key = NormalizeCachePath(path);
+        try
+        {
+            // Маркер актуальности: для каталога берём время записи самого файла базы
+            // 1Cv8.1CD (оно меняется при изменении данных базы), иначе — файла/каталога.
+            string marker;
+            if (File.Exists(path))
+                marker = path;
+            else
+            {
+                var dbFile = System.IO.Path.Combine(path, "1Cv8.1CD");
+                marker = File.Exists(dbFile) ? dbFile : path;
+            }
+            DateTime lastWrite = File.Exists(marker)
+                ? File.GetLastWriteTimeUtc(marker)
+                : Directory.GetLastWriteTimeUtc(path);
+            if (_fileSizeCache.TryGetValue(key, out var cached) && cached.LastWriteUtc == lastWrite)
+                return cached.SizeBytes;
+
+            var size = InfobaseMaintenanceService.CalculateFileBaseSize(ib);
+            if (size is not null)
+            {
+                _fileSizeCache[key] = new Models.FileSizeCacheEntry
+                {
+                    SizeBytes = size.Value,
+                    LastWriteUtc = lastWrite
+                };
+            }
+            return size;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Нормализует путь для ключа кеша размеров (убирает хвостовые разделители, верхний регистр).</summary>
+    private static string NormalizeCachePath(string path) =>
+        path.TrimEnd('\\', '/').ToUpperInvariant();
 
     /// <summary>Обработчик запуска пакетной операции DESIGNER (показывает индикатор выгрузки).</summary>
     private void OnDesignerBatchStarted(object? sender, OneCLauncher.DesignerBatchInfo e)

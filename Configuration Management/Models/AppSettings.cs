@@ -387,4 +387,12 @@ public class AppSettings
     /// </summary>
     public bool ProfileRestoreOnStartup { get; set; }
 
+    /// <summary>
+    /// Кеш размеров файловых ИБ (ключ — нормализованный путь в верхнем регистре,
+    /// значение — размер и время последней записи). Используется при запуске, чтобы
+    /// не сканировать диски заново для каждой файловой базы при большом списке
+    /// (<see cref="Configuration_Management.ViewModels.MainViewModel"/>.
+    /// </summary>
+    public Dictionary<string, FileSizeCacheEntry> FileSizeCache { get; set; } = new();
+
 }

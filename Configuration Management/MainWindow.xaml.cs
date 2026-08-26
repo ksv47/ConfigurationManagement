@@ -74,6 +74,21 @@ namespace Configuration_Management
             // чтобы он выполнился уже после того, как ApplyCompact завершит изменения раскладки.
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
 
+            // После завершения фоновой инициализации (дерево уже построено) восстанавливаем
+            // последнее выделение и пересчитываем раскладку — раньше дерево ещё пустое.
+            _viewModel.StartupInitializationCompleted += (_, _) =>
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        RestoreLastSelection();
+                        AlignHeaderToData();
+                    }
+                    catch { /* не блокируем запуск из-за восстановления выделения */ }
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            };
+
             // Применяем сохранённую цветовую схему (тему оформления) при запуске.
             _viewModel.ApplyActiveColorSchemeToUi();
 
