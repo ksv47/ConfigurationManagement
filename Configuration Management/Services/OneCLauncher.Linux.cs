@@ -854,6 +854,18 @@ namespace Configuration_Management.Services
         // Создание информационной базы
         // ====================================================================
 
+        /// <summary>
+        /// Экранирует значение для строки подключения 1С: кавычка внутри значения удваивается.
+        /// <para>
+        /// Тот же помощник есть в <c>OneCLauncher.Arguments.cs</c> для Windows: под Linux оба
+        /// Windows-файла исключены из компиляции (csproj, <c>Compile Remove</c>), поэтому общий
+        /// метод недоступен и правило приходится повторить. Здесь оно нужнее, чем в Windows:
+        /// аргументы уходят через <c>ArgumentList</c>, то есть значение доходит до платформы
+        /// дословно, вместе с кавычками.
+        /// </para>
+        /// </summary>
+        private static string EscapeConnectValue(string value) => value.Replace("\"", "\"\"");
+
         public static (bool Ok, string? Error) CreateInfoBase(
             string platformVersion,
             bool isFile,
@@ -883,7 +895,7 @@ namespace Configuration_Management.Services
                 {
                     return (false, string.Format(LocalizationManager.T("Launcher.CreateDirCreateFailedFormat"), path, ex.Message));
                 }
-                connectionString = $"File=\"{path}\"";
+                connectionString = $"File=\"{EscapeConnectValue(path)}\"";
             }
             else
             {
@@ -891,7 +903,7 @@ namespace Configuration_Management.Services
                 var db = (databaseName ?? "").Trim();
                 if (string.IsNullOrEmpty(srv) || string.IsNullOrEmpty(db))
                     return (false, LocalizationManager.T("Launcher.CreateServerOrDbNotSpecified"));
-                connectionString = $"Srvr=\"{srv}\";Ref=\"{db}\"";
+                connectionString = $"Srvr=\"{EscapeConnectValue(srv)}\";Ref=\"{EscapeConnectValue(db)}\"";
             }
 
             var args = new List<string> { "CREATEINFOBASE", connectionString };
