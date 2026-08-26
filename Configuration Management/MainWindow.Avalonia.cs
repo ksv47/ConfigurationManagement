@@ -2553,7 +2553,7 @@ namespace Configuration_Management
             Grid.SetColumnSpan(tools, NameHeaderColumn);
             tools.ZIndex = 1;
 
-            var nameHeader = HeaderText(LocalizationManager.T("Column.Name"));
+            var nameHeader = ColumnHeader(LocalizationManager.T("Column.Name"), IconHelper.ColumnIconKey("Name"));
             MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
             _columnHeaderRow.Children.Add(nameHeader);
             Grid.SetColumn(nameHeader, NameHeaderColumn);
@@ -2573,7 +2573,7 @@ namespace Configuration_Management
                     dataColumn++;
                 _headerColumnIndex[columns[i].Key] = dataColumn;
 
-                var text = HeaderText(columns[i].Header);
+                var text = ColumnHeader(columns[i].Header, IconHelper.ColumnIconKey(columns[i].Key));
                 if (columns[i].Key == "LastLaunch")
                     MakeSortableHeader(text, "LastLaunchDate", LocalizationManager.T("Main.ColumnLastLaunchSortTooltip"));
                 _columnHeaderRow.Children.Add(text);
@@ -2586,7 +2586,7 @@ namespace Configuration_Management
 
             // Подпись колонки «Действия» — сразу после колонки «Режим запуска»,
             // без разделителя.
-            var actionsHeader = HeaderText(LocalizationManager.T("Column.Actions"));
+            var actionsHeader = ColumnHeader(LocalizationManager.T("Column.Actions"), IconHelper.ColumnIconKey("Actions"));
             _columnHeaderRow.Children.Add(actionsHeader);
             Grid.SetColumn(actionsHeader, NameHeaderColumn + 1 + actionsOffset);
 
@@ -3075,7 +3075,7 @@ namespace Configuration_Management
         }
 
         /// <summary>Делает заголовок колонки кликабельным: клик меняет поле сортировки.</summary>
-        private void MakeSortableHeader(TextBlock header, string field, string tooltip)
+        private void MakeSortableHeader(Control header, string field, string tooltip)
         {
             header.Cursor = new Cursor(StandardCursorType.Hand);
             ToolTip.SetTip(header, tooltip);
@@ -3156,8 +3156,21 @@ namespace Configuration_Management
                     >= _headerToolbarWidth;
         }
 
-        private static TextBlock HeaderText(string text)
+        /// <summary>
+        /// Заголовок колонки: иконка колонки и подпись. Иконки заголовков совпадают
+        /// с иконками списка колонок на вкладке «Отображение» — оба берут ключ из
+        /// <see cref="IconHelper.ColumnIconKey"/>.
+        /// </summary>
+        private static Control ColumnHeader(string text, string iconKey)
         {
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            panel.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(13), "TextSecondaryBrush"));
+
             var block = new TextBlock
             {
                 Text = text,
@@ -3167,7 +3180,8 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center
             };
             ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            return block;
+            panel.Children.Add(block);
+            return panel;
         }
 
         /// <summary>

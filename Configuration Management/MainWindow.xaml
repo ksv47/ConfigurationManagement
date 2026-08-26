@@ -623,37 +623,85 @@
                                                              Visibility="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
                                 </StackPanel>
 
-                                <TextBlock Grid.Column="4" Text="{loc:Loc Column.Name}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="0,0,8,4"
-                                           Cursor="Hand" Tag="Name" ToolTip="{loc:Loc Main.ColumnNameSortTooltip}"
-                                           MouseLeftButtonUp="OnColumnHeader_Click"/>
-                                <TextBlock Grid.Column="5" Text="{loc:Loc Column.Version}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="6" Text="{loc:Loc Column.LaunchMode}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="7" Text="{loc:Loc Column.Actions}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           ToolTip="{loc:Loc Main.Actions}"/>
-                                <TextBlock Grid.Column="8" Text="{loc:Loc Column.ServerBase}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="9" Text="{loc:Loc Column.LastLaunch}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           Cursor="Hand" Tag="LastLaunchDate" ToolTip="{loc:Loc Main.ColumnLastLaunchSortTooltip}"
-                                           MouseLeftButtonUp="OnColumnHeader_Click"/>
-                                <TextBlock Grid.Column="10" Text="{loc:Loc Column.Size}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           ToolTip="{loc:Loc Main.ColumnSizeTooltip}"/>
-                                <TextBlock Grid.Column="11" Text="{loc:Loc Column.Configuration}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           ToolTip="{loc:Loc Main.ColumnNameTooltip}"/>
+                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="0,0,8,4"
+                                            Cursor="Hand" Tag="Name" ToolTip="{loc:Loc Main.ColumnNameSortTooltip}"
+                                            MouseLeftButtonUp="OnColumnHeader_Click">
+                                    <materialDesign:PackIcon Kind="FormatTitle" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.Name}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4">
+                                    <materialDesign:PackIcon Kind="Information" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.Version}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4">
+                                    <materialDesign:PackIcon Kind="Play" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.LaunchMode}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="7" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Left" Margin="6,0,6,4"
+                                            ToolTip="{loc:Loc Main.Actions}">
+                                    <materialDesign:PackIcon Kind="Cog" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.Actions}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="8" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4">
+                                    <materialDesign:PackIcon Kind="Server" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.ServerBase}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="9" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4"
+                                            Cursor="Hand" Tag="LastLaunchDate" ToolTip="{loc:Loc Main.ColumnLastLaunchSortTooltip}"
+                                            MouseLeftButtonUp="OnColumnHeader_Click">
+                                    <materialDesign:PackIcon Kind="ClockOutline" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.LastLaunch}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="10" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4"
+                                            ToolTip="{loc:Loc Main.ColumnSizeTooltip}">
+                                    <materialDesign:PackIcon Kind="Database" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.Size}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="11" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4"
+                                            ToolTip="{loc:Loc Main.ColumnNameTooltip}">
+                                    <materialDesign:PackIcon Kind="CubeOutline" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.Configuration}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
 
                                 <!-- Современные разделители колонок: тонкая линия + широкая зона захвата -->
                                 <Border x:Name="NameSplitter" Grid.Column="4"

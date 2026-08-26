@@ -358,7 +358,7 @@ namespace Configuration_Management
             };
 
             var orderItems = new ObservableCollection<ColumnOrderItem>(
-                _viewModel.ColumnOrderKeys.Select(k => new ColumnOrderItem(k, ColumnOrderLabel(k), ColumnVisible(k))));
+                _viewModel.ColumnOrderKeys.Select(k => new ColumnOrderItem(k, ColumnOrderLabel(k), ColumnVisible(k), IconHelper.ColumnIconKey(k))));
             var orderList = new ListBox
             {
                 ItemsSource = orderItems,
@@ -366,12 +366,24 @@ namespace Configuration_Management
                 MaxHeight = 200,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 // Каждая строка — флажок видимости с именем колонки; переключение
-                // правит только видимость, порядок меняется кнопками ниже.
+                // правит только видимость, порядок меняется кнопками ниже. Иконка
+                // колонки совпадает с иконкой заголовка списка баз.
                 ItemTemplate = new FuncDataTemplate<ColumnOrderItem>((item, _) =>
                 {
+                    var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    content.Children.Add(IconHelper.MakeIcon(item.IconKey, 14, "TextSecondaryBrush"));
+                    var label = new TextBlock
+                    {
+                        Text = item.Display,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    };
+                    Themes.ThemeBrushes.Bind(label, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+                    content.Children.Add(label);
+
                     var check = new CheckBox
                     {
-                        Content = item.Display,
+                        Content = content,
                         VerticalAlignment = VerticalAlignment.Center
                     };
                     check.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
@@ -1513,12 +1525,14 @@ namespace Configuration_Management
             public string Key { get; }
             public string Display { get; }
             public bool Visible { get; set; }
+            public string IconKey { get; }
 
-            public ColumnOrderItem(string key, string display, bool visible)
+            public ColumnOrderItem(string key, string display, bool visible, string iconKey)
             {
                 Key = key;
                 Display = display;
                 Visible = visible;
+                IconKey = iconKey;
             }
 
             public override string ToString() => Display;

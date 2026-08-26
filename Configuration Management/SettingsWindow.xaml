@@ -576,10 +576,16 @@
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="Auto"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0" Text="{Binding Display}"
-                                                                   VerticalAlignment="Center"
-                                                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                                                   ToolTip="{loc:Loc Settings.Columns.RowSelectHint}"/>
+                                                        <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                                    VerticalAlignment="Center">
+                                                            <materialDesign:PackIcon Kind="{Binding IconKind}" Width="16" Height="16"
+                                                                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding Display}"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                       ToolTip="{loc:Loc Settings.Columns.RowSelectHint}"/>
+                                                        </StackPanel>
                                                         <ToggleButton Grid.Column="1"
                                                                       Style="{StaticResource ColumnVisibilitySwitch}"
                                                                       IsChecked="{Binding Visible, Mode=TwoWay}"/>

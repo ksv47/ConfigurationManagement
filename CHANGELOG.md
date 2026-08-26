@@ -5,6 +5,16 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.4.24] — 2026-08-26
+
+### Изменено
+
+- **Иконки в заголовках колонок списка баз и в настройках колонок (обе платформы)**. В заголовки колонок списка баз добавлены векторные иконки, соответствующие содержимому колонки: «Название» — список, «Версия» — информация, «Конфигурация» — куб 1С, «Режим запуска» — пуск, «Сервер/База» — сервер, «Последний запуск» — часы, «Размер» — база данных, «Действия» — шестерёнка. Те же иконки добавлены в строки списка колонок на вкладке **Настройки → Отображение → Колонки**, поэтому иконки в заголовках и в настройках совпадают. На Windows/WPF иконки заданы через `materialDesign:PackIcon` в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml) (заголовки) и в шаблоне списка колонок [`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml); соответствие `ColumnOrderIcon` и свойство `ColumnOrderItem.IconKind` добавлены в [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs). На Linux/Avalonia общий источник `IconHelper.ColumnIconKey` используется в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs) (заголовки) и [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs) (настройки).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.24** (`InformationalVersion` = 0.3.4.24 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.4.23] — 2026-08-26
 
 ### Изменено

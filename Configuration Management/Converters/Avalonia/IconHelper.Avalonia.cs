@@ -90,6 +90,24 @@ namespace Configuration_Management
             };
         }
 
+        /// <summary>
+        /// Ключ иконки колонки списка баз. Единый источник истины для заголовков
+        /// колонок и списка колонок на вкладке «Отображение», чтобы иконки в обоих
+        /// местах совпадали. Неизвестные ключи (например пользовательские в настройках)
+        /// получают иконку списка по умолчанию.
+        /// </summary>
+        public static string ColumnIconKey(string key) => key switch
+        {
+            "Version" => "IconInfo",
+            "Configuration" => "IconConfiguration",
+            "LaunchMode" => "IconPlay",
+            "ServerBase" => "IconServices",
+            "LastLaunch" => "IconRecent",
+            "Size" => "IconDatabase",
+            "Actions" => "IconSettings",
+            _ => "IconList"
+        };
+
     }
 }
 #endif

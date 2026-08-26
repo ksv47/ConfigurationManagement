@@ -837,6 +837,7 @@ namespace Configuration_Management
             public string Key { get; init; } = string.Empty;
             public string Display { get; init; } = string.Empty;
             public bool Visible { get; set; } = true;
+            public MaterialDesignThemes.Wpf.PackIconKind IconKind { get; init; }
 
             public override string ToString() => Display;
         }
@@ -853,6 +854,19 @@ namespace Configuration_Management
             "Actions" => "Column.Actions",
             _ => "Column.Name"
         });
+
+        /// <summary>Иконка колонки по её ключу — та же, что в заголовке списка баз.</summary>
+        private static MaterialDesignThemes.Wpf.PackIconKind ColumnOrderIcon(string key) => key switch
+        {
+            "Version" => MaterialDesignThemes.Wpf.PackIconKind.Information,
+            "Configuration" => MaterialDesignThemes.Wpf.PackIconKind.CubeOutline,
+            "LaunchMode" => MaterialDesignThemes.Wpf.PackIconKind.Play,
+            "ServerBase" => MaterialDesignThemes.Wpf.PackIconKind.Server,
+            "LastLaunch" => MaterialDesignThemes.Wpf.PackIconKind.ClockOutline,
+            "Size" => MaterialDesignThemes.Wpf.PackIconKind.Database,
+            "Actions" => MaterialDesignThemes.Wpf.PackIconKind.Cog,
+            _ => MaterialDesignThemes.Wpf.PackIconKind.FormatTitle
+        };
 
         /// <summary>Видимость колонки по её ключу из текущих настроек.</summary>
         private bool ColumnVisible(string key) => key switch
@@ -871,7 +885,13 @@ namespace Configuration_Management
         {
             _columnOrderItems.Clear();
             foreach (var key in _viewModel.ColumnOrderKeys)
-                _columnOrderItems.Add(new ColumnOrderItem { Key = key, Display = ColumnOrderLabel(key), Visible = ColumnVisible(key) });
+                _columnOrderItems.Add(new ColumnOrderItem
+                {
+                    Key = key,
+                    Display = ColumnOrderLabel(key),
+                    Visible = ColumnVisible(key),
+                    IconKind = ColumnOrderIcon(key)
+                });
             if (ColumnOrderList != null)
                 ColumnOrderList.ItemsSource = _columnOrderItems;
             UpdateColumnOrderButtons();
