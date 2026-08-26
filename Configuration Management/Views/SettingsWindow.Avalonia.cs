@@ -394,7 +394,14 @@ namespace Configuration_Management
                     content.Children.Add(label);
                     ToolTip.SetTip(content, LocalizationManager.T("Settings.Columns.RowSelectHint"));
 
-                    var check = new CheckBox { VerticalAlignment = VerticalAlignment.Center };
+                    // Тумблер-пилюля, как ColumnVisibilitySwitch в разметке WPF:
+                    // подписей у положений нет, отметка только цветом и позицией.
+                    var check = new ToggleSwitch
+                    {
+                        VerticalAlignment = VerticalAlignment.Center,
+                        OnContent = null,
+                        OffContent = null
+                    };
                     check.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
                         new Avalonia.Data.Binding(nameof(ColumnOrderItem.Visible))
                         { Mode = Avalonia.Data.BindingMode.TwoWay });
