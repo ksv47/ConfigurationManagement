@@ -3675,7 +3675,7 @@ public class MainViewModel : ViewModelBase
         if (StatusShowConnectionPath)
         {
             var path = ib.Connection.Type == ConnectionType.File
-                ? (string.IsNullOrWhiteSpace(ib.Connection.FilePath) ? "-" : ib.Connection.FilePath)
+                ? (string.IsNullOrWhiteSpace(ib.Connection.FilePath) ? "—" : ib.Connection.FilePath)
                 : ib.ServerDatabaseDisplay;
             if (!string.IsNullOrWhiteSpace(path))
                 parts.Add(path);
