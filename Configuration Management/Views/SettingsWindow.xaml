@@ -25,6 +25,38 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
+        <!-- «Голый» тумблер без подписи: переключает только сам выключатель,
+             в отличие от SettingsToggle, где кликабельна вся строка. Используется
+             в списке колонок, чтобы клик по названию лишь выбирал строку. -->
+        <Style x:Key="ColumnVisibilitySwitch" TargetType="ToggleButton">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Track" CornerRadius="11" Background="#CBD5E1">
+                            <Ellipse x:Name="Thumb" Width="16" Height="16" Fill="White"
+                                     HorizontalAlignment="Left" Margin="3,0,0,0" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="Thumb" Property="Margin" Value="0,0,3,0"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Implicit-стили для корректного отображения в тёмной теме -->
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -506,65 +538,73 @@
                                 <TextBlock Text="{loc:Loc Settings.Columns.Description}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,10"/>
-                                <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowNameColumnCheck" IsChecked="True" IsEnabled="False" Margin="0,0,0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="FormatTitle" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Column.Name}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </ToggleButton>
-                                <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowVersionColumnCheck" Margin="0,0,0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="CubeOutline" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Column.Version}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </ToggleButton>
-                                <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowConfigurationColumnCheck" Margin="0,0,0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="FileDocumentOutline" Width="16" Height="16" Foreground="#EC4899" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Columns.Configuration}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </ToggleButton>
-                                <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowLaunchModeColumnCheck" Margin="0,0,0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="PlayCircleOutline" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Column.LaunchMode}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </ToggleButton>
-                                <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowServerColumnCheck" Margin="0,0,0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Server" Width="16" Height="16" Foreground="#14B8A6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Column.ServerBase}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </ToggleButton>
-                                <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowLastLaunchColumnCheck" Margin="0,0,0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="ClockOutline" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Column.LastLaunch}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </ToggleButton>
-                                <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowSizeColumnCheck">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Harddisk" Width="16" Height="16" Foreground="#64748B" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Columns.Size}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </ToggleButton>
-
-                                <!-- Порядок колонок списка баз (кроме закреплённой «Название», которая всегда первая) -->
-                                <TextBlock Text="{loc:Loc Settings.Columns.OrderTitle}" FontWeight="SemiBold" FontSize="13"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,16,0,4"/>
+                                <!-- Видимость и порядок колонок задаются в одном списке:
+                                     слева название колонки, справа тумблер видимости,
+                                     порядок меняется кнопками «Вверх»/«Вниз». -->
+                                <TextBlock Text="{loc:Loc Settings.Columns.OrderTitle}" FontWeight="SemiBold" FontSize="14"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,4"/>
                                 <TextBlock Text="{loc:Loc Settings.Columns.OrderHint}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
-                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                <ListBox x:Name="ColumnOrderList" Height="150"
-                                         SelectionChanged="OnColumnOrderList_SelectionChanged"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                           TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                <Border Background="{DynamicResource CardBackgroundBrush}"
+                                        BorderBrush="{DynamicResource BorderBrushColor}"
+                                        BorderThickness="1" CornerRadius="8" Padding="8,6">
+                                    <StackPanel>
+                                        <!-- Колонка «Название» закреплена и всегда первая (тумблер неактивен). -->
+                                        <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowNameColumnCheck" IsChecked="True" IsEnabled="False">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="FormatTitle" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{loc:Loc Column.Name}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ToggleButton>
+                                        <Separator Margin="0,2,0,4"/>
+                                        <ListBox x:Name="ColumnOrderList" MinHeight="180" MaxHeight="240"
+                                                 BorderThickness="0" Background="Transparent"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                 SelectionChanged="OnColumnOrderList_SelectionChanged">
+                                            <ListBox.ItemContainerStyle>
+                                                <Style TargetType="ListBoxItem">
+                                                    <Setter Property="Padding" Value="4,2"/>
+                                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                </Style>
+                                            </ListBox.ItemContainerStyle>
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <!-- Название выбирает строку, тумблер справа — только видимость. -->
+                                                    <Grid Margin="4,3">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                                    VerticalAlignment="Center">
+                                                            <materialDesign:PackIcon Kind="{Binding IconKind}" Width="16" Height="16"
+                                                                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding Display}"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                       ToolTip="{loc:Loc Settings.Columns.RowSelectHint}"/>
+                                                        </StackPanel>
+                                                        <ToggleButton Grid.Column="1"
+                                                                      Style="{StaticResource ColumnVisibilitySwitch}"
+                                                                      IsChecked="{Binding Visible, Mode=TwoWay}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                     <Button x:Name="ColumnOrderUpButton"
                                             Content="{loc:Loc Settings.Columns.OrderUp}"
-                                            IsEnabled="False" Margin="0,0,6,0"
+                                            IsEnabled="False" Margin="0,0,8,0"
+                                            Padding="12,7"
                                             Click="OnColumnOrderUp_Click"/>
                                     <Button x:Name="ColumnOrderDownButton"
                                             Content="{loc:Loc Settings.Columns.OrderDown}"
                                             IsEnabled="False"
+                                            Padding="12,7"
                                             Click="OnColumnOrderDown_Click"/>
                                 </StackPanel>
                             </StackPanel>
@@ -1108,6 +1148,14 @@
                                 <TextBlock Text="{loc:Loc Settings.CompactMode}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
+                        <Button x:Name="ManageProfilesButton" Width="250" Height="36" HorizontalAlignment="Left" Margin="0,18,0,0"
+                                Style="{StaticResource ModernButton}"
+                                Click="OnManageProfiles_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="AccountMultiple" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.General.ManageProfiles}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

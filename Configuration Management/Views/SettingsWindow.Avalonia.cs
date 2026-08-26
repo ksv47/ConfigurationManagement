@@ -227,6 +227,20 @@ namespace Configuration_Management
             afterLaunchBox.SelectedIndex = (int)Models.AfterLaunchActionHelper.Parse(_viewModel.AfterLaunchAction);
             settings.Children.Add(afterLaunchBox);
 
+            // Управление учётными записями (профилями).
+            var manageProfilesButton = new Button
+            {
+                Content = LocalizationManager.T("Settings.General.ManageProfiles"),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 12, 0, 0)
+            };
+            manageProfilesButton.Click += (_, _) =>
+            {
+                var profiles = AppServices.GetRequiredService<IProfileService>();
+                new ProfilesWindow(profiles).ShowDialogSync(this);
+            };
+            settings.Children.Add(manageProfilesButton);
+
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabGeneral"), Content = new ScrollViewer { Content = settings, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== Платформы =====
@@ -314,22 +328,12 @@ namespace Configuration_Management
             foreach (var check in new[] { favoritesCheck, pinnedCheck, tagsCheck, tagPanelCheck })
                 display.Children.Add(check);
 
+            // Видимость и порядок колонок редактируются в одном списке: у каждой
+            // строки есть флажок видимости, а порядок задаётся кнопками «Вверх»/«Вниз»
+            // по выбранной строке. Так не нужно держать две раздельные группы настроек.
             display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Columns")));
             display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
-            var versionCheck = DisplayCheck("Column.Version", _viewModel.ShowVersionColumn);
-            var configurationCheck = DisplayCheck("Settings.Columns.Configuration", _viewModel.ShowConfigurationColumn);
-            var launchModeCheck = DisplayCheck("Column.LaunchMode", _viewModel.ShowLaunchModeColumn);
-            var serverCheck = DisplayCheck("Column.ServerBase", _viewModel.ShowServerColumn);
-            var lastLaunchCheck = DisplayCheck("Column.LastLaunch", _viewModel.ShowLastLaunchColumn);
-            var sizeCheck = DisplayCheck("Settings.Columns.Size", _viewModel.ShowSizeColumn);
-            foreach (var check in new[] { versionCheck, configurationCheck, launchModeCheck, serverCheck, lastLaunchCheck, sizeCheck })
-                display.Children.Add(check);
 
-            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Columns.OrderTitle")));
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
-
-            // Порядок колонок редактируется кнопками «Вверх»/«Вниз» по выбранной
-            // строке; список хранит ключи колонок, а показывает локализованные имена.
             static string ColumnOrderLabel(string key) => LocalizationManager.T(key switch
             {
                 "Version" => "Column.Version",
@@ -342,14 +346,51 @@ namespace Configuration_Management
                 _ => "Column.Name"
             });
 
+            bool ColumnVisible(string key) => key switch
+            {
+                "Version" => _viewModel.ShowVersionColumn,
+                "Configuration" => _viewModel.ShowConfigurationColumn,
+                "LaunchMode" => _viewModel.ShowLaunchModeColumn,
+                "ServerBase" => _viewModel.ShowServerColumn,
+                "LastLaunch" => _viewModel.ShowLastLaunchColumn,
+                "Size" => _viewModel.ShowSizeColumn,
+                _ => true
+            };
+
             var orderItems = new ObservableCollection<ColumnOrderItem>(
-                _viewModel.ColumnOrderKeys.Select(k => new ColumnOrderItem(k, ColumnOrderLabel(k))));
+                _viewModel.ColumnOrderKeys.Select(k => new ColumnOrderItem(k, ColumnOrderLabel(k), ColumnVisible(k), IconHelper.ColumnIconKey(k))));
             var orderList = new ListBox
             {
                 ItemsSource = orderItems,
                 MinHeight = 120,
                 MaxHeight = 200,
-                HorizontalAlignment = HorizontalAlignment.Stretch
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                // Каждая строка — флажок видимости с именем колонки; переключение
+                // правит только видимость, порядок меняется кнопками ниже. Иконка
+                // колонки совпадает с иконкой заголовка списка баз.
+                ItemTemplate = new FuncDataTemplate<ColumnOrderItem>((item, _) =>
+                {
+                    var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    content.Children.Add(IconHelper.MakeIcon(item.IconKey, 14, "TextSecondaryBrush"));
+                    var label = new TextBlock
+                    {
+                        Text = item.Display,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    };
+                    Themes.ThemeBrushes.Bind(label, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+                    content.Children.Add(label);
+
+                    var check = new CheckBox
+                    {
+                        Content = content,
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    check.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
+                        new Avalonia.Data.Binding(nameof(ColumnOrderItem.Visible))
+                        { Mode = Avalonia.Data.BindingMode.TwoWay });
+                    return check;
+                })
             };
             display.Children.Add(orderList);
 
@@ -384,6 +425,8 @@ namespace Configuration_Management
             orderButtons.Children.Add(moveUp);
             orderButtons.Children.Add(moveDown);
             display.Children.Add(orderButtons);
+
+            display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
 
             display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Panels")));
             display.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
@@ -1168,17 +1211,21 @@ namespace Configuration_Management
                     hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value);
 
                 // Настройки отображения применяются и сохраняются одним вызовом.
+                // Видимость колонок читается из тех же элементов списка, где
+                // задаётся и порядок: флажок каждой строки и есть её видимость.
+                bool VisibleOf(string key) => orderItems.FirstOrDefault(o => o.Key == key)?.Visible ?? true;
+
                 _viewModel.ApplyDisplaySettings(
                     favoritesCheck.IsChecked == true,
                     pinnedCheck.IsChecked == true,
                     tagsCheck.IsChecked == true,
                     tagPanelCheck.IsChecked == true,
-                    versionCheck.IsChecked == true,
-                    configurationCheck.IsChecked == true,
-                    launchModeCheck.IsChecked == true,
-                    serverCheck.IsChecked == true,
-                    lastLaunchCheck.IsChecked == true,
-                    sizeCheck.IsChecked == true,
+                    VisibleOf("Version"),
+                    VisibleOf("Configuration"),
+                    VisibleOf("LaunchMode"),
+                    VisibleOf("ServerBase"),
+                    VisibleOf("LastLaunch"),
+                    VisibleOf("Size"),
                     rightPanelCheck.IsChecked == true,
                     sessionPanelCheck.IsChecked == true,
                     groupByGroupCheck.IsChecked == true,
@@ -1468,8 +1515,26 @@ namespace Configuration_Management
             _ = win.ShowDialog(this);
         }
 
-        private sealed record ColumnOrderItem(string Key, string Display)
+        /// <summary>
+        /// Строка списка колонок: ключ колонки, локализованное имя и флаг видимости.
+        /// Один элемент объединяет порядок и видимость колонки — оба редактируются
+        /// в одном списке на вкладке «Отображение».
+        /// </summary>
+        private sealed class ColumnOrderItem
         {
+            public string Key { get; }
+            public string Display { get; }
+            public bool Visible { get; set; }
+            public string IconKey { get; }
+
+            public ColumnOrderItem(string key, string display, bool visible, string iconKey)
+            {
+                Key = key;
+                Display = display;
+                Visible = visible;
+                IconKey = iconKey;
+            }
+
             public override string ToString() => Display;
         }
     }

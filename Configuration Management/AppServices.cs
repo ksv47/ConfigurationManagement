@@ -15,30 +15,29 @@ public static class AppServices
     {
         var services = new ServiceCollection();
 
+        // Общие регистрации для обеих платформ (Windows/WPF и Linux/Avalonia):
+        // реализации сервисов платформы 1С не зависят от UI-фреймворка.
+        services.AddSingleton<IProfileService, ProfileService>();
+        services.AddSingleton<IAppLogger, FileAppLogger>();
+        services.AddSingleton<IInfobaseRepository, InfobaseRepository>();
+        services.AddSingleton<IOneCLauncher, OneCLauncherService>();
+        services.AddSingleton<IOneCComConnector, OneCComConnector>();
+        services.AddSingleton<IPlatformVersionService, PlatformVersionServiceAdapter>();
+        services.AddSingleton<IIbasesSyncService, IbasesSyncService>();
+        services.AddTransient<MainViewModel>();
+        services.AddTransient<MainWindow>();
+
 #if WINDOWS
-        services.AddSingleton<IAppLogger, FileAppLogger>();
+        // Windows — приоритетная платформа (WPF). Здесь дополнительно регистрируются
+        // WPF-диалоги, регистратор COM-коннектора и Windows-only модели представления окон.
         services.AddSingleton<IDialogService, WpfDialogService>();
-        services.AddSingleton<IInfobaseRepository, InfobaseRepository>();
-        services.AddSingleton<IOneCLauncher, OneCLauncherService>();
-        services.AddSingleton<IOneCComConnector, OneCComConnector>();
         services.AddSingleton<IOneCComConnectorRegistrar, OneCComConnectorRegistrar>();
-        services.AddSingleton<IPlatformVersionService, PlatformVersionServiceAdapter>();
-        services.AddSingleton<IIbasesSyncService, IbasesSyncService>();
-        services.AddTransient<MainViewModel>();
-        services.AddTransient<MainWindow>();
+        services.AddTransient<SettingsViewModel>();
+        services.AddTransient<ProfilesViewModel>();
 #else
-        // Linux (Avalonia): полноценные реализации сервисов платформы 1С (Этап 5).
-        // Регистратор COM-коннектора не подключается — на Linux COM отсутствует
-        // (чтение конфигурации выполняется без COM: 1Cv8.1CD / DESIGNER).
-        services.AddSingleton<IAppLogger, FileAppLogger>();
+        // Linux (Avalonia): диалоги Avalonia. Регистратор COM-коннектора не подключается —
+        // на Linux COM отсутствует (чтение конфигурации выполняется без COM: 1Cv8.1CD / DESIGNER).
         services.AddSingleton<IDialogService, AvaloniaDialogService>();
-        services.AddSingleton<IInfobaseRepository, InfobaseRepository>();
-        services.AddSingleton<IOneCLauncher, OneCLauncherService>();
-        services.AddSingleton<IOneCComConnector, OneCComConnector>();
-        services.AddSingleton<IPlatformVersionService, PlatformVersionServiceAdapter>();
-        services.AddSingleton<IIbasesSyncService, IbasesSyncService>();
-        services.AddTransient<MainViewModel>();
-        services.AddTransient<MainWindow>();
 #endif
 
         Services = services.BuildServiceProvider();

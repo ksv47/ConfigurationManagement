@@ -1,0 +1,61 @@
+#if LINUX
+using System;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Layout;
+using Configuration_Management.Controls;
+using Configuration_Management.Localization;
+
+namespace Configuration_Management
+{
+    /// <summary>
+    /// Диалог выбора цвета (Avalonia/Linux). Оборачивает переиспользуемый
+    /// элемент <see cref="ColorPickerControl"/> в модальное окно с кнопками
+    /// «Отмена»/«ОК». WPF-аналог — <see cref="ColorPickerWindow"/>.
+    /// </summary>
+    public class ColorPickerWindow : ModalWindowBase
+    {
+        private readonly ColorPickerControl _picker = new();
+
+        /// <summary>
+        /// Создаёт диалог выбора цвета.
+        /// </summary>
+        /// <param name="initialColor">Начальный цвет в формате #RRGGBB.</param>
+        public ColorPickerWindow(string? initialColor = null)
+        {
+            Title = LocalizationManager.T("ColorPicker.Title");
+            Width = 470;
+            SizeToContent = SizeToContent.Height;
+            CanResize = false;
+            SystemDecorations = SystemDecorations.Full;
+
+            if (!string.IsNullOrWhiteSpace(initialColor))
+                _picker.SelectedColor = initialColor;
+
+            var root = new Grid { Margin = new Thickness(16) };
+            root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            Grid.SetRow(_picker, 0);
+            root.Children.Add(_picker);
+
+            var buttons = BuildButtons(LocalizationManager.T("Common.Ok"), 90, OnOk_Click);
+            Grid.SetRow(buttons, 1);
+            root.Children.Add(buttons);
+
+            Content = root;
+        }
+
+        /// <summary>
+        /// Возвращает выбранный цвет в формате #RRGGBB.
+        /// </summary>
+        public string Result { get; private set; } = "#2D6CDF";
+
+        private void OnOk_Click()
+        {
+            Result = _picker.SelectedColor ?? "#2D6CDF";
+        }
+    }
+}
+#endif

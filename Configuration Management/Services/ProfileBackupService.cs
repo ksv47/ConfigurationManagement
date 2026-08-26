@@ -33,6 +33,16 @@ public static class ProfileBackupService
     public const string IbasesFileName = "ibases.v8i";
 
     /// <summary>
+    /// Резолвер каталога данных активного профиля, из которого выполняется резервное
+    /// копирование и в который выполняется восстановление. По умолчанию — общий каталог
+    /// данных приложения (легаси-режим); приложение устанавливает его при старте после
+    /// выбора учётной записи, чтобы копировались файлы именно активного профиля.
+    /// </summary>
+    public static Func<string> DataDirectoryResolver { get; set; } = () => PlatformPaths.AppDataDirectory;
+
+    private static string SourceDataDirectory => DataDirectoryResolver();
+
+    /// <summary>
     /// Определяет путь к файлу ibases.v8i, который входит в профиль: пользовательский путь
     /// из настроек, если задан, иначе стандартный путь 1С.
     /// </summary>
@@ -84,7 +94,7 @@ public static class ProfileBackupService
         // Файлы каталога данных приложения.
         foreach (var name in DataFileNames)
         {
-            var source = Path.Combine(PlatformPaths.AppDataDirectory, name);
+            var source = Path.Combine(SourceDataDirectory, name);
             if (!File.Exists(source))
                 continue;
             File.Copy(source, Path.Combine(backupDirectory, name), overwrite: true);
@@ -128,7 +138,7 @@ public static class ProfileBackupService
             var source = Path.Combine(backupDirectory, name);
             if (!File.Exists(source))
                 continue;
-            var targetDir = PlatformPaths.AppDataDirectory;
+            var targetDir = SourceDataDirectory;
             Directory.CreateDirectory(targetDir);
             File.Copy(source, Path.Combine(targetDir, name), overwrite: true);
             restored++;

@@ -93,6 +93,8 @@ namespace Configuration_Management
             _vm = viewModel;
 
             Title = LocalizationManager.T("App.Title");
+            // Значок в заголовке окна — тот же app.ico, что и у приложения и трея.
+            Icon = Services.AppIconLoader.LoadAppIcon();
             Width = 1200;
             Height = 760;
             MinWidth = 900;
@@ -1555,8 +1557,14 @@ namespace Configuration_Management
             // Блок «Текущая сессия»: значения действуют только на следующий запуск.
             panel.Children.Add(BuildSessionCard());
 
-            // Описание.
-            var desc = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = UiMetrics.ScaledFont(12) };
+            // Описание (стиль из ConfigurationManagement): значение TextPrimaryBrush, нижний отступ.
+            var desc = new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = UiMetrics.ScaledFont(12),
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            ThemeBrushes.Bind(desc, TextBlock.ForegroundProperty, "TextPrimaryBrush");
             desc.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.Description"));
             panel.Children.Add(SectionCard(LocalizationManager.T("Main.Description"), "IconInfo", desc));
 
@@ -2250,7 +2258,9 @@ namespace Configuration_Management
             /// <summary>Собирает содержимое «иконка + текст» с цветом по состоянию выбора.</summary>
             private void UpdateContent()
             {
-                var brushKey = IsChecked == true ? "TextOnAccentBrush" : "TextPrimaryBrush";
+                // Невыбранное состояние — приглушённый текст (как в WPF SegmentRadioButton),
+                // выбранное — контрастный текст на акцентной заливке.
+                var brushKey = IsChecked == true ? "TextOnAccentBrush" : "TextSecondaryBrush";
                 var sp = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
@@ -2543,7 +2553,7 @@ namespace Configuration_Management
             Grid.SetColumnSpan(tools, NameHeaderColumn);
             tools.ZIndex = 1;
 
-            var nameHeader = HeaderText(LocalizationManager.T("Column.Name"));
+            var nameHeader = ColumnHeader(LocalizationManager.T("Column.Name"), IconHelper.ColumnIconKey("Name"));
             MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
             _columnHeaderRow.Children.Add(nameHeader);
             Grid.SetColumn(nameHeader, NameHeaderColumn);
@@ -2563,7 +2573,7 @@ namespace Configuration_Management
                     dataColumn++;
                 _headerColumnIndex[columns[i].Key] = dataColumn;
 
-                var text = HeaderText(columns[i].Header);
+                var text = ColumnHeader(columns[i].Header, IconHelper.ColumnIconKey(columns[i].Key));
                 if (columns[i].Key == "LastLaunch")
                     MakeSortableHeader(text, "LastLaunchDate", LocalizationManager.T("Main.ColumnLastLaunchSortTooltip"));
                 _columnHeaderRow.Children.Add(text);
@@ -2576,7 +2586,7 @@ namespace Configuration_Management
 
             // Подпись колонки «Действия» — сразу после колонки «Режим запуска»,
             // без разделителя.
-            var actionsHeader = HeaderText(LocalizationManager.T("Column.Actions"));
+            var actionsHeader = ColumnHeader(LocalizationManager.T("Column.Actions"), IconHelper.ColumnIconKey("Actions"));
             _columnHeaderRow.Children.Add(actionsHeader);
             Grid.SetColumn(actionsHeader, NameHeaderColumn + 1 + actionsOffset);
 
@@ -3065,7 +3075,7 @@ namespace Configuration_Management
         }
 
         /// <summary>Делает заголовок колонки кликабельным: клик меняет поле сортировки.</summary>
-        private void MakeSortableHeader(TextBlock header, string field, string tooltip)
+        private void MakeSortableHeader(Control header, string field, string tooltip)
         {
             header.Cursor = new Cursor(StandardCursorType.Hand);
             ToolTip.SetTip(header, tooltip);
@@ -3146,8 +3156,21 @@ namespace Configuration_Management
                     >= _headerToolbarWidth;
         }
 
-        private static TextBlock HeaderText(string text)
+        /// <summary>
+        /// Заголовок колонки: иконка колонки и подпись. Иконки заголовков совпадают
+        /// с иконками списка колонок на вкладке «Отображение» — оба берут ключ из
+        /// <see cref="IconHelper.ColumnIconKey"/>.
+        /// </summary>
+        private static Control ColumnHeader(string text, string iconKey)
         {
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            panel.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(13), "TextSecondaryBrush"));
+
             var block = new TextBlock
             {
                 Text = text,
@@ -3157,7 +3180,8 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center
             };
             ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            return block;
+            panel.Children.Add(block);
+            return panel;
         }
 
         /// <summary>
@@ -3818,38 +3842,10 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Загружает иконку трея без System.Drawing — из PNG/ICO на диске либо из
-        /// встроенного ресурса (tray_icon_preview.png), через Avalonia WindowIcon.
+        /// Загружает иконку трея — тот же значок приложения (app.ico), что и у
+        /// заголовка окна. Без System.Drawing, через Avalonia WindowIcon.
         /// </summary>
-        private static WindowIcon? LoadTrayIcon()
-        {
-            try
-            {
-                foreach (var name in new[] { "tray_icon_preview.png", "app_icon_preview.png", "app.ico", "tray.ico" })
-                {
-                    foreach (var dir in new[] { AppContext.BaseDirectory, Environment.CurrentDirectory })
-                    {
-                        var path = System.IO.Path.Combine(dir, name);
-                        if (File.Exists(path))
-                            return new WindowIcon(new Bitmap(path));
-                    }
-
-                    // Встроенный ресурс (добавлен как EmbeddedResource в Linux-конфигурацию).
-                    if (name == "tray_icon_preview.png")
-                    {
-                        var asm = Assembly.GetExecutingAssembly();
-                        using var stream = asm.GetManifestResourceStream(name);
-                        if (stream is not null)
-                            return new WindowIcon(new Bitmap(stream));
-                    }
-                }
-            }
-            catch
-            {
-                // иконка не обязательна — трей будет без иконки/с иконкой по умолчанию
-            }
-            return null;
-        }
+        private static WindowIcon? LoadTrayIcon() => Services.AppIconLoader.LoadAppIcon();
 
         /// <summary>
         /// Закрытие окна уводит приложение в трей, а не завершает его

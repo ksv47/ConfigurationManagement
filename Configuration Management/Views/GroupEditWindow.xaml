@@ -246,40 +246,8 @@
                             <TextBlock Text="{loc:Loc GroupEdit.ColorHint}"
                                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"
                                        TextWrapping="Wrap"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                <Border x:Name="ColorPreview" Width="48" Height="32" CornerRadius="4" Margin="0,0,10,0"
-                                        VerticalAlignment="Center" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"/>
-                                <TextBlock x:Name="ColorHexText" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" FontFamily="Consolas"/>
-                                <Button Margin="16,0,0,0" Padding="10,4" Style="{DynamicResource SecondaryButton}"
-                                        Click="OnPickHeaderColor_Click" ToolTip="{loc:Loc GroupEdit.FullPaletteTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock Text="{loc:Loc GroupEdit.PaletteButton}" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                            <TextBlock Text="{loc:Loc GroupEdit.QuickPick}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
-                            <UniformGrid x:Name="HeaderPaletteGrid" Rows="2" Columns="8">
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#EF4444" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#F97316" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#F59E0B" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#EAB308" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#84CC16" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#22C55E" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#10B981" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#14B8A6" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#06B6D4" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#0EA5E9" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#3B82F6" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#2D6CDF" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#6366F1" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#8B5CF6" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#A855F7" Click="OnHeaderPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#D946EF" Click="OnHeaderPalette_Click"/>
-                            </UniformGrid>
+                            <!-- Встроенный полный пикер цвета (как в окне выбора цвета) -->
+                            <controls:ColorPickerControl x:Name="HeaderColorPicker"/>
                         </StackPanel>
                     </GroupBox>
                 </ScrollViewer>
@@ -308,40 +276,8 @@
                             <TextBlock Text="{loc:Loc GroupEdit.IconColorHint}"
                                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"
                                        TextWrapping="Wrap"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                <Border x:Name="IconColorPreview" Width="48" Height="32" CornerRadius="4" Margin="0,0,10,0"
-                                        VerticalAlignment="Center" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"/>
-                                <TextBlock x:Name="IconColorHexText" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13" FontFamily="Consolas"/>
-                                <Button Margin="16,0,0,0" Padding="10,4" Style="{DynamicResource SecondaryButton}"
-                                        Click="OnPickIconColor_Click" ToolTip="{loc:Loc GroupEdit.IconFullPaletteTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock Text="{loc:Loc GroupEdit.PaletteButton}" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                            <TextBlock Text="{loc:Loc GroupEdit.IconQuickPick}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
-                            <UniformGrid x:Name="IconPaletteGrid" Rows="2" Columns="8" Margin="0,0,0,12">
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#EF4444" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#F97316" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#F59E0B" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#EAB308" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#84CC16" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#22C55E" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#10B981" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#14B8A6" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#06B6D4" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#0EA5E9" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#3B82F6" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#2D6CDF" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#6366F1" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#8B5CF6" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#A855F7" Click="OnIconPalette_Click"/>
-                                <Button Style="{StaticResource PaletteColorButton}" Tag="#D946EF" Click="OnIconPalette_Click"/>
-                            </UniformGrid>
+                            <!-- Встроенный полный пикер цвета иконки (как в окне выбора цвета) -->
+                            <controls:ColorPickerControl x:Name="IconColorPicker" Margin="0,0,0,12"/>
                             <TextBlock Text="{loc:Loc GroupEdit.IconLabel}"
                                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"/>
                             <WrapPanel x:Name="IconPickerPanel"/>

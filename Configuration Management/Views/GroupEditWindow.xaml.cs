@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
@@ -158,21 +159,6 @@ namespace Configuration_Management
             }
         }
 
-        private void ApplyPaletteColors()
-        {
-            void Fill(System.Windows.Controls.Panel? panel)
-            {
-                if (panel is null) return;
-                foreach (var child in panel.Children)
-                {
-                    if (child is Button button && button.Tag is string hex)
-                        button.Background = new SolidColorBrush(ParseColor(hex));
-                }
-            }
-            Fill(HeaderPaletteGrid);
-            Fill(IconPaletteGrid);
-        }
-
         private void BuildIconPicker()
         {
             IconPickerPanel.Children.Clear();
@@ -275,46 +261,9 @@ namespace Configuration_Management
             }
         }
 
-        private void OnHeaderPalette_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button button && button.Tag is string hex)
-            {
-                _color = hex;
-                UpdateHeaderColorPreview();
-            }
-        }
-
-        private void OnIconPalette_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button button && button.Tag is string hex)
-            {
-                _iconColor = hex;
-                UpdateIconColorPreview();
-            }
-        }
-
-        private void OnPickHeaderColor_Click(object sender, RoutedEventArgs e)
-        {
-            var picker = new ColorPickerWindow(_color) { Owner = this };
-            if (picker.ShowDialog() == true && !string.IsNullOrWhiteSpace(picker.Result))
-            {
-                _color = picker.Result;
-                UpdateHeaderColorPreview();
-            }
-        }
-
-        private void OnPickIconColor_Click(object sender, RoutedEventArgs e)
-        {
-            var picker = new ColorPickerWindow(_iconColor) { Owner = this };
-            if (picker.ShowDialog() == true && !string.IsNullOrWhiteSpace(picker.Result))
-            {
-                _iconColor = picker.Result;
-                UpdateIconColorPreview();
-            }
-        }
-
         /// <summary>
-        /// Инициализирует вкладку «Цвет» при её первой загрузке.
+        /// Инициализирует вкладку «Цвет» при её первой загрузке:
+        /// загружает текущий цвет во встроенный пикер и подписывается на его изменение.
         /// </summary>
         private void OnColorTab_Loaded(object sender, RoutedEventArgs e)
         {
@@ -322,12 +271,17 @@ namespace Configuration_Management
                 return;
             _colorTabInitialized = true;
 
-            ApplyPaletteColors();
-            UpdateHeaderColorPreview();
+            HeaderColorPicker.SelectedColor = _color;
+            HeaderColorPicker.SelectedColorChanged += (_, _) =>
+            {
+                _color = HeaderColorPicker.SelectedColor ?? "#2D6CDF";
+            };
         }
 
         /// <summary>
-        /// Инициализирует вкладку «Иконка» при её первой загрузке.
+        /// Инициализирует вкладку «Иконка» при её первой загрузке:
+        /// строит сетку иконок, загружает цвет иконки во встроенный пикер
+        /// и подписывается на его изменение (для перекраски иконок).
         /// </summary>
         private void OnIconTab_Loaded(object sender, RoutedEventArgs e)
         {
@@ -335,9 +289,14 @@ namespace Configuration_Management
                 return;
             _iconTabInitialized = true;
 
-            ApplyPaletteColors();
             BuildIconPicker();
-            UpdateIconColorPreview();
+            IconColorPicker.SelectedColor = _iconColor;
+            IconColorPicker.SelectedColorChanged += (_, _) =>
+            {
+                _iconColor = IconColorPicker.SelectedColor ?? "#FFFFFF";
+                ApplyIconPickerColors();
+                HighlightSelectedIcon();
+            };
         }
 
         private void OnSave_Click(object sender, RoutedEventArgs e)
@@ -360,20 +319,6 @@ namespace Configuration_Management
             Result.Icon = _icon;
             Result.ParentId = _parentId ?? string.Empty;
             DialogResult = true;
-        }
-
-        private void UpdateHeaderColorPreview()
-        {
-            ColorPreview.Background = new SolidColorBrush(ParseColor(_color));
-            ColorHexText.Text = _color;
-        }
-
-        private void UpdateIconColorPreview()
-        {
-            IconColorPreview.Background = new SolidColorBrush(ParseColor(_iconColor));
-            IconColorHexText.Text = _iconColor;
-            ApplyIconPickerColors();
-            HighlightSelectedIcon();
         }
 
         private static Color ParseColor(string? hex)

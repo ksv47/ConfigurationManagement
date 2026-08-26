@@ -8,6 +8,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Path = Avalonia.Controls.Shapes.Path;
+using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.ViewModels;
@@ -31,10 +32,8 @@ namespace Configuration_Management
         private readonly TextBox _nameBox = new() { Padding = new Thickness(8, 6) };
         private readonly TextBox _descriptionBox = new() { Padding = new Thickness(8, 6), AcceptsReturn = true, MinHeight = 70 };
         private readonly TextBlock _parentPathBox = new();
-        private readonly Border _headerColorPreview = new() { Height = 40, CornerRadius = new CornerRadius(6) };
-        private readonly TextBlock _colorHexText = new();
-        private readonly Border _iconColorPreview = new() { Width = 40, Height = 40, CornerRadius = new CornerRadius(6) };
-        private readonly TextBlock _iconColorHexText = new();
+        private readonly ColorPickerControl _colorControl = new();
+        private readonly ColorPickerControl _iconColorControl = new();
         private readonly WrapPanel _iconPickerPanel = new();
 
         private static readonly (string Key, string Label)[] AvailableIcons =
@@ -50,17 +49,6 @@ namespace Configuration_Management
             ("IconCompare", LocalizationManager.T("GroupEdit.Icon.Compare")), ("IconMerge", LocalizationManager.T("GroupEdit.Icon.Merge"))
         };
 
-        private static readonly string[] HeaderPalette =
-        {
-            "#EF4444", "#F97316", "#F59E0B", "#EAB308", "#84CC16", "#22C55E", "#10B981", "#14B8A6",
-            "#06B6D4", "#0EA5E9", "#3B82F6", "#2D6CDF", "#6366F1", "#8B5CF6", "#A855F7", "#D946EF",
-            "#EC4899", "#F43F5E", "#78716C", "#374151"
-        };
-
-        private static readonly string[] IconPalette =
-        {
-            "#FFFFFF", "#F8FAFC", "#E2E8F0", "#CBD5E1", "#FBBF24", "#10B981", "#3B82F6", "#A855F7", "#F472B6"
-        };
 
         public GroupEditWindow(IEnumerable<Group> groups, Group? parent = null)
             : this(groups, parent?.Id ?? string.Empty, editingGroup: null)
@@ -127,7 +115,16 @@ namespace Configuration_Management
             }
 
             UpdateParentPathDisplay();
+
+            // Встроенный выбор цвета и цвета иконки — как в окне выбора цвета.
+            _colorControl.SelectedColor = _color;
+            _iconColorControl.SelectedColor = _iconColor;
+            _iconColorControl.PropertyChanged += OnIconColorControl_PropertyChanged;
+
             Content = BuildRoot();
+
+            ApplyIconPickerColors();
+            HighlightSelectedIcon();
         }
 
         public Group Result { get; private set; } = new();
@@ -185,39 +182,14 @@ namespace Configuration_Management
 
             // ===== Вкладка «Цвет» =====
             var colorTab = new StackPanel { Spacing = 10 };
-            var headerColorRow = new Grid { Margin = new Thickness(0, 0, 0, 4) };
-            headerColorRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            headerColorRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            Grid.SetColumn(_headerColorPreview, 0);
-            headerColorRow.Children.Add(_headerColorPreview);
-            var pickHeader = new Button { Content = LocalizationManager.T("Common.Choose"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
-            pickHeader.Click += (_, _) => OnPickHeaderColor_Click();
-            Grid.SetColumn(pickHeader, 1);
-            headerColorRow.Children.Add(pickHeader);
             colorTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.TitleColor") });
-            colorTab.Children.Add(headerColorRow);
-            colorTab.Children.Add(_colorHexText);
-            colorTab.Children.Add(new TextBlock { Text = LocalizationManager.T("ColorPicker.Palette"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
-            colorTab.Children.Add(BuildPalette(HeaderPalette, hex => { _color = hex; UpdateHeaderColorPreview(); }));
+            colorTab.Children.Add(_colorControl);
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("GroupEdit.TabColor"), Content = new ScrollViewer { Content = colorTab, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== Вкладка «Иконка» =====
             var iconTab = new StackPanel { Spacing = 10 };
-            var iconColorRow = new Grid { Margin = new Thickness(0, 0, 0, 4) };
-            iconColorRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            iconColorRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            Grid.SetColumn(_iconColorPreview, 0);
-            _iconColorPreview.HorizontalAlignment = HorizontalAlignment.Left;
-            iconColorRow.Children.Add(_iconColorPreview);
-            var pickIcon = new Button { Content = LocalizationManager.T("Common.Choose"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
-            pickIcon.Click += (_, _) => OnPickIconColor_Click();
-            Grid.SetColumn(pickIcon, 1);
-            iconColorRow.Children.Add(pickIcon);
             iconTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.IconColorLabel") });
-            iconTab.Children.Add(iconColorRow);
-            iconTab.Children.Add(_iconColorHexText);
-            iconTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.IconPaletteLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
-            iconTab.Children.Add(BuildPalette(IconPalette, hex => { _iconColor = hex; UpdateIconColorPreview(); }));
+            iconTab.Children.Add(_iconColorControl);
             iconTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.IconLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
             BuildIconPicker();
             var iconScroll = new ScrollViewer
@@ -237,30 +209,7 @@ namespace Configuration_Management
             Grid.SetRow(buttons, 1);
             grid.Children.Add(buttons);
 
-            // Инициализация предпросмотров
-            UpdateHeaderColorPreview();
-            UpdateIconColorPreview();
-
             return grid;
-        }
-
-        private static WrapPanel BuildPalette(IEnumerable<string> colors, Action<string> onClick)
-        {
-            var panel = new WrapPanel { Orientation = Orientation.Horizontal };
-            foreach (var hex in colors)
-            {
-                var button = new Button
-                {
-                    Width = 28,
-                    Height = 28,
-                    Margin = new Thickness(2),
-                    BorderThickness = new Thickness(1),
-                    Background = new SolidColorBrush(ParseColor(hex))
-                };
-                button.Click += (_, _) => onClick(hex);
-                panel.Children.Add(button);
-            }
-            return panel;
         }
 
         private void BuildIconPicker()
@@ -355,24 +304,14 @@ namespace Configuration_Management
             }
         }
 
-        private void OnPickHeaderColor_Click()
+        private void OnIconColorControl_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
         {
-            var picker = new ColorPickerWindow(_color);
-            if (picker.ShowDialogSync(this) && !string.IsNullOrWhiteSpace(picker.Result))
-            {
-                _color = picker.Result;
-                UpdateHeaderColorPreview();
-            }
-        }
+            if (e.Property != ColorPickerControl.SelectedColorProperty)
+                return;
 
-        private void OnPickIconColor_Click()
-        {
-            var picker = new ColorPickerWindow(_iconColor);
-            if (picker.ShowDialogSync(this) && !string.IsNullOrWhiteSpace(picker.Result))
-            {
-                _iconColor = picker.Result;
-                UpdateIconColorPreview();
-            }
+            _iconColor = _iconColorControl.SelectedColor;
+            ApplyIconPickerColors();
+            HighlightSelectedIcon();
         }
 
         private void OnSave_Click()
@@ -387,24 +326,10 @@ namespace Configuration_Management
                 Result.Name = LocalizationManager.T("GroupEdit.NoGroup");
             }
 
-            Result.Color = _color;
-            Result.IconColor = _iconColor;
+            Result.Color = _colorControl.SelectedColor ?? "#2D6CDF";
+            Result.IconColor = _iconColorControl.SelectedColor ?? "#FFFFFF";
             Result.Icon = _icon;
             Result.ParentId = _parentId ?? string.Empty;
-        }
-
-        private void UpdateHeaderColorPreview()
-        {
-            _headerColorPreview.Background = new SolidColorBrush(ParseColor(_color));
-            _colorHexText.Text = _color;
-        }
-
-        private void UpdateIconColorPreview()
-        {
-            _iconColorPreview.Background = new SolidColorBrush(ParseColor(_iconColor));
-            _iconColorHexText.Text = _iconColor;
-            ApplyIconPickerColors();
-            HighlightSelectedIcon();
         }
 
         private static Color ParseColor(string? hex)

@@ -45,10 +45,10 @@
          поэтому AssemblyVersion/FileVersion/Version ограничены 4 частями, а точная
          пользовательская версия «0.3.1.1» задаётся через InformationalVersion
          и выводится в заголовок окна. -->
-    <Version>0.3.4</Version>
-    <AssemblyVersion>0.3.4</AssemblyVersion>
-    <FileVersion>0.3.4</FileVersion>
-    <InformationalVersion>0.3.4.15</InformationalVersion>
+    <Version>0.3.5</Version>
+    <AssemblyVersion>0.3.5</AssemblyVersion>
+    <FileVersion>0.3.5</FileVersion>
+    <InformationalVersion>0.3.5.1</InformationalVersion>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>
@@ -155,24 +155,26 @@
   <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
     <!-- WPF App (вместо него — App.axaml/.cs) -->
     <Compile Remove="App.xaml.cs" />
-    <!-- Окна (код за разметкой; разметка .xaml в Linux не компилируется) -->
-    <Compile Remove="MainWindow.xaml.cs" />
-    <Compile Remove="AddEditWindow.xaml.cs" />
-    <Compile Remove="CacheCleanWindow.xaml.cs" />
-    <Compile Remove="ColorPickerWindow.xaml.cs" />
-    <Compile Remove="ConnectionSettingsWindow.xaml.cs" />
-    <Compile Remove="ConnectionStringInputWindow.xaml.cs" />
-    <Compile Remove="CreateInfobaseWindow.xaml.cs" />
-    <Compile Remove="DeleteInfobaseWindow.xaml.cs" />
-    <Compile Remove="GroupEditWindow.xaml.cs" />
-    <Compile Remove="GroupPickerWindow.xaml.cs" />
-    <Compile Remove="GroupSettingsWindow.xaml.cs" />
-    <Compile Remove="LaunchParametersWindow.xaml.cs" />
-    <Compile Remove="LinkInputWindow.xaml.cs" />
-    <Compile Remove="NameInputWindow.xaml.cs" />
-    <Compile Remove="PlatformVersionPickerWindow.xaml.cs" />
-    <Compile Remove="SettingsWindow.xaml.cs" />
-    <Compile Remove="TagInputWindow.xaml.cs" />
+    <!-- Окна (код за разметкой; разметка .xaml в Linux не компилируется).
+         Окна лежат в Views/ (см. иерархию проекта в ARCHITECTURE.md). -->
+    <Compile Remove="Views\MainWindow.xaml.cs" />
+    <Compile Remove="Views\AddEditWindow.xaml.cs" />
+    <Compile Remove="Views\CacheCleanWindow.xaml.cs" />
+    <Compile Remove="Views\ColorPickerWindow.xaml.cs" />
+    <Compile Remove="Views\ConnectionSettingsWindow.xaml.cs" />
+    <Compile Remove="Views\ConnectionStringInputWindow.xaml.cs" />
+    <Compile Remove="Views\CreateInfobaseWindow.xaml.cs" />
+    <Compile Remove="Views\DeleteInfobaseWindow.xaml.cs" />
+    <Compile Remove="Views\GroupEditWindow.xaml.cs" />
+    <Compile Remove="Views\GroupPickerWindow.xaml.cs" />
+    <Compile Remove="Views\GroupSettingsWindow.xaml.cs" />
+    <Compile Remove="Views\LaunchParametersWindow.xaml.cs" />
+    <Compile Remove="Views\LinkInputWindow.xaml.cs" />
+    <Compile Remove="Views\NameInputWindow.xaml.cs" />
+    <Compile Remove="Views\PlatformVersionPickerWindow.xaml.cs" />
+    <Compile Remove="Views\SettingsWindow.xaml.cs" />
+    <Compile Remove="Views\TagInputWindow.xaml.cs" />
+    <Compile Remove="Views\LoginWindow.xaml.cs" />
     <!-- Кастомные контролы (WPF) исключаем, но возвращаем Avalonia-версии (*.Avalonia.cs) -->
     <Compile Remove="Controls\**\*.cs" />
     <Compile Include="Controls\*.Avalonia.cs" />
@@ -197,12 +199,12 @@
     <Compile Remove="Services\InfobaseMaintenanceService.cs" />
     <!-- OneCTemplateService портирован на Linux (Этап 4): пути tmplts, чтение
          1cestart.cfg вместо реестра; реестр обёрнут в #if WINDOWS. -->
-    <!-- Окна (Этап 3): портированные Avalonia-версии (*.Avalonia.cs) в коде.
+    <!-- Окна (Этап 3): портированные Avalonia-версии (*.Avalonia.cs) в Views/.
          Remove затем Include — чтобы не было конфликта с дефолтным глобом SDK. -->
-    <Compile Remove="*Window.Avalonia.cs" />
-    <Compile Include="*Window.Avalonia.cs" />
-    <Compile Remove="ModalWindowBase.cs" />
-    <Compile Include="ModalWindowBase.cs" />
+    <Compile Remove="Views\*Window.Avalonia.cs" />
+    <Compile Include="Views\*Window.Avalonia.cs" />
+    <Compile Remove="Views\ModalWindowBase.cs" />
+    <Compile Include="Views\ModalWindowBase.cs" />
     <!-- Этап 5: полноценные Linux-реализации сервисов 1С (*.Linux.cs включаются
          автоматически дефолтным глобом; WPF-файлы исключены выше). -->
   </ItemGroup>

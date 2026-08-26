@@ -228,7 +228,10 @@
                 </Border>
 
                 <!-- Вкладки Все / Избранное / Недавние -->
-                <StackPanel x:Name="TabsPanel" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                <Border Grid.Column="2" Background="{DynamicResource ContentBackgroundBrush}"
+                        CornerRadius="12" Padding="4" Margin="0,0,12,0" VerticalAlignment="Center"
+                        BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
+                    <StackPanel x:Name="TabsPanel" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                     <RadioButton GroupName="ListMode"
                                  IsChecked="{Binding IsListModeAll, Mode=TwoWay}"
                                  Style="{DynamicResource SegmentRadioButton}" Margin="0,0,4,0"
@@ -266,9 +269,13 @@
                         </StackPanel>
                     </RadioButton>
                 </StackPanel>
+        </Border>
 
-                <!-- Синхронизация + тема + настройки (добавление — в правой панели и контекстном меню) -->
-                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+        <!-- Синхронизация + тема + настройки (добавление — в правой панели и контекстном меню) -->
+                <Border Grid.Column="3" Background="{DynamicResource ContentBackgroundBrush}"
+                        CornerRadius="12" Padding="4" Margin="0,0,12,0" VerticalAlignment="Center"
+                        BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Добавить базу: перенесено из правой панели в верхнюю панель команд -->
                     <Button Command="{Binding AddInfobaseCommand}"
                             Style="{DynamicResource IconButton}" Margin="0,0,2,0"
@@ -327,6 +334,7 @@
                     <controls:HelpLink Margin="4,0,0,0"
                                        HelpText="{loc:Loc Main.BaseListHelp}"/>
                 </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
@@ -615,37 +623,85 @@
                                                              Visibility="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
                                 </StackPanel>
 
-                                <TextBlock Grid.Column="4" Text="{loc:Loc Column.Name}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="0,0,8,4"
-                                           Cursor="Hand" Tag="Name" ToolTip="{loc:Loc Main.ColumnNameSortTooltip}"
-                                           MouseLeftButtonUp="OnColumnHeader_Click"/>
-                                <TextBlock Grid.Column="5" Text="{loc:Loc Column.Version}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="6" Text="{loc:Loc Column.LaunchMode}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="7" Text="{loc:Loc Column.Actions}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           ToolTip="{loc:Loc Main.Actions}"/>
-                                <TextBlock Grid.Column="8" Text="{loc:Loc Column.ServerBase}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"/>
-                                <TextBlock Grid.Column="9" Text="{loc:Loc Column.LastLaunch}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           Cursor="Hand" Tag="LastLaunchDate" ToolTip="{loc:Loc Main.ColumnLastLaunchSortTooltip}"
-                                           MouseLeftButtonUp="OnColumnHeader_Click"/>
-                                <TextBlock Grid.Column="10" Text="{loc:Loc Column.Size}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           ToolTip="{loc:Loc Main.ColumnSizeTooltip}"/>
-                                <TextBlock Grid.Column="11" Text="{loc:Loc Column.Configuration}" FontWeight="SemiBold" FontSize="12"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
-                                           HorizontalAlignment="Stretch" TextTrimming="CharacterEllipsis" Margin="6,0,6,4"
-                                           ToolTip="{loc:Loc Main.ColumnNameTooltip}"/>
+                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="0,0,8,4"
+                                            Cursor="Hand" Tag="Name" ToolTip="{loc:Loc Main.ColumnNameSortTooltip}"
+                                            MouseLeftButtonUp="OnColumnHeader_Click">
+                                    <materialDesign:PackIcon Kind="FormatTitle" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.Name}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4">
+                                    <materialDesign:PackIcon Kind="Information" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.Version}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4">
+                                    <materialDesign:PackIcon Kind="Play" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.LaunchMode}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="7" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Left" Margin="6,0,6,4"
+                                            ToolTip="{loc:Loc Main.Actions}">
+                                    <materialDesign:PackIcon Kind="Cog" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.Actions}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="8" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4">
+                                    <materialDesign:PackIcon Kind="Server" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.ServerBase}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="9" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4"
+                                            Cursor="Hand" Tag="LastLaunchDate" ToolTip="{loc:Loc Main.ColumnLastLaunchSortTooltip}"
+                                            MouseLeftButtonUp="OnColumnHeader_Click">
+                                    <materialDesign:PackIcon Kind="ClockOutline" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.LastLaunch}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="10" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4"
+                                            ToolTip="{loc:Loc Main.ColumnSizeTooltip}">
+                                    <materialDesign:PackIcon Kind="Database" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.Size}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="11" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4"
+                                            ToolTip="{loc:Loc Main.ColumnNameTooltip}">
+                                    <materialDesign:PackIcon Kind="CubeOutline" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.Configuration}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
 
                                 <!-- Современные разделители колонок: тонкая линия + широкая зона захвата -->
                                 <Border x:Name="NameSplitter" Grid.Column="4"
@@ -811,7 +867,7 @@
                                              режима мог его уменьшить и убрать лишнее пустое место вокруг названия. -->
                                         <Style TargetType="Border">
                                             <!-- Готовая кисть с узла — без поиска группы и GetFullPath при каждой отрисовке -->
-                                            <Setter Property="Padding" Value="8,6"/>
+                                            <Setter Property="Padding" Value="8,3"/>
                                             <Setter Property="Background" Value="{Binding HeaderBrush}"/>
                                             <Setter Property="BorderBrush" Value="Transparent"/>
                                             <Setter Property="BorderThickness" Value="2"/>
@@ -1669,43 +1725,55 @@
                                 </Border>
                             </WrapPanel>
 
-                            <TextBlock Text="{loc:Loc Main.SectionConnInfo}" FontWeight="SemiBold" FontSize="12"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Main.Type}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionTypeDisplay}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Main.ServerPath}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionPathDisplay}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Column.ServerBase}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedInfobase.ServerDatabaseDisplay}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Main.ConnectionString}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionStringDisplay}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc Main.Platform}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedInfobase.PlatformVersion}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc Main.LaunchMode}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedInfobase.ParsedLaunchMode}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="6" Grid.Column="0" Text="{loc:Loc Main.Client}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding SelectedInfobase.ClientTypeDisplay}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="7" Grid.Column="0" Text="{loc:Loc Main.Bitness}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding SelectedInfobase.ArchitectureDisplay}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="8" Grid.Column="0" Text="{loc:Loc Main.Parameters}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding SelectedInfobase.LaunchParameters}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="9" Grid.Column="0" Text="{loc:Loc Main.LastLaunch}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding SelectedInfobase.LastLaunchDisplay}" FontSize="12" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="10" Grid.Column="0" Text="{loc:Loc Main.CacheSize}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                                <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding SelectedInfobase.CacheSizeDisplay}" FontSize="12" Margin="0,0,0,5"/>
-                            </Grid>
-
+                            <!-- Основное -->
+                            <TextBlock Text="{loc:Loc Main.SectionConnInfo}" FontWeight="SemiBold" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
+                                       Typography.Capitals="AllSmallCaps"/>
+                            <Border Background="{DynamicResource ContentBackgroundBrush}" CornerRadius="12"
+                                    BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                                    Padding="12,10" Margin="0,0,0,14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Main.Type}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionTypeDisplay}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Main.ServerPath}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionPathDisplay}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Column.ServerBase}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedInfobase.ServerDatabaseDisplay}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Main.ConnectionString}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedInfobase.ConnectionStringDisplay}" FontSize="11" FontWeight="SemiBold"  TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc Main.Platform}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedInfobase.PlatformVersion}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc Main.LaunchMode}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedInfobase.ParsedLaunchMode}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="{loc:Loc Main.Client}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding SelectedInfobase.ClientTypeDisplay}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="0" Text="{loc:Loc Main.Bitness}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding SelectedInfobase.ArchitectureDisplay}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="8" Grid.Column="0" Text="{loc:Loc Main.Parameters}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding SelectedInfobase.LaunchParameters}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="9" Grid.Column="0" Text="{loc:Loc Main.LastLaunch}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding SelectedInfobase.LastLaunchDisplay}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="10" Grid.Column="0" Text="{loc:Loc Main.CacheSize}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding SelectedInfobase.CacheSizeDisplay}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                </Grid>
+                            </Border>
                             <TextBlock Text="{loc:Loc Main.Description}" FontWeight="SemiBold" FontSize="12"
                                        Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4"/>
                             <TextBlock Text="{Binding SelectedInfobase.Description}" FontSize="12" TextWrapping="Wrap"
@@ -2252,5 +2320,26 @@
                 </Button>
             </Grid>
         </Border>
+
+        <!-- ===================== Индикатор фоновой загрузки при запуске ============ -->
+        <Grid Grid.RowSpan="100" Panel.ZIndex="1000"
+              Background="#99000000"
+              Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
+            <Border Background="{DynamicResource CardBackgroundBrush}"
+                    CornerRadius="10" Padding="32,26"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    MinWidth="320" MaxWidth="520">
+                <StackPanel>
+                    <TextBlock Text="{Binding LoadingMessage}"
+                               FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Margin="0,0,0,16" TextWrapping="Wrap"
+                               HorizontalAlignment="Center"/>
+                    <ProgressBar IsIndeterminate="True" Height="6"
+                                 Foreground="{DynamicResource AccentBrush}"
+                                 Background="#22000000"/>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
