@@ -26,6 +26,7 @@ public static class AppServices
         services.AddSingleton<IPlatformVersionService, PlatformVersionServiceAdapter>();
         services.AddSingleton<IIbasesSyncService, IbasesSyncService>();
         services.AddTransient<MainViewModel>();
+        services.AddTransient<SettingsViewModel>();
         services.AddTransient<MainWindow>();
 #else
         // Linux (Avalonia): полноценные реализации сервисов платформы 1С (Этап 5).

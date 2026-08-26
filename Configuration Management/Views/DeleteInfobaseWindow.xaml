@@ -1,0 +1,153 @@
+<Window x:Class="Configuration_Management.DeleteInfobaseWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:controls="clr-namespace:Configuration_Management.Controls"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
+        Title="{loc:Loc DeleteInfobase.Title}"
+        Icon="{StaticResource AppIcon}"
+        Width="520" MinWidth="460" Height="Auto" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ContentBackgroundBrush}">
+
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style TargetType="CheckBox" BasedOn="{StaticResource ModernMaterialCheckBox}">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,14">
+            <materialDesign:PackIcon Kind="AlertCircleOutline" Width="28" Height="28"
+                                     Foreground="#EF4444" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <TextBlock Text="{loc:Loc DeleteInfobase.Title}" FontSize="16" FontWeight="SemiBold"
+                       VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                CornerRadius="8" Padding="12" Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc DeleteInfobase.NameLabel}" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,6"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="NameText" TextWrapping="Wrap" Margin="0,0,0,6"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc DeleteInfobase.TypeLabel}" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,6"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TypeText" Margin="0,0,0,6"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc DeleteInfobase.PathLabel}" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,6"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" x:Name="PathText" TextWrapping="Wrap" Margin="0,0,0,6"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc DeleteInfobase.GroupLabel}" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,6"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GroupText" Margin="0,0,0,6"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc DeleteInfobase.PlatformLabel}" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,6"/>
+                <TextBlock Grid.Row="4" Grid.Column="1" x:Name="PlatformText" Margin="0,0,0,6"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc DeleteInfobase.OnDiskLabel}" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,0"/>
+                <TextBlock Grid.Row="5" Grid.Column="1" x:Name="ExistsText"/>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="2" Text="{loc:Loc DeleteInfobase.Note}"
+                   Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+        <Border Grid.Row="3" x:Name="PhysicalPanel" Background="#FEF2F2"
+                BorderBrush="#FECACA" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,16">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <CheckBox x:Name="PhysicalDeleteCheck"
+                              Content="{loc:Loc DeleteInfobase.PhysicalDelete}"
+                              FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <controls:HelpLink Margin="6,0,0,0"
+                                       HelpText="{loc:Loc DeleteInfobase.PhysicalHelp}"/>
+                </StackPanel>
+                <TextBlock x:Name="PhysicalHint" Margin="24,6,0,0" FontSize="12"
+                           Foreground="#B91C1C" TextWrapping="Wrap"
+                           Text="{loc:Loc DeleteInfobase.PhysicalHint}"/>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Width="140" Height="36" Margin="0,0,10,0" IsDefault="True" Click="OnDelete_Click"
+                    Background="#DC2626" BorderThickness="0" Cursor="Hand" Foreground="White">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="12,8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#B91C1C"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc DeleteInfobase.Delete}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+            <Button Width="140" Height="36" IsCancel="True" Click="OnCancel_Click"
+                    Background="Transparent" Cursor="Hand" BorderThickness="1.5"
+                    BorderBrush="{DynamicResource BorderBrushColor}"
+                    Foreground="{DynamicResource TextPrimaryBrush}">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="12,8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"
+                                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{loc:Loc DeleteInfobase.Cancel}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

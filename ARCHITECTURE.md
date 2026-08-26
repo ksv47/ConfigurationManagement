@@ -47,7 +47,10 @@ Configuration Management/
 ├── Themes/                     # WPF-темы (.xaml/.cs) и Avalonia (.axaml)
 ├── Localization/               # Локализация (LocalizationManager, Languages/)
 ├── Controls/                   # Пользовательские контролы (WPF)
-└── *.xaml / *.Window.cs        # Окна (view)
+└── Views/                      # Окна (view): *.xaml + code-behind + *.Avalonia.cs
+    ├── MainWindow.*.cs         # Главное окно (каркас + partial-блоки)
+    ├── SettingsWindow.*.cs     # Окно настроек (каркас + partial-блоки)
+    └── *Window.xaml/.xaml.cs   # Прочие окна и модальные диалоги
 ```
 
 Пространство имён корневое — `Configuration_Management` (см. `RootNamespace`),
@@ -88,15 +91,43 @@ Configuration Management/
 
 Это снижает риск конфликтов при параллельной разработке и облегчает поиск по коду.
 
+### Реорганизация view-папки
+Все окна (view) перенесены из корня проекта в подпапку [`Views/`](Configuration Management/Views):
+`*.xaml`, WPF-код за разметкой (`*.xaml.cs`) и Avalonia-аналоги (`*.Avalonia.cs`),
+а также базовый класс [`ModalWindowBase.cs`](Configuration Management/Views/ModalWindowBase.cs).
+Пространства имён и `x:Class` не менялись, поэтому DI и XAML-привязки не пострадали.
+Глобы в `.csproj` (секция Linux) согласованно обновлены (`Views\...`), сборка Windows проверена: **0 ошибок**.
+
+### Разбиение окон на частичные классы
+Тем же приёмом, что и `MainViewModel`, разбиты два крупнейших code-behind:
+
+| Файл | Было | Стало |
+|------|------|-------|
+| [`MainWindow.xaml.cs`](Configuration Management/Views/MainWindow.xaml.cs) | 3058 строк | каркас (~435) + 9 partial-файлов: `.Tray`, `.Hotkeys`, `.Tree`, `.Columns`, `.Tags`, `.Language`, `.Scroll`, `.DragDrop`, `.Events` |
+| [`SettingsWindow.xaml.cs`](Configuration Management/Views/SettingsWindow.xaml.cs) | 1971 строка | каркас + 8 partial-файлов: `.Profile`, `.Language`, `.Schemes`, `.Display`, `.Fonts`, `.Hotkeys`, `.Sync`, `.Platforms` |
+
+Содержимое методов сохранено без изменений (только перемещение между файлами),
+поэтому поведение не изменилось. Сборка Windows (WPF) проверена: **0 ошибок**.
+
+### Выделение логики из интерфейса
+Создана модель представления [`ViewModels/SettingsViewModel.cs`](Configuration Management/ViewModels/SettingsViewModel.cs)
+(WINDOWS-only, зарегистрирована в DI), которая инкапсулирует состояние и бизнес-операции
+вкладки «Цветовое оформление»: разрешение/валидацию/локализацию имён тем, рабочие копии
+правок, персист изменённых тем и CRUD пользовательских схем, а также чистое преобразование
+проверки дубликатов хоткеев. `SettingsWindow` теперь делегирует в VM всю чистую бизнес-логику,
+оставляя в view только работу с WPF-контролами и диалогами. Сборка Windows: **0 ошибок**.
+
 ## 5. Рекомендуемые следующие шаги
 
-1. **Разбить остальные монолиты** (тем же приёмом частичных классов):
-   - `MainWindow.xaml.cs` — 3058 строк (view/code-behind);
-   - `SettingsWindow.xaml.cs` — 1971 строка;
-   - Avalonia-аналоги: `MainViewModel.Avalonia.cs` (3768), `MainWindow.Avalonia.cs` (3906).
-2. **Физическая реорганизация папок окон** (вынести `*.xaml`/`*.cs` окон в подпапку
-   `Views/` или `Dialogs/`). Осторожно: `.csproj` содержит явные `Compile Remove/Include`
-   для кросс-платформенных исключений — менять пути согласованно и проверять обе сборки.
+1. **Разбить Avalonia-аналоги** тем же приёмом частичных классов:
+   `MainViewModel.Avalonia.cs` (3768) и `MainWindow.Avalonia.cs` (3906) — как это сделано
+   для WPF-версий `MainWindow` и `SettingsWindow`.
+2. **Углубить MVVM-вынос** из окон: перенести в `SettingsViewModel` больше бизнес-логики
+   (синхронизацию ibases.v8i, платформы, шаблоны, шрифты) там, где это возможно без
+   переделки XAML-привязок; рассмотреть отдельные VM для крупных диалогов.
 3. **Выделить сервисы** из `MainViewModel` (например, `TagsFilterService`,
    `FavoritesHotkeyService`), чтобы ещё сильнее разгрузить VM.
-4. Проверять обе конфигурации сборки (Windows и Linux) после иерархических изменений.
+4. **Проверить Linux-конфигурацию на Linux-хосте**: после переноса окон в `Views/` глобы
+   `.csproj` обновлены согласованно, но сборка Avalonia возможна только на Linux (на Windows
+   условие `IsOSPlatform('Windows')` включает WPF). Обязательно прогнать `dotnet build -c Debug`
+   на Linux перед релизом.

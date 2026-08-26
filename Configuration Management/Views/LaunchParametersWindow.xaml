@@ -1,0 +1,126 @@
+<Window x:Class="Configuration_Management.LaunchParametersWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:controls="clr-namespace:Configuration_Management.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:Configuration_Management.Localization"
+        mc:Ignorable="d"
+        Title="{loc:Loc LaunchParams.Title}"
+        Icon="{StaticResource AppIcon}"
+        Width="800"
+        Height="640"
+        MinWidth="720"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        ShowInTaskbar="False"
+        Background="{DynamicResource ContentBackgroundBrush}">
+
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}">
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ============ Параметры (окно ввода) -->
+        <GroupBox Grid.Row="0" Padding="12" Margin="0,0,0,12">
+            <GroupBox.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{loc:Loc Main.Parameters}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <controls:HelpLink Margin="6,0,0,0"
+                                       HelpText="{loc:Loc LaunchParams.InputHelp}"/>
+                </StackPanel>
+            </GroupBox.Header>
+            <TextBox x:Name="TxtCustom" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="110"
+                     Padding="6,6" VerticalScrollBarVisibility="Auto"
+                     ToolTip="{loc:Loc LaunchParams.InputTooltip}"/>
+        </GroupBox>
+
+        <!-- ============ Справочник параметров -->
+        <GroupBox Grid.Row="1" Padding="12" Margin="0,0,0,12">
+            <GroupBox.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{loc:Loc LaunchParams.Reference}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <controls:HelpLink Margin="6,0,0,0"
+                                       HelpText="{loc:Loc LaunchParams.ReferenceHelp}"/>
+                </StackPanel>
+            </GroupBox.Header>
+            <ListView x:Name="LstReference"
+                      MouseDoubleClick="OnReferenceDoubleClick"
+                      SelectionMode="Single"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListView.View>
+                    <GridView AllowsColumnReorder="False">
+                        <GridViewColumn Header="{loc:Loc LaunchParams.Parameter}" Width="220" DisplayMemberBinding="{Binding Key}"/>
+                        <GridViewColumn Header="{loc:Loc LaunchParams.Description}" Width="430" DisplayMemberBinding="{Binding Description}"/>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </GroupBox>
+
+        <!-- ============ Кнопки -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Width="140" Height="36" Margin="0,0,10,0" IsDefault="True" Click="OnOk_Click"
+                    Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="12,8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#15803D"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#166534"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Check" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Common.Ok}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+            <Button Width="140" Height="36" IsCancel="True"
+                    Background="Transparent" Cursor="Hand" BorderThickness="1.5"
+                    BorderBrush="#EF4444" Foreground="#EF4444">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="12,8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#FEF2F2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+    </Grid>
+</Window>
