@@ -91,8 +91,16 @@ namespace Configuration_Management
             var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
             _sortAsc.GroupName = "Sort";
             _sortDesc.GroupName = "Sort";
-            _sortAsc.Checked += (_, _) => { _sortAscending = true; _sortDesc.IsChecked = false; RefreshTree(); };
-            _sortDesc.Checked += (_, _) => { _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree(); };
+            _sortAsc.IsCheckedChanged += (_, _) =>
+            {
+                if (_sortAsc.IsChecked != true) return;
+                _sortAscending = true; _sortDesc.IsChecked = false; RefreshTree();
+            };
+            _sortDesc.IsCheckedChanged += (_, _) =>
+            {
+                if (_sortDesc.IsChecked != true) return;
+                _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree();
+            };
             sortPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("Common.SortLabel"), VerticalAlignment = VerticalAlignment.Center });
             sortPanel.Children.Add(_sortAsc);
             sortPanel.Children.Add(_sortDesc);

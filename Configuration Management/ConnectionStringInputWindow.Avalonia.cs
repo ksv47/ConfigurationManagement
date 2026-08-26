@@ -3,6 +3,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Localization;
@@ -154,7 +155,7 @@ namespace Configuration_Management
             string text;
             try
             {
-                text = await clipboard.GetTextAsync() ?? string.Empty;
+                text = await clipboard.TryGetTextAsync() ?? string.Empty;
             }
             catch
             {
@@ -179,7 +180,7 @@ namespace Configuration_Management
             string text;
             try
             {
-                text = await clipboard.GetTextAsync() ?? string.Empty;
+                text = await clipboard.TryGetTextAsync() ?? string.Empty;
             }
             catch
             {

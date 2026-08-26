@@ -79,12 +79,9 @@ namespace Configuration_Management
 
             _programCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.Program);
             _userCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.User);
-            _programCacheCheck.Checked += (_, _) => UpdateCleanEnabled();
-            _programCacheCheck.Unchecked += (_, _) => UpdateCleanEnabled();
-            _userCacheCheck.Checked += (_, _) => UpdateCleanEnabled();
-            _userCacheCheck.Unchecked += (_, _) => UpdateCleanEnabled();
-            _orphanCacheCheck.Checked += (_, _) => UpdateCleanEnabled();
-            _orphanCacheCheck.Unchecked += (_, _) => UpdateCleanEnabled();
+            _programCacheCheck.IsCheckedChanged += (_, _) => UpdateCleanEnabled();
+            _userCacheCheck.IsCheckedChanged += (_, _) => UpdateCleanEnabled();
+            _orphanCacheCheck.IsCheckedChanged += (_, _) => UpdateCleanEnabled();
             _searchBox.TextChanged += (_, _) => OnSearchTextChanged();
 
             LoadColumnWidths();
@@ -522,8 +519,7 @@ namespace Configuration_Management
                     VerticalContentAlignment = VerticalAlignment.Center
                 };
                 ToolTip.SetTip(check, string.IsNullOrWhiteSpace(ib.ConnectionPathDisplay) ? ib.Name : ib.ConnectionPathDisplay);
-                check.Checked += (_, _) => OnBaseChecked();
-                check.Unchecked += (_, _) => OnBaseChecked();
+                check.IsCheckedChanged += (_, _) => OnBaseChecked();
                 Grid.SetColumn(check, 0);
                 row.Children.Add(check);
 
