@@ -322,7 +322,7 @@ namespace Configuration_Management
             var displayColumns = new StackPanel { Spacing = 6 };
             var displayPanels = new StackPanel { Spacing = 6 };
 
-                        displayIcons.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
+            displayIcons.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
             var favoritesCheck = DisplayCheck("Settings.Icons.FavoritesButton", _viewModel.ShowFavoritesButton);
             var pinnedCheck = DisplayCheck("Settings.Icons.PinButton", _viewModel.ShowPinnedButton);
             var tagsCheck = DisplayCheck("Settings.Icons.Tags", _viewModel.ShowTags);
@@ -333,7 +333,7 @@ namespace Configuration_Management
             // Видимость и порядок колонок редактируются в одном списке: у каждой
             // строки есть флажок видимости, а порядок задаётся кнопками «Вверх»/«Вниз»
             // по выбранной строке. Так не нужно держать две раздельные группы настроек.
-                        displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
+            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
 
             static string ColumnOrderLabel(string key) => LocalizationManager.T(key switch
             {
@@ -452,7 +452,7 @@ namespace Configuration_Management
 
             displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
 
-                        displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
+            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails);
             var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel);
             var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup);
@@ -1336,7 +1336,6 @@ namespace Configuration_Management
             return string.IsNullOrEmpty(name) ? null : name;
         }
 
-        /// <summary>Заголовок группы настроек на вкладке.</summary>
         /// <summary>
         /// Вложенная вкладка раздела настроек: значок и подпись в заголовке,
         /// содержимое в своей прокрутке. Повторяет заголовки подвкладок WPF.
@@ -1364,6 +1363,7 @@ namespace Configuration_Management
             };
         }
 
+        /// <summary>Заголовок группы настроек на вкладке.</summary>
         private static TextBlock GroupTitle(string text) => new()
         {
             Text = text,
