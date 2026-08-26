@@ -81,9 +81,21 @@ namespace Configuration_Management
             var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 0, 0, 8), VerticalAlignment = VerticalAlignment.Center };
             var filterPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
             filterPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("PlatformVersionPicker.FilterLabel"), VerticalAlignment = VerticalAlignment.Center });
-            _filterAll.Checked += (_, _) => { _archFilter = "all"; RefreshTree(); };
-            _filterX32.Checked += (_, _) => { _archFilter = "x32"; RefreshTree(); };
-            _filterX64.Checked += (_, _) => { _archFilter = "x64"; RefreshTree(); };
+            _filterAll.IsCheckedChanged += (_, _) =>
+            {
+                if (_filterAll.IsChecked != true) return;
+                _archFilter = "all"; RefreshTree();
+            };
+            _filterX32.IsCheckedChanged += (_, _) =>
+            {
+                if (_filterX32.IsChecked != true) return;
+                _archFilter = "x32"; RefreshTree();
+            };
+            _filterX64.IsCheckedChanged += (_, _) =>
+            {
+                if (_filterX64.IsChecked != true) return;
+                _archFilter = "x64"; RefreshTree();
+            };
             filterPanel.Children.Add(_filterAll);
             filterPanel.Children.Add(_filterX32);
             filterPanel.Children.Add(_filterX64);
@@ -91,8 +103,16 @@ namespace Configuration_Management
 
             var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
             sortPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("Common.SortLabel"), VerticalAlignment = VerticalAlignment.Center });
-            _sortAsc.Checked += (_, _) => { _sortAscending = true; _sortDesc.IsChecked = false; RefreshTree(); };
-            _sortDesc.Checked += (_, _) => { _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree(); };
+            _sortAsc.IsCheckedChanged += (_, _) =>
+            {
+                if (_sortAsc.IsChecked != true) return;
+                _sortAscending = true; _sortDesc.IsChecked = false; RefreshTree();
+            };
+            _sortDesc.IsCheckedChanged += (_, _) =>
+            {
+                if (_sortDesc.IsChecked != true) return;
+                _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree();
+            };
             sortPanel.Children.Add(_sortAsc);
             sortPanel.Children.Add(_sortDesc);
             top.Children.Add(sortPanel);
