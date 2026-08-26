@@ -321,8 +321,8 @@ namespace Configuration_Management
         /// <summary>Открывает окно управления учётными записями (профилями).</summary>
         private void OnManageProfiles_Click(object sender, RoutedEventArgs e)
         {
-            var profiles = AppServices.GetRequiredService<IProfileService>();
-            new ProfilesWindow(profiles) { Owner = this }.ShowDialog();
+            var viewModel = AppServices.GetRequiredService<ProfilesViewModel>();
+            new ProfilesWindow(viewModel) { Owner = this }.ShowDialog();
         }
 
         private void OnAboutLink_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)

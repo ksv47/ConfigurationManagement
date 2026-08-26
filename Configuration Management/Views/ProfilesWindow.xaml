@@ -40,56 +40,72 @@
         </Grid.RowDefinitions>
 
         <!-- ============ Подсказка и текущая запись ============ -->
-        <TextBlock Grid.Row="0" x:Name="CurrentAccountLabel" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,4"/>
+        <TextBlock Grid.Row="0" x:Name="CurrentAccountLabel" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,4"
+                   Text="{Binding CurrentAccountLabel}"/>
         <TextBlock Grid.Row="1" x:Name="HintLabel" Text="{loc:Loc Profiles.Hint}" TextWrapping="Wrap"
                    Opacity="0.85" Margin="0,0,0,12"/>
 
         <!-- ============ Список учётных записей ============ -->
         <ListBox x:Name="ProfilesList" Grid.Row="2" Margin="0,0,0,12"
-                 DisplayMemberPath="Name" SelectionChanged="OnProfilesList_SelectionChanged"/>
+                 DisplayMemberPath="Name"
+                 ItemsSource="{Binding Profiles}"
+                 SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"/>
 
         <!-- ============ Редактирование выбранной записи ============ -->
         <GroupBox Grid.Row="3" Header="{loc:Loc Profiles.Title}" Padding="10,8" Margin="0,0,0,12">
             <StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <TextBlock Text="{loc:Loc Profiles.Name}" VerticalAlignment="Center" Margin="0,0,8,0" Width="90"/>
-                    <TextBox x:Name="NameBox" Width="280" Padding="8,6"/>
+                    <TextBox x:Name="NameBox" Width="280" Padding="8,6"
+                             Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <TextBlock Text="{loc:Loc Profiles.Password}" VerticalAlignment="Center" Margin="0,0,8,0" Width="90"/>
-                    <PasswordBox x:Name="PasswordInput" Width="280" Padding="8,6"/>
+                    <PasswordBox x:Name="PasswordInput" Width="280" Padding="8,6" PasswordChanged="OnPassword_Changed"/>
                 </StackPanel>
-                <CheckBox x:Name="ProtectCheck" Content="{loc:Loc Profiles.ProtectWithPassword}" Margin="98,0,0,0"/>
+                <CheckBox x:Name="ProtectCheck" Content="{loc:Loc Profiles.ProtectWithPassword}" Margin="98,0,0,0"
+                          IsChecked="{Binding ProtectWithPassword}"/>
             </StackPanel>
         </GroupBox>
 
         <!-- ============ Ошибка ============ -->
-        <TextBlock Grid.Row="4" x:Name="ErrorLabel" Foreground="#E53935" TextWrapping="Wrap"
-                   Margin="0,0,0,12" Visibility="Collapsed"/>
+        <TextBlock Grid.Row="4" x:Name="ErrorLabel" TextWrapping="Wrap" Margin="0,0,0,12" Text="{Binding ErrorMessage}">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="#E53935"/>
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasError}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
 
         <!-- ============ Кнопки ============ -->
         <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="DeleteButton" Width="110" Margin="0,0,8,0"
+            <Button Width="110" Margin="0,0,8,0"
                     Style="{StaticResource ModernButton}"
                     Background="{DynamicResource ItemHoverBrush}"
                     Foreground="{DynamicResource TextPrimaryBrush}"
-                    Click="OnDelete_Click">
+                    Command="{Binding DeleteCommand}">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="🗑" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Profiles.Delete}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
-            <Button x:Name="SaveButton" Width="130" Margin="0,0,8,0"
+            <Button Width="130" Margin="0,0,8,0"
                     Style="{StaticResource ModernButton}"
-                    Click="OnSave_Click">
+                    Command="{Binding SaveCommand}">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="✔" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Profiles.Save}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
-            <Button x:Name="CreateButton" Width="130"
+            <Button Width="130"
                     Style="{StaticResource ModernButton}"
-                    Click="OnCreate_Click">
+                    Command="{Binding CreateCommand}">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="＋" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Profiles.Create}" VerticalAlignment="Center"/>

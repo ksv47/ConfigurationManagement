@@ -77,13 +77,13 @@ Configuration Management/
 
 | Файл | Строк | Содержимое |
 |------|-------|------------|
-| `MainViewModel.cs` | ~1160 | поля, конструктор, коллекции, версии платформы, настройки ibases, тип `TagFilterItem` |
-| `MainViewModel.Sync.cs` | ~260 | синхронизация с ibases.v8i (таймер, импорт/экспорт) |
-| `MainViewModel.Display.cs` | ~870 | колонки, теги-фильтры, сессия, статус-бар, раскладка окна, объявления команд |
-| `MainViewModel.Commands.cs` | ~950 | реализации команд: выбор, добавление, правка, удаление, избранное, закрепление, хоткеи |
-| `MainViewModel.Launch.cs` | ~530 | запуск 1С, сохранение списка, фильтр, смена языка |
-| `MainViewModel.Theme.cs` | ~610 | темы, цветовые схемы, шрифты, свёрнутые группы, `RebuildGroupTree` |
-| `MainViewModel.Tools.cs` | ~1680 | импорт/экспорт, кеш, конфигурация, COM-регистрация, дампы, теги, перемещение групп, поведение |
+| `MainViewModel.cs` | 1059 | поля, конструктор, коллекции, версии платформы, настройки ibases, тип `TagFilterItem` |
+| `MainViewModel.Sync.cs` | 235 | синхронизация с ibases.v8i (таймер, импорт/экспорт) |
+| `MainViewModel.Display.cs` | 727 | колонки, теги-фильтры, сессия, статус-бар, раскладка окна, объявления команд |
+| `MainViewModel.Commands.cs` | 858 | реализации команд: выбор, добавление, правка, удаление, избранное, закрепление, хоткеи |
+| `MainViewModel.Launch.cs` | 492 | запуск 1С, сохранение списка, фильтр, смена языка |
+| `MainViewModel.Theme.cs` | 545 | темы, цветовые схемы, шрифты, свёрнутые группы, `RebuildGroupTree` |
+| `MainViewModel.Tools.cs` | 1491 | импорт/экспорт, кеш, конфигурация, COM-регистрация, дампы, теги, перемещение групп, поведение |
 
 Содержимое методов сохранено без изменений (разбиение выполняется скриптом
 [`tools/split_mainviewmodel.ps1`](tools/split_mainviewmodel.ps1) по границам методов),
@@ -117,17 +117,48 @@ Configuration Management/
 проверки дубликатов хоткеев. `SettingsWindow` теперь делегирует в VM всю чистую бизнес-логику,
 оставляя в view только работу с WPF-контролами и диалогами. Сборка Windows: **0 ошибок**.
 
+Также создана модель представления [`ViewModels/ProfilesViewModel.cs`](Configuration Management/ViewModels/ProfilesViewModel.cs)
+(WINDOWS-only, зарегистрирована в DI), выносящая из [`Views/ProfilesWindow.xaml.cs`](Configuration Management/Views/ProfilesWindow.xaml.cs)
+всю бизнес-логику окна учётных записей: валидацию имени, построение списка профилей, выбор
+текущей записи, CRUD через `IProfileService` (создание/переименование/смена пароля/удаление
+с подтверждением через `IDialogService`) и локализацию подписи текущего профиля.
+Окно стало тонкой «view»: оно лишь задаёт `DataContext`, связывает контролы через `{Binding}`
+и передаёт пароль из `PasswordBox` в свойство `ProfilesViewModel.Password` (пароль не является
+DependencyProperty и не поддерживает двустороннюю привязку). Кнопки используют команды
+`CreateCommand`/`SaveCommand`/`DeleteCommand`, ошибки отображаются через `ErrorMessage`/`HasError`.
+Сборка Windows: **0 ошибок**.
+
+### Разбиение на блоки (Windows-приоритет)
+- Из [`Services/ComReadHost.cs`](Configuration Management/Services/ComReadHost.cs) (~1335 строк,
+  крупнейший Windows-монолит) выделены контрактные типы протокола — перечисление
+  [`ComFailureKind`](Configuration Management/Services/ComReadHost.Types.cs) и результат
+  [`ComReadResult`](Configuration Management/Services/ComReadHost.Types.cs) — в отдельный
+  файл-блок [`ComReadHost.Types.cs`](Configuration Management/Services/ComReadHost.Types.cs).
+  Тело самого хоста осталось на месте: это критичный и сильно связный код (жизненный цикл
+  агента, протокол и диагностика переплетены, методы родителя вызывают методы агента),
+  поэтому ручной разнос методов по partial-файлам здесь не выполнялся — это рекомендованный
+  следующий шаг ниже.
+- Консолидирован DI-контейнер [`AppServices.cs`](Configuration Management/AppServices.cs):
+  общие регистрации сервисов вынесены за пределы `#if WINDOWS`/`#else`, внутри веток остались
+  только платформозависимые. Это убирает дублирование и делает Windows-приоритет явным:
+  Windows дополнительно регистрирует `IDialogService` (WPF), регистратор COM-коннектора
+  и Windows-only ViewModel (`SettingsViewModel`, `ProfilesViewModel`); Linux — только
+  `IDialogService` (Avalonia). Сборка Windows: **0 ошибок**.
+
 ## 5. Рекомендуемые следующие шаги
 
 1. **Разбить Avalonia-аналоги** тем же приёмом частичных классов:
-   `MainViewModel.Avalonia.cs` (3768) и `MainWindow.Avalonia.cs` (3906) — как это сделано
+   `MainViewModel.Avalonia.cs` (3282) и `MainWindow.Avalonia.cs` (3483) — как это сделано
    для WPF-версий `MainWindow` и `SettingsWindow`.
-2. **Углубить MVVM-вынос** из окон: перенести в `SettingsViewModel` больше бизнес-логики
+2. **Разнести `ComReadHost.cs` на partial-блоки** по существующим разделителям секций
+   («сторона родителя» / «сторона агента») — уже выделены типы, осталось тело; выполнять
+   аккуратно с обязательной проверкой сборки и сравнением набора методов.
+3. **Углубить MVVM-вынос** из окон: перенести в `SettingsViewModel` больше бизнес-логики
    (синхронизацию ibases.v8i, платформы, шаблоны, шрифты) там, где это возможно без
    переделки XAML-привязок; рассмотреть отдельные VM для крупных диалогов.
-3. **Выделить сервисы** из `MainViewModel` (например, `TagsFilterService`,
+4. **Выделить сервисы** из `MainViewModel` (например, `TagsFilterService`,
    `FavoritesHotkeyService`), чтобы ещё сильнее разгрузить VM.
-4. **Проверить Linux-конфигурацию на Linux-хосте**: после переноса окон в `Views/` глобы
+5. **Проверить Linux-конфигурацию на Linux-хосте**: после переноса окон в `Views/` глобы
    `.csproj` обновлены согласованно, но сборка Avalonia возможна только на Linux (на Windows
    условие `IsOSPlatform('Windows')` включает WPF). Обязательно прогнать `dotnet build -c Debug`
    на Linux перед релизом.
