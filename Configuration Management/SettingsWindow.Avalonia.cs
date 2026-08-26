@@ -344,11 +344,6 @@ namespace Configuration_Management
 
             // Порядок колонок редактируется кнопками «Вверх»/«Вниз» по выбранной
             // строке; список хранит ключи колонок, а показывает локализованные имена.
-            record ColumnOrderItem(string Key, string Display)
-            {
-                public override string ToString() => Display;
-            }
-
             static string ColumnOrderLabel(string key) => LocalizationManager.T(key switch
             {
                 "Version" => "Column.Version",
@@ -1485,6 +1480,11 @@ namespace Configuration_Management
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
             };
             _ = win.ShowDialog(this);
+        }
+
+        private sealed record ColumnOrderItem(string Key, string Display)
+        {
+            public override string ToString() => Display;
         }
     }
 }
