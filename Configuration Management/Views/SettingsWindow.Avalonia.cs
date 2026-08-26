@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
@@ -317,22 +318,22 @@ namespace Configuration_Management
             });
 
             // ===== Отображение =====
-            var display = new StackPanel { Spacing = 6 };
+            var displayIcons = new StackPanel { Spacing = 6 };
+            var displayColumns = new StackPanel { Spacing = 6 };
+            var displayPanels = new StackPanel { Spacing = 6 };
 
-            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Icons")));
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
+                        displayIcons.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
             var favoritesCheck = DisplayCheck("Settings.Icons.FavoritesButton", _viewModel.ShowFavoritesButton);
             var pinnedCheck = DisplayCheck("Settings.Icons.PinButton", _viewModel.ShowPinnedButton);
             var tagsCheck = DisplayCheck("Settings.Icons.Tags", _viewModel.ShowTags);
             var tagPanelCheck = DisplayCheck("Settings.Icons.TagFilterPanel", _viewModel.ShowTagFilterPanel);
             foreach (var check in new[] { favoritesCheck, pinnedCheck, tagsCheck, tagPanelCheck })
-                display.Children.Add(check);
+                displayIcons.Children.Add(check);
 
             // Видимость и порядок колонок редактируются в одном списке: у каждой
             // строки есть флажок видимости, а порядок задаётся кнопками «Вверх»/«Вниз»
             // по выбранной строке. Так не нужно держать две раздельные группы настроек.
-            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Columns")));
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
+                        displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
 
             static string ColumnOrderLabel(string key) => LocalizationManager.T(key switch
             {
@@ -362,8 +363,8 @@ namespace Configuration_Management
             var orderList = new ListBox
             {
                 ItemsSource = orderItems,
-                MinHeight = 120,
-                MaxHeight = 200,
+                MinHeight = UiMetrics.Scaled(180),
+                MaxHeight = UiMetrics.Scaled(240),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 // Каждая строка — флажок видимости с именем колонки; переключение
                 // правит только видимость, порядок меняется кнопками ниже. Иконка
@@ -408,7 +409,7 @@ namespace Configuration_Management
                     return row;
                 })
             };
-            display.Children.Add(orderList);
+            displayColumns.Children.Add(orderList);
 
             var orderButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
             var moveUp = new Button { Content = LocalizationManager.T("Settings.Columns.OrderUp"), Margin = new Thickness(0, 0, 6, 0), IsEnabled = false };
@@ -440,23 +441,30 @@ namespace Configuration_Management
             };
             orderButtons.Children.Add(moveUp);
             orderButtons.Children.Add(moveDown);
-            display.Children.Add(orderButtons);
+            displayColumns.Children.Add(orderButtons);
 
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
+            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
 
-            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Panels")));
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
+                        displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails);
             var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel);
             var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup);
             var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups);
             foreach (var check in new[] { rightPanelCheck, sessionPanelCheck, groupByGroupCheck, emptyGroupsCheck })
-                display.Children.Add(check);
+                displayPanels.Children.Add(check);
+
+            // Раздел «Отображение» разложен по вложенным вкладкам, как в разметке WPF:
+            // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт». Последние
+            // две в Avalonia ещё не портированы, поэтому строка пока из трёх.
+            var displayTabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Icons", "Settings.Subtab.IconsTooltip", "IconStar", displayIcons));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Columns", "Settings.Subtab.ColumnsTooltip", "IconList", displayColumns));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Panels", "Settings.Subtab.PanelsTooltip", "IconPanel", displayPanels));
 
             tabs.Items.Add(new TabItem
             {
                 Header = LocalizationManager.T("Settings.TabDisplay"),
-                Content = new ScrollViewer { Content = display, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+                Content = displayTabs
             });
 
             // ===== Оформление =====
@@ -1322,6 +1330,33 @@ namespace Configuration_Management
         }
 
         /// <summary>Заголовок группы настроек на вкладке.</summary>
+        /// <summary>
+        /// Вложенная вкладка раздела настроек: значок и подпись в заголовке,
+        /// содержимое в своей прокрутке. Повторяет заголовки подвкладок WPF.
+        /// </summary>
+        private static TabItem SubTab(string titleKey, string tooltipKey, string iconKey, Control content)
+        {
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            header.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), "TextSecondaryBrush"));
+            header.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T(titleKey),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            ToolTip.SetTip(header, LocalizationManager.T(tooltipKey));
+
+            return new TabItem
+            {
+                Header = header,
+                Content = new ScrollViewer
+                {
+                    Content = content,
+                    Padding = new Thickness(8, 4, 4, 4),
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                }
+            };
+        }
+
         private static TextBlock GroupTitle(string text) => new()
         {
             Text = text,
