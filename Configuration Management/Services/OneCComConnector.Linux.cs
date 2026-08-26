@@ -311,10 +311,17 @@ namespace Configuration_Management.Services
                 return string.Empty;
             return c.Type switch
             {
-                ConnectionType.File => $"File=\"{c.FilePath}\"",
-                ConnectionType.WebServer => $"WS=\"{c.WebUrl}\"",
-                _ => $"Srvr=\"{c.GetServerWithPort()}\";Ref=\"{c.DatabaseName}\""
+                ConnectionType.File => $"File=\"{Escape(c.FilePath)}\"",
+                ConnectionType.WebServer => $"WS=\"{Escape(c.WebUrl)}\"",
+                _ => $"Srvr=\"{Escape(c.GetServerWithPort())}\";Ref=\"{Escape(c.DatabaseName)}\""
             };
+
+            // Кавычка внутри значения закрывает его и позволяет дописать
+            // произвольный параметр. Грамматика та же, что у строки подключения
+            // CREATEINFOBASE, поэтому и правило то же: кавычка удваивается.
+            // В Windows-двойнике (OneCComConnector.AppendParameter) так и сделано,
+            // в эту копию правило не перенесли.
+            static string Escape(string? value) => (value ?? string.Empty).Replace("\"", "\"\"");
         }
     }
 
