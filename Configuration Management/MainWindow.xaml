@@ -819,7 +819,7 @@
                                              режима мог его уменьшить и убрать лишнее пустое место вокруг названия. -->
                                         <Style TargetType="Border">
                                             <!-- Готовая кисть с узла — без поиска группы и GetFullPath при каждой отрисовке -->
-                                            <Setter Property="Padding" Value="8,6"/>
+                                            <Setter Property="Padding" Value="8,3"/>
                                             <Setter Property="Background" Value="{Binding HeaderBrush}"/>
                                             <Setter Property="BorderBrush" Value="Transparent"/>
                                             <Setter Property="BorderThickness" Value="2"/>

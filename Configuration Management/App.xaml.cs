@@ -174,6 +174,9 @@ namespace Configuration_Management
                 var versionText = string.IsNullOrWhiteSpace(infoVersion) ? "" : $" v{infoVersion}";
                 mainWindow.Title = $"{LocalizationManager.T("App.Title")}{versionText}";
 
+                // Значок в заголовке главного окна — тот же app.ico (основной значок приложения).
+                mainWindow.Icon = LoadAppIconImageSource() ?? mainWindow.Icon;
+
                 // Применяем сохранённые настройки шрифта интерфейса.
                 ThemeManager.ApplyFont(mainWindow,
                     settings.FontFamily, settings.FontSize, settings.FontWeight, settings.FontStyle);
@@ -194,6 +197,24 @@ namespace Configuration_Management
                 ShowFatalError(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
                 Shutdown(1);
             }
+        }
+
+        /// <summary>
+        /// Загружает значок приложения (app.ico) для заголовка главного окна.
+        /// Использует IconBitmapDecoder — WPF-декодер именно для .ico-файлов.
+        /// </summary>
+        private static System.Windows.Media.ImageSource? LoadAppIconImageSource()
+        {
+            try
+            {
+                var uri = new Uri("pack://application:,,,/app.ico", UriKind.Absolute);
+                var decoder = new System.Windows.Media.Imaging.IconBitmapDecoder(
+                    uri,
+                    System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat,
+                    System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+                return decoder.Frames[0];
+            }
+            catch { return null; }
         }
 
         /// <summary>

@@ -5,6 +5,33 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.4.23] — 2026-08-26
+
+### Изменено
+
+- **Настройки колонок списка баз объединены в одно поле (обе платформы)**. На вкладке **Отображение → Колонки** видимость и порядок колонок больше не задаются раздельно (отдельные переключатели + отдельный список порядка). Теперь это **единый список**: каждая строка — колонка с собственным **переключателем видимости** (на Windows/WPF — тумблер справа, на Linux/Avalonia — флажок) и названием, а порядок по-прежнему меняется кнопками **«Вверх»/«Вниз»** по выбранной строке. На Windows блок колонок оформлен как карточка большего размера со скруглением и разделителем. Так все настройки колонок видны и правятся в одном месте. Реализовано в обеих реализациях окна настроек: [`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml) / [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs) (Windows/WPF) и [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs) (Linux/Avalonia). Элемент списка `ColumnOrderItem` хранит ключ, локализованное имя и флаг видимости, а при сохранении значения видимости читаются из тех же строк списка, что и порядок.
+
+### Версия
+
+- **Версия обновлена до 0.3.4.23** (`InformationalVersion` = 0.3.4.23 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
+## [0.3.4.22] — 2026-08-26
+
+### Слияние исправлений от ksv47
+
+- **Влит PR #73 «Linux/Avalonia: сняты устаревшие API — предупреждений с 32 до 15»** (ветка `ksv47/linux-fixes-7`). Все изменения этого PR **выполнены автором [ksv47](https://github.com/ksv47)**. Устаревшие (deprecated) API Avalonia 11 заменены на актуальные:
+  - **Окно очистки кеша** ([`CacheCleanWindow.Avalonia.cs`](Configuration Management/CacheCleanWindow.Avalonia.cs)) — для чекбоксов программного/пользовательского кеша и «Остатков от удалённых баз», а также для чекбоксов баз в списке события `Checked`/`Unchecked` заменены на единое `IsCheckedChanged`.
+  - **Окно ввода строки подключения** ([`ConnectionStringInputWindow.Avalonia.cs`](Configuration Management/ConnectionStringInputWindow.Avalonia.cs)) — устаревший метод буфера обмена `clipboard.GetTextAsync()` заменён на `clipboard.TryGetTextAsync()` (добавлен `using Avalonia.Input.Platform`).
+  - **Окно выбора группы** ([`GroupPickerWindow.Avalonia.cs`](Configuration Management/GroupPickerWindow.Avalonia.cs)) — для радиокнопок сортировки «А → Я» / «Я → А» события `Checked` заменены на `IsCheckedChanged` с защитной проверкой `IsChecked != true`, чтобы логика срабатывала только при реальном выборе, а не при снятии флажка радиогруппой.
+  - **Окно выбора версии платформы** ([`PlatformVersionPickerWindow.Avalonia.cs`](Configuration Management/PlatformVersionPickerWindow.Avalonia.cs)) — аналогично для радиокнопок фильтра разрядности («Все» / «32» / «64») и сортировки: `Checked` → `IsCheckedChanged` с защитной проверкой `IsChecked != true`.
+  - Итог: количество предупреждений компилятора **CS0618** (использование устаревших API) снижено с **32 до 15**.
+
+> **Авторство изменений этого выпуска: [ksv47](https://github.com/ksv47)** — слияние ветки `linux-fixes-7` (PR #73). См. также раздел «Благодарности» в [`README.md`](README.md).
+
+### Версия
+
+- **Версия обновлена до 0.3.4.22** (`InformationalVersion` = 0.3.4.22 в [`Configuration Management.csproj`](Configuration Management/Configuration Management.csproj)). Бейдж и заголовок в [`README.md`](README.md) обновлены; версия в `Settings.About.HelpText` обновлена в `ru.json` и `en.json`.
+
 ## [0.3.4.21] — 2026-08-26
 
 ### Изменено

@@ -30,10 +30,6 @@ namespace Configuration_Management
         private bool _showFavoritesButton = true;
         private bool _showPinnedButton = true;
         private bool _showTags = true;
-        private bool _showVersionColumn = true;
-        private bool _showLaunchModeColumn = true;
-        private bool _showServerColumn = true;
-        private bool _showLastLaunchColumn = true;
         private readonly ObservableCollection<FavoriteHotkeyItem> _favoriteHotkeyItems = new();
         private readonly ObservableCollection<ColumnOrderItem> _columnOrderItems = new();
 
@@ -833,11 +829,14 @@ namespace Configuration_Management
             public string Display => $"Alt+{Number}: {Name}";
         }
 
-        /// <summary>Элемент списка порядка колонок: хранит ключ, показывает локализованное имя.</summary>
+        /// <summary>Элемент списка колонок: хранит ключ, имя и флаг видимости.
+        /// Один элемент объединяет порядок и видимость колонки — оба редактируются
+        /// в одном списке на вкладке «Отображение».</summary>
         private sealed class ColumnOrderItem
         {
             public string Key { get; init; } = string.Empty;
             public string Display { get; init; } = string.Empty;
+            public bool Visible { get; set; } = true;
 
             public override string ToString() => Display;
         }
@@ -855,12 +854,24 @@ namespace Configuration_Management
             _ => "Column.Name"
         });
 
+        /// <summary>Видимость колонки по её ключу из текущих настроек.</summary>
+        private bool ColumnVisible(string key) => key switch
+        {
+            "Version" => _viewModel.ShowVersionColumn,
+            "Configuration" => _viewModel.ShowConfigurationColumn,
+            "LaunchMode" => _viewModel.ShowLaunchModeColumn,
+            "ServerBase" => _viewModel.ShowServerColumn,
+            "LastLaunch" => _viewModel.ShowLastLaunchColumn,
+            "Size" => _viewModel.ShowSizeColumn,
+            _ => true
+        };
+
         /// <summary>Заполняет список порядка колонок текущим порядком из настроек.</summary>
         private void InitializeColumnOrder()
         {
             _columnOrderItems.Clear();
             foreach (var key in _viewModel.ColumnOrderKeys)
-                _columnOrderItems.Add(new ColumnOrderItem { Key = key, Display = ColumnOrderLabel(key) });
+                _columnOrderItems.Add(new ColumnOrderItem { Key = key, Display = ColumnOrderLabel(key), Visible = ColumnVisible(key) });
             if (ColumnOrderList != null)
                 ColumnOrderList.ItemsSource = _columnOrderItems;
             UpdateColumnOrderButtons();
@@ -912,21 +923,10 @@ namespace Configuration_Management
             _showFavoritesButton = _viewModel.ShowFavoritesButton;
             _showPinnedButton = _viewModel.ShowPinnedButton;
             _showTags = _viewModel.ShowTags;
-            _showVersionColumn = _viewModel.ShowVersionColumn;
-            // configuration column from VM
-            _showLaunchModeColumn = _viewModel.ShowLaunchModeColumn;
-            _showServerColumn = _viewModel.ShowServerColumn;
-            _showLastLaunchColumn = _viewModel.ShowLastLaunchColumn;
 
+            // Видимость колонок (кроме закреплённой «Название») задаётся в том же
+            // списке, что и порядок: флажки заполняются в InitializeColumnOrder.
             ShowNameColumnCheck.IsChecked = true;
-            ShowVersionColumnCheck.IsChecked = _showVersionColumn;
-            if (ShowConfigurationColumnCheck != null)
-                ShowConfigurationColumnCheck.IsChecked = _viewModel.ShowConfigurationColumn;
-            ShowLaunchModeColumnCheck.IsChecked = _showLaunchModeColumn;
-            ShowServerColumnCheck.IsChecked = _showServerColumn;
-            ShowLastLaunchColumnCheck.IsChecked = _showLastLaunchColumn;
-            if (ShowSizeColumnCheck != null)
-                ShowSizeColumnCheck.IsChecked = _viewModel.ShowSizeColumn;
 
             InitializeColumnOrder();
 
@@ -1658,18 +1658,22 @@ namespace Configuration_Management
             _viewModel.ApplyProfileBackupSettings(_profileDirBox.Text, _profileRestoreCheck.IsChecked == true);
 
             // Сохраняем настройки отображения списка баз.
+            // Видимость колонок читается из тех же элементов списка, где задаётся
+            // и порядок: флажок каждой строки и есть её видимость.
+            bool VisibleOf(string key) => _columnOrderItems.FirstOrDefault(i => i.Key == key)?.Visible ?? true;
+
             _viewModel.ApplyDisplaySettings(
                 ShowFavoritesButtonCheck.IsChecked ?? false,
                 ShowPinnedButtonCheck.IsChecked ?? false,
                 ShowTagsCheck.IsChecked ?? false,
-                ShowVersionColumnCheck.IsChecked ?? false,
-                ShowLaunchModeColumnCheck.IsChecked ?? false,
-                ShowServerColumnCheck.IsChecked ?? false,
-                ShowLastLaunchColumnCheck.IsChecked ?? false,
+                VisibleOf("Version"),
+                VisibleOf("LaunchMode"),
+                VisibleOf("ServerBase"),
+                VisibleOf("LastLaunch"),
                 GroupByGroupCheck.IsChecked ?? true,
                 ShowFavoritesOnlyCheck.IsChecked ?? false,
-                ShowSizeColumnCheck?.IsChecked ?? true,
-                ShowConfigurationColumnCheck?.IsChecked ?? true,
+                VisibleOf("Size"),
+                VisibleOf("Configuration"),
                 ShowEmptyGroupsCheck?.IsChecked ?? false,
                 _columnOrderItems.Select(i => i.Key).ToList());
 

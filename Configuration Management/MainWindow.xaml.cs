@@ -387,11 +387,11 @@ namespace Configuration_Management
         /// </summary>
         private static Drawing.Icon? LoadApplicationIcon()
         {
-            // 1) Embedded resource «tray.ico» (приоритет), затем «app.ico»
+            // 1) Embedded resource «app.ico» (приоритет), затем «tray.ico»
             try
             {
                 var asm = System.Reflection.Assembly.GetExecutingAssembly();
-                string[] preferred = ["tray.ico", "app.ico"];
+                string[] preferred = ["app.ico", "tray.ico"];
                 var names = asm.GetManifestResourceNames();
                 foreach (var pref in preferred)
                 {
@@ -408,10 +408,10 @@ namespace Configuration_Management
             }
             catch { /* ignore */ }
 
-            // 2) WPF Resource (pack URI): tray.ico, затем app.ico
+            // 2) WPF Resource (pack URI): app.ico, затем tray.ico
             try
             {
-                foreach (var res in new[] { "tray.ico", "app.ico" })
+                foreach (var res in new[] { "app.ico", "tray.ico" })
                 {
                     var uri = new Uri($"pack://application:,,,/{res}", UriKind.Absolute);
                     var info = Application.GetResourceStream(uri);
@@ -436,7 +436,7 @@ namespace Configuration_Management
                 }
                 foreach (var dir in dirs.Distinct(StringComparer.OrdinalIgnoreCase))
                 {
-                    foreach (var fileName in new[] { "tray.ico", "app.ico" })
+                    foreach (var fileName in new[] { "app.ico", "tray.ico" })
                     {
                         var iconPath = System.IO.Path.Combine(dir, fileName);
                         if (!System.IO.File.Exists(iconPath)) continue;
