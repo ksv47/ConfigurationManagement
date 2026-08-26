@@ -2554,6 +2554,9 @@ namespace Configuration_Management
             tools.ZIndex = 1;
 
             var nameHeader = ColumnHeader(LocalizationManager.T("Column.Name"), IconHelper.ColumnIconKey("Name"));
+            // У «Названия» отступ слева нулевой: заголовок равняется по тексту строк
+            // списка, а не по границе колонки. В разметке WPF так же (MainWindow.xaml:627).
+            nameHeader.Margin = new Thickness(0, 0, 8, 4);
             MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
             _columnHeaderRow.Children.Add(nameHeader);
             Grid.SetColumn(nameHeader, NameHeaderColumn);
@@ -3167,7 +3170,12 @@ namespace Configuration_Management
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                // Отступы как в разметке WPF (Margin="6,0,6,4"): без них подпись
+                // встаёт вплотную к соседней, а горизонтальный StackPanel меряет
+                // детей без ограничения по ширине, поэтому сам текст не подрезается.
+                Margin = new Thickness(6, 0, 6, 4),
+                ClipToBounds = true
             };
             panel.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(13), "TextSecondaryBrush"));
 

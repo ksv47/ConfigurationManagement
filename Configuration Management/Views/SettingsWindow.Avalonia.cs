@@ -4,12 +4,16 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
+using Avalonia.Styling;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
+using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
@@ -317,22 +321,26 @@ namespace Configuration_Management
             });
 
             // ===== Отображение =====
-            var display = new StackPanel { Spacing = 6 };
+            var displayIcons = new StackPanel { Spacing = 6 };
+            var displayColumns = new StackPanel { Spacing = 6 };
+            var displayPanels = new StackPanel { Spacing = 6 };
+            var displayStatus = new StackPanel { Spacing = 6 };
+            var displayFont = new StackPanel { Spacing = 6 };
 
-            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Icons")));
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
+            displayIcons.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
             var favoritesCheck = DisplayCheck("Settings.Icons.FavoritesButton", _viewModel.ShowFavoritesButton);
             var pinnedCheck = DisplayCheck("Settings.Icons.PinButton", _viewModel.ShowPinnedButton);
             var tagsCheck = DisplayCheck("Settings.Icons.Tags", _viewModel.ShowTags);
             var tagPanelCheck = DisplayCheck("Settings.Icons.TagFilterPanel", _viewModel.ShowTagFilterPanel);
             foreach (var check in new[] { favoritesCheck, pinnedCheck, tagsCheck, tagPanelCheck })
-                display.Children.Add(check);
+                displayIcons.Children.Add(check);
 
             // Видимость и порядок колонок редактируются в одном списке: у каждой
             // строки есть флажок видимости, а порядок задаётся кнопками «Вверх»/«Вниз»
             // по выбранной строке. Так не нужно держать две раздельные группы настроек.
-            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Columns")));
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
+            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
+            displayColumns.Children.Add(GroupTitle(LocalizationManager.T("Settings.Columns.OrderTitle")));
+            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
 
             static string ColumnOrderLabel(string key) => LocalizationManager.T(key switch
             {
@@ -362,8 +370,8 @@ namespace Configuration_Management
             var orderList = new ListBox
             {
                 ItemsSource = orderItems,
-                MinHeight = 120,
-                MaxHeight = 200,
+                MinHeight = UiMetrics.Scaled(180),
+                MaxHeight = UiMetrics.Scaled(240),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 // Каждая строка — флажок видимости с именем колонки; переключение
                 // правит только видимость, порядок меняется кнопками ниже. Иконка
@@ -393,7 +401,14 @@ namespace Configuration_Management
                     content.Children.Add(label);
                     ToolTip.SetTip(content, LocalizationManager.T("Settings.Columns.RowSelectHint"));
 
-                    var check = new CheckBox { VerticalAlignment = VerticalAlignment.Center };
+                    // Тумблер-пилюля, как ColumnVisibilitySwitch в разметке WPF:
+                    // подписей у положений нет, отметка только цветом и позицией.
+                    var check = new ToggleSwitch
+                    {
+                        VerticalAlignment = VerticalAlignment.Center,
+                        OnContent = null,
+                        OffContent = null
+                    };
                     check.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
                         new Avalonia.Data.Binding(nameof(ColumnOrderItem.Visible))
                         { Mode = Avalonia.Data.BindingMode.TwoWay });
@@ -408,7 +423,54 @@ namespace Configuration_Management
                     return row;
                 })
             };
-            display.Children.Add(orderList);
+            // Колонка «Название» закреплена и всегда первая, её тумблер неактивен.
+            // В разметке WPF она стоит отдельной строкой над списком, за ней
+            // разделитель, и всё вместе лежит в карточке.
+            var nameRowContent = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            nameRowContent.Children.Add(IconHelper.MakeIcon(IconHelper.ColumnIconKey("Name"), 14, "AccentBrush"));
+            var nameRowLabel = new TextBlock
+            {
+                Text = LocalizationManager.T("Column.Name"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Themes.ThemeBrushes.Bind(nameRowLabel, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            nameRowContent.Children.Add(nameRowLabel);
+
+            var nameRow = new Grid { Margin = new Thickness(4, 3) };
+            nameRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            nameRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            var nameRowSwitch = new ToggleSwitch
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                OnContent = null,
+                OffContent = null,
+                IsChecked = true,
+                IsEnabled = false
+            };
+            Grid.SetColumn(nameRowContent, 0);
+            Grid.SetColumn(nameRowSwitch, 1);
+            nameRow.Children.Add(nameRowContent);
+            nameRow.Children.Add(nameRowSwitch);
+
+            var orderCard = new Border
+            {
+                CornerRadius = new CornerRadius(8),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(8, 6)
+            };
+            Themes.ThemeBrushes.Bind(orderCard, Border.BackgroundProperty, "CardBackgroundBrush");
+            Themes.ThemeBrushes.Bind(orderCard, Border.BorderBrushProperty, "BorderColorBrush");
+            var orderCardBody = new StackPanel();
+            orderCardBody.Children.Add(nameRow);
+            orderCardBody.Children.Add(new Separator { Margin = new Thickness(0, 2, 0, 4) });
+            orderCardBody.Children.Add(orderList);
+            orderCard.Child = orderCardBody;
+            displayColumns.Children.Add(orderCard);
 
             var orderButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
             var moveUp = new Button { Content = LocalizationManager.T("Settings.Columns.OrderUp"), Margin = new Thickness(0, 0, 6, 0), IsEnabled = false };
@@ -440,23 +502,267 @@ namespace Configuration_Management
             };
             orderButtons.Children.Add(moveUp);
             orderButtons.Children.Add(moveDown);
-            display.Children.Add(orderButtons);
+            displayColumns.Children.Add(orderButtons);
 
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
 
-            display.Children.Add(GroupTitle(LocalizationManager.T("Settings.Subtab.Panels")));
-            display.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
+            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails);
             var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel);
             var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup);
             var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups);
             foreach (var check in new[] { rightPanelCheck, sessionPanelCheck, groupByGroupCheck, emptyGroupsCheck })
-                display.Children.Add(check);
+                displayPanels.Children.Add(check);
+
+            displayStatus.Children.Add(Hint(LocalizationManager.T("Settings.Status.Description")));
+            var statusPathCheck = DisplayCheck("Settings.Status.ConnectionPath", _viewModel.StatusShowConnectionPath);
+            var statusPortCheck = DisplayCheck("Settings.Status.Port", _viewModel.StatusShowPort);
+            var statusArchCheck = DisplayCheck("Settings.Status.Architecture", _viewModel.StatusShowArchitecture);
+            var statusVersionCheck = DisplayCheck("Column.Version", _viewModel.StatusShowPlatformVersion);
+            var statusLaunchModeCheck = DisplayCheck("Column.LaunchMode", _viewModel.StatusShowLaunchMode);
+            var statusClientTypeCheck = DisplayCheck("Settings.Status.ClientType", _viewModel.StatusShowClientType);
+            var statusConnectionTypeCheck = DisplayCheck("Settings.Status.ConnectionType", _viewModel.StatusShowConnectionType);
+            var statusUserCheck = DisplayCheck("Settings.Status.User", _viewModel.StatusShowUser);
+            var statusIdCheck = DisplayCheck("Settings.Status.Id", _viewModel.StatusShowId);
+            foreach (var check in new[]
+            {
+                statusPathCheck, statusPortCheck, statusArchCheck, statusVersionCheck, statusLaunchModeCheck,
+                statusClientTypeCheck, statusConnectionTypeCheck, statusUserCheck, statusIdCheck
+            })
+                displayStatus.Children.Add(check);
+
+            // Подвкладка «Шрифт»: область интерфейса, семейство, размер, начертание,
+            // образец и кнопка предпросмотра. Состав и порядок из SettingsWindow.xaml:752.
+            var editedFonts = new Dictionary<string, ElementFontSettings>();
+            foreach (var kv in _viewModel.ElementFonts)
+                editedFonts[kv.Key] = kv.Value?.Clone() ?? new ElementFontSettings();
+            if (!editedFonts.ContainsKey(ThemeManager.FontDefault))
+                editedFonts[ThemeManager.FontDefault] = new ElementFontSettings
+                {
+                    FontFamily = _viewModel.FontFamily,
+                    FontSize = _viewModel.FontSize,
+                    FontWeight = _viewModel.FontWeight,
+                    FontStyle = _viewModel.FontStyle
+                };
+
+            displayFont.Children.Add(Hint(LocalizationManager.T("Settings.Font.Description")));
+            displayFont.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Font.Element"),
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+
+            var fontScopeBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var key in ThemeManager.AllFontScopes)
+                fontScopeBox.Items.Add(new FontScopeItem(key));
+            fontScopeBox.SelectedIndex = 0;
+            displayFont.Children.Add(fontScopeBox);
+
+            var fontGrid = new Grid { Margin = new Thickness(0, 8, 0, 8) };
+            fontGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
+            fontGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            for (var i = 0; i < 3; i++)
+                fontGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            var fontFamilyBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 8) };
+            foreach (var family in new[]
+            {
+                "Segoe UI", "Arial", "Calibri", "Tahoma", "Verdana",
+                "Trebuchet MS", "Georgia", "Times New Roman", "Courier New", "Consolas"
+            })
+                fontFamilyBox.Items.Add(family);
+
+            // Размер можно и выбрать из списка, и набрать руками: в разметке WPF
+            // у этого списка стоит IsEditable, и в Avalonia он тоже есть.
+            var fontSizeBox = new ComboBox
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 0, 8),
+                IsEditable = true
+            };
+            foreach (var size in new double[]
+            {
+                8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24,
+                26, 28, 32, 36, 40, 48, 56, 64, 72
+            })
+                fontSizeBox.Items.Add(size);
+
+            var fontFaceBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var face in FontFaces)
+                fontFaceBox.Items.Add(face);
+
+            void AddFontRow(int row, string labelKey, Control editor)
+            {
+                var label = new TextBlock
+                {
+                    Text = LocalizationManager.T(labelKey),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 8, row < 2 ? 8 : 0)
+                };
+                Grid.SetRow(label, row);
+                Grid.SetColumn(label, 0);
+                Grid.SetRow(editor, row);
+                Grid.SetColumn(editor, 1);
+                fontGrid.Children.Add(label);
+                fontGrid.Children.Add(editor);
+            }
+
+            AddFontRow(0, "Settings.Font.Family", fontFamilyBox);
+            AddFontRow(1, "Settings.Font.Size", fontSizeBox);
+            AddFontRow(2, "Settings.Font.Style", fontFaceBox);
+            displayFont.Children.Add(fontGrid);
+
+            var fontPreview = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Font.Preview"),
+                TextWrapping = TextWrapping.Wrap
+            };
+            Themes.ThemeBrushes.Bind(fontPreview, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            var fontPreviewCard = new Border
+            {
+                CornerRadius = new CornerRadius(6),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(12, 10),
+                Margin = new Thickness(0, 0, 0, 10),
+                Child = fontPreview
+            };
+            Themes.ThemeBrushes.Bind(fontPreviewCard, Border.BackgroundProperty, "CardBackgroundBrush");
+            Themes.ThemeBrushes.Bind(fontPreviewCard, Border.BorderBrushProperty, "BorderColorBrush");
+            displayFont.Children.Add(fontPreviewCard);
+
+            var fontApplyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            fontApplyContent.Children.Add(IconHelper.MakeIcon("IconTheme", UiMetrics.Scaled(16), "ButtonTextBrush"));
+            var fontApplyLabel = new TextBlock
+            {
+                Text = LocalizationManager.T("Common.Apply"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Themes.ThemeBrushes.Bind(fontApplyLabel, TextBlock.ForegroundProperty, "ButtonTextBrush");
+            fontApplyContent.Children.Add(fontApplyLabel);
+            var fontApply = new Button
+            {
+                Content = fontApplyContent,
+                Padding = new Thickness(12, 6),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            // Кнопка акцентная, как ModernButton в разметке WPF. Состояния берутся
+            // из темы динамически, чтобы переживать смену цветовой схемы.
+            Themes.ThemeBrushes.Bind(fontApply, Button.BackgroundProperty, "AccentBrush");
+            PaintButtonStates(fontApply, fontApply.Background ?? Brushes.Transparent,
+                new DynamicResourceExtension("AccentHoverBrush"),
+                new DynamicResourceExtension("AccentPressedBrush"));
+            ToolTip.SetTip(fontApply, LocalizationManager.T("Settings.Font.ApplyTooltip"));
+            displayFont.Children.Add(fontApply);
+
+            // Правки живут в editedFonts: переключение области их не теряет,
+            // а «Сохранить» пишет весь набор разом.
+            var suppressFontLoad = false;
+
+            void StoreFontScope()
+            {
+                if (suppressFontLoad || fontScopeBox.SelectedItem is not FontScopeItem scope)
+                    return;
+                // Пока поля не заполнены загрузкой области, писать нечего:
+                // иначе в набор уйдут значения по умолчанию вместо сохранённых.
+                if (fontFamilyBox.SelectedItem is null && fontFaceBox.SelectedItem is null)
+                    return;
+                var face = fontFaceBox.SelectedItem as FontFaceItem ?? FontFaces[0];
+                editedFonts[scope.Key] = new ElementFontSettings
+                {
+                    FontFamily = fontFamilyBox.SelectedItem as string ?? ThemeManager.DefaultFontFamily,
+                    FontSize = SelectedFontSize(),
+                    FontWeight = face.Weight,
+                    FontStyle = face.Style
+                };
+                UpdateFontPreview();
+            }
+
+            void UpdateFontPreview()
+            {
+                var face = fontFaceBox.SelectedItem as FontFaceItem ?? FontFaces[0];
+                fontPreview.FontFamily = new FontFamily(fontFamilyBox.SelectedItem as string ?? ThemeManager.DefaultFontFamily);
+                fontPreview.FontSize = SelectedFontSize();
+                fontPreview.FontWeight = string.Equals(face.Weight, "Bold", StringComparison.OrdinalIgnoreCase)
+                    ? Avalonia.Media.FontWeight.Bold : Avalonia.Media.FontWeight.Normal;
+                fontPreview.FontStyle = string.Equals(face.Style, "Italic", StringComparison.OrdinalIgnoreCase)
+                    ? Avalonia.Media.FontStyle.Italic : Avalonia.Media.FontStyle.Normal;
+            }
+
+            void LoadFontScope()
+            {
+                if (fontScopeBox.SelectedItem is not FontScopeItem scope)
+                    return;
+                if (!editedFonts.TryGetValue(scope.Key, out var fs) || fs is null)
+                    fs = editedFonts.TryGetValue(ThemeManager.FontDefault, out var def) && def is not null
+                        ? def.Clone()
+                        : new ElementFontSettings();
+
+                suppressFontLoad = true;
+                fontFamilyBox.SelectedItem = fontFamilyBox.Items.OfType<string>()
+                    .FirstOrDefault(f => string.Equals(f, fs.FontFamily, StringComparison.OrdinalIgnoreCase))
+                    ?? ThemeManager.DefaultFontFamily;
+                var listed = fontSizeBox.Items.OfType<double>()
+                    .FirstOrDefault(v => Math.Abs(v - fs.FontSize) < 0.01);
+                if (listed > 0)
+                    fontSizeBox.SelectedItem = listed;
+                else
+                {
+                    // Размер задан вручную и в списке его нет: показываем текстом.
+                    fontSizeBox.SelectedItem = null;
+                    fontSizeBox.Text = fs.FontSize > 0
+                        ? fs.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                        : ThemeManager.DefaultFontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+                fontFaceBox.SelectedItem = FontFaces.FirstOrDefault(x =>
+                    string.Equals(x.Weight, fs.FontWeight, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(x.Style, fs.FontStyle, StringComparison.OrdinalIgnoreCase)) ?? FontFaces[0];
+                suppressFontLoad = false;
+
+                UpdateFontPreview();
+            }
+
+            // Набранный руками размер приходит в Text, а не в SelectedItem.
+            double SelectedFontSize()
+            {
+                if (fontSizeBox.SelectedItem is double picked && picked > 0)
+                    return picked;
+                if (double.TryParse((fontSizeBox.Text ?? string.Empty).Trim().Replace(',', '.'),
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var typed)
+                    && typed >= 6 && typed <= 96)
+                    return typed;
+                return ThemeManager.DefaultFontSize;
+            }
+
+            fontScopeBox.SelectionChanged += (_, _) => LoadFontScope();
+            fontFamilyBox.SelectionChanged += (_, _) => StoreFontScope();
+            fontSizeBox.SelectionChanged += (_, _) => StoreFontScope();
+            fontFaceBox.SelectionChanged += (_, _) => StoreFontScope();
+            fontApply.Click += (_, _) =>
+            {
+                StoreFontScope();
+                _viewModel.PreviewElementFonts(editedFonts);
+            };
+            LoadFontScope();
+
+            // Подписка идёт после загрузки области и только на ввод текста:
+            // GetObservable отдаёт текущее значение прямо при подписке, и до
+            // загрузки это записало бы в набор пустой выбор вместо сохранённого.
+            fontSizeBox.GetObservable(ComboBox.TextProperty)
+                .Subscribe(new AnonymousObserver(() => StoreFontScope()));
+
+            // Раздел «Отображение» разложен по вложенным вкладкам, как в разметке WPF:
+            // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт».
+            var displayTabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Icons", "Settings.Subtab.IconsTooltip", "IconStar", displayIcons));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Columns", "Settings.Subtab.ColumnsTooltip", "IconList", displayColumns));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Panels", "Settings.Subtab.PanelsTooltip", "IconPanel", displayPanels));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Status", "Settings.Subtab.StatusTooltip", "IconMonitor", displayStatus));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Font", "Settings.Subtab.FontTooltip", "IconEdit", displayFont));
 
             tabs.Items.Add(new TabItem
             {
                 Header = LocalizationManager.T("Settings.TabDisplay"),
-                Content = new ScrollViewer { Content = display, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+                Content = displayTabs
             });
 
             // ===== Оформление =====
@@ -1164,7 +1470,41 @@ namespace Configuration_Management
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Spacing = 8
             };
-            var ok = new Button { Content = LocalizationManager.T("Common.Ok"), MinWidth = 110, IsDefault = true };
+            // Подвал как в разметке WPF: зелёная «Сохранить» со значком дискеты
+            // и красная контурная «Отмена» со значком крестика.
+            // Цвета взяты из разметки WPF числами: зелёный фон сохранения и белый
+            // текст на нём заданы там напрямую, ключей темы под них нет.
+            var saveBrush = new SolidColorBrush(Color.Parse("#16A34A"));
+            var onSaveBrush = Brushes.White;
+            var okContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            okContent.Children.Add(new Avalonia.Controls.Shapes.Path
+            {
+                Width = UiMetrics.Scaled(16),
+                Height = UiMetrics.Scaled(16),
+                Data = IconHelper.Geometry("IconSave"),
+                Stretch = Stretch.Uniform,
+                Fill = onSaveBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            okContent.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Common.Save"),
+                FontWeight = FontWeight.SemiBold,
+                Foreground = onSaveBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var ok = new Button
+            {
+                Content = okContent,
+                MinWidth = UiMetrics.Scaled(140),
+                CornerRadius = new CornerRadius(8),
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                BorderThickness = new Thickness(0),
+                IsDefault = true
+            };
+            PaintButtonStates(ok, saveBrush,
+                new SolidColorBrush(Color.Parse("#15803D")),
+                new SolidColorBrush(Color.Parse("#166534")));
             ok.Click += (_, _) =>
             {
                 // Проверка дублей идёт первой: иначе при конфликте окно
@@ -1248,10 +1588,62 @@ namespace Configuration_Management
                     emptyGroupsCheck.IsChecked == true,
                     orderItems.Select(o => o.Key).ToList());
 
+                _viewModel.ApplyStatusBarSettings(
+                    statusPathCheck.IsChecked == true,
+                    statusArchCheck.IsChecked == true,
+                    statusLaunchModeCheck.IsChecked == true,
+                    statusPortCheck.IsChecked == true,
+                    statusVersionCheck.IsChecked == true,
+                    statusClientTypeCheck.IsChecked == true,
+                    statusConnectionTypeCheck.IsChecked == true,
+                    statusUserCheck.IsChecked == true,
+                    statusIdCheck.IsChecked == true);
+
+                _viewModel.SaveElementFonts(editedFonts);
+
                 DialogResult = true;
                 Close();
             };
+            // Красный в этом проекте задан числом, а не ключом темы: в разметке WPF
+            // отмена нарисована цветом #EF4444 напрямую, кисти под него нет ни там,
+            // ни здесь.
+            var dangerBrush = new SolidColorBrush(Color.Parse("#EF4444"));
+            var cancelContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            cancelContent.Children.Add(new Avalonia.Controls.Shapes.Path
+            {
+                Width = UiMetrics.Scaled(16),
+                Height = UiMetrics.Scaled(16),
+                Data = IconHelper.Geometry("IconClose"),
+                Stretch = Stretch.Uniform,
+                Fill = dangerBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            cancelContent.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Common.Cancel"),
+                FontWeight = FontWeight.SemiBold,
+                Foreground = dangerBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var cancel = new Button
+            {
+                Content = cancelContent,
+                MinWidth = UiMetrics.Scaled(140),
+                CornerRadius = new CornerRadius(8),
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                BorderThickness = new Thickness(1.5),
+                IsCancel = true
+            };
+            PaintButtonStates(cancel, Brushes.Transparent,
+                new SolidColorBrush(Color.Parse("#FEF2F2")),
+                new SolidColorBrush(Color.Parse("#FEE2E2")));
+            cancel.BorderBrush = dangerBrush;
+            // Отмена закрывает окно так же, как крестик: DialogResult остаётся
+            // ложным, и вызывающая сторона ничего не применяет.
+            cancel.Click += (_, _) => Close();
+
             buttons.Children.Add(ok);
+            buttons.Children.Add(cancel);
             Grid.SetRow(buttons, 1);
             grid.Children.Add(buttons);
 
@@ -1319,6 +1711,95 @@ namespace Configuration_Management
 
             var name = dialog.Result?.Trim();
             return string.IsNullOrEmpty(name) ? null : name;
+        }
+
+        /// <summary>
+        /// Красит кнопку с учётом наведения и нажатия. Своим свойством Background
+        /// этого не добиться: тема Fluent задаёт состояния вложенным стилем
+        /// на части шаблона и перекрывает значение кнопки.
+        /// </summary>
+        private static void PaintButtonStates(Button button, IBrush normal, object hover, object pressed)
+        {
+            button.Background = normal;
+            foreach (var (state, brush) in new[] { (":pointerover", hover), (":pressed", pressed) })
+            {
+                var style = new Style(x => x.OfType<Button>().Class(state)
+                    .Template().OfType<ContentPresenter>());
+                style.Setters.Add(new Setter(ContentPresenter.BackgroundProperty, brush));
+                button.Styles.Add(style);
+            }
+        }
+
+        /// <summary>Наблюдатель, который просто зовёт действие на каждое значение.</summary>
+        private sealed class AnonymousObserver : IObserver<string?>
+        {
+            private readonly Action _onNext;
+            public AnonymousObserver(Action onNext) => _onNext = onNext;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(string? value) => _onNext();
+        }
+
+        /// <summary>Область интерфейса в списке подвкладки «Шрифт».</summary>
+        private sealed class FontScopeItem
+        {
+            public FontScopeItem(string key) => Key = key;
+            public string Key { get; }
+            public override string ToString() => ThemeManager.FontScopeDisplayName(Key);
+        }
+
+        /// <summary>Начертание шрифта: пара «насыщенность и наклон» с локализованным именем.</summary>
+        private sealed class FontFaceItem
+        {
+            public FontFaceItem(string key, string weight, string style)
+            {
+                Key = key;
+                Weight = weight;
+                Style = style;
+            }
+
+            public string Key { get; }
+            public string Weight { get; }
+            public string Style { get; }
+            public override string ToString() => LocalizationManager.T(Key);
+        }
+
+        private static readonly FontFaceItem[] FontFaces =
+        {
+            new("Settings.Font.StyleNormal", "Normal", "Normal"),
+            new("Settings.Font.StyleBold", "Bold", "Normal"),
+            new("Settings.Font.StyleItalic", "Normal", "Italic"),
+            new("Settings.Font.StyleBoldItalic", "Bold", "Italic")
+        };
+
+        /// <summary>
+        /// Вложенная вкладка раздела настроек: значок и подпись в заголовке,
+        /// содержимое в своей прокрутке. Повторяет заголовки подвкладок WPF.
+        /// </summary>
+        private static TabItem SubTab(string titleKey, string tooltipKey, string iconKey, Control content)
+        {
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            header.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), "TextSecondaryBrush"));
+            header.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T(titleKey),
+                // Размер как в разметке WPF: с наследуемым от окна строка из пяти
+                // вкладок не влезает по ширине и переносится на второй ряд.
+                FontSize = UiMetrics.ScaledFont(13),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            ToolTip.SetTip(header, LocalizationManager.T(tooltipKey));
+
+            return new TabItem
+            {
+                Header = header,
+                Content = new ScrollViewer
+                {
+                    Content = content,
+                    Padding = new Thickness(8, 4, 4, 4),
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                }
+            };
         }
 
         /// <summary>Заголовок группы настроек на вкладке.</summary>
