@@ -9,6 +9,28 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.5.1] — 2026-08-26
+
+Точечное исправление после 0.3.5.0.
+
+### Исправлено
+- **Колонка «Название» в списке баз могла схлопываться до нулевой ширины** при запуске: использование `ColumnVis` с `Source=True` и литералом `True` приводилось к `bool` ненадёжно и обнуляло ширину колонки. Исправлено явным заданием ширины по умолчанию (170) для колонки «Название» ([`MainWindow.xaml`](Configuration Management/MainWindow.xaml)) — список баз больше не «ломается» при первом показе окна.
+
+## [0.3.5.0] — 2026-08-26
+
+Ускорен запуск при большом числе информационных баз (Windows): главное окно появляется сразу, а тяжёлая инициализация выполняется в фоне с индикатором прогресса. Попутно — иконки в заголовках колонок списка баз, объединённая настройка колонок и значок приложения в заголовке окна (обе платформы).
+
+### Добавлено
+- **Индикатор фоновой загрузки при старте**: если список баз большой, окно показывается мгновенно, а построение дерева групп, назначение избранного и восстановление последнего выделения выполняются в фоне с полосой прогресса и подписью текущего этапа (`Main.LoadingInfobases` / `Main.LoadingFavorites` / `Main.LoadingTree`). Свойства `IsLoading` / `LoadingMessage` добавлены в [`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs), оверлей — в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml). По завершении автоматически восстанавливается последнее выделение и пересчитывается раскладка (`StartupInitializationCompleted`, `RestoreLastSelection` / `AlignHeaderToData` в [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs)).
+- **Значок приложения в заголовке главного окна**: в качестве иконки окна используется тот же `app.ico`, что и у исполняемого файла (загрузка через `IconBitmapDecoder`, [`App.xaml.cs`](Configuration Management/App.xaml.cs)); `app.ico` получил приоритет над `tray.ico` в загрузке значка (`LoadApplicationIcon`, [`MainWindow.xaml.cs`](Configuration Management/MainWindow.xaml.cs)).
+
+### Изменено
+- **Тяжёлая инициализация вынесена после показа окна** ([`MainViewModel.cs`](Configuration Management/ViewModels/MainViewModel.cs)): назначение слотов избранного `Alt+1…9`, раскрытие ветки последнего выделения, построение дерева групп и расчёт размеров выполняются асинхронно с отдачей управления диспетчеру между этапами (`CompleteStartupInitializationAsync`) — отрисовка интерфейса больше не блокируется при большом количестве баз.
+- **Кеширование размеров файловых ИБ**: вычисленный размер сохраняется в `settings.json` вместе со временем последней записи файла базы (`1Cv8.1CD`); при повторном запуске размер берётся из кеша без сканирования диска, а пересчёт выполняется только для изменившихся баз ([`FileSizeCacheEntry.cs`](Configuration Management/Models/FileSizeCacheEntry.cs), `AppSettings.FileSizeCache`, `CalculateFileBaseSizeCached`).
+- **Иконки в заголовках колонок списка баз и в настройках колонок** (обе платформы): заголовки получают векторные иконки по содержимому, совпадающие с иконками в списке колонок на вкладке «Отображение» (единый источник `IconHelper.ColumnIconKey`, WPF — `PackIcon` в [`MainWindow.xaml`](Configuration Management/MainWindow.xaml), Avalonia — `ColumnHeader` в [`MainWindow.Avalonia.cs`](Configuration Management/MainWindow.Avalonia.cs)).
+- **Настройки колонок объединены в единый список** (видимость + порядок) на вкладке «Отображение → Колонки» ([`SettingsWindow.xaml`](Configuration Management/SettingsWindow.xaml), [`SettingsWindow.xaml.cs`](Configuration Management/SettingsWindow.xaml.cs), [`SettingsWindow.Avalonia.cs`](Configuration Management/SettingsWindow.Avalonia.cs)): у каждой строки — флажок видимости и иконка колонки, порядок меняется кнопками «Вверх»/«Вниз»; добавлена подсказка `Settings.Columns.RowSelectHint`.
+- **Компактный режим плотнее (Avalonia)**: уменьшены вертикальные отступы заголовков групп ([`UiMetrics.Avalonia.cs`](Configuration Management/Controls/UiMetrics.Avalonia.cs)).
+
 ## [0.3.5] — 2026-08-26
 
 Ускорен запуск при большом числе информационных баз (Windows): главное окно появляется сразу, список строится в фоне с индикатором прогресса, а размеры файловых ИБ кешируются между запусками.
