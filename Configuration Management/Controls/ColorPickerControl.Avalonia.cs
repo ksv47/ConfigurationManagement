@@ -126,7 +126,7 @@ namespace Configuration_Management.Controls
             Grid.SetRow(paletteLabel, 1);
             root.Children.Add(paletteLabel);
 
-            _paletteCanvas.Cursor = Cursor.Hand;
+            _paletteCanvas.Cursor = new Cursor(StandardCursorType.Hand);
             _paletteCanvas.Height = AreaHeight;
             _paletteCanvas.Margin = new Thickness(0, 0, 0, 6);
 
@@ -217,7 +217,7 @@ namespace Configuration_Management.Controls
                 SetColor(ParseColor(change.GetNewValue<string>()));
         }
 
-        private Color CurrentColor => Color.FromHsv(_hue, _saturation / 100.0, _brightness / 100.0);
+        private Color CurrentColor => HsvColor.ToRgb(_hue, _saturation / 100.0, _brightness / 100.0);
 
         private static TextBlock BuildSectionLabel(string text) => new()
         {
@@ -287,7 +287,7 @@ namespace Configuration_Management.Controls
                 EndPoint = new RelativePoint(1, 0.5, RelativeUnit.Relative)
             };
             for (var i = 0; i <= 6; i++)
-                brush.GradientStops.Add(new GradientStop(Color.FromHsv(i * 60.0, 1, 1), i / 6.0));
+                brush.GradientStops.Add(new GradientStop(HsvColor.ToRgb(i * 60.0, 1, 1), i / 6.0));
             return brush;
         }
 
@@ -374,14 +374,15 @@ namespace Configuration_Management.Controls
 
             ApplyPointer(_paletteCanvas, point.Position);
             _capturedPointer = e.Pointer;
-            _paletteCanvas.CapturePointer(e.Pointer);
+            e.Pointer.Capture(_paletteCanvas);
         }
 
         private void OnPalette_PointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             if (_capturedPointer is not null)
             {
-                _paletteCanvas.ReleasePointerCapture(_capturedPointer);
+                if (ReferenceEquals(_capturedPointer.Captured, _paletteCanvas))
+                    _capturedPointer.Capture(null);
                 _capturedPointer = null;
             }
         }

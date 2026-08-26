@@ -287,7 +287,7 @@ namespace Configuration_Management
                 "SecondaryButtonPressedBrush",
                 "BorderColorBrush")
             {
-                Content = new Path
+                Content = new Avalonia.Controls.Shapes.Path
                 {
                     Width = UiMetrics.Scaled(16),
                     Height = UiMetrics.Scaled(16),

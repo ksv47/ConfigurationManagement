@@ -370,7 +370,18 @@ namespace Configuration_Management
                 // колонки совпадает с иконкой заголовка списка баз.
                 ItemTemplate = new FuncDataTemplate<ColumnOrderItem>((item, _) =>
                 {
-                    var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    // Переработка контейнеров виртуализацией строит шаблон с null:
+                    // ClearContainerForItemOverride сбрасывает Content, и ContentPresenter
+                    // зовёт шаблон ещё раз уже без данных.
+                    if (item is null)
+                        return new Control();
+
+                    var content = new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 6,
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
                     content.Children.Add(IconHelper.MakeIcon(item.IconKey, 14, "TextSecondaryBrush"));
                     var label = new TextBlock
                     {
@@ -380,16 +391,21 @@ namespace Configuration_Management
                     };
                     Themes.ThemeBrushes.Bind(label, TextBlock.ForegroundProperty, "TextPrimaryBrush");
                     content.Children.Add(label);
+                    ToolTip.SetTip(content, LocalizationManager.T("Settings.Columns.RowSelectHint"));
 
-                    var check = new CheckBox
-                    {
-                        Content = content,
-                        VerticalAlignment = VerticalAlignment.Center
-                    };
+                    var check = new CheckBox { VerticalAlignment = VerticalAlignment.Center };
                     check.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
                         new Avalonia.Data.Binding(nameof(ColumnOrderItem.Visible))
                         { Mode = Avalonia.Data.BindingMode.TwoWay });
-                    return check;
+
+                    var row = new Grid { Margin = new Thickness(4, 3) };
+                    row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+                    row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+                    Grid.SetColumn(content, 0);
+                    Grid.SetColumn(check, 1);
+                    row.Children.Add(content);
+                    row.Children.Add(check);
+                    return row;
                 })
             };
             display.Children.Add(orderList);

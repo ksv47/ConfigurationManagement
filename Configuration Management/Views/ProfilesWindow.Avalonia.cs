@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
@@ -20,9 +21,9 @@ namespace Configuration_Management
         private readonly IProfileService _profileService;
         private readonly TextBlock _currentAccountLabel;
         private readonly ListBox _profilesList;
-        private readonly TextBox _nameBox;
-        private readonly PasswordBox _passwordInput;
-        private readonly CheckBox _protectCheck;
+        private readonly TextBox _nameBox = new() { Padding = new Thickness(8, 6), MinWidth = 280 };
+        private readonly PasswordBox _passwordInput = new() { Padding = new Thickness(8, 6), MinWidth = 280 };
+        private readonly CheckBox _protectCheck = new() { Content = LocalizationManager.T("Profiles.ProtectWithPassword"), Margin = new Thickness(108, 0, 0, 0) };
         private readonly TextBlock _errorLabel;
         private bool _suppressSelection;
 
@@ -82,17 +83,14 @@ namespace Configuration_Management
 
             var nameRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             nameRow.Children.Add(new TextBlock { Text = LocalizationManager.T("Profiles.Name"), VerticalAlignment = VerticalAlignment.Center, Width = 100 });
-            _nameBox = new TextBox { Padding = new Thickness(8, 6), MinWidth = 280 };
             nameRow.Children.Add(_nameBox);
             panel.Children.Add(nameRow);
 
             var passRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             passRow.Children.Add(new TextBlock { Text = LocalizationManager.T("Profiles.Password"), VerticalAlignment = VerticalAlignment.Center, Width = 100 });
-            _passwordInput = new PasswordBox { Padding = new Thickness(8, 6), MinWidth = 280 };
             passRow.Children.Add(_passwordInput);
             panel.Children.Add(passRow);
 
-            _protectCheck = new CheckBox { Content = LocalizationManager.T("Profiles.ProtectWithPassword"), Margin = new Thickness(108, 0, 0, 0) };
             panel.Children.Add(_protectCheck);
 
             return panel;
