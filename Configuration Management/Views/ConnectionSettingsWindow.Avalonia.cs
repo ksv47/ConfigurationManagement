@@ -345,6 +345,33 @@ namespace Configuration_Management
                 Radio("Arch", "IsArchitecture32Priority", LocalizationManager.T("ConnectionSettings.Arch32PriorityShort")),
                 Radio("Arch", "IsArchitecture64Priority", LocalizationManager.T("ConnectionSettings.Arch64PriorityShort")))));
 
+            // Две подсказки под выбором разрядности, как в разметке WPF
+            // (ConnectionSettingsWindow.xaml:877): первая объясняет выбранный
+            // режим и меняется вместе с ним, вторая сообщает про саму ОС.
+            var archHint = new TextBlock
+            {
+                FontSize = UiMetrics.ScaledFont(12),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            archHint.Bind(TextBlock.TextProperty, new Binding("ArchitectureHint") { Source = _viewModel });
+            Themes.ThemeBrushes.Bind(archHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            platform.Children.Add(archHint);
+
+            // Тексты автора говорят «Windows» в обоих вариантах, поэтому для
+            // Linux заведены свои ключи, а не переиспользованы его.
+            var osHint = new TextBlock
+            {
+                Text = LocalizationManager.T(Environment.Is64BitOperatingSystem
+                    ? "Connection.OsLinux64Text"
+                    : "Connection.OsLinux32Text"),
+                FontSize = UiMetrics.ScaledFont(12),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 2, 0, 8)
+            };
+            Themes.ThemeBrushes.Bind(osHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            platform.Children.Add(osHint);
+
             platform.Children.Add(Field(LocalizationManager.T("ConnectionSettings.LaunchModeLabel"), RadioGroup(
                 Radio("LaunchMode", "IsAutoMode", LocalizationManager.T("Main.SessionClientAuto")),
                 Radio("LaunchMode", "IsThinClient", LocalizationManager.T("Main.SessionClientThin")),
