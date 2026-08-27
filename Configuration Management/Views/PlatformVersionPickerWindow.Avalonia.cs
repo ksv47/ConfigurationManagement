@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Configuration_Management.Localization;
@@ -425,7 +426,7 @@ namespace Configuration_Management
                 .Template().OfType<Border>().Name("PART_LayoutRoot"));
             // DynamicResource в значении Setter — это наблюдаемая ссылка на ресурс темы:
             // строка перекрашивается при смене схемы, как и кисти ThemeBrushes.Bind.
-            style.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResource(brushKey)));
+            style.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResourceExtension(brushKey)));
             _tree.Styles.Add(style);
         }
 
