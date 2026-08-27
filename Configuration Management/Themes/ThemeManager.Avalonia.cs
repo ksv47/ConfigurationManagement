@@ -141,6 +141,12 @@ namespace Configuration_Management.Themes
             ApplyFontToType(window, typeof(Avalonia.Controls.Button), GetScope(elementFonts, FontButtons));
             ApplyFontToType(window, typeof(Avalonia.Controls.TextBox), GetScope(elementFonts, FontInputs));
             ApplyFontToType(window, typeof(Configuration_Management.Controls.LeveledTreeView), GetScope(elementFonts, FontList));
+            // Списки ввода в разметке WPF получают шрифт области «Поля ввода»
+            // наравне с текстовыми полями (ThemeManager.cs:234).
+            ApplyFontToType(window, typeof(Avalonia.Controls.ComboBox), GetScope(elementFonts, FontInputs));
+            // Область «Шапка списка» была в списке настроек, но ни к чему
+            // не применялась: имя элемента появилось только сейчас.
+            ApplyFontToNamed(window, "HeaderGrid", GetScope(elementFonts, FontListHeader));
             ApplyFontToNamed(window, "RightPanelBorder", GetScope(elementFonts, FontRightPanel));
             ApplyFontToNamed(window, "StatusBarBorder", GetScope(elementFonts, FontStatusBar));
         }
@@ -166,10 +172,27 @@ namespace Configuration_Management.Themes
             if (fs is null || fs.FontSize <= 0)
                 return;
             if (string.Equals(root.Name, name, StringComparison.Ordinal))
-                ApplyFont(root, fs.FontFamily, fs.FontSize, fs.FontWeight, fs.FontStyle);
+            {
+                ApplyFontToSubtree(root, fs);
+                return;
+            }
             foreach (var child in root.GetVisualChildren())
                 if (child is Control c)
                     ApplyFontToNamed(c, name, fs);
+        }
+
+        /// <summary>
+        /// Применяет шрифт области ко всему поддереву, а не только к его корню.
+        /// Одного наследования мало: у кнопок и полей размер шрифта задан стилем
+        /// темы, а стилевое значение сильнее унаследованного, поэтому настройка
+        /// области до подписей внутри не доходила.
+        /// </summary>
+        private static void ApplyFontToSubtree(Control root, ElementFontSettings fs)
+        {
+            ApplyFont(root, fs.FontFamily, fs.FontSize, fs.FontWeight, fs.FontStyle);
+            foreach (var child in root.GetVisualChildren())
+                if (child is Control c)
+                    ApplyFontToSubtree(c, fs);
         }
 
         // ---- Настройки шрифта отдельных областей интерфейса ----
