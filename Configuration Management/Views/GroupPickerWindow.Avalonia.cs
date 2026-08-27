@@ -114,6 +114,10 @@ namespace Configuration_Management
             grid.Children.Add(toolbar);
 
             var hint = ThemedText(LocalizationManager.T("GroupPicker.Hint"), 12, secondary: true, FontWeight.Normal);
+            // ThemedText не задаёт перенос, а TextBlock без него держит одну строку:
+            // пояснение и подзаголовок обрезались по краю окна. В разметке WPF
+            // на этих же строках TextWrapping="Wrap" стоит.
+            hint.TextWrapping = TextWrapping.Wrap;
             hint.Margin = new Thickness(0, 0, 0, 8);
             Grid.SetRow(hint, 2);
             grid.Children.Add(hint);
@@ -146,9 +150,22 @@ namespace Configuration_Management
             DockPanel.SetDock(headerIcon, Dock.Left);
             header.Children.Add(headerIcon);
 
+            // Справка добавляется до заголовка: в DockPanel последний ребёнок
+            // занимает остаток, и после titleStack кружок «?» встал бы не к краю.
+            var help = new HelpLink
+            {
+                HelpText = LocalizationManager.T("GroupPicker.Help"),
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(12, 4, 0, 0)
+            };
+            DockPanel.SetDock(help, Dock.Right);
+            header.Children.Add(help);
+
             var titleStack = new StackPanel { Spacing = 2 };
             titleStack.Children.Add(ThemedText(LocalizationManager.T("GroupPicker.Title"), 17, secondary: false, FontWeight.SemiBold));
-            titleStack.Children.Add(ThemedText(LocalizationManager.T("GroupPicker.Subtitle"), 12.5, secondary: true, FontWeight.Normal));
+            var subtitle = ThemedText(LocalizationManager.T("GroupPicker.Subtitle"), 12.5, secondary: true, FontWeight.Normal);
+            subtitle.TextWrapping = TextWrapping.Wrap;
+            titleStack.Children.Add(subtitle);
             header.Children.Add(titleStack);
 
             return header;
