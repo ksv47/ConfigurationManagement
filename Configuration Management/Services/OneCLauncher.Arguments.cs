@@ -287,7 +287,7 @@ public static partial class OneCLauncher
             {
                 return (false, string.Format(LocalizationManager.T("Launcher.CreateDirCreateFailedFormat"), path, ex.Message));
             }
-            connectionString = $"File=\"{path}\"";
+            connectionString = $"File=\"{EscapeConnectValue(path)}\"";
         }
         else
         {
@@ -295,7 +295,7 @@ public static partial class OneCLauncher
             var db = (databaseName ?? "").Trim();
             if (string.IsNullOrEmpty(srv) || string.IsNullOrEmpty(db))
                 return (false, LocalizationManager.T("Launcher.CreateServerOrDbNotSpecified"));
-            connectionString = $"Srvr=\"{srv}\";Ref=\"{db}\"";
+            connectionString = $"Srvr=\"{EscapeConnectValue(srv)}\";Ref=\"{EscapeConnectValue(db)}\"";
         }
 
         var arguments = $"CREATEINFOBASE {connectionString}";
@@ -344,4 +344,16 @@ public static partial class OneCLauncher
             return (false, string.Format(LocalizationManager.T("Launcher.CreateCommandErrorFormat"), ex.Message, exePath, arguments));
         }
     }
+
+    /// <summary>
+    /// Экранирует значение для строки подключения 1С: кавычка внутри значения удваивается.
+    /// <para>
+    /// Правило то же, что уже применяется в <c>OneCComConnector.AppendParameter</c>. Без него
+    /// значение закрывает само себя и дописывает в строку произвольный параметр: имя базы вида
+    /// <c>base";Usr="admin</c> уходит в CREATEINFOBASE как два параметра вместо одного.
+    /// Платформа разбирает командную строку сама, а не через argv, поэтому кавычки доходят
+    /// до неё в исходном виде.
+    /// </para>
+    /// </summary>
+    private static string EscapeConnectValue(string value) => value.Replace("\"", "\"\"");
 }
