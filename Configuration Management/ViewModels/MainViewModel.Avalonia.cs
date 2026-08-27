@@ -331,7 +331,7 @@ public class MainViewModel : ViewModelBase
 
     public ICommand ClearSearchCommand { get; private set; } = null!;
     public ICommand SearchByTagCommand { get; private set; } = null!;
-    public ICommand AddTagCommand { get; private set; } = null!;
+    public ICommand AddTagInlineCommand { get; private set; } = null!;
     public ICommand RemoveTagCommand { get; private set; } = null!;
     public ICommand ClearTagFiltersCommand { get; private set; } = null!;
     public ICommand LaunchEnterpriseCommand { get; private set; } = null!;
@@ -380,7 +380,7 @@ public class MainViewModel : ViewModelBase
     {
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty);
         SearchByTagCommand = new RelayCommand(SearchByTag);
-        AddTagCommand = new RelayCommand(AddTag);
+        AddTagInlineCommand = new RelayCommand(AddTagInline);
         RemoveTagCommand = new RelayCommand(RemoveTag);
         ClearTagFiltersCommand = new RelayCommand(ClearTagFilters);
         LaunchEnterpriseCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Enterprise), _ => SelectedInfobase is not null);
@@ -1365,29 +1365,16 @@ public class MainViewModel : ViewModelBase
     public event EventHandler? TagFiltersRebuilt;
 
     /// <summary>
-    /// Добавляет тег базе через диалог ввода. Параметр это база строки,
-    /// без параметра берётся выбранная.
+    /// Добавляет тег к базе прямо в строке названия (без отдельного окна).
+    /// Параметр приходит как object[]: [0] = Infobase, [1] = текст тега.
     /// </summary>
-    private void AddTag(object? parameter)
+    private void AddTagInline(object? parameter)
     {
-        var infobase = parameter as Infobase ?? SelectedInfobase;
-        if (infobase is null)
+        if (parameter is not object[] values || values.Length < 2)
+            return;
+        if (values[0] is not Infobase infobase || values[1] is not string rawTag)
             return;
 
-        var dialog = new Configuration_Management.TagInputWindow();
-        if (!dialog.ShowDialogSync(OwnerWindow()))
-            return;
-
-        AddTagInline(infobase, dialog.Result ?? string.Empty);
-    }
-
-    /// <summary>
-    /// Добавляет базе тег без диалога: так работает ввод прямо в строке списка,
-    /// как в Windows-версии начиная с 0.3.5.1. Пустой и повторяющийся тег
-    /// молча пропускаются.
-    /// </summary>
-    public void AddTagInline(Infobase infobase, string rawTag)
-    {
         var tag = rawTag.Trim();
         if (tag.Length == 0 || infobase.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
             return;
@@ -2686,6 +2673,13 @@ public class MainViewModel : ViewModelBase
 
         SaveGroupsSilently();
         RebuildTree();
+
+        // Узлы групп пересоздаются при пересборке; восстанавливаем выделение отредактированной
+        // группы на новом узле (по идентификатору). Нужно и для правки из кнопки «Действия»
+        // строки группы, где SelectedGroupNode мог быть не выставлен до открытия диалога.
+        if (!string.IsNullOrEmpty(group.Id)
+            && FindNode(n => string.Equals(n.Group?.Id, group.Id, StringComparison.OrdinalIgnoreCase)) is { } editedNode)
+            SelectedGroupNode = editedNode;
     }
 
     /// <summary>

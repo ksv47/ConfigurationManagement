@@ -25,9 +25,9 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
-        <!-- «Голый» тумблер без подписи: переключает только сам выключатель,
-             в отличие от SettingsToggle, где кликабельна вся строка. Используется
-             в списке колонок, чтобы клик по названию лишь выбирал строку. -->
+        <!-- В«Р“РѕР»С‹Р№В» С‚СѓРјР±Р»РµСЂ Р±РµР· РїРѕРґРїРёСЃРё: РїРµСЂРµРєР»СЋС‡Р°РµС‚ С‚РѕР»СЊРєРѕ СЃР°Рј РІС‹РєР»СЋС‡Р°С‚РµР»СЊ,
+             РІ РѕС‚Р»РёС‡РёРµ РѕС‚ SettingsToggle, РіРґРµ РєР»РёРєР°Р±РµР»СЊРЅР° РІСЃСЏ СЃС‚СЂРѕРєР°. РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ
+             РІ СЃРїРёСЃРєРµ РєРѕР»РѕРЅРѕРє, С‡С‚РѕР±С‹ РєР»РёРє РїРѕ РЅР°Р·РІР°РЅРёСЋ Р»РёС€СЊ РІС‹Р±РёСЂР°Р» СЃС‚СЂРѕРєСѓ. -->
         <Style x:Key="ColumnVisibilitySwitch" TargetType="ToggleButton">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="22"/>
@@ -538,9 +538,9 @@
                                 <TextBlock Text="{loc:Loc Settings.Columns.Description}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,10"/>
-                                <!-- Видимость и порядок колонок задаются в одном списке:
-                                     слева название колонки, справа тумблер видимости,
-                                     порядок меняется кнопками «Вверх»/«Вниз». -->
+                                <!-- Р’РёРґРёРјРѕСЃС‚СЊ Рё РїРѕСЂСЏРґРѕРє РєРѕР»РѕРЅРѕРє Р·Р°РґР°СЋС‚СЃСЏ РІ РѕРґРЅРѕРј СЃРїРёСЃРєРµ:
+                                     СЃР»РµРІР° РЅР°Р·РІР°РЅРёРµ РєРѕР»РѕРЅРєРё, СЃРїСЂР°РІР° С‚СѓРјР±Р»РµСЂ РІРёРґРёРјРѕСЃС‚Рё,
+                                     РїРѕСЂСЏРґРѕРє РјРµРЅСЏРµС‚СЃСЏ РєРЅРѕРїРєР°РјРё В«Р’РІРµСЂС…В»/В«Р’РЅРёР·В». -->
                                 <TextBlock Text="{loc:Loc Settings.Columns.OrderTitle}" FontWeight="SemiBold" FontSize="14"
                                            Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,12,0,4"/>
                                 <TextBlock Text="{loc:Loc Settings.Columns.OrderHint}"
@@ -1170,8 +1170,8 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <!-- Прокрутка по вертикали, чтобы при маленьком окне данные не выходили за границы.
-                     Горизонтальная прокрутка отключена, чтобы элементы растягивались по ширине окна. -->
+                <!-- РџСЂРѕРєСЂСѓС‚РєР° РїРѕ РІРµСЂС‚РёРєР°Р»Рё, С‡С‚РѕР±С‹ РїСЂРё РјР°Р»РµРЅСЊРєРѕРј РѕРєРЅРµ РґР°РЅРЅС‹Рµ РЅРµ РІС‹С…РѕРґРёР»Рё Р·Р° РіСЂР°РЅРёС†С‹.
+                     Р“РѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅР°СЏ РїСЂРѕРєСЂСѓС‚РєР° РѕС‚РєР»СЋС‡РµРЅР°, С‡С‚РѕР±С‹ СЌР»РµРјРµРЅС‚С‹ СЂР°СЃС‚СЏРіРёРІР°Р»РёСЃСЊ РїРѕ С€РёСЂРёРЅРµ РѕРєРЅР°. -->
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="4,12,4,0" Padding="0,0,4,0">
                     <StackPanel>

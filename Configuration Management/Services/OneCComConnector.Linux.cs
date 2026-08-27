@@ -311,18 +311,14 @@ namespace Configuration_Management.Services
                 return string.Empty;
             return c.Type switch
             {
-                ConnectionType.File => $"File=\"{Escape(c.FilePath)}\"",
-                ConnectionType.WebServer => $"WS=\"{Escape(c.WebUrl)}\"",
-                _ => $"Srvr=\"{Escape(c.GetServerWithPort())}\";Ref=\"{Escape(c.DatabaseName)}\""
+                ConnectionType.File => $"File=\"{EscapeConnectValue(c.FilePath)}\"",
+                ConnectionType.WebServer => $"WS=\"{EscapeConnectValue(c.WebUrl)}\"",
+                _ => $"Srvr=\"{EscapeConnectValue(c.GetServerWithPort())}\";Ref=\"{EscapeConnectValue(c.DatabaseName)}\""
             };
-
-            // Кавычка внутри значения закрывает его и позволяет дописать
-            // произвольный параметр. Грамматика та же, что у строки подключения
-            // CREATEINFOBASE, поэтому и правило то же: кавычка удваивается.
-            // В Windows-двойнике (OneCComConnector.AppendParameter) так и сделано,
-            // в эту копию правило не перенесли.
-            static string Escape(string? value) => (value ?? string.Empty).Replace("\"", "\"\"");
         }
+
+        /// <summary>Экранирует значение строки подключения 1С: кавычка внутри удваивается.</summary>
+        private static string EscapeConnectValue(string value) => value.Replace("\"", "\"\"");
     }
 
     /// <summary>Регистрация COM-коннекторов на Linux — no-op (COM отсутствует).</summary>

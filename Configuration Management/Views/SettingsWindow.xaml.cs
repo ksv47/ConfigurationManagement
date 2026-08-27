@@ -23,11 +23,6 @@ namespace Configuration_Management
         private readonly SettingsViewModel _settings;
         private List<string> _installedPlatformVersions;
         private readonly ObservableCollection<string> _additionalPlatformPaths = new();
-        private IbasesSyncMode _syncMode;
-        private string _syncFilePath = string.Empty;
-        private IbasesSyncTrigger _syncTrigger = IbasesSyncTrigger.OnStartup;
-        private int _syncIntervalMinutes = 30;
-        private string _syncScheduleTime = "09:00";
         private bool _showFavoritesButton = true;
         private bool _showPinnedButton = true;
         private bool _showTags = true;
@@ -35,7 +30,7 @@ namespace Configuration_Management
         private readonly ObservableCollection<ColumnOrderItem> _columnOrderItems = new();
 
         // ---- Шрифт интерфейса ----
-        private readonly Dictionary<string, Models.ElementFontSettings> _elementFonts = new();
+        // Рабочие копии настроек шрифтов областей хранятся в SettingsViewModel.ElementFonts.
         private string _currentElement = Themes.ThemeManager.FontDefault;
 
         // ---- Резервное копирование профиля ----
@@ -95,13 +90,11 @@ namespace Configuration_Management
             _viewModel.ApplyDefaultArchitecture(DefaultArchComboBox.SelectedIndex == 0 ? "X64" : "X86");
 
             // Сохраняем настройки синхронизации с файлом ibases.v8i.
+            var s = _settings.Sync;
             var filePath = SyncFilePathTextBox.Text?.Trim() ?? string.Empty;
-            if (!int.TryParse(SyncIntervalTextBox.Text, out var interval) || interval <= 0)
-            {
-                interval = 30;
-            }
+            var interval = SettingsViewModel.IbasesSyncSettings.ParseInterval(SyncIntervalTextBox.Text);
             var scheduleTime = SyncScheduleTimePicker.Text?.Trim() ?? string.Empty;
-            _viewModel.ApplyIbasesSyncSettings(_syncMode, filePath, _syncTrigger, interval, scheduleTime,
+            _viewModel.ApplyIbasesSyncSettings(s.Mode, filePath, s.Trigger, interval, scheduleTime,
                 IbasesBackupEnabledCheck.IsChecked ?? true,
                 int.TryParse(IbasesBackupKeepCountBox.Text, out var keep) && keep > 0 ? keep : 5);
 
@@ -224,7 +217,7 @@ namespace Configuration_Management
 
             // Сохраняем настройки шрифта интерфейса (общий и отдельных областей).
             ReadFontSelection();
-            _viewModel.SaveElementFonts(_elementFonts);
+            _viewModel.SaveElementFonts(_settings.ElementFonts);
 
             DialogResult = true;
         }

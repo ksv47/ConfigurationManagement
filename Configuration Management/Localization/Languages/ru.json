@@ -466,6 +466,13 @@
     "Profiles.DeleteConfirm": "Удалить учётную запись «{0}» вместе с её данными? Действие необратимо.",
     "Profiles.EmptySelection": "Учётная запись не выбрана.",
     "Profiles.RestartHint": "Смена текущей учётной записи выполняется при следующем запуске: при нескольких записях показывается окно входа.",
+    "Profiles.ActiveAccount": "Активная учётная запись:",
+    "Profiles.Active": "активная",
+    "Profiles.Editing": "Редактирование записи: {0}",
+    "Profiles.EditingNone": "Запись не выбрана",
+    "Profiles.SelectToEdit": "Выберите учётную запись в списке слева, чтобы изменить её имя или пароль.",
+    "Profiles.Activate": "Сделать активной",
+    "Profiles.NoSelectionToActivate": "Сначала выберите учётную запись в списке.",
 
     "Auth.Title": "Выбор учётной записи",
     "Auth.SelectAccountHint": "Приложение содержит несколько учётных записей. Выберите профиль и, если он защищён паролем, введите пароль.",
@@ -625,8 +632,6 @@
     "CacheClean.Title": "Очистка кэша 1С",
     "CacheClean.ProgramCache": "Программный кэш",
     "CacheClean.UserCache": "Пользовательский кэш",
-    "GroupSettings.Title": "Управление группами",
-    "GroupSettings.GroupsHeader": "Группы информационных баз",
     "GroupPicker.Title": "Выбор родительской группы",
     "GroupEdit.Title": "Настройка группы",
     "GroupEdit.BasicParams": "Основные параметры",
@@ -640,7 +645,6 @@
     "PlatformVersionPicker.FilterX32": "x32",
     "PlatformVersionPicker.FilterX64": "x64",
     "NameInput.Title": "Название темы",
-    "TagInput.Title": "Добавить тег",
 
     "AddEdit.Question": "Что добавить в список?",
     "AddEdit.HelpText": "Выберите, что добавить в список информационных баз:\n\n• «Существующая база» — добавить уже созданную ИБ 1С, указав её строку подключения.\n• «Создать пустую базу» — создать новую пустую ИБ (файловую или на сервере) через CREATEINFOBASE.\n• «Создать из шаблона» — создать базу из шаблона (.cf / .dt), как в стандартном стартере 1С.\n• «Новая группа» — создать группу для упорядочивания баз в дереве.\n\nПосле выбора нажмите «Далее» — откроется соответствующее окно настройки.",
@@ -664,7 +668,6 @@
     "LinkInput.Go": "Перейти",
 
     "NameInput.Prompt": "Название:",
-    "TagInput.Prompt": "Введите название тега:",
     "ColorPicker.Palette": "Палитра:",
 
     "GroupEdit.TabMain": "Основные",
@@ -730,14 +733,9 @@
     "GroupEdit.Icon.Merge": "Объединение",
 
     "GroupPicker.Hint": "Выберите группу в дереве. Двойной щелчок — подтверждение. «Корневая группа» — верхний уровень (без родителя).",
-    "GroupPicker.Help": "Выбор родительской группы (куда будет помещена группа).\n\n• Дерево показывает иерархию групп; у каждой группы видны её цвет и иконка.\n• Клик по группе — выделение; двойной щелчок — выбор и подтверждение.\n• Зелёная кнопка «Выбрать» подтверждает выбор, «Отмена» (с красной обводкой) закрывает окно.\n• «Корневая группа» размещает группу на верхнем уровне (без родителя).\n• Кнопки A→Z / Z→A сортируют группы по наименованию (по умолчанию — по возрастанию).",
-
-    "GroupSettings.AddSubgroup": "Подгруппу",
-    "GroupSettings.Done": "Готово",
-    "GroupSettings.NoGroupSelected": "Выберите группу, внутри которой нужно создать подгруппу.",
-    "GroupSettings.DeleteConfirmTitle": "Подтверждение удаления",
-    "GroupSettings.DeleteConfirm": "Удалить группу «{0}»?",
-    "GroupSettings.DeleteHasSubgroups": "Внутри группы находится подгрупп: {0}.\nОни также будут удалены.",
+    "GroupPicker.Subtitle": "Группа будет размещена внутри выбранной группы",
+    "GroupPicker.SearchPlaceholder": "Поиск группы…",
+    "GroupPicker.Help": "Выбор родительской группы (куда будет помещена группа).\n\n• Дерево показывает иерархию групп; у каждой группы видны её цвет и иконка.\n• Клик по группе — выделение; двойной щелчок — выбор и подтверждение.\n• Кнопка «Выбрать» подтверждает выбор, «Отмена» закрывает окно.\n• «Корневая группа» размещает группу на верхнем уровне (без родителя).\n• Поле поиска фильтрует группы по имени; кнопки A→Z / Z→A сортируют по наименованию (по умолчанию — по возрастанию).",
 
     "PlatformVersionPicker.SortAscTooltip": "Сортировка по возрастанию (A→Z)",
     "PlatformVersionPicker.SortDescTooltip": "Сортировка по убыванию (Z→A)",
@@ -814,6 +812,8 @@
     "CreateInfobase.HintEmpty": "Будет выполнена команда CREATEINFOBASE без шаблона. После создания база добавится в список программы.",
     "CreateInfobase.NoPlatformsPathsMsg": "Добавьте каталоги платформ в Настройки → дополнительные пути поиска (например E:\\1cPlatform),\nзатем обновите список версий.",
     "CreateInfobase.PlatformPathsTitle": "Пути к платформам",
+    "CreateInfobase.Loading": "Загрузка шаблонов…",
+    "CreateInfobase.LoadingFailed": " Ошибка при чтении каталогов шаблонов.",
     "CreateInfobase.TemplateRootsDefault": "Каталог шаблонов 1С (по умолчанию): {0}",
     "CreateInfobase.FolderNotCreated": " — папка ещё не создана",
     "CreateInfobase.AlsoChecked": "\nТакже проверены: {0}",
@@ -827,9 +827,22 @@
     "CreateInfobase.EnterName": "Укажите наименование базы.",
     "CreateInfobase.EnterFilePath": "Укажите каталог файловой базы.",
     "CreateInfobase.EnterServerAndRef": "Укажите сервер и имя базы (Ref).",
+    "CreateInfobase.EnterServerAndDb": "Укажите сервер 1С и имя базы на сервере.",
     "CreateInfobase.EnterTemplateFile": "Укажите существующий файл шаблона (.cf или .dt).",
     "CreateInfobase.NoPlatform": "Не найдена установленная платформа 1С.\nУкажите версию через «Список…» или пути в настройках.",
     "CreateInfobase.CreateFailed": "Не удалось создать информационную базу.\n{0}",
+    "CreateInfobase.TypeLabel": "Тип базы:",
+    "CreateInfobase.TypeFile": "Файловая база",
+    "CreateInfobase.TypeClientServer": "Клиент-серверная",
+    "CreateInfobase.ServerLabel": "Сервер 1С:",
+    "CreateInfobase.RefLabel": "Имя базы на сервере:",
+    "CreateInfobase.DbmsLabel": "СУБД:",
+    "CreateInfobase.DbServerLabel": "Сервер СУБД:",
+    "CreateInfobase.DbNameLabel": "Имя базы данных:",
+    "CreateInfobase.DbUserLabel": "Пользователь СУБД:",
+    "CreateInfobase.DbPasswordLabel": "Пароль СУБД:",
+    "CreateInfobase.CreateDatabase": "Создать базу данных на сервере СУБД (1С создаст её автоматически)",
+    "CreateInfobase.BlockScheduledJobs": "Блокировка фоновых заданий",
 
     "DeleteInfobase.ExistsYes": "да — {0}",
     "DeleteInfobase.PhysicalHintDynamic": "Будет удалён каталог:\n{0}\nвместе с 1Cv8.1CD и всеми файлами. Действие необратимо.",
@@ -929,8 +942,6 @@
 
     "Common.SortLabel": "Сортировка:",
     "Common.Choose": "Выбрать…",
-
-    "GroupSettings.AddRoot": "Корневая",
 
     "PlatformVersionPicker.FilterLabel": "Фильтр:",
 

@@ -10,8 +10,8 @@
         mc:Ignorable="d"
         Title="{loc:Loc GroupPicker.Title}"
         Icon="{StaticResource AppIcon}"
-        Width="520" Height="560"
-        MinHeight="400" MinWidth="400"
+        Width="560" Height="620"
+        MinHeight="480" MinWidth="460"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI"
@@ -23,14 +23,68 @@
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
-        <Style TargetType="TreeViewItem" BasedOn="{StaticResource ModernTreeViewItem}">
+        <!-- РЎРѕР±СЃС‚РІРµРЅРЅС‹Р№ СЃС‚РёР»СЊ СЌР»РµРјРµРЅС‚Р° РґРµСЂРµРІР° РѕРєРЅР° РІС‹Р±РѕСЂР° РіСЂСѓРїРїС‹: РїРѕРґСЃРІРµС‡РёРІР°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ
+             СЂРѕРІРЅРѕ РІС‹Р±СЂР°РЅРЅР°СЏ СЃС‚СЂРѕРєР° (Рё Р»РёСЃС‚СЊСЏ, Рё СЂРѕРґРёС‚РµР»Рё), СЂРѕРґРёС‚РµР»Рё РЅРµ В«Р·Р°СЃРІРµС‡РёРІР°СЋС‚СЃСЏВ»
+             РїСЂРё РІС‹Р±РѕСЂРµ РІР»РѕР¶РµРЅРЅРѕР№ РіСЂСѓРїРїС‹. -->
+        <Style TargetType="TreeViewItem">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="IsExpanded" Value="True"/>
-            <Setter Property="Padding" Value="2,1"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TreeViewItem">
+                        <StackPanel>
+                            <Border x:Name="header" Background="Transparent" CornerRadius="6"
+                                    Padding="4,3" Margin="0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="24"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleButton x:Name="Expander" Grid.Column="0"
+                                                  IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                                                  ClickMode="Press" Width="20" Height="22"
+                                                  Background="Transparent" BorderThickness="0"
+                                                  Cursor="Hand" VerticalAlignment="Center">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <TextBlock x:Name="ExpanderSymbol" Text="+"
+                                                           FontSize="16" FontWeight="Bold"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsChecked" Value="True">
+                                                        <Setter TargetName="ExpanderSymbol" Property="Text" Value="-"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                    <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            <ItemsPresenter x:Name="ItemsHost" Margin="16,0,0,0"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="False">
+                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                            <Trigger Property="HasItems" Value="False">
+                                <Setter TargetName="Expander" Property="Visibility" Value="Hidden"/>
+                            </Trigger>
+                            <!-- РўРѕР»СЊРєРѕ РІС‹Р±СЂР°РЅРЅР°СЏ СЃС‚СЂРѕРєР° РїРѕР»СѓС‡Р°РµС‚ РїРѕРґСЃРІРµС‚РєСѓ; СЂРѕРґРёС‚РµР»Рё РїСЂРё РІС‹Р±РѕСЂРµ
+                                 РІР»РѕР¶РµРЅРЅРѕРіРѕ СѓР·Р»Р° РѕСЃС‚Р°СЋС‚СЃСЏ Р±РµР· РІС‹РґРµР»РµРЅРёСЏ. -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="header" Property="Background" Value="{DynamicResource TreeSelectedBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="SortToggle" TargetType="ToggleButton">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="28"/>
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="32"/>
             <Setter Property="Margin" Value="2,0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -42,7 +96,7 @@
                         <Border x:Name="bd" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4" Padding="2">
+                                CornerRadius="8" Padding="2">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -58,29 +112,126 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="OutlinedButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="MinWidth" Value="116"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBackgroundBrush}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource SecondaryButtonHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource SecondaryButtonPressedBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource OutlinedButton}">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="0"
+                                CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="14">
+    <Grid Margin="20,18,20,16">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>  <!-- шапка -->
+            <RowDefinition Height="Auto"/>  <!-- поиск + сортировка -->
+            <RowDefinition Height="Auto"/>  <!-- подсказка -->
+            <RowDefinition Height="*"/>     <!-- дерево -->
+            <RowDefinition Height="Auto"/>  <!-- действия -->
         </Grid.RowDefinitions>
 
-        <!-- Подсказка + сортировка по наименованию (как в главном окне) -->
-        <Grid Grid.Row="0" Margin="0,0,0,10">
+        <!-- Шапка: иконка + заголовок + подзаголовок -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="8" Margin="0,0,12,0"
+                    VerticalAlignment="Top" Background="{DynamicResource AccentBrush}">
+                <materialDesign:PackIcon Kind="Folder" Width="20" Height="20" Foreground="White"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel Grid.Column="1">
+                <TextBlock Text="{loc:Loc GroupPicker.Title}" FontSize="17" FontWeight="SemiBold"/>
+                <TextBlock Text="{loc:Loc GroupPicker.Subtitle}" FontSize="12.5"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Поиск + сортировка -->
+        <Grid Grid.Row="1" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           Text="{loc:Loc GroupPicker.Hint}"/>
-                <controls:HelpLink Margin="6,0,0,0" VerticalAlignment="Center"
-                                   HelpText="{loc:Loc GroupPicker.Help}"/>
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+            <Border Grid.Column="0" CornerRadius="10" BorderThickness="1"
+                    BorderBrush="{DynamicResource BorderBrushColor}"
+                    Background="{DynamicResource CardBackgroundBrush}" Padding="10,2">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <materialDesign:PackIcon Grid.Column="0" Kind="Magnify" Width="16" Height="16"
+                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                             VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox x:Name="SearchBox" Grid.Column="1" BorderThickness="0" Background="Transparent"
+                             Padding="0,7" VerticalContentAlignment="Center"
+                             materialDesign:HintAssist.Hint="{loc:Loc GroupPicker.SearchPlaceholder}"
+                             TextChanged="OnSearch_TextChanged"/>
+                    <Button x:Name="ClearSearch" Grid.Column="2" Background="Transparent" BorderThickness="0"
+                            Padding="4,0" Cursor="Hand" Visibility="Collapsed" Click="OnClearSearch_Click"
+                            ToolTip="{loc:Loc Main.ClearSearch}">
+                        <materialDesign:PackIcon Kind="Close" Width="13" Height="13"
+                                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                </Grid>
+            </Border>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
                 <ToggleButton x:Name="SortAsc" Style="{StaticResource SortToggle}" IsChecked="True"
                               Click="OnSortAsc_Click" ToolTip="{loc:Loc Main.SortGroupsAscending}">
                     <materialDesign:PackIcon Kind="SortAscending" Width="16" Height="16"
@@ -94,88 +245,80 @@
             </StackPanel>
         </Grid>
 
+        <!-- Подсказка -->
+        <TextBlock Grid.Row="2" Margin="0,0,0,8" TextWrapping="Wrap" FontSize="12"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Text="{loc:Loc GroupPicker.Hint}"/>
+
         <!-- Дерево групп: цвет и иконка каждой группы, как в настройках -->
-        <Border Grid.Row="1" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
-                CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}">
-            <TreeView x:Name="GroupsTree"
-                      Background="Transparent"
-                      BorderThickness="0"
-                      Padding="4"
-                      ScrollViewer.VerticalScrollBarVisibility="Auto"
-                      SelectedItemChanged="OnGroupsTree_SelectedItemChanged"
-                      MouseDoubleClick="OnGroupsTree_MouseDoubleClick">
-                <TreeView.ItemTemplate>
-                    <HierarchicalDataTemplate DataType="{x:Type vm:GroupNodeViewModel}"
-                                              ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal" Margin="0,1">
-                            <!-- Иконка на цвете группы — как в списке баз: видна и в светлой, и в тёмной теме -->
-                            <Border Padding="4,1" CornerRadius="4" Margin="0,0,6,0"
-                                    VerticalAlignment="Center"
-                                    Background="{Binding HeaderBrush}">
-                                <Path Width="14" Height="14" Stretch="Uniform"
-                                      Fill="{Binding IconBrush}"
-                                      Data="{Binding Icon, Converter={StaticResource IconKeyToGeometryConverter}}"/>
-                            </Border>
-                            <TextBlock Text="{Binding DisplayName}" FontSize="13" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                       TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
-                    </HierarchicalDataTemplate>
-                </TreeView.ItemTemplate>
-            </TreeView>
+        <Border Grid.Row="3" BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                CornerRadius="10" Background="{DynamicResource CardBackgroundBrush}">
+            <Grid>
+                <TreeView x:Name="GroupsTree"
+                          Background="Transparent"
+                          BorderThickness="0"
+                          Padding="6"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          SelectedItemChanged="OnGroupsTree_SelectedItemChanged"
+                          MouseDoubleClick="OnGroupsTree_MouseDoubleClick">
+                    <TreeView.ItemTemplate>
+                        <HierarchicalDataTemplate DataType="{x:Type vm:GroupNodeViewModel}"
+                                                  ItemsSource="{Binding Children}">
+                            <StackPanel Orientation="Horizontal" Margin="0,1">
+                                <Border Padding="6,3" CornerRadius="6" Margin="0,0,8,0"
+                                        VerticalAlignment="Center"
+                                        Background="{Binding HeaderBrush}">
+                                    <Path Width="18" Height="18" Stretch="Uniform"
+                                          Fill="{Binding IconBrush}"
+                                          Data="{Binding Icon, Converter={StaticResource IconKeyToGeometryConverter}}"/>
+                                </Border>
+                                <TextBlock Text="{Binding DisplayName}" FontSize="14" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </HierarchicalDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+                <TextBlock x:Name="EmptyLabel" Text="{loc:Loc Main.EmptyNoResults}"
+                           FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+            </Grid>
         </Border>
 
-        <!-- Кнопки (в стиле выбора версии платформы) -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button x:Name="SelectButton" Width="140" Height="36" Margin="0,0,10,0" IsDefault="True"
-                    Click="OnSelect_Click" IsEnabled="False"
-                    Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="12,8">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#15803D"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#166534"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Button.Template>
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="Check" Width="16" Height="16" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="{loc:Loc Common.Select}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold"/>
-                </StackPanel>
-            </Button>
-            <Button Width="140" Height="36" IsCancel="True"
-                    Background="Transparent" Cursor="Hand" BorderThickness="1.5"
-                    BorderBrush="#EF4444" Foreground="#EF4444">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8" Padding="12,8">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#FEF2F2"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Button.Template>
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center" Foreground="#EF4444" FontWeight="SemiBold"/>
-                </StackPanel>
-            </Button>
-        </StackPanel>
+        <!-- Действия: сводка выбора + кнопки -->
+        <Grid Grid.Row="4" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <materialDesign:PackIcon Kind="ChevronRight" Width="15" Height="15"
+                                         Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,6,0"/>
+                <TextBlock x:Name="PathLabel" FontSize="12.5" MaxWidth="260"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="SelectButton" Style="{StaticResource PrimaryButton}" IsDefault="True"
+                        IsEnabled="False" Click="OnSelect_Click" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Check" Width="16" Height="16"
+                                                 Foreground="{DynamicResource TextOnAccentBrush}" Margin="0,0,6,0"
+                                                 VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Common.Select}" VerticalAlignment="Center"
+                                   FontWeight="SemiBold" Foreground="{DynamicResource TextOnAccentBrush}"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource OutlinedButton}" IsCancel="True" Click="OnCancel_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Close" Width="15" Height="15"
+                                                 Foreground="{DynamicResource ButtonTextBrush}" Margin="0,0,6,0"
+                                                 VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center"
+                                   FontWeight="SemiBold" Foreground="{DynamicResource ButtonTextBrush}"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

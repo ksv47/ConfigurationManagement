@@ -55,6 +55,13 @@ public partial class MainViewModel : ViewModelBase
 
 
     /// <summary>
+    /// Состав списка обновлён: окну нужно вернуть выделение строки и клавиатурный фокус.
+    /// Поднимается после полной пересборки дерева, когда прежние контейнеры строк
+    /// уничтожены заменой коллекции <see cref="GroupNodes"/>.
+    /// </summary>
+    public event Action? TreeRebuilt;
+
+    /// <summary>
     /// Заменяет содержимое GroupNodes с минимумом лишних уведомлений UI.
     /// </summary>
     private void ReplaceGroupNodes(List<GroupNodeViewModel> next)
@@ -63,6 +70,7 @@ public partial class MainViewModel : ViewModelBase
         // без промежуточных CollectionChanged на каждый корневой узел.
         GroupNodes = new ObservableCollection<GroupNodeViewModel>(next);
         OnPropertyChanged(nameof(GroupNodes));
+        TreeRebuilt?.Invoke();
     }
 
     /// <summary>
@@ -1267,36 +1275,6 @@ public partial class MainViewModel : ViewModelBase
             return $"{baseName}_{ts}{extension}";
         }
         return $"{baseName}{extension}";
-    }
-
-    /// <summary>
-    /// Добавляет тег к выбранной базе.
-    /// </summary>
-    private void AddTag(object? parameter)
-    {
-        var infobase = parameter as Infobase ?? SelectedInfobase;
-        if (infobase is null)
-            return;
-
-        var dialog = new TagInputWindow
-        {
-            Owner = Application.Current.MainWindow
-        };
-        if (dialog.ShowDialog() != true)
-            return;
-
-        var tag = dialog.Result?.Trim() ?? string.Empty;
-        if (string.IsNullOrEmpty(tag))
-            return;
-
-        if (!infobase.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
-        {
-            infobase.Tags.Add(tag);
-            infobase.NotifyTagsChanged();
-            ScheduleSave();
-            PruneActiveTagFilters();
-            RefreshTagFilterItems();
-        }
     }
 
     /// <summary>

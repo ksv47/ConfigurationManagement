@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Configuration_Management.Localization;
@@ -90,6 +92,17 @@ namespace Configuration_Management
                 PlatformBox.Text = _platforms[0];
         }
 
+        private void OnTypeChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var isFile = TypeBox.SelectedIndex != 1;
+            // Обработчик может сработать в ходе InitializeComponent(), когда элементы,
+            // объявленные ниже ComboBox в XAML, ещё не созданы, поэтому защищаемся от null.
+            if (FilePanel != null)
+                FilePanel.Visibility = isFile ? Visibility.Visible : Visibility.Collapsed;
+            if (ServerPanel != null)
+                ServerPanel.Visibility = isFile ? Visibility.Collapsed : Visibility.Visible;
+        }
+
         private void OnPickPlatform_Click(object sender, RoutedEventArgs e)
         {
             RefreshPlatformList();
@@ -120,10 +133,60 @@ namespace Configuration_Management
 
         private void LoadInstalledTemplates()
         {
-            var primary = OneCTemplateService.GetConfiguredOrDefaultTemplatePath();
-            var roots = OneCTemplateService.GetTemplateRootFolders();
-            var primaryExists = Directory.Exists(primary);
+            _templateLoadingCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _templateLoadingCts = cts;
 
+            // Показываем окно сразу, а тяжёлое сканирование каталогов шаблонов
+            // выполняем в фоне; список дособерётся, когда будет готов.
+            ShowTemplateLoading(true);
+            TemplateTree.ItemsSource = null;
+            _flatTemplates = new List<OneCTemplateService.TemplateInfo>();
+
+            Task.Run(() =>
+            {
+                // Основной источник — первый фактически существующий корень.
+                // GetTemplateRootFolders() ставит настроенные пользователем каталоги
+                // первыми, поэтому подсказка отражает реально используемый каталог,
+                // а не дефолтный tmplts.
+                var roots = OneCTemplateService.GetTemplateRootFolders().ToList();
+                var primary = roots.Count > 0
+                    ? roots[0]
+                    : OneCTemplateService.GetConfiguredOrDefaultTemplatePath();
+                var primaryExists = Directory.Exists(primary);
+
+                var templates = OneCTemplateService.FindInstalledTemplates().ToList();
+                var tree = OneCTemplateService.BuildTemplateTree(templates);
+                return new TemplateLoadResult(primary, roots, primaryExists, templates, tree);
+            }).ContinueWith(t =>
+            {
+                if (cts.IsCancellationRequested)
+                    return;
+
+                ShowTemplateLoading(false);
+
+                if (t.IsFaulted)
+                {
+                    _flatTemplates = new List<OneCTemplateService.TemplateInfo>();
+                    TemplateTree.ItemsSource = null;
+                    TemplateRootsHint.Text +=
+                        LocalizationManager.T("CreateInfobase.LoadingFailed");
+                    return;
+                }
+
+                var r = t.Result;
+                _flatTemplates = r.Templates;
+                TemplateTree.ItemsSource = r.Tree;
+                UpdateTemplateRootsHint(r.Primary, r.Roots, r.PrimaryExists);
+
+                if (r.Templates.Count == 0)
+                    TemplateRootsHint.Text +=
+                        LocalizationManager.T("CreateInfobase.NoTemplates");
+            }, TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
+        private void UpdateTemplateRootsHint(string primary, IReadOnlyList<string> roots, bool primaryExists)
+        {
             TemplateRootsHint.Text =
                 string.Format(LocalizationManager.T("CreateInfobase.TemplateRootsDefault"), primary) +
                 (primaryExists ? "" : LocalizationManager.T("CreateInfobase.FolderNotCreated")) +
@@ -132,30 +195,41 @@ namespace Configuration_Management
                         string.Join("; ", roots.Where(r =>
                             !r.Equals(primary, StringComparison.OrdinalIgnoreCase))))
                     : "");
+        }
 
-            var templates = OneCTemplateService.FindInstalledTemplates();
-            _flatTemplates = templates.ToList();
-            var tree = OneCTemplateService.BuildTemplateTree(templates);
-            TemplateTree.ItemsSource = tree;
+        private void ShowTemplateLoading(bool loading)
+        {
+            if (TemplateLoadingPanel != null)
+                TemplateLoadingPanel.Visibility = loading ? Visibility.Visible : Visibility.Collapsed;
+            if (TemplateTree != null)
+                TemplateTree.IsEnabled = !loading;
+        }
 
-            var first = templates.FirstOrDefault();
-            if (first is not null)
+        private sealed class TemplateLoadResult
+        {
+            public TemplateLoadResult(
+                string primary,
+                IReadOnlyList<string> roots,
+                bool primaryExists,
+                List<OneCTemplateService.TemplateInfo> templates,
+                IReadOnlyList<OneCTemplateService.TemplateTreeNode> tree)
             {
-                TemplateBox.Text = first.FilePath;
-                if (string.IsNullOrWhiteSpace(NameBox.Text))
-                    NameBox.Text = SuggestNameFromTemplate(first);
-                Dispatcher.BeginInvoke(new Action(() => SelectFirstLeaf(TemplateTree)),
-                    System.Windows.Threading.DispatcherPriority.Loaded);
+                Primary = primary;
+                Roots = roots;
+                PrimaryExists = primaryExists;
+                Templates = templates;
+                Tree = tree;
             }
-            else
-            {
-                TemplateBox.Text = "";
-                TemplateRootsHint.Text +=
-                    LocalizationManager.T("CreateInfobase.NoTemplates");
-            }
+
+            public string Primary { get; }
+            public IReadOnlyList<string> Roots { get; }
+            public bool PrimaryExists { get; }
+            public List<OneCTemplateService.TemplateInfo> Templates { get; }
+            public IReadOnlyList<OneCTemplateService.TemplateTreeNode> Tree { get; }
         }
 
         private List<OneCTemplateService.TemplateInfo> _flatTemplates = new();
+        private CancellationTokenSource? _templateLoadingCts;
 
         private static string SuggestNameFromTemplate(OneCTemplateService.TemplateInfo t)
         {
@@ -199,40 +273,9 @@ namespace Configuration_Management
                 SuggestNameFromTemplate(t).Equals(name, StringComparison.OrdinalIgnoreCase));
         }
 
-        /// <summary>Выделяет первый листовой шаблон в дереве.</summary>
-        private static void SelectFirstLeaf(ItemsControl parent)
-        {
-            foreach (var item in parent.Items)
-            {
-                if (item is not OneCTemplateService.TemplateTreeNode node) continue;
-                var container = parent.ItemContainerGenerator.ContainerFromItem(item) as TreeViewItem;
-                if (node.Template is not null)
-                {
-                    if (container is not null)
-                        container.IsSelected = true;
-                    return;
-                }
-                if (container is not null)
-                {
-                    container.IsExpanded = true;
-                    container.UpdateLayout();
-                    SelectFirstLeaf(container);
-                    return;
-                }
-            }
-        }
-
         private void OnRefreshTemplates_Click(object sender, RoutedEventArgs e)
         {
             LoadInstalledTemplates();
-        }
-
-        private void OnType_Changed(object sender, RoutedEventArgs e)
-        {
-            if (FilePanel is null || ServerPanel is null) return;
-            var isFile = FileTypeRadio.IsChecked == true;
-            FilePanel.Visibility = isFile ? Visibility.Visible : Visibility.Collapsed;
-            ServerPanel.Visibility = isFile ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void OnBrowseFolder_Click(object sender, RoutedEventArgs e)
@@ -267,32 +310,7 @@ namespace Configuration_Management
                 return;
             }
 
-            var isFile = FileTypeRadio.IsChecked == true;
-            string? filePath = null;
-            string? server = null;
-            string? refName = null;
-
-            if (isFile)
-            {
-                filePath = FilePathBox.Text?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(filePath))
-                {
-                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterFilePath"), LocalizationManager.T("CreateInfobase.CreateTitle"),
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-            }
-            else
-            {
-                server = ServerBox.Text?.Trim() ?? "";
-                refName = RefBox.Text?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(refName))
-                {
-                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterServerAndRef"), LocalizationManager.T("CreateInfobase.CreateTitle"),
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-            }
+            var isFile = TypeBox.SelectedIndex != 1;
 
             string? templatePath = null;
             if (_fromTemplate)
@@ -307,8 +325,7 @@ namespace Configuration_Management
             }
 
             var platform = PlatformBox.Text?.Trim() ?? "";
-            // Убираем суффикс « (64)» для хранения в Infobase.PlatformVersion при необходимости —
-            // OneCLauncher.ParseVariant умеет оба формата; оставляем полный display.
+            // Убираем суффикс « (64)» для хранения в Infobase.PlatformVersion при необходимости.
             if (string.IsNullOrWhiteSpace(platform))
             {
                 MessageBox.Show(
@@ -318,32 +335,90 @@ namespace Configuration_Management
                 return;
             }
 
-            // Для файловой: если указан путь без имени — создаём подкаталог по имени базы.
-            if (isFile && !string.IsNullOrEmpty(filePath))
+            bool ok;
+            string? error;
+            ConnectionSettings connection;
+            if (isFile)
             {
-                if (!Directory.Exists(filePath) && !filePath.EndsWith(Path.DirectorySeparatorChar) &&
-                    !filePath.EndsWith(Path.AltDirectorySeparatorChar) &&
-                    string.IsNullOrEmpty(Path.GetExtension(filePath)))
+                var filePath = FilePathBox.Text?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(filePath))
                 {
-                    // path may be intended as new folder
+                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterFilePath"), LocalizationManager.T("CreateInfobase.CreateTitle"),
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
                 }
+
+                (ok, error) = OneCLauncher.CreateInfoBase(
+                    platformVersion: platform,
+                    isFile: true,
+                    filePath: filePath,
+                    server: null,
+                    databaseName: null,
+                    templatePath: templatePath);
+
+                if (!ok)
+                {
+                    MessageBox.Show(
+                        string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""),
+                        LocalizationManager.T("CreateInfobase.CreateTitle"),
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                connection = new ConnectionSettings
+                {
+                    Type = ConnectionType.File,
+                    FilePath = filePath ?? ""
+                };
             }
-
-            var (ok, error) = OneCLauncher.CreateInfoBase(
-                platformVersion: platform,
-                isFile: isFile,
-                filePath: filePath,
-                server: server,
-                databaseName: refName,
-                templatePath: templatePath);
-
-            if (!ok)
+            else
             {
-                MessageBox.Show(
-                    string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""),
-                    LocalizationManager.T("CreateInfobase.CreateTitle"),
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
+                var server = ServerBox.Text?.Trim() ?? "";
+                var refName = RefBox.Text?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(refName))
+                {
+                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterServerAndDb"), LocalizationManager.T("CreateInfobase.CreateTitle"),
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var dbms = DbmsBox.Text?.Trim() ?? "";
+                var dbServer = DbServerBox.Text?.Trim() ?? "";
+                var dbName = DbNameBox.Text?.Trim() ?? "";
+                var dbUser = DbUserBox.Text?.Trim() ?? "";
+                var dbPwd = DbPwdBox.Password ?? "";
+                var createSqlDatabase = CreateDbCheck.IsChecked == true;
+
+                (ok, error) = OneCLauncher.CreateInfoBase(
+                    platformVersion: platform,
+                    isFile: false,
+                    filePath: null,
+                    server: server,
+                    databaseName: refName,
+                    templatePath: templatePath,
+                    dbms: dbms,
+                    dbServer: dbServer,
+                    dbName: dbName,
+                    dbUser: dbUser,
+                    dbPassword: dbPwd,
+                    createSqlDatabase: createSqlDatabase);
+
+                if (!ok)
+                {
+                    MessageBox.Show(
+                        string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""),
+                        LocalizationManager.T("CreateInfobase.CreateTitle"),
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                connection = new ConnectionSettings
+                {
+                    Type = ConnectionType.ClientServer,
+                    Server = server,
+                    DatabaseName = refName,
+                    BlockScheduledJobs = BlockJobsCheck.IsChecked == true
+                };
             }
 
             // Разрядность, выбранная суффиксом версии «(32)/(64)», сохраняется
@@ -362,18 +437,7 @@ namespace Configuration_Management
                 Group = string.IsNullOrWhiteSpace(_selectedGroupPath) ? string.Empty : _selectedGroupPath,
                 PlatformVersion = storedPlatform,
                 Architecture = storedArchitecture,
-                Connection = isFile
-                    ? new ConnectionSettings
-                    {
-                        Type = ConnectionType.File,
-                        FilePath = filePath ?? ""
-                    }
-                    : new ConnectionSettings
-                    {
-                        Type = ConnectionType.ClientServer,
-                        Server = server ?? "",
-                        DatabaseName = refName ?? ""
-                    }
+                Connection = connection
             };
 
             DialogResult = true;

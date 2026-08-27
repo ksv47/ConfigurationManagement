@@ -7,9 +7,10 @@
         mc:Ignorable="d"
         Title="{loc:Loc Profiles.Title}"
         Icon="{StaticResource AppIcon}"
-        Height="520" Width="560"
+        Height="560" Width="760"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
+        ResizeMode="CanResize"
+        MinHeight="500" MinWidth="640"
         FontFamily="Segoe UI"
         FontSize="13"
         ShowInTaskbar="False"
@@ -21,12 +22,12 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}"/>
-        <!-- НЕЛЬЗЯ BasedOn="{StaticResource ModernTextBox}" для PasswordBox: ModernTextBox имеет
-             TargetType="TextBox", а BasedOn требует совместимости типов (TextBox не является
-             базовым для PasswordBox). Из-за этого WPF падал с XamlParseException при создании
-             первого PasswordBox (строка «Инициализация PasswordBox вызвала исключение»).
-             PasswordBox и так получит темированный implicit-стиль из LightTheme/DarkTheme,
-             как в LoginWindow и ConnectionSettingsWindow. -->
+        <!-- РќР•Р›Р¬Р—РЇ BasedOn="{StaticResource ModernTextBox}" РґР»СЏ PasswordBox: ModernTextBox РёРјРµРµС‚
+             TargetType="TextBox", Р° BasedOn С‚СЂРµР±СѓРµС‚ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё С‚РёРїРѕРІ (TextBox РЅРµ СЏРІР»СЏРµС‚СЃСЏ
+             Р±Р°Р·РѕРІС‹Рј РґР»СЏ PasswordBox). РР·-Р·Р° СЌС‚РѕРіРѕ WPF РїР°РґР°Р» СЃ XamlParseException РїСЂРё СЃРѕР·РґР°РЅРёРё
+             РїРµСЂРІРѕРіРѕ PasswordBox (СЃС‚СЂРѕРєР° В«РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ PasswordBox РІС‹Р·РІР°Р»Р° РёСЃРєР»СЋС‡РµРЅРёРµВ»).
+             PasswordBox Рё С‚Р°Рє РїРѕР»СѓС‡РёС‚ С‚РµРјРёСЂРѕРІР°РЅРЅС‹Р№ implicit-СЃС‚РёР»СЊ РёР· LightTheme/DarkTheme,
+             РєР°Рє РІ LoginWindow Рё ConnectionSettingsWindow. -->
     </Window.Resources>
 
     <Grid Margin="16">
@@ -36,40 +37,113 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- ============ Подсказка и текущая запись ============ -->
-        <TextBlock Grid.Row="0" x:Name="CurrentAccountLabel" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,4"
-                   Text="{Binding CurrentAccountLabel}"/>
-        <TextBlock Grid.Row="1" x:Name="HintLabel" Text="{loc:Loc Profiles.Hint}" TextWrapping="Wrap"
-                   Opacity="0.85" Margin="0,0,0,12"/>
+        <!-- ============ Подсказка и активная учётная запись ============ -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="{loc:Loc Profiles.Hint}" TextWrapping="Wrap" Opacity="0.85"/>
+            <TextBlock Text="{Binding CurrentAccountLabel}" FontWeight="SemiBold" Margin="0,4,0,0"/>
+        </StackPanel>
 
-        <!-- ============ Список учётных записей ============ -->
-        <ListBox x:Name="ProfilesList" Grid.Row="2" Margin="0,0,0,12"
-                 DisplayMemberPath="Name"
-                 ItemsSource="{Binding Profiles}"
-                 SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"/>
+        <!-- ============ Выпадающее меню активной учётной записи ============ -->
+        <DockPanel Grid.Row="1" Margin="0,0,0,12">
+            <TextBlock DockPanel.Dock="Left" Text="{loc:Loc Profiles.ActiveAccount}"
+                       VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,0"/>
+            <ComboBox ItemsSource="{Binding Accounts}"
+                      SelectedItem="{Binding CurrentProfile, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </DockPanel>
 
-        <!-- ============ Редактирование выбранной записи ============ -->
-        <GroupBox Grid.Row="3" Header="{loc:Loc Profiles.Title}" Padding="10,8" Margin="0,0,0,12">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="{loc:Loc Profiles.Name}" VerticalAlignment="Center" Margin="0,0,8,0" Width="90"/>
-                    <TextBox x:Name="NameBox" Width="280" Padding="8,6"
-                             Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        <!-- ============ Список + редактор ============ -->
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Левая колонка: список учётных записей с бейджем «активная» -->
+            <ListBox Grid.Column="0" Margin="0,0,12,0"
+                     ItemsSource="{Binding Profiles}"
+                     SelectedItem="{Binding SelectedProfile, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Profiles.Active}" Margin="8,0,0,0"
+                                       Foreground="#2E7D32" FontWeight="Bold" FontSize="11"
+                                       VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Правая колонка: панель редактирования выбранной записи -->
+            <Border Grid.Column="1" Padding="14,12" CornerRadius="8"
+                    Background="{DynamicResource ItemHoverBrush}"
+                    BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="{Binding EditingTitle}" FontWeight="SemiBold" FontSize="15"
+                               TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                    <!-- Приглашение, когда запись не выбрана -->
+                    <TextBlock Text="{loc:Loc Profiles.SelectToEdit}" TextWrapping="Wrap" Opacity="0.8">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedProfile}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <!-- Поля редактирования -->
+                    <StackPanel>
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedProfile}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="{loc:Loc Profiles.Name}" VerticalAlignment="Center" Margin="0,0,8,0" Width="100"/>
+                            <TextBox x:Name="NameBox" Width="260" Padding="8,6"
+                                     Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="{loc:Loc Profiles.Password}" VerticalAlignment="Center" Margin="0,0,8,0" Width="100"/>
+                            <PasswordBox x:Name="PasswordInput" Width="260" Padding="8,6" PasswordChanged="OnPassword_Changed"/>
+                        </StackPanel>
+                        <CheckBox x:Name="ProtectCheck" Content="{loc:Loc Profiles.ProtectWithPassword}" Margin="108,0,0,0"
+                                  IsChecked="{Binding ProtectWithPassword}"/>
+                    </StackPanel>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <TextBlock Text="{loc:Loc Profiles.Password}" VerticalAlignment="Center" Margin="0,0,8,0" Width="90"/>
-                    <PasswordBox x:Name="PasswordInput" Width="280" Padding="8,6" PasswordChanged="OnPassword_Changed"/>
-                </StackPanel>
-                <CheckBox x:Name="ProtectCheck" Content="{loc:Loc Profiles.ProtectWithPassword}" Margin="98,0,0,0"
-                          IsChecked="{Binding ProtectWithPassword}"/>
-            </StackPanel>
-        </GroupBox>
+            </Border>
+        </Grid>
 
         <!-- ============ Ошибка ============ -->
-        <TextBlock Grid.Row="4" x:Name="ErrorLabel" TextWrapping="Wrap" Margin="0,0,0,12" Text="{Binding ErrorMessage}">
+        <TextBlock Grid.Row="3" x:Name="ErrorLabel" TextWrapping="Wrap" Margin="0,0,0,12" Text="{Binding ErrorMessage}">
             <TextBlock.Style>
                 <Style TargetType="TextBlock">
                     <Setter Property="Foreground" Value="#E53935"/>
@@ -84,8 +158,17 @@
         </TextBlock>
 
         <!-- ============ Кнопки ============ -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Width="110" Margin="0,0,8,0"
+        <DockPanel Grid.Row="4">
+            <Button DockPanel.Dock="Left" Width="110" Padding="12,6"
+                    Style="{StaticResource ModernButton}"
+                    Background="{DynamicResource ItemHoverBrush}"
+                    Foreground="{DynamicResource TextPrimaryBrush}"
+                    Click="OnCancel_Click">
+                <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center"/>
+            </Button>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Width="120" Margin="0,0,8,0"
                     Style="{StaticResource ModernButton}"
                     Background="{DynamicResource ItemHoverBrush}"
                     Foreground="{DynamicResource TextPrimaryBrush}"
@@ -95,11 +178,19 @@
                     <TextBlock Text="{loc:Loc Profiles.Delete}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
+            <Button Width="150" Margin="0,0,8,0"
+                    Style="{StaticResource ModernButton}"
+                    Command="{Binding ActivateCommand}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="в…" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc Profiles.Activate}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
             <Button Width="130" Margin="0,0,8,0"
                     Style="{StaticResource ModernButton}"
                     Command="{Binding SaveCommand}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✔" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="вњ”" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Profiles.Save}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
@@ -107,10 +198,11 @@
                     Style="{StaticResource ModernButton}"
                     Command="{Binding CreateCommand}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="＋" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="пј‹" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Profiles.Create}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
-        </StackPanel>
+            </StackPanel>
+        </DockPanel>
     </Grid>
 </Window>

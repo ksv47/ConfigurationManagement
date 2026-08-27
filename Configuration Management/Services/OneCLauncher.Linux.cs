@@ -98,6 +98,15 @@ namespace Configuration_Management.Services
 
         public static bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode, OneCArchitecture architecture, bool runAsAdmin = false)
         {
+            // База, расположенная на веб-сервере, подключается только тонким клиентом (/WS).
+            // 1cv8 (толстый клиент) не понимает /WS и при запуске открывает стандартное
+            // окно со списком информационных баз вместо подключения к базе.
+            if (infobase.Connection.Type == ConnectionType.WebServer)
+            {
+                clientType = OneCClientType.Thin;
+                runMode ??= OneCRunMode.Managed;
+            }
+
             var exePath = FindExecutable(infobase.PlatformVersion, architecture, clientType, mode);
             if (string.IsNullOrEmpty(exePath))
             {
@@ -259,11 +268,30 @@ namespace Configuration_Management.Services
                 _ => ""
             };
 
+            // Подключение к хранилищу конфигурации (только в режиме «Конфигуратор»):
+            // /ConfigurationRepositoryF "<путь>" — путь к хранилищу. Для серверного хранилища
+            // путь имеет вид tcp://сервер:порт/имяХранилища (из Repository.Server + RepositoryName);
+            // /ConfigurationRepositoryN — пользователь хранилища; /ConfigurationRepositoryP — пароль.
+            // Аргументы добавляются, только если задан адрес сервера хранилища.
+            string repositoryArg = "";
+            var repo = infobase.Repository;
+            if (mode == OneCLaunchMode.Configurator && repo.HasServer)
+            {
+                var server = repo.Server.Trim().TrimEnd('/');
+                var name = (repo.RepositoryName ?? string.Empty).Trim();
+                var repoPath = string.IsNullOrWhiteSpace(name) ? server : $"{server}/{name}";
+                repositoryArg = $" /ConfigurationRepositoryF \"{repoPath}\"";
+                if (!string.IsNullOrWhiteSpace(repo.User))
+                {
+                    repositoryArg += $" /ConfigurationRepositoryN \"{repo.User}\" /ConfigurationRepositoryP \"{repo.Password}\"";
+                }
+            }
+
             var extraArg = string.IsNullOrWhiteSpace(infobase.LaunchParameters)
                 ? ""
                 : " " + infobase.LaunchParameters.Trim();
 
-            return $"{modeArg}{clientArg}{connectionArg}{authArg}{extraArg}";
+            return $"{modeArg}{clientArg}{connectionArg}{authArg}{repositoryArg}{extraArg}";
         }
 
         private static bool LaunchWebClient(Infobase infobase)
@@ -809,12 +837,14 @@ namespace Configuration_Management.Services
         private static string? ParseLinkArguments(string value)
         {
             // 1. Строка подключения: Srvr="...";Ref="..."
-            var srvr = Regex.Match(value, @"Srvr\s*=\s*""(?<s>[^""]*)""", RegexOptions.IgnoreCase);
+            //    Кавычка внутри значения экранируется удвоением, поэтому шаблон допускает «""»
+            //    внутри и разворачивает его обратно (см. UnescapeConnectValue).
+            var srvr = Regex.Match(value, @"Srvr\s*=\s*""(?<s>(?:[^""]|"""")*)""", RegexOptions.IgnoreCase);
             if (srvr.Success)
             {
-                var re = Regex.Match(value, @"Ref\s*=\s*""(?<r>[^""]*)""", RegexOptions.IgnoreCase);
-                var server = srvr.Groups["s"].Value.Trim();
-                var db = re.Success ? re.Groups["r"].Value.Trim() : string.Empty;
+                var re = Regex.Match(value, @"Ref\s*=\s*""(?<r>(?:[^""]|"""")*)""", RegexOptions.IgnoreCase);
+                var server = UnescapeConnectValue(srvr.Groups["s"].Value).Trim();
+                var db = re.Success ? UnescapeConnectValue(re.Groups["r"].Value).Trim() : string.Empty;
                 if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(db))
                     return null;
                 return $"/S \"{server}\\{db}\"";
@@ -857,14 +887,43 @@ namespace Configuration_Management.Services
         /// <summary>
         /// Экранирует значение для строки подключения 1С: кавычка внутри значения удваивается.
         /// <para>
-        /// Тот же помощник есть в <c>OneCLauncher.Arguments.cs</c> для Windows: под Linux оба
-        /// Windows-файла исключены из компиляции (csproj, <c>Compile Remove</c>), поэтому общий
-        /// метод недоступен и правило приходится повторить. Здесь оно нужнее, чем в Windows:
-        /// аргументы уходят через <c>ArgumentList</c>, то есть значение доходит до платформы
-        /// дословно, вместе с кавычками.
+        /// Тот же помощник есть в <c>OneCLauncher.Arguments.cs</c> для Windows. Под Linux csproj
+        /// исключает из компиляции три части Windows-класса, включая её, поэтому переиспользовать
+        /// метод оттуда нельзя и правило приходится повторить. Экранирование здесь так же
+        /// необходимо, как в Windows, только причина другая: аргументы уходят через
+        /// <c>ArgumentList</c>, то есть значение попадает к платформе дословно по построению,
+        /// а не потому, что она сама разбирает командную строку.
         /// </para>
         /// </summary>
         private static string EscapeConnectValue(string value) => value.Replace("\"", "\"\"");
+
+        /// <summary>
+        /// Разворачивает экранирование строки подключения 1С: удвоенная кавычка «""» снова
+        /// становится одной. Обратная операция к <see cref="EscapeConnectValue"/>.
+        /// </summary>
+        private static string UnescapeConnectValue(string value) => value.Replace("\"\"", "\"");
+
+        /// <summary>
+        /// Удаляет только что созданный пустой каталог файловой базы, если CREATEINFOBASE не удался.
+        /// Затрагивает лишь каталог, созданный в этой попытке, и только если он остался пустым.
+        /// </summary>
+        private static void CleanupCreatedDir(string? dirPath)
+        {
+            if (string.IsNullOrEmpty(dirPath))
+                return;
+            try
+            {
+                if (Directory.Exists(dirPath) &&
+                    !Directory.EnumerateFileSystemEntries(dirPath).Any())
+                {
+                    Directory.Delete(dirPath);
+                }
+            }
+            catch
+            {
+                /* Не критично: каталог мог быть занят или уже удалён. */
+            }
+        }
 
         public static (bool Ok, string? Error) CreateInfoBase(
             string platformVersion,
@@ -872,7 +931,13 @@ namespace Configuration_Management.Services
             string? filePath,
             string? server,
             string? databaseName,
-            string? templatePath = null)
+            string? templatePath = null,
+            string? dbms = null,
+            string? dbServer = null,
+            string? dbName = null,
+            string? dbUser = null,
+            string? dbPassword = null,
+            bool createSqlDatabase = false)
         {
             PlatformVersionService.ParseVariant(platformVersion, out var version, out var arch);
             var exe = FindExecutable(version, arch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86,
@@ -881,6 +946,9 @@ namespace Configuration_Management.Services
                 return (false, LocalizationManager.T("Launcher.CreateExeNotFoundLinux"));
 
             string connectionString;
+            // Каталог, созданный только что под файловую базу. Запоминаем его, чтобы удалить
+            // при неудачной попытке создания ИБ (issue #77): иначе пустой каталог остаётся на диске.
+            string? createdDirPath = null;
             if (isFile)
             {
                 var path = (filePath ?? "").Trim().TrimEnd('\\', '/');
@@ -889,7 +957,10 @@ namespace Configuration_Management.Services
                 try
                 {
                     if (!Directory.Exists(path))
+                    {
                         Directory.CreateDirectory(path);
+                        createdDirPath = path;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -903,16 +974,35 @@ namespace Configuration_Management.Services
                 var db = (databaseName ?? "").Trim();
                 if (string.IsNullOrEmpty(srv) || string.IsNullOrEmpty(db))
                     return (false, LocalizationManager.T("Launcher.CreateServerOrDbNotSpecified"));
-                connectionString = $"Srvr=\"{EscapeConnectValue(srv)}\";Ref=\"{EscapeConnectValue(db)}\"";
+
+                // Параметры СУБД добавляются только если заданы (см. issue #77).
+                var cs = $"Srvr=\"{EscapeConnectValue(srv)}\";Ref=\"{EscapeConnectValue(db)}\"";
+                if (!string.IsNullOrWhiteSpace(dbms))
+                    cs += $";DBMS=\"{EscapeConnectValue(dbms)}\"";
+                if (!string.IsNullOrWhiteSpace(dbServer))
+                    cs += $";DBSrvr=\"{EscapeConnectValue(dbServer)}\"";
+                if (!string.IsNullOrWhiteSpace(dbName))
+                    cs += $";DB=\"{EscapeConnectValue(dbName)}\"";
+                if (!string.IsNullOrWhiteSpace(dbUser))
+                    cs += $";DBUID=\"{EscapeConnectValue(dbUser)}\"";
+                if (!string.IsNullOrWhiteSpace(dbPassword))
+                    cs += $";DBPwd=\"{EscapeConnectValue(dbPassword)}\"";
+                connectionString = cs;
             }
 
             var args = new List<string> { "CREATEINFOBASE", connectionString };
             if (!string.IsNullOrWhiteSpace(templatePath))
             {
                 if (!File.Exists(templatePath))
+                {
+                    CleanupCreatedDir(createdDirPath);
                     return (false, string.Format(LocalizationManager.T("Launcher.CreateTemplateNotFoundFormat"), templatePath));
+                }
                 args.Add($"/UseTemplate\"{templatePath}\"");
             }
+            // Для клиент-серверного создания базу данных на сервере СУБД создаёт сам 1С.
+            if (!isFile && createSqlDatabase)
+                args.Add("/CreateDatabase");
             args.Add("/DisableStartupDialogs");
             args.Add("/DisableStartupMessages");
 
@@ -932,11 +1022,15 @@ namespace Configuration_Management.Services
 
                 using var proc = Process.Start(psi);
                 if (proc is null)
+                {
+                    CleanupCreatedDir(createdDirPath);
                     return (false, LocalizationManager.T("Launcher.CreateProcessFailed"));
+                }
 
                 if (!proc.WaitForExit(5 * 60 * 1000))
                 {
                     try { proc.Kill(entireProcessTree: true); } catch { }
+                    CleanupCreatedDir(createdDirPath);
                     return (false, LocalizationManager.T("Launcher.CreateTimeout"));
                 }
 
@@ -944,6 +1038,7 @@ namespace Configuration_Management.Services
                 {
                     var err = "";
                     try { err = proc.StandardError.ReadToEnd(); } catch { }
+                    CleanupCreatedDir(createdDirPath);
                     return (false, string.Format(LocalizationManager.T("Launcher.CreateExitCodeFormat"), proc.ExitCode, err, exe, string.Join(" ", args)));
                 }
 
@@ -951,6 +1046,7 @@ namespace Configuration_Management.Services
             }
             catch (Exception ex)
             {
+                CleanupCreatedDir(createdDirPath);
                 return (false, string.Format(LocalizationManager.T("Launcher.CreateCommandErrorFormat"), ex.Message, exe, string.Join(" ", args)));
             }
         }

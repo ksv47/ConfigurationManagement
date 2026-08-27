@@ -17,6 +17,11 @@ public class ConnectionSettings
     /// <summary>Путь к файловой базе (для файлового режима).</summary>
     public string FilePath { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Блокировать фоновые задания (параметр строки подключения <c>SCHEDJOBS=NO</c>).
+    /// </summary>
+    public bool BlockScheduledJobs { get; set; }
+
     /// <summary>Пользователь для подключения.</summary>
     public string User { get; set; } = string.Empty;
 
@@ -128,16 +133,28 @@ public class ConnectionSettings
     /// <summary>
     /// Возвращает строку соединения для отображения без параметров запуска,
     /// логина и пароля: только путь к файловой базе, сервер и имя базы или URL веб-публикации.
+    /// Значения экранируются по правилу строки подключения 1С (кавычка удваивается).
     /// </summary>
     public string ToConnectionString()
     {
+        if (Type == ConnectionType.ClientServer && BlockScheduledJobs)
+        {
+            return $"Srvr=\"{EscapeConnectValue(GetServerWithPort())}\";Ref=\"{EscapeConnectValue(DatabaseName)}\";SCHEDJOBS=NO";
+        }
+
         return Type switch
         {
-            ConnectionType.File => $"File=\"{FilePath}\"",
-            ConnectionType.WebServer => string.IsNullOrWhiteSpace(WebUrl) ? "WS=\"\"" : $"WS=\"{WebUrl}\"",
-            _ => $"Srvr=\"{GetServerWithPort()}\";Ref=\"{DatabaseName}\""
+            ConnectionType.File => $"File=\"{EscapeConnectValue(FilePath)}\"",
+            ConnectionType.WebServer => string.IsNullOrWhiteSpace(WebUrl) ? "WS=\"\"" : $"WS=\"{EscapeConnectValue(WebUrl)}\"",
+            _ => $"Srvr=\"{EscapeConnectValue(GetServerWithPort())}\";Ref=\"{EscapeConnectValue(DatabaseName)}\""
         };
     }
+
+    /// <summary>
+    /// Экранирует значение для строки подключения 1С: кавычка внутри значения удваивается.
+    /// Симметрично разворачивается при обратном разборе (см. <see cref="ExtractQuoted"/>).
+    /// </summary>
+    private static string EscapeConnectValue(string value) => value.Replace("\"", "\"\"");
 
     /// <summary>
     /// Разбирает строку подключения 1С на отдельные поля настроек.
@@ -184,6 +201,18 @@ public class ConnectionSettings
             ? AuthenticationMode.Credentials
             : AuthenticationMode.Prompt;
 
+        // Блокировка фоновых заданий: SCHEDJOBS=NO (значение без кавычек).
+        var schedjobs = ExtractQuoted(connect, "SCHEDJOBS");
+        if (schedjobs == null)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(
+                connect, @"SCHEDJOBS\s*=\s*(?<v>[^;\s""]+)",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (m.Success)
+                schedjobs = m.Groups["v"].Value;
+        }
+        settings.BlockScheduledJobs = string.Equals(schedjobs?.Trim(), "NO", StringComparison.OrdinalIgnoreCase);
+
         return settings;
     }
 
@@ -221,17 +250,36 @@ public class ConnectionSettings
         if (start >= source.Length)
             return null;
 
-        // Значение в кавычках.
+        // Значение в кавычках. Удвоенная кавычка («""») внутри значения — это экранированная
+        // кавычка (симметрично записи через <see cref="ToConnectionString"/>); одиночная
+        // кавычка закрывает значение.
         if (source[start] == '"')
         {
-            var end = start + 1;
-            while (end < source.Length && source[end] != '"')
-                end++;
+            var sb = new System.Text.StringBuilder();
+            var i = start + 1;
+            while (i < source.Length)
+            {
+                if (source[i] == '"')
+                {
+                    // Удвоенная кавычка — экранированная кавычка внутри значения.
+                    if (i + 1 < source.Length && source[i + 1] == '"')
+                    {
+                        sb.Append('"');
+                        i += 2;
+                        continue;
+                    }
+                    // Одиночная кавычка закрывает значение.
+                    break;
+                }
+                sb.Append(source[i]);
+                i++;
+            }
 
-            if (end >= source.Length)
+            // Дошли до конца строки, не встретив закрывающей кавычки.
+            if (i >= source.Length)
                 return null;
 
-            return source.Substring(start + 1, end - start - 1);
+            return sb.ToString();
         }
 
         // Значение без кавычек — до точки с запятой или конца строки.

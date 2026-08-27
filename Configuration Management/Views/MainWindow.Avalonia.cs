@@ -1277,10 +1277,8 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Кнопка «+ тег» и поле ввода на её месте. Начиная с 0.3.5.1 автор
-        /// заменил модальный диалог вводом прямо в строке: кнопка прячется,
-        /// на её месте появляется узкое поле, Enter добавляет тег, Esc отменяет,
-        /// потеря фокуса сохраняет непустое.
+        /// Кнопка «+ тег» в конце списка тегов строки. По клику раскрывается поле ввода
+        /// прямо в строке: Enter добавляет тег, Esc отменяет, потеря фокуса сохраняет введённое.
         /// </summary>
         private Control BuildAddTagButton(Infobase infobase, ICollection<IDisposable> subscriptions)
         {
@@ -1304,76 +1302,90 @@ namespace Configuration_Management
                 Padding = new Thickness(2, 1),
                 MinWidth = 0,
                 MinHeight = 0,
-                Cursor = new Cursor(StandardCursorType.Hand),
-                CommandParameter = infobase
+                Cursor = new Cursor(StandardCursorType.Hand)
             };
             ToolTip.SetTip(button, LocalizationManager.T("Main.AddTag"));
 
-            var box = new TextBox
+            // Поле ввода тега показывается на месте кнопки во время редактирования.
+            var input = new TextBox
             {
-                IsVisible = false,
-                Width = UiMetrics.Scaled(120),
-                Height = UiMetrics.Scaled(22),
-                FontSize = UiMetrics.ScaledFont(12),
-                Padding = new Thickness(4, 2),
-                Margin = new Thickness(4, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-                BorderThickness = new Thickness(1)
+                Watermark = LocalizationManager.T("Main.AddTag"),
+                MinWidth = UiMetrics.Scaled(120),
+                MaxWidth = UiMetrics.Scaled(220),
+                FontSize = UiMetrics.ScaledFont(11),
+                Padding = new Thickness(4, 1),
+                VerticalContentAlignment = VerticalAlignment.Center,
+                IsVisible = false
             };
-            ThemeBrushes.Bind(box, TextBox.BackgroundProperty, "CardBackgroundBrush");
-            ThemeBrushes.Bind(box, TextBox.ForegroundProperty, "TextPrimaryBrush");
-            ThemeBrushes.Bind(box, TextBox.BorderBrushProperty, "AccentBrush");
-            ToolTip.SetTip(box, LocalizationManager.T("Main.EnterTagHint"));
 
-            void Hide()
+            void ShowEditor()
             {
-                box.Text = string.Empty;
-                box.IsVisible = false;
+                button.IsVisible = false;
+                input.Text = string.Empty;
+                input.IsVisible = true;
+                input.Focus();
+                input.SelectAll();
+            }
+
+            void HideEditor()
+            {
+                input.IsVisible = false;
                 button.IsVisible = true;
             }
 
             void Commit()
             {
-                var tag = box.Text ?? string.Empty;
-                Hide();
-                _vm?.AddTagInline(infobase, tag);
+                if (!input.IsVisible)
+                    return;
+
+                var tag = input.Text?.Trim() ?? string.Empty;
+                HideEditor();
+                input.Text = string.Empty;
+
+                if (tag.Length == 0)
+                    return;
+
+                if (_vm?.AddTagInlineCommand.CanExecute(null) == true)
+                    _vm.AddTagInlineCommand.Execute(new object[] { infobase, tag });
             }
 
-            button.Click += (_, _) =>
+            void Cancel()
             {
-                button.IsVisible = false;
-                box.Text = string.Empty;
-                box.IsVisible = true;
-                box.Focus();
-            };
+                if (!input.IsVisible)
+                    return;
 
-            box.KeyDown += (_, e) =>
+                input.Text = string.Empty;
+                HideEditor();
+            }
+
+            button.Click += (_, _) => ShowEditor();
+
+            input.KeyDown += (_, e) =>
             {
                 if (e.Key == Key.Escape)
                 {
-                    Hide();
+                    Cancel();
                     e.Handled = true;
-                    return;
                 }
-                if (e.Key == Key.Enter)
+                else if (e.Key == Key.Enter)
                 {
                     Commit();
                     e.Handled = true;
                 }
             };
 
-            // Клик мимо поля сначала переводит фокус, поэтому сохранение
-            // откладывается на следующий проход очереди, как в WPF-версии.
-            box.LostFocus += (_, _) => Dispatcher.UIThread.Post(() =>
+            // Потеря фокуса сохраняет введённый тег, как в WPF-версии. Откладываем
+            // обработку: клик вне поля сначала переводит фокус, затем фиксируем ввод.
+            input.LostFocus += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                if (box.IsVisible)
+                if (input.IsVisible)
                     Commit();
-            }, DispatcherPriority.Input);
+            });
 
-            var host = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            host.Children.Add(button);
-            host.Children.Add(box);
-            return host;
+            var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            row.Children.Add(button);
+            row.Children.Add(input);
+            return row;
         }
 
         /// <summary>
@@ -3569,6 +3581,18 @@ namespace Configuration_Management
                 // строку в видимую область, затирая прежнюю позицию.
                 if (_treeScrollOffset is { } offset && TreeScroll is { } scroll)
                     scroll.Offset = offset;
+
+                // Вернуть клавиатурный фокус строке после закрытия модального
+                // диалога (например, сохранения настроек базы): контейнер прежней
+                // строки уничтожен пересборкой, и фокус осел на окне. Если сейчас
+                // идёт ввод в текстовом поле (поиск, теги), фокус не трогаем,
+                // чтобы не выбивать курсор из поля во время набора.
+                if (target is not null
+                    && FocusManager?.GetFocusedElement() is not TextBox
+                    && _tree.ContainerForItem(target) is { } row)
+                {
+                    row.Focus();
+                }
             }, Avalonia.Threading.DispatcherPriority.Background);
         }
 

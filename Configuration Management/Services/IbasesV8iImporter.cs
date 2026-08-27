@@ -720,17 +720,35 @@ public static class IbasesV8iImporter
             if (start >= source.Length)
                 return null;
 
-            // Значение в кавычках.
+            // Значение в кавычках. Удвоенная кавычка («""») внутри значения — это экранированная
+            // кавычка (симметрично записи экспортёром); одиночная кавычка закрывает значение.
             if (source[start] == '"')
             {
-                var end = start + 1;
-                while (end < source.Length && source[end] != '"')
-                    end++;
+                var sb = new System.Text.StringBuilder();
+                var i = start + 1;
+                while (i < source.Length)
+                {
+                    if (source[i] == '"')
+                    {
+                        // Удвоенная кавычка — экранированная кавычка внутри значения.
+                        if (i + 1 < source.Length && source[i + 1] == '"')
+                        {
+                            sb.Append('"');
+                            i += 2;
+                            continue;
+                        }
+                        // Одиночная кавычка закрывает значение.
+                        break;
+                    }
+                    sb.Append(source[i]);
+                    i++;
+                }
 
-                if (end >= source.Length)
+                // Дошли до конца строки, не встретив закрывающей кавычки.
+                if (i >= source.Length)
                     return null;
 
-                return source.Substring(start + 1, end - start - 1);
+                return sb.ToString();
             }
 
             // Значение без кавычек — до точки с запятой или конца строки.

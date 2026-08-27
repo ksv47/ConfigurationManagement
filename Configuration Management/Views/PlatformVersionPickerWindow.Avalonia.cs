@@ -7,7 +7,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
@@ -26,6 +28,10 @@ namespace Configuration_Management
         private readonly string _currentVersion;
         private bool _sortAscending; // по умолчанию — свежие версии сверху
         private string _archFilter = "all";
+
+        // Целевой узел для первичного выделения текущей версии (и его предки).
+        private PlatformVersionGroup? _initialLeaf;
+        private HashSet<PlatformVersionGroup>? _initialAncestors;
 
         private readonly TreeView _tree = new();
         private readonly Button _selectButton = new() { Content = LocalizationManager.T("Common.Select"), MinWidth = 110, IsDefault = true };
@@ -145,6 +151,19 @@ namespace Configuration_Management
                 if (!string.IsNullOrEmpty(_selectedVersion))
                     OnSelect_Click();
             };
+            // Раскрывает предков текущей версии и выбирает её лист по мере создания
+            // контейнеров (см. SelectCurrent). Внутренние контейнеры готовит сам
+            // TreeViewItem, поэтому событие дерева доходит и до них.
+            _tree.ContainerPrepared += OnTreeContainerPrepared;
+
+            // Подсветка выбранной строки. Фон покоя/наведения/выделения Fluent рисует
+            // не на контейнере TreeViewItem, а вложенным стилем на части шаблона
+            // PART_LayoutRoot, поэтому прозрачным фоном покоя его не снять и просто
+            // задать Background контейнера нельзя. Таргетируем ту же часть шаблона
+            // псевдоклассами :selected / :pointerover и красим кистями темы, чтобы
+            // выделение по клику было видно (по наведению — тоже, как у стартера 1С).
+            AddTreeItemStateStyle(":selected", "TreeSelectedBrush");
+            AddTreeItemStateStyle(":pointerover", "TreeHoverBrush");
 
             var treeBorder = new Border
             {
@@ -254,7 +273,33 @@ namespace Configuration_Management
             var leaf = FindBestLeaf(roots, _currentVersion);
             if (leaf is null) return;
             leaf.IsCurrent = true;
-            SelectNodeInTree(_tree, leaf);
+
+            // Avalonia выделяет только через TreeView.SelectedItem, а контейнеры вложенных
+            // узлов создаются лениво — пока не раскрыты предки. Поэтому запоминаем лист и
+            // путь к нему, а раскрываем и выбираем по мере подготовки контейнеров.
+            _initialLeaf = leaf;
+            _initialAncestors = new HashSet<PlatformVersionGroup>();
+            CollectAncestors(roots, leaf, _initialAncestors);
+        }
+
+        private static bool CollectAncestors(
+            IEnumerable<PlatformVersionGroup> nodes,
+            PlatformVersionGroup target,
+            HashSet<PlatformVersionGroup> result)
+        {
+            foreach (var node in nodes)
+            {
+                if (ReferenceEquals(node, target))
+                    return true;
+
+                var found = CollectAncestors(node.Children, target, result);
+                if (found)
+                {
+                    result.Add(node);
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static PlatformVersionGroup? FindBestLeaf(IEnumerable<PlatformVersionGroup> nodes, string currentVersion)
@@ -344,38 +389,50 @@ namespace Configuration_Management
             }
         }
 
-        private static bool SelectNodeInTree(TreeView parent, PlatformVersionGroup target)
+        /// <summary>
+        /// Раскрывает предков текущей версии и выбирает её лист по мере создания
+        /// контейнеров. Начинается с корневых групп: раскрытие каждого предка готовит
+        /// контейнеры его детей, пока не дойдём до листа, который и выделяем.
+        /// </summary>
+        private void OnTreeContainerPrepared(object? sender, ContainerPreparedEventArgs e)
         {
-            foreach (var item in parent.Items)
+            if (_initialLeaf is null)
+                return;
+            if (e.Container?.DataContext is not PlatformVersionGroup node)
+                return;
+
+            // Предок на пути к текущей версии — раскрываем, чтобы появились дети.
+            if (_initialAncestors is not null && _initialAncestors.Contains(node))
             {
-                if (item is not PlatformVersionGroup node) continue;
-                if (ReferenceEquals(node, target))
-                {
-                    node.IsSelected = true;
-                    return true;
-                }
-                foreach (var child in node.Children)
-                {
-                    if (SelectNodeInTree(child, target))
-                        return true;
-                }
+                if (e.Container is TreeViewItem tvi && !tvi.IsExpanded)
+                    tvi.IsExpanded = true;
+                return;
             }
-            return false;
+
+            // Сам лист — выделяем его как единственный источник выбора.
+            if (ReferenceEquals(node, _initialLeaf))
+            {
+                _initialLeaf = null;
+                _initialAncestors = null;
+                if (!ReferenceEquals(_tree.SelectedItem, node))
+                    _tree.SelectedItem = node;
+            }
         }
 
-        private static bool SelectNodeInTree(PlatformVersionGroup parent, PlatformVersionGroup target)
+        /// <summary>
+        /// Подсвечивает строки дерева по псевдоклассу (выделение/наведение) на части
+        /// шаблона PART_LayoutRoot кистью темы. Фон этих состояний Fluent задаёт не
+        /// свойством контейнера, а вложенным стилем на части шаблона, поэтому без
+        /// таргетинга PART_LayoutRoot клик не давал бы видимого выделения.
+        /// </summary>
+        private void AddTreeItemStateStyle(string state, string brushKey)
         {
-            if (ReferenceEquals(parent, target))
-            {
-                parent.IsSelected = true;
-                return true;
-            }
-            foreach (var child in parent.Children)
-            {
-                if (SelectNodeInTree(child, target))
-                    return true;
-            }
-            return false;
+            var style = new Style(x => x.OfType<TreeViewItem>().Class(state)
+                .Template().OfType<Border>().Name("PART_LayoutRoot"));
+            // DynamicResource в значении Setter — это наблюдаемая ссылка на ресурс темы:
+            // строка перекрашивается при смене схемы, как и кисти ThemeBrushes.Bind.
+            style.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResourceExtension(brushKey)));
+            _tree.Styles.Add(style);
         }
 
         private void OnSelect_Click()

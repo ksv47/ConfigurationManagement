@@ -3,15 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
+using Configuration_Management.Services;
 using Configuration_Management.Themes;
 
 namespace Configuration_Management.ViewModels;
 
 /// <summary>
-/// Модель представления окна настроек (Windows/WPF). Инкапсулирует состояние вкладки
-/// «Цветовое оформление» (текущая схема, рабочие копии правок, набор «грязных» тем)
-/// и бизнес-операции над ними: разрешение/валидацию/локализацию имён схем, загрузку
-/// рабочей копии, персист изменённых тем и CRUD пользовательских тем.
+/// Модель представления окна настроек (Windows/WPF). Инкапсулирует состояние вкладок
+/// «Цветовое оформление» (текущая схема, рабочие копии правок, набор «грязных» тем),
+/// «ibases.v8i» (рабочее состояние синхронизации) и «Шрифт» (рабочие копии настроек
+/// шрифтов областей) и бизнес-операции над ними: разрешение/валидацию/локализацию
+/// имён схем, загрузку рабочих копий, персист изменённых тем и CRUD пользовательских
+/// тем, построение статус-текста синхронизации.
 /// Класс не ссылается на конкретные WPF-контролы и не трогает визуальное дерево —
 /// вся работа с интерфейсом остаётся в <c>SettingsWindow</c>, которая вызывает методы
 /// этой модели для получения данных и применения изменений.
@@ -256,6 +259,120 @@ public sealed class SettingsViewModel
         _viewModel.SaveCustomColorScheme(scheme);
         CurrentColorScheme = scheme;
         _editingSchemes[scheme.Name] = scheme;
+    }
+
+    // ---- Рабочее состояние синхронизации с ibases.v8i ----
+
+    /// <summary>
+    /// Рабочее состояние настроек синхронизации с файлом ibases.v8i до нажатия «ОК».
+    /// Инкапсулирует режим/путь/момент синхронизации и их чистые преобразования
+    /// (разрешение отображаемого пути, построение статус-текста, разбор интервала).
+    /// </summary>
+    public sealed class IbasesSyncSettings
+    {
+        /// <summary>Режим синхронизации («Нет»/«Импорт»/«Экспорт»/«Оба»).</summary>
+        public IbasesSyncMode Mode { get; set; }
+
+        /// <summary>Пользовательский путь к файлу ibases.v8i (может быть пустым).</summary>
+        public string FilePath { get; set; } = string.Empty;
+
+        /// <summary>Момент автоматической синхронизации.</summary>
+        public IbasesSyncTrigger Trigger { get; set; } = IbasesSyncTrigger.OnStartup;
+
+        /// <summary>Интервал синхронизации в минутах.</summary>
+        public int IntervalMinutes { get; set; } = 30;
+
+        /// <summary>Время синхронизации по расписанию (HH:mm).</summary>
+        public string ScheduleTime { get; set; } = "09:00";
+
+        /// <summary>true, если синхронизация включена (режим не «Нет»).</summary>
+        public bool IsEnabled => Mode != IbasesSyncMode.None;
+
+        /// <summary>
+        /// Путь к файлу ibases.v8i для отображения: пользовательский путь или
+        /// стандартный путь 1С, если пользовательский не задан.
+        /// </summary>
+        public string? ResolveDisplayPath()
+            => string.IsNullOrWhiteSpace(FilePath)
+                ? IbasesV8iImporter.FindDefaultPath()
+                : FilePath;
+
+        /// <summary>
+        /// Разбирает введённое значение интервала в минуты. Невалидные значения
+        /// (не число, ноль или отрицательные) заменяются значением по умолчанию 30.
+        /// </summary>
+        public static int ParseInterval(string? text)
+            => int.TryParse(text, out var minutes) && minutes > 0 ? minutes : 30;
+
+        /// <summary>
+        /// Строит локализованный статус-текст блока синхронизации в зависимости от
+        /// состояния, режима, пути и момента автоматической синхронизации.
+        /// </summary>
+        public string BuildStatusText()
+        {
+            if (!IsEnabled)
+                return LocalizationManager.T("Settings.Ibases.StatusDisabled");
+
+            var path = ResolveDisplayPath();
+            if (string.IsNullOrWhiteSpace(path))
+                return LocalizationManager.T("Settings.Ibases.StatusFileNotFound");
+
+            var modeText = Mode switch
+            {
+                IbasesSyncMode.Import => LocalizationManager.T("Settings.Ibases.ModeImportShort"),
+                IbasesSyncMode.Export => LocalizationManager.T("Settings.Ibases.ModeExportShort"),
+                _ => LocalizationManager.T("Settings.Ibases.ModeBothShort")
+            };
+            var triggerText = Trigger switch
+            {
+                IbasesSyncTrigger.Interval => string.Format(LocalizationManager.T("Settings.Ibases.TriggerIntervalShort"), IntervalMinutes),
+                IbasesSyncTrigger.Schedule => string.Format(LocalizationManager.T("Settings.Ibases.TriggerScheduleShort"), ScheduleTime),
+                _ => LocalizationManager.T("Settings.Ibases.TriggerStartupShort")
+            };
+            return string.Format(LocalizationManager.T("Settings.Ibases.StatusFormat"), path, modeText, triggerText);
+        }
+    }
+
+    /// <summary>Рабочее состояние настроек синхронизации с ibases.v8i (заполняется вкладкой «ibases.v8i»).</summary>
+    public IbasesSyncSettings Sync { get; } = new();
+
+    // ---- Рабочие копии настроек шрифтов областей интерфейса ----
+
+    private readonly Dictionary<string, ElementFontSettings> _editingElementFonts = new();
+
+    /// <summary>Рабочие копии настроек шрифта областей интерфейса (не сохранены до «ОК»).</summary>
+    public Dictionary<string, ElementFontSettings> ElementFonts => _editingElementFonts;
+
+    /// <summary>
+    /// Загружает рабочие копии настроек шрифтов элементов из главной модели: каждое
+    /// значение клонируется, чтобы правки в окне не влияли на главную модель до «ОК».
+    /// Область «По умолчанию» всегда присутствует и берёт значения общих настроек шрифта.
+    /// </summary>
+    public void LoadElementFontWorkingCopies(MainViewModel vm)
+    {
+        _editingElementFonts.Clear();
+        foreach (var kvp in vm.ElementFonts)
+            _editingElementFonts[kvp.Key] = kvp.Value?.Clone() ?? new ElementFontSettings();
+        if (!_editingElementFonts.ContainsKey(ThemeManager.FontDefault))
+        {
+            _editingElementFonts[ThemeManager.FontDefault] = new ElementFontSettings
+            {
+                FontFamily = vm.FontFamily,
+                FontSize = vm.FontSize,
+                FontWeight = vm.FontWeight,
+                FontStyle = vm.FontStyle
+            };
+        }
+    }
+
+    /// <summary>Возвращает рабочую копию шрифта области, создавая её при необходимости.</summary>
+    public ElementFontSettings EnsureElementFont(string key)
+    {
+        if (_editingElementFonts.TryGetValue(key, out var fs) && fs is not null)
+            return fs;
+        fs = new ElementFontSettings();
+        _editingElementFonts[key] = fs;
+        return fs;
     }
 
     // ---- Чистое маппинг-преобразование для горячих клавиш (используется при сохранении) ----

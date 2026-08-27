@@ -238,6 +238,13 @@ public partial class MainViewModel : ViewModelBase
             RefreshTagFilterItems();
             // Только выгрузка: импорт сразу после правки затирал режим запуска из ibases.v8i.
             ExportToIbasesAfterLocalChange();
+
+            // Восстанавливаем выделение отредактированной базы ПОСЛЕ пересборки. Во время
+            // RebuildGroupTree WPF сбрасывает выбранный элемент дерева, и обработчик
+            // SelectedItemChanged(null) очищает SelectedInfobase, поэтому цель, выставленная до
+            // пересборки, была бы потеряна. Это нужно и для правки из кнопки «Действия» строки
+            // (кнопка строку не выделяет), где SelectedInfobase иначе остался бы пустым.
+            SelectedInfobase = target;
         }
     }
 
@@ -263,6 +270,12 @@ public partial class MainViewModel : ViewModelBase
 
             SaveGroups();
             RebuildGroupTree();
+
+            // Узлы групп пересоздаются при пересборке, поэтому восстанавливаем выделение
+            // отредактированной группы на новом узле (по идентификатору модели). Это нужно и для
+            // правки из кнопки «Действия» строки группы, где SelectedGroupNode мог быть не выставлен.
+            if (!string.IsNullOrEmpty(group.Id) && FindGroupNodeById(GroupNodes, group.Id) is { } editedNode)
+                SelectedGroupNode = editedNode;
         }
     }
 

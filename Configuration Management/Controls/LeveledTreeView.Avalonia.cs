@@ -195,6 +195,35 @@ namespace Configuration_Management.Controls
             double Top(TreeViewItem item) => item.TranslatePoint(default, this)?.Y ?? 0;
         }
 
+        /// <summary>
+        /// Возвращает контейнер строки для указанных данных по всему дереву
+        /// (включая вложенные уровни групп) или null, если контейнер ещё не создан.
+        /// Используется, чтобы вернуть клавиатурный фокус на строку после
+        /// пересборки дерева, когда прежний контейнер уничтожен.
+        /// </summary>
+        public TreeViewItem? ContainerForItem(object data)
+        {
+            return Find(this, data);
+
+            static TreeViewItem? Find(ItemsControl parent, object data)
+            {
+                for (var i = 0; i < parent.ItemCount; i++)
+                {
+                    if (parent.ContainerFromIndex(i) is not TreeViewItem item)
+                        continue;
+                    if (ReferenceEquals(item.DataContext, data))
+                        return item;
+                    if (item.IsExpanded)
+                    {
+                        var found = Find(item, data);
+                        if (found is not null)
+                            return found;
+                    }
+                }
+                return null;
+            }
+        }
+
         protected override void ClearContainerForItemOverride(Control container)
         {
             ReleaseExpandedBinding(container);

@@ -14,7 +14,8 @@ namespace Configuration_Management.ViewModels;
 /// Инкапсулирует состояние редактора (выбранный профиль, имя, признак защиты паролем,
 /// сообщение об ошибке) и все бизнес-операции: построение списка профилей, выбор текущей
 /// записи, создание, переименование, установку/снятие пароля, удаление (с подтверждением
-/// через <see cref="IDialogService"/>) и локализацию подписи текущей учётной записи.
+/// через <see cref="IDialogService"/>), выбор активной записи и локализацию подписи
+/// активной учётной записи.
 ///
 /// Класс не ссылается на конкретные WPF-контролы и не трогает визуальное дерево.
 /// Единственное исключение — пароль: <c>PasswordBox.Password</c> не является
@@ -27,11 +28,13 @@ public sealed class ProfilesViewModel : ViewModelBase
     private readonly IProfileService _profileService;
     private readonly IDialogService _dialogService;
 
-    private UserProfile? _selectedProfile;
+    private ProfileListItem? _selectedProfile;
+    private UserProfile? _currentProfile;
     private string _name = string.Empty;
     private string _password = string.Empty;
     private bool _protectWithPassword;
     private string _currentAccountLabel = string.Empty;
+    private string _editingTitle = string.Empty;
     private string? _errorMessage;
 
     /// <summary>
@@ -45,15 +48,26 @@ public sealed class ProfilesViewModel : ViewModelBase
         CreateCommand = new RelayCommand(Create);
         SaveCommand = new RelayCommand(Save);
         DeleteCommand = new RelayCommand(Delete);
+        ActivateCommand = new RelayCommand(Activate);
 
         RefreshList();
     }
 
-    /// <summary>Список учётных записей в порядке их создания.</summary>
-    public ObservableCollection<UserProfile> Profiles { get; } = new();
+    /// <summary>Список учётных записей в порядке их создания (с признаком активности).</summary>
+    public ObservableCollection<ProfileListItem> Profiles { get; } = new();
 
-    /// <summary>Выбранная в списке учётная запись (двусторонняя привязка).</summary>
-    public UserProfile? SelectedProfile
+    /// <summary>
+    /// Исходные модели профилей — источник элементов выпадающего меню активной учётной записи
+    /// (элементы должны иметь тот же тип, что и <see cref="CurrentProfile"/>, чтобы
+    /// <c>SelectedItem</c> корректно совпадал).
+    /// </summary>
+    public ObservableCollection<UserProfile> Accounts { get; } = new();
+
+    /// <summary>
+    /// Выбранная в списке (для редактирования) учётная запись (двусторонняя привязка).
+    /// Элементы списка имеют тип <see cref="ProfileListItem"/>, поэтому и выделение тоже.
+    /// </summary>
+    public ProfileListItem? SelectedProfile
     {
         get => _selectedProfile;
         set
@@ -62,7 +76,39 @@ public sealed class ProfilesViewModel : ViewModelBase
                 return;
             _selectedProfile = value;
             OnPropertyChanged();
-            LoadEditor(value);
+            LoadEditor(value?.Profile);
+            UpdateEditingTitle();
+        }
+    }
+
+    /// <summary>
+    /// Активная (текущая) учётная запись. При выборе другого значения в выпадающем меню
+    /// сразу вызывается <see cref="IProfileService.SetCurrentProfile"/>.
+    /// </summary>
+    public UserProfile? CurrentProfile
+    {
+        get => _currentProfile;
+        set
+        {
+            if (value == null || ReferenceEquals(_currentProfile, value))
+                return;
+
+            if (_profileService.CurrentProfile == null
+                || !string.Equals(_profileService.CurrentProfile.Id, value.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    _profileService.SetCurrentProfile(value.Id);
+                }
+                catch
+                {
+                    return;
+                }
+            }
+
+            _currentProfile = value;
+            OnPropertyChanged();
+            RefreshList(value.Id);
             UpdateCurrentAccountLabel();
         }
     }
@@ -88,11 +134,21 @@ public sealed class ProfilesViewModel : ViewModelBase
         set => SetProperty(ref _protectWithPassword, value);
     }
 
-    /// <summary>Подпись текущей (активной) учётной записи вверху окна.</summary>
+    /// <summary>Подпись активной (текущей) учётной записи вверху окна.</summary>
     public string CurrentAccountLabel
     {
         get => _currentAccountLabel;
         private set => SetProperty(ref _currentAccountLabel, value);
+    }
+
+    /// <summary>
+    /// Заголовок панели редактирования: «Редактирование записи: <имя>» или приглашение,
+    /// когда запись не выбрана.
+    /// </summary>
+    public string EditingTitle
+    {
+        get => _editingTitle;
+        private set => SetProperty(ref _editingTitle, value);
     }
 
     /// <summary>Текст ошибки валидации/операции; пустая строка — ошибок нет.</summary>
@@ -114,17 +170,30 @@ public sealed class ProfilesViewModel : ViewModelBase
     /// <summary>Удаление выбранной учётной записи с подтверждением.</summary>
     public RelayCommand DeleteCommand { get; }
 
-    /// <summary>Обновляет список учётных записей и выделяет указанную (или текущую).</summary>
+    /// <summary>Делает выбранную учётную запись активной (текущей).</summary>
+    public RelayCommand ActivateCommand { get; }
+
+    /// <summary>Обновляет список учётных записей и выделяет указанную (или активную).</summary>
     /// <param name="selectId">Идентификатор профиля для выделения; если null — активный профиль.</param>
     public void RefreshList(string? selectId = null)
     {
+        var current = _profileService.CurrentProfile;
+
+        Accounts.Clear();
         Profiles.Clear();
         foreach (var p in _profileService.Profiles)
-            Profiles.Add(p);
+        {
+            Accounts.Add(p);
+            Profiles.Add(new ProfileListItem(p, current != null && string.Equals(p.Id, current.Id, StringComparison.OrdinalIgnoreCase)));
+        }
 
-        selectId ??= _profileService.CurrentProfile?.Id;
-        SelectedProfile = _profileService.Profiles.FirstOrDefault(p => p.Id == selectId);
-        LoadEditor(SelectedProfile);
+        _currentProfile = current;
+        OnPropertyChanged(nameof(CurrentProfile));
+
+        selectId ??= current?.Id;
+        SelectedProfile = Profiles.FirstOrDefault(i => i.Id == selectId);
+        LoadEditor(SelectedProfile?.Profile);
+        UpdateEditingTitle();
         UpdateCurrentAccountLabel();
     }
 
@@ -134,6 +203,14 @@ public sealed class ProfilesViewModel : ViewModelBase
         Name = profile?.Name ?? string.Empty;
         ProtectWithPassword = profile?.HasPassword ?? false;
         Password = string.Empty;
+    }
+
+    private void UpdateEditingTitle()
+    {
+        var profile = SelectedProfile?.Profile;
+        EditingTitle = profile == null
+            ? LocalizationManager.T("Profiles.EditingNone")
+            : string.Format(LocalizationManager.T("Profiles.Editing"), profile.Name);
     }
 
     private void UpdateCurrentAccountLabel()
@@ -169,7 +246,7 @@ public sealed class ProfilesViewModel : ViewModelBase
     private void Save()
     {
         ErrorMessage = null;
-        var profile = SelectedProfile;
+        var profile = SelectedProfile?.Profile;
         if (profile == null)
         {
             ErrorMessage = LocalizationManager.T("Profiles.EmptySelection");
@@ -202,11 +279,33 @@ public sealed class ProfilesViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Делает выбранную учётную запись активной (текущей).</summary>
+    private void Activate()
+    {
+        ErrorMessage = null;
+        var profile = SelectedProfile?.Profile;
+        if (profile == null)
+        {
+            ErrorMessage = LocalizationManager.T("Profiles.NoSelectionToActivate");
+            return;
+        }
+
+        try
+        {
+            _profileService.SetCurrentProfile(profile.Id);
+            RefreshList(profile.Id);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
     /// <summary>Удаляет выбранную учётную запись вместе с её данными.</summary>
     private void Delete()
     {
         ErrorMessage = null;
-        var profile = SelectedProfile;
+        var profile = SelectedProfile?.Profile;
         if (profile == null)
             return;
 

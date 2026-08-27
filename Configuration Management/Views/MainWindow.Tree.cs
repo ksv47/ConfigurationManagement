@@ -166,6 +166,102 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Восстанавливает выделение и клавиатурный фокус выбранной строки дерева после
+        /// пересборки списка (например, после сохранения настроек базы). Прежний контейнер
+        /// строки уничтожен заменой коллекции <see cref="ViewModels.MainViewModel.GroupNodes"/>,
+        /// поэтому подсветка и фокус пропадают вместе с ним. Выделение восстанавливается всегда;
+        /// клавиатурный фокус возвращается только если сейчас не идёт ввод в текстовом поле
+        /// (поиск, теги) — чтобы не выбивать курсор при наборе.
+        /// </summary>
+        private void RestoreTreeKeyboardFocus()
+        {
+            if (MainTree is null || _viewModel is null)
+                return;
+
+            // Два прохода: первый — как только дерево перестроено (Loaded); второй — в самом
+            // конце очереди (ApplicationIdle), когда виртуализация уже достроила контейнеры и
+            // WPF завершил собственное восстановление фокуса после закрытия модального окна.
+            Dispatcher.BeginInvoke(new Action(RevealAndSelectAfterRebuild),
+                System.Windows.Threading.DispatcherPriority.Loaded);
+            Dispatcher.BeginInvoke(new Action(RevealAndSelectAfterRebuild),
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+
+        /// <summary>
+        /// Восстанавливает выделение и клавиатурный фокус выбранной строки после пересборки.
+        /// С учётом виртуализации: при виртуализации контейнер дочерней строки существует только
+        /// внутри раскрытой группы, поэтому сначала раскрывается цепочка групп-предков цели,
+        /// затем контейнер выбирается, доводится до видимой области и (вне текстового поля) получает
+        /// фокус. Цель читается в момент выполнения, поэтому порядок установки SelectedInfobase
+        /// относительно пересборки не важен.
+        /// </summary>
+        private void RevealAndSelectAfterRebuild()
+        {
+            if (MainTree is null || _viewModel is null)
+                return;
+
+            try
+            {
+                var target = (object?)_viewModel.SelectedInfobase ?? _viewModel.SelectedGroupNode;
+                if (target is null)
+                    return;
+
+                // Цепочка групп от корня к родителю цели (Group == null — спец-узлы «Без группы»/«Закреплённые»).
+                // Для цели-базы родитель — её группа; для цели-группы — её родитель. Раскрываем именно
+                // ПРЕДКОВ, чтобы отредактированная группа осталась свёрнутой, если была свёрнута.
+                GroupNodeViewModel? leaf = target switch
+                {
+                    Infobase ib => FindGroupNodeByInfobase(ib),
+                    GroupNodeViewModel gn => gn.Parent,
+                    _ => null
+                };
+                var stack = new Stack<GroupNodeViewModel>();
+                for (var g = leaf; g is not null && g.Group is not null; g = g.Parent)
+                    stack.Push(g);
+                // Раскрываем цепочку групп от корня к цели: BringIntoView гарантирует, что группа
+                // попадает в видимую область и материализуется (иначе при виртуализации её контейнер
+                // может отсутствовать), после чего раскрытие реализует дочерние строки.
+                foreach (var group in stack)
+                {
+                    if (FindTreeViewItemForData(group) is { } gItem)
+                    {
+                        gItem.BringIntoView();
+                        gItem.IsExpanded = true;
+                    }
+                }
+
+                var item = FindTreeViewItemForData(target);
+                if (item is null)
+                    return;
+
+                switch (target)
+                {
+                    case Infobase infobase:
+                        ApplySelection(item, infobase);
+                        break;
+                    case GroupNodeViewModel group when group.Group is not null:
+                        ApplyGroupSelection(item, group);
+                        break;
+                    default:
+                        return;
+                }
+
+                item.BringIntoView();
+
+                // Клавиатурный фокус возвращаем строке. Защищаем только поле поиска: после закрытия
+                // модального окна настроек WPF может временно держать фокус на каком-либо контроле,
+                // и строгая проверка «не TextBox» оставила бы базу без фокуса. Во время набора в поиске
+                // курсор из поля не выбиваем.
+                if (SearchTextBox is null || !ReferenceEquals(System.Windows.Input.Keyboard.FocusedElement, SearchTextBox))
+                {
+                    item.Focus();
+                    System.Windows.Input.Keyboard.Focus(item);
+                }
+            }
+            catch { /* элемент мог отсоединиться во время пересборки */ }
+        }
+
+        /// <summary>
         /// Прокручивает список так, чтобы указанный элемент дерева был в зоне видимости.
         /// Использует внутренний ScrollViewer дерева (вертикальная прокрутка списка).
         /// </summary>

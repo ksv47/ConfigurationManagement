@@ -466,6 +466,13 @@
     "Profiles.DeleteConfirm": "Delete account \"{0}\" together with its data? This action is irreversible.",
     "Profiles.EmptySelection": "No account selected.",
     "Profiles.RestartHint": "Switching the current account happens on the next launch: when there are several accounts, a sign-in window is shown.",
+    "Profiles.ActiveAccount": "Active account:",
+    "Profiles.Active": "active",
+    "Profiles.Editing": "Editing record: {0}",
+    "Profiles.EditingNone": "No record selected",
+    "Profiles.SelectToEdit": "Select an account in the list on the left to change its name or password.",
+    "Profiles.Activate": "Set active",
+    "Profiles.NoSelectionToActivate": "Select an account in the list first.",
 
     "Auth.Title": "Select account",
     "Auth.SelectAccountHint": "The application contains several accounts. Select a profile and, if it is password-protected, enter the password.",
@@ -625,8 +632,6 @@
     "CacheClean.Title": "Clear 1C cache",
     "CacheClean.ProgramCache": "Program cache",
     "CacheClean.UserCache": "User cache",
-    "GroupSettings.Title": "Manage groups",
-    "GroupSettings.GroupsHeader": "Infobase groups",
     "GroupPicker.Title": "Choose parent group",
     "GroupEdit.Title": "Group settings",
     "GroupEdit.BasicParams": "Basic parameters",
@@ -640,7 +645,6 @@
     "PlatformVersionPicker.FilterX32": "x32",
     "PlatformVersionPicker.FilterX64": "x64",
     "NameInput.Title": "Theme name",
-    "TagInput.Title": "Add tag",
 
     "AddEdit.Question": "What to add to the list?",
     "AddEdit.HelpText": "Choose what to add to the infobase list:\n\n• Existing base — add an already created 1C infobase by specifying its connection string.\n• Create empty base — create a new empty infobase (file-based or on a server) via CREATEINFOBASE.\n• Create from template — create a base from a template (.cf / .dt), like in the standard 1C starter.\n• New group — create a group to organize bases in the tree.\n\nAfter choosing, click Next — the corresponding settings window will open.",
@@ -664,7 +668,6 @@
     "LinkInput.Go": "Go",
 
     "NameInput.Prompt": "Name:",
-    "TagInput.Prompt": "Enter the tag name:",
     "ColorPicker.Palette": "Palette:",
 
     "GroupEdit.TabMain": "Main",
@@ -730,14 +733,9 @@
     "GroupEdit.Icon.Merge": "Merge",
 
     "GroupPicker.Hint": "Select a group in the tree. Double-click to confirm. «Root group» — the top level (no parent).",
-    "GroupPicker.Help": "Choosing a parent group (where the group will be placed).\n\n• The tree shows the group hierarchy; each group displays its color and icon.\n• Click a group to select it; double-click to choose and confirm.\n• The green «Select» button confirms the choice, «Cancel» (with a red outline) closes the window.\n• «Root group» places the group at the top level (no parent).\n• The A→Z / Z→A buttons sort groups by name (ascending by default).",
-
-    "GroupSettings.AddSubgroup": "Subgroup",
-    "GroupSettings.Done": "Done",
-    "GroupSettings.NoGroupSelected": "Select the group inside which you want to create a subgroup.",
-    "GroupSettings.DeleteConfirmTitle": "Delete confirmation",
-    "GroupSettings.DeleteConfirm": "Delete the group «{0}»?",
-    "GroupSettings.DeleteHasSubgroups": "The group contains subgroups: {0}.\nThey will also be deleted.",
+    "GroupPicker.Subtitle": "The group will be placed inside the selected group",
+    "GroupPicker.SearchPlaceholder": "Search group…",
+    "GroupPicker.Help": "Choosing a parent group (where the group will be placed).\n\n• The tree shows the group hierarchy; each group displays its color and icon.\n• Click a group to select it; double-click to choose and confirm.\n• The «Select» button confirms the choice, «Cancel» closes the window.\n• «Root group» places the group at the top level (no parent).\n• The search box filters groups by name; the A→Z / Z→A buttons sort groups by name (ascending by default).",
 
     "PlatformVersionPicker.SortAscTooltip": "Sort ascending (A→Z)",
     "PlatformVersionPicker.SortDescTooltip": "Sort descending (Z→A)",
@@ -814,6 +812,8 @@
     "CreateInfobase.HintEmpty": "The CREATEINFOBASE command will be run without a template. After creation the base will be added to the application list.",
     "CreateInfobase.NoPlatformsPathsMsg": "Add platform directories in Settings → additional search paths (e.g. E:\\1cPlatform),\nthen refresh the version list.",
     "CreateInfobase.PlatformPathsTitle": "Platform paths",
+    "CreateInfobase.Loading": "Loading templates…",
+    "CreateInfobase.LoadingFailed": " Error reading template directories.",
     "CreateInfobase.TemplateRootsDefault": "1C template directory (default): {0}",
     "CreateInfobase.FolderNotCreated": " — the folder does not exist yet",
     "CreateInfobase.AlsoChecked": "\nAlso checked: {0}",
@@ -827,9 +827,22 @@
     "CreateInfobase.EnterName": "Specify the infobase name.",
     "CreateInfobase.EnterFilePath": "Specify the file-based base directory.",
     "CreateInfobase.EnterServerAndRef": "Specify the server and the base name (Ref).",
+    "CreateInfobase.EnterServerAndDb": "Specify the 1C server and the base name on the server.",
     "CreateInfobase.EnterTemplateFile": "Specify an existing template file (.cf or .dt).",
     "CreateInfobase.NoPlatform": "No installed 1C platform found.\nSpecify a version via the List… button or paths in settings.",
     "CreateInfobase.CreateFailed": "Failed to create the infobase.\n{0}",
+    "CreateInfobase.TypeLabel": "Base type:",
+    "CreateInfobase.TypeFile": "File-based base",
+    "CreateInfobase.TypeClientServer": "Client-server",
+    "CreateInfobase.ServerLabel": "1C server:",
+    "CreateInfobase.RefLabel": "Base name on the server:",
+    "CreateInfobase.DbmsLabel": "DBMS:",
+    "CreateInfobase.DbServerLabel": "DBMS server:",
+    "CreateInfobase.DbNameLabel": "Database name:",
+    "CreateInfobase.DbUserLabel": "DBMS user:",
+    "CreateInfobase.DbPasswordLabel": "DBMS password:",
+    "CreateInfobase.CreateDatabase": "Create the database on the DBMS server (1C will create it automatically)",
+    "CreateInfobase.BlockScheduledJobs": "Block scheduled jobs",
 
     "DeleteInfobase.ExistsYes": "yes — {0}",
     "DeleteInfobase.PhysicalHintDynamic": "The directory will be deleted:\n{0}\ntogether with 1Cv8.1CD and all files. This action is irreversible.",
@@ -929,8 +942,6 @@
 
     "Common.SortLabel": "Sort:",
     "Common.Choose": "Choose…",
-
-    "GroupSettings.AddRoot": "Root",
 
     "PlatformVersionPicker.FilterLabel": "Filter:",
 

@@ -5,6 +5,164 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.5.6] — 2026-08-27
+
+Исправлена сборка команды `CREATEINFOBASE` и связанное экранирование строк подключения (issue #77): клиент-серверное создание ИБ временно отключено, так как без параметров СУБД команда собиралась неполной и база на сервере не создавалась.
+
+### Исправлено
+
+- **Убран недоступный «Клиент-серверный» тип в окне «Создание информационной базы»** (обе платформы). Команда `CREATEINFOBASE` для клиент-серверного варианта собиралась неполной — только `Srvr=` и `Ref=`, без `DBMS`, `DBSrvr`, `DB`, `DBUID`/`DBPwd` и `CrSQLDB`, при этом окно запрашивало лишь «Сервер 1С» и «Имя базы», которых платформе недостаточно. Пока полноценная поддержка параметров СУБД не реализована, в окне создания доступен только файловый вариант ([`Views/CreateInfobaseWindow.xaml`](Views/CreateInfobaseWindow.xaml), [`Views/CreateInfobaseWindow.Avalonia.cs`](Views/CreateInfobaseWindow.Avalonia.cs)).
+- **Каталог файловой базы больше не остаётся на диске после неудачного `CREATEINFOBASE`** (обе платформы). Раньше каталог создавался до запуска команды и при ошибке, таймауте или отказе пустой каталог оставался. Теперь запоминается каталог, созданный в этой попытке, и при неудаче он удаляется, если остался пустым ([`Services/OneCLauncher.Arguments.cs`](Services/OneCLauncher.Arguments.cs), [`Services/OneCLauncher.Linux.cs`](Services/OneCLauncher.Linux.cs)).
+- **Экранирование кавычек (удвоение, как в `AppendParameter`) добавлено ещё в три места записи строки подключения**: экспорт `ibases.v8i` включая `Usr`/`Pwd` ([`Services/IbasesV8iExporter.cs`](Services/IbasesV8iExporter.cs)), `ConnectionSettings.ToConnectionString()` ([`Models/ConnectionSettings.cs`](Models/ConnectionSettings.cs)) и сборщик строки подключения Linux-реализации COM-коннектора ([`Services/OneCComConnector.Linux.cs`](Services/OneCComConnector.Linux.cs)).
+- **Обратный разбор строки подключения теперь разворачивает удвоение кавычки** — запись и чтение стали симметричными. Исправлены `ExtractQuoted` в [`Models/ConnectionSettings.cs`](Models/ConnectionSettings.cs) и в импортёре [`Services/IbasesV8iImporter.cs`](Services/IbasesV8iImporter.cs), а также regex разбора `Srvr=`/`Ref=` в [`Services/OneCLauncher.Arguments.cs`](Services/OneCLauncher.Arguments.cs) и [`Services/OneCLauncher.Linux.cs`](Services/OneCLauncher.Linux.cs). Значения с кавычкой больше не портятся при импорте `.v8i` и в окне ввода строки подключения.
+
+## [0.3.5.5] — 2026-08-27
+
+Исправлена потеря клавиатурного фокуса на строке базы после редактирования её настроек (обе платформы).
+
+### Исправлено
+
+- **После сохранения настроек базы или группы выделение сохраняется на той же строке (и база, и группа).** При редактировании (окно «Настройки подключения» / окно группы) дерево списка пересобирается, контейнер прежней строки уничтожается, и подсветка с клавиатурным фокусом пропадали вместе с ним. Теперь после пересборки выделение восстанавливается, а фокус — только если курсор не в текстовом поле (поиск/теги), чтобы не мешать набору. **Windows/WPF**: событие `TreeRebuilt` (поднято в `ReplaceGroupNodes()`) обрабатывает новый `RestoreTreeKeyboardFocus()` в [`Views/MainWindow.Tree.cs`](Views/MainWindow.Tree.cs) — с учётом виртуализации раскрывает цепочку групп-предков, материализует и выбирает контейнер строки, а фокус возвращает отдельным отложенным вызовом на `ApplicationIdle`; `EditInfobase()` фиксирует отредактированную базу как выбранную, а для групп пересборка ремапит `SelectedGroupNode` по `Group.Id` (`RebuildGroupTree` + `EditGroup`). **Linux/Avalonia** — `RestoreTreeSelection()` в [`Views/MainWindow.Avalonia.cs`](Views/MainWindow.Avalonia.cs) возвращает выделение и фокус через новый метод `ContainerForItem()` в [`Controls/LeveledTreeView.Avalonia.cs`](Controls/LeveledTreeView.Avalonia.cs), а `EditGroup` так же восстанавливает выбранную группу по `Group.Id`.
+
+## [0.3.5.4] — 2026-08-27
+
+Удалены два окна, которые собирались в сборку, но были недостижимы из интерфейса, — `GroupSettingsWindow` и `TagInputWindow`. Добавление тега унифицировано на обеих платформах: кнопка «+ тег» раскрывает поле ввода прямо в строке базы, отдельного диалога больше нет.
+
+### Удалено
+
+- **Окно `GroupSettingsWindow`** (обе платформы): не имело ни одной ссылки в коде — управление группами уже доступно через контекстные меню и окно настроек. Удалены `Views/GroupSettingsWindow.xaml/.xaml.cs` и `Views/GroupSettingsWindow.Avalonia.cs`, осиротевшие ключи локализации `GroupSettings.*` убраны из [`Localization/Languages/ru.json`](Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Localization/Languages/en.json).
+- **Окно `TagInputWindow` и команда `AddTagCommand`** (обе платформы): остались от прежнего способа добавления тега и были недостижимы (на Windows не было ни одной привязки). Удалены `Views/TagInputWindow.xaml/.xaml.cs`, `Views/TagInputWindow.Avalonia.cs`, метод `AddTag` и команда `AddTagCommand`; ключи локализации `TagInput.*` убраны.
+
+### Изменено
+
+- **Linux/Avalonia: «+ тег» переведён на inline-ввод** ([`Views/MainWindow.Avalonia.cs`](Views/MainWindow.Avalonia.cs)): раньше открывался диалог `TagInputWindow`, теперь в строке базы раскрывается поле ввода (Enter — добавить, Esc — отмена, потеря фокуса — сохранить), как уже было на Windows. В Avalonia-ViewModel добавлена команда `AddTagInlineCommand`.
+
+## [0.4.4] — 2026-08-27
+
+Окно «Выбор родительской группы» переработано в стиле Material Design на обеих платформах (Windows/WPF и Linux/Avalonia): шапка с иконкой и подзаголовком, поле поиска с кнопкой очистки, сегментный переключатель сортировки A→Z / Z→A, карточка-дерево с цветными «чипами» иконок групп и панель действий со сводкой выбора.
+
+### Добавлено
+
+- **Поле поиска по имени группы** в окне выбора группы (обе платформы): фильтрует дерево, сохраняя иерархию — остаются узлы, где совпал сам узел или любой из потомков. При отсутствии результатов показывается «Ничего не найдено», доступна кнопка очистки поиска.
+- **Сводка выбора внизу окна**: слева отображается полный путь выбранной группы (или «Корневая группа»).
+
+### Изменено
+
+- **Макет окна переработан в стиле Material Design** (обе платформы): заголовок с иконкой и подзаголовком, «outlined»-поле поиска, сегментный переключатель сортировки, скруглённая карточка-дерево с цветными «чипами» иконок и Material-кнопки «Отмена»/«Выбрать» с состояниями наведения/нажатия из темы. Windows/WPF — [`Views/GroupPickerWindow.xaml`](Views/GroupPickerWindow.xaml); Linux/Avalonia — [`Views/GroupPickerWindow.Avalonia.cs`](Views/GroupPickerWindow.Avalonia.cs).
+- **Выделение строки дерева стало исключительным**: подсвечивается только ровно выбранная группа — родители больше не «засвечиваются» при выборе вложенного узла. Windows/WPF — собственный шаблон `TreeViewItem` в окне (подсветка по `IsSelected` для любой строки); Linux/Avalonia — выделение через `TreeView.SelectedItem` в одиночном режиме.
+- **Иконки групп стали крупнее и выразительнее**: цветной «чип» 36×28 с иконкой 18 px (было 28×22 и 13 px), размер шрифта имени группы увеличен до 14.
+- **Кнопки действий поменяли порядок**: главная кнопка «Выбрать» размещена слева, «Отмена» — справа (единообразно на обеих платформах).
+- **Новые ключи локализации** `GroupPicker.Subtitle`, `GroupPicker.SearchPlaceholder`; обновлён текст `GroupPicker.Help` (поиск и сегментная сортировка) в [`Localization/Languages/ru.json`](Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Localization/Languages/en.json).
+
+## [0.4.3] — 2026-08-27
+
+В окне «Выбор родительской группы» (Windows/WPF) кнопка справки «?» уезжала за правый край окна,
+а текст пояснения обрывался на полуслове — при размере окна по умолчанию справка была недоступна.
+
+### Исправлено
+
+- **Кнопка справки «?» за краем окна выбора группы (Windows/WPF)**: верхняя строка окна строилась
+  горизонтальным `StackPanel`, который выдаёт детям бесконечную ширину, поэтому `TextWrapping="Wrap"`
+  у текста пояснения не срабатывал — `TextBlock` разворачивался на полную естественную длину, а `HelpLink`
+  следом уезжал за пределы окна. `StackPanel` заменён на `Grid` из двух колонок: текст занимает оставшуюся
+  ширину (`*`) и корректно переносится, кружок «?» прижат к правому краю колонки (`Auto`)
+  ([`Views/GroupPickerWindow.xaml`](Views/GroupPickerWindow.xaml)).
+
+## [0.4.2] — 2026-08-27
+
+Исправлено экранирование значений в строке подключения команды `CREATEINFOBASE`: кавычки внутри значений теперь
+корректно удваиваются, и значение больше не «закрывает само себя», подмешивая в строку подключения произвольный
+параметр (например, имя базы вида `base";Usr="admin` уходило в `CREATEINFOBASE` как два параметра вместо одного).
+Исправление применено на обеих платформах.
+
+### Исправлено
+
+- **Экранирование значений в строке подключения `CREATEINFOBASE`** (обе платформы): добавлен помощник
+  `EscapeConnectValue`, удваивающий кавычку внутри значения (`"` → `""`) — то же правило, что уже применяется
+  в `OneCComConnector.AppendParameter`. Windows/WPF — [`Services/OneCLauncher.Arguments.cs`](Services/OneCLauncher.Arguments.cs);
+  Linux/Avalonia — [`Services/OneCLauncher.Linux.cs`](Services/OneCLauncher.Linux.cs) (метод продублирован, так как
+  csproj исключает части Windows-класса из компиляции под Linux). Экранируются значения `File=`, `Srvr=` и `Ref=`.
+
+Авторство исправления — **[ksv47](https://github.com/ksv47)** (PR #76, ветка `ksv47/fix-createinfobase-escaping`).
+
+## [0.4.1] — 2026-08-26
+
+Точечные исправления окна управления учётными записями (Windows/WPF): удаление записи снова работает,
+добавлена кнопка «Отмена».
+
+### Исправлено
+
+- **Учётная запись не удалялась (Windows/WPF)**: список строится через элементы `ProfileListItem`,
+  а `SelectedProfile` оставался типа `UserProfile` — типы не совпадали, `SelectedItem` не привязывался,
+  и выбор записи не фиксировался. `SelectedProfile` переведён на `ProfileListItem`, операции
+  (удаление, сохранение, «Сделать активной») теперь корректно получают выбранную запись
+  ([`ViewModels/ProfilesViewModel.cs`](ViewModels/ProfilesViewModel.cs)).
+
+### Добавлено
+
+- **Кнопка «Отмена»** (слева внизу), закрывающая окно без изменений:
+  Windows/WPF — [`Views/ProfilesWindow.xaml`](Views/ProfilesWindow.xaml) + `OnCancel_Click`
+  в [`Views/ProfilesWindow.xaml.cs`](Views/ProfilesWindow.xaml.cs);
+  Linux/Avalonia — [`Views/ProfilesWindow.Avalonia.cs`](Views/ProfilesWindow.Avalonia.cs)
+  (текст через существующий ключ `Common.Cancel`).
+
+## [0.4.0] — 2026-08-26
+
+Дружелюбный интерфейс управления учётными записями (профилями): выпадающее меню активной записи,
+макет «список + редактор», явная индикация того, какая запись редактируется и какая активна (обе платформы).
+
+### Добавлено
+
+- **Выпадающее меню «Активная учётная запись»** вверху окна учётных записей: выбор профиля сразу делает его
+  активным (`SetCurrentProfile`) — активная запись видна и переключается без лишних шагов
+  ([`Views/ProfilesWindow.Avalonia.cs`](Views/ProfilesWindow.Avalonia.cs), [`Views/ProfilesWindow.xaml`](Views/ProfilesWindow.xaml)).
+- **Кнопка «Сделать активной»**: помечает выбранную для редактирования учётную запись активной.
+- **Бейдж «активная»** у активной записи в списке — активная запись отличается от выбранной для редактирования.
+
+### Изменено
+
+- **Макет окна переработан на «список + редактор»**: слева список учётных записей, справа панель
+  редактирования с заголовком «Редактирование записи: <имя>» (или приглашением выбрать запись).
+  Окно стало масштабируемым и шире ([`Views/ProfilesWindow.Avalonia.cs`](Views/ProfilesWindow.Avalonia.cs),
+  [`Views/ProfilesWindow.xaml`](Views/ProfilesWindow.xaml)).
+- **WPF-ViewModel** ([`ViewModels/ProfilesViewModel.cs`](ViewModels/ProfilesViewModel.cs)) дополнена активной
+  записью `CurrentProfile`, заголовком `EditingTitle`, командой `ActivateCommand` и коллекцией `Accounts`.
+  Список строится через общий элемент [`ViewModels/ProfileListItem.cs`](ViewModels/ProfileListItem.cs).
+- **Новые ключи локализации** `Profiles.ActiveAccount`, `Profiles.Active`, `Profiles.Editing`,
+  `Profiles.EditingNone`, `Profiles.SelectToEdit`, `Profiles.Activate`, `Profiles.NoSelectionToActivate`
+  в [`Localization/Languages/ru.json`](Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Localization/Languages/en.json).
+
+## [0.3.5.3] — 2026-08-26
+
+### Изменено
+
+- **Углублён MVVM-вынос окна настроек** (Windows/WPF, без переделки XAML-привязок, поведение прежнее).
+  В [`ViewModels/SettingsViewModel.cs`](ViewModels/SettingsViewModel.cs) перенесена чистая бизнес-логика
+  двух вкладок:
+  - **«ibases.v8i» (синхронизация)** из [`Views/SettingsWindow.Sync.cs`](Views/SettingsWindow.Sync.cs):
+    рабочее состояние (`Sync`, вложенный класс `IbasesSyncSettings` — режим/путь/момент синхронизации)
+    и его преобразования — разрешение отображаемого пути (`ResolveDisplayPath`), построение
+    локализованного статус-текста (`BuildStatusText`) и разбор интервала (`ParseInterval`, дефолт 30).
+  - **«Шрифт» (шрифты областей)** из [`Views/SettingsWindow.Fonts.cs`](Views/SettingsWindow.Fonts.cs):
+    рабочие копии настроек шрифтов (`ElementFonts`) с загрузкой (`LoadElementFontWorkingCopies`) и
+    гарантированным созданием области (`EnsureElementFont`).
+  Поля `_syncMode`/`_syncFilePath`/`_syncTrigger`/`_syncIntervalMinutes`/`_syncScheduleTime`/`_elementFonts`
+  удалены из [`Views/SettingsWindow.xaml.cs`](Views/SettingsWindow.xaml.cs); в code-behind осталась только
+  работа с контролами и диалогами. Сборка Windows: **0 ошибок**.
+
+## [0.3.5.2] — 2026-08-26
+
+### Изменено
+
+- **`Services/OneCLauncher` разбит на частичные классы** (Windows-приоритет): монолит
+  (~1274 строк) разделён на три partial-файла без изменения поведения — каркас
+  [`OneCLauncher.cs`](Services/OneCLauncher.cs) (перечисления, поля/события, методы запуска),
+  [`OneCLauncher.DesignerBatch.cs`](Services/OneCLauncher.DesignerBatch.cs) (пакетные операции
+  DESIGNER и типы `DesignerBatchOperation`/`DesignerBatchInfo`) и
+  [`OneCLauncher.Arguments.cs`](Services/OneCLauncher.Arguments.cs) (аргументы командной строки,
+  ярлыки, ссылки, создание ИБ). Новые файлы исключены из Linux-сборки в `.csproj`, сборка
+  Windows: 0 ошибок.
+
 ## [0.3.5.1] — 2026-08-26
 
 ### Исправлено

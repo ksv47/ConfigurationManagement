@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:loc="clr-namespace:Configuration_Management.Localization">
 
-    <!-- ===================== Р¦РІРµС‚РѕРІР°СЏ РїР°Р»РёС‚СЂР° (С‚С‘РјРЅР°СЏ С‚РµРјР°) ===================== -->
+    <!-- ===================== Цветовая палитра (тёмная тема) ===================== -->
     <Color x:Key="AccentColor">#FFB300</Color>
     <Color x:Key="AccentHoverColor">#FFCA28</Color>
     <Color x:Key="AccentPressedColor">#FF8F00</Color>
@@ -18,12 +18,12 @@
     <Color x:Key="ButtonTextColor">#000000</Color>
     <Color x:Key="FavoriteColor">#FBBF24</Color>
 
-    <!-- Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ С†РІРµС‚Р° РґР»СЏ РІС‹СЂР°Р·РёС‚РµР»СЊРЅС‹С… СЃРїРёСЃРєРѕРІ -->
+    <!-- Дополнительные цвета для выразительных списков -->
     <Color x:Key="ItemHoverColor">#334155</Color>
     <Color x:Key="ItemSelectedColor">#1E3A5F</Color>
     <Color x:Key="AvatarBackgroundColor">#1E3A5F</Color>
     <Color x:Key="AvatarTextColor">#FFB300</Color>
-    <!-- РЎРІРµС‚Р»С‹Р№ С„РѕРЅ РІС‚РѕСЂРёС‡РЅС‹С… РєРЅРѕРїРѕРє: С‚С‘РјРЅС‹Р№ С‚РµРєСЃС‚ РІСЃРµРіРґР° С‡РёС‚Р°РµРј -->
+    <!-- Светлый фон вторичных кнопок: тёмный текст всегда читаем -->
     <Color x:Key="SecondaryButtonBackgroundColor">#FFF3CD</Color>
     <Color x:Key="SecondaryButtonHoverColor">#FFE69C</Color>
     <Color x:Key="SecondaryButtonPressedColor">#FFD54D</Color>
@@ -60,7 +60,7 @@
     <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#52657F"/>
     <SolidColorBrush x:Key="ScrollThumbPressedBrush" Color="#6B80A0"/>
 
-    <!-- ===================== РЎС‚РёР»СЊ РєРЅРѕРїРєРё ===================== -->
+    <!-- ===================== Стиль кнопки ===================== -->
     <Style x:Key="ModernButton" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
@@ -94,7 +94,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ РІС‚РѕСЂРёС‡РЅРѕР№ РєРЅРѕРїРєРё (С‚С‘РјРЅР°СЏ: РєРѕРЅС‚СѓСЂ, СЃРІРµС‚Р»С‹Р№ С‚РµРєСЃС‚) ===================== -->
+    <!-- ===================== Стиль вторичной кнопки (тёмная: контур, светлый текст) ===================== -->
     <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -130,7 +130,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ РєРЅРѕРїРєРё-РїРµСЂРµРєР»СЋС‡Р°С‚РµР»СЏ С„РёР»СЊС‚СЂР° ===================== -->
+    <!-- ===================== Стиль кнопки-переключателя фильтра ===================== -->
     <Style x:Key="FilterToggleButton" TargetType="ToggleButton">
         <Setter Property="Background" Value="{DynamicResource SecondaryButtonBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
@@ -173,7 +173,7 @@
     </Style>
 
 
-    <!-- РРєРѕРЅРєР°-РїРµСЂРµРєР»СЋС‡Р°С‚РµР»СЊ РЅР° РїР°РЅРµР»Рё РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ (РіСЂСѓРїРїС‹, С‚РµРіРё): Р°РєС†РµРЅС‚ РїСЂРё IsChecked -->
+    <!-- Иконка-переключатель на панели инструментов (группы, теги): акцент при IsChecked -->
     <Style x:Key="ToolbarToggleButton" TargetType="ToggleButton">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
@@ -213,7 +213,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ С‚РµРєСЃС‚РѕРІРѕРіРѕ РїРѕР»СЏ ===================== -->
+    <!-- ===================== Стиль текстового поля ===================== -->
     <Style x:Key="ModernTextBox" TargetType="TextBox">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -244,7 +244,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ РІС‹РїР°РґР°СЋС‰РµРіРѕ СЃРїРёСЃРєР° ===================== -->
+    <!-- ===================== Стиль выпадающего списка ===================== -->
     <Style x:Key="ModernComboBoxItem" TargetType="ComboBoxItem">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Background" Value="Transparent"/>
@@ -312,7 +312,7 @@
                                     <ColumnDefinition Width="32"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Р РµР¶РёРј РІС‹Р±РѕСЂР° (РєР°Рє РіРѕСЂСЏС‡РёРµ РєР»Р°РІРёС€Рё) -->
+                                <!-- Режим выбора (как горячие клавиши) -->
                                 <ContentPresenter x:Name="ContentSite"
                                                   Grid.Column="0"
                                                   Margin="{TemplateBinding Padding}"
@@ -331,7 +331,7 @@
                                     </ContentPresenter.ContentStringFormat>
                                 </ContentPresenter>
 
-                                <!-- Р РµРґР°РєС‚РёСЂСѓРµРјС‹Р№ СЂРµР¶РёРј (СЃРµСЂРІРµСЂ / РїРѕСЂС‚) -->
+                                <!-- Редактируемый режим (сервер / порт) -->
                                 <TextBox x:Name="PART_EditableTextBox"
                                          Grid.Column="0"
                                          Margin="6,0,0,0"
@@ -415,11 +415,11 @@
 
 
 
-    <!-- РќРµСЏРІРЅС‹Р№ СЃС‚РёР»СЊ ComboBox: РїРµСЂРµР±РёРІР°РµС‚ MaterialDesign Defaults -->
+    <!-- Неявный стиль ComboBox: перебивает MaterialDesign Defaults -->
     <Style TargetType="ComboBox" BasedOn="{StaticResource ModernComboBox}"/>
 
 
-    <!-- ===================== Р§РµРєР±РѕРєСЃ РІ СЃС‚РёР»Рµ Material Design ===================== -->
+    <!-- ===================== Чекбокс в стиле Material Design ===================== -->
     <Style x:Key="ModernMaterialCheckBox" TargetType="CheckBox">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -483,7 +483,7 @@
 
 
 
-    <!-- ===================== РЎС‚РёР»СЊ РїРѕР»СЏ РїРѕРёСЃРєР° СЃ РїРѕРґСЃРєР°Р·РєРѕР№ ===================== -->
+    <!-- ===================== Стиль поля поиска с подсказкой ===================== -->
     <Style x:Key="SearchTextBox" TargetType="TextBox">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -504,7 +504,7 @@
                                           Padding="{TemplateBinding Padding}"
                                           VerticalAlignment="Center"/>
                         </Border>
-                        <TextBlock Text="рџ”Ќ" FontSize="13"
+                        <TextBlock Text="🔍" FontSize="13"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="8,0,0,0" VerticalAlignment="Center"
                                    IsHitTestVisible="False"/>
@@ -533,7 +533,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ СЌР»РµРјРµРЅС‚Р° СЃРїРёСЃРєР° ===================== -->
+    <!-- ===================== Стиль элемента списка ===================== -->
     <Style x:Key="ModernListBoxItem" TargetType="ListBoxItem">
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         <Setter Property="Template">
@@ -559,7 +559,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ СЌР»РµРјРµРЅС‚Р° РґРµСЂРµРІР° ===================== -->
+    <!-- ===================== Стиль элемента дерева ===================== -->
     <Style x:Key="ModernTreeViewItem" TargetType="TreeViewItem">
         <!-- FallbackValue глушит ошибки привязки для узлов без свойства IsExpanded (напр. PlatformVersionGroup) -->
         <Setter Property="IsExpanded" Value="{Binding IsExpanded, FallbackValue=False}"/>
@@ -619,20 +619,19 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="header" Property="Background" Value="{DynamicResource TreeHoverBrush}"/>
                         </Trigger>
-                        <MultiDataTrigger>
-                            <MultiDataTrigger.Conditions>
-                                <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True"/>
-                                <Condition Binding="{Binding HasItems, RelativeSource={RelativeSource TemplatedParent}}" Value="False"/>
-                            </MultiDataTrigger.Conditions>
+                        <!-- Выделение по клику красим всегда, а не только у листьев:
+                             раньше условие HasItems=False не срабатывало для групп/линий,
+                             и выбранный узел оставался без подсветки. -->
+                        <Trigger Property="IsSelected" Value="True">
                             <Setter TargetName="header" Property="Background" Value="{DynamicResource TreeSelectedBrush}"/>
-                        </MultiDataTrigger>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ РїСѓРЅРєС‚Р° РєРѕРЅС‚РµРєСЃС‚РЅРѕРіРѕ РјРµРЅСЋ ===================== -->
+    <!-- ===================== Стиль пункта контекстного меню ===================== -->
     <Style x:Key="ModernMenuItem" TargetType="MenuItem">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Padding" Value="12,6"/>
@@ -707,7 +706,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ РєРѕРЅС‚РµРєСЃС‚РЅРѕРіРѕ РјРµРЅСЋ ===================== -->
+    <!-- ===================== Стиль контекстного меню ===================== -->
     <Style x:Key="ModernContextMenu" TargetType="ContextMenu">
         <Setter Property="MinWidth" Value="280"/>
         <Setter Property="HasDropShadow" Value="True"/>
@@ -731,7 +730,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ Р·Р°РіРѕР»РѕРІРєР° РіСЂСѓРїРїС‹ ===================== -->
+    <!-- ===================== Стиль заголовка группы ===================== -->
     <Style x:Key="ModernGroupHeader" TargetType="TextBlock">
         <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -739,7 +738,7 @@
         <Setter Property="Margin" Value="4,10,4,6"/>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ Expander РіСЂСѓРїРїС‹ (РєСЂР°СЃРёРІС‹Р№ chevron) ===================== -->
+    <!-- ===================== Стиль Expander группы (красивый chevron) ===================== -->
     <Style x:Key="GroupExpanderStyle" TargetType="Expander">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Template">
@@ -764,7 +763,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <!-- РЎРёРјРІРѕР» В«+В» / В«в€’В» -->
+                                        <!-- Символ «+» / «−» -->
                                         <Border x:Name="ToggleSymbol"
                                               Grid.Column="0"
                                               Width="22" Height="22"
@@ -818,7 +817,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ GroupBox ===================== -->
+    <!-- ===================== Стиль GroupBox ===================== -->
     <Style TargetType="GroupBox">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
@@ -851,7 +850,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ ListBox ===================== -->
+    <!-- ===================== Стиль ListBox ===================== -->
     <Style TargetType="ListBox">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -862,7 +861,7 @@
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ DataGrid (С‚Р°Р±Р»РёС†Р° Р±Р°Р·) ===================== -->
+    <!-- ===================== Стиль DataGrid (таблица баз) ===================== -->
     <Style TargetType="DataGrid">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -885,7 +884,7 @@
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ Р·Р°РіРѕР»РѕРІРєР° РєРѕР»РѕРЅРєРё DataGrid ===================== -->
+    <!-- ===================== Стиль заголовка колонки DataGrid ===================== -->
     <Style TargetType="DataGridColumnHeader">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
@@ -920,7 +919,7 @@
         </Setter>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ СЃС‚СЂРѕРєРё DataGrid ===================== -->
+    <!-- ===================== Стиль строки DataGrid ===================== -->
     <Style TargetType="DataGridRow">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -936,7 +935,7 @@
         </Style.Triggers>
     </Style>
 
-    <!-- ===================== РЎС‚РёР»СЊ СЏС‡РµР№РєРё DataGrid ===================== -->
+    <!-- ===================== Стиль ячейки DataGrid ===================== -->
     <Style TargetType="DataGridCell">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -951,7 +950,7 @@
         </Style.Triggers>
     </Style>
 
-    <!-- ===================== Р”РёРЅР°РјРёС‡РµСЃРєРёР№ СЃС‚РёР»СЊ ScrollBar (СЃРєСЂС‹РІР°РµС‚СЃСЏ, РєРѕРіРґР° РЅРµ РЅСѓР¶РµРЅ) ===================== -->
+    <!-- ===================== Динамический стиль ScrollBar (скрывается, когда не нужен) ===================== -->
     <Style TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Width" Value="12"/>
@@ -1013,7 +1012,7 @@
     </Style>
 
 
-    <!-- ===================== Implicit-СЃС‚РёР»Рё РґР»СЏ С‡РёС‚Р°РµРјРѕСЃС‚Рё РІ С‚С‘РјРЅРѕР№ С‚РµРјРµ ===================== -->
+    <!-- ===================== Implicit-стили для читаемости в тёмной теме ===================== -->
     <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
@@ -1074,7 +1073,7 @@
         <Setter Property="Height" Value="1"/>
     </Style>
 
-    <!-- РЎРµРіРјРµРЅС‚РёСЂРѕРІР°РЅРЅС‹Рµ РІРєР»Р°РґРєРё -->
+    <!-- Сегментированные вкладки -->
     <Style x:Key="SegmentRadioButton" TargetType="RadioButton">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
@@ -1127,7 +1126,7 @@
     </Style>
 
 
-    <!-- РљРЅРѕРїРєР° РІ СЃС‚СЂРѕРєРµ Р·Р°РіРѕР»РѕРІРєРѕРІ СЃРїРёСЃРєР°: СЂР°Р·РІРµСЂРЅСѓС‚СЊ/СЃРІРµСЂРЅСѓС‚СЊ РіСЂСѓРїРїС‹, hover-РїРѕРґСЃРІРµС‚РєР° -->
+    <!-- Кнопка в строке заголовков списка: развернуть/свернуть группы, hover-подсветка -->
     <Style x:Key="HeaderIconButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
@@ -1185,7 +1184,7 @@
         </Setter>
     </Style>
 
-    <!-- РћСЃРЅРѕРІРЅР°СЏ РєРЅРѕРїРєР° РїР°РЅРµР»Рё РґРµР№СЃС‚РІРёР№: Р°РєС†РµРЅС‚ + С‚С‘РјРЅС‹Р№ С‚РµРєСЃС‚ (С‡РёС‚Р°РµС‚СЃСЏ РІ Р»СЋР±РѕР№ С‚РµРјРµ) -->
+    <!-- Основная кнопка панели действий: акцент + тёмный текст (читается в любой теме) -->
     <Style x:Key="ActionPanelButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -1211,7 +1210,7 @@
         </Setter>
     </Style>
 
-    <!-- Р’С‚РѕСЂРёС‡РЅС‹Рµ РєРЅРѕРїРєРё РїР°РЅРµР»Рё: СЃРІРµС‚Р»С‹Р№ С„РѕРЅ + С‚С‘РјРЅС‹Р№ С‚РµРєСЃС‚ вЂ” РєРѕРЅС‚СЂР°СЃС‚ Рё РІ СЃРІРµС‚Р»РѕР№, Рё РІ С‚С‘РјРЅРѕР№ С‚РµРјРµ -->
+    <!-- Вторичные кнопки панели: светлый фон + тёмный текст — контраст и в светлой, и в тёмной теме -->
     <Style x:Key="ActionPanelSecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -1253,7 +1252,7 @@
         </Style.Triggers>
     </Style>
 
-    <!-- РўСѓРјР±Р»РµСЂ РґР»СЏ РІРєР»Р°РґРєРё В«РћС‚РѕР±СЂР°Р¶РµРЅРёРµВ» -->
+    <!-- Тумблер для вкладки «Отображение» -->
     <Style x:Key="SettingsToggle" TargetType="ToggleButton">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>

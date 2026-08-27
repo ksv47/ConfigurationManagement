@@ -40,21 +40,8 @@ namespace Configuration_Management
         /// <summary>Инициализирует подвкладку «Шрифт»: области, семейства, размеры и начертания.</summary>
         private void InitializeFontSettings()
         {
-            // Загружаем настройки элементов.
-            _elementFonts.Clear();
-            foreach (var kvp in _viewModel.ElementFonts)
-                _elementFonts[kvp.Key] = kvp.Value?.Clone() ?? new Models.ElementFontSettings();
-            // «По умолчанию» всегда присутствует — из общих настроек шрифта.
-            if (!_elementFonts.ContainsKey(Themes.ThemeManager.FontDefault))
-            {
-                _elementFonts[Themes.ThemeManager.FontDefault] = new Models.ElementFontSettings
-                {
-                    FontFamily = _viewModel.FontFamily,
-                    FontSize = _viewModel.FontSize,
-                    FontWeight = _viewModel.FontWeight,
-                    FontStyle = _viewModel.FontStyle
-                };
-            }
+            // Рабочие копии настроек элементов загружает SettingsViewModel.
+            _settings.LoadElementFontWorkingCopies(_viewModel);
 
             // Список областей.
             ElementComboBox.Items.Clear();
@@ -104,7 +91,7 @@ namespace Configuration_Management
             if (FontFamilyComboBox is null || FontSizeComboBox is null || FontStyleComboBox is null)
                 return;
 
-            var fs = _elementFonts.TryGetValue(_currentElement, out var f) && f is not null
+            var fs = _settings.ElementFonts.TryGetValue(_currentElement, out var f) && f is not null
                 ? f : new Models.ElementFontSettings();
 
             FontFamilyComboBox.SelectedItem = FontFamilyComboBox.Items.Cast<string>()
@@ -159,11 +146,7 @@ namespace Configuration_Management
         /// <summary>Сохраняет текущий выбор шрифта в настройки текущей области.</summary>
         private void ReadFontSelection()
         {
-            if (!_elementFonts.TryGetValue(_currentElement, out var fs) || fs is null)
-            {
-                fs = new Models.ElementFontSettings();
-                _elementFonts[_currentElement] = fs;
-            }
+            var fs = _settings.EnsureElementFont(_currentElement);
             fs.FontFamily = FontFamilyComboBox.SelectedItem as string ?? "Segoe UI";
             fs.FontSize = ReadFontSize();
             var face = FontStyleComboBox.SelectedItem as FontFaceItem;
@@ -175,7 +158,7 @@ namespace Configuration_Management
         private void OnFontApply_Click(object sender, RoutedEventArgs e)
         {
             ReadFontSelection();
-            _viewModel.PreviewElementFonts(_elementFonts);
+            _viewModel.PreviewElementFonts(_settings.ElementFonts);
         }
     }
 }

@@ -33,26 +33,27 @@ namespace Configuration_Management
         /// </summary>
         private void InitializeSyncSettings()
         {
-            _syncMode = _viewModel.IbasesSyncMode;
-            _syncFilePath = _viewModel.IbasesSyncFilePath;
-            _syncTrigger = _viewModel.IbasesSyncTrigger;
-            _syncIntervalMinutes = _viewModel.IbasesSyncIntervalMinutes;
-            _syncScheduleTime = _viewModel.IbasesSyncScheduleTime;
+            var s = _settings.Sync;
+            s.Mode = _viewModel.IbasesSyncMode;
+            s.FilePath = _viewModel.IbasesSyncFilePath;
+            s.Trigger = _viewModel.IbasesSyncTrigger;
+            s.IntervalMinutes = _viewModel.IbasesSyncIntervalMinutes;
+            s.ScheduleTime = _viewModel.IbasesSyncScheduleTime;
 
             SyncModeComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.SyncModeDisabled"));
             SyncModeComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.SyncModeImport"));
             SyncModeComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.SyncModeExport"));
             SyncModeComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.SyncModeBoth"));
-            SyncModeComboBox.SelectedIndex = (int)_syncMode;
+            SyncModeComboBox.SelectedIndex = (int)s.Mode;
 
             SyncTriggerComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.TriggerStartup"));
             SyncTriggerComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.TriggerInterval"));
             SyncTriggerComboBox.Items.Add(LocalizationManager.T("Settings.Ibases.TriggerSchedule"));
-            SyncTriggerComboBox.SelectedIndex = (int)_syncTrigger;
+            SyncTriggerComboBox.SelectedIndex = (int)s.Trigger;
 
-            SyncFilePathTextBox.Text = _syncFilePath;
-            SyncIntervalTextBox.Text = _syncIntervalMinutes.ToString();
-            SyncScheduleTimePicker.Text = _syncScheduleTime;
+            SyncFilePathTextBox.Text = s.FilePath;
+            SyncIntervalTextBox.Text = s.IntervalMinutes.ToString();
+            SyncScheduleTimePicker.Text = s.ScheduleTime;
             IbasesBackupEnabledCheck.IsChecked = _viewModel.IbasesBackupEnabled;
             IbasesBackupKeepCountBox.Text = _viewModel.IbasesBackupKeepCount.ToString();
 
@@ -65,7 +66,8 @@ namespace Configuration_Management
         /// </summary>
         private void UpdateSyncControls()
         {
-            var enabled = _syncMode != IbasesSyncMode.None;
+            var s = _settings.Sync;
+            var enabled = s.IsEnabled;
             SyncFilePathTextBox.IsEnabled = enabled;
             BrowseSyncFileButton.IsEnabled = enabled;
 
@@ -81,48 +83,12 @@ namespace Configuration_Management
 
             // Кнопка «Загрузить» доступна в режимах с импортом, «Выгрузить» — с экспортом.
             SyncImportButton.IsEnabled = enabled &&
-                (_syncMode == IbasesSyncMode.Import || _syncMode == IbasesSyncMode.Both);
+                (s.Mode == IbasesSyncMode.Import || s.Mode == IbasesSyncMode.Both);
             SyncExportButton.IsEnabled = enabled &&
-                (_syncMode == IbasesSyncMode.Export || _syncMode == IbasesSyncMode.Both);
+                (s.Mode == IbasesSyncMode.Export || s.Mode == IbasesSyncMode.Both);
 
-            // Текстовый статус.
-            var path = ResolveDisplayPath();
-            if (!enabled)
-            {
-                SyncStatusText.Text = LocalizationManager.T("Settings.Ibases.StatusDisabled");
-            }
-            else if (string.IsNullOrWhiteSpace(path))
-            {
-                SyncStatusText.Text = LocalizationManager.T("Settings.Ibases.StatusFileNotFound");
-            }
-            else
-            {
-                var modeText = _syncMode switch
-                {
-                    IbasesSyncMode.Import => LocalizationManager.T("Settings.Ibases.ModeImportShort"),
-                    IbasesSyncMode.Export => LocalizationManager.T("Settings.Ibases.ModeExportShort"),
-                    _ => LocalizationManager.T("Settings.Ibases.ModeBothShort")
-                };
-                var triggerText = _syncTrigger switch
-                {
-                    IbasesSyncTrigger.Interval => string.Format(LocalizationManager.T("Settings.Ibases.TriggerIntervalShort"), _syncIntervalMinutes),
-                    IbasesSyncTrigger.Schedule => string.Format(LocalizationManager.T("Settings.Ibases.TriggerScheduleShort"), _syncScheduleTime),
-                    _ => LocalizationManager.T("Settings.Ibases.TriggerStartupShort")
-                };
-                SyncStatusText.Text = string.Format(LocalizationManager.T("Settings.Ibases.StatusFormat"), path, modeText, triggerText);
-            }
-        }
-
-        /// <summary>
-        /// Возвращает путь к файлу ibases.v8i для отображения: пользовательский путь
-        /// или стандартный путь 1С, если пользовательский не задан.
-        /// </summary>
-        private string? ResolveDisplayPath()
-        {
-            if (!string.IsNullOrWhiteSpace(_syncFilePath))
-                return _syncFilePath;
-
-            return IbasesV8iImporter.FindDefaultPath();
+            // Текстовый статус строится бизнес-логикой модели.
+            SyncStatusText.Text = s.BuildStatusText();
         }
 
         private void OnSyncMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -130,7 +96,7 @@ namespace Configuration_Management
             if (SyncModeComboBox.SelectedIndex < 0)
                 return;
 
-            _syncMode = (IbasesSyncMode)SyncModeComboBox.SelectedIndex;
+            _settings.Sync.Mode = (IbasesSyncMode)SyncModeComboBox.SelectedIndex;
             UpdateSyncControls();
         }
 
@@ -139,7 +105,7 @@ namespace Configuration_Management
             if (SyncTriggerComboBox.SelectedIndex < 0)
                 return;
 
-            _syncTrigger = (IbasesSyncTrigger)SyncTriggerComboBox.SelectedIndex;
+            _settings.Sync.Trigger = (IbasesSyncTrigger)SyncTriggerComboBox.SelectedIndex;
             UpdateSyncControls();
         }
 
@@ -147,7 +113,7 @@ namespace Configuration_Management
         {
             if (int.TryParse(SyncIntervalTextBox.Text, out var minutes) && minutes > 0)
             {
-                _syncIntervalMinutes = minutes;
+                _settings.Sync.IntervalMinutes = minutes;
                 UpdateSyncControls();
             }
         }
@@ -157,7 +123,7 @@ namespace Configuration_Management
             var value = SyncScheduleTimePicker.Text?.Trim() ?? string.Empty;
             if (TimeSpan.TryParse(value, out _))
             {
-                _syncScheduleTime = value;
+                _settings.Sync.ScheduleTime = value;
                 UpdateSyncControls();
             }
         }
@@ -174,15 +140,15 @@ namespace Configuration_Management
 
             if (dialog.ShowDialog() == true)
             {
-                _syncFilePath = dialog.FileName;
-                SyncFilePathTextBox.Text = _syncFilePath;
+                _settings.Sync.FilePath = dialog.FileName;
+                SyncFilePathTextBox.Text = _settings.Sync.FilePath;
                 UpdateSyncControls();
             }
         }
 
         private void OnSyncImport_Click(object sender, RoutedEventArgs e)
         {
-            var filePath = ResolveDisplayPath();
+            var filePath = _settings.Sync.ResolveDisplayPath();
             if (filePath is null || !System.IO.File.Exists(filePath))
             {
                 MessageBox.Show(
@@ -212,7 +178,7 @@ namespace Configuration_Management
 
         private void OnSyncExport_Click(object sender, RoutedEventArgs e)
         {
-            var filePath = ResolveDisplayPath();
+            var filePath = _settings.Sync.ResolveDisplayPath();
             if (filePath is null)
             {
                 MessageBox.Show(

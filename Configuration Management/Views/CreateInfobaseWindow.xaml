@@ -32,19 +32,16 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                       Padding="0,0,4,0">
         <StackPanel>
+            <TextBlock Text="{loc:Loc CreateInfobase.TypeLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+            <ComboBox x:Name="TypeBox" Margin="0,0,0,12" SelectedIndex="0"
+                      SelectionChanged="OnTypeChanged">
+                <ComboBoxItem Content="{loc:Loc CreateInfobase.TypeFile}"/>
+                <ComboBoxItem Content="{loc:Loc CreateInfobase.TypeClientServer}"/>
+            </ComboBox>
+
             <TextBlock Text="{loc:Loc CreateInfobase.NameLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
             <TextBox x:Name="NameBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12"
                      Padding="6,4"/>
-
-            <TextBlock Text="{loc:Loc CreateInfobase.TypeLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                <RadioButton x:Name="FileTypeRadio" Content="{loc:Loc CreateInfobase.FileType}" IsChecked="True"
-                             GroupName="DbType" Margin="0,0,16,0" Checked="OnType_Changed"
-                             Foreground="{DynamicResource TextPrimaryBrush}"/>
-                <RadioButton x:Name="ServerTypeRadio" Content="{loc:Loc CreateInfobase.ServerType}"
-                             GroupName="DbType" Checked="OnType_Changed"
-                             Foreground="{DynamicResource TextPrimaryBrush}"/>
-            </StackPanel>
 
             <StackPanel x:Name="FilePanel">
                 <TextBlock Text="{loc:Loc CreateInfobase.DirLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
@@ -62,10 +59,36 @@
 
             <StackPanel x:Name="ServerPanel" Visibility="Collapsed">
                 <TextBlock Text="{loc:Loc CreateInfobase.ServerLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
-                <TextBox x:Name="ServerBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,8" Padding="6,4"
-                         ToolTip="{loc:Loc CreateInfobase.ServerTooltip}"/>
+                <TextBox x:Name="ServerBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12"
+                         Padding="6,4"/>
                 <TextBlock Text="{loc:Loc CreateInfobase.RefLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
-                <TextBox x:Name="RefBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12" Padding="6,4"/>
+                <TextBox x:Name="RefBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12"
+                         Padding="6,4"/>
+                <TextBlock Text="{loc:Loc CreateInfobase.DbmsLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                <ComboBox x:Name="DbmsBox" IsEditable="True" Margin="0,0,0,12" Padding="6,2">
+                    <ComboBoxItem Content="MSSQLServer"/>
+                    <ComboBoxItem Content="PostgreSQL"/>
+                    <ComboBoxItem Content="IBMDB2"/>
+                    <ComboBoxItem Content="OracleDatabase"/>
+                    <ComboBoxItem Content="SQLite"/>
+                </ComboBox>
+                <TextBlock Text="{loc:Loc CreateInfobase.DbServerLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                <TextBox x:Name="DbServerBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12"
+                         Padding="6,4"/>
+                <TextBlock Text="{loc:Loc CreateInfobase.DbNameLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                <TextBox x:Name="DbNameBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12"
+                         Padding="6,4"/>
+                <TextBlock Text="{loc:Loc CreateInfobase.DbUserLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                <TextBox x:Name="DbUserBox" Style="{DynamicResource ModernTextBox}" Margin="0,0,0,12"
+                         Padding="6,4"/>
+                <TextBlock Text="{loc:Loc CreateInfobase.DbPasswordLabel}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                <PasswordBox x:Name="DbPwdBox" Margin="0,0,0,12" Padding="6,4"/>
+                <CheckBox x:Name="CreateDbCheck" Margin="0,0,0,8"
+                          Content="{loc:Loc CreateInfobase.CreateDatabase}"
+                          Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <CheckBox x:Name="BlockJobsCheck" Margin="0,0,0,12"
+                          Content="{loc:Loc CreateInfobase.BlockScheduledJobs}"
+                          Foreground="{DynamicResource TextPrimaryBrush}"/>
             </StackPanel>
 
             <StackPanel x:Name="TemplatePanel" Visibility="Collapsed">
@@ -73,6 +96,13 @@
                            Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap"/>
                 <TextBlock x:Name="TemplateRootsHint" FontSize="11" Margin="0,0,0,6" TextWrapping="Wrap"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <StackPanel x:Name="TemplateLoadingPanel" Orientation="Horizontal" Margin="0,0,0,6"
+                            Visibility="Collapsed">
+                    <ProgressBar Width="140" Height="14" IsIndeterminate="True" VerticalAlignment="Center"/>
+                    <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Text="{loc:Loc CreateInfobase.Loading}"/>
+                </StackPanel>
                 <TreeView x:Name="TemplateTree" Height="260" Margin="0,0,0,6"
                           BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
                           Background="{DynamicResource CardBackgroundBrush}"

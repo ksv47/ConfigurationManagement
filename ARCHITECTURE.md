@@ -114,8 +114,19 @@ Configuration Management/
 (WINDOWS-only, зарегистрирована в DI), которая инкапсулирует состояние и бизнес-операции
 вкладки «Цветовое оформление»: разрешение/валидацию/локализацию имён тем, рабочие копии
 правок, персист изменённых тем и CRUD пользовательских схем, а также чистое преобразование
-проверки дубликатов хоткеев. `SettingsWindow` теперь делегирует в VM всю чистую бизнес-логику,
+проверки дубликатов хоткеев. `SettingsWindow` делегирует в VM всю чистую бизнес-логику,
 оставляя в view только работу с WPF-контролами и диалогами. Сборка Windows: **0 ошибок**.
+
+VM углублена и для других вкладок настроек (без изменения XAML-привязок, поведение прежнее):
+- **Синхронизация ibases.v8i** ([`SettingsWindow.Sync.cs`](Configuration Management/Views/SettingsWindow.Sync.cs)):
+  рабочее состояние (`Sync` — вложенный класс `IbasesSyncSettings`: режим/путь/момент синхронизации)
+  и его чистые преобразования — разрешение отображаемого пути (`ResolveDisplayPath`), построение
+  локализованного статус-текста (`BuildStatusText`) и разбор интервала (`ParseInterval`, дефолт 30).
+  В code-behind остаётся только чтение/запись значений контролов и диалог выбора файла.
+- **Шрифт интерфейса** ([`SettingsWindow.Fonts.cs`](Configuration Management/Views/SettingsWindow.Fonts.cs)):
+  рабочие копии настроек шрифтов областей (`ElementFonts`) с загрузкой (`LoadElementFontWorkingCopies`)
+  и гарантированным созданием области (`EnsureElementFont`). Code-behind читает значения из контролов
+  в модель и применяет их, но само хранение/подготовку рабочих копий ведёт VM.
 
 Также создана модель представления [`ViewModels/ProfilesViewModel.cs`](Configuration Management/ViewModels/ProfilesViewModel.cs)
 (WINDOWS-only, зарегистрирована в DI), выносящая из [`Views/ProfilesWindow.xaml.cs`](Configuration Management/Views/ProfilesWindow.xaml.cs)
@@ -145,17 +156,38 @@ DependencyProperty и не поддерживает двустороннюю п�
   и Windows-only ViewModel (`SettingsViewModel`, `ProfilesViewModel`); Linux — только
   `IDialogService` (Avalonia). Сборка Windows: **0 ошибок**.
 
+### Разбиение `OneCLauncher` на частичные классы
+Windows-сервис [`Services/OneCLauncher.cs`](Configuration Management/Services/OneCLauncher.cs)
+(~1274 строк) разбит на частичный класс `public static partial class OneCLauncher`
+по функциональным секциям. Содержимое методов сохранено дословно (только перемещение),
+поведение и публичный API не изменились:
+
+| Файл | Строк | Содержимое |
+|------|-------|------------|
+| `OneCLauncher.cs` | 575 | usings, перечисления `OneCLaunchMode`/`OneCClientType`/`OneCRunMode`/`OneCArchitecture`, поля `DefaultArchitecture`/`_activeBatchProcesses`, события `DesignerBatchStarted`/`Completed`, методы запуска (`Launch`, `GetRunModeFromLaunchMode`, `GetArchitecture`, `ResolveArchitecture`, `FindBestVersionDir`, `CompareVersionDirs`, `BuildArguments`, `LaunchWebClient`, `FindExecutable`) |
+| `OneCLauncher.DesignerBatch.cs` | 386 | пакетные операции DESIGNER (`RunDesignerBatch`, `GetBaseConnectionToken`, `RegisterBatchProcess`, `CompleteDesignerBatch`, `ReadLogFile`, `TruncateLogTail`, `PruneDeadBatchProcesses`, `IsDesignerBlocked`, `IsConfiguratorRunningForBase`) и типы `DesignerBatchOperation`/`DesignerBatchInfo` |
+| `OneCLauncher.Arguments.cs` | 347 | сборка аргументов и ссылок (`BuildConnectionArgument`, `BuildAuthArgument`, `ResolveThickClientExe`, `BuildEnterpriseShortcutArguments`, `LaunchByLink`, `ParsedLink`, `ParseLink`, `CreateInfoBase`) |
+
+Новые partial-файлы добавлены в список исключений Linux-сборки в `.csproj`
+(рядом с `OneCLauncher.cs`), поэтому Avalonia-сборка не затрагивается.
+Сборка Windows (WPF): **0 ошибок**.
+
 ## 5. Рекомендуемые следующие шаги
 
 1. **Разбить Avalonia-аналоги** тем же приёмом частичных классов:
    `MainViewModel.Avalonia.cs` (3282) и `MainWindow.Avalonia.cs` (3483) — как это сделано
    для WPF-версий `MainWindow` и `SettingsWindow`.
-2. **Разнести `ComReadHost.cs` на partial-блоки** по существующим разделителям секций
-   («сторона родителя» / «сторона агента») — уже выделены типы, осталось тело; выполнять
-   аккуратно с обязательной проверкой сборки и сравнением набора методов.
-3. **Углубить MVVM-вынос** из окон: перенести в `SettingsViewModel` больше бизнес-логики
-   (синхронизацию ibases.v8i, платформы, шаблоны, шрифты) там, где это возможно без
-   переделки XAML-привязок; рассмотреть отдельные VM для крупных диалогов.
+2. **`ComReadHost.cs` остаётся монолитом** (решение после анализа). Разделители «сторона
+   родителя» / «сторона агента» — условные комментарии, а не чистые границы: поля,
+   хелперы (`Encode`, `TryDecode`) и единая таблица `TokenMap` используются обеими сторонами,
+   `Read` вызывает агентные помощники напрямую, поэтому разносить тело по partial-файлам
+   небезопасно. При необходимости рефакторинга — только точечно и с обязательной проверкой
+   сборки и сравнением набора методов.
+3. **Продолжить MVVM-вынос** из окон: в `SettingsViewModel` уже перенесены синхронизация
+   ibases.v8i и рабочие копии шрифтов; следующий кандидат — блок «Платформы» (`PlatformVersionService`
+   сканирование и группировка версий), остающиеся поля которого пока завязаны на `PlatformsTree`
+   и `Dispatcher`. Также рассмотреть отдельные VM для крупных диалогов (например, окно выбора
+   групп / редактирования), если их логика явно бизнесовая и отвязывается от контролов.
 4. **Выделить сервисы** из `MainViewModel` (например, `TagsFilterService`,
    `FavoritesHotkeyService`), чтобы ещё сильнее разгрузить VM.
 5. **Проверить Linux-конфигурацию на Linux-хосте**: после переноса окон в `Views/` глобы
