@@ -183,11 +183,12 @@
             <RowDefinition Height="Auto"/>  <!-- действия -->
         </Grid.RowDefinitions>
 
-        <!-- Шапка: иконка + заголовок + подзаголовок -->
+        <!-- Шапка: иконка + заголовок + подзаголовок + справка -->
         <Grid Grid.Row="0" Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Border Grid.Column="0" Width="40" Height="40" CornerRadius="8" Margin="0,0,12,0"
                     VerticalAlignment="Top" Background="{DynamicResource AccentBrush}">
@@ -199,6 +200,8 @@
                 <TextBlock Text="{loc:Loc GroupPicker.Subtitle}" FontSize="12.5"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
             </StackPanel>
+            <controls:HelpLink Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Top"
+                               HelpText="{loc:Loc GroupPicker.Help}"/>
         </Grid>
 
         <!-- Поиск + сортировка -->
