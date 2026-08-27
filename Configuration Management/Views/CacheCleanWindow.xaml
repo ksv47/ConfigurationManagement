@@ -119,16 +119,16 @@
             <CheckBox x:Name="ProgramCacheCheck" Content="{loc:Loc CacheClean.ProgramCache}" Style="{StaticResource ModernMaterialCheckBox}"
                       Margin="0,0,8,0"
                       Checked="OnCacheKindChanged" Unchecked="OnCacheKindChanged"
-                      ToolTip="%LOCALAPPDATA%\1C\1cv8вЂ¦"/>
+                      ToolTip="%LOCALAPPDATA%\1C\1cv8…"/>
             <TextBlock x:Name="ProgramCacheSizeText" VerticalAlignment="Center" FontSize="12"
-                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,18,0" Text="вЂ¦"/>
+                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,18,0" Text="…"/>
             <Rectangle Width="1" VerticalAlignment="Stretch" Margin="4,0,20,0"
                        Fill="{DynamicResource BorderBrushColor}"/>
             <CheckBox x:Name="UserCacheCheck" Content="{loc:Loc CacheClean.UserCache}" Style="{StaticResource ModernMaterialCheckBox}"
                       Checked="OnCacheKindChanged" Unchecked="OnCacheKindChanged"
-                      ToolTip="%APPDATA%\1C\1cv8вЂ¦"/>
+                      ToolTip="%APPDATA%\1C\1cv8…"/>
             <TextBlock x:Name="UserCacheSizeText" VerticalAlignment="Center" FontSize="12"
-                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,0" Text="вЂ¦"/>
+                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,0" Text="…"/>
         </StackPanel>
 
         <!-- Выбор баз -->
@@ -199,7 +199,7 @@
                           Checked="OnCacheKindChanged" Unchecked="OnCacheKindChanged"
                           ToolTip="{loc:Loc CacheClean.OrphanCacheTooltip}"/>
                 <TextBlock x:Name="OrphanCacheSizeText" VerticalAlignment="Center" FontSize="12"
-                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="4,0,0,0" Text="вЂ¦"/>
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="4,0,0,0" Text="…"/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">

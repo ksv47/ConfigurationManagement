@@ -182,7 +182,7 @@
                     Style="{StaticResource ModernButton}"
                     Command="{Binding ActivateCommand}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="в…" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="★" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Profiles.Activate}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
@@ -190,7 +190,7 @@
                     Style="{StaticResource ModernButton}"
                     Command="{Binding SaveCommand}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="вњ”" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="✔" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Profiles.Save}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
@@ -198,7 +198,7 @@
                     Style="{StaticResource ModernButton}"
                     Command="{Binding CreateCommand}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="пј‹" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="＋" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Profiles.Create}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
