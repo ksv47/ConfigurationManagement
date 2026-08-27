@@ -3572,6 +3572,18 @@ namespace Configuration_Management
                 // строку в видимую область, затирая прежнюю позицию.
                 if (_treeScrollOffset is { } offset && TreeScroll is { } scroll)
                     scroll.Offset = offset;
+
+                // Вернуть клавиатурный фокус строке после закрытия модального
+                // диалога (например, сохранения настроек базы): контейнер прежней
+                // строки уничтожен пересборкой, и фокус осел на окне. Если сейчас
+                // идёт ввод в текстовом поле (поиск, теги), фокус не трогаем,
+                // чтобы не выбивать курсор из поля во время набора.
+                if (target is not null
+                    && FocusManager?.GetFocusedElement() is not TextBox
+                    && _tree.ContainerForItem(target) is { } row)
+                {
+                    row.Focus();
+                }
             }, Avalonia.Threading.DispatcherPriority.Background);
         }
 

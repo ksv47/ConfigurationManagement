@@ -601,11 +601,39 @@ public partial class MainViewModel : ViewModelBase
         else
             ApplyExpandedState(next);
 
+        // Узлы групп пересоздаются при каждой пересборке: ссылка SelectedGroupNode иначе
+        // осталась бы на старый (выброшенный) узел, и после правки настроек группы её
+        // выделение не восстановилось бы. Перепривязываем выбранную группу по её идентификатору.
+        var selectedGroupId = SelectedGroupNode?.Group?.Id;
+        if (!string.IsNullOrEmpty(selectedGroupId)
+            && FindGroupNodeById(next, selectedGroupId) is { } remapped)
+            SelectedGroupNode = remapped;
+
         ReplaceGroupNodes(next);
 
         // Панель тегов обновляем только если набор тегов мог измениться
         // (не на каждый символ поиска — там уже есть ранний выход, но лишний проход лишний).
         RefreshTagFilterItems();
+    }
+
+    /// <summary>
+    /// Рекурсивно ищет узел группы по идентификатору модели в новом дереве.
+    /// Нужен для восстановления выбранной группы после пересборки, когда узлы
+    /// GroupNodeViewModel пересоздаются, а модель группы остаётся той же.
+    /// Спец-узлы («Без группы», «Закреплённые») имеют Group == null и пропускаются.
+    /// </summary>
+    private static GroupNodeViewModel? FindGroupNodeById(
+        IEnumerable<GroupNodeViewModel> roots, string groupId)
+    {
+        foreach (var root in roots)
+        {
+            if (root.Group is not null
+                && string.Equals(root.Group.Id, groupId, StringComparison.OrdinalIgnoreCase))
+                return root;
+            if (root.Children.Count > 0 && FindGroupNodeById(root.Children, groupId) is { } found)
+                return found;
+        }
+        return null;
     }
 }
 #endif

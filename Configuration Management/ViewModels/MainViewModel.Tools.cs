@@ -55,6 +55,13 @@ public partial class MainViewModel : ViewModelBase
 
 
     /// <summary>
+    /// Состав списка обновлён: окну нужно вернуть выделение строки и клавиатурный фокус.
+    /// Поднимается после полной пересборки дерева, когда прежние контейнеры строк
+    /// уничтожены заменой коллекции <see cref="GroupNodes"/>.
+    /// </summary>
+    public event Action? TreeRebuilt;
+
+    /// <summary>
     /// Заменяет содержимое GroupNodes с минимумом лишних уведомлений UI.
     /// </summary>
     private void ReplaceGroupNodes(List<GroupNodeViewModel> next)
@@ -63,6 +70,7 @@ public partial class MainViewModel : ViewModelBase
         // без промежуточных CollectionChanged на каждый корневой узел.
         GroupNodes = new ObservableCollection<GroupNodeViewModel>(next);
         OnPropertyChanged(nameof(GroupNodes));
+        TreeRebuilt?.Invoke();
     }
 
     /// <summary>

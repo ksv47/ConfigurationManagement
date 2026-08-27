@@ -2567,6 +2567,13 @@ public class MainViewModel : ViewModelBase
 
         SaveGroupsSilently();
         RebuildTree();
+
+        // Узлы групп пересоздаются при пересборке; восстанавливаем выделение отредактированной
+        // группы на новом узле (по идентификатору). Нужно и для правки из кнопки «Действия»
+        // строки группы, где SelectedGroupNode мог быть не выставлен до открытия диалога.
+        if (!string.IsNullOrEmpty(group.Id)
+            && FindNode(n => string.Equals(n.Group?.Id, group.Id, StringComparison.OrdinalIgnoreCase)) is { } editedNode)
+            SelectedGroupNode = editedNode;
     }
 
     /// <summary>
