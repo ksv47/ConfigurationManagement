@@ -18,6 +18,7 @@ namespace Configuration_Management
         private readonly bool _allowNone;
         private readonly string _noneLabel;
         private bool _sortAscending = true; // по умолчанию — по возрастанию (А→Я)
+        private string _filterText = string.Empty;
         private GroupNodeViewModel? _selectedNode;
 
         /// <param name="groups">Список групп.</param>
@@ -53,7 +54,7 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Перестраивает дерево с учётом текущего направления сортировки (по наименованию).
+        /// Перестраивает дерево с учётом текущего направления сортировки и текста поиска.
         /// </summary>
         private void RefreshTree()
         {
@@ -72,19 +73,102 @@ namespace Configuration_Management
                 items.Add(new GroupNodeViewModel(null, displayName: _noneLabel));
 
             items.AddRange(roots);
+
+            // Поиск фильтрует дерево, сохраняя иерархию: остаются узлы, где совпал сам
+            // узел или хотя бы один потомок.
+            if (!string.IsNullOrWhiteSpace(_filterText))
+                items = FilterRoots(items, _filterText.Trim());
+
             GroupsTree.ItemsSource = items;
+
+            var hasMatch = items.Count > 0;
+            EmptyLabel.Visibility = hasMatch ? Visibility.Collapsed : Visibility.Visible;
+            GroupsTree.Visibility = hasMatch ? Visibility.Visible : Visibility.Collapsed;
+
+            if (!hasMatch)
+            {
+                _selectedNode = null;
+                UpdateSelection();
+                return;
+            }
 
             if (!string.IsNullOrEmpty(_currentGroupId))
                 SelectById(items, _currentGroupId);
-            else if (_allowNone && items.Count > 0)
+            else if (_allowNone && items.Count > 0 && _selectedNode is null)
             {
                 _selectedNode = items[0];
-                SelectButton.IsEnabled = true;
+                UpdateSelection();
             }
             else
             {
-                SelectButton.IsEnabled = false;
+                UpdateSelection();
             }
+        }
+
+        /// <summary>Фильтрует корневые узлы по подстроке имени, сохраняя ветви иерархии.</summary>
+        private static List<GroupNodeViewModel> FilterRoots(IEnumerable<GroupNodeViewModel> roots, string filter)
+        {
+            var result = new List<GroupNodeViewModel>();
+            foreach (var root in roots)
+            {
+                var copy = FilterNode(root, filter);
+                if (copy is not null)
+                    result.Add(copy);
+            }
+            return result;
+        }
+
+        private static GroupNodeViewModel? FilterNode(GroupNodeViewModel node, string filter)
+        {
+            var selfMatches = node.DisplayName.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
+            var keptChildren = new List<GroupNodeViewModel>();
+            foreach (var child in node.Children)
+            {
+                var childCopy = FilterNode(child, filter);
+                if (childCopy is not null)
+                    keptChildren.Add(childCopy);
+            }
+
+            if (!selfMatches && keptChildren.Count == 0)
+                return null;
+
+            var copy = new GroupNodeViewModel(node.Group, displayName: node.DisplayName);
+            foreach (var child in keptChildren)
+                copy.Children.Add(child);
+            return copy;
+        }
+
+        /// <summary>Обновляет состояние кнопки «Выбрать» и сводку выбора внизу окна.</summary>
+        private void UpdateSelection()
+        {
+            var enabled = _selectedNode is not null;
+            SelectButton.IsEnabled = enabled;
+
+            if (PathLabel is not null)
+            {
+                PathLabel.Text = _selectedNode?.Group is null
+                    ? (_allowNone ? _noneLabel : string.Empty)
+                    : GroupHierarchyHelper.GetFullPath(_selectedNode.Group, _groups);
+                PathLabel.Visibility = _selectedNode is null ? Visibility.Collapsed : Visibility.Visible;
+            }
+        }
+
+        private void OnSearch_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            _filterText = SearchBox.Text ?? string.Empty;
+            ClearSearch.Visibility = _filterText.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            RefreshTree();
+        }
+
+        private void OnClearSearch_Click(object sender, RoutedEventArgs e)
+        {
+            SearchBox.Text = string.Empty;
+        }
+
+        private void OnCancel_Click(object sender, RoutedEventArgs e)
+        {
+            DialogResult = false;
+            Close();
         }
 
         private void OnSortAsc_Click(object sender, RoutedEventArgs e)
@@ -130,7 +214,7 @@ namespace Configuration_Management
                 && string.Equals(node.Group.Id, groupId, StringComparison.OrdinalIgnoreCase))
             {
                 _selectedNode = node;
-                SelectButton.IsEnabled = true;
+                UpdateSelection();
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     var tvi = FindTreeViewItem(GroupsTree, node);
@@ -172,7 +256,7 @@ namespace Configuration_Management
         private void OnGroupsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             _selectedNode = GroupsTree.SelectedItem as GroupNodeViewModel;
-            SelectButton.IsEnabled = _selectedNode is not null;
+            UpdateSelection();
         }
 
         private void OnGroupsTree_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)

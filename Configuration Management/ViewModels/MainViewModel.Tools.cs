@@ -1270,36 +1270,6 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Добавляет тег к выбранной базе.
-    /// </summary>
-    private void AddTag(object? parameter)
-    {
-        var infobase = parameter as Infobase ?? SelectedInfobase;
-        if (infobase is null)
-            return;
-
-        var dialog = new TagInputWindow
-        {
-            Owner = Application.Current.MainWindow
-        };
-        if (dialog.ShowDialog() != true)
-            return;
-
-        var tag = dialog.Result?.Trim() ?? string.Empty;
-        if (string.IsNullOrEmpty(tag))
-            return;
-
-        if (!infobase.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
-        {
-            infobase.Tags.Add(tag);
-            infobase.NotifyTagsChanged();
-            ScheduleSave();
-            PruneActiveTagFilters();
-            RefreshTagFilterItems();
-        }
-    }
-
-    /// <summary>
     /// Добавляет тег к базе прямо в строке названия (без отдельного окна).
     /// Параметр приходит как object[] от MultiBinding: [0] = Infobase, [1] = текст тега.
     /// </summary>

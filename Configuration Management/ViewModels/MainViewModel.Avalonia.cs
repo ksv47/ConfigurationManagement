@@ -297,7 +297,7 @@ public class MainViewModel : ViewModelBase
 
     public ICommand ClearSearchCommand { get; private set; } = null!;
     public ICommand SearchByTagCommand { get; private set; } = null!;
-    public ICommand AddTagCommand { get; private set; } = null!;
+    public ICommand AddTagInlineCommand { get; private set; } = null!;
     public ICommand RemoveTagCommand { get; private set; } = null!;
     public ICommand ClearTagFiltersCommand { get; private set; } = null!;
     public ICommand LaunchEnterpriseCommand { get; private set; } = null!;
@@ -346,7 +346,7 @@ public class MainViewModel : ViewModelBase
     {
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty);
         SearchByTagCommand = new RelayCommand(SearchByTag);
-        AddTagCommand = new RelayCommand(AddTag);
+        AddTagInlineCommand = new RelayCommand(AddTagInline);
         RemoveTagCommand = new RelayCommand(RemoveTag);
         ClearTagFiltersCommand = new RelayCommand(ClearTagFilters);
         LaunchEnterpriseCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Enterprise), _ => SelectedInfobase is not null);
@@ -1262,20 +1262,17 @@ public class MainViewModel : ViewModelBase
     public event EventHandler? TagFiltersRebuilt;
 
     /// <summary>
-    /// Добавляет тег базе через диалог ввода. Параметр это база строки,
-    /// без параметра берётся выбранная.
+    /// Добавляет тег к базе прямо в строке названия (без отдельного окна).
+    /// Параметр приходит как object[]: [0] = Infobase, [1] = текст тега.
     /// </summary>
-    private void AddTag(object? parameter)
+    private void AddTagInline(object? parameter)
     {
-        var infobase = parameter as Infobase ?? SelectedInfobase;
-        if (infobase is null)
+        if (parameter is not object[] values || values.Length < 2)
+            return;
+        if (values[0] is not Infobase infobase || values[1] is not string rawTag)
             return;
 
-        var dialog = new Configuration_Management.TagInputWindow();
-        if (!dialog.ShowDialogSync(OwnerWindow()))
-            return;
-
-        var tag = dialog.Result?.Trim() ?? string.Empty;
+        var tag = rawTag.Trim();
         if (tag.Length == 0 || infobase.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
             return;
 

@@ -432,7 +432,6 @@ public partial class MainViewModel : ViewModelBase
         TestInfobaseCommand = new RelayCommand(TestInfobase, _ => SelectedInfobase != null);
         ShowLaunchHistoryCommand = new RelayCommand(ShowLaunchHistory, _ => SelectedInfobase != null);
         RefreshFileSizesCommand = new RelayCommand(_ => RefreshFileMetadata());
-        AddTagCommand = new RelayCommand(AddTag);
         AddTagInlineCommand = new RelayCommand(AddTagInline);
         RemoveTagCommand = new RelayCommand(RemoveTag);
         SearchByTagCommand = new RelayCommand(SearchByTag);

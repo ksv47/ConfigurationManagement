@@ -67,7 +67,6 @@
 - `MultiBinding` + `IMultiValueConverter` ([`MainWindow.xaml`](MainWindow.xaml:473), `Converters/MultiValueToArrayConverter.cs`) — в Avalonia `MultiBinding` отсутствует; заменяется `MultiBinding` из `Avalonia.Data` либо конвертерами с несколькими параметрами.
 - `RelativeSource AncestorType` / `TemplatedParent` / `Self` ([`MainWindow.xaml`](MainWindow.xaml:385)) — в Avalonia `RelativeSource.FindAncestor<Type>` / `Self` / `TemplatedParent`.
 - `ElementName` ([`Controls/HelpLink.xaml`](Controls/HelpLink.xaml:62), [`MainWindow.xaml`](MainWindow.xaml:456)) — в Avalonia есть, но синтаксис имени окна отличается.
-- `x:Type` в `DataType` ([`GroupSettingsWindow.xaml`](GroupSettingsWindow.xaml:44)) — в Avalonia `DataType="vm:GroupNodeViewModel"`.
 - `HierarchicalDataTemplate` / `DataTemplate` — в Avalonia есть, но имена/синтаксис близки; требует проверки.
 - `ConverterParameter` и `StringFormat` — в основном переносимы.
 

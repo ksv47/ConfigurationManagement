@@ -1275,7 +1275,10 @@ namespace Configuration_Management
                 sink.Add(subscription);
         }
 
-        /// <summary>Кнопка «+ тег» в конце списка тегов строки.</summary>
+        /// <summary>
+        /// Кнопка «+ тег» в конце списка тегов строки. По клику раскрывается поле ввода
+        /// прямо в строке: Enter добавляет тег, Esc отменяет, потеря фокуса сохраняет введённое.
+        /// </summary>
         private Control BuildAddTagButton(Infobase infobase, ICollection<IDisposable> subscriptions)
         {
             var text = new TextBlock
@@ -1298,12 +1301,90 @@ namespace Configuration_Management
                 Padding = new Thickness(2, 1),
                 MinWidth = 0,
                 MinHeight = 0,
-                Cursor = new Cursor(StandardCursorType.Hand),
-                CommandParameter = infobase
+                Cursor = new Cursor(StandardCursorType.Hand)
             };
             ToolTip.SetTip(button, LocalizationManager.T("Main.AddTag"));
-            button.Bind(Button.CommandProperty, new Binding("AddTagCommand") { Source = _vm });
-            return button;
+
+            // Поле ввода тега показывается на месте кнопки во время редактирования.
+            var input = new TextBox
+            {
+                Watermark = LocalizationManager.T("Main.AddTag"),
+                MinWidth = UiMetrics.Scaled(120),
+                MaxWidth = UiMetrics.Scaled(220),
+                FontSize = UiMetrics.ScaledFont(11),
+                Padding = new Thickness(4, 1),
+                VerticalContentAlignment = VerticalAlignment.Center,
+                IsVisible = false
+            };
+
+            void ShowEditor()
+            {
+                button.IsVisible = false;
+                input.Text = string.Empty;
+                input.IsVisible = true;
+                input.Focus();
+                input.SelectAll();
+            }
+
+            void HideEditor()
+            {
+                input.IsVisible = false;
+                button.IsVisible = true;
+            }
+
+            void Commit()
+            {
+                if (!input.IsVisible)
+                    return;
+
+                var tag = input.Text?.Trim() ?? string.Empty;
+                HideEditor();
+                input.Text = string.Empty;
+
+                if (tag.Length == 0)
+                    return;
+
+                if (_vm?.AddTagInlineCommand.CanExecute(null) == true)
+                    _vm.AddTagInlineCommand.Execute(new object[] { infobase, tag });
+            }
+
+            void Cancel()
+            {
+                if (!input.IsVisible)
+                    return;
+
+                input.Text = string.Empty;
+                HideEditor();
+            }
+
+            button.Click += (_, _) => ShowEditor();
+
+            input.KeyDown += (_, e) =>
+            {
+                if (e.Key == Key.Escape)
+                {
+                    Cancel();
+                    e.Handled = true;
+                }
+                else if (e.Key == Key.Enter)
+                {
+                    Commit();
+                    e.Handled = true;
+                }
+            };
+
+            // Потеря фокуса сохраняет введённый тег, как в WPF-версии. Откладываем
+            // обработку: клик вне поля сначала переводит фокус, затем фиксируем ввод.
+            input.LostFocus += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (input.IsVisible)
+                    Commit();
+            });
+
+            var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            row.Children.Add(button);
+            row.Children.Add(input);
+            return row;
         }
 
         /// <summary>

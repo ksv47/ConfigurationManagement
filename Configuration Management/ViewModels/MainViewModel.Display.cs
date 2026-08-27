@@ -754,9 +754,6 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>Зарегистрировать COM-коннектор 1С (comcntr.dll) в системе.</summary>
     public ICommand RegisterComConnectorCommand { get; }
 
-    /// <summary>Команда добавления тега к базе.</summary>
-    public ICommand AddTagCommand { get; }
-
     /// <summary>Команда добавления тега к базе прямо в строке названия (без отдельного окна).</summary>
     public ICommand AddTagInlineCommand { get; }
 

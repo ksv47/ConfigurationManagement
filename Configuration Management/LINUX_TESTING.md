@@ -276,12 +276,12 @@
 ### 10.1. Модальные окна (полный перечень)
 - [ ] **SettingsWindow** — все вкладки (Платформы, Отображение, Клавиши, Настройки, ibases.v8i, Базы, О программе), Сохранить/Отмена
 - [ ] **ConnectionSettingsWindow** — вкладки (База/Подключение/Хранилище/Авторизация/Запуск/Разрядность/Платформа/Идентификатор), сервер/порт выпадающие, «Вставить строку подключения»
-- [ ] **GroupEditWindow / GroupPickerWindow / GroupSettingsWindow** — группы, выбор родителя, цвет, иконка
+- [ ] **GroupEditWindow / GroupPickerWindow** — группы, выбор родителя, цвет, иконка
 - [ ] **CreateInfobaseWindow / DeleteInfobaseWindow** — создание/удаление ИБ
 - [ ] **CacheCleanWindow** — очистка кэша
 - [ ] **PlatformVersionPickerWindow** — выбор версии платформы
 - [ ] **LaunchParametersWindow** — конфигуратор параметров запуска (поле + справочник)
-- [ ] **LinkInputWindow / ConnectionStringInputWindow / NameInputWindow / TagInputWindow / ColorPickerWindow / AddEditWindow**
+- [ ] **LinkInputWindow / ConnectionStringInputWindow / NameInputWindow / ColorPickerWindow / AddEditWindow**
 - [ ] Кнопки **Сохранить** (зелёная) и **Отмена** (красная обводка) единого стиля во всех диалогах
 - [ ] Подсказки «?» (гиперссылки-вопросы) открываются/закрываются кликом
 

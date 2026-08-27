@@ -630,8 +630,6 @@
     "CacheClean.Title": "Clear 1C cache",
     "CacheClean.ProgramCache": "Program cache",
     "CacheClean.UserCache": "User cache",
-    "GroupSettings.Title": "Manage groups",
-    "GroupSettings.GroupsHeader": "Infobase groups",
     "GroupPicker.Title": "Choose parent group",
     "GroupEdit.Title": "Group settings",
     "GroupEdit.BasicParams": "Basic parameters",
@@ -645,7 +643,6 @@
     "PlatformVersionPicker.FilterX32": "x32",
     "PlatformVersionPicker.FilterX64": "x64",
     "NameInput.Title": "Theme name",
-    "TagInput.Title": "Add tag",
 
     "AddEdit.Question": "What to add to the list?",
     "AddEdit.HelpText": "Choose what to add to the infobase list:\n\n• Existing base — add an already created 1C infobase by specifying its connection string.\n• Create empty base — create a new empty infobase (file-based or on a server) via CREATEINFOBASE.\n• Create from template — create a base from a template (.cf / .dt), like in the standard 1C starter.\n• New group — create a group to organize bases in the tree.\n\nAfter choosing, click Next — the corresponding settings window will open.",
@@ -669,7 +666,6 @@
     "LinkInput.Go": "Go",
 
     "NameInput.Prompt": "Name:",
-    "TagInput.Prompt": "Enter the tag name:",
     "ColorPicker.Palette": "Palette:",
 
     "GroupEdit.TabMain": "Main",
@@ -735,14 +731,9 @@
     "GroupEdit.Icon.Merge": "Merge",
 
     "GroupPicker.Hint": "Select a group in the tree. Double-click to confirm. «Root group» — the top level (no parent).",
-    "GroupPicker.Help": "Choosing a parent group (where the group will be placed).\n\n• The tree shows the group hierarchy; each group displays its color and icon.\n• Click a group to select it; double-click to choose and confirm.\n• The green «Select» button confirms the choice, «Cancel» (with a red outline) closes the window.\n• «Root group» places the group at the top level (no parent).\n• The A→Z / Z→A buttons sort groups by name (ascending by default).",
-
-    "GroupSettings.AddSubgroup": "Subgroup",
-    "GroupSettings.Done": "Done",
-    "GroupSettings.NoGroupSelected": "Select the group inside which you want to create a subgroup.",
-    "GroupSettings.DeleteConfirmTitle": "Delete confirmation",
-    "GroupSettings.DeleteConfirm": "Delete the group «{0}»?",
-    "GroupSettings.DeleteHasSubgroups": "The group contains subgroups: {0}.\nThey will also be deleted.",
+    "GroupPicker.Subtitle": "The group will be placed inside the selected group",
+    "GroupPicker.SearchPlaceholder": "Search group…",
+    "GroupPicker.Help": "Choosing a parent group (where the group will be placed).\n\n• The tree shows the group hierarchy; each group displays its color and icon.\n• Click a group to select it; double-click to choose and confirm.\n• The «Select» button confirms the choice, «Cancel» closes the window.\n• «Root group» places the group at the top level (no parent).\n• The search box filters groups by name; the A→Z / Z→A buttons sort groups by name (ascending by default).",
 
     "PlatformVersionPicker.SortAscTooltip": "Sort ascending (A→Z)",
     "PlatformVersionPicker.SortDescTooltip": "Sort descending (Z→A)",
@@ -934,8 +925,6 @@
 
     "Common.SortLabel": "Sort:",
     "Common.Choose": "Choose…",
-
-    "GroupSettings.AddRoot": "Root",
 
     "PlatformVersionPicker.FilterLabel": "Filter:",
 

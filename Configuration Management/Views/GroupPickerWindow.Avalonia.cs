@@ -9,15 +9,20 @@ using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
+using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
+using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
 
 namespace Configuration_Management
 {
     /// <summary>
-    /// Диалог выбора группы в виде дерева (или «Без группы» / корень).
-    /// Avalonia/Linux-версия WPF-окна <see cref="GroupPickerWindow"/>.
+    /// Диалог выбора группы в виде дерева (или «Без группы» / корень) в стиле Material Design:
+    /// шапка с иконкой и подзаголовком, поле поиска, переключатель сортировки, карточка-дерево
+    /// с цветными «чипами» иконок и панель действий. Avalonia/Linux-версия WPF-окна
+    /// <see cref="GroupPickerWindow"/>.
     /// </summary>
     public class GroupPickerWindow : ModalWindowBase
     {
@@ -27,12 +32,17 @@ namespace Configuration_Management
         private readonly bool _allowNone;
         private readonly string _noneLabel;
         private bool _sortAscending = true;
+        private string _filterText = string.Empty;
         private GroupNodeViewModel? _selectedNode;
 
-        private readonly TreeView _tree = new();
-        private readonly Button _selectButton = new() { Content = LocalizationManager.T("Common.Select"), MinWidth = 110, IsDefault = true };
-        private readonly RadioButton _sortAsc = new() { Content = LocalizationManager.T("Common.SortAsc"), IsChecked = true };
-        private readonly RadioButton _sortDesc = new() { Content = LocalizationManager.T("Common.SortDesc") };
+        private readonly TreeView _tree = new() { SelectionMode = SelectionMode.Single };
+        private Button? _selectButton;
+        private ToggleButton? _sortAsc;
+        private ToggleButton? _sortDesc;
+        private TextBox? _searchBox;
+        private Button? _clearSearch;
+        private TextBlock? _emptyLabel;
+        private TextBlock? _pathLabel;
 
         /// <param name="groups">Список групп.</param>
         /// <param name="currentGroupId">Текущая выбранная группа (для подсветки).</param>
@@ -47,10 +57,10 @@ namespace Configuration_Management
             string noneLabel = "")
         {
             Title = LocalizationManager.T("GroupPicker.Title");
-            Width = 480;
-            Height = 520;
-            MinWidth = 420;
-            MinHeight = 400;
+            Width = 520;
+            Height = 600;
+            MinWidth = 440;
+            MinHeight = 460;
 
             _groups = groups.ToList();
             _currentGroupId = currentGroupId ?? string.Empty;
@@ -80,103 +90,475 @@ namespace Configuration_Management
                 ? string.Empty
                 : GroupHierarchyHelper.GetFullPath(_selectedNode.Group, _groups);
 
+        // ------------------------------------------------------------------
+        // Построение окна (Material Design)
+        // ------------------------------------------------------------------
+
         private Control BuildRoot()
         {
-            var grid = new Grid { Margin = new Thickness(16) };
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            var grid = new Grid { Margin = new Thickness(20, 18, 20, 16) };
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));                      // 0 — шапка
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));                      // 1 — поиск + сортировка
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));                      // 2 — подсказка
+            grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star))); // 3 — дерево
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));                      // 4 — действия
 
-            // Панель сортировки
-            var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
-            _sortAsc.GroupName = "Sort";
-            _sortDesc.GroupName = "Sort";
-            _sortAsc.IsCheckedChanged += (_, _) =>
-            {
-                if (_sortAsc.IsChecked != true) return;
-                _sortAscending = true; _sortDesc.IsChecked = false; RefreshTree();
-            };
-            _sortDesc.IsCheckedChanged += (_, _) =>
-            {
-                if (_sortDesc.IsChecked != true) return;
-                _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree();
-            };
-            sortPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("Common.SortLabel"), VerticalAlignment = VerticalAlignment.Center });
-            sortPanel.Children.Add(_sortAsc);
-            sortPanel.Children.Add(_sortDesc);
-            Grid.SetRow(sortPanel, 0);
-            grid.Children.Add(sortPanel);
+            var header = BuildHeader();
+            Grid.SetRow(header, 0);
+            grid.Children.Add(header);
 
-            // Дерево
-            _tree.SelectionMode = SelectionMode.Single;
-            _tree.ItemTemplate = new FuncTreeDataTemplate(
-                typeof(object),
-                (item, _) => BuildTreeRow(item),
-                item => item is GroupNodeViewModel g ? g.Children : null);
-            _tree.SelectionChanged += (_, _) =>
-            {
-                _selectedNode = _tree.SelectedItem as GroupNodeViewModel;
-                _selectButton.IsEnabled = _selectedNode is not null;
-            };
-            _tree.DoubleTapped += (_, _) =>
-            {
-                if (_selectButton.IsEnabled)
-                    OnSelect_Click();
-            };
+            var toolbar = BuildToolbar();
+            Grid.SetRow(toolbar, 1);
+            grid.Children.Add(toolbar);
 
-            var border = new Border
-            {
-                Child = new ScrollViewer
-                {
-                    Content = _tree,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Padding = new Thickness(8, 8)
-                },
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6)
-            };
-            Grid.SetRow(border, 1);
-            grid.Children.Add(border);
+            var hint = ThemedText(LocalizationManager.T("GroupPicker.Hint"), 12, secondary: true, FontWeight.Normal);
+            hint.Margin = new Thickness(0, 0, 0, 8);
+            Grid.SetRow(hint, 2);
+            grid.Children.Add(hint);
 
-            // Кнопки
-            var buttons = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                Spacing = 8,
-                Margin = new Thickness(0, 12, 0, 0)
-            };
-            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
-            cancel.Click += (_, _) => Close();
-            buttons.Children.Add(cancel);
-            _selectButton.Click += (_, _) => OnSelect_Click();
-            buttons.Children.Add(_selectButton);
-            Grid.SetRow(buttons, 2);
-            grid.Children.Add(buttons);
+            var treeCard = BuildTreeCard();
+            Grid.SetRow(treeCard, 3);
+            grid.Children.Add(treeCard);
+
+            var footer = BuildFooter();
+            Grid.SetRow(footer, 4);
+            grid.Children.Add(footer);
 
             return grid;
         }
 
-        private Control BuildTreeRow(object? item)
+        private Control BuildHeader()
         {
-            if (item is GroupNodeViewModel node)
+            var header = new DockPanel { Margin = new Thickness(0, 0, 0, 14) };
+
+            var headerIcon = new Border
             {
-                var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 2) };
-                var iconKey = node.Group is null ? "IconRootGroup" : "IconChevronRight";
-                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14));
-                var text = new TextBlock { Text = node.DisplayName, VerticalAlignment = VerticalAlignment.Center };
-                panel.Children.Add(text);
-                return panel;
-            }
-            return new TextBlock { Text = item?.ToString() ?? string.Empty };
+                Width = 40,
+                Height = 40,
+                CornerRadius = new CornerRadius(UiMetrics.RadiusMd),
+                Margin = new Thickness(0, 0, 12, 0),
+                VerticalAlignment = VerticalAlignment.Top,
+                Child = IconHelper.MakeIcon("IconFolder", 20, "TextOnAccentBrush")
+            };
+            ThemeBrushes.Bind(headerIcon, Border.BackgroundProperty, "AccentBrush");
+            DockPanel.SetDock(headerIcon, Dock.Left);
+            header.Children.Add(headerIcon);
+
+            var titleStack = new StackPanel { Spacing = 2 };
+            titleStack.Children.Add(ThemedText(LocalizationManager.T("GroupPicker.Title"), 17, secondary: false, FontWeight.SemiBold));
+            titleStack.Children.Add(ThemedText(LocalizationManager.T("GroupPicker.Subtitle"), 12.5, secondary: true, FontWeight.Normal));
+            header.Children.Add(titleStack);
+
+            return header;
         }
 
-        /// <summary>Перестраивает дерево с учётом текущего направления сортировки.</summary>
+        private Control BuildToolbar()
+        {
+            var toolbar = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            toolbar.Children.Add(BuildSearchField());
+
+            var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(10, 0, 0, 0) };
+            _sortAsc = BuildSortToggle("IconSortAscending", LocalizationManager.T("Main.SortGroupsAscending"), isAscending: true);
+            _sortDesc = BuildSortToggle("IconSortDescending", LocalizationManager.T("Main.SortGroupsDescending"), isAscending: false);
+            sortPanel.Children.Add(_sortAsc);
+            sortPanel.Children.Add(_sortDesc);
+            Grid.SetColumn(sortPanel, 1);
+            toolbar.Children.Add(sortPanel);
+
+            return toolbar;
+        }
+
+        /// <summary>Поле поиска с иконкой и кнопкой очистки (стиль Material «outlined text field»).</summary>
+        private Control BuildSearchField()
+        {
+            var field = new Border
+            {
+                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(10, 2)
+            };
+            ThemeBrushes.Bind(field, Border.BorderBrushProperty, "BorderColorBrush");
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var searchIcon = IconHelper.MakeIcon("IconSearch", 16, "TextSecondaryBrush");
+            searchIcon.Margin = new Thickness(0, 0, 8, 0);
+            grid.Children.Add(searchIcon);
+            Grid.SetColumn(searchIcon, 0);
+
+            _searchBox = new TextBox
+            {
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(0, 7),
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Watermark = LocalizationManager.T("GroupPicker.SearchPlaceholder")
+            };
+            _searchBox.GetObservable(TextBox.TextProperty).Subscribe(new ValueObserver<string?>(OnFilterChanged));
+            grid.Children.Add(_searchBox);
+            Grid.SetColumn(_searchBox, 1);
+
+            _clearSearch = new Button
+            {
+                Content = IconHelper.MakeIcon("IconClose", 13, "TextSecondaryBrush"),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(4, 0),
+                Cursor = new Cursor(StandardCursorType.Hand),
+                IsVisible = false
+            };
+            ToolTip.SetTip(_clearSearch, LocalizationManager.T("Main.ClearSearch"));
+            _clearSearch.Click += (_, _) =>
+            {
+                if (_searchBox is not null) _searchBox.Text = string.Empty;
+            };
+            grid.Children.Add(_clearSearch);
+            Grid.SetColumn(_clearSearch, 2);
+
+            field.Child = grid;
+            return field;
+        }
+
+        private void OnFilterChanged(string? value)
+        {
+            _filterText = value ?? string.Empty;
+            if (_clearSearch is not null)
+                _clearSearch.IsVisible = _filterText.Length > 0;
+            RefreshTree();
+        }
+
+        /// <summary>Карточка-дерево групп с пустым состоянием поиска.</summary>
+        private Control BuildTreeCard()
+        {
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
+                BorderThickness = new Thickness(1)
+            };
+            ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundColorBrush");
+            ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
+            UiMetrics.AddSoftShadow(card);
+
+            var root = new Grid();
+            root.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
+            root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            _tree.ItemTemplate = new FuncTreeDataTemplate(
+                typeof(object),
+                (item, _) => BuildTreeRow(item),
+                item => item is GroupNodeViewModel g && g.HasChildren ? g.Children : null);
+            _tree.SelectionChanged += (_, _) =>
+            {
+                _selectedNode = _tree.SelectedItem as GroupNodeViewModel;
+                UpdateSelection();
+            };
+            _tree.DoubleTapped += (_, _) =>
+            {
+                if (_selectedNode is not null)
+                    OnSelect_Click();
+            };
+
+            var treeHost = new ScrollViewer
+            {
+                Content = _tree,
+                Padding = new Thickness(8, 6),
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+            Grid.SetRow(treeHost, 0);
+            root.Children.Add(treeHost);
+
+            _emptyLabel = ThemedText(LocalizationManager.T("Main.EmptyNoResults"), 13, secondary: true, FontWeight.Normal);
+            _emptyLabel.HorizontalAlignment = HorizontalAlignment.Center;
+            _emptyLabel.VerticalAlignment = VerticalAlignment.Center;
+            _emptyLabel.IsVisible = false;
+            Grid.SetRow(_emptyLabel, 0);
+            root.Children.Add(_emptyLabel);
+
+            card.Child = root;
+            return card;
+        }
+
+        private Control BuildTreeRow(object? item)
+        {
+            if (item is not GroupNodeViewModel node)
+                return new TextBlock { Text = item?.ToString() ?? string.Empty };
+
+            var row = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Margin = new Thickness(4, 3)
+            };
+
+            // Крупный цветной «чип» с иконкой группы — выразительнее и лучше читается.
+            var chip = new Border
+            {
+                Width = 36,
+                Height = 28,
+                CornerRadius = new CornerRadius(UiMetrics.RadiusSm),
+                VerticalAlignment = VerticalAlignment.Center,
+                Background = node.HeaderBrush,
+                Child = new Avalonia.Controls.Shapes.Path
+                {
+                    Width = 18,
+                    Height = 18,
+                    Data = IconHelper.Geometry(node.Icon),
+                    Stretch = Stretch.Uniform,
+                    Fill = node.IconBrush,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                }
+            };
+            row.Children.Add(chip);
+
+            var text = ThemedText(node.DisplayName, 14, secondary: false, FontWeight.Normal);
+            text.VerticalAlignment = VerticalAlignment.Center;
+            text.TextTrimming = TextTrimming.CharacterEllipsis;
+            row.Children.Add(text);
+
+            return row;
+        }
+
+        private Control BuildFooter()
+        {
+            var footer = new Grid { Margin = new Thickness(0, 12, 0, 0) };
+            footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            // Сводка выбора слева: иконка + полный путь выбранной группы.
+            var pathPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            pathPanel.Children.Add(IconHelper.MakeIcon("IconChevronRight", 15, "TextSecondaryBrush"));
+            _pathLabel = ThemedText(string.Empty, 12.5, secondary: true, FontWeight.Normal);
+            _pathLabel.VerticalAlignment = VerticalAlignment.Center;
+            _pathLabel.TextTrimming = TextTrimming.CharacterEllipsis;
+            _pathLabel.MaxWidth = 260;
+            pathPanel.Children.Add(_pathLabel);
+            Grid.SetColumn(pathPanel, 0);
+            footer.Children.Add(pathPanel);
+
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8
+            };
+            // Главное действие «Выбрать» — слева, «Отмена» — справа.
+            _selectButton = BuildActionButton(
+                "AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush",
+                ActionContent("IconCheck", LocalizationManager.T("Common.Select"), "TextOnAccentBrush"),
+                minWidth: 132, isDefault: true, onClick: OnSelect_Click);
+            buttons.Children.Add(_selectButton);
+
+            buttons.Children.Add(BuildActionButton(
+                "SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush", "SecondaryButtonPressedBrush", "BorderColorBrush",
+                ActionContent("IconClose", LocalizationManager.T("Common.Cancel"), "ButtonTextBrush"),
+                minWidth: 116, isCancel: true, onClick: () => Close()));
+            Grid.SetColumn(buttons, 1);
+            footer.Children.Add(buttons);
+
+            return footer;
+        }
+
+        // ------------------------------------------------------------------
+        // Служебные построители (Material-кнопки, тексты)
+        // ------------------------------------------------------------------
+
+        /// <summary>Кнопка в стиле Material: скруглённая, три состояния фона из темы.</summary>
+        private Button BuildActionButton(
+            string baseKey, string hoverKey, string pressedKey, string borderKey,
+            Control content, double minWidth, bool isCancel, bool isDefault, Action onClick)
+        {
+            var btn = new Button
+            {
+                Content = content,
+                MinWidth = minWidth,
+                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                BorderThickness = new Thickness(1),
+                Cursor = new Cursor(StandardCursorType.Hand),
+                IsCancel = isCancel,
+                IsDefault = isDefault
+            };
+
+            btn.Theme = new ControlTheme(typeof(Button))
+            {
+                Setters =
+                {
+                    new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<Button>((_, _) =>
+                    {
+                        var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusLg), BorderThickness = new Thickness(1) };
+                        border[!Border.BackgroundProperty] = new TemplateBinding(TemplatedControl.BackgroundProperty);
+                        border[!Border.BorderBrushProperty] = new TemplateBinding(TemplatedControl.BorderBrushProperty);
+                        border[!Border.BorderThicknessProperty] = new TemplateBinding(TemplatedControl.BorderThicknessProperty);
+                        border[!Border.PaddingProperty] = new TemplateBinding(TemplatedControl.PaddingProperty);
+                        UiMetrics.AddBrushTransition(border);
+                        var presenter = new ContentPresenter();
+                        presenter[!ContentPresenter.ContentProperty] = new TemplateBinding(ContentControl.ContentProperty);
+                        presenter[!ContentPresenter.HorizontalContentAlignmentProperty] = new TemplateBinding(ContentControl.HorizontalContentAlignmentProperty);
+                        presenter[!ContentPresenter.VerticalContentAlignmentProperty] = new TemplateBinding(ContentControl.VerticalContentAlignmentProperty);
+                        border.Child = presenter;
+                        return border;
+                    }))
+                }
+            };
+
+            WireState(btn, baseKey, hoverKey, pressedKey, borderKey, isActive: null);
+            btn.Click += (_, _) => onClick();
+            return btn;
+        }
+
+        /// <summary>Переключатель сортировки (А→Я / Я→А): активное состояние — акцентная заливка.</summary>
+        private ToggleButton BuildSortToggle(string iconKey, string tooltip, bool isAscending)
+        {
+            var toggle = new ToggleButton
+            {
+                Width = 36,
+                Height = 32,
+                Padding = new Thickness(0),
+                BorderThickness = new Thickness(1),
+                Cursor = new Cursor(StandardCursorType.Hand),
+                IsChecked = isAscending == _sortAscending,
+                Content = IconHelper.MakeIcon(iconKey, 16, "ButtonTextBrush")
+            };
+            ToolTip.SetTip(toggle, tooltip);
+
+            toggle.Theme = new ControlTheme(typeof(ToggleButton))
+            {
+                Setters =
+                {
+                    new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ToggleButton>((_, _) =>
+                    {
+                        var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusMd), BorderThickness = new Thickness(1) };
+                        border[!Border.BackgroundProperty] = new TemplateBinding(TemplatedControl.BackgroundProperty);
+                        border[!Border.BorderBrushProperty] = new TemplateBinding(TemplatedControl.BorderBrushProperty);
+                        border[!Border.BorderThicknessProperty] = new TemplateBinding(TemplatedControl.BorderThicknessProperty);
+                        border[!Border.PaddingProperty] = new TemplateBinding(TemplatedControl.PaddingProperty);
+                        UiMetrics.AddBrushTransition(border);
+                        var presenter = new ContentPresenter();
+                        presenter[!ContentPresenter.ContentProperty] = new TemplateBinding(ContentControl.ContentProperty);
+                        presenter[!ContentPresenter.HorizontalContentAlignmentProperty] = new TemplateBinding(ContentControl.HorizontalContentAlignmentProperty);
+                        presenter[!ContentPresenter.VerticalContentAlignmentProperty] = new TemplateBinding(ContentControl.VerticalContentAlignmentProperty);
+                        border.Child = presenter;
+                        return border;
+                    }))
+                }
+            };
+
+            var state = new ToggleState();
+            ThemeBrushes.Observe(toggle, "SecondaryButtonBackgroundBrush", b => { state.Base = b; state.Apply(toggle); });
+            ThemeBrushes.Observe(toggle, "SecondaryButtonHoverBrush", b => { state.Hover = b; state.Apply(toggle); });
+            ThemeBrushes.Observe(toggle, "SecondaryButtonPressedBrush", b => { state.Pressed = b; state.Apply(toggle); });
+            ThemeBrushes.Observe(toggle, "BorderColorBrush", b => { state.Border = b; state.Apply(toggle); });
+            ThemeBrushes.Observe(toggle, "AccentBrush", b => { state.Accent = b; state.Apply(toggle); });
+
+            toggle.PointerEntered += (_, _) => { state.Hovered = true; state.Apply(toggle); };
+            toggle.PointerExited += (_, _) => { state.Hovered = false; state.Pressed = false; state.Apply(toggle); };
+            toggle.PointerPressed += (_, _) => { state.Pressed = true; state.Apply(toggle); };
+            toggle.PointerReleased += (_, _) => { state.Pressed = false; state.Apply(toggle); };
+            toggle.PointerCaptureLost += (_, _) => { state.Pressed = false; state.Apply(toggle); };
+            toggle.GetObservable(ToggleButton.IsCheckedProperty).Subscribe(new ValueObserver<bool?>(_ => state.Apply(toggle)));
+            toggle.GetObservable(ToggleButton.IsEnabledProperty).Subscribe(new ValueObserver<bool>(_ => state.Apply(toggle)));
+
+            var self = toggle;
+            toggle.Click += (_, _) =>
+            {
+                if (self.IsChecked != true) return;
+                if (isAscending)
+                {
+                    _sortAscending = true;
+                    if (_sortDesc is not null) _sortDesc.IsChecked = false;
+                }
+                else
+                {
+                    _sortAscending = false;
+                    if (_sortAsc is not null) _sortAsc.IsChecked = false;
+                }
+                RefreshTree();
+            };
+
+            state.Apply(toggle);
+            return toggle;
+        }
+
+        /// <summary>Подключает состояния фона/границы/фокуса к обычной кнопке.</summary>
+        private static void WireState(Button btn,
+            string baseKey, string hoverKey, string pressedKey, string borderKey, bool? isActive)
+        {
+            var state = new ToggleState();
+            ThemeBrushes.Observe(btn, baseKey, b => { state.Base = b; state.Apply(btn); });
+            ThemeBrushes.Observe(btn, hoverKey, b => { state.Hover = b; state.Apply(btn); });
+            ThemeBrushes.Observe(btn, pressedKey, b => { state.Pressed = b; state.Apply(btn); });
+            ThemeBrushes.Observe(btn, borderKey, b => { state.Border = b; state.Apply(btn); });
+            ThemeBrushes.Observe(btn, "AccentBrush", b => { state.Accent = b; state.Apply(btn); });
+
+            btn.PointerEntered += (_, _) => { state.Hovered = true; state.Apply(btn); };
+            btn.PointerExited += (_, _) => { state.Hovered = false; state.Pressed = false; state.Apply(btn); };
+            btn.PointerPressed += (_, _) => { state.Pressed = true; state.Apply(btn); };
+            btn.PointerReleased += (_, _) => { state.Pressed = false; state.Apply(btn); };
+            btn.PointerCaptureLost += (_, _) => { state.Pressed = false; state.Apply(btn); };
+            btn.GetObservable(Button.IsEnabledProperty).Subscribe(new ValueObserver<bool>(_ => state.Apply(btn)));
+            btn.GetObservable(Button.IsKeyboardFocusWithinProperty).Subscribe(new ValueObserver<bool>(_ => state.Apply(btn)));
+            state.Apply(btn);
+        }
+
+        /// <summary>Текстовый блок, окрашенный кистью темы (основной или вторичный текст).</summary>
+        private static TextBlock ThemedText(string text, double fontSize, bool secondary, FontWeight weight)
+        {
+            var tb = new TextBlock
+            {
+                Text = text,
+                FontSize = fontSize,
+                FontWeight = weight,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, secondary ? "TextSecondaryBrush" : "TextPrimaryBrush");
+            return tb;
+        }
+
+        /// <summary>Содержимое кнопки: иконка + подпись цветом из темы.</summary>
+        private static Control ActionContent(string iconKey, string text, string brushKey)
+        {
+            var tb = new TextBlock
+            {
+                Text = text,
+                FontSize = 13.5,
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+            return new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                Children =
+                {
+                    IconHelper.MakeIcon(iconKey, 16, brushKey),
+                    tb
+                }
+            };
+        }
+
+        // ------------------------------------------------------------------
+        // Логика дерева, поиска и сортировки
+        // ------------------------------------------------------------------
+
+        /// <summary>Перестраивает дерево с учётом сортировки и текста поиска.</summary>
         private void RefreshTree()
         {
-
             var roots = GroupNodeViewModel.BuildTree(_allowed);
+
             var groupComparer = StringComparer.OrdinalIgnoreCase;
             roots.Sort(_sortAscending
                 ? (a, b) => groupComparer.Compare(a.DisplayName, b.DisplayName)
@@ -189,18 +571,86 @@ namespace Configuration_Management
                 items.Add(new GroupNodeViewModel(null, displayName: _noneLabel));
             items.AddRange(roots);
 
+            // Поиск фильтрует дерево, сохраняя иерархию (остаются узлы, где совпал
+            // сам узел или хотя бы один потомок).
+            if (!string.IsNullOrWhiteSpace(_filterText))
+                items = FilterRoots(items, _filterText.Trim());
+
             _tree.ItemsSource = items;
+
+            if (_emptyLabel is not null)
+            {
+                var hasMatch = items.Count > 0;
+                _emptyLabel.IsVisible = !hasMatch;
+                if (_tree.Parent is ScrollViewer sv)
+                    sv.IsVisible = hasMatch;
+            }
+
+            if (items.Count == 0)
+            {
+                _selectedNode = null;
+                UpdateSelection();
+                return;
+            }
 
             if (!string.IsNullOrEmpty(_currentGroupId))
                 SelectById(items, _currentGroupId);
-            else if (_allowNone && items.Count > 0)
+            else if (_allowNone && items.Count > 0 && _selectedNode is null)
             {
                 _selectedNode = items[0];
-                _selectButton.IsEnabled = true;
+                UpdateSelection();
             }
             else
             {
-                _selectButton.IsEnabled = false;
+                UpdateSelection();
+            }
+        }
+
+        /// <summary>Фильтрует корневые узлы по подстроке имени, сохраняя ветви иерархии.</summary>
+        private static List<GroupNodeViewModel> FilterRoots(IEnumerable<GroupNodeViewModel> roots, string filter)
+        {
+            var result = new List<GroupNodeViewModel>();
+            foreach (var root in roots)
+            {
+                var copy = FilterNode(root, filter);
+                if (copy is not null)
+                    result.Add(copy);
+            }
+            return result;
+        }
+
+        private static GroupNodeViewModel? FilterNode(GroupNodeViewModel node, string filter)
+        {
+            var selfMatches = node.DisplayName.Contains(filter, StringComparison.OrdinalIgnoreCase);
+            var keptChildren = new List<GroupNodeViewModel>();
+            foreach (var child in node.Children)
+            {
+                var childCopy = FilterNode(child, filter);
+                if (childCopy is not null)
+                    keptChildren.Add(childCopy);
+            }
+
+            if (!selfMatches && keptChildren.Count == 0)
+                return null;
+
+            var copy = new GroupNodeViewModel(node.Group, displayName: node.DisplayName);
+            foreach (var child in keptChildren)
+                copy.Children.Add(child);
+            return copy;
+        }
+
+        private void UpdateSelection()
+        {
+            var enabled = _selectedNode is not null;
+            if (_selectButton is not null)
+                _selectButton.IsEnabled = enabled;
+
+            if (_pathLabel is not null)
+            {
+                _pathLabel.Text = _selectedNode?.Group is null
+                    ? (_allowNone ? _noneLabel : string.Empty)
+                    : GroupHierarchyHelper.GetFullPath(_selectedNode.Group, _groups);
+                _pathLabel.IsVisible = _selectedNode is not null;
             }
         }
 
@@ -219,9 +669,11 @@ namespace Configuration_Management
                 string.Equals(node.Group.Id, groupId, StringComparison.OrdinalIgnoreCase))
             {
                 _selectedNode = node;
-                node.IsSelected = true;
                 node.IsExpanded = true;
-                _selectButton.IsEnabled = true;
+                // Единственный источник выделения — TreeView.SelectedItem (одиночный режим):
+                // подсвечивается ровно один узел, родители не выделяются.
+                _tree.SelectedItem = node;
+                UpdateSelection();
                 return true;
             }
 
@@ -239,6 +691,48 @@ namespace Configuration_Management
                 return;
             DialogResult = true;
             Close();
+        }
+
+        /// <summary>Состояние кнопки/переключателя для ручного пересчёта фона из темы.</summary>
+        private sealed class ToggleState
+        {
+            public IBrush Base = Brushes.Transparent;
+            public IBrush Hover = Brushes.Transparent;
+            public IBrush Pressed = Brushes.Transparent;
+            public IBrush Border = Brushes.Transparent;
+            public IBrush Accent = Brushes.Transparent;
+            public bool Hovered;
+            public bool Pressed;
+
+            public void Apply(Button btn)
+            {
+                var isActive = btn is ToggleButton t && t.IsChecked == true;
+                if (!btn.IsEnabled)
+                {
+                    btn.Opacity = 0.5;
+                    btn.Background = Base;
+                    btn.BorderBrush = isActive ? Accent : Border;
+                    btn.BorderThickness = new Thickness(isActive ? 2 : 1);
+                    return;
+                }
+
+                btn.Opacity = 1.0;
+                btn.Background = Pressed ? Pressed : (Hovered ? Hover : Base);
+                btn.BorderBrush = isActive ? Accent : Border;
+                // Активный сегмент сортировки подсвечивается акцентной рамкой (как сегментный
+                // переключатель Material): контраст иконки сохраняется в обеих темах.
+                btn.BorderThickness = new Thickness(isActive ? 2 : 1);
+            }
+        }
+
+        /// <summary>Простой наблюдатель значения (для TextBox.Text, IsChecked и пр.).</summary>
+        private sealed class ValueObserver<T> : IObserver<T>
+        {
+            private readonly Action<T> _onNext;
+            public ValueObserver(Action<T> onNext) => _onNext = onNext;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(T value) => _onNext(value);
         }
     }
 }
