@@ -32,6 +32,12 @@ namespace Configuration_Management
         {
             _viewModel.Password = PasswordInput.Password;
         }
+
+        /// <summary>Закрывает окно без сохранения (кнопка «Отмена»).</summary>
+        private void OnCancel_Click(object sender, RoutedEventArgs e)
+        {
+            DialogResult = false;
+        }
     }
 }
 #endif

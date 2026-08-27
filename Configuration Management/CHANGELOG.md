@@ -5,6 +5,70 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.4.2] — 2026-08-27
+
+Исправлено экранирование значений в строке подключения команды `CREATEINFOBASE`: кавычки внутри значений теперь
+корректно удваиваются, и значение больше не «закрывает само себя», подмешивая в строку подключения произвольный
+параметр (например, имя базы вида `base";Usr="admin` уходило в `CREATEINFOBASE` как два параметра вместо одного).
+Исправление применено на обеих платформах.
+
+### Исправлено
+
+- **Экранирование значений в строке подключения `CREATEINFOBASE`** (обе платформы): добавлен помощник
+  `EscapeConnectValue`, удваивающий кавычку внутри значения (`"` → `""`) — то же правило, что уже применяется
+  в `OneCComConnector.AppendParameter`. Windows/WPF — [`Services/OneCLauncher.Arguments.cs`](Services/OneCLauncher.Arguments.cs);
+  Linux/Avalonia — [`Services/OneCLauncher.Linux.cs`](Services/OneCLauncher.Linux.cs) (метод продублирован, так как
+  csproj исключает части Windows-класса из компиляции под Linux). Экранируются значения `File=`, `Srvr=` и `Ref=`.
+
+Авторство исправления — **[ksv47](https://github.com/ksv47)** (PR #76, ветка `ksv47/fix-createinfobase-escaping`).
+
+## [0.4.1] — 2026-08-26
+
+Точечные исправления окна управления учётными записями (Windows/WPF): удаление записи снова работает,
+добавлена кнопка «Отмена».
+
+### Исправлено
+
+- **Учётная запись не удалялась (Windows/WPF)**: список строится через элементы `ProfileListItem`,
+  а `SelectedProfile` оставался типа `UserProfile` — типы не совпадали, `SelectedItem` не привязывался,
+  и выбор записи не фиксировался. `SelectedProfile` переведён на `ProfileListItem`, операции
+  (удаление, сохранение, «Сделать активной») теперь корректно получают выбранную запись
+  ([`ViewModels/ProfilesViewModel.cs`](ViewModels/ProfilesViewModel.cs)).
+
+### Добавлено
+
+- **Кнопка «Отмена»** (слева внизу), закрывающая окно без изменений:
+  Windows/WPF — [`Views/ProfilesWindow.xaml`](Views/ProfilesWindow.xaml) + `OnCancel_Click`
+  в [`Views/ProfilesWindow.xaml.cs`](Views/ProfilesWindow.xaml.cs);
+  Linux/Avalonia — [`Views/ProfilesWindow.Avalonia.cs`](Views/ProfilesWindow.Avalonia.cs)
+  (текст через существующий ключ `Common.Cancel`).
+
+## [0.4.0] — 2026-08-26
+
+Дружелюбный интерфейс управления учётными записями (профилями): выпадающее меню активной записи,
+макет «список + редактор», явная индикация того, какая запись редактируется и какая активна (обе платформы).
+
+### Добавлено
+
+- **Выпадающее меню «Активная учётная запись»** вверху окна учётных записей: выбор профиля сразу делает его
+  активным (`SetCurrentProfile`) — активная запись видна и переключается без лишних шагов
+  ([`Views/ProfilesWindow.Avalonia.cs`](Views/ProfilesWindow.Avalonia.cs), [`Views/ProfilesWindow.xaml`](Views/ProfilesWindow.xaml)).
+- **Кнопка «Сделать активной»**: помечает выбранную для редактирования учётную запись активной.
+- **Бейдж «активная»** у активной записи в списке — активная запись отличается от выбранной для редактирования.
+
+### Изменено
+
+- **Макет окна переработан на «список + редактор»**: слева список учётных записей, справа панель
+  редактирования с заголовком «Редактирование записи: <имя>» (или приглашением выбрать запись).
+  Окно стало масштабируемым и шире ([`Views/ProfilesWindow.Avalonia.cs`](Views/ProfilesWindow.Avalonia.cs),
+  [`Views/ProfilesWindow.xaml`](Views/ProfilesWindow.xaml)).
+- **WPF-ViewModel** ([`ViewModels/ProfilesViewModel.cs`](ViewModels/ProfilesViewModel.cs)) дополнена активной
+  записью `CurrentProfile`, заголовком `EditingTitle`, командой `ActivateCommand` и коллекцией `Accounts`.
+  Список строится через общий элемент [`ViewModels/ProfileListItem.cs`](ViewModels/ProfileListItem.cs).
+- **Новые ключи локализации** `Profiles.ActiveAccount`, `Profiles.Active`, `Profiles.Editing`,
+  `Profiles.EditingNone`, `Profiles.SelectToEdit`, `Profiles.Activate`, `Profiles.NoSelectionToActivate`
+  в [`Localization/Languages/ru.json`](Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Localization/Languages/en.json).
+
 ## [0.3.5.3] — 2026-08-26
 
 ### Изменено

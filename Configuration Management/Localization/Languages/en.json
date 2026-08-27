@@ -466,6 +466,13 @@
     "Profiles.DeleteConfirm": "Delete account \"{0}\" together with its data? This action is irreversible.",
     "Profiles.EmptySelection": "No account selected.",
     "Profiles.RestartHint": "Switching the current account happens on the next launch: when there are several accounts, a sign-in window is shown.",
+    "Profiles.ActiveAccount": "Active account:",
+    "Profiles.Active": "active",
+    "Profiles.Editing": "Editing record: {0}",
+    "Profiles.EditingNone": "No record selected",
+    "Profiles.SelectToEdit": "Select an account in the list on the left to change its name or password.",
+    "Profiles.Activate": "Set active",
+    "Profiles.NoSelectionToActivate": "Select an account in the list first.",
 
     "Auth.Title": "Select account",
     "Auth.SelectAccountHint": "The application contains several accounts. Select a profile and, if it is password-protected, enter the password.",
