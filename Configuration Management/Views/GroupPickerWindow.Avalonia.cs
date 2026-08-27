@@ -358,13 +358,13 @@ namespace Configuration_Management
             _selectButton = BuildActionButton(
                 "AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush",
                 ActionContent("IconCheck", LocalizationManager.T("Common.Select"), "TextOnAccentBrush"),
-                minWidth: 132, isDefault: true, onClick: OnSelect_Click);
+                minWidth: 132, isCancel: false, isDefault: true, onClick: OnSelect_Click);
             buttons.Children.Add(_selectButton);
 
             buttons.Children.Add(BuildActionButton(
                 "SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush", "SecondaryButtonPressedBrush", "BorderColorBrush",
                 ActionContent("IconClose", LocalizationManager.T("Common.Cancel"), "ButtonTextBrush"),
-                minWidth: 116, isCancel: true, onClick: () => Close()));
+                minWidth: 116, isCancel: true, isDefault: false, onClick: () => Close()));
             Grid.SetColumn(buttons, 1);
             footer.Children.Add(buttons);
 
