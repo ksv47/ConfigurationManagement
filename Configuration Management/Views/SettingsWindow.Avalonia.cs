@@ -707,9 +707,17 @@ namespace Configuration_Management
                         : new ElementFontSettings();
 
                 suppressFontLoad = true;
-                fontFamilyBox.SelectedItem = fontFamilyBox.Items.OfType<string>()
-                    .FirstOrDefault(f => string.Equals(f, fs.FontFamily, StringComparison.OrdinalIgnoreCase))
-                    ?? ThemeManager.DefaultFontFamily;
+                var known = fontFamilyBox.Items.OfType<string>()
+                    .FirstOrDefault(f => string.Equals(f, fs.FontFamily, StringComparison.OrdinalIgnoreCase));
+                if (known is null && !string.IsNullOrWhiteSpace(fs.FontFamily))
+                {
+                    // Сохранённое семейство дописывается в список, а не подменяется
+                    // умолчанием: перечислены десять шрифтов Windows, и любой
+                    // системный шрифт Linux иначе потерялся бы при первом сохранении.
+                    fontFamilyBox.Items.Insert(0, fs.FontFamily);
+                    known = fs.FontFamily;
+                }
+                fontFamilyBox.SelectedItem = known ?? ThemeManager.DefaultFontFamily;
                 var listed = fontSizeBox.Items.OfType<double>()
                     .FirstOrDefault(v => Math.Abs(v - fs.FontSize) < 0.01);
                 if (listed > 0)
@@ -752,13 +760,16 @@ namespace Configuration_Management
                 StoreFontScope();
                 _viewModel.PreviewElementFonts(editedFonts);
             };
-            LoadFontScope();
-
-            // Подписка идёт после загрузки области и только на ввод текста:
-            // GetObservable отдаёт текущее значение прямо при подписке, и до
-            // загрузки это записало бы в набор пустой выбор вместо сохранённого.
+            // Подписка оформляется до загрузки области, и это важно:
+            // GetObservable отдаёт текущее значение прямо при подписке. Пока поля
+            // пусты, StoreFontScope выходит сразу, а установки внутри самой
+            // загрузки закрыты флагом suppressFontLoad. Если подписаться после
+            // загрузки, немедленный вызов запишет в набор показанное значение
+            // поверх сохранённого, и «Сохранить» унесёт его в настройки.
             fontSizeBox.GetObservable(ComboBox.TextProperty)
-                .Subscribe(new AnonymousObserver(() => StoreFontScope()));
+                .Subscribe(new SettingsObserver<string?>(_ => StoreFontScope()));
+
+            LoadFontScope();
 
             // Раздел «Отображение» разложен по вложенным вкладкам, как в разметке WPF:
             // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт».
@@ -1741,15 +1752,6 @@ namespace Configuration_Management
         }
 
         /// <summary>Наблюдатель, который просто зовёт действие на каждое значение.</summary>
-        private sealed class AnonymousObserver : IObserver<string?>
-        {
-            private readonly Action _onNext;
-            public AnonymousObserver(Action onNext) => _onNext = onNext;
-            public void OnCompleted() { }
-            public void OnError(Exception error) { }
-            public void OnNext(string? value) => _onNext();
-        }
-
         /// <summary>Область интерфейса в списке подвкладки «Шрифт».</summary>
         private sealed class FontScopeItem
         {
@@ -1793,9 +1795,11 @@ namespace Configuration_Management
             header.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T(titleKey),
-                // Размер как в разметке WPF: с наследуемым от окна строка из пяти
-                // вкладок не влезает по ширине и переносится на второй ряд.
-                FontSize = UiMetrics.ScaledFont(13),
+                // Размер и насыщенность из стиля SettingsSubTabItem разметки WPF
+                // (SettingsWindow.xaml:228). С наследуемым от окна размером строка
+                // из пяти вкладок не влезает по ширине и переносится на второй ряд.
+                FontSize = UiMetrics.ScaledFont(12),
+                FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
             });
             ToolTip.SetTip(header, LocalizationManager.T(tooltipKey));
