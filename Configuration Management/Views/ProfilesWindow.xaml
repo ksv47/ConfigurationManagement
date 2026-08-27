@@ -22,12 +22,12 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}"/>
-        <!-- РќР•Р›Р¬Р—РЇ BasedOn="{StaticResource ModernTextBox}" РґР»СЏ PasswordBox: ModernTextBox РёРјРµРµС‚
-             TargetType="TextBox", Р° BasedOn С‚СЂРµР±СѓРµС‚ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё С‚РёРїРѕРІ (TextBox РЅРµ СЏРІР»СЏРµС‚СЃСЏ
-             Р±Р°Р·РѕРІС‹Рј РґР»СЏ PasswordBox). РР·-Р·Р° СЌС‚РѕРіРѕ WPF РїР°РґР°Р» СЃ XamlParseException РїСЂРё СЃРѕР·РґР°РЅРёРё
-             РїРµСЂРІРѕРіРѕ PasswordBox (СЃС‚СЂРѕРєР° В«РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ PasswordBox РІС‹Р·РІР°Р»Р° РёСЃРєР»СЋС‡РµРЅРёРµВ»).
-             PasswordBox Рё С‚Р°Рє РїРѕР»СѓС‡РёС‚ С‚РµРјРёСЂРѕРІР°РЅРЅС‹Р№ implicit-СЃС‚РёР»СЊ РёР· LightTheme/DarkTheme,
-             РєР°Рє РІ LoginWindow Рё ConnectionSettingsWindow. -->
+        <!-- НЕЛЬЗЯ BasedOn="{StaticResource ModernTextBox}" для PasswordBox: ModernTextBox имеет
+             TargetType="TextBox", а BasedOn требует совместимости типов (TextBox не является
+             базовым для PasswordBox). Из-за этого WPF падал с XamlParseException при создании
+             первого PasswordBox (строка «Инициализация PasswordBox вызвала исключение»).
+             PasswordBox и так получит темированный implicit-стиль из LightTheme/DarkTheme,
+             как в LoginWindow и ConnectionSettingsWindow. -->
     </Window.Resources>
 
     <Grid Margin="16">
