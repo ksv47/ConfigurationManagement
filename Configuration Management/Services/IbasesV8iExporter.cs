@@ -302,25 +302,28 @@ public static class IbasesV8iExporter
 
         if (connection.Type == ConnectionType.File)
         {
-            sb.Append("File=\"").Append(connection.FilePath).Append('"');
+            sb.Append("File=\"").Append(EscapeConnectValue(connection.FilePath)).Append('"');
         }
         else if (connection.Type == ConnectionType.WebServer)
         {
-            sb.Append("WS=\"").Append(connection.WebUrl).Append('"');
+            sb.Append("WS=\"").Append(EscapeConnectValue(connection.WebUrl)).Append('"');
         }
         else
         {
             // Порт включаем в Srvr, если он нестандартный (как принято в 1С: host:port).
-            sb.Append("Srvr=\"").Append(connection.GetServerWithPort()).Append("\";");
-            sb.Append("Ref=\"").Append(connection.DatabaseName).Append('"');
+            sb.Append("Srvr=\"").Append(EscapeConnectValue(connection.GetServerWithPort())).Append("\";");
+            sb.Append("Ref=\"").Append(EscapeConnectValue(connection.DatabaseName)).Append('"');
             if (!string.IsNullOrWhiteSpace(connection.User))
             {
-                sb.Append(";Usr=\"").Append(connection.User).Append('"');
+                sb.Append(";Usr=\"").Append(EscapeConnectValue(connection.User)).Append('"');
                 if (!string.IsNullOrWhiteSpace(connection.Password))
                 {
-                    sb.Append(";Pwd=\"").Append(connection.Password).Append('"');
+                    sb.Append(";Pwd=\"").Append(EscapeConnectValue(connection.Password)).Append('"');
                 }
             }
+            // Блокировка фоновых заданий (SCHEDJOBS=NO).
+            if (connection.BlockScheduledJobs)
+                sb.Append(";SCHEDJOBS=NO");
         }
 
         // Завершающая точка с запятой обязательна: EDT (и ряд других средств 1С)
@@ -331,6 +334,12 @@ public static class IbasesV8iExporter
 
         return result;
     }
+
+    /// <summary>
+    /// Экранирует значение строки подключения 1С: кавычка внутри значения удваивается.
+    /// При импорте ibases.v8i удвоение разворачивается обратно разборщиком строки подключения.
+    /// </summary>
+    private static string EscapeConnectValue(string value) => value.Replace("\"", "\"\"");
 
     /// <summary>
     /// Преобразует режим запуска приложения в значение ключей App/DefaultApp файла ibases.v8i.

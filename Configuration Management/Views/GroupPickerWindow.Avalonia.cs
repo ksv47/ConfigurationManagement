@@ -464,10 +464,10 @@ namespace Configuration_Management
             ThemeBrushes.Observe(toggle, "AccentBrush", b => { state.Accent = b; state.Apply(toggle); });
 
             toggle.PointerEntered += (_, _) => { state.Hovered = true; state.Apply(toggle); };
-            toggle.PointerExited += (_, _) => { state.Hovered = false; state.Pressed = false; state.Apply(toggle); };
-            toggle.PointerPressed += (_, _) => { state.Pressed = true; state.Apply(toggle); };
-            toggle.PointerReleased += (_, _) => { state.Pressed = false; state.Apply(toggle); };
-            toggle.PointerCaptureLost += (_, _) => { state.Pressed = false; state.Apply(toggle); };
+            toggle.PointerExited += (_, _) => { state.Hovered = false; state.IsPressed = false; state.Apply(toggle); };
+            toggle.PointerPressed += (_, _) => { state.IsPressed = true; state.Apply(toggle); };
+            toggle.PointerReleased += (_, _) => { state.IsPressed = false; state.Apply(toggle); };
+            toggle.PointerCaptureLost += (_, _) => { state.IsPressed = false; state.Apply(toggle); };
             toggle.GetObservable(ToggleButton.IsCheckedProperty).Subscribe(new ValueObserver<bool?>(_ => state.Apply(toggle)));
             toggle.GetObservable(ToggleButton.IsEnabledProperty).Subscribe(new ValueObserver<bool>(_ => state.Apply(toggle)));
 
@@ -504,10 +504,10 @@ namespace Configuration_Management
             ThemeBrushes.Observe(btn, "AccentBrush", b => { state.Accent = b; state.Apply(btn); });
 
             btn.PointerEntered += (_, _) => { state.Hovered = true; state.Apply(btn); };
-            btn.PointerExited += (_, _) => { state.Hovered = false; state.Pressed = false; state.Apply(btn); };
-            btn.PointerPressed += (_, _) => { state.Pressed = true; state.Apply(btn); };
-            btn.PointerReleased += (_, _) => { state.Pressed = false; state.Apply(btn); };
-            btn.PointerCaptureLost += (_, _) => { state.Pressed = false; state.Apply(btn); };
+            btn.PointerExited += (_, _) => { state.Hovered = false; state.IsPressed = false; state.Apply(btn); };
+            btn.PointerPressed += (_, _) => { state.IsPressed = true; state.Apply(btn); };
+            btn.PointerReleased += (_, _) => { state.IsPressed = false; state.Apply(btn); };
+            btn.PointerCaptureLost += (_, _) => { state.IsPressed = false; state.Apply(btn); };
             btn.GetObservable(Button.IsEnabledProperty).Subscribe(new ValueObserver<bool>(_ => state.Apply(btn)));
             btn.GetObservable(Button.IsKeyboardFocusWithinProperty).Subscribe(new ValueObserver<bool>(_ => state.Apply(btn)));
             state.Apply(btn);
@@ -702,7 +702,7 @@ namespace Configuration_Management
             public IBrush Border = Brushes.Transparent;
             public IBrush Accent = Brushes.Transparent;
             public bool Hovered;
-            public bool Pressed;
+            public bool IsPressed;
 
             public void Apply(Button btn)
             {
@@ -717,7 +717,7 @@ namespace Configuration_Management
                 }
 
                 btn.Opacity = 1.0;
-                btn.Background = Pressed ? Pressed : (Hovered ? Hover : Base);
+                btn.Background = IsPressed ? Pressed : (Hovered ? Hover : Base);
                 btn.BorderBrush = isActive ? Accent : Border;
                 // Активный сегмент сортировки подсвечивается акцентной рамкой (как сегментный
                 // переключатель Material): контраст иконки сохраняется в обеих темах.

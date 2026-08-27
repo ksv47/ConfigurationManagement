@@ -90,6 +90,17 @@ namespace Configuration_Management
                 PlatformBox.Text = _platforms[0];
         }
 
+        private void OnTypeChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var isFile = TypeBox.SelectedIndex != 1;
+            // Обработчик может сработать в ходе InitializeComponent(), когда элементы,
+            // объявленные ниже ComboBox в XAML, ещё не созданы, поэтому защищаемся от null.
+            if (FilePanel != null)
+                FilePanel.Visibility = isFile ? Visibility.Visible : Visibility.Collapsed;
+            if (ServerPanel != null)
+                ServerPanel.Visibility = isFile ? Visibility.Collapsed : Visibility.Visible;
+        }
+
         private void OnPickPlatform_Click(object sender, RoutedEventArgs e)
         {
             RefreshPlatformList();
@@ -227,14 +238,6 @@ namespace Configuration_Management
             LoadInstalledTemplates();
         }
 
-        private void OnType_Changed(object sender, RoutedEventArgs e)
-        {
-            if (FilePanel is null || ServerPanel is null) return;
-            var isFile = FileTypeRadio.IsChecked == true;
-            FilePanel.Visibility = isFile ? Visibility.Visible : Visibility.Collapsed;
-            ServerPanel.Visibility = isFile ? Visibility.Collapsed : Visibility.Visible;
-        }
-
         private void OnBrowseFolder_Click(object sender, RoutedEventArgs e)
         {
             using var dlg = new WinForms.FolderBrowserDialog
@@ -267,32 +270,7 @@ namespace Configuration_Management
                 return;
             }
 
-            var isFile = FileTypeRadio.IsChecked == true;
-            string? filePath = null;
-            string? server = null;
-            string? refName = null;
-
-            if (isFile)
-            {
-                filePath = FilePathBox.Text?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(filePath))
-                {
-                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterFilePath"), LocalizationManager.T("CreateInfobase.CreateTitle"),
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-            }
-            else
-            {
-                server = ServerBox.Text?.Trim() ?? "";
-                refName = RefBox.Text?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(refName))
-                {
-                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterServerAndRef"), LocalizationManager.T("CreateInfobase.CreateTitle"),
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-            }
+            var isFile = TypeBox.SelectedIndex != 1;
 
             string? templatePath = null;
             if (_fromTemplate)
@@ -307,8 +285,7 @@ namespace Configuration_Management
             }
 
             var platform = PlatformBox.Text?.Trim() ?? "";
-            // Убираем суффикс « (64)» для хранения в Infobase.PlatformVersion при необходимости —
-            // OneCLauncher.ParseVariant умеет оба формата; оставляем полный display.
+            // Убираем суффикс « (64)» для хранения в Infobase.PlatformVersion при необходимости.
             if (string.IsNullOrWhiteSpace(platform))
             {
                 MessageBox.Show(
@@ -318,32 +295,90 @@ namespace Configuration_Management
                 return;
             }
 
-            // Для файловой: если указан путь без имени — создаём подкаталог по имени базы.
-            if (isFile && !string.IsNullOrEmpty(filePath))
+            bool ok;
+            string? error;
+            ConnectionSettings connection;
+            if (isFile)
             {
-                if (!Directory.Exists(filePath) && !filePath.EndsWith(Path.DirectorySeparatorChar) &&
-                    !filePath.EndsWith(Path.AltDirectorySeparatorChar) &&
-                    string.IsNullOrEmpty(Path.GetExtension(filePath)))
+                var filePath = FilePathBox.Text?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(filePath))
                 {
-                    // path may be intended as new folder
+                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterFilePath"), LocalizationManager.T("CreateInfobase.CreateTitle"),
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
                 }
+
+                (ok, error) = OneCLauncher.CreateInfoBase(
+                    platformVersion: platform,
+                    isFile: true,
+                    filePath: filePath,
+                    server: null,
+                    databaseName: null,
+                    templatePath: templatePath);
+
+                if (!ok)
+                {
+                    MessageBox.Show(
+                        string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""),
+                        LocalizationManager.T("CreateInfobase.CreateTitle"),
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                connection = new ConnectionSettings
+                {
+                    Type = ConnectionType.File,
+                    FilePath = filePath ?? ""
+                };
             }
-
-            var (ok, error) = OneCLauncher.CreateInfoBase(
-                platformVersion: platform,
-                isFile: isFile,
-                filePath: filePath,
-                server: server,
-                databaseName: refName,
-                templatePath: templatePath);
-
-            if (!ok)
+            else
             {
-                MessageBox.Show(
-                    string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""),
-                    LocalizationManager.T("CreateInfobase.CreateTitle"),
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
+                var server = ServerBox.Text?.Trim() ?? "";
+                var refName = RefBox.Text?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(refName))
+                {
+                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterServerAndDb"), LocalizationManager.T("CreateInfobase.CreateTitle"),
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var dbms = DbmsBox.Text?.Trim() ?? "";
+                var dbServer = DbServerBox.Text?.Trim() ?? "";
+                var dbName = DbNameBox.Text?.Trim() ?? "";
+                var dbUser = DbUserBox.Text?.Trim() ?? "";
+                var dbPwd = DbPwdBox.Password ?? "";
+                var createSqlDatabase = CreateDbCheck.IsChecked == true;
+
+                (ok, error) = OneCLauncher.CreateInfoBase(
+                    platformVersion: platform,
+                    isFile: false,
+                    filePath: null,
+                    server: server,
+                    databaseName: refName,
+                    templatePath: templatePath,
+                    dbms: dbms,
+                    dbServer: dbServer,
+                    dbName: dbName,
+                    dbUser: dbUser,
+                    dbPassword: dbPwd,
+                    createSqlDatabase: createSqlDatabase);
+
+                if (!ok)
+                {
+                    MessageBox.Show(
+                        string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""),
+                        LocalizationManager.T("CreateInfobase.CreateTitle"),
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                connection = new ConnectionSettings
+                {
+                    Type = ConnectionType.ClientServer,
+                    Server = server,
+                    DatabaseName = refName,
+                    BlockScheduledJobs = BlockJobsCheck.IsChecked == true
+                };
             }
 
             // Разрядность, выбранная суффиксом версии «(32)/(64)», сохраняется
@@ -362,18 +397,7 @@ namespace Configuration_Management
                 Group = string.IsNullOrWhiteSpace(_selectedGroupPath) ? string.Empty : _selectedGroupPath,
                 PlatformVersion = storedPlatform,
                 Architecture = storedArchitecture,
-                Connection = isFile
-                    ? new ConnectionSettings
-                    {
-                        Type = ConnectionType.File,
-                        FilePath = filePath ?? ""
-                    }
-                    : new ConnectionSettings
-                    {
-                        Type = ConnectionType.ClientServer,
-                        Server = server ?? "",
-                        DatabaseName = refName ?? ""
-                    }
+                Connection = connection
             };
 
             DialogResult = true;

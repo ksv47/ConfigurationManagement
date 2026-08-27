@@ -5,6 +5,17 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
 версионирование — на [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [0.3.5.6] — 2026-08-27
+
+Исправлена сборка команды `CREATEINFOBASE` и связанное экранирование строк подключения (issue #77): клиент-серверное создание ИБ временно отключено, так как без параметров СУБД команда собиралась неполной и база на сервере не создавалась.
+
+### Исправлено
+
+- **Убран недоступный «Клиент-серверный» тип в окне «Создание информационной базы»** (обе платформы). Команда `CREATEINFOBASE` для клиент-серверного варианта собиралась неполной — только `Srvr=` и `Ref=`, без `DBMS`, `DBSrvr`, `DB`, `DBUID`/`DBPwd` и `CrSQLDB`, при этом окно запрашивало лишь «Сервер 1С» и «Имя базы», которых платформе недостаточно. Пока полноценная поддержка параметров СУБД не реализована, в окне создания доступен только файловый вариант ([`Views/CreateInfobaseWindow.xaml`](Views/CreateInfobaseWindow.xaml), [`Views/CreateInfobaseWindow.Avalonia.cs`](Views/CreateInfobaseWindow.Avalonia.cs)).
+- **Каталог файловой базы больше не остаётся на диске после неудачного `CREATEINFOBASE`** (обе платформы). Раньше каталог создавался до запуска команды и при ошибке, таймауте или отказе пустой каталог оставался. Теперь запоминается каталог, созданный в этой попытке, и при неудаче он удаляется, если остался пустым ([`Services/OneCLauncher.Arguments.cs`](Services/OneCLauncher.Arguments.cs), [`Services/OneCLauncher.Linux.cs`](Services/OneCLauncher.Linux.cs)).
+- **Экранирование кавычек (удвоение, как в `AppendParameter`) добавлено ещё в три места записи строки подключения**: экспорт `ibases.v8i` включая `Usr`/`Pwd` ([`Services/IbasesV8iExporter.cs`](Services/IbasesV8iExporter.cs)), `ConnectionSettings.ToConnectionString()` ([`Models/ConnectionSettings.cs`](Models/ConnectionSettings.cs)) и сборщик строки подключения Linux-реализации COM-коннектора ([`Services/OneCComConnector.Linux.cs`](Services/OneCComConnector.Linux.cs)).
+- **Обратный разбор строки подключения теперь разворачивает удвоение кавычки** — запись и чтение стали симметричными. Исправлены `ExtractQuoted` в [`Models/ConnectionSettings.cs`](Models/ConnectionSettings.cs) и в импортёре [`Services/IbasesV8iImporter.cs`](Services/IbasesV8iImporter.cs), а также regex разбора `Srvr=`/`Ref=` в [`Services/OneCLauncher.Arguments.cs`](Services/OneCLauncher.Arguments.cs) и [`Services/OneCLauncher.Linux.cs`](Services/OneCLauncher.Linux.cs). Значения с кавычкой больше не портятся при импорте `.v8i` и в окне ввода строки подключения.
+
 ## [0.3.5.5] — 2026-08-27
 
 Исправлена потеря клавиатурного фокуса на строке базы после редактирования её настроек (обе платформы).

@@ -15,6 +15,7 @@ namespace Configuration_Management
 {
     /// <summary>
     /// Диалог создания ИБ через CREATEINFOBASE (пустая или из шаблона .cf/.dt).
+    /// Поддерживает файловый и клиент-серверный варианты (с параметрами СУБД).
     /// Avalonia/Linux-версия WPF-окна <see cref="CreateInfobaseWindow"/>.
     /// </summary>
     public class CreateInfobaseWindow : ModalWindowBase
@@ -25,17 +26,31 @@ namespace Configuration_Management
         private string _selectedGroupPath;
         private readonly IDialogService _dialogs;
 
+        private readonly ComboBox _typeBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBox _nameBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBlock _groupPathBox = new() { VerticalAlignment = VerticalAlignment.Center };
         private readonly TextBox _platformBox = new() { Padding = new Thickness(8, 5) };
-        private readonly RadioButton _fileTypeRadio = new() { Content = LocalizationManager.T("CreateInfobase.FileType"), GroupName = "CreateType" };
-        private readonly RadioButton _serverTypeRadio = new() { Content = LocalizationManager.T("CreateInfobase.ServerType"), GroupName = "CreateType", IsChecked = true };
         private readonly TextBox _filePathBox = new() { Padding = new Thickness(8, 5) };
-        private readonly TextBox _serverBox = new() { Padding = new Thickness(8, 5) };
-        private readonly TextBox _refBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBox _templateBox = new() { Padding = new Thickness(8, 5) };
         private readonly StackPanel _filePanel = new() { Spacing = 8 };
+
+        // Поля клиент-серверного варианта.
         private readonly StackPanel _serverPanel = new() { Spacing = 8 };
+        private readonly TextBox _serverBox = new() { Padding = new Thickness(8, 5) };
+        private readonly TextBox _refBox = new() { Padding = new Thickness(8, 5) };
+        private readonly ComboBox _dbmsBox = new() { Padding = new Thickness(8, 5), IsEditable = true };
+        private readonly TextBox _dbServerBox = new() { Padding = new Thickness(8, 5) };
+        private readonly TextBox _dbNameBox = new() { Padding = new Thickness(8, 5) };
+        private readonly TextBox _dbUserBox = new() { Padding = new Thickness(8, 5) };
+        private readonly PasswordBox _dbPwdBox = new() { Padding = new Thickness(8, 5) };
+        private readonly CheckBox _createDbCheck = new();
+        private readonly CheckBox _blockJobsCheck = new();
+
+        /// <summary>Доступные значения СУБД для клиент-серверного создания.</summary>
+        private static readonly string[] DbmsValues =
+        {
+            "MSSQLServer", "PostgreSQL", "IBMDB2", "OracleDatabase", "SQLite"
+        };
 
         public Infobase? Result { get; private set; }
 
@@ -65,7 +80,6 @@ namespace Configuration_Management
 
             Content = BuildRoot();
             RefreshPlatformList();
-            UpdateTypePanels();
         }
 
         private string HintText => _fromTemplate
@@ -104,6 +118,14 @@ namespace Configuration_Management
 
             var fields = new StackPanel { Spacing = 10 };
 
+            // Тип базы
+            _typeBox.Items.Clear();
+            _typeBox.Items.Add(new ComboBoxItem { Content = LocalizationManager.T("CreateInfobase.TypeFile") });
+            _typeBox.Items.Add(new ComboBoxItem { Content = LocalizationManager.T("CreateInfobase.TypeClientServer") });
+            _typeBox.SelectedIndex = 0;
+            _typeBox.SelectionChanged += (_, _) => OnTypeChanged();
+            fields.Children.Add(Field(LocalizationManager.T("CreateInfobase.TypeLabel"), _typeBox));
+
             // Наименование
             fields.Children.Add(Field(LocalizationManager.T("Connection.NameLabel"), _nameBox));
 
@@ -139,15 +161,7 @@ namespace Configuration_Management
             platRow.Children.Add(pickPlatform);
             fields.Children.Add(platRow);
 
-            // Тип базы
-            var typePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            _fileTypeRadio.IsCheckedChanged += (_, _) => UpdateTypePanels();
-            _serverTypeRadio.IsCheckedChanged += (_, _) => UpdateTypePanels();
-            typePanel.Children.Add(_fileTypeRadio);
-            typePanel.Children.Add(_serverTypeRadio);
-            fields.Children.Add(Field(LocalizationManager.T("Connection.TypeLabel"), typePanel));
-
-            // Файловая
+            // Файловая база: путь к каталогу.
             var browseFile = new Button { Content = LocalizationManager.T("Common.Browse"), MinWidth = 90 };
             browseFile.Click += (_, _) => OnBrowseFolder_Click();
             var fileRow = new Grid();
@@ -160,12 +174,42 @@ namespace Configuration_Management
             fileRow.Children.Add(browseFile);
             _filePanel.Children.Add(Field(LocalizationManager.T("CreateInfobase.DirLabel"), fileRow));
 
-            // Серверная
-            _serverPanel.Children.Add(Field(LocalizationManager.T("Connection.ServerLabel"), _serverBox));
+            // Клиент-серверная база: сервер 1С, имя базы и параметры СУБД.
+            _dbmsBox.Items.Clear();
+            foreach (var v in DbmsValues)
+                _dbmsBox.Items.Add(new ComboBoxItem { Content = v });
+            _serverPanel.Children.Add(Field(LocalizationManager.T("CreateInfobase.ServerLabel"), _serverBox));
             _serverPanel.Children.Add(Field(LocalizationManager.T("CreateInfobase.RefLabel"), _refBox));
+            _serverPanel.Children.Add(Field(LocalizationManager.T("CreateInfobase.DbmsLabel"), _dbmsBox));
+            _serverPanel.Children.Add(Field(LocalizationManager.T("CreateInfobase.DbServerLabel"), _dbServerBox));
+            _serverPanel.Children.Add(Field(LocalizationManager.T("CreateInfobase.DbNameLabel"), _dbNameBox));
+            _serverPanel.Children.Add(Field(LocalizationManager.T("CreateInfobase.DbUserLabel"), _dbUserBox));
+            _serverPanel.Children.Add(Field(LocalizationManager.T("CreateInfobase.DbPasswordLabel"), _dbPwdBox));
+            var createDbRow = new Grid();
+            createDbRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(150)));
+            createDbRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            var cdLabel = new TextBlock { Text = LocalizationManager.T("CreateInfobase.CreateDatabase"), TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(cdLabel, 1);
+            createDbRow.Children.Add(cdLabel);
+            _createDbCheck.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(_createDbCheck, 0);
+            createDbRow.Children.Add(_createDbCheck);
+            _serverPanel.Children.Add(createDbRow);
+
+            var blockJobsRow = new Grid();
+            blockJobsRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(150)));
+            blockJobsRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            var bjLabel = new TextBlock { Text = LocalizationManager.T("CreateInfobase.BlockScheduledJobs"), TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(bjLabel, 1);
+            blockJobsRow.Children.Add(bjLabel);
+            _blockJobsCheck.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(_blockJobsCheck, 0);
+            blockJobsRow.Children.Add(_blockJobsCheck);
+            _serverPanel.Children.Add(blockJobsRow);
 
             fields.Children.Add(_filePanel);
             fields.Children.Add(_serverPanel);
+            _serverPanel.IsVisible = false;
 
             // Шаблон
             if (_fromTemplate)
@@ -212,6 +256,13 @@ namespace Configuration_Management
             return grid;
         }
 
+        private void OnTypeChanged()
+        {
+            var isFile = _typeBox.SelectedIndex != 1;
+            _filePanel.IsVisible = isFile;
+            _serverPanel.IsVisible = !isFile;
+        }
+
         private static Grid Field(string label, Control control)
         {
             var grid = new Grid { Margin = new Thickness(0, 0, 0, 6) };
@@ -226,13 +277,6 @@ namespace Configuration_Management
             Grid.SetColumn(control, 1);
             grid.Children.Add(control);
             return grid;
-        }
-
-        private void UpdateTypePanels()
-        {
-            var isFile = _fileTypeRadio.IsChecked == true;
-            _filePanel.IsVisible = isFile;
-            _serverPanel.IsVisible = !isFile;
         }
 
         private void OnPickGroup_Click()
@@ -301,30 +345,7 @@ namespace Configuration_Management
                 return;
             }
 
-            var isFile = _fileTypeRadio.IsChecked == true;
-            string? filePath = null;
-            string? server = null;
-            string? refName = null;
-
-            if (isFile)
-            {
-                filePath = _filePathBox.Text?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(filePath))
-                {
-                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterFilePath"), LocalizationManager.T("CreateInfobase.CreateTitle"));
-                    return;
-                }
-            }
-            else
-            {
-                server = _serverBox.Text?.Trim() ?? "";
-                refName = _refBox.Text?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(refName))
-                {
-                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterServerAndRef"), LocalizationManager.T("CreateInfobase.CreateTitle"));
-                    return;
-                }
-            }
+            var isFile = _typeBox.SelectedIndex != 1;
 
             string? templatePath = null;
             if (_fromTemplate)
@@ -346,18 +367,85 @@ namespace Configuration_Management
                 return;
             }
 
-            var (ok, error) = OneCLauncher.CreateInfoBase(
-                platformVersion: platform,
-                isFile: isFile,
-                filePath: filePath,
-                server: server,
-                databaseName: refName,
-                templatePath: templatePath);
+            bool ok;
+            string? error;
+            string server;
+            string refName;
+            ConnectionSettings connection;
 
-            if (!ok)
+            if (isFile)
             {
-                _dialogs.ShowError(string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""), LocalizationManager.T("CreateInfobase.CreateTitle"));
-                return;
+                var filePath = _filePathBox.Text?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(filePath))
+                {
+                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterFilePath"), LocalizationManager.T("CreateInfobase.CreateTitle"));
+                    return;
+                }
+
+                (ok, error) = OneCLauncher.CreateInfoBase(
+                    platformVersion: platform,
+                    isFile: true,
+                    filePath: filePath,
+                    server: null,
+                    databaseName: null,
+                    templatePath: templatePath);
+                if (!ok)
+                {
+                    _dialogs.ShowError(string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""), LocalizationManager.T("CreateInfobase.CreateTitle"));
+                    return;
+                }
+
+                server = string.Empty;
+                refName = string.Empty;
+                connection = new ConnectionSettings
+                {
+                    Type = ConnectionType.File,
+                    FilePath = filePath ?? ""
+                };
+            }
+            else
+            {
+                server = _serverBox.Text?.Trim() ?? "";
+                refName = _refBox.Text?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(refName))
+                {
+                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterServerAndDb"), LocalizationManager.T("CreateInfobase.CreateTitle"));
+                    return;
+                }
+
+                var dbms = _dbmsBox.Text?.Trim() ?? "";
+                var dbServer = _dbServerBox.Text?.Trim() ?? "";
+                var dbName = _dbNameBox.Text?.Trim() ?? "";
+                var dbUser = _dbUserBox.Text?.Trim() ?? "";
+                var dbPwd = _dbPwdBox.Password ?? "";
+                var createSqlDatabase = _createDbCheck.IsChecked == true;
+
+                (ok, error) = OneCLauncher.CreateInfoBase(
+                    platformVersion: platform,
+                    isFile: false,
+                    filePath: null,
+                    server: server,
+                    databaseName: refName,
+                    templatePath: templatePath,
+                    dbms: dbms,
+                    dbServer: dbServer,
+                    dbName: dbName,
+                    dbUser: dbUser,
+                    dbPassword: dbPwd,
+                    createSqlDatabase: createSqlDatabase);
+                if (!ok)
+                {
+                    _dialogs.ShowError(string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""), LocalizationManager.T("CreateInfobase.CreateTitle"));
+                    return;
+                }
+
+                connection = new ConnectionSettings
+                {
+                    Type = ConnectionType.ClientServer,
+                    Server = server,
+                    DatabaseName = refName,
+                    BlockScheduledJobs = _blockJobsCheck.IsChecked == true
+                };
             }
 
             PlatformVersionService.ParseVariant(platform, out var cleanPlatform, out var platformArch);
@@ -373,18 +461,7 @@ namespace Configuration_Management
                 Group = string.IsNullOrWhiteSpace(_selectedGroupPath) ? string.Empty : _selectedGroupPath,
                 PlatformVersion = storedPlatform,
                 Architecture = storedArchitecture,
-                Connection = isFile
-                    ? new ConnectionSettings
-                    {
-                        Type = ConnectionType.File,
-                        FilePath = filePath ?? ""
-                    }
-                    : new ConnectionSettings
-                    {
-                        Type = ConnectionType.ClientServer,
-                        Server = server ?? "",
-                        DatabaseName = refName ?? ""
-                    }
+                Connection = connection
             };
 
             DialogResult = true;

@@ -41,7 +41,7 @@
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="LockIcon" Text="🔒" Margin="0,0,8,0" VerticalAlignment="Center" Opacity="0.0"/>
+                        <TextBlock x:Name="LockIcon" Text="рџ”’" Margin="0,0,8,0" VerticalAlignment="Center" Opacity="0.0"/>
                         <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </DataTemplate>
@@ -66,7 +66,7 @@
                     Background="{DynamicResource ItemHoverBrush}"
                     Foreground="{DynamicResource TextPrimaryBrush}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✖" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="вњ–" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
@@ -75,7 +75,7 @@
                     Style="{StaticResource ModernButton}"
                     Click="OnLogin_Click">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✔" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="вњ”" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Auth.Login}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>

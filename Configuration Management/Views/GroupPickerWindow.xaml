@@ -23,9 +23,9 @@
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
-        <!-- Собственный стиль элемента дерева окна выбора группы: подсвечивается только
-             ровно выбранная строка (и листья, и родители), родители не «засвечиваются»
-             при выборе вложенной группы. -->
+        <!-- РЎРѕР±СЃС‚РІРµРЅРЅС‹Р№ СЃС‚РёР»СЊ СЌР»РµРјРµРЅС‚Р° РґРµСЂРµРІР° РѕРєРЅР° РІС‹Р±РѕСЂР° РіСЂСѓРїРїС‹: РїРѕРґСЃРІРµС‡РёРІР°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ
+             СЂРѕРІРЅРѕ РІС‹Р±СЂР°РЅРЅР°СЏ СЃС‚СЂРѕРєР° (Рё Р»РёСЃС‚СЊСЏ, Рё СЂРѕРґРёС‚РµР»Рё), СЂРѕРґРёС‚РµР»Рё РЅРµ В«Р·Р°СЃРІРµС‡РёРІР°СЋС‚СЃСЏВ»
+             РїСЂРё РІС‹Р±РѕСЂРµ РІР»РѕР¶РµРЅРЅРѕР№ РіСЂСѓРїРїС‹. -->
         <Style TargetType="TreeViewItem">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="IsExpanded" Value="True"/>
@@ -72,8 +72,8 @@
                             <Trigger Property="HasItems" Value="False">
                                 <Setter TargetName="Expander" Property="Visibility" Value="Hidden"/>
                             </Trigger>
-                            <!-- Только выбранная строка получает подсветку; родители при выборе
-                                 вложенного узла остаются без выделения. -->
+                            <!-- РўРѕР»СЊРєРѕ РІС‹Р±СЂР°РЅРЅР°СЏ СЃС‚СЂРѕРєР° РїРѕР»СѓС‡Р°РµС‚ РїРѕРґСЃРІРµС‚РєСѓ; СЂРѕРґРёС‚РµР»Рё РїСЂРё РІС‹Р±РѕСЂРµ
+                                 РІР»РѕР¶РµРЅРЅРѕРіРѕ СѓР·Р»Р° РѕСЃС‚Р°СЋС‚СЃСЏ Р±РµР· РІС‹РґРµР»РµРЅРёСЏ. -->
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="header" Property="Background" Value="{DynamicResource TreeSelectedBrush}"/>
                             </Trigger>

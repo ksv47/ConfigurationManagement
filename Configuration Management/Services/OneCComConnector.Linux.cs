@@ -311,11 +311,14 @@ namespace Configuration_Management.Services
                 return string.Empty;
             return c.Type switch
             {
-                ConnectionType.File => $"File=\"{c.FilePath}\"",
-                ConnectionType.WebServer => $"WS=\"{c.WebUrl}\"",
-                _ => $"Srvr=\"{c.GetServerWithPort()}\";Ref=\"{c.DatabaseName}\""
+                ConnectionType.File => $"File=\"{EscapeConnectValue(c.FilePath)}\"",
+                ConnectionType.WebServer => $"WS=\"{EscapeConnectValue(c.WebUrl)}\"",
+                _ => $"Srvr=\"{EscapeConnectValue(c.GetServerWithPort())}\";Ref=\"{EscapeConnectValue(c.DatabaseName)}\""
             };
         }
+
+        /// <summary>Экранирует значение строки подключения 1С: кавычка внутри удваивается.</summary>
+        private static string EscapeConnectValue(string value) => value.Replace("\"", "\"\"");
     }
 
     /// <summary>Регистрация COM-коннекторов на Linux — no-op (COM отсутствует).</summary>

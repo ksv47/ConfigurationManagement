@@ -279,6 +279,15 @@ public static partial class OneCLauncher
     /// <returns>true, если запуск успешно инициирован.</returns>
     public static bool Launch(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode, OneCArchitecture architecture, bool runAsAdmin = false)
     {
+        // База, расположенная на веб-сервере, подключается только тонким клиентом (/WS).
+        // Толстый клиент 1cv8.exe не понимает /WS и при запуске открывает стандартное
+        // окно со списком информационных баз вместо подключения к базе.
+        if (infobase.Connection.Type == ConnectionType.WebServer)
+        {
+            clientType = OneCClientType.Thin;
+            runMode ??= OneCRunMode.Managed;
+        }
+
         var exePath = FindExecutable(infobase.PlatformVersion, architecture, clientType, mode);
         if (string.IsNullOrEmpty(exePath))
         {

@@ -9,6 +9,37 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.5.8] — 2026-08-27
+
+В окно «Создание информационной базы» для клиент-серверного варианта добавлена галочка **«Блокировка фоновых заданий»**, которая сохраняется как параметр строки подключения `SCHEDJOBS=NO`.
+
+### Добавлено
+
+- **Галочка «Блокировка фоновых заданий»** в окне создания ИБ (обе платформы): для клиент-серверной базы включает параметр строки подключения `SCHEDJOBS=NO`, поэтому регламентные (фоновые) задания такой базы блокируются. UI — [`CreateInfobaseWindow.xaml`](Configuration Management/Views/CreateInfobaseWindow.xaml) + [`CreateInfobaseWindow.xaml.cs`](Configuration Management/Views/CreateInfobaseWindow.xaml.cs) (Windows/WPF) и [`CreateInfobaseWindow.Avalonia.cs`](Configuration Management/Views/CreateInfobaseWindow.Avalonia.cs) (Linux/Avalonia).
+- **Свойство `BlockScheduledJobs`** в [`ConnectionSettings.cs`](Configuration Management/Models/ConnectionSettings.cs): отражается в `ToConnectionString()` (`;SCHEDJOBS=NO`), разбирается обратно в `ParseConnectionString()` и сохраняется в `ibases.v8i` при экспорте ([`IbasesV8iExporter.cs`](Configuration Management/Services/IbasesV8iExporter.cs)).
+- **Ключ локализации** `CreateInfobase.BlockScheduledJobs` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+## [0.3.5.7] — 2026-08-27
+
+Возвращено создание **клиент-серверных** информационных баз через `CREATEINFOBASE`: команда снова собирается с параметрами СУБД (`DBMS`, `DBSrvr`, `DB`, `DBUID`/`DBPwd`) и флагом `/CreateDatabase`, а в окне «Создание информационной базы» появляется выбор типа базы и поля параметров СУБД (issue #77).
+
+### Добавлено
+
+- **Выбор типа создаваемой базы** в окне «Создание информационной базы» (обе платформы): сегмент «Файловая база» / «Клиент-серверная». Для клиент-серверного варианта доступны поля: сервер 1С (`Srvr`), имя базы на сервере (`Ref`), СУБД (`DBMS`), сервер СУБД (`DBSrvr`), имя базы данных (`DB`), пользователь и пароль СУБД (`DBUID`/`DBPwd`) и флажок создания базы данных на сервере СУБД (`/CreateDatabase`). Реализовано в [`CreateInfobaseWindow.xaml`](Configuration Management/Views/CreateInfobaseWindow.xaml) + [`CreateInfobaseWindow.xaml.cs`](Configuration Management/Views/CreateInfobaseWindow.xaml.cs) (Windows/WPF) и [`CreateInfobaseWindow.Avalonia.cs`](Configuration Management/Views/CreateInfobaseWindow.Avalonia.cs) (Linux/Avalonia).
+- **Параметры СУБД в `CreateInfoBase`** (обе платформы): метод принимает `dbms`, `dbServer`, `dbName`, `dbUser`, `dbPassword` и `createSqlDatabase`; значения добавляются в строку подключения только когда заданы, а флаг `createSqlDatabase` добавляет `/CreateDatabase` для клиент-серверного варианта ([`OneCLauncher.Arguments.cs`](Configuration Management/Services/OneCLauncher.Arguments.cs), [`OneCLauncher.Linux.cs`](Configuration Management/Services/OneCLauncher.Linux.cs)).
+- **Строки локализации** для типа базы и параметров СУБД в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+## [0.3.5.6] — 2026-08-27
+
+Исправлена сборка команды `CREATEINFOBASE` и связанное экранирование строк подключения (issue #77): клиент-серверное создание ИБ временно отключено, так как без параметров СУБД команда собиралась неполной и база на сервере не создавалась.
+
+### Исправлено
+
+- **Убран недоступный «Клиент-серверный» тип в окне «Создание информационной базы»** (обе платформы). Команда `CREATEINFOBASE` для клиент-серверного варианта собиралась неполной — только `Srvr=` и `Ref=`, без `DBMS`, `DBSrvr`, `DB`, `DBUID`/`DBPwd` и `CrSQLDB`, при этом окно запрашивало лишь «Сервер 1С» и «Имя базы», которых платформе недостаточно. Пока полноценная поддержка параметров СУБД не реализована, в окне создания доступен только файловый вариант ([`CreateInfobaseWindow.xaml`](Configuration Management/Views/CreateInfobaseWindow.xaml), [`CreateInfobaseWindow.Avalonia.cs`](Configuration Management/Views/CreateInfobaseWindow.Avalonia.cs)).
+- **Каталог файловой базы больше не остаётся на диске после неудачного `CREATEINFOBASE`** (обе платформы). Раньше каталог создавался до запуска команды и при ошибке, таймауте или отказе пустой каталог оставался. Теперь запоминается каталог, созданный в этой попытке, и при неудаче он удаляется, если остался пустым ([`OneCLauncher.Arguments.cs`](Configuration Management/Services/OneCLauncher.Arguments.cs), [`OneCLauncher.Linux.cs`](Configuration Management/Services/OneCLauncher.Linux.cs)).
+- **Экранирование кавычек (удвоение, как в `AppendParameter`) добавлено ещё в три места записи строки подключения**: экспорт `ibases.v8i` включая `Usr`/`Pwd` ([`IbasesV8iExporter.cs`](Configuration Management/Services/IbasesV8iExporter.cs)), `ConnectionSettings.ToConnectionString()` ([`ConnectionSettings.cs`](Configuration Management/Models/ConnectionSettings.cs)) и сборщик строки подключения Linux-реализации COM-коннектора ([`OneCComConnector.Linux.cs`](Configuration Management/Services/OneCComConnector.Linux.cs)).
+- **Обратный разбор строки подключения теперь разворачивает удвоение кавычки** — запись и чтение стали симметричными. Исправлены `ExtractQuoted` в [`ConnectionSettings.cs`](Configuration Management/Models/ConnectionSettings.cs) и в импортёре [`IbasesV8iImporter.cs`](Configuration Management/Services/IbasesV8iImporter.cs), а также regex разбора `Srvr=`/`Ref=` в [`OneCLauncher.Arguments.cs`](Configuration Management/Services/OneCLauncher.Arguments.cs) и [`OneCLauncher.Linux.cs`](Configuration Management/Services/OneCLauncher.Linux.cs). Значения с кавычкой больше не портятся при импорте `.v8i` и в окне ввода строки подключения.
+
 ## [0.3.5.5] — 2026-08-27
 
 Исправлена потеря клавиатурного фокуса на строке базы после редактирования её настроек (обе платформы).

@@ -203,14 +203,16 @@ public static partial class OneCLauncher
         }
 
         // 2. Строка подключения 1С: Srvr="...";Ref="..."
+        //    Кавычка внутри значения экранируется удвоением, поэтому шаблон допускает «""»
+        //    внутри и разворачивает его обратно (см. UnescapeConnectValue).
         var srvrMatch = System.Text.RegularExpressions.Regex.Match(
-            value, @"Srvr\s*=\s*""(?<s>[^""]*)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            value, @"Srvr\s*=\s*""(?<s>(?:[^""]|"""")*)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         if (srvrMatch.Success)
         {
             var refMatch = System.Text.RegularExpressions.Regex.Match(
-                value, @"Ref\s*=\s*""(?<r>[^""]*)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            var server = srvrMatch.Groups["s"].Value.Trim();
-            var database = refMatch.Success ? refMatch.Groups["r"].Value.Trim() : string.Empty;
+                value, @"Ref\s*=\s*""(?<r>(?:[^""]|"""")*)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var server = UnescapeConnectValue(srvrMatch.Groups["s"].Value).Trim();
+            var database = refMatch.Success ? UnescapeConnectValue(refMatch.Groups["r"].Value).Trim() : string.Empty;
             if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(database))
                 return null;
             return new ParsedLink { Arguments = $" /S \"{server}\\{database}\"" };
@@ -258,7 +260,13 @@ public static partial class OneCLauncher
         string? filePath,
         string? server,
         string? databaseName,
-        string? templatePath = null)
+        string? templatePath = null,
+        string? dbms = null,
+        string? dbServer = null,
+        string? dbName = null,
+        string? dbUser = null,
+        string? dbPassword = null,
+        bool createSqlDatabase = false)
     {
         var exePath = FindExecutable(platformVersion, OneCArchitecture.x64, OneCClientType.Thick, OneCLaunchMode.Configurator);
         if (string.IsNullOrEmpty(exePath) ||
@@ -273,6 +281,9 @@ public static partial class OneCLauncher
         }
 
         string connectionString;
+        // Каталог, созданный только что под файловую базу. Запоминаем его, чтобы удалить
+        // при неудачной попытке создания ИБ (issue #77): иначе пустой каталог остаётся на диске.
+        string? createdDirPath = null;
         if (isFile)
         {
             var path = (filePath ?? "").Trim().TrimEnd('\\', '/');
@@ -281,7 +292,10 @@ public static partial class OneCLauncher
             try
             {
                 if (!Directory.Exists(path))
+                {
                     Directory.CreateDirectory(path);
+                    createdDirPath = path;
+                }
             }
             catch (Exception ex)
             {
@@ -295,16 +309,38 @@ public static partial class OneCLauncher
             var db = (databaseName ?? "").Trim();
             if (string.IsNullOrEmpty(srv) || string.IsNullOrEmpty(db))
                 return (false, LocalizationManager.T("Launcher.CreateServerOrDbNotSpecified"));
-            connectionString = $"Srvr=\"{EscapeConnectValue(srv)}\";Ref=\"{EscapeConnectValue(db)}\"";
+
+            // Параметры СУБД добавляются в строку подключения только если заданы.
+            // Для клиент-серверного создания платформе нужны DBSrvr/DB/DBMS/DBUID/DBPwd,
+            // иначе команда собирается неполной (issue #77).
+            var csb = new System.Text.StringBuilder(
+                $"Srvr=\"{EscapeConnectValue(srv)}\";Ref=\"{EscapeConnectValue(db)}\"");
+            if (!string.IsNullOrWhiteSpace(dbms))
+                csb.Append($";DBMS=\"{EscapeConnectValue(dbms)}\"");
+            if (!string.IsNullOrWhiteSpace(dbServer))
+                csb.Append($";DBSrvr=\"{EscapeConnectValue(dbServer)}\"");
+            if (!string.IsNullOrWhiteSpace(dbName))
+                csb.Append($";DB=\"{EscapeConnectValue(dbName)}\"");
+            if (!string.IsNullOrWhiteSpace(dbUser))
+                csb.Append($";DBUID=\"{EscapeConnectValue(dbUser)}\"");
+            if (!string.IsNullOrWhiteSpace(dbPassword))
+                csb.Append($";DBPwd=\"{EscapeConnectValue(dbPassword)}\"");
+            connectionString = csb.ToString();
         }
 
         var arguments = $"CREATEINFOBASE {connectionString}";
         if (!string.IsNullOrWhiteSpace(templatePath))
         {
             if (!File.Exists(templatePath))
+            {
+                CleanupCreatedDir(createdDirPath);
                 return (false, string.Format(LocalizationManager.T("Launcher.CreateTemplateNotFoundFormat"), templatePath));
+            }
             arguments += $" /UseTemplate\"{templatePath}\"";
         }
+        // Для клиент-серверного создания базу данных на сервере СУБД создаёт сам 1С.
+        if (!isFile && createSqlDatabase)
+            arguments += " /CreateDatabase";
         arguments += " /DisableStartupDialogs /DisableStartupMessages";
 
         try
@@ -321,11 +357,15 @@ public static partial class OneCLauncher
             };
             using var process = Process.Start(psi);
             if (process is null)
+            {
+                CleanupCreatedDir(createdDirPath);
                 return (false, LocalizationManager.T("Launcher.CreateProcessFailed"));
+            }
 
             if (!process.WaitForExit(5 * 60 * 1000))
             {
                 try { process.Kill(entireProcessTree: true); } catch { /* ignore */ }
+                CleanupCreatedDir(createdDirPath);
                 return (false, LocalizationManager.T("Launcher.CreateTimeout"));
             }
 
@@ -333,6 +373,7 @@ public static partial class OneCLauncher
             {
                 var err = "";
                 try { err = process.StandardError.ReadToEnd(); } catch { /* ignore */ }
+                CleanupCreatedDir(createdDirPath);
                 return (false,
                     string.Format(LocalizationManager.T("Launcher.CreateExitCodeFormat"), process.ExitCode, err, exePath, arguments));
             }
@@ -341,6 +382,7 @@ public static partial class OneCLauncher
         }
         catch (Exception ex)
         {
+            CleanupCreatedDir(createdDirPath);
             return (false, string.Format(LocalizationManager.T("Launcher.CreateCommandErrorFormat"), ex.Message, exePath, arguments));
         }
     }
@@ -356,4 +398,32 @@ public static partial class OneCLauncher
     /// </para>
     /// </summary>
     private static string EscapeConnectValue(string value) => value.Replace("\"", "\"\"");
+
+    /// <summary>
+    /// Разворачивает экранирование строки подключения 1С: удвоенная кавычка «""» снова
+    /// становится одной. Обратная операция к <see cref="EscapeConnectValue"/>.
+    /// </summary>
+    private static string UnescapeConnectValue(string value) => value.Replace("\"\"", "\"");
+
+    /// <summary>
+    /// Удаляет только что созданный пустой каталог файловой базы, если CREATEINFOBASE не удался.
+    /// Затрагивает лишь каталог, созданный в этой попытке, и только если он остался пустым.
+    /// </summary>
+    private static void CleanupCreatedDir(string? dirPath)
+    {
+        if (string.IsNullOrEmpty(dirPath))
+            return;
+        try
+        {
+            if (Directory.Exists(dirPath) &&
+                !Directory.EnumerateFileSystemEntries(dirPath).Any())
+            {
+                Directory.Delete(dirPath);
+            }
+        }
+        catch
+        {
+            /* Не критично: каталог мог быть занят или уже удалён. */
+        }
+    }
 }
