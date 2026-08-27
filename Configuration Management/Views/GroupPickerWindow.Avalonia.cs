@@ -114,8 +114,9 @@ namespace Configuration_Management
             grid.Children.Add(toolbar);
 
             var hint = ThemedText(LocalizationManager.T("GroupPicker.Hint"), 12, secondary: true, FontWeight.Normal);
-            // Без переноса подсказка в 109 символов не помещается в окно шириной 520
-            // и обрезается по краю: TextBlock без TextWrapping держит одну строку.
+            // ThemedText не задаёт перенос, а TextBlock без него держит одну строку:
+            // пояснение и подзаголовок обрезались по краю окна. В разметке WPF
+            // на этих же строках TextWrapping="Wrap" стоит.
             hint.TextWrapping = TextWrapping.Wrap;
             hint.Margin = new Thickness(0, 0, 0, 8);
             Grid.SetRow(hint, 2);
@@ -151,9 +152,12 @@ namespace Configuration_Management
 
             // Справка добавляется до заголовка: в DockPanel последний ребёнок
             // занимает остаток, и после titleStack кружок «?» встал бы не к краю.
-            var help = HelpLink("GroupPicker.Help");
-            help.VerticalAlignment = VerticalAlignment.Top;
-            help.Margin = new Thickness(12, 4, 0, 0);
+            var help = new HelpLink
+            {
+                HelpText = LocalizationManager.T("GroupPicker.Help"),
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(12, 4, 0, 0)
+            };
             DockPanel.SetDock(help, Dock.Right);
             header.Children.Add(help);
 
