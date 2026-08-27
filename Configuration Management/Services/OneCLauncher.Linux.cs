@@ -268,11 +268,30 @@ namespace Configuration_Management.Services
                 _ => ""
             };
 
+            // Подключение к хранилищу конфигурации (только в режиме «Конфигуратор»):
+            // /ConfigurationRepositoryF "<путь>" — путь к хранилищу. Для серверного хранилища
+            // путь имеет вид tcp://сервер:порт/имяХранилища (из Repository.Server + RepositoryName);
+            // /ConfigurationRepositoryN — пользователь хранилища; /ConfigurationRepositoryP — пароль.
+            // Аргументы добавляются, только если задан адрес сервера хранилища.
+            string repositoryArg = "";
+            var repo = infobase.Repository;
+            if (mode == OneCLaunchMode.Configurator && repo.HasServer)
+            {
+                var server = repo.Server.Trim().TrimEnd('/');
+                var name = (repo.RepositoryName ?? string.Empty).Trim();
+                var repoPath = string.IsNullOrWhiteSpace(name) ? server : $"{server}/{name}";
+                repositoryArg = $" /ConfigurationRepositoryF \"{repoPath}\"";
+                if (!string.IsNullOrWhiteSpace(repo.User))
+                {
+                    repositoryArg += $" /ConfigurationRepositoryN \"{repo.User}\" /ConfigurationRepositoryP \"{repo.Password}\"";
+                }
+            }
+
             var extraArg = string.IsNullOrWhiteSpace(infobase.LaunchParameters)
                 ? ""
                 : " " + infobase.LaunchParameters.Trim();
 
-            return $"{modeArg}{clientArg}{connectionArg}{authArg}{extraArg}";
+            return $"{modeArg}{clientArg}{connectionArg}{authArg}{repositoryArg}{extraArg}";
         }
 
         private static bool LaunchWebClient(Infobase infobase)
