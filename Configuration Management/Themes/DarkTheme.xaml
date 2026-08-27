@@ -504,7 +504,7 @@
                                           Padding="{TemplateBinding Padding}"
                                           VerticalAlignment="Center"/>
                         </Border>
-                        <TextBlock Text="рџ”Ќ" FontSize="13"
+                        <TextBlock Text="🔍" FontSize="13"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="8,0,0,0" VerticalAlignment="Center"
                                    IsHitTestVisible="False"/>

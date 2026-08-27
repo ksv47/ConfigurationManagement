@@ -810,6 +810,8 @@
     "CreateInfobase.HintEmpty": "Будет выполнена команда CREATEINFOBASE без шаблона. После создания база добавится в список программы.",
     "CreateInfobase.NoPlatformsPathsMsg": "Добавьте каталоги платформ в Настройки → дополнительные пути поиска (например E:\\1cPlatform),\nзатем обновите список версий.",
     "CreateInfobase.PlatformPathsTitle": "Пути к платформам",
+    "CreateInfobase.Loading": "Загрузка шаблонов…",
+    "CreateInfobase.LoadingFailed": " Ошибка при чтении каталогов шаблонов.",
     "CreateInfobase.TemplateRootsDefault": "Каталог шаблонов 1С (по умолчанию): {0}",
     "CreateInfobase.FolderNotCreated": " — папка ещё не создана",
     "CreateInfobase.AlsoChecked": "\nТакже проверены: {0}",

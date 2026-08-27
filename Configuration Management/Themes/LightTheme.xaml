@@ -501,7 +501,7 @@
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Hidden"/>
                         </Border>
-                        <TextBlock Text="рџ”Ќ" FontSize="14"
+                        <TextBlock Text="🔍" FontSize="14"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left"
                                    IsHitTestVisible="False"/>

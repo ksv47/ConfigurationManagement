@@ -174,7 +174,7 @@
                     Foreground="{DynamicResource TextPrimaryBrush}"
                     Command="{Binding DeleteCommand}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="рџ—‘" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="🗑" Margin="0,0,6,0" VerticalAlignment="Center"/>
                     <TextBlock Text="{loc:Loc Profiles.Delete}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>

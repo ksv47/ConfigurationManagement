@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Configuration_Management.Localization;
@@ -131,10 +133,60 @@ namespace Configuration_Management
 
         private void LoadInstalledTemplates()
         {
-            var primary = OneCTemplateService.GetConfiguredOrDefaultTemplatePath();
-            var roots = OneCTemplateService.GetTemplateRootFolders();
-            var primaryExists = Directory.Exists(primary);
+            _templateLoadingCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _templateLoadingCts = cts;
 
+            // Показываем окно сразу, а тяжёлое сканирование каталогов шаблонов
+            // выполняем в фоне; список дособерётся, когда будет готов.
+            ShowTemplateLoading(true);
+            TemplateTree.ItemsSource = null;
+            _flatTemplates = new List<OneCTemplateService.TemplateInfo>();
+
+            Task.Run(() =>
+            {
+                // Основной источник — первый фактически существующий корень.
+                // GetTemplateRootFolders() ставит настроенные пользователем каталоги
+                // первыми, поэтому подсказка отражает реально используемый каталог,
+                // а не дефолтный tmplts.
+                var roots = OneCTemplateService.GetTemplateRootFolders().ToList();
+                var primary = roots.Count > 0
+                    ? roots[0]
+                    : OneCTemplateService.GetConfiguredOrDefaultTemplatePath();
+                var primaryExists = Directory.Exists(primary);
+
+                var templates = OneCTemplateService.FindInstalledTemplates().ToList();
+                var tree = OneCTemplateService.BuildTemplateTree(templates);
+                return new TemplateLoadResult(primary, roots, primaryExists, templates, tree);
+            }).ContinueWith(t =>
+            {
+                if (cts.IsCancellationRequested)
+                    return;
+
+                ShowTemplateLoading(false);
+
+                if (t.IsFaulted)
+                {
+                    _flatTemplates = new List<OneCTemplateService.TemplateInfo>();
+                    TemplateTree.ItemsSource = null;
+                    TemplateRootsHint.Text +=
+                        LocalizationManager.T("CreateInfobase.LoadingFailed");
+                    return;
+                }
+
+                var r = t.Result;
+                _flatTemplates = r.Templates;
+                TemplateTree.ItemsSource = r.Tree;
+                UpdateTemplateRootsHint(r.Primary, r.Roots, r.PrimaryExists);
+
+                if (r.Templates.Count == 0)
+                    TemplateRootsHint.Text +=
+                        LocalizationManager.T("CreateInfobase.NoTemplates");
+            }, TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
+        private void UpdateTemplateRootsHint(string primary, IReadOnlyList<string> roots, bool primaryExists)
+        {
             TemplateRootsHint.Text =
                 string.Format(LocalizationManager.T("CreateInfobase.TemplateRootsDefault"), primary) +
                 (primaryExists ? "" : LocalizationManager.T("CreateInfobase.FolderNotCreated")) +
@@ -143,30 +195,41 @@ namespace Configuration_Management
                         string.Join("; ", roots.Where(r =>
                             !r.Equals(primary, StringComparison.OrdinalIgnoreCase))))
                     : "");
+        }
 
-            var templates = OneCTemplateService.FindInstalledTemplates();
-            _flatTemplates = templates.ToList();
-            var tree = OneCTemplateService.BuildTemplateTree(templates);
-            TemplateTree.ItemsSource = tree;
+        private void ShowTemplateLoading(bool loading)
+        {
+            if (TemplateLoadingPanel != null)
+                TemplateLoadingPanel.Visibility = loading ? Visibility.Visible : Visibility.Collapsed;
+            if (TemplateTree != null)
+                TemplateTree.IsEnabled = !loading;
+        }
 
-            var first = templates.FirstOrDefault();
-            if (first is not null)
+        private sealed class TemplateLoadResult
+        {
+            public TemplateLoadResult(
+                string primary,
+                IReadOnlyList<string> roots,
+                bool primaryExists,
+                List<OneCTemplateService.TemplateInfo> templates,
+                IReadOnlyList<OneCTemplateService.TemplateTreeNode> tree)
             {
-                TemplateBox.Text = first.FilePath;
-                if (string.IsNullOrWhiteSpace(NameBox.Text))
-                    NameBox.Text = SuggestNameFromTemplate(first);
-                Dispatcher.BeginInvoke(new Action(() => SelectFirstLeaf(TemplateTree)),
-                    System.Windows.Threading.DispatcherPriority.Loaded);
+                Primary = primary;
+                Roots = roots;
+                PrimaryExists = primaryExists;
+                Templates = templates;
+                Tree = tree;
             }
-            else
-            {
-                TemplateBox.Text = "";
-                TemplateRootsHint.Text +=
-                    LocalizationManager.T("CreateInfobase.NoTemplates");
-            }
+
+            public string Primary { get; }
+            public IReadOnlyList<string> Roots { get; }
+            public bool PrimaryExists { get; }
+            public List<OneCTemplateService.TemplateInfo> Templates { get; }
+            public IReadOnlyList<OneCTemplateService.TemplateTreeNode> Tree { get; }
         }
 
         private List<OneCTemplateService.TemplateInfo> _flatTemplates = new();
+        private CancellationTokenSource? _templateLoadingCts;
 
         private static string SuggestNameFromTemplate(OneCTemplateService.TemplateInfo t)
         {
@@ -208,29 +271,6 @@ namespace Configuration_Management
             var name = NameBox.Text?.Trim() ?? "";
             return _flatTemplates.Any(t =>
                 SuggestNameFromTemplate(t).Equals(name, StringComparison.OrdinalIgnoreCase));
-        }
-
-        /// <summary>Выделяет первый листовой шаблон в дереве.</summary>
-        private static void SelectFirstLeaf(ItemsControl parent)
-        {
-            foreach (var item in parent.Items)
-            {
-                if (item is not OneCTemplateService.TemplateTreeNode node) continue;
-                var container = parent.ItemContainerGenerator.ContainerFromItem(item) as TreeViewItem;
-                if (node.Template is not null)
-                {
-                    if (container is not null)
-                        container.IsSelected = true;
-                    return;
-                }
-                if (container is not null)
-                {
-                    container.IsExpanded = true;
-                    container.UpdateLayout();
-                    SelectFirstLeaf(container);
-                    return;
-                }
-            }
         }
 
         private void OnRefreshTemplates_Click(object sender, RoutedEventArgs e)

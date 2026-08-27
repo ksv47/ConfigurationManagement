@@ -96,6 +96,13 @@
                            Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap"/>
                 <TextBlock x:Name="TemplateRootsHint" FontSize="11" Margin="0,0,0,6" TextWrapping="Wrap"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <StackPanel x:Name="TemplateLoadingPanel" Orientation="Horizontal" Margin="0,0,0,6"
+                            Visibility="Collapsed">
+                    <ProgressBar Width="140" Height="14" IsIndeterminate="True" VerticalAlignment="Center"/>
+                    <TextBlock Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Text="{loc:Loc CreateInfobase.Loading}"/>
+                </StackPanel>
                 <TreeView x:Name="TemplateTree" Height="260" Margin="0,0,0,6"
                           BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
                           Background="{DynamicResource CardBackgroundBrush}"

@@ -810,6 +810,8 @@
     "CreateInfobase.HintEmpty": "The CREATEINFOBASE command will be run without a template. After creation the base will be added to the application list.",
     "CreateInfobase.NoPlatformsPathsMsg": "Add platform directories in Settings → additional search paths (e.g. E:\\1cPlatform),\nthen refresh the version list.",
     "CreateInfobase.PlatformPathsTitle": "Platform paths",
+    "CreateInfobase.Loading": "Loading templates…",
+    "CreateInfobase.LoadingFailed": " Error reading template directories.",
     "CreateInfobase.TemplateRootsDefault": "1C template directory (default): {0}",
     "CreateInfobase.FolderNotCreated": " — the folder does not exist yet",
     "CreateInfobase.AlsoChecked": "\nAlso checked: {0}",

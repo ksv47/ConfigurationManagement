@@ -41,7 +41,7 @@
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="LockIcon" Text="рџ”’" Margin="0,0,8,0" VerticalAlignment="Center" Opacity="0.0"/>
+                        <TextBlock x:Name="LockIcon" Text="🔒" Margin="0,0,8,0" VerticalAlignment="Center" Opacity="0.0"/>
                         <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </DataTemplate>

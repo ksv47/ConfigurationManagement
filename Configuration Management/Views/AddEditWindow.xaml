@@ -78,7 +78,7 @@
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="рџ“‹" FontSize="24" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="0" Text="📋" FontSize="24" VerticalAlignment="Center"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{loc:Loc AddEdit.ExistingBase}" FontWeight="SemiBold" FontSize="14"/>
@@ -97,7 +97,7 @@
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="рџ’ѕ" FontSize="24" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="0" Text="💾" FontSize="24" VerticalAlignment="Center"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{loc:Loc AddEdit.CreateEmpty}" FontWeight="SemiBold" FontSize="14"/>
@@ -116,7 +116,7 @@
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="рџ“¦" FontSize="24" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="0" Text="📦" FontSize="24" VerticalAlignment="Center"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{loc:Loc AddEdit.CreateFromTemplate}" FontWeight="SemiBold" FontSize="14"/>
@@ -135,7 +135,7 @@
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="рџ“Ѓ" FontSize="24" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="0" Text="📁" FontSize="24" VerticalAlignment="Center"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{loc:Loc AddEdit.Group}" FontWeight="SemiBold" FontSize="14"/>
