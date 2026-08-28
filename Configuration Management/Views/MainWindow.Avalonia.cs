@@ -3895,7 +3895,11 @@ namespace Configuration_Management
             if (_vm is null)
                 return menu;
 
-            var cacheMenu = new MenuItem { Header = LocalizationManager.T("Main.ClearCache") };
+            var cacheMenu = new MenuItem
+            {
+                Header = LocalizationManager.T("Main.ClearCache"),
+                Icon = MenuIcon("IconBroom", "#14B8A6")
+            };
             cacheMenu.Items.Add(MenuAction("Main.ClearProgramCache", _vm.ClearProgramCacheCommand));
             cacheMenu.Items.Add(MenuAction("Main.ClearUserCache", _vm.ClearUserCacheCommand));
             cacheMenu.Items.Add(new Separator());
@@ -3904,37 +3908,55 @@ namespace Configuration_Management
             // хотя клавиша делает то же самое, что этот пункт.
             cacheMenu.Items.Add(MenuAction("Main.ClearCacheBoth", _vm.ClearCacheBothCommand, _vm.HotkeyClearCache));
 
-            menu.Items.Add(MenuAction("Main.LaunchEnterprise", _vm.LaunchEnterpriseCommand, _vm.HotkeyEnterprise));
-            menu.Items.Add(MenuAction("Main.LaunchConfigurator", _vm.LaunchConfiguratorCommand, _vm.HotkeyConfigurator));
-            menu.Items.Add(MenuAction("Main.EditSettings", _vm.EditInfobaseCommand, _vm.HotkeyEdit));
-            menu.Items.Add(MenuAction("Main.RefreshConfigInfo", _vm.RefreshConfigurationInfoCommand));
+            menu.Items.Add(MenuAction("Main.LaunchEnterprise", _vm.LaunchEnterpriseCommand, _vm.HotkeyEnterprise, "IconPlay", "#22C55E"));
+            menu.Items.Add(MenuAction("Main.LaunchConfigurator", _vm.LaunchConfiguratorCommand, _vm.HotkeyConfigurator, "IconSettings", "#3B82F6"));
+            menu.Items.Add(MenuAction("Main.EditSettings", _vm.EditInfobaseCommand, _vm.HotkeyEdit, "IconEdit", "#3B82F6"));
+            menu.Items.Add(MenuAction("Main.RefreshConfigInfo", _vm.RefreshConfigurationInfoCommand, null, "IconCloudDownload", "#14B8A6"));
             // «Зарегистрировать COM-коннектор» здесь нет намеренно: внешнее соединение
             // это COM, в Linux регистрировать нечего. Windows-сторона решение подтвердила.
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuAction("Main.ToFavorites", _vm.ToggleFavoriteCommand, _vm.HotkeyFavorite));
-            menu.Items.Add(MenuAction("Main.Pin", _vm.TogglePinCommand, _vm.HotkeyPin));
+            menu.Items.Add(MenuAction("Main.ToFavorites", _vm.ToggleFavoriteCommand, _vm.HotkeyFavorite, "IconStar", "#FBBF24"));
+            menu.Items.Add(MenuAction("Main.Pin", _vm.TogglePinCommand, _vm.HotkeyPin, "IconPin", "#8B5CF6"));
             menu.Items.Add(cacheMenu);
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuAction("Main.CopyConnectionString", _vm.CopyConnectionStringCommand));
-            menu.Items.Add(MenuAction("Main.OpenCatalog", _vm.OpenInfobaseFolderCommand));
-            menu.Items.Add(MenuAction("Main.DesktopShortcut", _vm.CreateDesktopShortcutCommand));
-            menu.Items.Add(MenuAction("Main.AddBase", _vm.AddInfobaseCommand, _vm.HotkeyAdd));
+            menu.Items.Add(MenuAction("Main.CopyConnectionString", _vm.CopyConnectionStringCommand, null, "IconCopy", "#06B6D4"));
+            menu.Items.Add(MenuAction("Main.OpenCatalog", _vm.OpenInfobaseFolderCommand, null, "IconFolder", "#0EA5E9"));
+            menu.Items.Add(MenuAction("Main.DesktopShortcut", _vm.CreateDesktopShortcutCommand, null, "IconMonitor", "#6366F1"));
+            menu.Items.Add(MenuAction("Main.AddBase", _vm.AddInfobaseCommand, _vm.HotkeyAdd, "IconAdd", "#22C55E"));
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuAction("Main.DumpToDt", _vm.DumpInfobaseDtCommand));
-            menu.Items.Add(MenuAction("Main.DumpConfigToCf", _vm.DumpConfigurationCfCommand));
+            menu.Items.Add(MenuAction("Main.DumpToDt", _vm.DumpInfobaseDtCommand, null, "IconDatabaseExport", "#0EA5E9"));
+            menu.Items.Add(MenuAction("Main.DumpConfigToCf", _vm.DumpConfigurationCfCommand, null, "IconFileExport", "#3B82F6"));
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuAction("Main.Delete", _vm.DeleteInfobaseCommand, _vm.HotkeyDelete));
+            menu.Items.Add(MenuAction("Main.Delete", _vm.DeleteInfobaseCommand, _vm.HotkeyDelete, "IconDelete", "#EF4444"));
             return menu;
         }
 
+        /// <summary>
+        /// Значок пункта меню. Цвет задаётся явно, а не ресурсом темы: в разметке
+        /// WPF у каждого пункта свой цвет, и он один и тот же в светлой и тёмной.
+        /// </summary>
+        private static Control MenuIcon(string iconKey, string colorHex) =>
+            new Avalonia.Controls.Shapes.Path
+            {
+                Width = 16,
+                Height = 16,
+                Data = IconHelper.Geometry(iconKey),
+                Stretch = Stretch.Uniform,
+                Fill = new SolidColorBrush(Color.Parse(colorHex)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
         /// <summary>Пункт меню с подписью из словаря, командой и подсказкой сочетания клавиш.</summary>
-        private static MenuItem MenuAction(string textKey, System.Windows.Input.ICommand command, string? gesture = null)
+        private static MenuItem MenuAction(string textKey, System.Windows.Input.ICommand command, string? gesture = null,
+            string? iconKey = null, string? iconColor = null)
         {
             var item = new MenuItem
             {
                 Header = LocalizationManager.T(textKey),
                 Command = command
             };
+            if (iconKey is not null && iconColor is not null)
+                item.Icon = MenuIcon(iconKey, iconColor);
             if (Controls.HotkeyBox.TryParse(gesture, out var parsed) && parsed is not null)
                 item.InputGesture = parsed;
             return item;
