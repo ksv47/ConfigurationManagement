@@ -1455,7 +1455,9 @@ namespace Configuration_Management
             });
 
             // ===== Клавиши =====
-            var hotkeys = new StackPanel { Spacing = 10 };
+            // Spacing не задаётся: в Avalonia он складывается с полями соседей,
+            // а поля строк взяты из разметки WPF и уже держат нужный шаг.
+            var hotkeys = new StackPanel();
             var hotkeysTitle = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -1473,7 +1475,9 @@ namespace Configuration_Management
                 Margin = new Thickness(6, 0, 0, 0)
             });
             hotkeys.Children.Add(hotkeysTitle);
-            hotkeys.Children.Add(Hint(LocalizationManager.T("Settings.Hotkeys.Description")));
+            var hotkeysHint = Hint(LocalizationManager.T("Settings.Hotkeys.Description"));
+            hotkeysHint.Margin = new Thickness(0, 0, 0, 8);
+            hotkeys.Children.Add(hotkeysHint);
 
             // Поля назначения: HotkeyBox ловит сочетание с клавиатуры, Delete
             // снимает назначение, Escape отменяет ввод. Подписи и порядок строк
@@ -1546,7 +1550,9 @@ namespace Configuration_Management
                 // остаётся открытым, а часть настроек уже на диске.
                 // Имена действий в сообщении о дубле берутся не из подписей вкладки:
                 // там они с двоеточием на конце и в предложение не встают. Набор
-                // ключей тот же, что в проверке WPF (SettingsWindow.xaml.cs:149).
+                // ключей тот же, что в массиве assigned проверки WPF
+                // (Views/SettingsWindow.xaml.cs): номер строки там сдвинется
+                // при первом же обновлении от автора, имя переменной нет.
                 var assignments = new (string Action, Controls.HotkeyBox Box)[]
                 {
                     (LocalizationManager.T("Main.Enterprise"), hotkeyEnterprise),
@@ -1933,14 +1939,16 @@ namespace Configuration_Management
         /// <summary>Строка переназначения: подпись действия и поле ввода сочетания.</summary>
         private static Controls.HotkeyBox HotkeyRow(Panel host, string action, string value)
         {
-            var grid = new Grid { Margin = new Thickness(0, 2) };
+            // Раскладка строки из разметки WPF: подпись в колонке 170, поле тянется
+            // по остатку ширины, шаг между строками 6.
+            var grid = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(170)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(190)));
 
             var label = new TextBlock { Text = action, VerticalAlignment = VerticalAlignment.Center };
             grid.Children.Add(label);
 
-            var box = new Controls.HotkeyBox { Value = value ?? string.Empty, HorizontalAlignment = HorizontalAlignment.Right, Width = 180 };
+            var box = new Controls.HotkeyBox { Value = value ?? string.Empty, HorizontalAlignment = HorizontalAlignment.Stretch, Height = 34 };
             Grid.SetColumn(box, 1);
             grid.Children.Add(box);
 
