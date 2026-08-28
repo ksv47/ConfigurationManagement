@@ -2057,6 +2057,15 @@ namespace Configuration_Management
             {
                 if (e.InitialPressMouseButton != MouseButton.Left)
                     return;
+                // Отпускание вне текста щелчком не считается: Avalonia
+                // захватывает указатель при нажатии, и без этой проверки
+                // ссылка срабатывала после перетаскивания далеко в сторону.
+                // В версии для Windows этого нет: там MouseLeftButtonUp
+                // без захвата, и отпускание вне элемента до ссылки не доходит.
+                var point = e.GetPosition(link);
+                if (point.X < 0 || point.Y < 0
+                    || point.X > link.Bounds.Width || point.Y > link.Bounds.Height)
+                    return;
                 if (!Services.OneCLauncher.OpenUrl(url))
                     ShowAboutMessage(LocalizationManager.T("Settings.About.LinkOpenFailed"));
             };

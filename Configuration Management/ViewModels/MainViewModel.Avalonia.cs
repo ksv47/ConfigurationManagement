@@ -2378,7 +2378,7 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
-        if (TryExportToIbases(path, backup: false, "Ручная выгрузка", out var error))
+        if (TryExportToIbases(path, backup: true, "Ручная выгрузка", out var error))
         {
             _dialog.ShowInfo(LocalizationManager.T("Settings.Ibases.ExportOk"),
                 LocalizationManager.T("Settings.Ibases.ExportTitle"));
@@ -3631,10 +3631,12 @@ public class MainViewModel : ViewModelBase
     /// только ручной операции.
     /// </summary>
     /// <param name="backup">
-    /// Создавать ли резервную копию файла. Автоматическая синхронизация её
-    /// создаёт по настройке, ручная выгрузка нет: так же устроена версия
-    /// для Windows, и иначе выгрузка вытесняла бы ту самую копию, которую
-    /// восстанавливает соседняя кнопка.
+    /// Создавать ли резервную копию файла. Создают обе выгрузки, и ручная тоже,
+    /// хотя в версии для Windows ручная копию не делает. Причина в том, что
+    /// выгрузка переписывает файл целиком: при пустом списке баз приложения
+    /// она обнуляет ibases.v8i, и без копии это уже не отменить. Копия хранит
+    /// состояние до выгрузки, то есть соседняя кнопка восстановления вернёт
+    /// именно то, что было до ошибочного нажатия.
     /// </param>
     private bool TryExportToIbases(string filePath, bool backup, string logPrefix, out string error)
     {
