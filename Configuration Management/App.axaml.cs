@@ -27,6 +27,15 @@ namespace Configuration_Management
         private static CancellationTokenSource? _activateCts;
         private static IClassicDesktopStyleApplicationLifetime? _desktopLifetime;
 
+        /// <summary>
+        /// Работает ли режим единственного экземпляра: блокировка взята и сигнал
+        /// от повторного запуска слушается. Значение относится к текущему
+        /// процессу и после старта не меняется, даже если настройку переключат:
+        /// блокировка берётся один раз, и снятый в окне настроек флажок не
+        /// делает окно возвращаемым повторным запуском.
+        /// </summary>
+        internal static bool SingleInstanceActive { get; private set; }
+
         private const string LockFileName = "configuration-management.lock";
         private const string ActivateFileName = "activate";
 
@@ -144,6 +153,7 @@ namespace Configuration_Management
                     }
                     // Слушаем сигнал от повторных запусков, чтобы поднять окно.
                     StartActivationListener();
+                    SingleInstanceActive = true;
                 }
 
                 if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
