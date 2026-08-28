@@ -1623,7 +1623,7 @@ namespace Configuration_Management
         /// Явный цвет значка. У автора кнопки строки вторичного цвета, кроме
         /// удаления: оно красное.
         /// </param>
-        private Button RowActionButton(Infobase ib, string iconKey, string commandPath, string tooltip,
+        private Control RowActionButton(Infobase ib, string iconKey, string commandPath, string tooltip,
             string? colorHex = null)
         {
             Control glyph;
@@ -1645,17 +1645,20 @@ namespace Configuration_Management
                 };
             }
 
-            var button = new Button
+            // Не штатный Button: тема Fluent красит не саму кнопку, а её внутренний
+            // ContentPresenter через :pointerover, и локальный прозрачный Background
+            // этот фон не перебивает. Подсветка наведения оставалась висеть, когда
+            // строка пересобиралась под курсором, и фон то появлялся, то пропадал.
+            var button = new PanelButton("", "SecondaryButtonHoverBrush", "SecondaryButtonPressedBrush", "",
+                new CornerRadius(UiMetrics.RadiusSm))
             {
                 Content = glyph,
-                Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(4),
                 MinWidth = 0,
                 MinHeight = 0,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Cursor = new Cursor(StandardCursorType.Hand),
                 CommandParameter = ib
             };
             ToolTip.SetTip(button, tooltip);
@@ -1798,7 +1801,7 @@ namespace Configuration_Management
             // и штатный стартер. «Открыть каталог» и «Ярлык на рабочем столе»
             // у него живут в контекстном меню строки, там они есть и у нас.
             var starterBlock = BuildActionList(
-                CompactActionButton("IconKeyboard", LocalizationManager.T("Main.NativeStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux"))
+                CompactActionButton("IconApplication", LocalizationManager.T("Main.NativeStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux"), "#F59E0B")
             );
 
             // Переход по ссылке идёт после карточки сессии, как в разметке.
