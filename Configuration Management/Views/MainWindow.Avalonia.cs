@@ -1044,10 +1044,11 @@ namespace Configuration_Management
                 grid.Children.Add(favorite);
                 Grid.SetColumn(favorite, 0);
 
-                // Номер слота Alt+N поверх звезды, в правом нижнем углу её
-                // колонки: в разметке WPF он стоит там же (MainWindow.xaml:1160).
-                // Дерево ради него не пересобирается, строка обновляет номер
-                // сама по уведомлению модели.
+                // Номер слота Alt+N. В разметке WPF это плашка рядом со звездой,
+                // здесь номер наложен на угол её колонки: колонки строки узкие
+                // и заданы по ширине значков, отдельного места под плашку в них
+                // нет. Дерево ради номера не пересобирается, строка обновляет
+                // его сама по уведомлению модели.
                 var slot = FavoriteSlotBadge(card, ib);
                 grid.Children.Add(slot);
                 Grid.SetColumn(slot, 0);
@@ -1419,7 +1420,7 @@ namespace Configuration_Management
         {
             var text = new TextBlock
             {
-                FontSize = UiMetrics.Scaled(9),
+                FontSize = UiMetrics.ScaledFont(9),
                 FontWeight = FontWeight.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -1440,13 +1441,17 @@ namespace Configuration_Management
             void Apply()
             {
                 text.Text = infobase.FavoriteHotkeyDisplay;
-                host.IsVisible = !string.IsNullOrEmpty(text.Text);
+                // Разметка WPF гасит плашку и по номеру, и по самой звезде
+                // (MainWindow.xaml:1156-1183): без второго условия номер
+                // остаётся висеть у базы, которую убрали из избранного.
+                host.IsVisible = infobase.IsFavorite && !string.IsNullOrEmpty(text.Text);
             }
 
             void OnChanged(object? _, PropertyChangedEventArgs e)
             {
                 if (e.PropertyName == nameof(Infobase.FavoriteHotkeyDisplay)
-                    || e.PropertyName == nameof(Infobase.FavoriteHotkeyNumber))
+                    || e.PropertyName == nameof(Infobase.FavoriteHotkeyNumber)
+                    || e.PropertyName == nameof(Infobase.IsFavorite))
                     Apply();
             }
 
@@ -3755,6 +3760,26 @@ namespace Configuration_Management
                 return;
 
             KeyBindings.Clear();
+
+            // Alt+1…Alt+9 запускают избранные базы по порядку слотов и ставятся
+            // ПЕРЕД пользовательскими: Avalonia перебирает привязки по порядку
+            // списка и останавливается на первой подошедшей, поэтому иначе
+            // назначенный пользователем Alt+1 перебивал бы избранное. Версия
+            // для Windows добивается того же с другого конца: там
+            // RegisterFavoriteHotkeys сперва удаляет из InputBindings все
+            // Alt+1…9, включая пользовательские (MainWindow.Hotkeys.cs:118).
+            // Незанятый слот привязку всё равно имеет и клавишу поглощает,
+            // но действия не выполняет: так же ведёт себя и версия для Windows.
+            for (var number = 1; number <= 9; number++)
+            {
+                var slot = number;
+                KeyBindings.Add(new KeyBinding
+                {
+                    Gesture = new KeyGesture((Key)((int)Key.D0 + slot), KeyModifiers.Alt),
+                    Command = new ViewModels.RelayCommand(_ => _vm.LaunchFavoriteByHotkey(slot))
+                });
+            }
+
             // Delete в привязки не идёт: он правит текст, и в поле ввода
             // не должен удалять базу. Ему отдельный обработчик ниже.
             AddHotkey(_vm.HotkeyEnterprise, _vm.LaunchEnterpriseCommand);
@@ -3768,19 +3793,6 @@ namespace Configuration_Management
             AddHotkey(_vm.HotkeyShowAll, _vm.ShowAllCommand);
             AddHotkey(_vm.HotkeyShowFavorites, _vm.ShowFavoritesCommand);
             AddHotkey(_vm.HotkeyShowRecent, _vm.ShowRecentCommand);
-
-            // Alt+1…Alt+9 запускают избранные базы по порядку слотов.
-            // Привязки ставятся все девять сразу и не зависят от того, сколько
-            // слотов занято: незанятый номер модель просто игнорирует.
-            for (var number = 1; number <= 9; number++)
-            {
-                var slot = number;
-                KeyBindings.Add(new KeyBinding
-                {
-                    Gesture = new KeyGesture((Key)((int)Key.D0 + slot), KeyModifiers.Alt),
-                    Command = new ViewModels.RelayCommand(_ => _vm.LaunchFavoriteByHotkey(slot))
-                });
-            }
         }
 
         /// <summary>

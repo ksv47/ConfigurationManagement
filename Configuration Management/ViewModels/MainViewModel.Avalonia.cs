@@ -1726,6 +1726,13 @@ public class MainViewModel : ViewModelBase
         ib.ConfiguratorAuth = dialog.Result.ConfiguratorAuth;
         ib.Repository = dialog.Result.Repository;
 
+        // Правка могла снять или поставить звезду, а у базы без идентификатора
+        // сменить и ключ слота: он строится из имени. Версия для Windows этого
+        // не делает, и там слот теряется молча до следующего пересчёта.
+        if (!ib.IsFavorite)
+            _favoriteHotkeyIds.Remove(FavoriteKey(ib));
+        SyncFavoriteHotkeys();
+
         SaveSilently();
         RebuildTree();
         ExportToIbasesAfterLocalChange();
@@ -1974,6 +1981,9 @@ public class MainViewModel : ViewModelBase
     /// <summary>Сообщение из окна настроек.</summary>
     public void ShowInfo(string message) => _dialog.ShowInfo(message);
 
+    /// <summary>Сообщение со своим заголовком окна.</summary>
+    public void ShowInfo(string message, string title) => _dialog.ShowInfo(message, title);
+
     /// <summary>Сообщение об ошибке из окна настроек.</summary>
     public void ShowError(string message) => _dialog.ShowError(message);
 
@@ -1988,7 +1998,8 @@ public class MainViewModel : ViewModelBase
         _dialog.SaveFileDialog(title, defaultFileName);
 
     /// <summary>Диалог выбора каталога для окна настроек.</summary>
-    public string? PickFolder(string title) => _dialog.OpenFolderDialog(title);
+    public string? PickFolder(string title, string? initialDirectory = null)
+        => _dialog.OpenFolderDialog(title, initialDirectory);
 
     /// <summary>
     /// Применяет настройки вкладки «Платформы»: дополнительные пути поиска
@@ -2072,6 +2083,9 @@ public class MainViewModel : ViewModelBase
 
         _allInfobases.Clear();
         _allInfobases.AddRange(remaining);
+        // Состав списка изменился: слоты избранного пересчитываются, иначе
+        // номер остаётся у удалённой базы, а её слот занят навсегда.
+        SyncFavoriteHotkeys();
 
         if (SelectedInfobase is { } selected && !_allInfobases.Contains(selected))
             SelectedInfobase = null;
@@ -2161,6 +2175,9 @@ public class MainViewModel : ViewModelBase
             if (!SaveList(previousInfobases))
             {
                 _allInfobases.Clear();
+                // Состав списка изменился: слоты избранного пересчитываются, иначе
+                // номер остаётся у удалённой базы, а её слот занят навсегда.
+                SyncFavoriteHotkeys();
                 _groups.Clear();
                 SelectedInfobase = null;
                 RebuildTree();
@@ -2175,6 +2192,9 @@ public class MainViewModel : ViewModelBase
         }
 
         _allInfobases.Clear();
+        // Состав списка изменился: слоты избранного пересчитываются, иначе
+        // номер остаётся у удалённой базы, а её слот занят навсегда.
+        SyncFavoriteHotkeys();
         _groups.Clear();
         SelectedInfobase = null;
 
@@ -2294,6 +2314,9 @@ public class MainViewModel : ViewModelBase
 
             _allInfobases.Clear();
             _allInfobases.AddRange(loaded);
+            // Состав списка изменился: слоты избранного пересчитываются, иначе
+            // номер остаётся у удалённой базы, а её слот занят навсегда.
+            SyncFavoriteHotkeys();
             _groups.Clear();
             _groups.AddRange(loadedGroups);
             SelectedInfobase = null;
@@ -2479,6 +2502,9 @@ public class MainViewModel : ViewModelBase
 
             _allInfobases.Clear();
             _allInfobases.AddRange(candidateInfobases);
+            // Состав списка изменился: слоты избранного пересчитываются, иначе
+            // номер остаётся у удалённой базы, а её слот занят навсегда.
+            SyncFavoriteHotkeys();
             _groups.Clear();
             _groups.AddRange(candidateGroups);
 
@@ -2815,6 +2841,9 @@ public class MainViewModel : ViewModelBase
         }
 
         _allInfobases.Remove(ib);
+        // Состав списка изменился: слоты избранного пересчитываются, иначе
+        // номер остаётся у удалённой базы, а её слот занят навсегда.
+        SyncFavoriteHotkeys();
         SaveSilently();
         RebuildTree();
         SelectedInfobase = null;
@@ -3161,8 +3190,18 @@ public class MainViewModel : ViewModelBase
             return;
 
         infobase.IsFavorite = !infobase.IsFavorite;
+
+        // Снятая звезда освобождает слот явно: пересчёт сам этого не сделает,
+        // он выбрасывает только ключи баз, которых больше нет в списке.
+        // Тот же порядок в версии для Windows (MainViewModel.Commands.cs:460).
+        if (!infobase.IsFavorite)
+            _favoriteHotkeyIds.Remove(FavoriteKey(infobase));
+
         SyncFavoriteHotkeys();
         SaveSilently();
+        // Слоты живут в настройках, а не в списке баз, поэтому сохраняются
+        // отдельно: SaveSilently пишет только список.
+        SaveSettingsSilently();
 
         // Состав списка меняется только при активном временном фильтре: там база
         // может выпасть из выборки. Без фильтра строка перекрашивается сама
@@ -3176,9 +3215,6 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Слоты Alt+1…Alt+9 в порядке назначения: ключи баз.</summary>
     private readonly List<string> _favoriteHotkeyIds = new();
-
-    /// <summary>Порядок слотов изменился: окну нужно перерегистрировать привязки.</summary>
-    public event Action? FavoriteHotkeysChanged;
 
     /// <summary>
     /// Ключ базы для слота. Идентификатор, а при его отсутствии имя: тот же
@@ -3224,7 +3260,6 @@ public class MainViewModel : ViewModelBase
             }
 
             _settings.FavoriteHotkeyIds = _favoriteHotkeyIds.ToList();
-            FavoriteHotkeysChanged?.Invoke();
         }
         catch (Exception ex)
         {
@@ -3784,6 +3819,9 @@ public class MainViewModel : ViewModelBase
             {
                 _logger.Warn($"Автосинхронизация: файл {filePath} не дал ни одной базы, список приложения не меняем");
                 _allInfobases = _repository.Load();
+                // Состав списка изменился: слоты избранного пересчитываются, иначе
+                // номер остаётся у удалённой базы, а её слот занят навсегда.
+                SyncFavoriteHotkeys();
                 RebuildTree();
                 return false;
             }

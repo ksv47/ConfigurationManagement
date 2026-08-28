@@ -334,27 +334,42 @@ namespace Configuration_Management
                 // Список версий пересчитывается сразу, как в WPF-версии.
                 RefreshVersions();
             };
-            // Кнопка «Изменить» из разметки WPF (SettingsWindow.xaml:434): выбирает
-            // каталог заново и заменяет выбранную строку, а не добавляет ещё одну.
+            // Кнопка «Изменить» из разметки WPF (SettingsWindow.xaml:434). Поведение
+            // повторяет OnEditPlatformPath_Click целиком, включая оба сообщения:
+            // без них при пустом выделении кнопка выглядит нерабочей, а на дубле
+            // строка молча исчезала бы вместо предупреждения.
             var editPath = new Button { Content = LocalizationManager.T("Common.Edit") };
             ToolTip.SetTip(editPath, LocalizationManager.T("Settings.AdditionalPaths.EditTooltip"));
             editPath.Click += (_, _) =>
             {
-                if (pathsList.SelectedItem is not string selected)
+                if (pathsList.SelectedItem is not string selected || string.IsNullOrEmpty(selected))
+                {
+                    _viewModel.ShowInfo(LocalizationManager.T("Settings.SelectPathToEdit"),
+                        LocalizationManager.T("Settings.AdditionalPathsTitle"));
                     return;
-                var folder = _viewModel.PickFolder(LocalizationManager.T("Common.Edit"));
+                }
+
+                // Диалог открывается на редактируемом каталоге, как в версии
+                // для Windows: иначе искать приходится с начала.
+                var folder = _viewModel.PickFolder(
+                    LocalizationManager.T("Settings.ChooseNewPlatformFolder"), selected)?.Trim();
                 if (string.IsNullOrWhiteSpace(folder)
                     || string.Equals(folder, selected, StringComparison.OrdinalIgnoreCase))
                     return;
-                if (paths.Contains(folder, StringComparer.OrdinalIgnoreCase))
+
+                if (paths.Any(existing => !string.Equals(existing, selected, StringComparison.OrdinalIgnoreCase)
+                                          && string.Equals(existing, folder, StringComparison.OrdinalIgnoreCase)))
                 {
-                    // Такой путь уже есть: строку убираем, чтобы не осталось дубля.
-                    paths.Remove(selected);
+                    _viewModel.ShowInfo(LocalizationManager.T("Settings.PathAlreadyAdded"),
+                        LocalizationManager.T("Settings.AdditionalPathsTitle"));
+                    return;
                 }
-                else
-                {
-                    paths[paths.IndexOf(selected)] = folder;
-                }
+
+                var index = paths.IndexOf(selected);
+                if (index < 0)
+                    return;
+                paths[index] = folder;
+                pathsList.SelectedItem = folder;
                 RefreshVersions();
             };
 
@@ -1982,7 +1997,7 @@ namespace Configuration_Management
                 BorderThickness = new Thickness(0),
                 HorizontalAlignment = HorizontalAlignment.Right
             };
-            button.Click += (_, _) =>
+            void PickColor()
             {
                 var picker = new ColorPickerWindow(value);
                 if (!picker.ShowDialogSync(this))
@@ -1992,7 +2007,9 @@ namespace Configuration_Management
                 scheme.Colors[key] = value;
                 swatch.Background = ParseBrush(value);
                 hexText?.Invoke(value);
-            };
+            }
+
+            button.Click += (_, _) => PickColor();
 
             // Строка как в разметке WPF (SettingsWindow.xaml:903): подпись, образец,
             // шестнадцатеричное значение и кнопка выбора. Значение показывается
@@ -2001,9 +2018,9 @@ namespace Configuration_Management
             {
                 Text = value,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(12, 0, 0, 0),
-                Opacity = 0.7
+                Margin = new Thickness(12, 0, 0, 0)
             };
+            ThemeBrushes.Bind(hex, TextBlock.ForegroundProperty, "TextSecondaryBrush");
 
             hexText = updated => hex.Text = updated;
 
@@ -2013,12 +2030,14 @@ namespace Configuration_Management
                 Margin = new Thickness(12, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            choose.Click += (_, _) => button.Command?.Execute(null);
+            choose.Click += (_, _) => PickColor();
 
+            // Ширины колонок как в разметке WPF (SettingsWindow.xaml:906): подпись
+            // по содержимому, тянется колонка со значением, а не подпись.
             var grid = new Grid { Margin = new Thickness(0, 1) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(90)));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
             grid.Children.Add(text);
