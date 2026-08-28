@@ -195,7 +195,7 @@ namespace Configuration_Management.Services
             var frame = new DispatcherFrame();
             window.Closed += (_, _) =>
             {
-                result = window is MessageWindow mw ? mw.Result : true;
+                result = window is MaterialMessageWindowAvalonia mw ? mw.Confirmed : true;
                 frame.Continue = false;
             };
 

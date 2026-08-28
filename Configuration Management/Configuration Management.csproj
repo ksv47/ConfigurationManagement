@@ -190,7 +190,6 @@
     <!-- Windows-only сервисы — Этап 5 -->
     <Compile Remove="Services\WpfDialogService.cs" />
     <Compile Remove="Services\MaterialMessageWindow.xaml.cs" />
-    <Compile Remove="Services\MaterialMessageWindow.Avalonia.cs" />
     <Compile Remove="Services\MaterialMessageKind.cs" />
     <Compile Include="Services\MaterialMessageKind.cs" />
     <Compile Remove="Services\OneCLauncher.cs" />
