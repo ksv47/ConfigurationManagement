@@ -334,6 +334,9 @@ public class MainViewModel : ViewModelBase
     public ICommand AddTagInlineCommand { get; private set; } = null!;
     public ICommand RemoveTagCommand { get; private set; } = null!;
     public ICommand ClearTagFiltersCommand { get; private set; } = null!;
+    public ICommand ShowAllCommand { get; private set; } = null!;
+    public ICommand ShowFavoritesCommand { get; private set; } = null!;
+    public ICommand ShowRecentCommand { get; private set; } = null!;
     public ICommand LaunchEnterpriseCommand { get; private set; } = null!;
     public ICommand LaunchConfiguratorCommand { get; private set; } = null!;
 
@@ -383,6 +386,11 @@ public class MainViewModel : ViewModelBase
         AddTagInlineCommand = new RelayCommand(AddTagInline);
         RemoveTagCommand = new RelayCommand(RemoveTag);
         ClearTagFiltersCommand = new RelayCommand(ClearTagFilters);
+        // Режимы списка вынесены в команды, чтобы их можно было повесить
+        // на горячую клавишу: привязка принимает команду, а не свойство.
+        ShowAllCommand = new RelayCommand(() => IsListModeAll = true);
+        ShowFavoritesCommand = new RelayCommand(() => IsListModeFavorites = true);
+        ShowRecentCommand = new RelayCommand(() => IsListModeRecent = true);
         LaunchEnterpriseCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Enterprise), _ => SelectedInfobase is not null);
         LaunchConfiguratorCommand = new RelayCommand(_ => Launch(_launchVm.LaunchCommand, LaunchKind.Configurator), _ => SelectedInfobase is not null);
         LaunchEnterpriseWithParamsCommand = new RelayCommand(_ => LaunchWithParams(LaunchKind.Enterprise), _ => SelectedInfobase is not null);
@@ -644,13 +652,17 @@ public class MainViewModel : ViewModelBase
     public string HotkeyPin => _settings.HotkeyPin;
     public string HotkeyDelete => _settings.HotkeyDelete;
     public string HotkeyClearCache => _settings.HotkeyClearCache;
+    public string HotkeyShowAll => _settings.HotkeyShowAll;
+    public string HotkeyShowFavorites => _settings.HotkeyShowFavorites;
+    public string HotkeyShowRecent => _settings.HotkeyShowRecent;
 
     /// <summary>
     /// Сохраняет назначенные сочетания и сообщает окну, что их надо
     /// перерегистрировать: подписи в меню и сами привязки берутся отсюда.
     /// </summary>
     public void ApplyHotkeys(string enterprise, string configurator, string edit, string add,
-        string favorite, string pin, string delete, string clearCache)
+        string favorite, string pin, string delete, string clearCache,
+        string showAll, string showFavorites, string showRecent)
     {
         _settings.HotkeyEnterprise = enterprise ?? string.Empty;
         _settings.HotkeyConfigurator = configurator ?? string.Empty;
@@ -660,6 +672,9 @@ public class MainViewModel : ViewModelBase
         _settings.HotkeyPin = pin ?? string.Empty;
         _settings.HotkeyDelete = delete ?? string.Empty;
         _settings.HotkeyClearCache = clearCache ?? string.Empty;
+        _settings.HotkeyShowAll = showAll ?? string.Empty;
+        _settings.HotkeyShowFavorites = showFavorites ?? string.Empty;
+        _settings.HotkeyShowRecent = showRecent ?? string.Empty;
 
         SaveSettingsSilently();
 
@@ -671,6 +686,9 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyPin));
         OnPropertyChanged(nameof(HotkeyDelete));
         OnPropertyChanged(nameof(HotkeyClearCache));
+        OnPropertyChanged(nameof(HotkeyShowAll));
+        OnPropertyChanged(nameof(HotkeyShowFavorites));
+        OnPropertyChanged(nameof(HotkeyShowRecent));
         HotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 
