@@ -2480,7 +2480,7 @@ namespace Configuration_Management
         /// </summary>
         private void ShowAboutMessage(string message)
         {
-            var win = new MessageWindow(message, LocalizationManager.T("Common.Information"), MessageWindowKind.Info)
+            var win = new MaterialMessageWindowAvalonia(message, LocalizationManager.T("Common.Information"), MaterialMessageKind.Info)
             {
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
             };
