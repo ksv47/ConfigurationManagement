@@ -21,6 +21,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Utilities;
 using Avalonia.Platform;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Configuration_Management.Controls;
 using Configuration_Management.Localization;
@@ -288,6 +289,19 @@ namespace Configuration_Management
             var themeBtn = TopBarIconButton("IconTheme", LocalizationManager.T("Main.Theme"));
             themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
             actions.Children.Add(themeBtn);
+
+            // Быстрый переключатель плотности интерфейса, как в разметке WPF:
+            // тот же режим уже есть в настройках, здесь он под рукой.
+            var compactBtn = TopBarIconButton("IconCollapseAll", LocalizationManager.T("Main.CompactModeTooltip"));
+            compactBtn.Click += (_, _) =>
+            {
+                if (_vm is null)
+                    return;
+                var next = !_vm.CompactMode;
+                _vm.CompactMode = next;
+                ApplyCompactMode(next);
+            };
+            actions.Children.Add(compactBtn);
 
             var settingsBtn = TopBarSecondaryButton("IconSettings", LocalizationManager.T("Main.Settings"), LocalizationManager.T("Main.SettingsTooltip"));
             settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
@@ -1702,10 +1716,51 @@ namespace Configuration_Management
             // команд. Здесь остаются вторичные действия списком.
             panel.Children.Add(BuildActionList(
                 CompactActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
-                CompactActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
-                CompactActionButton("IconWeb", LocalizationManager.T("LinkInput.Title"), "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip")),
+                CompactActionButton("IconKeyboard", LocalizationManager.T("Main.NativeStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
+                CompactActionButtonBound("IconWeb", "OpenByLinkCaption", "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip")),
                 CompactActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand", LocalizationManager.T("Main.DesktopShortcutTooltip"))
             ));
+
+            // Бейдж «Закреплено» и секция тегов выбранной базы, как в разметке WPF.
+            var pinnedBadge = new Border
+            {
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(8, 3),
+                Margin = new Thickness(0, 0, 6, 4),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Child = ThemedIconAndText("IconPin", LocalizationManager.T("Main.PinnedLabel"),
+                    "AccentColorBrush", 12, centered: false)
+            };
+            ThemeBrushes.Bind(pinnedBadge, Border.BackgroundProperty, "ItemHoverColorBrush");
+            pinnedBadge.Bind(Control.IsVisibleProperty, new Binding("SelectedInfobase.IsPinned"));
+            panel.Children.Add(pinnedBadge);
+
+            var tagsHeader = ThemedIconAndText("IconTag", LocalizationManager.T("Main.Tags"),
+                "TextSecondaryColorBrush", 14, centered: false);
+            var tagsList = new ItemsControl
+            {
+                Margin = new Thickness(0, 0, 0, 4),
+                ItemsPanel = new FuncTemplate<Panel?>(() => new WrapPanel()),
+                ItemTemplate = new FuncDataTemplate<string>((tag, _) =>
+                {
+                    var chip = new Border
+                    {
+                        CornerRadius = new CornerRadius(8),
+                        Padding = new Thickness(8, 3),
+                        Margin = new Thickness(0, 0, 4, 4),
+                        BorderThickness = new Thickness(1),
+                        Child = ThemedIconAndText("IconTag", tag ?? "", "AccentColorBrush", 10, centered: false)
+                    };
+                    ThemeBrushes.Bind(chip, Border.BackgroundProperty, "ItemHoverColorBrush");
+                    ThemeBrushes.Bind(chip, Border.BorderBrushProperty, "BorderColorBrush");
+                    return chip;
+                })
+            };
+            tagsList.Bind(ItemsControl.ItemsSourceProperty, new Binding("SelectedInfobase.Tags"));
+            var tagsBlock = new StackPanel { Spacing = 4 };
+            tagsBlock.Children.Add(tagsHeader);
+            tagsBlock.Children.Add(tagsList);
+            panel.Children.Add(tagsBlock);
 
             // Информация о подключении.
             // Блок сведений подчинён переключателю подробностей правой панели,
@@ -1799,7 +1854,32 @@ namespace Configuration_Management
         }
 
         /// <summary>Компактное содержимое кнопки: иконка + подпись меньшего размера.</summary>
-        private static Control CompactIconAndText(string iconKey, string text, string brushKey)
+        /// <summary>
+        /// Вариант кнопки действия с подписью из привязки: нужен там, где текст
+        /// меняется по состоянию, как короткая подпись открытия по ссылке.
+        /// </summary>
+        private static Control CompactActionButtonBound(string iconKey, string textPath, string commandPath, string tooltip)
+        {
+            var btn = new PanelButton(
+                "SecondaryButtonBackgroundBrush",
+                "SecondaryButtonHoverBrush",
+                "SecondaryButtonPressedBrush",
+                "BorderColorBrush",
+                new CornerRadius(UiMetrics.RadiusMd))
+            {
+                Content = CompactIconAndText(iconKey, "", "ButtonTextBrush", textPath),
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                MinHeight = UiMetrics.ActionButtonMinHeight,
+                Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV),
+                Margin = new Thickness(0)
+            };
+            ToolTip.SetTip(btn, tooltip);
+            btn.Bind(Button.CommandProperty, new Binding(commandPath));
+            return btn;
+        }
+
+        private static Control CompactIconAndText(string iconKey, string text, string brushKey, string? textPath = null)
         {
             // Сеткой, а не горизонтальной панелью: панель меряет подпись
             // бесконечной шириной, поэтому обрезка многоточием не срабатывает
@@ -1817,6 +1897,8 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
             ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+            if (textPath is not null)
+                tb.Bind(TextBlock.TextProperty, new Binding(textPath));
             Grid.SetColumn(tb, 1);
             sp.Children.Add(tb);
             return sp;
@@ -2739,6 +2821,9 @@ namespace Configuration_Management
             tools.ZIndex = 1;
 
             var nameHeader = ColumnHeader(LocalizationManager.T("Column.Name"), IconHelper.ColumnIconKey("Name"));
+            // У «Названия» отступ слева нулевой: заголовок равняется по тексту строк
+            // списка, а не по границе колонки. В разметке WPF так же (MainWindow.xaml:627).
+            nameHeader.Margin = new Thickness(0, 0, 8, 4);
             MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
             _columnHeaderRow.Children.Add(nameHeader);
             Grid.SetColumn(nameHeader, NameHeaderColumn);
@@ -3357,7 +3442,12 @@ namespace Configuration_Management
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 5,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                // Отступы как в разметке WPF (Margin="6,0,6,4"): без них подпись
+                // встаёт вплотную к соседней, а горизонтальный StackPanel меряет
+                // детей без ограничения по ширине, поэтому сам текст не подрезается.
+                Margin = new Thickness(6, 0, 6, 4),
+                ClipToBounds = true
             };
             panel.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(13), "TextSecondaryBrush"));
 
@@ -3762,6 +3852,9 @@ namespace Configuration_Management
             menu.Items.Add(MenuAction("Main.LaunchEnterprise", _vm.LaunchEnterpriseCommand, _vm.HotkeyEnterprise));
             menu.Items.Add(MenuAction("Main.LaunchConfigurator", _vm.LaunchConfiguratorCommand, _vm.HotkeyConfigurator));
             menu.Items.Add(MenuAction("Main.EditSettings", _vm.EditInfobaseCommand, _vm.HotkeyEdit));
+            menu.Items.Add(MenuAction("Main.RefreshConfigInfo", _vm.RefreshConfigurationInfoCommand));
+            // «Зарегистрировать COM-коннектор» здесь нет намеренно: внешнее соединение
+            // это COM, в Linux регистрировать нечего. Windows-сторона решение подтвердила.
             menu.Items.Add(new Separator());
             menu.Items.Add(MenuAction("Main.ToFavorites", _vm.ToggleFavoriteCommand, _vm.HotkeyFavorite));
             menu.Items.Add(MenuAction("Main.Pin", _vm.TogglePinCommand, _vm.HotkeyPin));
@@ -3771,6 +3864,9 @@ namespace Configuration_Management
             menu.Items.Add(MenuAction("Main.OpenCatalog", _vm.OpenInfobaseFolderCommand));
             menu.Items.Add(MenuAction("Main.DesktopShortcut", _vm.CreateDesktopShortcutCommand));
             menu.Items.Add(MenuAction("Main.AddBase", _vm.AddInfobaseCommand, _vm.HotkeyAdd));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(MenuAction("Main.DumpToDt", _vm.DumpInfobaseDtCommand));
+            menu.Items.Add(MenuAction("Main.DumpConfigToCf", _vm.DumpConfigurationCfCommand));
             menu.Items.Add(new Separator());
             menu.Items.Add(MenuAction("Main.Delete", _vm.DeleteInfobaseCommand, _vm.HotkeyDelete));
             return menu;
