@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -13,6 +12,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Configuration_Management.Controls;
+using Configuration_Management.Themes;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
@@ -35,7 +35,7 @@ namespace Configuration_Management
         private readonly ComboBox _typeBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBox _nameBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBlock _groupPathBox = new() { VerticalAlignment = VerticalAlignment.Center };
-        private readonly TextBox _platformBox = new() { Padding = new Thickness(8, 5) };
+        private readonly TextBox _platformBox = new() { Padding = new Thickness(8, 5), IsReadOnly = true };
         private readonly TextBox _filePathBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBox _templateBox = new() { Padding = new Thickness(8, 5) };
         private readonly StackPanel _filePanel = new() { Spacing = 8 };
@@ -66,7 +66,8 @@ namespace Configuration_Management
             Margin = new Thickness(0, 0, 0, 6),
             IsVisible = false
         };
-        private CancellationTokenSource? _templateLoadingCts;
+        private int _templateLoadGeneration;
+        private bool _closed;
         private List<OneCTemplateService.TemplateInfo> _flatTemplates = new();
 
         /// <summary>Доступные значения СУБД для клиент-серверного создания.</summary>
@@ -93,13 +94,27 @@ namespace Configuration_Management
                 ? LocalizationManager.T("CreateInfobase.TitleFromTemplate")
                 : LocalizationManager.T("CreateInfobase.TitleEmpty");
             Width = 560;
-            SizeToContent = SizeToContent.Height;
-            CanResize = false;
+            if (fromTemplate)
+            {
+                // С деревом шаблонов окно высокое, поэтому размеры берутся
+                // из разметки WPF, вместе с возможностью его уменьшить.
+                Height = 640;
+                MinHeight = 420;
+                MaxHeight = 800;
+                CanResize = true;
+            }
+            else
+            {
+                SizeToContent = SizeToContent.Height;
+                CanResize = false;
+            }
             SystemDecorations = SystemDecorations.Full;
 
             _groupPathBox.Text = string.IsNullOrWhiteSpace(_selectedGroupPath)
                 ? LocalizationManager.T("Connection.NoGroup")
                 : _selectedGroupPath;
+
+            Closed += (_, _) => _closed = true;
 
             Content = BuildRoot();
             RefreshPlatformList();
@@ -116,7 +131,11 @@ namespace Configuration_Management
             var grid = new Grid { Margin = new Thickness(16) };
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            // Область полей растягивается, когда окно фиксированной высоты
+            // с деревом шаблонов, и сжимается по содержимому в пустом режиме.
+            grid.RowDefinitions.Add(_fromTemplate
+                ? new RowDefinition(new GridLength(1, GridUnitType.Star)) { MinHeight = 200 }
+                : new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
@@ -294,10 +313,17 @@ namespace Configuration_Management
                 // здесь то же самое стилем на TreeViewItem.
                 _templateTree.Styles.Add(new Style(x => x.OfType<TreeViewItem>())
                 {
-                    Setters = { new Setter(TreeViewItem.IsExpandedProperty, true) }
+                    Setters =
+                    {
+                        new Setter(TreeViewItem.IsExpandedProperty, true),
+                        new Setter(TreeViewItem.PaddingProperty, new Thickness(2, 1))
+                    }
                 });
                 _templateTree.SelectionChanged += (_, _) => OnTemplateSelected();
                 _templateTree.Margin = new Thickness(0, 0, 0, 6);
+                _templateTree.BorderThickness = new Thickness(1);
+                ThemeBrushes.Bind(_templateTree, TemplatedControl.BorderBrushProperty, "BorderColorBrush");
+                ThemeBrushes.Bind(_templateTree, TemplatedControl.BackgroundProperty, "CardBackgroundColorBrush");
                 // Как в разметке WPF: горизонтальной прокрутки нет, иначе строке дерева
                 // достаётся бесконечная ширина и длинный путь не переносится.
                 ScrollViewer.SetHorizontalScrollBarVisibility(_templateTree, ScrollBarVisibility.Disabled);
@@ -329,7 +355,6 @@ namespace Configuration_Management
             var fieldsHost = new ScrollViewer
             {
                 Content = fields,
-                MaxHeight = 560,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 Padding = new Thickness(0, 0, 4, 0)
@@ -440,9 +465,11 @@ namespace Configuration_Management
 
         private void LoadInstalledTemplates()
         {
-            _templateLoadingCts?.Cancel();
-            var cts = new CancellationTokenSource();
-            _templateLoadingCts = cts;
+            // Общий сервис токена отмены не принимает, поэтому уже запущенный обход
+            // каталогов доводится до конца, а его результат отбрасывается по номеру
+            // поколения. Так же устроено в версии для Windows, только там для этого
+            // держится CancellationTokenSource, который ничего не отменяет.
+            var generation = ++_templateLoadGeneration;
 
             // Окно показываем сразу, а сканирование каталогов шаблонов идёт в фоне:
             // на настоящей поставке манифестов около тысячи.
@@ -464,14 +491,18 @@ namespace Configuration_Management
                         Templates: templates, Tree: tree);
             }).ContinueWith(t =>
             {
+                // Исключение фоновой задачи читаем всегда, иначе оно остаётся
+                // ненаблюдённым и всплывает как UnobservedTaskException.
+                var error = t.Exception;
+
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
-                    if (cts.IsCancellationRequested)
+                    if (_closed || generation != _templateLoadGeneration)
                         return;
 
                     ShowTemplateLoading(false);
 
-                    if (t.IsFaulted)
+                    if (error is not null)
                     {
                         _flatTemplates = new List<OneCTemplateService.TemplateInfo>();
                         _templateTree.ItemsSource = null;
@@ -514,7 +545,10 @@ namespace Configuration_Management
                     is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
                 && desktop.MainWindow?.DataContext is ViewModels.MainViewModel vm)
             {
-                vm.OpenSettingsCommand.Execute(null);
+                // Список версий обновляется после закрытия настроек, как в версии
+                // для Windows. Команда главной модели показывает окно без ожидания,
+                // поэтому окно открывается здесь напрямую и модально.
+                new SettingsWindow(vm).ShowDialogSync(this);
                 RefreshPlatformList();
             }
             else
