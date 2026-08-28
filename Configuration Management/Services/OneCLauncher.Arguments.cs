@@ -326,10 +326,12 @@ public static partial class OneCLauncher
                 csb.Append($";DBUID=\"{EscapeConnectValue(dbUser)}\"");
             if (!string.IsNullOrWhiteSpace(dbPassword))
                 csb.Append($";DBPwd=\"{EscapeConnectValue(dbPassword)}\"");
-            // Блокировка фоновых заданий (документированный параметр строки соединения SchJobDn="Y").
-            // Действует только при создании базы; на уже созданную ИБ не влияет (issue #94).
-            if (blockScheduledJobs)
-                csb.Append(";SchJobDn=\"Y\"");
+            // Создание базы данных на сервере СУБД задаётся параметром строки
+            // подключения, а не ключом командной строки: с «/CreateDatabase»
+            // платформа базу не создаёт и падает на попытке подключиться
+            // к несуществующей. Проверено запуском на PostgreSQL и на MS SQL.
+            if (createSqlDatabase)
+                csb.Append(";CrSQLDB=\"Y\"");
             connectionString = csb.ToString();
         }
 
@@ -343,9 +345,6 @@ public static partial class OneCLauncher
             }
             arguments += $" /UseTemplate\"{templatePath}\"";
         }
-        // Для клиент-серверного создания базу данных на сервере СУБД создаёт сам 1С.
-        if (!isFile && createSqlDatabase)
-            arguments += " /CreateDatabase";
         arguments += " /DisableStartupDialogs /DisableStartupMessages";
 
         try

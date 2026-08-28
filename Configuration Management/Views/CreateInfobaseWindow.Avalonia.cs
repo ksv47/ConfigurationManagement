@@ -3,11 +3,16 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Configuration_Management.Controls;
+using Configuration_Management.Themes;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
@@ -32,7 +37,7 @@ namespace Configuration_Management
         private readonly ComboBox _typeBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBox _nameBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBlock _groupPathBox = new() { VerticalAlignment = VerticalAlignment.Center };
-        private readonly TextBox _platformBox = new() { Padding = new Thickness(8, 5) };
+        private readonly TextBox _platformBox = new() { Padding = new Thickness(8, 5), IsReadOnly = true };
         private readonly TextBox _filePathBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBox _templateBox = new() { Padding = new Thickness(8, 5) };
         private readonly StackPanel _filePanel = new() { Spacing = 8 };
@@ -48,6 +53,24 @@ namespace Configuration_Management
         private readonly PasswordBox _dbPwdBox = new() { Padding = new Thickness(8, 5) };
         private readonly CheckBox _createDbCheck = new();
         private readonly CheckBox _blockJobsCheck = new();
+
+        private readonly TreeView _templateTree = new() { SelectionMode = SelectionMode.Single, Height = 260 };
+        private readonly TextBlock _templateRootsHint = new()
+        {
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        private readonly StackPanel _templateLoadingPanel = new()
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Margin = new Thickness(0, 0, 0, 6),
+            IsVisible = false
+        };
+        private int _templateLoadGeneration;
+        private bool _closed;
+        private List<OneCTemplateService.TemplateInfo> _flatTemplates = new();
 
         /// <summary>Доступные значения СУБД для клиент-серверного создания.</summary>
         private static readonly string[] DbmsValues =
@@ -73,16 +96,32 @@ namespace Configuration_Management
                 ? LocalizationManager.T("CreateInfobase.TitleFromTemplate")
                 : LocalizationManager.T("CreateInfobase.TitleEmpty");
             Width = 560;
-            SizeToContent = SizeToContent.Height;
-            CanResize = false;
+            if (fromTemplate)
+            {
+                // С деревом шаблонов окно высокое, поэтому размеры берутся
+                // из разметки WPF, вместе с возможностью его уменьшить.
+                Height = 640;
+                MinHeight = 420;
+                MaxHeight = 800;
+                CanResize = true;
+            }
+            else
+            {
+                SizeToContent = SizeToContent.Height;
+                CanResize = false;
+            }
             SystemDecorations = SystemDecorations.Full;
 
             _groupPathBox.Text = string.IsNullOrWhiteSpace(_selectedGroupPath)
                 ? LocalizationManager.T("Connection.NoGroup")
                 : _selectedGroupPath;
 
+            Closed += (_, _) => _closed = true;
+
             Content = BuildRoot();
             RefreshPlatformList();
+            if (_fromTemplate)
+                LoadInstalledTemplates();
         }
 
         private string HintText => _fromTemplate
@@ -94,20 +133,35 @@ namespace Configuration_Management
             var grid = new Grid { Margin = new Thickness(16) };
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            // Область полей растягивается, когда окно фиксированной высоты
+            // с деревом шаблонов, и сжимается по содержимому в пустом режиме.
+            grid.RowDefinitions.Add(_fromTemplate
+                ? new RowDefinition(new GridLength(1, GridUnitType.Star)) { MinHeight = 200 }
+                : new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            var title = new TextBlock
+            var header = new StackPanel
             {
-                Text = _fromTemplate ? LocalizationManager.T("CreateInfobase.HeaderTemplate") : LocalizationManager.T("CreateInfobase.HeaderEmpty"),
-                FontSize = 15,
-                FontWeight = FontWeight.SemiBold,
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
                 Margin = new Thickness(0, 0, 0, 4)
             };
-            Grid.SetRow(title, 0);
-            grid.Children.Add(title);
+            header.Children.Add(new TextBlock
+            {
+                Text = Title,
+                FontSize = 15,
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            header.Children.Add(new HelpLink
+            {
+                HelpText = LocalizationManager.T("CreateInfobase.HelpText"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            Grid.SetRow(header, 0);
+            grid.Children.Add(header);
 
             var hint = new TextBlock
             {
@@ -130,19 +184,21 @@ namespace Configuration_Management
             fields.Children.Add(Field(LocalizationManager.T("CreateInfobase.TypeLabel"), _typeBox));
 
             // Наименование
-            fields.Children.Add(Field(LocalizationManager.T("Connection.NameLabel"), _nameBox));
+            fields.Children.Add(Field(LocalizationManager.T("CreateInfobase.NameLabel"), _nameBox));
 
             // Группа
             var groupRow = new Grid();
             groupRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(150)));
             groupRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             groupRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var gl = new TextBlock { Text = LocalizationManager.T("Connection.GroupLabel"), VerticalAlignment = VerticalAlignment.Center };
+            var gl = new TextBlock { Text = LocalizationManager.T("CreateInfobase.GroupLabel"), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(gl, 0);
             groupRow.Children.Add(gl);
+            ToolTip.SetTip(_groupPathBox, LocalizationManager.T("CreateInfobase.GroupTooltip"));
             Grid.SetColumn(_groupPathBox, 1);
             groupRow.Children.Add(_groupPathBox);
-            var pickGroup = new Button { Content = LocalizationManager.T("Connection.ChooseGroup"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var pickGroup = new Button { Content = LocalizationManager.T("CreateInfobase.ChooseGroup"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            ToolTip.SetTip(pickGroup, LocalizationManager.T("CreateInfobase.ChooseGroupTooltip"));
             pickGroup.Click += (_, _) => OnPickGroup_Click();
             Grid.SetColumn(pickGroup, 2);
             groupRow.Children.Add(pickGroup);
@@ -153,15 +209,23 @@ namespace Configuration_Management
             platRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(150)));
             platRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             platRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var pl = new TextBlock { Text = LocalizationManager.T("Connection.VersionLabel"), VerticalAlignment = VerticalAlignment.Center };
+            var pl = new TextBlock { Text = LocalizationManager.T("CreateInfobase.PlatformVersionLabel"), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(pl, 0);
             platRow.Children.Add(pl);
+            ToolTip.SetTip(_platformBox, LocalizationManager.T("CreateInfobase.SelectedPlatformTooltip"));
             Grid.SetColumn(_platformBox, 1);
             platRow.Children.Add(_platformBox);
-            var pickPlatform = new Button { Content = LocalizationManager.T("CreateInfobase.List"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            var platButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(8, 0, 0, 0) };
+            var pickPlatform = new Button { Content = LocalizationManager.T("CreateInfobase.List"), MinWidth = 90 };
+            ToolTip.SetTip(pickPlatform, LocalizationManager.T("CreateInfobase.ListTooltip"));
             pickPlatform.Click += (_, _) => OnPickPlatform_Click();
-            Grid.SetColumn(pickPlatform, 2);
-            platRow.Children.Add(pickPlatform);
+            platButtons.Children.Add(pickPlatform);
+            var editPaths = new Button { Content = LocalizationManager.T("CreateInfobase.Paths"), MinWidth = 70 };
+            ToolTip.SetTip(editPaths, LocalizationManager.T("CreateInfobase.PathsTooltip"));
+            editPaths.Click += (_, _) => OnEditPlatformPaths_Click();
+            platButtons.Children.Add(editPaths);
+            Grid.SetColumn(platButtons, 2);
+            platRow.Children.Add(platButtons);
             fields.Children.Add(platRow);
 
             // Файловая база: путь к каталогу.
@@ -214,24 +278,91 @@ namespace Configuration_Management
             fields.Children.Add(_serverPanel);
             _serverPanel.IsVisible = false;
 
-            // Шаблон
+            // Шаблон: дерево установленных поставок из манифестов 1cv8.mft плюс ручной выбор файла.
             if (_fromTemplate)
             {
-                var browseTemplate = new Button { Content = LocalizationManager.T("CreateInfobase.File"), MinWidth = 90 };
-                browseTemplate.Click += (_, _) => OnBrowseTemplate_Click();
+                var tplPanel = new StackPanel();
+                tplPanel.Children.Add(new TextBlock
+                {
+                    Text = LocalizationManager.T("CreateInfobase.TemplateManifestsLabel"),
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 0, 0, 4)
+                });
+                tplPanel.Children.Add(_templateRootsHint);
+
+                _templateLoadingPanel.Children.Add(new ProgressBar
+                {
+                    Width = 140,
+                    Height = 14,
+                    IsIndeterminate = true,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                _templateLoadingPanel.Children.Add(new TextBlock
+                {
+                    Text = LocalizationManager.T("CreateInfobase.Loading"),
+                    FontSize = 11,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                tplPanel.Children.Add(_templateLoadingPanel);
+
+                _templateTree.ItemTemplate = new FuncTreeDataTemplate(
+                    typeof(object),
+                    (item, _) => BuildTemplateRow(item),
+                    item => item is OneCTemplateService.TemplateTreeNode n && n.Children.Count > 0
+                        ? n.Children
+                        : (System.Collections.IEnumerable)System.Array.Empty<object>());
+                // В разметке WPF узлы дерева раскрыты по умолчанию (ItemContainerStyle),
+                // здесь то же самое стилем на TreeViewItem.
+                _templateTree.Styles.Add(new Style(x => x.OfType<TreeViewItem>())
+                {
+                    Setters =
+                    {
+                        new Setter(TreeViewItem.IsExpandedProperty, true),
+                        new Setter(TreeViewItem.PaddingProperty, new Thickness(2, 1))
+                    }
+                });
+                _templateTree.SelectionChanged += (_, _) => OnTemplateSelected();
+                _templateTree.Margin = new Thickness(0, 0, 0, 6);
+                _templateTree.BorderThickness = new Thickness(1);
+                ThemeBrushes.Bind(_templateTree, TemplatedControl.BorderBrushProperty, "BorderColorBrush");
+                ThemeBrushes.Bind(_templateTree, TemplatedControl.BackgroundProperty, "CardBackgroundColorBrush");
+                // Как в разметке WPF: горизонтальной прокрутки нет, иначе строке дерева
+                // достаётся бесконечная ширина и длинный путь не переносится.
+                ScrollViewer.SetHorizontalScrollBarVisibility(_templateTree, ScrollBarVisibility.Disabled);
+                ScrollViewer.SetVerticalScrollBarVisibility(_templateTree, ScrollBarVisibility.Auto);
+                tplPanel.Children.Add(_templateTree);
+
                 var tplRow = new Grid();
                 tplRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
                 tplRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+                ToolTip.SetTip(_templateBox, LocalizationManager.T("CreateInfobase.TemplatePathTooltip"));
                 Grid.SetColumn(_templateBox, 0);
                 tplRow.Children.Add(_templateBox);
-                Grid.SetColumn(browseTemplate, 1);
-                browseTemplate.Margin = new Thickness(8, 0, 0, 0);
-                tplRow.Children.Add(browseTemplate);
-                fields.Children.Add(Field(LocalizationManager.T("CreateInfobase.TemplateLabel"), tplRow));
+                var tplButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(8, 0, 0, 0) };
+                var refreshTemplates = new Button { Content = LocalizationManager.T("CreateInfobase.Refresh"), MinWidth = 90 };
+                ToolTip.SetTip(refreshTemplates, LocalizationManager.T("CreateInfobase.RefreshTooltip"));
+                refreshTemplates.Click += (_, _) => LoadInstalledTemplates();
+                tplButtons.Children.Add(refreshTemplates);
+                var browseTemplate = new Button { Content = LocalizationManager.T("CreateInfobase.File"), MinWidth = 90 };
+                ToolTip.SetTip(browseTemplate, LocalizationManager.T("CreateInfobase.FileTooltip"));
+                browseTemplate.Click += (_, _) => OnBrowseTemplate_Click();
+                tplButtons.Children.Add(browseTemplate);
+                Grid.SetColumn(tplButtons, 1);
+                tplRow.Children.Add(tplButtons);
+                tplPanel.Children.Add(tplRow);
+
+                fields.Children.Add(tplPanel);
             }
 
-            Grid.SetRow(fields, 2);
-            grid.Children.Add(fields);
+            var fieldsHost = new ScrollViewer
+            {
+                Content = fields,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Padding = new Thickness(0, 0, 4, 0)
+            };
+            Grid.SetRow(fieldsHost, 2);
+            grid.Children.Add(fieldsHost);
 
             var buttons = new StackPanel
             {
@@ -268,6 +399,170 @@ namespace Configuration_Management
             var isFile = _typeBox.SelectedIndex != 1;
             _filePanel.IsVisible = isFile;
             _serverPanel.IsVisible = !isFile;
+        }
+
+        private static Control BuildTemplateRow(object? item)
+        {
+            var node = item as OneCTemplateService.TemplateTreeNode;
+            // Ширину не фиксируем: после отступов дерева фиксированная не влезает
+            // и длинный путь уходит под полосу прокрутки.
+            var panel = new StackPanel { Margin = new Thickness(2, 3) };
+            panel.Children.Add(new TextBlock
+            {
+                Text = node?.Title ?? item?.ToString() ?? "",
+                FontWeight = FontWeight.SemiBold,
+                TextWrapping = TextWrapping.Wrap
+            });
+            if (!string.IsNullOrWhiteSpace(node?.Subtitle))
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = node!.Subtitle,
+                    FontSize = 11,
+                    TextWrapping = TextWrapping.Wrap,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    MaxHeight = 36
+                });
+            }
+            return panel;
+        }
+
+        private void OnTemplateSelected()
+        {
+            if (_templateTree.SelectedItem is OneCTemplateService.TemplateTreeNode { Template: { } t })
+            {
+                _templateBox.Text = t.FilePath;
+                if (string.IsNullOrWhiteSpace(_nameBox.Text) || NameWasSuggested())
+                    _nameBox.Text = SuggestNameFromTemplate(t);
+            }
+        }
+
+        private bool NameWasSuggested()
+        {
+            var name = _nameBox.Text?.Trim() ?? "";
+            return _flatTemplates.Any(t =>
+                SuggestNameFromTemplate(t).Equals(name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string SuggestNameFromTemplate(OneCTemplateService.TemplateInfo t)
+        {
+            // Как в стартере 1С: последний сегмент Catalog (без суффиксов демо/пустая)
+            var segs = t.CatalogSegments;
+            if (segs.Length > 0)
+            {
+                var leaf = segs[^1]
+                    .Replace(LocalizationManager.T("Template.SuffixDemo"), "", StringComparison.OrdinalIgnoreCase)
+                    .Replace(LocalizationManager.T("Template.SuffixEmpty"), "", StringComparison.OrdinalIgnoreCase)
+                    .Trim();
+                if (!string.IsNullOrWhiteSpace(leaf))
+                    return leaf;
+            }
+            if (!string.IsNullOrWhiteSpace(t.ConfigurationName) && t.ConfigurationName != "—")
+                return t.ConfigurationName;
+            var parts = t.RelativePath.Split(
+                new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+                return parts[^2];
+            if (parts.Length == 1)
+                return Path.GetFileNameWithoutExtension(parts[0]);
+            return Path.GetFileNameWithoutExtension(t.FilePath);
+        }
+
+        private void LoadInstalledTemplates()
+        {
+            // Общий сервис токена отмены не принимает, поэтому уже запущенный обход
+            // каталогов доводится до конца, а его результат отбрасывается по номеру
+            // поколения. Так же устроено в версии для Windows, только там для этого
+            // держится CancellationTokenSource, который ничего не отменяет.
+            var generation = ++_templateLoadGeneration;
+
+            // Окно показываем сразу, а сканирование каталогов шаблонов идёт в фоне:
+            // на настоящей поставке манифестов около тысячи.
+            ShowTemplateLoading(true);
+            _templateTree.ItemsSource = null;
+            _flatTemplates = new List<OneCTemplateService.TemplateInfo>();
+
+            Task.Run(() =>
+            {
+                var roots = OneCTemplateService.GetTemplateRootFolders().ToList();
+                var primary = roots.Count > 0
+                    ? roots[0]
+                    : OneCTemplateService.GetConfiguredOrDefaultTemplatePath();
+                var primaryExists = Directory.Exists(primary);
+
+                var templates = OneCTemplateService.FindInstalledTemplates().ToList();
+                var tree = OneCTemplateService.BuildTemplateTree(templates);
+                return (Primary: primary, Roots: (IReadOnlyList<string>)roots, PrimaryExists: primaryExists,
+                        Templates: templates, Tree: tree);
+            }).ContinueWith(t =>
+            {
+                // Исключение фоновой задачи читаем всегда, иначе оно остаётся
+                // ненаблюдённым и всплывает как UnobservedTaskException.
+                var error = t.Exception;
+
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (_closed || generation != _templateLoadGeneration)
+                        return;
+
+                    ShowTemplateLoading(false);
+
+                    if (error is not null)
+                    {
+                        _flatTemplates = new List<OneCTemplateService.TemplateInfo>();
+                        _templateTree.ItemsSource = null;
+                        _templateRootsHint.Text += LocalizationManager.T("CreateInfobase.LoadingFailed");
+                        return;
+                    }
+
+                    var r = t.Result;
+                    _flatTemplates = r.Templates;
+                    _templateTree.ItemsSource = r.Tree;
+                    UpdateTemplateRootsHint(r.Primary, r.Roots, r.PrimaryExists);
+
+                    if (r.Templates.Count == 0)
+                        _templateRootsHint.Text += LocalizationManager.T("CreateInfobase.NoTemplates");
+                });
+            });
+        }
+
+        private void UpdateTemplateRootsHint(string primary, IReadOnlyList<string> roots, bool primaryExists)
+        {
+            _templateRootsHint.Text =
+                string.Format(LocalizationManager.T("CreateInfobase.TemplateRootsDefault"), primary) +
+                (primaryExists ? "" : LocalizationManager.T("CreateInfobase.FolderNotCreated")) +
+                (roots.Count > 1
+                    ? string.Format(LocalizationManager.T("CreateInfobase.AlsoChecked"),
+                        string.Join("; ", roots.Where(r =>
+                            !r.Equals(primary, StringComparison.OrdinalIgnoreCase))))
+                    : "");
+        }
+
+        private void ShowTemplateLoading(bool loading)
+        {
+            _templateLoadingPanel.IsVisible = loading;
+            _templateTree.IsEnabled = !loading;
+        }
+
+        private void OnEditPlatformPaths_Click()
+        {
+            if (Avalonia.Application.Current?.ApplicationLifetime
+                    is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                && desktop.MainWindow?.DataContext is ViewModels.MainViewModel vm)
+            {
+                // Список версий обновляется после закрытия настроек, как в версии
+                // для Windows. Команда главной модели показывает окно без ожидания,
+                // поэтому окно открывается здесь напрямую и модально.
+                new SettingsWindow(vm).ShowDialogSync(this);
+                RefreshPlatformList();
+            }
+            else
+            {
+                _dialogs.ShowInfo(
+                    LocalizationManager.T("CreateInfobase.NoPlatformsPathsMsg"),
+                    LocalizationManager.T("CreateInfobase.PlatformPathsTitle"));
+            }
         }
 
         private static Grid Field(string label, Control control)

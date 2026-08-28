@@ -1,6 +1,8 @@
 #if LINUX
 using System;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 
 namespace Configuration_Management.Controls
 {
@@ -19,6 +21,35 @@ namespace Configuration_Management.Controls
         protected override Type StyleKeyOverride => typeof(TreeViewItem);
 
         protected override Control CreateContainerForItemOverride(object? item, int index, object? recycleKey) => new LeveledTreeViewItem();
+
+        private Control? _chevron;
+
+        /// <summary>
+        /// Подсказка стрелки раскрытия. Сама стрелка приходит из шаблона Fluent,
+        /// поэтому ищется по имени части после его применения. В разметке WPF
+        /// подсказка тоже своя на каждое состояние (MainWindow.xaml:1436 и 1439).
+        /// </summary>
+        protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+        {
+            base.OnApplyTemplate(e);
+            _chevron = e.NameScope.Find<Control>("PART_ExpandCollapseChevron");
+            UpdateChevronTooltip();
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+            if (change.Property == IsExpandedProperty)
+                UpdateChevronTooltip();
+        }
+
+        private void UpdateChevronTooltip()
+        {
+            if (_chevron is null)
+                return;
+            ToolTip.SetTip(_chevron, Localization.LocalizationManager.T(
+                IsExpanded ? "Main.CollapseGroup" : "Main.ExpandGroup"));
+        }
     }
 }
 #endif
