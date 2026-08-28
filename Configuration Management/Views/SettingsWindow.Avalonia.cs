@@ -9,6 +9,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Styling;
 using Avalonia.Markup.Xaml.MarkupExtensions;
@@ -1128,6 +1129,9 @@ namespace Configuration_Management
             // ===== Базы =====
             var bases = new StackPanel { Spacing = 6 };
 
+            // Вводное описание вкладки, как в разметке WPF (SettingsWindow.xaml:1326).
+            bases.Children.Add(Hint(LocalizationManager.T("Settings.Bases.Description")));
+
             // Каталоги шаблонов конфигураций: список путей и правка вручную,
             // как на этой же вкладке в версии для Windows.
             var templatePaths = new ObservableCollection<string>(_viewModel.TemplateCatalogPaths);
@@ -1319,6 +1323,27 @@ namespace Configuration_Management
             bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.TabIbases")));
             bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.Description")));
 
+            // Заголовок группы и справка по ней, как в разметке WPF
+            // (SettingsWindow.xaml:1183 и 1186): справка стоит в правом
+            // верхнем углу группы, до строки режима.
+            var syncHeader = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 12, 0, 2)
+            };
+            syncHeader.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.SyncSettings"),
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            syncHeader.Children.Add(new Controls.HelpLink
+            {
+                HelpText = LocalizationManager.T("Settings.Ibases.HelpText"),
+                Margin = new Thickness(6, 0, 0, 0)
+            });
+            bases.Children.Add(syncHeader);
+
             bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Ibases.SyncMode")));
             var syncModes = new[]
             {
@@ -1377,6 +1402,56 @@ namespace Configuration_Management
             intervalRow.Children.Add(scheduleBox);
             bases.Children.Add(intervalRow);
 
+            // Строка состояния и ручные операции, как в разметке WPF
+            // (SettingsWindow.xaml:1258-1281): сначала статус, затем загрузка
+            // и выгрузка. Обработчики WPF под #if WINDOWS, но сами действия
+            // в Linux-сборке есть, к ним и подключено.
+            var syncStatus = Hint(string.Empty);
+            syncStatus.Margin = new Thickness(0, 4, 0, 8);
+            bases.Children.Add(syncStatus);
+
+            var syncButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var importButton = new Button { Content = LocalizationManager.T("Settings.Ibases.Import") };
+            ToolTip.SetTip(importButton, LocalizationManager.T("Settings.Ibases.ImportTooltip"));
+            importButton.Click += (_, _) => _viewModel.ImportFromIbasesFile(fileBox.Text);
+            var exportButton = new Button { Content = LocalizationManager.T("Settings.Ibases.Export") };
+            ToolTip.SetTip(exportButton, LocalizationManager.T("Settings.Ibases.ExportTooltip"));
+            exportButton.Click += (_, _) => _viewModel.ExportToIbasesFile(fileBox.Text);
+            syncButtons.Children.Add(importButton);
+            syncButtons.Children.Add(exportButton);
+            bases.Children.Add(syncButtons);
+
+            // Доступность и статус пересчитываются на каждое изменение блока,
+            // как это делает UpdateSyncControls в версии для Windows: при
+            // отключённой синхронизации поля и кнопки гаснут, а не молча
+            // ничего не делают.
+            void UpdateSyncControls()
+            {
+                var mode = syncModeBox.SelectedIndex >= 0
+                    ? syncModes[syncModeBox.SelectedIndex].Mode
+                    : IbasesSyncMode.None;
+                var enabled = mode != IbasesSyncMode.None;
+                var trigger = triggerBox.SelectedIndex >= 0
+                    ? triggers[triggerBox.SelectedIndex].Trigger
+                    : IbasesSyncTrigger.OnStartup;
+
+                fileBox.IsEnabled = enabled;
+                browse.IsEnabled = enabled;
+                triggerBox.IsEnabled = enabled;
+                intervalBox.IsEnabled = enabled && trigger == IbasesSyncTrigger.Interval;
+                scheduleBox.IsEnabled = enabled && trigger == IbasesSyncTrigger.Schedule;
+                importButton.IsEnabled = enabled && mode is IbasesSyncMode.Import or IbasesSyncMode.Both;
+                exportButton.IsEnabled = enabled && mode is IbasesSyncMode.Export or IbasesSyncMode.Both;
+                syncStatus.Text = BuildSyncStatus(mode, fileBox.Text, trigger, intervalBox.Text, scheduleBox.Text);
+            }
+
+            syncModeBox.SelectionChanged += (_, _) => UpdateSyncControls();
+            triggerBox.SelectionChanged += (_, _) => UpdateSyncControls();
+            fileBox.TextChanged += (_, _) => UpdateSyncControls();
+            intervalBox.TextChanged += (_, _) => UpdateSyncControls();
+            scheduleBox.TextChanged += (_, _) => UpdateSyncControls();
+            UpdateSyncControls();
+
             // Подписи как в оригинале: флажок называет само действие, а строка
             // про имена копий идёт пояснением под числом хранимых копий.
             var backupCheck = new CheckBox
@@ -1391,6 +1466,15 @@ namespace Configuration_Management
             keepRow.Children.Add(keepBox);
             bases.Children.Add(keepRow);
             bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.BackupNote")));
+
+            var restoreButton = new Button
+            {
+                Content = LocalizationManager.T("Settings.Ibases.Restore"),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            ToolTip.SetTip(restoreButton, LocalizationManager.T("Settings.Ibases.RestoreTooltip"));
+            restoreButton.Click += (_, _) => _viewModel.RestoreIbasesBackup(fileBox.Text);
+            bases.Children.Add(restoreButton);
 
             tabs.Items.Add(new TabItem
             {
@@ -1903,6 +1987,77 @@ namespace Configuration_Management
             Margin = new Thickness(0, 12, 0, 2)
         };
 
+        /// <summary>
+        /// Строит строку состояния блока синхронизации по тем значениям, что
+        /// сейчас в полях окна, а не по сохранённым. Набор ключей и порядок
+        /// частей те же, что у BuildStatusText в ViewModels/SettingsViewModel.cs:
+        /// сам метод лежит в файле, который в Linux-сборку не входит.
+        /// </summary>
+        private static string BuildSyncStatus(IbasesSyncMode mode, string? filePath,
+            IbasesSyncTrigger trigger, string? interval, string? scheduleTime)
+        {
+            if (mode == IbasesSyncMode.None)
+                return LocalizationManager.T("Settings.Ibases.StatusDisabled");
+
+            var path = string.IsNullOrWhiteSpace(filePath)
+                ? Services.IbasesV8iImporter.FindDefaultPath()
+                : filePath.Trim();
+            if (string.IsNullOrWhiteSpace(path))
+                return LocalizationManager.T("Settings.Ibases.StatusFileNotFound");
+
+            var modeText = mode switch
+            {
+                IbasesSyncMode.Import => LocalizationManager.T("Settings.Ibases.ModeImportShort"),
+                IbasesSyncMode.Export => LocalizationManager.T("Settings.Ibases.ModeExportShort"),
+                _ => LocalizationManager.T("Settings.Ibases.ModeBothShort")
+            };
+            var triggerText = trigger switch
+            {
+                IbasesSyncTrigger.Interval => string.Format(
+                    LocalizationManager.T("Settings.Ibases.TriggerIntervalShort"),
+                    int.TryParse(interval, out var minutes) && minutes > 0 ? minutes : 30),
+                IbasesSyncTrigger.Schedule => string.Format(
+                    LocalizationManager.T("Settings.Ibases.TriggerScheduleShort"), scheduleTime),
+                _ => LocalizationManager.T("Settings.Ibases.TriggerStartupShort")
+            };
+            return string.Format(LocalizationManager.T("Settings.Ibases.StatusFormat"),
+                path, modeText, triggerText);
+        }
+
+        /// <summary>
+        /// Подпись и ссылка под ней. Ссылка открывается системным обработчиком:
+        /// в версии для Windows это делает OnAboutLink_Click, которого
+        /// в Linux-сборке нет.
+        /// </summary>
+        private Control LinkBlock(string caption, string url)
+        {
+            var block = new StackPanel { Spacing = 2 };
+            block.Children.Add(new TextBlock
+            {
+                Text = caption,
+                FontWeight = FontWeight.SemiBold,
+                Opacity = 0.7
+            });
+
+            var link = new TextBlock
+            {
+                Text = url,
+                TextDecorations = TextDecorations.Underline,
+                Cursor = new Cursor(StandardCursorType.Hand),
+                TextWrapping = TextWrapping.Wrap
+            };
+            ThemeBrushes.Bind(link, TextBlock.ForegroundProperty, "AccentBrush");
+            link.PointerReleased += (_, e) =>
+            {
+                if (e.InitialPressMouseButton != MouseButton.Left)
+                    return;
+                if (!Services.OneCLauncher.OpenUrl(url))
+                    ShowAboutMessage(LocalizationManager.T("Settings.About.LinkOpenFailed"));
+            };
+            block.Children.Add(link);
+            return block;
+        }
+
         /// <summary>Пояснение под заголовком группы настроек.</summary>
         private static TextBlock Hint(string text) => new()
         {
@@ -2040,18 +2195,42 @@ namespace Configuration_Management
                               ?? asm.GetName().Version?.ToString() ?? "";
             var title = asm.GetCustomAttribute<AssemblyTitleAttribute>()?.Title ?? LocalizationManager.T("App.Title");
 
-            panel.Children.Add(new TextBlock
+            // Название и справка по приложению в одной строке, как в разметке WPF
+            // (SettingsWindow.xaml:1488-1494).
+            var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            titleRow.Children.Add(new TextBlock
             {
                 Text = title,
                 FontSize = 20,
-                FontWeight = FontWeight.Bold
+                FontWeight = FontWeight.Bold,
+                VerticalAlignment = VerticalAlignment.Center
             });
+            titleRow.Children.Add(new Controls.HelpLink
+            {
+                HelpText = LocalizationManager.T("Settings.About.HelpText"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            panel.Children.Add(titleRow);
 
             panel.Children.Add(new TextBlock
             {
                 Text = string.Format(LocalizationManager.T("Settings.About.Version"), infoVersion),
                 FontSize = 14
             });
+
+            panel.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.About.Author"),
+                FontSize = 14
+            });
+
+            // Подписи и ссылки на публикацию и репозиторий, как в разметке WPF
+            // (SettingsWindow.xaml:1497-1510). В версии для Windows их открывает
+            // обработчик под #if WINDOWS, здесь используется системный xdg-open.
+            panel.Children.Add(LinkBlock(LocalizationManager.T("Settings.About.Infostart"),
+                "https://infostart.ru/1c/tools/2764888/"));
+            panel.Children.Add(LinkBlock(LocalizationManager.T("Settings.About.GitHub"),
+                "https://github.com/sivatorov/ConfigurationManagement"));
 
             panel.Children.Add(new TextBlock
             {

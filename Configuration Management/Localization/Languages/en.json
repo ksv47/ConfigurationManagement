@@ -1017,6 +1017,7 @@
     "Settings.About.CopyTechInfo": "Copy technical information",
     "Settings.About.TechInfoCopied": "Technical information has been copied to the clipboard.",
     "Settings.About.TechInfoCopyFailed": "Failed to copy technical information to the clipboard.",
+    "Settings.About.LinkOpenFailed": "Failed to open the link in a browser.",
     "Settings.About.TechInfo.Na": "N/A",
     "Settings.About.TechInfo.App": "Application",
     "Settings.About.TechInfo.AppVersion": "Application version",

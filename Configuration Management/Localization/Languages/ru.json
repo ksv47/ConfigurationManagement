@@ -1017,6 +1017,7 @@
     "Settings.About.CopyTechInfo": "Скопировать техническую информацию",
     "Settings.About.TechInfoCopied": "Техническая информация скопирована в буфер обмена.",
     "Settings.About.TechInfoCopyFailed": "Не удалось скопировать техническую информацию в буфер обмена.",
+    "Settings.About.LinkOpenFailed": "Не удалось открыть ссылку в браузере.",
     "Settings.About.TechInfo.Na": "н/д",
     "Settings.About.TechInfo.App": "Приложение",
     "Settings.About.TechInfo.AppVersion": "Версия приложения",
