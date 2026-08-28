@@ -243,9 +243,6 @@ namespace Configuration_Management
             _groupByToggle.Click += (_, _) => { if (_vm is not null) _vm.GroupByGroup = _groupByToggle.IsChecked == true; };
             left.Children.Add(_groupByToggle);
 
-            // Подсказка подробная, как в разметке WPF (MainWindow.xaml:194): этот
-            // переключатель управляет и панелью тегов сверху, и тегами в списке,
-            // в отличие от переключателя в шапке списка.
             // Показывать пустые группы: у автора этот переключатель виден только
             // при включённой группировке (Visibility по GroupByGroup), иначе он
             // висел бы в негруппированном списке без дела.
@@ -260,6 +257,9 @@ namespace Configuration_Management
             _emptyGroupsToggle.Bind(Control.IsVisibleProperty, new Binding("GroupByGroup"));
             left.Children.Add(_emptyGroupsToggle);
 
+            // Подсказка подробная, как в разметке WPF (MainWindow.xaml:194): этот
+            // переключатель управляет и панелью тегов сверху, и тегами в списке,
+            // в отличие от переключателя в шапке списка.
             _tagsToggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleTagsFull"));
             _tagsToggle.IsChecked = _vm?.ShowTagFilterPanel ?? true;
             _tagsToggle.Click += (_, _) => { if (_vm is not null) _vm.ShowTagFilterPanel = _tagsToggle.IsChecked == true; };
@@ -274,23 +274,11 @@ namespace Configuration_Management
             Grid.SetColumn(search, 1);
 
             // Сегментированный контроль «Все / Избранное / Недавние» в общем контейнере.
+            // Рамка у группы фильтров своя, её строит BuildListModeSegments.
+            // Второй обёртки не нужно: у автора рамка ровно одна.
             var tabs = BuildListModeSegments();
-            // Группа фильтров обведена рамкой той же, что и группа команд справа:
-            // в разметке WPF это Border с ContentBackgroundBrush, скруглением 12
-            // и отступом 4.
-            var tabsGroup = new Border
-            {
-                CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(4),
-                Margin = new Thickness(0, 0, 12, 0),
-                BorderThickness = new Thickness(1),
-                VerticalAlignment = VerticalAlignment.Center,
-                Child = tabs
-            };
-            ThemeBrushes.Bind(tabsGroup, Border.BackgroundProperty, "ContentBackgroundColorBrush");
-            ThemeBrushes.Bind(tabsGroup, Border.BorderBrushProperty, "BorderColorBrush");
-            grid.Children.Add(tabsGroup);
-            Grid.SetColumn(tabsGroup, 2);
+            grid.Children.Add(tabs);
+            Grid.SetColumn(tabs, 2);
 
             // Справа: добавить базу, синхронизация, тема, настройки — иконки + подписи, состояния.
             var actions = new StackPanel
@@ -347,7 +335,8 @@ namespace Configuration_Management
 
             // Быстрый переключатель плотности интерфейса, как в разметке WPF:
             // тот же режим уже есть в настройках, здесь он под рукой.
-            var compactBtn = TopBarIconButton("IconCompress", LocalizationManager.T("Main.CompactModeTooltip"));
+            var compactBtn = TopBarIconButton("IconCompress", LocalizationManager.T("Main.CompactModeTooltip"),
+                themeBrushKey: "TextSecondaryColorBrush");
             compactBtn.Click += (_, _) =>
             {
                 if (_vm is null)
@@ -395,6 +384,9 @@ namespace Configuration_Management
             };
             // Нижняя граница TopBar из темы.
             ThemeBrushes.Bind(topBarBorder, Border.BorderBrushProperty, "BorderColorBrush");
+            // Заливка полосы, как в разметке WPF: без неё фон групп команд
+            // и фильтров совпадает с фоном под ними и рамки выглядят пустыми.
+            ThemeBrushes.Bind(topBarBorder, Border.BackgroundProperty, "CardBackgroundBrush");
             return topBarBorder;
         }
 
@@ -412,15 +404,17 @@ namespace Configuration_Management
         /// <summary>Сегментированный контроль фильтра списка: Все / Избранное / Недавние.</summary>
         private Control BuildListModeSegments()
         {
+            // Размеры и кисть как у группы команд в разметке WPF: скругление 12,
+            // отступ 4, фон ContentBackgroundBrush.
             var container = new Border
             {
-                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
-                Padding = new Thickness(3),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(4),
                 BorderThickness = new Thickness(1),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 12, 0)
             };
-            ThemeBrushes.Bind(container, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(container, Border.BackgroundProperty, "ContentBackgroundColorBrush");
             ThemeBrushes.Bind(container, Border.BorderBrushProperty, "BorderColorBrush");
             UiMetrics.AddBrushTransition(container);
 
@@ -826,6 +820,10 @@ namespace Configuration_Management
                     // поэтому переключатель подтягивает состояние вьюмодели.
                     if (e.PropertyName == nameof(MainViewModel.GroupByGroup) && _groupByToggle is not null)
                         _groupByToggle.IsChecked = _vm.GroupByGroup;
+                    // Пустые группы переключаются ещё и из окна настроек, поэтому
+                    // кнопка подтягивает состояние, иначе первый клик уходит вхолостую.
+                    if (e.PropertyName == nameof(MainViewModel.ShowEmptyGroups) && _emptyGroupsToggle is not null)
+                        _emptyGroupsToggle.IsChecked = _vm.ShowEmptyGroups;
                     if (e.PropertyName == nameof(MainViewModel.ShowTagFilterPanel)
                         || e.PropertyName == nameof(MainViewModel.HasActiveTagFilter))
                     {
@@ -1245,7 +1243,7 @@ namespace Configuration_Management
             actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconBroom", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#EF4444"));
+            actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#DC2626"));
             grid.Children.Add(actions);
             Grid.SetColumn(actions, actionsCol);
 
@@ -2095,7 +2093,9 @@ namespace Configuration_Management
                 Padding = new Thickness(UiMetrics.SectionPad),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundBrush");
+            // У автора панель светлее карточки, а не наоборот: панель
+            // CardBackgroundBrush, карточка ContentBackgroundBrush.
+            ThemeBrushes.Bind(card, Border.BackgroundProperty, "ContentBackgroundColorBrush");
             ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
             UiMetrics.AddBrushTransition(card);
             var content = new StackPanel { Spacing = UiMetrics.Gap };
@@ -2379,10 +2379,9 @@ namespace Configuration_Management
 
         private Control DetailRow(string label, Binding binding)
         {
-            var grid = new Grid { Margin = new Thickness(0, 0, 0, 3) };
-            // 100 точек не хватало самой длинной подписи («Последний запуск»),
-            // она упиралась в значение. У автора колонка шире.
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(124) });
+            var grid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            // Ширина колонки подписи и межстрочный отступ взяты из разметки WPF.
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var labelBlock = new TextBlock
@@ -4005,7 +4004,6 @@ namespace Configuration_Management
             menu.Items.Add(MenuAction("Main.ToFavorites", _vm.ToggleFavoriteCommand, _vm.HotkeyFavorite, "IconStar", "#FBBF24"));
             menu.Items.Add(MenuAction("Main.Pin", _vm.TogglePinCommand, _vm.HotkeyPin, "IconPin", "#8B5CF6"));
             menu.Items.Add(cacheMenu);
-            menu.Items.Add(new Separator());
             menu.Items.Add(MenuAction("Main.CopyConnectionString", _vm.CopyConnectionStringCommand, null, "IconCopy", "#06B6D4"));
             menu.Items.Add(MenuAction("Main.OpenCatalog", _vm.OpenInfobaseFolderCommand, null, "IconFolder", "#0EA5E9"));
             menu.Items.Add(MenuAction("Main.DesktopShortcut", _vm.CreateDesktopShortcutCommand, null, "IconMonitor", "#6366F1"));

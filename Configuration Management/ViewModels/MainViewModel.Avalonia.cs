@@ -544,7 +544,14 @@ public class MainViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _showEmptyGroups, value))
+            {
                 RebuildTree();
+                // Выбор надо сохранять: у автора здесь ScheduleSaveSettings,
+                // иначе он теряется при перезапуске, а любое сохранение настроек
+                // возвращает старое значение.
+                _settings.ShowEmptyGroups = value;
+                SaveSettingsSilently();
+            }
         }
     }
 
