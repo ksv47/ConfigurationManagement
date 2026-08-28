@@ -1,0 +1,32 @@
+[mcp_servers.jira]
+enabled = false
+
+[mcp_servers.rlm-tools-bsl]
+enabled = false
+
+[mcp_servers.bsl-analyzer-reference]
+enabled = false
+
+[mcp_servers.v8std]
+enabled = false
+
+[mcp_servers.1c-code-checker-mcp]
+enabled = false
+
+[mcp_servers.1c-docs-mcp]
+enabled = false
+
+[mcp_servers.1c-ssl-mcp]
+enabled = false
+
+[mcp_servers.1c-syntax-checker-mcp]
+enabled = false
+
+[mcp_servers.1c-mcp-toolkit-proxy]
+enabled = false
+
+[mcp_servers.ask_claude]
+enabled = false
+
+[features]
+plugins = false
