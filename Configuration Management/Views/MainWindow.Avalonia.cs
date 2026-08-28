@@ -1058,7 +1058,7 @@ namespace Configuration_Management
             // (MainWindow.xaml:872-882). Рамки у нас не было вовсе.
             var header = new Border
             {
-                CornerRadius = new CornerRadius(UiMetrics.RadiusSm),
+                CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(UiMetrics.Compact ? 6 : 8, UiMetrics.GroupHeaderPadV),
                 // Пустая группа сдвигается вправо на ширину кнопки разворота:
                 // у неё этой кнопки нет, и без сдвига её заголовок начинался бы
@@ -1655,13 +1655,17 @@ namespace Configuration_Management
                 IsHitTestVisible = false
             };
 
+            // Отступы и минимум плашки ужаты против разметки: там колонка звезды
+            // шириной 28 и содержимое кнопки выходит за её край, а WPF ничего
+            // не обрезает. Здесь оно обрезалось, поэтому звезда с плашкой
+            // укладываются в 30 целиком.
             var host = new Border
             {
                 Child = text,
                 CornerRadius = new CornerRadius(3),
-                Padding = new Thickness(4, 0, 4, 1),
+                Padding = new Thickness(3, 0, 3, 1),
                 Margin = new Thickness(2, 0, 0, 0),
-                MinWidth = UiMetrics.Scaled(16),
+                MinWidth = UiMetrics.Scaled(13),
                 VerticalAlignment = VerticalAlignment.Center,
                 IsHitTestVisible = false
             };
@@ -1746,6 +1750,9 @@ namespace Configuration_Management
                 MinHeight = 0,
                 Width = width,
                 HorizontalAlignment = HorizontalAlignment.Left,
+                // Содержимое прижато влево: по центру звезда без плашки уходила
+                // от булавки, а с плашкой упиралась в её колонку.
+                HorizontalContentAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center,
                 Cursor = new Cursor(StandardCursorType.Hand),
                 CommandParameter = infobase
@@ -3531,9 +3538,12 @@ namespace Configuration_Management
 
             if (_vm?.ShowExpandCollapseButtons == true)
             {
-                panel.Children.Add(HeaderIconButton("IconExpandAll",
+                // Здесь у автора значки из пакета (PackIcon Kind="ExpandAll"
+                // и "CollapseAll", MainWindow.xaml:586 и 593), а не одноимённые
+                // ключи его словаря: те шевроны и живут в других местах.
+                panel.Children.Add(HeaderIconButton("IconExpandAllBox",
                     LocalizationManager.T("Main.ExpandAllGroups"), "ExpandAllGroupsCommand"));
-                panel.Children.Add(HeaderIconButton("IconCollapseAll",
+                panel.Children.Add(HeaderIconButton("IconCollapseAllBox",
                     LocalizationManager.T("Main.CollapseAllGroups"), "CollapseAllGroupsCommand"));
                 panel.Children.Add(HeaderIconButton("IconSortAscending",
                     LocalizationManager.T("Main.SortGroupsAscending"), "SortGroupsAscendingCommand"));
@@ -4314,6 +4324,19 @@ namespace Configuration_Management
             return button;
         }
 
+        /// <summary>Сводит состояние переключателей верхней панели с вьюмоделью.</summary>
+        private void SyncTopBarToggles()
+        {
+            if (_vm is null)
+                return;
+            if (_groupByToggle is not null)
+                _groupByToggle.IsChecked = _vm.GroupByGroup;
+            if (_emptyGroupsToggle is not null)
+                _emptyGroupsToggle.IsChecked = _vm.ShowEmptyGroups;
+            if (_compactToggle is not null)
+                _compactToggle.IsChecked = _vm.CompactMode;
+        }
+
         // ======================= Обработчики =======================
 
         private void OnWindowLoaded(object? sender, RoutedEventArgs e)
@@ -4323,6 +4346,12 @@ namespace Configuration_Management
             // (импорт/восстановление конфига), и внутри отложенного колбэка их вложенный
             // цикл сообщений приводил к зависанию приложения.
             _vm?.Initialize();
+            // Настройки читаются здесь, уже после построения содержимого, поэтому
+            // переключатели верхней панели строились по значениям по умолчанию
+            // и не показывали сохранённое состояние до первого щелчка.
+            // Initialize присваивает поля напрямую, без уведомлений, так что
+            // обработчик изменений вьюмодели их тоже не догонял.
+            SyncTopBarToggles();
             RegisterHotkeys();
             // Шаблон дерева готов только после загрузки окна, раньше внутренней
             // прокрутки ещё нет.

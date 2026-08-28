@@ -90,7 +90,6 @@ namespace Configuration_Management.Controls
                             Stretch = Stretch.Uniform,
                             HorizontalAlignment = HorizontalAlignment.Center,
                             VerticalAlignment = VerticalAlignment.Center,
-                            IsVisible = false,
                             Data = IconHelper.Geometry("IconPlus")
                         };
                         ThemeBrushes.Bind(plus, Path.FillProperty, "AccentBrush");
@@ -115,7 +114,17 @@ namespace Configuration_Management.Controls
                 }
             };
 
-            // Свёрнутой группе плюс, развёрнутой минус.
+            // Свёрнутой группе плюс, развёрнутой минус. Видимость задаётся только
+            // стилями обоих состояний: локальное значение в шаблоне старше стиля,
+            // и знак, спрятанный локально, обратно уже не показывался.
+            theme.Add(new Style(x => x.Nesting().Class(":checked").Template().Name("ЗнакРазвёрнуто"))
+            {
+                Setters = { new Setter(Visual.IsVisibleProperty, true) }
+            });
+            theme.Add(new Style(x => x.Nesting().Class(":checked").Template().Name("ЗнакСвёрнуто"))
+            {
+                Setters = { new Setter(Visual.IsVisibleProperty, false) }
+            });
             theme.Add(new Style(x => x.Nesting().Not(y => y.Class(":checked")).Template().Name("ЗнакРазвёрнуто"))
             {
                 Setters = { new Setter(Visual.IsVisibleProperty, false) }
