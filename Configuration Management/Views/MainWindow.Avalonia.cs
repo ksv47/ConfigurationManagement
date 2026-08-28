@@ -53,6 +53,7 @@ namespace Configuration_Management
         private SegmentButton? _tagsToggle;
         private SegmentButton? _emptyGroupsToggle;
         private SegmentButton? _groupByToggle;
+        private SegmentButton? _compactToggle;
         private Border? _columnHeader;
         private Grid? _columnHeaderRow;
         private ColumnDefinition? _headerOffsetColumn;
@@ -235,8 +236,7 @@ namespace Configuration_Management
             {
                 Orientation = Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 10, 0),
-                Spacing = 2
+                Margin = new Thickness(0, 0, 10, 0)
             };
 
             _groupByToggle = MakeSegmentToggle("IconFolder", LocalizationManager.T("Main.ToggleGroups"));
@@ -328,17 +328,19 @@ namespace Configuration_Management
 
             // Быстрый переключатель плотности интерфейса, как в разметке WPF:
             // тот же режим уже есть в настройках, здесь он под рукой.
-            var compactBtn = TopBarIconButton("IconCompress", LocalizationManager.T("Main.CompactModeTooltip"),
-                themeBrushKey: "TextSecondaryColorBrush");
-            compactBtn.Click += (_, _) =>
+            // Это ToggleButton (MainWindow.xaml:322): включённый компактный режим
+            // виден акцентной заливкой, а не только по плотности списка.
+            _compactToggle = MakeSegmentToggle("IconCompress", LocalizationManager.T("Main.CompactModeTooltip"));
+            _compactToggle.IsChecked = _vm?.CompactMode ?? false;
+            _compactToggle.Click += (_, _) =>
             {
                 if (_vm is null)
                     return;
-                var next = !_vm.CompactMode;
+                var next = _compactToggle.IsChecked == true;
                 _vm.CompactMode = next;
                 ApplyCompactMode(next);
             };
-            actions.Children.Add(compactBtn);
+            actions.Children.Add(_compactToggle);
 
             var settingsBtn = TopBarIconButton("IconSettings", LocalizationManager.T("Main.SettingsTooltip"), themeBrushKey: "TextSecondaryColorBrush");
             settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
@@ -406,9 +408,16 @@ namespace Configuration_Management
         /// <summary>Сегментный переключатель (например «группы»/«теги») с иконкой и состояниями.</summary>
         private SegmentButton MakeSegmentToggle(string iconKey, string tooltip)
         {
-            var segment = new SegmentButton(iconKey, string.Empty, "ItemHoverBrush", "ItemSelectedBrush", lockOn: false)
+            // Размеры из разметки (MainWindow.xaml:171-179): значок 18, отступ 6,
+            // зазор между сегментами 2. Прежние 15, 12 на 5 и общий Spacing
+            // разносили кнопки заметно шире, чем в версии для Windows.
+            var segment = new SegmentButton(iconKey, string.Empty, "ItemHoverBrush", "ItemSelectedBrush", lockOn: false,
+                iconSize: UiMetrics.Scaled(18))
             {
-                IsChecked = true
+                IsChecked = true,
+                Padding = new Thickness(UiMetrics.Scaled(6)),
+                Margin = new Thickness(0, 0, 2, 0),
+                MinHeight = 0
             };
             ToolTip.SetTip(segment, tooltip);
             return segment;
@@ -831,6 +840,9 @@ namespace Configuration_Management
                     // кнопка подтягивает состояние, иначе первый клик уходит вхолостую.
                     if (e.PropertyName == nameof(MainViewModel.ShowEmptyGroups) && _emptyGroupsToggle is not null)
                         _emptyGroupsToggle.IsChecked = _vm.ShowEmptyGroups;
+
+                    if (e.PropertyName == nameof(MainViewModel.CompactMode) && _compactToggle is not null)
+                        _compactToggle.IsChecked = _vm.CompactMode;
                     // Ширина правой панели задана числами по этому свойству,
                     // а переключатель подробностей живёт в строке состояния
                     // и меняет его на живом окне. Без пересчёта панель застывала
@@ -1196,21 +1208,15 @@ namespace Configuration_Management
             // синий — веб, фиолетовый — клиент-сервер, красный — недоступна.
             var connectionIconKey = ib.StatusIconKey;
 
-            var iconBox = new Border
-            {
-                Width = UiMetrics.RowIconBox,
-                Height = UiMetrics.RowIconBox,
-                CornerRadius = new CornerRadius(UiMetrics.RadiusMd),
-                BorderThickness = new Thickness(1),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 0, 10, 0)
-            };
-            ToolTip.SetTip(iconBox, ib.StatusDisplay);
-            ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush");
-            ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush");
-            iconBox.Child = IconHelper.MakeIcon(connectionIconKey, UiMetrics.RowIcon,
+            // Значок идёт без подложки и рамки: в разметке это голый Path 14 на 14
+            // с отступом 6 справа (MainWindow.xaml:1234). Коробка вокруг него была
+            // нашей отсебятиной.
+            var iconBox = IconHelper.MakeIcon(connectionIconKey, UiMetrics.RowIcon,
                 new SolidColorBrush(Color.Parse(ib.StatusColorHex)));
+            iconBox.HorizontalAlignment = HorizontalAlignment.Center;
+            iconBox.VerticalAlignment = VerticalAlignment.Center;
+            iconBox.Margin = new Thickness(0, 0, 6, 0);
+            ToolTip.SetTip(iconBox, ib.StatusDisplay);
 
             grid.Children.Add(iconBox);
             Grid.SetColumn(iconBox, 2);
@@ -2633,15 +2639,21 @@ namespace Configuration_Management
 
         private Control DetailRow(string label, Binding binding)
         {
-            var grid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
-            // Ширина колонки подписи и межстрочный отступ взяты из разметки WPF.
+            // Отступ между строками меньше восьми из разметки: у системного шрифта
+            // строка выше, чем у Segoe UI, и при восьми карточка выходила заметно
+            // разреженнее версии для Windows при том же кегле.
+            var grid = new Grid { Margin = new Thickness(0, 0, 0, 4) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
+            // Высота строки задана явно: без неё шаг строк определяют метрики
+            // системного шрифта, и карточка выходила заметно разреженнее, чем
+            // в версии для Windows при том же кегле и тех же отступах.
             var labelBlock = new TextBlock
             {
                 Text = label,
-                FontSize = UiMetrics.ScaledFont(12)
+                FontSize = UiMetrics.ScaledFont(12),
+                LineHeight = UiMetrics.ScaledFont(16)
             };
             ThemeBrushes.Bind(labelBlock, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
             grid.Children.Add(labelBlock);
@@ -2651,6 +2663,7 @@ namespace Configuration_Management
             var valueBlock = new TextBlock
             {
                 FontSize = UiMetrics.ScaledFont(12),
+                LineHeight = UiMetrics.ScaledFont(16),
                 FontWeight = FontWeight.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             };
@@ -2984,10 +2997,10 @@ namespace Configuration_Management
         private const double NameColumnMinWidth = 220;
 
         /// <summary>Ширина колонки звезды «избранное» в заголовке и в строке базы.</summary>
-        private static double FavoriteColumnWidth => UiMetrics.Scaled(30);
+        private static double FavoriteColumnWidth => UiMetrics.Scaled(24);
 
         /// <summary>Ширина колонки булавки «закреплено» в заголовке и в строке базы.</summary>
-        private static double PinColumnWidth => UiMetrics.Scaled(26);
+        private static double PinColumnWidth => UiMetrics.Scaled(22);
 
         /// <summary>Ширина фиксированной колонки «Действия» в заголовке и в строке базы.</summary>
         private static double ActionsColumnWidth => UiMetrics.Scaled(170);
