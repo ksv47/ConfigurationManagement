@@ -1769,7 +1769,7 @@ namespace Configuration_Management
             // дополнительных вариантов.
             var launchEnterpriseBlock = BuildLaunchSplitButton(
                 "IconPlay",
-                LocalizationManager.T("Main.LaunchEnterprise"),
+                LocalizationManager.T("Main.Enterprise"),
                 "LaunchEnterpriseCommand",
                 LocalizationManager.T("Main.LaunchEnterpriseTooltip"),
                 primary: true,
@@ -1782,7 +1782,7 @@ namespace Configuration_Management
             // Конфигуратор — secondary full-width (без отдельной тяжёлой карточки).
             var launchConfiguratorBlock = BuildLaunchSplitButton(
                 "IconWrench",
-                LocalizationManager.T("Main.LaunchConfiguratorSection"),
+                LocalizationManager.T("Main.SectionConfigurator"),
                 "LaunchConfiguratorCommand",
                 LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip"),
                 primary: false,
@@ -1926,8 +1926,9 @@ namespace Configuration_Management
             panel.Children.Add(byLinkBlock);
 
             // Выход — компактная кнопка внизу, без лишней «карточки».
+            // «Выход» у автора красный, #DC2626 в обеих темах.
             var exitBtn = CompactActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand",
-                LocalizationManager.T("Main.ExitTooltip"));
+                LocalizationManager.T("Main.ExitTooltip"), "#DC2626");
             exitBtn.Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, 0);
             panel.Children.Add(exitBtn);
 
@@ -1963,7 +1964,12 @@ namespace Configuration_Management
         /// Компактная кнопка действия правой панели: иконка + текст, низкая высота,
         /// растягивается на всю ширину панели.
         /// </summary>
-        private static Control CompactActionButton(string iconKey, string text, string commandPath, string tooltip)
+        /// <param name="colorHex">
+        /// Явный цвет значка и подписи. У автора так покрашен «Выход»: #DC2626
+        /// одинаково в обеих темах.
+        /// </param>
+        private static Control CompactActionButton(string iconKey, string text, string commandPath, string tooltip,
+            string? colorHex = null)
         {
             var btn = new PanelButton(
                 "SecondaryButtonBackgroundBrush",
@@ -1972,7 +1978,7 @@ namespace Configuration_Management
                 "BorderColorBrush",
                 new CornerRadius(UiMetrics.RadiusMd))
             {
-                Content = CompactIconAndText(iconKey, text, "ButtonTextBrush"),
+                Content = CompactIconAndText(iconKey, text, "ButtonTextBrush", colorHex: colorHex),
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 MinHeight = UiMetrics.ActionButtonMinHeight,
@@ -2010,7 +2016,8 @@ namespace Configuration_Management
             return btn;
         }
 
-        private static Control CompactIconAndText(string iconKey, string text, string brushKey, string? textPath = null)
+        private static Control CompactIconAndText(string iconKey, string text, string brushKey, string? textPath = null,
+            string? colorHex = null)
         {
             // Сеткой, а не горизонтальной панелью: панель меряет подпись
             // бесконечной шириной, поэтому обрезка многоточием не срабатывает
@@ -2018,7 +2025,22 @@ namespace Configuration_Management
             var sp = new Grid { ColumnSpacing = 6, VerticalAlignment = VerticalAlignment.Center };
             sp.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             sp.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            sp.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.ActionIconSize, brushKey));
+            if (colorHex is null)
+            {
+                sp.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.ActionIconSize, brushKey));
+            }
+            else
+            {
+                sp.Children.Add(new Avalonia.Controls.Shapes.Path
+                {
+                    Width = UiMetrics.ActionIconSize,
+                    Height = UiMetrics.ActionIconSize,
+                    Data = IconHelper.Geometry(iconKey),
+                    Stretch = Stretch.Uniform,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Fill = new SolidColorBrush(Color.Parse(colorHex))
+                });
+            }
             var tb = new TextBlock
             {
                 Text = text,
@@ -2027,7 +2049,10 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
-            ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+            if (colorHex is null)
+                ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+            else
+                tb.Foreground = new SolidColorBrush(Color.Parse(colorHex));
             if (textPath is not null)
                 tb.Bind(TextBlock.TextProperty, new Binding(textPath));
             Grid.SetColumn(tb, 1);
