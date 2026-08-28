@@ -342,7 +342,10 @@ namespace Configuration_Management
             // Проверка доступности стоит между синхронизацией и темой, как у автора.
             actions.Children.Add(checkAvailBtn);
 
-            var themeBtn = TopBarIconButton("IconTheme", LocalizationManager.T("Main.Theme"), "#8B5CF6");
+            // Значок меняется вместе со схемой, как в версии для Windows
+            // (MainWindow.Language.cs:41): в тёмной солнце, в светлой луна.
+            var themeIconKey = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName ? "IconSun" : "IconMoon";
+            var themeBtn = TopBarIconButton(themeIconKey, LocalizationManager.T("Main.Theme"), "#8B5CF6");
             themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
             actions.Children.Add(themeBtn);
 
@@ -3223,7 +3226,11 @@ namespace Configuration_Management
         /// эта колонка пустая, но она есть, иначе подпись «Название» стояла бы
         /// левее имён строк на ширину иконки.
         /// </summary>
-        private static double IconColumnWidth => UiMetrics.RowIconBox + 10;
+        /// <summary>
+        /// Ширина колонки значка подключения: сам значок 14 и отступ 6 справа,
+        /// как в разметке. Прежние 48 остались от подложки, которой больше нет.
+        /// </summary>
+        private static double IconColumnWidth => UiMetrics.Scaled(20);
 
         /// <summary>Ширина одной кнопки панели инструментов над списком.</summary>
         private static double ToolbarButtonWidth => UiMetrics.Scaled(24);
@@ -4301,7 +4308,7 @@ namespace Configuration_Management
             grid.Children.Add(sessionToggleBtn);
             Grid.SetColumn(sessionToggleBtn, 2);
 
-            var toggleBtn = StatusBarIconButton("IconPanel");
+            var toggleBtn = StatusBarIconButton("IconPageLayoutSidebarRight");
             // Подсказка меняется вместе с состоянием панели, как в разметке
             // (MainWindow.xaml:2337): раньше здесь стояла постоянная строка.
             toggleBtn.Bind(ToolTip.TipProperty, new Binding("RightPanelToggleTooltip"));
@@ -4642,16 +4649,8 @@ namespace Configuration_Management
         /// Значок пункта меню. Цвет задаётся явно, а не ресурсом темы: в разметке
         /// WPF у каждого пункта свой цвет, и он один и тот же в светлой и тёмной.
         /// </summary>
-        private static Control MenuIcon(string iconKey, string colorHex) =>
-            new Avalonia.Controls.Shapes.Path
-            {
-                Width = 16,
-                Height = 16,
-                Data = IconHelper.Geometry(iconKey),
-                Stretch = Stretch.Uniform,
-                Fill = new SolidColorBrush(Color.Parse(colorHex)),
-                VerticalAlignment = VerticalAlignment.Center
-            };
+        private static Control MenuIcon(string iconKey, string colorHex)
+            => IconHelper.MakeIcon(iconKey, 16, new SolidColorBrush(Color.Parse(colorHex)));
 
         /// <summary>Пункт меню с подписью из словаря, командой и подсказкой сочетания клавиш.</summary>
         private static MenuItem MenuAction(string textKey, System.Windows.Input.ICommand command, string? gesture = null,

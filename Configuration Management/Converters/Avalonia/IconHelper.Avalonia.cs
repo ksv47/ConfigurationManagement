@@ -132,7 +132,9 @@ namespace Configuration_Management
             "Version" => "IconInfo",
             "Configuration" => "IconConfiguration",
             "LaunchMode" => "IconPlay",
-            "ServerBase" => "IconServices",
+            // В разметке у этой колонки значок Server, а не шестерёнка
+            // (MainWindow.xaml:670): шестерёнка стоит у «Действий».
+            "ServerBase" => "IconServer",
             "LastLaunch" => "IconRecent",
             "Size" => "IconDatabase",
             "Actions" => "IconSettings",

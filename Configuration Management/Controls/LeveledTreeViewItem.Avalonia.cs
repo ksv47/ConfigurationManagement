@@ -3,6 +3,8 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Controls.Primitives;
 using Path = Avalonia.Controls.Shapes.Path;
 using Avalonia.Controls.Templates;
@@ -69,19 +71,22 @@ namespace Configuration_Management.Controls
                     new Setter(Layoutable.WidthProperty, 26d),
                     new Setter(Layoutable.HeightProperty, 26d),
                     new Setter(TemplatedControl.PaddingProperty, new Thickness(0)),
+                    new Setter(TemplatedControl.CursorProperty, new Cursor(StandardCursorType.Hand)),
                     new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ToggleButton>((_, scope) =>
                     {
                         // Значки строятся общим помощником: у голого Path со Stretch
                         // контур растягивается по своим границам, и минус, чьи
                         // границы это тонкая полоса, вставал не по центру коробки.
+                        // Кисти частей задаются только сеттерами темы ниже, а не
+                        // привязкой здесь: ThemeBrushes.Bind ставит значение
+                        // приоритетом локального, и стиль состояния, который
+                        // слабее, наведение уже не перекрасил бы.
                         var minus = IconHelper.MakeIcon("IconMinus", 12, out var minusPath);
                         minus.Name = "ЗнакРазвёрнуто";
                         minusPath.Name = "КонтурРазвёрнуто";
-                        ThemeBrushes.Bind(minusPath, Path.FillProperty, "AccentBrush");
                         var plus = IconHelper.MakeIcon("IconPlus", 12, out var plusPath);
                         plus.Name = "ЗнакСвёрнуто";
                         plusPath.Name = "КонтурСвёрнуто";
-                        ThemeBrushes.Bind(plusPath, Path.FillProperty, "AccentBrush");
 
                         var glyphs = new Panel();
                         glyphs.Children.Add(minus.RegisterInNameScope(scope));
@@ -98,12 +103,27 @@ namespace Configuration_Management.Controls
                             BorderThickness = new Thickness(1.5),
                             Child = glyphs
                         };
-                        ThemeBrushes.Bind(border, Border.BackgroundProperty, "CardBackgroundBrush");
-                        ThemeBrushes.Bind(border, Border.BorderBrushProperty, "AccentBrush");
                         return border.RegisterInNameScope(scope);
                     }))
                 }
             };
+
+            static IBinding Res(string key) => new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(key);
+
+            // Вид в покое: заливка карточкой, рамка и знак акцентом.
+            theme.Add(new Style(x => x.Nesting().Template().Name("РамкаРазворота"))
+            {
+                Setters =
+                {
+                    new Setter(Border.BackgroundProperty, Res("CardBackgroundBrush")),
+                    new Setter(Border.BorderBrushProperty, Res("AccentBrush"))
+                }
+            });
+            foreach (var part in new[] { "КонтурРазвёрнуто", "КонтурСвёрнуто" })
+                theme.Add(new Style(x => x.Nesting().Template().Name(part))
+                {
+                    Setters = { new Setter(Path.FillProperty, Res("AccentBrush")) }
+                });
 
             // Свёрнутой группе плюс, развёрнутой минус. Видимость задаётся только
             // стилями обоих состояний: локальное значение в шаблоне старше стиля,
@@ -124,16 +144,21 @@ namespace Configuration_Management.Controls
             {
                 Setters = { new Setter(Visual.IsVisibleProperty, true) }
             });
-            // При наведении заливка акцентом и белый знак, как в разметке.
-            theme.Add(new Style(x => x.Nesting().Class(":pointerover").Template().Name("РамкаРазворота"))
+            // При наведении заливка акцентом и белый знак, при нажатии заливка
+            // акцентом наведения, как в разметке (MainWindow.xaml:1504-1513).
+            foreach (var (state, bg) in new[] { (":pointerover", "AccentBrush"), (":pressed", "AccentHoverBrush") })
             {
-                Setters = { new Setter(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AccentBrush")) }
-            });
-            foreach (var part in new[] { "КонтурРазвёрнуто", "КонтурСвёрнуто" })
-                theme.Add(new Style(x => x.Nesting().Class(":pointerover").Template().Name(part))
+                var stateClass = state;
+                theme.Add(new Style(x => x.Nesting().Class(stateClass).Template().Name("РамкаРазворота"))
                 {
-                    Setters = { new Setter(Path.FillProperty, Brushes.White) }
+                    Setters = { new Setter(Border.BackgroundProperty, Res(bg)) }
                 });
+                foreach (var part in new[] { "КонтурРазвёрнуто", "КонтурСвёрнуто" })
+                    theme.Add(new Style(x => x.Nesting().Class(stateClass).Template().Name(part))
+                    {
+                        Setters = { new Setter(Path.FillProperty, Brushes.White) }
+                    });
+            }
             return theme;
         }
 
