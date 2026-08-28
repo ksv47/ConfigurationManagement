@@ -34,9 +34,15 @@ namespace Configuration_Management.Controls
 
         public HelpLink()
         {
-            // Круглая кнопка «?».
+            // Круглая кнопка «?». Отступы снимаются и содержимое центрируется явно:
+            // у кнопки по умолчанию Padding больше самой кнопки шириной 18, поэтому
+            // знак вопроса вытеснялся за границы и кнопка выглядела пустым квадратом.
             _helpToggle.Width = 18;
             _helpToggle.Height = 18;
+            _helpToggle.Padding = new Thickness(0);
+            _helpToggle.CornerRadius = new CornerRadius(9);
+            _helpToggle.HorizontalContentAlignment = HorizontalAlignment.Center;
+            _helpToggle.VerticalContentAlignment = VerticalAlignment.Center;
             _helpToggle.HorizontalAlignment = HorizontalAlignment.Center;
             _helpToggle.VerticalAlignment = VerticalAlignment.Center;
             _helpToggle.Content = new TextBlock
