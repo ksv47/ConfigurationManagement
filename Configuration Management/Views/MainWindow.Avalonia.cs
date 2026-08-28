@@ -852,7 +852,6 @@ namespace Configuration_Management
                 // Более плотные отступы — кнопки и карточки занимают меньше места.
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Padding = new Thickness(UiMetrics.Scaled(12), UiMetrics.Scaled(10)),
                 MinWidth = UiMetrics.RightPanelMin,
                 MaxWidth = UiMetrics.RightPanelMax
             };
@@ -1713,10 +1712,14 @@ namespace Configuration_Management
         {
             // Компактная правая панель: primary-запуски на всю ширину, вторичные
             // действия — списком в один столбец, секции без тяжёлых карточек.
+            // Отступы держит само содержимое, а не Padding у ScrollViewer:
+            // его отступ не входит в прокручиваемую высоту, и нижняя кнопка
+            // становилась недостижимой, от неё была видна одна рамка.
             var panel = new StackPanel
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Spacing = UiMetrics.ActionGridGap
+                Spacing = UiMetrics.ActionGridGap,
+                Margin = new Thickness(UiMetrics.Scaled(12), UiMetrics.Scaled(10))
             };
 
             // Заголовок базы
@@ -1932,7 +1935,9 @@ namespace Configuration_Management
             // «Выход» у автора красный, #DC2626 в обеих темах.
             var exitBtn = CompactActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand",
                 LocalizationManager.T("Main.ExitTooltip"), "#DC2626");
-            exitBtn.Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, 0);
+            // Нижний отступ обязателен: без него последний элемент не попадает
+            // в прокручиваемую высоту целиком и снизу остаётся видна только рамка.
+            exitBtn.Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, UiMetrics.ActionGridGap);
             panel.Children.Add(exitBtn);
 
             return panel;
@@ -2091,9 +2096,18 @@ namespace Configuration_Management
                     LocalizationManager.T("Main.SessionThickOrdinaryTooltip")),
                 SessionOption(LocalizationManager.T("Main.SessionClientThin"), "SessionClient", "IsSessionClientThin"),
                 SessionGroupLabel(LocalizationManager.T("Main.Bitness")),
-                SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionArch", "IsSessionArchAuto"),
-                SessionOption("32", "SessionArch", "IsSessionArch32"),
-                SessionOption("64", "SessionArch", "IsSessionArch64"));
+                // Разрядность у автора идёт строкой, а не колонкой, как режим клиента.
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 12,
+                    Children =
+                    {
+                        SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionArch", "IsSessionArchAuto"),
+                        SessionOption("32", "SessionArch", "IsSessionArch32"),
+                        SessionOption("64", "SessionArch", "IsSessionArch64")
+                    }
+                });
 
             card.Bind(Control.IsVisibleProperty, new Binding("ShowSessionLaunchPanel"));
             return card;
@@ -3793,6 +3807,9 @@ namespace Configuration_Management
                     Margin = new Thickness(0, 0, 4, 0),
                     IsChecked = item.IsSelected
                 };
+                // Теги панели фильтра у автора в скруглённой рамке, а не плоские.
+                button.BorderThickness = new Thickness(1);
+                ThemeBrushes.Bind(button, TemplatedControl.BorderBrushProperty, "BorderColorBrush");
                 button.Click += (_, _) => _vm.SearchByTagCommand.Execute(item.Name);
                 _tagPanelItems.Children.Add(button);
             }
@@ -4116,8 +4133,8 @@ namespace Configuration_Management
             menu.Items.Add(MenuAction("Main.Pin", _vm.TogglePinCommand, _vm.HotkeyPin, "IconPin", "#8B5CF6"));
             menu.Items.Add(cacheMenu);
             menu.Items.Add(MenuAction("Main.CopyConnectionString", _vm.CopyConnectionStringCommand, null, "IconCopy", "#06B6D4"));
-            menu.Items.Add(MenuAction("Main.OpenCatalog", _vm.OpenInfobaseFolderCommand, null, "IconFolder", "#0EA5E9"));
-            menu.Items.Add(MenuAction("Main.DesktopShortcut", _vm.CreateDesktopShortcutCommand, null, "IconMonitor", "#6366F1"));
+            menu.Items.Add(MenuAction("Main.OpenCatalog", _vm.OpenInfobaseFolderCommand, null, "IconFolderOpen", "#0EA5E9"));
+            menu.Items.Add(MenuAction("Main.DesktopShortcut", _vm.CreateDesktopShortcutCommand, null, "IconDesktopClassic", "#6366F1"));
             menu.Items.Add(MenuAction("Main.AddBase", _vm.AddInfobaseCommand, _vm.HotkeyAdd, "IconAdd", "#22C55E"));
             menu.Items.Add(new Separator());
             menu.Items.Add(MenuAction("Main.DumpToDt", _vm.DumpInfobaseDtCommand, null, "IconDatabaseExport", "#0EA5E9"));
