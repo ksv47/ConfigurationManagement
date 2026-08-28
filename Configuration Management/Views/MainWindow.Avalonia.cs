@@ -2396,12 +2396,17 @@ namespace Configuration_Management
             var radius = UiMetrics.RadiusLg;
             var mainCorner = new CornerRadius(radius, 0, 0, radius);
 
+            // Вторичная кнопка запуска у автора прозрачная с рамкой, а не залитая:
+            // залит только первичный запуск, а кремовым остаётся штатный стартер.
             var main = primary
                 ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", mainCorner)
-                : new PanelButton("SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush",
+                : new PanelButton("", "SecondaryButtonHoverBrush",
                     "SecondaryButtonPressedBrush", "BorderColorBrush", mainCorner);
 
-            var contentBrush = primary ? "TextOnAccentBrush" : "ButtonTextBrush";
+            // У вторичной кнопки подпись и значок берут основной цвет текста,
+            // как в разметке: ButtonTextBrush чёрный в обеих темах и на прозрачной
+            // кнопке тёмной темы не читается.
+            var contentBrush = primary ? "TextOnAccentBrush" : "TextPrimaryColorBrush";
             main.Content = ThemedIconAndText(iconKey, text, contentBrush,
                 primary ? UiMetrics.ScaledFont(16) : UiMetrics.ActionIconSize, centered: primary);
             main.HorizontalContentAlignment = primary ? HorizontalAlignment.Center : HorizontalAlignment.Left;
@@ -2429,7 +2434,8 @@ namespace Configuration_Management
             var arrowCorner = new CornerRadius(0, radius, radius, 0);
             var arrow = primary
                 ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", arrowCorner)
-                : new PanelButton("SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush",
+                // Стрелка вторичной кнопки прозрачная, как и её основная часть.
+                : new PanelButton("", "SecondaryButtonHoverBrush",
                     "SecondaryButtonPressedBrush", "BorderColorBrush", arrowCorner);
             arrow.Width = 32;
             arrow.MinHeight = main.MinHeight;
