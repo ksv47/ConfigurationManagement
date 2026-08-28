@@ -137,8 +137,13 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        IconHelper.MakeIcon("IconDelete", 16, "TextOnAccentColorBrush"),
-                        new TextBlock { Text = LocalizationManager.T("DeleteInfobase.Delete"), VerticalAlignment = VerticalAlignment.Center }
+                        IconHelper.MakeIcon("IconDelete", 16, "White"),
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T("DeleteInfobase.Delete"),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Foreground = Brushes.White
+                        }
                     }
                 },
                 MinWidth = 120,

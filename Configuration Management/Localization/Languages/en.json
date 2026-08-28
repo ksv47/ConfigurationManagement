@@ -630,7 +630,7 @@
     "CacheClean.Title": "Clear 1C cache",
     "CacheClean.ProgramCache": "Program cache",
     "CacheClean.UserCache": "User cache",
-    "GroupPicker.Title": "Choose parent group",
+    "GroupPicker.Title": "Choose group",
     "GroupEdit.Title": "Group settings",
     "GroupEdit.BasicParams": "Basic parameters",
     "GroupEdit.TitleColor": "Title color",
@@ -731,9 +731,9 @@
     "GroupEdit.Icon.Merge": "Merge",
 
     "GroupPicker.Hint": "Select a group in the tree. Double-click to confirm. «Root group» — the top level (no parent).",
-    "GroupPicker.Subtitle": "The group will be placed inside the selected group",
+    "GroupPicker.Subtitle": "The selected item will be placed inside the selected group",
     "GroupPicker.SearchPlaceholder": "Search group…",
-    "GroupPicker.Help": "Choosing a parent group (where the group will be placed).\n\n• The tree shows the group hierarchy; each group displays its color and icon.\n• Click a group to select it; double-click to choose and confirm.\n• The «Select» button confirms the choice, «Cancel» closes the window.\n• «Root group» places the group at the top level (no parent).\n• The search box filters groups by name; the A→Z / Z→A buttons sort groups by name (ascending by default).",
+    "GroupPicker.Help": "Choosing a group in which the selected item will be placed.\n\n• The tree shows the group hierarchy; each group displays its color and icon.\n• Click a group to select it; double-click to choose and confirm.\n• The «Select» button confirms the choice, «Cancel» closes the window.\n• «Root group» places the item at the top level (no parent).\n• The search box filters groups by name; the A→Z / Z→A buttons sort groups by name (ascending by default).",
 
     "PlatformVersionPicker.SortAscTooltip": "Sort ascending (A→Z)",
     "PlatformVersionPicker.SortDescTooltip": "Sort descending (Z→A)",

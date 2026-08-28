@@ -512,7 +512,12 @@ public partial class MainViewModel : ViewModelBase
         foreach (var root in roots)
             root.SortChildrenRecursive(_groupSortAscending);
 
-        var pinnedNode = new GroupNodeViewModel(null, marker: GroupNodeViewModel.PinnedMarker);
+        var pinnedNode = new GroupNodeViewModel(
+            null,
+            marker: GroupNodeViewModel.PinnedMarker,
+            defaultColor: _pinnedColor,
+            defaultIconColor: _pinnedIconColor,
+            defaultIcon: _pinnedIcon);
         var noGroupNode = new GroupNodeViewModel(
             null,
             marker: GroupNodeViewModel.NoGroupMarker,

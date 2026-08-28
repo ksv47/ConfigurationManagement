@@ -39,6 +39,9 @@ public partial class MainViewModel : ViewModelBase
         Save();
         RebuildGroupTree();
         RefreshFileMetadata();
+
+        // Фоново читаем имя и версию конфигурации для баз, где они ещё не заполнены.
+        RefreshConfigurationInfoAsync();
     }
 
     /// <summary>
@@ -194,6 +197,16 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
+        // Узел «Закреплённые» (без модели группы) — открываем редактор оформления узла
+        // (цвет и иконку), как для «Без группы».
+        // Если при этом вызвана команда с конкретной базой (кнопка строки базы внутри
+        // узла), такую базу редактируем как обычно.
+        if (IsPinnedNodeSelected() && parameter is not Infobase)
+        {
+            EditPinnedNode();
+            return;
+        }
+
         var ib = parameter as Infobase ?? SelectedInfobase;
         if (ib is null)
             return;
@@ -287,6 +300,14 @@ public partial class MainViewModel : ViewModelBase
         string.Equals(node.Marker, GroupNodeViewModel.NoGroupMarker, StringComparison.Ordinal);
 
     /// <summary>
+    /// Признак того, что выбран служебный узел «Закреплённые» (закреплённые базы).
+    /// Его настройки не редактируются.
+    /// </summary>
+    private bool IsPinnedNodeSelected() =>
+        SelectedGroupNode is { Group: null } node &&
+        string.Equals(node.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal);
+
+    /// <summary>
     /// Редактирует оформление служебного узла «Без группы» (цвет и иконку)
     /// по аналогии с обычной группой. Изменения сохраняются в настройках приложения.
     /// </summary>
@@ -299,9 +320,30 @@ public partial class MainViewModel : ViewModelBase
         if (dialog.ShowDialog() != true)
             return;
 
-        _noGroupColor = string.IsNullOrWhiteSpace(dialog.Result.Color) ? "#2D6CDF" : dialog.Result.Color;
+        _noGroupColor = string.IsNullOrWhiteSpace(dialog.Result.Color) ? "#6B7280" : dialog.Result.Color;
         _noGroupIconColor = string.IsNullOrWhiteSpace(dialog.Result.IconColor) ? "#FFFFFF" : dialog.Result.IconColor;
         _noGroupIcon = dialog.Result.Icon ?? string.Empty;
+
+        RebuildGroupTree();
+        ScheduleSaveSettings();
+    }
+
+    /// <summary>
+    /// Редактирует оформление служебного узла «Закреплённые» (цвет и иконку)
+    /// по аналогии с «Без группы». Изменения сохраняются в настройках приложения.
+    /// </summary>
+    private void EditPinnedNode()
+    {
+        var dialog = new GroupEditWindow(Groups, _pinnedColor, _pinnedIconColor, _pinnedIcon)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        _pinnedColor = string.IsNullOrWhiteSpace(dialog.Result.Color) ? "#8B5CF6" : dialog.Result.Color;
+        _pinnedIconColor = string.IsNullOrWhiteSpace(dialog.Result.IconColor) ? "#FFFFFF" : dialog.Result.IconColor;
+        _pinnedIcon = dialog.Result.Icon ?? string.Empty;
 
         RebuildGroupTree();
         ScheduleSaveSettings();
@@ -925,7 +967,12 @@ public string HotkeyEnterprise
         {
             if (pinned is null)
             {
-                pinned = new GroupNodeViewModel(null, marker: GroupNodeViewModel.PinnedMarker) { IsExpanded = true };
+                pinned = new GroupNodeViewModel(
+                    null,
+                    marker: GroupNodeViewModel.PinnedMarker,
+                    defaultColor: _pinnedColor,
+                    defaultIconColor: _pinnedIconColor,
+                    defaultIcon: _pinnedIcon) { IsExpanded = true };
                 pinned.Infobases.Add(infobase);
                 pinned.PopulateItems(); // NotifyCountChanged внутри
                 GroupNodes.Insert(0, pinned);

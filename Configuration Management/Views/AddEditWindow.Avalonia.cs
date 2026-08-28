@@ -79,8 +79,13 @@ namespace Configuration_Management
                     Spacing = 6,
                     Children =
                     {
-                        new TextBlock { Text = LocalizationManager.T("AddEdit.Next"), VerticalAlignment = VerticalAlignment.Center },
-                        IconHelper.MakeIcon("IconArrowRight", 16, "TextOnAccentColorBrush")
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T("AddEdit.Next"),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Foreground = Brushes.White
+                        },
+                        IconHelper.MakeIcon("IconArrowRight", 16, "White")
                     }
                 },
                 MinWidth = 110,

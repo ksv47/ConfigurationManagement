@@ -32,9 +32,12 @@ public partial class MainViewModel : ViewModelBase
     private bool _showFavoritesOnly;
     private bool _groupByGroup = true;
     private bool _showEmptyGroups;
-    private string _noGroupColor = "#2D6CDF";
+    private string _noGroupColor = "#6B7280";
     private string _noGroupIconColor = "#FFFFFF";
     private string _noGroupIcon = string.Empty;
+    private string _pinnedColor = "#8B5CF6";
+    private string _pinnedIconColor = "#FFFFFF";
+    private string _pinnedIcon = string.Empty;
     private string _savedTheme = string.Empty;
     private ColorScheme? _activeColorScheme;
     /// <summary>Пользовательская схема светлой темы (кастомизация хранится независимо от тёмной).</summary>
@@ -188,9 +191,12 @@ public partial class MainViewModel : ViewModelBase
         _showFavoritesOnly = settings.ShowFavoritesOnly;
         _groupByGroup = settings.GroupByGroup;
         _showEmptyGroups = settings.ShowEmptyGroups;
-        _noGroupColor = string.IsNullOrWhiteSpace(settings.NoGroupColor) ? "#2D6CDF" : settings.NoGroupColor;
+        _noGroupColor = string.IsNullOrWhiteSpace(settings.NoGroupColor) ? "#6B7280" : settings.NoGroupColor;
         _noGroupIconColor = string.IsNullOrWhiteSpace(settings.NoGroupIconColor) ? "#FFFFFF" : settings.NoGroupIconColor;
         _noGroupIcon = settings.NoGroupIcon ?? string.Empty;
+        _pinnedColor = string.IsNullOrWhiteSpace(settings.PinnedColor) ? "#8B5CF6" : settings.PinnedColor;
+        _pinnedIconColor = string.IsNullOrWhiteSpace(settings.PinnedIconColor) ? "#FFFFFF" : settings.PinnedIconColor;
+        _pinnedIcon = settings.PinnedIcon ?? string.Empty;
         _savedTheme = settings.Theme;
         _fontFamily = string.IsNullOrWhiteSpace(settings.FontFamily)
             ? Themes.ThemeManager.DefaultFontFamily : settings.FontFamily;
@@ -366,13 +372,26 @@ public partial class MainViewModel : ViewModelBase
         SelectInfobaseCommand = new RelayCommand(SelectInfobase);
         RefreshCommand = new RelayCommand(Refresh);
         AddInfobaseCommand = new RelayCommand(AddInfobase);
+        // Узел «Закреплённые» сам по себе группы не имеет, но по горячей клавише правки
+        // открывает редактор оформления узла (цвет и иконка), как для «Без группы».
+        // Исключение — кнопка действия строки конкретной базы внутри узла (параметр — Infobase):
+        // такую базу редактируем как обычно.
         EditInfobaseCommand = new RelayCommand(EditInfobase,
-            p => ResolveActionTarget(p) != null || SelectedGroupNode?.Group != null || IsNoGroupNodeSelected());
+            p => (ResolveActionTarget(p) != null || SelectedGroupNode?.Group != null || IsNoGroupNodeSelected() || IsPinnedNodeSelected()));
         DeleteInfobaseCommand = new RelayCommand(DeleteSelected,
             p => ResolveActionTarget(p) != null || SelectedGroupNode?.Group != null);
         // Команды группы: параметр — узел группы или сама группа из строки дерева.
+        // Для служебного узла «Закреплённые» (без модели Group) открываем редактор
+        // оформления узла (цвет и иконка), как для «Без группы».
         EditGroupCommand = new RelayCommand(p =>
         {
+            if (p is GroupNodeViewModel node &&
+                node.Group is null &&
+                string.Equals(node.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal))
+            {
+                EditPinnedNode();
+                return;
+            }
             var group = ResolveGroup(p);
             if (group is not null)
                 EditGroup(group);
@@ -719,6 +738,48 @@ public partial class MainViewModel : ViewModelBase
         {
             if (_noGroupIcon == value) return;
             _noGroupIcon = value;
+            OnPropertyChanged();
+            RebuildGroupTree();
+            ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>Цвет фона заголовка узла «Закреплённые».</summary>
+    public string PinnedColor
+    {
+        get => _pinnedColor;
+        set
+        {
+            if (_pinnedColor == value) return;
+            _pinnedColor = value;
+            OnPropertyChanged();
+            RebuildGroupTree();
+            ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>Цвет иконки узла «Закреплённые».</summary>
+    public string PinnedIconColor
+    {
+        get => _pinnedIconColor;
+        set
+        {
+            if (_pinnedIconColor == value) return;
+            _pinnedIconColor = value;
+            OnPropertyChanged();
+            RebuildGroupTree();
+            ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>Ключ иконки узла «Закреплённые» (пусто — по умолчанию).</summary>
+    public string PinnedIcon
+    {
+        get => _pinnedIcon;
+        set
+        {
+            if (_pinnedIcon == value) return;
+            _pinnedIcon = value;
             OnPropertyChanged();
             RebuildGroupTree();
             ScheduleSaveSettings();

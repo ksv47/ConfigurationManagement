@@ -72,9 +72,12 @@ namespace Configuration_Management
 
             _infobases = infobases.ToList();
 
-            _programCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.ProgramCache"), _programCacheSizeText);
-            _userCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.UserCache"), _userCacheSizeText);
-            _orphanCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.OrphanCache"), _orphanCacheSizeText);
+            _programCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.ProgramCache"), _programCacheSizeText, wrap: false);
+            _userCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.UserCache"), _userCacheSizeText, wrap: false);
+            // Длинная надпись «Очистить кеш удалённых групп» должна переноситься,
+            // поэтому чекбоксу включаем перенос текста.
+            _orphanCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.OrphanCache"), _orphanCacheSizeText, wrap: true);
+            _orphanCacheCheck.HorizontalAlignment = HorizontalAlignment.Stretch;
             ToolTip.SetTip(_orphanCacheCheck, LocalizationManager.T("CacheClean.OrphanCacheTooltip"));
 
             _programCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.Program);
@@ -159,7 +162,7 @@ namespace Configuration_Management
         /// <summary>
         /// Формирует содержимое чекбокса типа кеша: название и поле текущего размера.
         /// </summary>
-        private static Control BuildCacheTypeContent(string name, TextBlock sizeText)
+        private static Control BuildCacheTypeContent(string name, TextBlock sizeText, bool wrap = false)
         {
             sizeText.VerticalAlignment = VerticalAlignment.Center;
             sizeText.FontSize = 12;
@@ -172,7 +175,14 @@ namespace Configuration_Management
                 Spacing = 6,
                 Children =
                 {
-                    new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center },
+                    new TextBlock
+                    {
+                        Text = name,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        // TextWrapping: длинная надпись (например, «Очистить кеш удалённых групп»)
+                        // переносится на несколько строк и не обрезается при узкой ширине окна.
+                        TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap
+                    },
                     sizeText
                 }
             };
@@ -361,14 +371,21 @@ namespace Configuration_Management
             cancel.Margin = new Thickness(0, 0, 8, 0);
             bottom.Children.Add(cancel);
 
+            _cleanButton.Background = new SolidColorBrush(Color.Parse("#16A34A"));
+            _cleanButton.Foreground = Brushes.White;
             _cleanButton.Content = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 6,
                 Children =
                 {
-                    IconHelper.MakeIcon("IconDelete", 16),
-                    new TextBlock { Text = LocalizationManager.T("CacheClean.Clean"), VerticalAlignment = VerticalAlignment.Center }
+                    IconHelper.MakeIcon("IconDelete", 16, "White"),
+                    new TextBlock
+                    {
+                        Text = LocalizationManager.T("CacheClean.Clean"),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Foreground = Brushes.White
+                    }
                 }
             };
             _cleanButton.MinWidth = 130;
