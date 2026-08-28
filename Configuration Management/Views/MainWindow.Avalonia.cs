@@ -4019,6 +4019,21 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Уточняет прижатие к экрану после показа окна. В конструкторе размер
+        /// рамки ещё не известен (FrameSize равен null), поэтому там прижатие
+        /// считается по содержимому и оставляет за краем высоту заголовка.
+        /// </summary>
+        protected override void OnOpened(EventArgs e)
+        {
+            base.OnOpened(e);
+            if (WindowStartupLocation == WindowStartupLocation.Manual
+                && WindowState == WindowState.Normal)
+            {
+                Position = ClampToScreen(Position);
+            }
+        }
+
+        /// <summary>
         /// Прижимает позицию к рабочей области монитора, на котором окно закрыли,
         /// чтобы оно не оказалось за границей экрана после смены конфигурации мониторов.
         /// </summary>
@@ -4044,7 +4059,9 @@ namespace Configuration_Management
             var area = screen.WorkingArea;
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
             // Position это угол рамки, а Width и Height задают клиентскую часть,
-            // поэтому к размеру добавляется то, что рисует менеджер окон.
+            // поэтому размер берётся вместе с тем, что рисует менеджер окон.
+            // До показа окна рамка ещё не известна, и прижатие уточняется
+            // в OnOpened, когда FrameSize уже есть.
             var frame = FrameSize ?? new Size(Width, Height);
             var width = Math.Min((int)Math.Round(Math.Max(frame.Width, Width) * scaling), area.Width);
             var height = Math.Min((int)Math.Round(Math.Max(frame.Height, Height) * scaling), area.Height);
