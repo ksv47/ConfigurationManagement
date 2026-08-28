@@ -2340,6 +2340,103 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Путь для ручной операции с ibases.v8i: заданный в окне настроек, а если
+    /// поле пустое, стандартный. Берётся набранное в поле, а не сохранённое:
+    /// в версии для Windows так делает только восстановление из копии,
+    /// а загрузка и выгрузка проверяют один путь, а читают другой.
+    /// </summary>
+    private static string? ResolveIbasesPathForCommand(string? filePath)
+        => string.IsNullOrWhiteSpace(filePath)
+            ? IbasesV8iImporter.FindDefaultPath()
+            : filePath.Trim();
+
+    /// <summary>
+    /// Ручная загрузка списка баз из ibases.v8i. О результате сообщает сам
+    /// импорт, включая подтверждение, если файл требует удалить базы.
+    /// </summary>
+    public void ImportFromIbasesFile(string? filePath)
+    {
+        var path = ResolveIbasesPathForCommand(filePath);
+        if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path))
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Settings.Ibases.ImportFileNotFound"),
+                LocalizationManager.T("Settings.Ibases.ImportTitle"));
+            return;
+        }
+
+        ImportFromIbasesFileInteractive(path);
+    }
+
+    /// <summary>Ручная выгрузка списка баз в ibases.v8i.</summary>
+    public void ExportToIbasesFile(string? filePath)
+    {
+        var path = ResolveIbasesPathForCommand(filePath);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Settings.Ibases.ExportNoPath"),
+                LocalizationManager.T("Settings.Ibases.ExportTitle"));
+            return;
+        }
+
+        if (TryExportToIbases(path, backup: true, "Ручная выгрузка", out var error))
+        {
+            _dialog.ShowInfo(LocalizationManager.T("Settings.Ibases.ExportOk"),
+                LocalizationManager.T("Settings.Ibases.ExportTitle"));
+            return;
+        }
+
+        _dialog.ShowError(
+            string.Format(LocalizationManager.T("Settings.Ibases.ExportFailed"), error),
+            LocalizationManager.T("Settings.Ibases.ExportErrorTitle"));
+    }
+
+    /// <summary>
+    /// Восстанавливает ibases.v8i из последней резервной копии рядом с файлом.
+    /// Копии создаёт сама выгрузка, если включён соответствующий флажок.
+    /// </summary>
+    public void RestoreIbasesBackup(string? filePath)
+    {
+        var path = ResolveIbasesPathForCommand(filePath);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            _dialog.ShowWarning(LocalizationManager.T("Settings.Ibases.RestoreNoPath"),
+                LocalizationManager.T("Settings.Ibases.RestoreTitle"));
+            return;
+        }
+
+        var backups = IbasesBackupService.ListBackups(path);
+        if (backups.Count == 0)
+        {
+            _dialog.ShowInfo(
+                string.Format(LocalizationManager.T("Settings.Ibases.RestoreNoBackups"), path),
+                LocalizationManager.T("Settings.Ibases.RestoreTitle"));
+            return;
+        }
+
+        var latest = backups[0];
+        if (!_dialog.Confirm(
+                string.Format(LocalizationManager.T("Settings.Ibases.RestoreConfirm"),
+                    System.IO.Path.GetFileName(latest)),
+                LocalizationManager.T("Settings.Ibases.RestoreConfirmTitle")))
+            return;
+
+        try
+        {
+            IbasesBackupService.RestoreBackup(latest, path);
+            _logger.Info($"Файл {path} восстановлен из копии {latest}");
+            _dialog.ShowInfo(LocalizationManager.T("Settings.Ibases.RestoreOk"),
+                LocalizationManager.T("Settings.Ibases.RestoreTitle"));
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Не удалось восстановить ibases.v8i из копии", ex);
+            _dialog.ShowError(
+                string.Format(LocalizationManager.T("Settings.Ibases.RestoreFailed"), ex.Message),
+                LocalizationManager.T("Common.Error"));
+        }
+    }
+
+    /// <summary>
     /// Разовый импорт из ibases.v8i по требованию пользователя. Импортёр не
     /// только добавляет и обновляет базы, но и удаляет те, которых в файле нет,
     /// поэтому пустой или испорченный файл вычистил бы список. Ровно та же
@@ -3461,9 +3558,13 @@ public class MainViewModel : ViewModelBase
 
         if (_settings.IbasesSyncTrigger == IbasesSyncTrigger.Schedule)
         {
-            // Строгий разбор ЧЧ:ММ: обычный TryParse принимает и локальные
-            // форматы, и длительности вроде 25:00, а это время суток.
-            if (!TimeSpan.TryParseExact(_settings.IbasesSyncScheduleTime?.Trim(), @"hh\:mm",
+            // Строгий разбор времени суток: обычный TryParse принимает и локальные
+            // форматы, и длительности вроде 25:00, и «9» как девять суток.
+            // Час допускается с ведущим нулём и без: поле свободного ввода,
+            // и «9:00» пользователь набирает не реже, чем «09:00», а раньше
+            // такое расписание молча не запускалось вовсе.
+            if (!TimeSpan.TryParseExact(_settings.IbasesSyncScheduleTime?.Trim(),
+                    new[] { @"hh\:mm", @"h\:mm" },
                     System.Globalization.CultureInfo.InvariantCulture, out var time)
                 || time < TimeSpan.Zero || time >= TimeSpan.FromDays(1))
             {
@@ -3522,21 +3623,39 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Выгрузка списка баз в файл платформы с резервной копией.</summary>
     private bool ExportToIbases(string filePath)
+        => TryExportToIbases(filePath, backup: true, "Автосинхронизация: выгрузка", out _);
+
+    /// <summary>
+    /// Выгрузка с текстом ошибки и своей записью в журнал: по ней отличают
+    /// автоматическую синхронизацию от нажатой кнопки, а текст ошибки нужен
+    /// только ручной операции.
+    /// </summary>
+    /// <param name="backup">
+    /// Создавать ли резервную копию файла. Создают обе выгрузки, и ручная тоже,
+    /// хотя в версии для Windows ручная копию не делает. Причина в том, что
+    /// выгрузка переписывает файл целиком: при пустом списке баз приложения
+    /// она обнуляет ibases.v8i, и без копии это уже не отменить. Копия хранит
+    /// состояние до выгрузки, то есть соседняя кнопка восстановления вернёт
+    /// именно то, что было до ошибочного нажатия.
+    /// </param>
+    private bool TryExportToIbases(string filePath, bool backup, string logPrefix, out string error)
     {
+        error = string.Empty;
         try
         {
-            if (_settings.IbasesBackupEnabled && System.IO.File.Exists(filePath))
+            if (backup && _settings.IbasesBackupEnabled && System.IO.File.Exists(filePath))
             {
                 try { IbasesBackupService.CreateBackup(filePath, _settings.IbasesBackupKeepCount); }
                 catch (Exception ex) { _logger.Error("Не удалось создать резервную копию ibases.v8i", ex); }
             }
 
             _sync.Export(filePath, _allInfobases, _groups);
-            _logger.Info($"Автосинхронизация: выгрузка в {filePath}");
+            _logger.Info($"{logPrefix} в {filePath}");
             return true;
         }
         catch (Exception ex)
         {
+            error = ex.Message;
             _logger.Error("Ошибка выгрузки в ibases.v8i", ex);
             return false;
         }
