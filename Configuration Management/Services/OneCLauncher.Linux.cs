@@ -987,6 +987,12 @@ namespace Configuration_Management.Services
                     cs += $";DBUID=\"{EscapeConnectValue(dbUser)}\"";
                 if (!string.IsNullOrWhiteSpace(dbPassword))
                     cs += $";DBPwd=\"{EscapeConnectValue(dbPassword)}\"";
+                // Создание базы данных на сервере СУБД задаётся параметром строки
+                // подключения, а не ключом командной строки: с «/CreateDatabase»
+                // платформа базу не создаёт и падает на попытке подключиться
+                // к несуществующей. Проверено запуском на PostgreSQL 8.3.27.
+                if (createSqlDatabase)
+                    cs += ";CrSQLDB=\"Y\"";
                 connectionString = cs;
             }
 
@@ -1000,9 +1006,6 @@ namespace Configuration_Management.Services
                 }
                 args.Add($"/UseTemplate\"{templatePath}\"");
             }
-            // Для клиент-серверного создания базу данных на сервере СУБД создаёт сам 1С.
-            if (!isFile && createSqlDatabase)
-                args.Add("/CreateDatabase");
             args.Add("/DisableStartupDialogs");
             args.Add("/DisableStartupMessages");
 
