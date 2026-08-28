@@ -2050,7 +2050,11 @@ namespace Configuration_Management
                 Text = url,
                 TextDecorations = TextDecorations.Underline,
                 Cursor = new Cursor(StandardCursorType.Hand),
-                TextWrapping = TextWrapping.Wrap
+                TextWrapping = TextWrapping.Wrap,
+                // По умолчанию TextBlock растягивается на всю ширину строки,
+                // и тогда Bounds шире нарисованного текста. Проверка попадания
+                // ниже считает по Bounds, поэтому ширина прижимается к тексту.
+                HorizontalAlignment = HorizontalAlignment.Left
             };
             ThemeBrushes.Bind(link, TextBlock.ForegroundProperty, "AccentBrush");
             link.PointerReleased += (_, e) =>
