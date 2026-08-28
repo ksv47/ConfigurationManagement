@@ -3771,6 +3771,9 @@ namespace Configuration_Management
             menu.Items.Add(MenuAction("Main.LaunchEnterprise", _vm.LaunchEnterpriseCommand, _vm.HotkeyEnterprise));
             menu.Items.Add(MenuAction("Main.LaunchConfigurator", _vm.LaunchConfiguratorCommand, _vm.HotkeyConfigurator));
             menu.Items.Add(MenuAction("Main.EditSettings", _vm.EditInfobaseCommand, _vm.HotkeyEdit));
+            menu.Items.Add(MenuAction("Main.RefreshConfigInfo", _vm.RefreshConfigurationInfoCommand));
+            // «Зарегистрировать COM-коннектор» здесь нет намеренно: внешнее соединение
+            // это COM, в Linux регистрировать нечего. Windows-сторона решение подтвердила.
             menu.Items.Add(new Separator());
             menu.Items.Add(MenuAction("Main.ToFavorites", _vm.ToggleFavoriteCommand, _vm.HotkeyFavorite));
             menu.Items.Add(MenuAction("Main.Pin", _vm.TogglePinCommand, _vm.HotkeyPin));
@@ -3780,6 +3783,9 @@ namespace Configuration_Management
             menu.Items.Add(MenuAction("Main.OpenCatalog", _vm.OpenInfobaseFolderCommand));
             menu.Items.Add(MenuAction("Main.DesktopShortcut", _vm.CreateDesktopShortcutCommand));
             menu.Items.Add(MenuAction("Main.AddBase", _vm.AddInfobaseCommand, _vm.HotkeyAdd));
+            menu.Items.Add(new Separator());
+            menu.Items.Add(MenuAction("Main.DumpToDt", _vm.DumpInfobaseDtCommand));
+            menu.Items.Add(MenuAction("Main.DumpConfigToCf", _vm.DumpConfigurationCfCommand));
             menu.Items.Add(new Separator());
             menu.Items.Add(MenuAction("Main.Delete", _vm.DeleteInfobaseCommand, _vm.HotkeyDelete));
             return menu;

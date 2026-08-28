@@ -422,6 +422,9 @@ public class MainViewModel : ViewModelBase
     public ICommand QuickClearCacheCommand { get; private set; } = null!;
     public ICommand ClearCacheCommand { get; private set; } = null!;
     public ICommand ClearProgramCacheCommand { get; private set; } = null!;
+    public ICommand DumpInfobaseDtCommand { get; private set; } = null!;
+    public ICommand DumpConfigurationCfCommand { get; private set; } = null!;
+    public ICommand RefreshConfigurationInfoCommand { get; private set; } = null!;
     public ICommand ClearUserCacheCommand { get; private set; } = null!;
     public ICommand ClearCacheBothCommand { get; private set; } = null!;
 
@@ -487,6 +490,9 @@ public class MainViewModel : ViewModelBase
         ClearCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All),
             p => p is Infobase ? true : SelectedInfobase is not null);
         ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program));
+        DumpInfobaseDtCommand = new RelayCommand(DumpInfobaseDt);
+        DumpConfigurationCfCommand = new RelayCommand(DumpConfigurationCf);
+        RefreshConfigurationInfoCommand = new RelayCommand(RefreshConfigurationInfo);
         ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User));
         ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));
     }
@@ -3215,6 +3221,108 @@ public class MainViewModel : ViewModelBase
     private void ToggleFavorite() => ToggleFavoriteFor(SelectedInfobase);
 
     private void TogglePin() => TogglePinFor(SelectedInfobase);
+
+    private void DumpInfobaseDt(object? parameter) =>
+        DumpViaDesigner(parameter, OneCLauncher.DesignerBatchOperation.DumpIB, ".dt",
+            "Main.DumpDtDialogTitle", "Main.DtFileFilter", "Main.DumpDtStarted", "Main.DumpDtTitle");
+
+    private void DumpConfigurationCf(object? parameter) =>
+        DumpViaDesigner(parameter, OneCLauncher.DesignerBatchOperation.DumpCfg, ".cf",
+            "Main.DumpCfDialogTitle", "Main.CfFileFilter", "Main.DumpCfStarted", "Main.DumpCfTitle");
+
+    /// <summary>
+    /// Выгрузка базы или конфигурации пакетным запуском конфигуратора.
+    /// Общая часть обеих команд: в версии для Windows это два почти одинаковых метода.
+    /// </summary>
+    private void DumpViaDesigner(
+        object? parameter,
+        OneCLauncher.DesignerBatchOperation operation,
+        string extension,
+        string dialogTitleKey,
+        string filterKey,
+        string startedKey,
+        string titleKey)
+    {
+        var ib = parameter as Infobase ?? SelectedInfobase;
+        if (ib is null)
+            return;
+
+        var path = _dialog.SaveFileDialog(
+            LocalizationManager.T(dialogTitleKey),
+            BuildExportFileName(SanitizeFileName(ib.Name), extension,
+                _settings.AddTimestampToExportFileName, _settings.ExportTimestampFormat),
+            LocalizationManager.T(filterKey));
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        if (!OneCLauncher.RunDesignerBatch(ib, operation, path))
+            return;
+
+        ib.AddLaunchHistory(operation == OneCLauncher.DesignerBatchOperation.DumpIB ? "DumpDT" : "DumpCF", path);
+        SaveSilently();
+        _dialog.ShowInfo(LocalizationManager.T(startedKey), LocalizationManager.T(titleKey));
+    }
+
+    private void RefreshConfigurationInfo(object? parameter)
+    {
+        var ib = parameter as Infobase ?? SelectedInfobase;
+        if (ib is null)
+            return;
+
+        // Сброса вердиктов о недоступности COM здесь нет: он живёт
+        // в OneCComConnector.cs, а тот в Linux-сборку не входит.
+        var baseName = ib.Name;
+        _ = Task.Run(() =>
+        {
+            OneCConfigInfo? info = null;
+            try
+            {
+                info = ConfigurationInfoService.ReadAndApply(ib, overwriteExisting: true);
+            }
+            catch
+            {
+                // причина уходит в LastComError и показывается ниже
+            }
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (info is null)
+                {
+                    var comError = ConfigurationInfoService.LastComError;
+                    var detail = string.IsNullOrWhiteSpace(comError)
+                        ? LocalizationManager.T("Main.ConfigInfoCheckHint")
+                        : string.Format(LocalizationManager.T("Main.ConfigInfoReason"), comError);
+                    _logger.Warn($"Не удалось получить информацию о конфигурации базы «{baseName}». {detail}");
+                    _dialog.ShowWarning(
+                        string.Format(LocalizationManager.T("Main.ErrConfigInfo"), baseName, detail),
+                        LocalizationManager.T("Main.ConfigInfoTitle"));
+                    return;
+                }
+
+                RebuildTree();
+                SaveSilently();
+
+                var name = info.Value.Name.Trim();
+                var version = info.Value.Version.Trim();
+                _logger.Info($"Обновлена информация о конфигурации базы «{baseName}»: {name} ({version})");
+
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine(string.Format(LocalizationManager.T("Main.ConfigInfoBase"), baseName));
+                if (name.Length > 0)
+                    sb.AppendLine(string.Format(LocalizationManager.T("Main.ConfigInfoName"), name));
+                if (version.Length > 0)
+                    sb.AppendLine(string.Format(LocalizationManager.T("Main.ConfigInfoVersion"), version));
+                _dialog.ShowInfo(sb.ToString().TrimEnd(), LocalizationManager.T("Main.ConfigInfoTitle"));
+            });
+        });
+    }
+
+    private static string SanitizeFileName(string? name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var s = new string((name ?? "base").Select(c => invalid.Contains(c) ? '_' : c).ToArray());
+        return string.IsNullOrWhiteSpace(s) ? "base" : s;
+    }
 
     private void ToggleFavoriteFor(Infobase? infobase)
     {
