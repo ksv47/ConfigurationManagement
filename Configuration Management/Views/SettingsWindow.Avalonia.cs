@@ -2222,7 +2222,11 @@ namespace Configuration_Management
             });
             titleRow.Children.Add(new Controls.HelpLink
             {
-                HelpText = LocalizationManager.T("Settings.About.HelpText"),
+                // Свой текст без строки про версию: в общем ключе она вписана
+                // строкой и отстала (0.3.5.1 против 0.3.5.10), а живая версия
+                // печатается здесь же строкой ниже. Windows-сторона это
+                // расхождение подтвердила у себя.
+                HelpText = LocalizationManager.T("Settings.About.HelpTextLinux"),
                 VerticalAlignment = VerticalAlignment.Center
             });
             panel.Children.Add(titleRow);
