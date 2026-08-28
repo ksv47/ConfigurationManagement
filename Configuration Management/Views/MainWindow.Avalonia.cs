@@ -290,6 +290,19 @@ namespace Configuration_Management
             themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
             actions.Children.Add(themeBtn);
 
+            // Быстрый переключатель плотности интерфейса, как в разметке WPF:
+            // тот же режим уже есть в настройках, здесь он под рукой.
+            var compactBtn = TopBarIconButton("IconCollapseAll", LocalizationManager.T("Main.CompactModeTooltip"));
+            compactBtn.Click += (_, _) =>
+            {
+                if (_vm is null)
+                    return;
+                var next = !_vm.CompactMode;
+                _vm.CompactMode = next;
+                ApplyCompactMode(next);
+            };
+            actions.Children.Add(compactBtn);
+
             var settingsBtn = TopBarSecondaryButton("IconSettings", LocalizationManager.T("Main.Settings"), LocalizationManager.T("Main.SettingsTooltip"));
             settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
             actions.Children.Add(settingsBtn);
@@ -1703,10 +1716,51 @@ namespace Configuration_Management
             // команд. Здесь остаются вторичные действия списком.
             panel.Children.Add(BuildActionList(
                 CompactActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
-                CompactActionButton("IconKeyboard", LocalizationManager.T("Main.RunStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
-                CompactActionButton("IconWeb", LocalizationManager.T("LinkInput.Title"), "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip")),
+                CompactActionButton("IconKeyboard", LocalizationManager.T("Main.NativeStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
+                CompactActionButtonBound("IconWeb", "OpenByLinkCaption", "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip")),
                 CompactActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand", LocalizationManager.T("Main.DesktopShortcutTooltip"))
             ));
+
+            // Бейдж «Закреплено» и секция тегов выбранной базы, как в разметке WPF.
+            var pinnedBadge = new Border
+            {
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(8, 3),
+                Margin = new Thickness(0, 0, 6, 4),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Child = ThemedIconAndText("IconPin", LocalizationManager.T("Main.PinnedLabel"),
+                    "AccentColorBrush", 12, centered: false)
+            };
+            ThemeBrushes.Bind(pinnedBadge, Border.BackgroundProperty, "ItemHoverColorBrush");
+            pinnedBadge.Bind(Control.IsVisibleProperty, new Binding("SelectedInfobase.IsPinned"));
+            panel.Children.Add(pinnedBadge);
+
+            var tagsHeader = ThemedIconAndText("IconTag", LocalizationManager.T("Main.Tags"),
+                "TextSecondaryColorBrush", 14, centered: false);
+            var tagsList = new ItemsControl
+            {
+                Margin = new Thickness(0, 0, 0, 4),
+                ItemsPanel = new FuncTemplate<Panel?>(() => new WrapPanel()),
+                ItemTemplate = new FuncDataTemplate<string>((tag, _) =>
+                {
+                    var chip = new Border
+                    {
+                        CornerRadius = new CornerRadius(8),
+                        Padding = new Thickness(8, 3),
+                        Margin = new Thickness(0, 0, 4, 4),
+                        BorderThickness = new Thickness(1),
+                        Child = ThemedIconAndText("IconTag", tag ?? "", "AccentColorBrush", 10, centered: false)
+                    };
+                    ThemeBrushes.Bind(chip, Border.BackgroundProperty, "ItemHoverColorBrush");
+                    ThemeBrushes.Bind(chip, Border.BorderBrushProperty, "BorderColorBrush");
+                    return chip;
+                })
+            };
+            tagsList.Bind(ItemsControl.ItemsSourceProperty, new Binding("SelectedInfobase.Tags"));
+            var tagsBlock = new StackPanel { Spacing = 4 };
+            tagsBlock.Children.Add(tagsHeader);
+            tagsBlock.Children.Add(tagsList);
+            panel.Children.Add(tagsBlock);
 
             // Информация о подключении.
             // Блок сведений подчинён переключателю подробностей правой панели,
@@ -1800,7 +1854,32 @@ namespace Configuration_Management
         }
 
         /// <summary>Компактное содержимое кнопки: иконка + подпись меньшего размера.</summary>
-        private static Control CompactIconAndText(string iconKey, string text, string brushKey)
+        /// <summary>
+        /// Вариант кнопки действия с подписью из привязки: нужен там, где текст
+        /// меняется по состоянию, как короткая подпись открытия по ссылке.
+        /// </summary>
+        private static Control CompactActionButtonBound(string iconKey, string textPath, string commandPath, string tooltip)
+        {
+            var btn = new PanelButton(
+                "SecondaryButtonBackgroundBrush",
+                "SecondaryButtonHoverBrush",
+                "SecondaryButtonPressedBrush",
+                "BorderColorBrush",
+                new CornerRadius(UiMetrics.RadiusMd))
+            {
+                Content = CompactIconAndText(iconKey, "", "ButtonTextBrush", textPath),
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                MinHeight = UiMetrics.ActionButtonMinHeight,
+                Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV),
+                Margin = new Thickness(0)
+            };
+            ToolTip.SetTip(btn, tooltip);
+            btn.Bind(Button.CommandProperty, new Binding(commandPath));
+            return btn;
+        }
+
+        private static Control CompactIconAndText(string iconKey, string text, string brushKey, string? textPath = null)
         {
             // Сеткой, а не горизонтальной панелью: панель меряет подпись
             // бесконечной шириной, поэтому обрезка многоточием не срабатывает
@@ -1818,6 +1897,8 @@ namespace Configuration_Management
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
             ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+            if (textPath is not null)
+                tb.Bind(TextBlock.TextProperty, new Binding(textPath));
             Grid.SetColumn(tb, 1);
             sp.Children.Add(tb);
             return sp;

@@ -618,8 +618,16 @@ public class MainViewModel : ViewModelBase
     public bool ShowRightPanelDetails
     {
         get => _showRightPanelDetails;
-        set => SetPropertyWithRelated(ref _showRightPanelDetails, value, nameof(ShowRightPanelDetails), nameof(RightPanelToggleTooltip), nameof(ShowConnectionInfo));
+        set => SetPropertyWithRelated(ref _showRightPanelDetails, value, nameof(ShowRightPanelDetails), nameof(RightPanelToggleTooltip), nameof(ShowConnectionInfo), nameof(OpenByLinkCaption));
     }
+
+    /// <summary>
+    /// Подпись кнопки открытия по ссылке: короткая, когда подробности правой
+    /// панели скрыты. В разметке WPF это триггер по ShowRightPanelDetails.
+    /// </summary>
+    public string OpenByLinkCaption => ShowRightPanelDetails
+        ? LocalizationManager.T("LinkInput.Title")
+        : LocalizationManager.T("Main.OpenByLinkShort");
 
     /// <summary>
     /// Заголовок правой панели: имя базы, имя группы или «Нет выбора».
