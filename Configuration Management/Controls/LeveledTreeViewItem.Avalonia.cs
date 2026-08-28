@@ -47,8 +47,9 @@ namespace Configuration_Management.Controls
         {
             if (_chevron is null)
                 return;
-            ToolTip.SetTip(_chevron, Localization.LocalizationManager.T(
-                IsExpanded ? "Main.CollapseGroup" : "Main.ExpandGroup"));
+            // Подсказка одна и статичная, как в разметке WPF. Раньше здесь были
+            // две меняющиеся по состоянию, это расхождение с версией для Windows.
+            ToolTip.SetTip(_chevron, Localization.LocalizationManager.T("Main.ExpandCollapseGroup"));
         }
     }
 }
