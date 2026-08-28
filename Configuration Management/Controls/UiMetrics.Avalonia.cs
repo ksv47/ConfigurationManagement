@@ -115,7 +115,7 @@ namespace Configuration_Management.Controls
         public static double GroupNameFont => 12.5;
 
         /// <summary>Вертикальный внутренний отступ заголовка группы (высота оформления группы).</summary>
-        public static double GroupHeaderPadV => Compact ? 1 : 2;
+        public static double GroupHeaderPadV => Compact ? 1 : 3;
         /// <summary>Вертикальный внешний отступ заголовка группы (расстояние между группами).</summary>
         public static double GroupHeaderMarginV => Compact ? 0.5 : 1;
 

@@ -1025,13 +1025,35 @@ namespace Configuration_Management
             // Высота оформления группы и расстояние между группами берутся из метрик:
             // в компактном режиме вертикальный padding заголовка и внешний отступ
             // уменьшаются, чтобы группы занимали меньше места.
+            // Отступ 8,3 в обычном режиме и 6,1 в компактном, рамка толщиной 2:
+            // прозрачная в покое и акцентная у выбранной группы
+            // (MainWindow.xaml:872-882). Рамки у нас не было вовсе.
             var header = new Border
             {
                 CornerRadius = new CornerRadius(UiMetrics.RadiusSm),
-                Padding = new Thickness(6, UiMetrics.GroupHeaderPadV),
-                Margin = new Thickness(0, UiMetrics.GroupHeaderMarginV)
+                Padding = new Thickness(UiMetrics.Compact ? 6 : 8, UiMetrics.GroupHeaderPadV),
+                Margin = new Thickness(0, UiMetrics.GroupHeaderMarginV),
+                BorderThickness = new Thickness(2),
+                BorderBrush = Brushes.Transparent
             };
             header.Bind(Border.BackgroundProperty, new Binding("HeaderBrush") { Source = group });
+
+            // Кисть берётся наблюдателем темы, а подписка на узел живёт ровно
+            // столько, сколько строка находится в дереве: строки пересобираются
+            // часто, а узел группы переживает их все.
+            IBrush accent = Brushes.Transparent;
+            void ApplyGroupSelection()
+                => header.BorderBrush = group.IsSelected ? accent : Brushes.Transparent;
+            ThemeBrushes.Observe(header, "AccentBrush", brush => { accent = brush; ApplyGroupSelection(); });
+
+            void OnGroupChanged(object? _, PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName == nameof(GroupNodeViewModel.IsSelected))
+                    ApplyGroupSelection();
+            }
+            header.AttachedToVisualTree += (_, _) => { group.PropertyChanged += OnGroupChanged; ApplyGroupSelection(); };
+            header.DetachedFromVisualTree += (_, _) => group.PropertyChanged -= OnGroupChanged;
+            ApplyGroupSelection();
 
             // Имя и счётчик привязаны к узлу, а не подставлены строкой: состав узла
             // меняется и без пересборки дерева (закрепление базы), и тогда готовый
@@ -1790,7 +1812,7 @@ namespace Configuration_Management
             // Заголовок базы
             var nameBlock = new TextBlock
             {
-                FontSize = UiMetrics.ScaledFont(15),
+                FontSize = UiMetrics.ScaledFont(16),
                 FontWeight = FontWeight.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             };
@@ -1798,22 +1820,28 @@ namespace Configuration_Management
 
             var groupBlock = new TextBlock
             {
-                FontSize = UiMetrics.ScaledFont(11.5),
-                Opacity = 0.7,
+                FontSize = UiMetrics.ScaledFont(12),
+                Margin = new Thickness(0, 2, 0, 0),
                 TextWrapping = TextWrapping.Wrap
             };
+            ThemeBrushes.Bind(groupBlock, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
             groupBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelSubtitle"));
 
             // Заголовок сеткой, а не горизонтальной панелью: в панели подпись
             // получала бы бесконечную ширину и не переносилась бы по словам.
-            var header = new Grid { Margin = new Thickness(0, 0, 0, 4), ColumnSpacing = 8 };
+            var header = new Grid { Margin = new Thickness(0, 0, 0, 8) };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             // Значок базы показывается только когда база выбрана: при выбранной
             // группе и при пустом выборе он висел бы один без подписи.
-            var headerIcon = IconHelper.MakeIcon("IconDatabase", UiMetrics.Scaled(24));
-            headerIcon.Bind(Avalonia.Controls.Shapes.Path.DataProperty,
+            // Значок 28 акцентной кистью и правым полем 10, как в разметке
+            // (MainWindow.xaml:1709). Контур привязывается к самому Path внутри
+            // холста: у Viewbox такого свойства нет, и привязка молча не работала.
+            var headerIcon = IconHelper.MakeIcon("IconDatabase", UiMetrics.Scaled(28), out var headerIconPath);
+            headerIconPath.Bind(Avalonia.Controls.Shapes.Path.DataProperty,
                 new Binding("RightPanelIconKey") { Converter = IconKeyConverter });
+            ThemeBrushes.Bind(headerIconPath, Avalonia.Controls.Shapes.Path.FillProperty, "AccentBrush");
+            headerIcon.Margin = new Thickness(0, 0, 10, 0);
             headerIcon.Bind(Control.IsVisibleProperty, new Binding("HasRightPanelIcon"));
             header.Children.Add(headerIcon);
             var headerText = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 1 };
@@ -1833,6 +1861,10 @@ namespace Configuration_Management
             };
             hintBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelHint"));
             hintBlock.Bind(Control.IsVisibleProperty, new Binding("!IsInfobaseSelected"));
+            // Заголовок выбранной базы скрыт вместе с подробностями и при пустом
+            // выборе, как в разметке (MainWindow.xaml:1694-1706): раньше он висел
+            // в узкой панели всегда.
+            header.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
             panel.Children.Add(header);
             panel.Children.Add(hintBlock);
 
@@ -2204,6 +2236,9 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             ToolTip.SetTip(hint, LocalizationManager.T("Main.CurrentSessionHelp"));
+            // Подсказка и подписи групп скрыты в узкой панели, как в разметке
+            // (MainWindow.xaml:2137 и 2170): без этого она выходила заметно выше.
+            hint.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
 
             // Переключатели идут вплотную, как у автора: карточка добавляет свой
             // интервал между каждым дочерним элементом, и от этого строки
@@ -2240,7 +2275,7 @@ namespace Configuration_Management
                     options.Children.Add(item);
             }
 
-            var card = SectionCard(LocalizationManager.T("Main.CurrentSession"), "IconInfo",
+            var card = SectionCard(LocalizationManager.T("Main.CurrentSession"), "Main.CurrentSessionHelp",
                 hint,
                 options);
 
@@ -2282,6 +2317,7 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 6, 0, 2)
             };
             ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            block.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
             return block;
         }
 
@@ -2370,11 +2406,14 @@ namespace Configuration_Management
         /// <summary>Рамка секции без собственного заголовка: подпись живёт снаружи.</summary>
         private static Control PlainCard(params Control[] children)
         {
+            // Числа из разметки (MainWindow.xaml:1756): скругление 12,
+            // отступ 12 на 10, нижнее поле 14.
             var card = new Border
             {
-                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
+                CornerRadius = new CornerRadius(12),
                 BorderThickness = new Thickness(1),
-                Padding = new Thickness(UiMetrics.SectionPad),
+                Padding = new Thickness(12, 10),
+                Margin = new Thickness(0, 0, 0, 14),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
             // У автора панель светлее карточки, а не наоборот: панель
@@ -2393,18 +2432,20 @@ namespace Configuration_Management
         /// Карточка-секция с заголовком и значком внутри рамки. Осталась только
         /// у карточки текущей сессии: у остальных секций подпись вынесена наружу.
         /// </summary>
-        private static Control SectionCard(string title, string iconKey, params Control[] children)
+        private static Control SectionCard(string title, string helpKey, params Control[] children)
         {
+            // Числа из разметки (MainWindow.xaml:2101-2113): скругление 8, фон
+            // ItemHover, отступ 10 на 8 и 6 на 6 в узкой панели, поле 8,0,8,10.
+            // Рамки у карточки нет.
             var card = new Border
             {
-                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(UiMetrics.SectionPad),
-                Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, 0),
+                CornerRadius = new CornerRadius(8),
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(10, 8),
+                Margin = new Thickness(0, 0, 0, 10),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundBrush");
-            ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
+            ThemeBrushes.Bind(card, Border.BackgroundProperty, "ItemHoverBrush");
             UiMetrics.AddBrushTransition(card);
 
             var content = new StackPanel { Spacing = UiMetrics.Gap };
@@ -2415,16 +2456,25 @@ namespace Configuration_Management
                 Spacing = 6,
                 Margin = new Thickness(0, 0, 0, 2)
             };
-            header.Children.Add(IconHelper.MakeIcon(iconKey, 14, "TextSecondaryBrush"));
+            // Значка у заголовка в разметке нет, зато есть кнопка справки
+            // рядом с подписью (MainWindow.xaml:2118-2136). Подпись основным
+            // цветом, а не вторичным.
             var titleBlock = new TextBlock
             {
                 Text = title,
                 FontSize = UiMetrics.ScaledFont(12),
                 FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 0, 0, 6),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "TextPrimaryColorBrush");
             header.Children.Add(titleBlock);
+            if (!string.IsNullOrEmpty(helpKey))
+                header.Children.Add(new Controls.HelpLink
+                {
+                    Margin = new Thickness(6, 0, 0, 4),
+                    HelpText = LocalizationManager.T(helpKey)
+                });
             content.Children.Add(header);
 
             foreach (var child in children)
