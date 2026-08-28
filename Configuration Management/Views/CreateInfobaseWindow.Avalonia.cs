@@ -374,7 +374,11 @@ namespace Configuration_Management
             buttons.Children.Add(cancel);
             var create = new Button
             {
-                Content = LocalizationManager.T("CreateInfobase.Create"),
+                Content = new TextBlock
+                {
+                    Text = LocalizationManager.T("CreateInfobase.Create"),
+                    Foreground = Brushes.White
+                },
                 MinWidth = 120,
                 IsDefault = true,
                 Background = new SolidColorBrush(Color.Parse("#16A34A")),

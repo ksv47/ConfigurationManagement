@@ -1,30 +1,44 @@
 using System.Windows;
 using Configuration_Management.Localization;
 using Microsoft.Win32;
-using MessageBox = System.Windows.MessageBox;
 
 namespace Configuration_Management.Services;
 
 /// <summary>
-/// Реализация <see cref="IDialogService"/> на базе WPF MessageBox и стандартных файловых диалогов.
+/// Реализация <see cref="IDialogService"/> в стиле Material Design.
+/// Предупреждения, подтверждения и ошибки показываются через собственное
+/// модальное окно <see cref="MaterialMessageWindow"/> (а не стандартный MessageBox),
+/// чтобы единообразно выглядеть в обеих темах приложения.
 /// </summary>
 public sealed class WpfDialogService : IDialogService
 {
     public void ShowInfo(string message, string title = "") =>
-        MessageBox.Show(message, DefaultTitle(title, "Common.Information"),
-            MessageBoxButton.OK, MessageBoxImage.Information);
+        Show(message, title, MaterialMessageKind.Info);
 
     public void ShowWarning(string message, string title = "") =>
-        MessageBox.Show(message, DefaultTitle(title, "Common.Warning"),
-            MessageBoxButton.OK, MessageBoxImage.Warning);
+        Show(message, title, MaterialMessageKind.Warning);
 
     public void ShowError(string message, string title = "") =>
-        MessageBox.Show(message, DefaultTitle(title, "Common.Error"),
-            MessageBoxButton.OK, MessageBoxImage.Error);
+        Show(message, title, MaterialMessageKind.Error);
 
-    public bool Confirm(string message, string title = "") =>
-        MessageBox.Show(message, DefaultTitle(title, "Common.Confirm"),
-            MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+    public bool Confirm(string message, string title = "")
+    {
+        var win = new MaterialMessageWindow(message, DefaultTitle(title, "Common.Confirm"), MaterialMessageKind.Question)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        win.ShowDialog();
+        return win.Confirmed;
+    }
+
+    private static void Show(string message, string title, MaterialMessageKind kind)
+    {
+        var win = new MaterialMessageWindow(message, DefaultTitle(title, "Common.Information"), kind)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        win.ShowDialog();
+    }
 
     public string? OpenFileDialog(string title = "", string filter = "", string? initialDirectory = null)
     {

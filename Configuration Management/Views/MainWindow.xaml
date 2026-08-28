@@ -29,7 +29,6 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
         <conv:DoubleToGridLengthConverter x:Key="DoubleToGridLength"/>
         <conv:GroupColorConverter x:Key="GroupColorConverter"/>
         <conv:GroupTextColorConverter x:Key="GroupTextColorConverter"/>
@@ -1003,20 +1002,37 @@
                                                 </TextBlock.Style>
                                             </TextBlock>
                                         </StackPanel>
-                                        <!-- Команды группы в колонке «Действия»: «Изменить группу» и «Удалить группу». -->
+                                        <!-- Команды группы в колонке «Действия»: «Изменить группу» и «Удалить группу».
+                                             «Изменить» доступна и у закреплённых (маркер Pinned) — пользователь может
+                                             редактировать настройки закрепления через то же окно группы;
+                                             «Удалить» скрыта у закреплённых и «Без группы» (маркеры Pinned/NoGroup),
+                                             т.к. это служебные узлы без модели Group, их нельзя удалять. -->
                                         <StackPanel Grid.Column="7" Orientation="Horizontal"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <Button Command="{Binding DataContext.EditGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"
-                                                    Style="{DynamicResource IconButton}" Margin="1,0"
-                                                    ToolTip="{loc:Loc Main.EditGroupTooltip}">
+                                                    Margin="1,0"
+                                                    ToolTip="{loc:Loc Main.EditGroupTooltip}"
+                                                    Style="{StaticResource IconButton}">
                                                 <materialDesign:PackIcon Kind="Pencil" Width="15" Height="15"
                                                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </Button>
                                             <Button Command="{Binding DataContext.DeleteGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"
-                                                    Style="{DynamicResource IconButton}" Margin="1,0"
+                                                    Margin="1,0"
                                                     ToolTip="{loc:Loc Main.DeleteGroupTooltip}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Marker}" Value="Pinned">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Marker}" Value="NoGroup">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
                                                 <materialDesign:PackIcon Kind="Delete" Width="15" Height="15"
                                                                          Foreground="#DC2626"/>
                                             </Button>
@@ -1364,8 +1380,8 @@
                                                 </StackPanel>
                                             </Button>
                                             <TextBox x:Name="InlineTagBox" Visibility="Collapsed"
-                                                     Width="120" FontSize="12" Padding="4,2" Height="22"
-                                                     Margin="4,0,0,0" VerticalAlignment="Center"
+                                                     Width="120" FontSize="12" Padding="6,3"
+                                                     MinHeight="24" Margin="4,0,0,0" VerticalAlignment="Center"
                                                      Background="{DynamicResource CardBackgroundBrush}"
                                                      Foreground="{DynamicResource TextPrimaryBrush}"
                                                      BorderBrush="{DynamicResource AccentBrush}"

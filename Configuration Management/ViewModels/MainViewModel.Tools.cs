@@ -1037,6 +1037,9 @@ public partial class MainViewModel : ViewModelBase
 
             // Размеры файловых ИБ считаются в фоне с учётом кеша (не блокирует UI).
             RefreshFileMetadata();
+
+            // Фоново читаем имя и версию конфигурации для баз, где они ещё не заполнены.
+            RefreshConfigurationInfoAsync();
         }
         catch (Exception ex)
         {

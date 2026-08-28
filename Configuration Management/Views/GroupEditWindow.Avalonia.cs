@@ -61,7 +61,7 @@ namespace Configuration_Management
         {
         }
 
-        /// <summary>Редактирование служебного узла «Без группы» (только цвет и иконка).</summary>
+        /// <summary>Редактирование служебного узла «Без группы» / «Закреплённые» (только цвет и иконка).</summary>
         public GroupEditWindow(IEnumerable<Group> groups, string noGroupColor, string noGroupIconColor, string noGroupIcon)
             : this(groups, parentId: string.Empty, editingGroup: null, noGroupMode: true,
                   noGroupColor, noGroupIconColor, noGroupIcon)
