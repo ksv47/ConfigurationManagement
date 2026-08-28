@@ -4002,7 +4002,11 @@ namespace Configuration_Management
                 Position = ClampToScreen(new PixelPoint((int)Math.Round(left), (int)Math.Round(top)));
             }
 
+            // IsDefined обязателен: TryParse принимает и числовую строку, даже
+            // когда числа нет среди членов перечисления, и «999» дошло бы
+            // до окна. Тот же класс ошибки уже стрелял на разборе клавиш.
             if (Enum.TryParse<WindowState>(settings.WindowState, out var state)
+                && Enum.IsDefined(state)
                 && state != WindowState.Minimized)
             {
                 WindowState = state;
