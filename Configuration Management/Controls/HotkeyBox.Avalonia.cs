@@ -109,6 +109,13 @@ namespace Configuration_Management.Controls
                 _ => parts[^1]
             };
 
+            // Цифра показывается как «1», а Enum.TryParse принимает такую строку
+            // за числовое значение перечисления и отдаёт Key.Cancel вместо Key.D1.
+            // Сочетание при этом сохраняется и регистрируется, но не срабатывает
+            // никогда. Возвращаем цифре её имя до разбора.
+            if (parts[^1].Length == 1 && parts[^1][0] >= '0' && parts[^1][0] <= '9')
+                parts[^1] = "D" + parts[^1];
+
             // Последняя часть должна быть именно клавишей, а не модификатором:
             // «Ctrl» сам по себе Avalonia разбирает в жест с Key.None.
             if (!Enum.TryParse<Key>(parts[^1], true, out var key) || key == Key.None)
