@@ -106,6 +106,37 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public bool AllowMultipleInstances => _settings.AllowMultipleInstances;
 
+    /// <summary>
+    /// Запоминать ли размер, положение и состояние главного окна между запусками.
+    /// </summary>
+    public bool RememberWindowLayout => _settings.RememberWindowLayout;
+
+    /// <summary>Сохранённая ширина главного окна; ноль означает «не сохранялась».</summary>
+    public double SavedWindowWidth => _settings.WindowWidth;
+
+    /// <summary>Сохранённая высота главного окна; ноль означает «не сохранялась».</summary>
+    public double SavedWindowHeight => _settings.WindowHeight;
+
+    /// <summary>Сохранённая позиция главного окна по горизонтали.</summary>
+    public double SavedWindowLeft => _settings.WindowLeft;
+
+    /// <summary>Сохранённая позиция главного окна по вертикали.</summary>
+    public double SavedWindowTop => _settings.WindowTop;
+
+    /// <summary>Сохранённое состояние главного окна (Normal, Maximized).</summary>
+    public string SavedWindowState => _settings.WindowState;
+
+    /// <summary>Сохраняет размер, положение и состояние главного окна.</summary>
+    public void SaveWindowLayout(double width, double height, double left, double top, string state)
+    {
+        _settings.WindowWidth = width;
+        _settings.WindowHeight = height;
+        _settings.WindowLeft = left;
+        _settings.WindowTop = top;
+        _settings.WindowState = state ?? string.Empty;
+        SaveSettingsSilently();
+    }
+
     /// <summary>Показывать ли значок в области уведомлений.</summary>
     public bool ShowTrayIcon => _settings.ShowTrayIcon;
 
@@ -117,6 +148,21 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Настройки трея изменились: окну нужно обновить значок.</summary>
     public event Action? TraySettingsChanged;
+
+    /// <summary>
+    /// Применяет настройки поведения приложения. Обе лежали в общем с версией
+    /// для Windows файле настроек, но в Linux-сборке их нечем было изменить.
+    /// </summary>
+    public void ApplyBehaviorSettings(bool allowMultipleInstances, bool rememberWindowLayout)
+    {
+        _settings.AllowMultipleInstances = allowMultipleInstances;
+        _settings.RememberWindowLayout = rememberWindowLayout;
+        if (!SaveSettingsSafe())
+            _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
+                LocalizationManager.T("Settings.Title"));
+        OnPropertyChanged(nameof(AllowMultipleInstances));
+        OnPropertyChanged(nameof(RememberWindowLayout));
+    }
 
     /// <summary>Применяет настройки поведения трея из окна настроек.</summary>
     public void ApplyTraySettings(bool showTrayIcon, bool closeToTray, bool escapeToTray)
