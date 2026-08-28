@@ -127,12 +127,19 @@ namespace Configuration_Management
             themePanel.Children.Add(darkTheme);
             settings.Children.Add(themePanel);
 
-            // Язык интерфейса
+            // Язык интерфейса. Как в разметке WPF (SettingsWindow.xaml:1088):
+            // заголовок раздела и подпись самой строки это разные ключи.
             settings.Children.Add(new TextBlock
             {
-                Text = LocalizationManager.T("Settings.Language") + ":",
+                Text = LocalizationManager.T("Settings.Language"),
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 8, 0, 4)
+            });
+            var langRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+            langRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.LanguageLabel"),
+                VerticalAlignment = VerticalAlignment.Center
             });
             var langBox = new ComboBox { MinWidth = 220, HorizontalAlignment = HorizontalAlignment.Left };
             langBox.ItemsSource = LocalizationManager.Instance.AvailableLanguages;
@@ -149,7 +156,8 @@ namespace Configuration_Management
                     _viewModel.ApplyLanguage(li.Code);
                 }
             };
-            settings.Children.Add(langBox);
+            langRow.Children.Add(langBox);
+            settings.Children.Add(langRow);
             settings.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("Settings.Language.AppliedHint"),
@@ -158,14 +166,33 @@ namespace Configuration_Management
                 Opacity = 0.7
             });
 
+            // Раздел поведения приложения: в разметке WPF (SettingsWindow.xaml:1104)
+            // он начинается своим заголовком, а первым в нём идёт разрешение
+            // нескольких экземпляров.
+            settings.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.Behavior"),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 8, 0, 0)
+            });
+
+            // Несколько экземпляров: настройка лежит в общем с версией для
+            // Windows файле и уже учитывается при запуске (App.axaml.cs),
+            // но в Linux-сборке её нечем было изменить.
+            var multipleInstancesCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.General.AllowMultipleInstances"),
+                IsChecked = _viewModel.AllowMultipleInstances
+            };
+            settings.Children.Add(multipleInstancesCheck);
+
             // Поведение значка в области уведомлений. До этого три настройки
             // жили только в файле и в версии для Windows: в Linux-сборке ни
             // флажков, ни учёта не было.
             var trayIconCheck = new CheckBox
             {
                 Content = LocalizationManager.T("Settings.General.ShowTrayIcon"),
-                IsChecked = _viewModel.ShowTrayIcon,
-                Margin = new Thickness(0, 8, 0, 0)
+                IsChecked = _viewModel.ShowTrayIcon
             };
             var closeToTrayCheck = new CheckBox
             {
@@ -230,6 +257,16 @@ namespace Configuration_Management
             };
             afterLaunchBox.SelectedIndex = (int)Models.AfterLaunchActionHelper.Parse(_viewModel.AfterLaunchAction);
             settings.Children.Add(afterLaunchBox);
+
+            // Запоминание геометрии окна. Значения лежали в общем файле настроек,
+            // но Linux-сборка их не читала и не писала вовсе.
+            var rememberLayoutCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Settings.General.RememberWindowLayout"),
+                IsChecked = _viewModel.RememberWindowLayout,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            settings.Children.Add(rememberLayoutCheck);
 
             // Управление учётными записями (профилями).
             var manageProfilesButton = new Button
@@ -509,6 +546,9 @@ namespace Configuration_Management
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails);
             var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel);
             var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup);
+            // Режим списка «только избранные» тот же, что переключается кнопкой
+            // в главном окне: флажок и кнопка меняют одно значение.
+            var favoritesOnlyCheck = DisplayCheck("Settings.Panels.ShowFavoritesOnly", _viewModel.IsListModeFavorites);
             var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups);
 
             // Пояснения под переключателями стоят там же, где в разметке WPF
@@ -520,6 +560,7 @@ namespace Configuration_Management
             displayPanels.Children.Add(sessionPanelCheck);
             displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.SessionLaunchPanelHint")));
             displayPanels.Children.Add(groupByGroupCheck);
+            displayPanels.Children.Add(favoritesOnlyCheck);
             displayPanels.Children.Add(emptyGroupsCheck);
             displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.ShowEmptyGroupsHint")));
 
@@ -1582,6 +1623,9 @@ namespace Configuration_Management
                 _viewModel.ApplyColorScheme(editedScheme);
 
                 _viewModel.ApplyPlatformSettings(paths, archBox.SelectedItem as string ?? "X64");
+                _viewModel.ApplyBehaviorSettings(
+                    multipleInstancesCheck.IsChecked == true,
+                    rememberLayoutCheck.IsChecked == true);
                 _viewModel.ApplyTraySettings(
                     trayIconCheck.IsChecked == true,
                     closeToTrayCheck.IsChecked == true,
@@ -1635,6 +1679,14 @@ namespace Configuration_Management
                     groupByGroupCheck.IsChecked == true,
                     emptyGroupsCheck.IsChecked == true,
                     orderItems.Select(o => o.Key).ToList());
+
+                // «Только избранные» это режим списка, а не отдельный фильтр:
+                // снятие флажка возвращает список к показу всех баз, но режим
+                // «недавние» не трогает, иначе флажок отменял бы чужой выбор.
+                if (favoritesOnlyCheck.IsChecked == true)
+                    _viewModel.IsListModeFavorites = true;
+                else if (_viewModel.IsListModeFavorites)
+                    _viewModel.IsListModeAll = true;
 
                 _viewModel.ApplyStatusBarSettings(
                     statusPathCheck.IsChecked == true,

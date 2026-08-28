@@ -99,7 +99,7 @@ namespace Configuration_Management
             Height = 760;
             MinWidth = 900;
             MinHeight = 600;
-            WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            ApplySavedWindowLayout();
 
             DataContext = viewModel;
 
@@ -3948,6 +3948,118 @@ namespace Configuration_Management
         private static WindowIcon? LoadTrayIcon() => Services.AppIconLoader.LoadAppIcon();
 
         /// <summary>
+        /// Восстанавливает сохранённые размер, позицию и состояние окна.
+        /// Настройки читаются здесь из репозитория, а не из модели: она
+        /// загружает их только в Initialize по событию Loaded, то есть уже
+        /// после того, как окно построено и показано.
+        /// </summary>
+        private void ApplySavedWindowLayout()
+        {
+            Models.AppSettings settings;
+            try
+            {
+                settings = AppServices.GetRequiredService<Services.IInfobaseRepository>().LoadSettings();
+            }
+            catch
+            {
+                // Настройки недоступны: окно открывается по центру, как раньше.
+                WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                return;
+            }
+
+            if (!settings.RememberWindowLayout)
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                return;
+            }
+
+            if (settings.WindowWidth > 0 && settings.WindowHeight > 0)
+            {
+                Width = settings.WindowWidth;
+                Height = settings.WindowHeight;
+            }
+
+            var left = settings.WindowLeft;
+            var top = settings.WindowTop;
+            if (left == 0 && top == 0)
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
+            else
+            {
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                Position = ClampToScreen(new PixelPoint((int)Math.Round(left), (int)Math.Round(top)));
+            }
+
+            if (Enum.TryParse<WindowState>(settings.WindowState, out var state)
+                && state != WindowState.Minimized)
+            {
+                WindowState = state;
+            }
+        }
+
+        /// <summary>
+        /// Прижимает позицию к рабочей области монитора, на котором окно закрыли,
+        /// чтобы оно не оказалось за границей экрана после смены конфигурации мониторов.
+        /// </summary>
+        private PixelPoint ClampToScreen(PixelPoint point)
+        {
+            Screen? screen;
+            try
+            {
+                screen = Screens.ScreenFromPoint(point);
+            }
+            catch
+            {
+                // Сведений об экранах может не быть: на Wayland их отдаёт
+                // не всякий сервер. Тогда позиция остаётся как сохранена.
+                return point;
+            }
+
+            if (screen is null)
+                return point;
+
+            var area = screen.WorkingArea;
+            var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
+            var width = Math.Min((int)Math.Round(Width * scaling), area.Width);
+            var height = Math.Min((int)Math.Round(Height * scaling), area.Height);
+            return new PixelPoint(
+                Math.Max(area.X, Math.Min(point.X, area.Right - width)),
+                Math.Max(area.Y, Math.Min(point.Y, area.Bottom - height)));
+        }
+
+        /// <summary>
+        /// Сохраняет размер, позицию и состояние окна. Позиция пишется в физических
+        /// пикселях: в Avalonia Position задан в них, в отличие от Left и Top в WPF.
+        /// </summary>
+        private void SaveWindowLayout()
+        {
+            if (_vm is null)
+                return;
+
+            if (!_vm.RememberWindowLayout)
+            {
+                // Настройка выключена: сохранённый макет сбрасывается, иначе
+                // следующий запуск открыл бы окно в старом месте и размере.
+                if (_vm.SavedWindowWidth != 0 || _vm.SavedWindowHeight != 0
+                    || _vm.SavedWindowLeft != 0 || _vm.SavedWindowTop != 0
+                    || !string.IsNullOrEmpty(_vm.SavedWindowState))
+                {
+                    _vm.SaveWindowLayout(0, 0, 0, 0, string.Empty);
+                }
+                return;
+            }
+
+            // Только в обычном состоянии: развёрнутое окно нельзя сохранять
+            // как размер по умолчанию.
+            if (WindowState != WindowState.Normal)
+                return;
+
+            _vm.SaveWindowLayout(Width, Height, Position.X, Position.Y,
+                WindowState.ToString());
+        }
+
+        /// <summary>
         /// Закрытие окна уводит приложение в трей, а не завершает его
         /// (свойство «закрытие в трей»). Реальный выход — команда «Выход».
         /// Перед уходом в трей сохраняем настройки (в т.ч. язык интерфейса),
@@ -3956,6 +4068,7 @@ namespace Configuration_Management
         protected override void OnClosing(WindowClosingEventArgs e)
         {
             base.OnClosing(e);
+            SaveWindowLayout();
             if (_allowCloseToTray && _vm is { CloseToTray: true } && CanRestoreHiddenWindow
                 && e.CloseReason == WindowCloseReason.WindowClosing)
             {
