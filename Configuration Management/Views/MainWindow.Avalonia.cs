@@ -1194,9 +1194,11 @@ namespace Configuration_Management
                 ConnectionType.WebServer => ib.Connection.WebUrl,
                 _ => ib.ServerDatabaseDisplay
             };
-            var summary = shown.Contains("ServerBase")
-                ? ib.ConnectionTypeDisplay
-                : JoinSegments(ib.ConnectionTypeDisplay, location);
+            // Тип подключения в строке не показывается: у автора его там нет,
+            // он живёт только в сведениях правой панели. Расположение остаётся
+            // подписью лишь тогда, когда его колонка выключена, иначе оно
+            // не видно нигде.
+            var summary = shown.Contains("ServerBase") ? "" : location;
             if (!string.IsNullOrWhiteSpace(summary))
                 content.Children.Add(SecondaryText(summary, card));
 
@@ -1792,25 +1794,41 @@ namespace Configuration_Management
             // Остальные действия («Очистить кеш», «Изменить настройки», «Удалить»,
             // «Добавить») перенесены в колонку «Действия» строк базы и верхнюю панель
             // команд. Здесь остаются вторичные действия списком.
-            var actionListBlock = BuildActionList(
-                CompactActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
-                CompactActionButton("IconKeyboard", LocalizationManager.T("Main.NativeStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
-                CompactActionButtonBound("IconWeb", "OpenByLinkCaption", "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip")),
-                CompactActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand", LocalizationManager.T("Main.DesktopShortcutTooltip"))
+            // Под «Действиями» у автора ровно три кнопки: Предприятие, Конфигуратор
+            // и штатный стартер. «Открыть каталог» и «Ярлык на рабочем столе»
+            // у него живут в контекстном меню строки, там они есть и у нас.
+            var starterBlock = BuildActionList(
+                CompactActionButton("IconKeyboard", LocalizationManager.T("Main.NativeStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux"))
             );
 
-            // Бейдж «Закреплено» и секция тегов выбранной базы, как в разметке WPF.
-            var pinnedBadge = new Border
-            {
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(8, 3),
-                Margin = new Thickness(0, 0, 6, 4),
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Child = ThemedIconAndText("IconPin", LocalizationManager.T("Main.PinnedLabel"),
-                    "AccentColorBrush", 12, centered: false)
-            };
-            ThemeBrushes.Bind(pinnedBadge, Border.BackgroundProperty, "ItemHoverColorBrush");
+            // Переход по ссылке идёт после карточки сессии, как в разметке.
+            var byLinkBlock = BuildActionList(
+                CompactActionButtonBound("IconWeb", "OpenByLinkCaption", "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip"))
+            );
+
+            // Бейджи «Избранное» и «Закреплено», как в разметке WPF: цвета там
+            // заданы явно и одинаковы в обеих темах, поэтому берутся числом.
+            var badges = new WrapPanel { Margin = new Thickness(0, 0, 0, 12) };
+
+            var favoriteBadge = Badge("IconStar", "#FEF3C7", "#F59E0B", "#B45309");
+            favoriteBadge.Child = BadgeContent("IconStar", "#F59E0B", "#B45309",
+                new MultiBinding
+                {
+                    StringFormat = "{0} {1}",
+                    Bindings =
+                    {
+                        new Binding { Source = LocalizationManager.T("Main.Favorites") },
+                        new Binding("SelectedInfobase.FavoriteHotkeyDisplay")
+                    }
+                });
+            favoriteBadge.Bind(Control.IsVisibleProperty, new Binding("SelectedInfobase.IsFavorite"));
+            badges.Children.Add(favoriteBadge);
+
+            var pinnedBadge = Badge("IconPin", "#EDE9FE", "#8B5CF6", "#5B21B6");
+            pinnedBadge.Child = BadgeContent("IconPin", "#8B5CF6", "#5B21B6",
+                new Binding { Source = LocalizationManager.T("Main.PinnedLabel") });
             pinnedBadge.Bind(Control.IsVisibleProperty, new Binding("SelectedInfobase.IsPinned"));
+            badges.Children.Add(pinnedBadge);
 
             var tagsHeader = ThemedIconAndText("IconTag", LocalizationManager.T("Main.Tags"),
                 "TextSecondaryColorBrush", 14, centered: false);
@@ -1872,16 +1890,40 @@ namespace Configuration_Management
 
             // Порядок блоков взят из разметки WPF: сведения о подключении, описание,
             // теги, затем действия и текущая сессия. Раньше действия стояли первыми.
-            panel.Children.Add(pinnedBadge);
+            panel.Children.Add(badges);
             panel.Children.Add(connectionLabel);
             panel.Children.Add(connectionCard);
             panel.Children.Add(descriptionLabel);
             panel.Children.Add(desc);
             panel.Children.Add(tagsBlock);
+
+            // Линия и заголовок «Действия» перед кнопками запуска, как в разметке.
+            // Обе видны только при показанных подробностях правой панели.
+            var actionsSeparator = new Border
+            {
+                Height = 1,
+                Margin = new Thickness(0, 4, 0, 12)
+            };
+            ThemeBrushes.Bind(actionsSeparator, Border.BackgroundProperty, "BorderColorBrush");
+            actionsSeparator.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
+            panel.Children.Add(actionsSeparator);
+
+            var actionsLabel = new TextBlock
+            {
+                Text = LocalizationManager.T("Main.Actions"),
+                FontSize = UiMetrics.ScaledFont(12),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            ThemeBrushes.Bind(actionsLabel, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
+            actionsLabel.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
+            panel.Children.Add(actionsLabel);
+
             panel.Children.Add(launchEnterpriseBlock);
             panel.Children.Add(launchConfiguratorBlock);
-            panel.Children.Add(actionListBlock);
+            panel.Children.Add(starterBlock);
             panel.Children.Add(sessionCard);
+            panel.Children.Add(byLinkBlock);
 
             // Выход — компактная кнопка внизу, без лишней «карточки».
             var exitBtn = CompactActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand",
@@ -2067,6 +2109,41 @@ namespace Configuration_Management
         /// Подпись секции правой панели: у автора она стоит снаружи рамки,
         /// малыми капителями и вторичным цветом, без значка.
         /// </summary>
+        /// <summary>Рамка бейджа правой панели с явным фоном, как в разметке WPF.</summary>
+        private static Border Badge(string iconKey, string backHex, string iconHex, string textHex) =>
+            new()
+            {
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(8, 3),
+                Margin = new Thickness(0, 0, 6, 4),
+                Background = new SolidColorBrush(Color.Parse(backHex))
+            };
+
+        /// <summary>Содержимое бейджа: значок и подпись из привязки.</summary>
+        private static Control BadgeContent(string iconKey, string iconHex, string textHex, IBinding textBinding)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            row.Children.Add(new Avalonia.Controls.Shapes.Path
+            {
+                Width = 12,
+                Height = 12,
+                Data = IconHelper.Geometry(iconKey),
+                Stretch = Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center,
+                Fill = new SolidColorBrush(Color.Parse(iconHex))
+            });
+            var text = new TextBlock
+            {
+                FontSize = 11,
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = new SolidColorBrush(Color.Parse(textHex))
+            };
+            text.Bind(TextBlock.TextProperty, textBinding);
+            row.Children.Add(text);
+            return row;
+        }
+
         private static Control SectionLabel(string text, bool smallCaps = true)
         {
             // У автора подпись набрана малыми капителями (Typography.Capitals).
