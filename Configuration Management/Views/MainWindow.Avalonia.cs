@@ -50,6 +50,7 @@ namespace Configuration_Management
         private Avalonia.Controls.Shapes.Path _emptyIcon = null!;
         private TextBlock _emptyTitle = null!;
         private SegmentButton? _tagsToggle;
+        private SegmentButton? _emptyGroupsToggle;
         private SegmentButton? _groupByToggle;
         private Border? _columnHeader;
         private Grid? _columnHeaderRow;
@@ -237,7 +238,7 @@ namespace Configuration_Management
                 Spacing = 2
             };
 
-            _groupByToggle = MakeSegmentToggle("IconGroups", LocalizationManager.T("Main.ToggleGroups"));
+            _groupByToggle = MakeSegmentToggle("IconFolder", LocalizationManager.T("Main.ToggleGroups"));
             _groupByToggle.IsChecked = _vm?.GroupByGroup ?? true;
             _groupByToggle.Click += (_, _) => { if (_vm is not null) _vm.GroupByGroup = _groupByToggle.IsChecked == true; };
             left.Children.Add(_groupByToggle);
@@ -245,6 +246,20 @@ namespace Configuration_Management
             // Подсказка подробная, как в разметке WPF (MainWindow.xaml:194): этот
             // переключатель управляет и панелью тегов сверху, и тегами в списке,
             // в отличие от переключателя в шапке списка.
+            // Показывать пустые группы: у автора этот переключатель виден только
+            // при включённой группировке (Visibility по GroupByGroup), иначе он
+            // висел бы в негруппированном списке без дела.
+            _emptyGroupsToggle = MakeSegmentToggle("IconFolderOutline",
+                LocalizationManager.T("Settings.Panels.ShowEmptyGroups"));
+            _emptyGroupsToggle.IsChecked = _vm?.ShowEmptyGroups ?? false;
+            _emptyGroupsToggle.Click += (_, _) =>
+            {
+                if (_vm is not null)
+                    _vm.ShowEmptyGroups = _emptyGroupsToggle.IsChecked == true;
+            };
+            _emptyGroupsToggle.Bind(Control.IsVisibleProperty, new Binding("GroupByGroup"));
+            left.Children.Add(_emptyGroupsToggle);
+
             _tagsToggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleTagsFull"));
             _tagsToggle.IsChecked = _vm?.ShowTagFilterPanel ?? true;
             _tagsToggle.Click += (_, _) => { if (_vm is not null) _vm.ShowTagFilterPanel = _tagsToggle.IsChecked == true; };
@@ -411,17 +426,17 @@ namespace Configuration_Management
 
             var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
 
-            var allSeg = new SegmentButton("IconList", LocalizationManager.T("Main.AllBases"), "ItemHoverBrush", "ItemSelectedBrush");
+            var allSeg = new SegmentButton("IconDatabase", LocalizationManager.T("Main.AllBases"), "ItemHoverBrush", "ItemSelectedBrush");
             ToolTip.SetTip(allSeg, LocalizationManager.T("Main.AllBasesTooltip"));
             allSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeAll") { Mode = BindingMode.TwoWay });
             panel.Children.Add(allSeg);
 
-            var favSeg = new SegmentButton("IconFavorite", LocalizationManager.T("Main.Favorites"), "ItemHoverBrush", "ItemSelectedBrush");
+            var favSeg = new SegmentButton("IconStar", LocalizationManager.T("Main.Favorites"), "ItemHoverBrush", "ItemSelectedBrush");
             ToolTip.SetTip(favSeg, LocalizationManager.T("Main.FavoritesTooltip"));
             favSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeFavorites") { Mode = BindingMode.TwoWay });
             panel.Children.Add(favSeg);
 
-            var recSeg = new SegmentButton("IconRecent", LocalizationManager.T("Main.Recent"), "ItemHoverBrush", "ItemSelectedBrush");
+            var recSeg = new SegmentButton("IconHistory", LocalizationManager.T("Main.Recent"), "ItemHoverBrush", "ItemSelectedBrush");
             ToolTip.SetTip(recSeg, LocalizationManager.T("Main.RecentTooltip"));
             recSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeRecent") { Mode = BindingMode.TwoWay });
             panel.Children.Add(recSeg);
