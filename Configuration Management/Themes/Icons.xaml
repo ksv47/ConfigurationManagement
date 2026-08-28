@@ -2,12 +2,12 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Icons.xaml вЂ” РїРѕР»РЅС‹Р№ РЅР°Р±РѕСЂ РІРµРєС‚РѕСЂРЅС‹С… РёРєРѕРЅРѕРє РґР»СЏ Configuration Management
-        РЎС‚РёР»СЊ: Fluent / Windows 11, СЃРѕРІРјРµСЃС‚РёРј СЃРѕ СЃРІРµС‚Р»РѕР№ Рё С‚С‘РјРЅРѕР№ С‚РµРјРѕР№.
-        РСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ:
+        Icons.xaml — полный набор векторных иконок для Configuration Management
+        Стиль: Fluent / Windows 11, совместим со светлой и тёмной темой.
+        Использование:
             <Path Data="{StaticResource IconPlay}" Fill="{DynamicResource TextPrimaryBrush}"
                   Width="16" Height="16" Stretch="Uniform"/>
-        РёР»Рё С‡РµСЂРµР· DrawingImage РґР»СЏ С†РІРµС‚РЅС‹С… РїР»РёС‚РѕРє.
+        или через DrawingImage для цветных плиток.
     -->
 
     <!-- ===================== ОСНОВНЫЕ ДЕЙСТВИЯ ===================== -->
