@@ -266,7 +266,8 @@ public static partial class OneCLauncher
         string? dbName = null,
         string? dbUser = null,
         string? dbPassword = null,
-        bool createSqlDatabase = false)
+        bool createSqlDatabase = false,
+        bool blockScheduledJobs = false)
     {
         var exePath = FindExecutable(platformVersion, OneCArchitecture.x64, OneCClientType.Thick, OneCLaunchMode.Configurator);
         if (string.IsNullOrEmpty(exePath) ||
@@ -325,6 +326,10 @@ public static partial class OneCLauncher
                 csb.Append($";DBUID=\"{EscapeConnectValue(dbUser)}\"");
             if (!string.IsNullOrWhiteSpace(dbPassword))
                 csb.Append($";DBPwd=\"{EscapeConnectValue(dbPassword)}\"");
+            // Блокировка фоновых заданий (документированный параметр строки соединения SchJobDn="Y").
+            // Действует только при создании базы; на уже созданную ИБ не влияет (issue #94).
+            if (blockScheduledJobs)
+                csb.Append(";SchJobDn=\"Y\"");
             connectionString = csb.ToString();
         }
 

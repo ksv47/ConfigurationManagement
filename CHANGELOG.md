@@ -9,6 +9,32 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.5.16] — 2026-08-28
+
+Исправлена галочка **«Блокировка фоновых заданий»** в окне создания информационной базы (issue #94): раньше она не действовала ни при создании, ни при подключении к базе — в коде использовалось несуществующее имя `SCHEDJOBS`, которого нет в документации платформы.
+
+### Исправлено
+
+- **Галочка «Блокировка фоновых заданий» теперь реально блокирует фоновые задания при создании клиент-серверной базы** (обе платформы, issue #94). Раньше значение сохранялось только в `ConnectionSettings.BlockScheduledJobs`, а сборщики команды `CREATEINFOBASE` про блокировку не знали — параметр в строку подключения не попадал вовсе. Теперь галочка передаётся в метод `CreateInfoBase`, и при её включении в строку подключения `CREATEINFOBASE` добавляется документированный параметр `SchJobDn="Y"` рядом с `CrSQLDB`. Реализовано в [`OneCLauncher.Arguments.cs`](Configuration Management/Services/OneCLauncher.Arguments.cs) (Windows/WPF) и [`OneCLauncher.Linux.cs`](Configuration Management/Services/OneCLauncher.Linux.cs) (Linux/Avalonia); вызовы из [`CreateInfobaseWindow.xaml.cs`](Configuration Management/Views/CreateInfobaseWindow.xaml.cs) и [`CreateInfobaseWindow.Avalonia.cs`](Configuration Management/Views/CreateInfobaseWindow.Avalonia.cs) передают значение чекбокса.
+- **Из строки подключения и списка баз убрано несуществующее имя `SCHEDJOBS=NO`.** Параметр `SchJobDn` действует только при создании базы и не влияет на уже созданную ИБ при подключении (проверено на PostgreSQL и MS SQL Server), поэтому писать его в строку соединения и в `ibases.v8i` бессмысленно. Убрано из `ConnectionSettings.ToConnectionString()` ([`ConnectionSettings.cs`](Configuration Management/Models/ConnectionSettings.cs)) и из экспортёра ([`IbasesV8iExporter.cs`](Configuration Management/Services/IbasesV8iExporter.cs)); блокировка задаётся только при создании через `SchJobDn="Y"`.
+- **Обратный разбор строки подключения распознаёт документированный параметр `SchJobDn`** (значения `Y`/`1`/`True`/`Yes`/`On`) и для совместимости по-прежнему читает устаревший `SCHEDJOBS=NO` из строк прежних версий ([`ConnectionSettings.cs`](Configuration Management/Models/ConnectionSettings.cs)).
+
+## [0.3.5.15] — 2026-08-28
+
+### Изменено
+
+- **Поле «Версия» в окне «Создание информационной базы» по умолчанию подставляется последней успешно использованной версией платформы** (обе платформы, issue #91), а не самой новой из установленных. Раньше поле заполнялось первой строкой списка установленных версий (сортировка по убыванию), что для клиент-серверной базы часто давало несовместимую с сервером версию. Теперь версия запоминается отдельно для файловых и клиент-серверных баз и только после успешного создания ИБ; если сохранённой версии больше нет среди установленных — берётся самая новая. Реализовано в [`CreateInfobaseWindow.xaml.cs`](Configuration Management/Views/CreateInfobaseWindow.xaml.cs) (WPF) и [`CreateInfobaseWindow.Avalonia.cs`](Configuration Management/Views/CreateInfobaseWindow.Avalonia.cs) (Linux); хранение — новые поля `LastFileCreatePlatformVersion`/`LastClientServerCreatePlatformVersion` в [`AppSettings.cs`](Configuration Management/Models/AppSettings.cs).
+
+### Добавлено
+
+- **Предупреждение о несоответствии версии платформы при создании клиент-серверной базы** (обе платформы, issue #91). Если выбранная версия отличается по первым двум числам (major.minor) от версий, которыми уже работают клиент-серверные базы на этом же сервере, перед созданием показывается предупреждение с возможностью продолжить. Раньше о несовместимости пользователь узнавал только по отказу платформы, причём текст отказа ничего о версии не сообщал. Добавлены ключи локализации `CreateInfobase.VersionMismatchTitle`/`CreateInfobase.VersionMismatchMsg` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+## [0.3.5.14] — 2026-08-28
+
+### Исправлено
+
+- **Переключатель «Показывать/скрывать теги» в шапке списка баз больше не обрезается границей колонки «Название»** (WPF, issue #84). При включённой группировке всегда видимый переключатель тегов жил в горизонтальном `StackPanel`, охватывающем ведущие колонки заголовка; когда колонка «избранное» схлопывалась до нуля (`ShowFavoritesButton=false`), суммарная ширина ведущих колонок становилась меньше блока, и переключатель молча срезался правым краем колонки «Название» — был виден лишь «огрызок» кнопки. Колонке переключателя тегов теперь задана гарантированная минимальная ширина `MinWidth="30"` в шапке и в обеих сетках строк (группа и информационная база), поэтому место под переключатель всегда участвует в раскладке, а выравнивание заголовков со строками сохраняется ([`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml)). В Avalonia-версии (Linux) обрезки нет: компенсатор заголовка там динамически резервирует ширину блока кнопок, включая переключатель тегов.
+
 ## [0.3.5.13] — 2026-08-28
 
 ### Исправлено
@@ -18,6 +44,7 @@
 - **Кнопки «Да» и «Нет» в окне подтверждения больше не перепутаны** (обе платформы). В окне предупреждения/подтверждения [`MaterialMessageWindow.xaml`](Configuration Management/Services/MaterialMessageWindow.xaml) (WPF) и [`MaterialMessageWindow.Avalonia.cs`](Configuration Management/Services/MaterialMessageWindow.Avalonia.cs) (Linux) кнопки теперь расположены в порядке «Да» (подтверждение) слева, «Нет» (отмена) справа, как принято в диалогах Windows. Раньше они были переставлены местами.
 - **Текст кнопки подтверждения в окне сообщений стал контрастным и читаемым** (WPF). Надпись «Да»/«ОК» на зелёном фоне кнопки `OkButton` теперь белая и жирная (`Foreground="White"`, `FontWeight="Bold"`), добавлена явная настройка сглаживания текста; полупрозрачная подсветка стандартного стиля Material Design при `IsDefault="True"` больше не перекрывает фон кнопки — остались только явные состояния наведения/нажатия, меняющие оттенок зелёного ([`MaterialMessageWindow.xaml`](Configuration Management/Services/MaterialMessageWindow.xaml)).
 - **Устранено падение `System.InvalidOperationException: DialogResult можно задать только после создания Window...` в окне сообщений** (WPF). Обработчики `OnOkClick`/`OnCancelClick` ([`MaterialMessageWindow.xaml.cs`](Configuration Management/Services/MaterialMessageWindow.xaml.cs)) теперь устанавливают результат через единый безопасный метод `CloseWithResult`, который корректно выставляет `Confirmed`, пытается присвоить `DialogResult` в блоке `try/catch` (валидно только для модального окна через `ShowDialog`) и всегда закрывает окно через `Close()`. Повторное подключение обработчиков кликов в конструкторе убрано, чтобы исключить двойную регистрацию.
+- **Окно выбора группы говорит нейтрально о «выбранном элементе», а не только о группе** (обе платформы). Раньше заголовок «Выбор родительской группы», подзаголовок «Группа будет размещена внутри выбранной группы» и справка описывали только размещение группы внутри группы, хотя окно `GroupPickerWindow` открывается и при создании информационной базы, и в настройках её подключения, где выбирается группа для базы. Теперь заголовок, подзаголовок, подсказка и справка говорят нейтрально про «выбранный элемент» (issue #83). Изменены ключи `GroupPicker.Title`/`Subtitle`/`Help` в [`Localization/Languages/ru.json`](Configuration Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration Management/Localization/Languages/en.json); правка покрывает все шесть точек вызова (Windows/WPF и Linux/Avalonia).
 
 ## [0.3.5.12] — 2026-08-28
 

@@ -829,6 +829,8 @@
     "CreateInfobase.EnterTemplateFile": "Specify an existing template file (.cf or .dt).",
     "CreateInfobase.NoPlatform": "No installed 1C platform found.\nSpecify a version via the List… button or paths in settings.",
     "CreateInfobase.CreateFailed": "Failed to create the infobase.\n{0}",
+    "CreateInfobase.VersionMismatchTitle": "Platform version mismatch",
+    "CreateInfobase.VersionMismatchMsg": "The selected platform version {0} differs from version {1} used by bases on the server {2}. Continue?",
     "CreateInfobase.TypeLabel": "Base type:",
     "CreateInfobase.TypeFile": "File-based base",
     "CreateInfobase.TypeClientServer": "Client-server",

@@ -937,7 +937,8 @@ namespace Configuration_Management.Services
             string? dbName = null,
             string? dbUser = null,
             string? dbPassword = null,
-            bool createSqlDatabase = false)
+            bool createSqlDatabase = false,
+            bool blockScheduledJobs = false)
         {
             PlatformVersionService.ParseVariant(platformVersion, out var version, out var arch);
             var exe = FindExecutable(version, arch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86,
@@ -987,6 +988,10 @@ namespace Configuration_Management.Services
                     cs += $";DBUID=\"{EscapeConnectValue(dbUser)}\"";
                 if (!string.IsNullOrWhiteSpace(dbPassword))
                     cs += $";DBPwd=\"{EscapeConnectValue(dbPassword)}\"";
+                // Блокировка фоновых заданий (документированный параметр строки соединения SchJobDn="Y").
+                // Действует только при создании базы; на уже созданную ИБ не влияет (issue #94).
+                if (blockScheduledJobs)
+                    cs += ";SchJobDn=\"Y\"";
                 connectionString = cs;
             }
 

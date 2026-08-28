@@ -26,6 +26,8 @@ namespace Configuration_Management
         private readonly IReadOnlyList<Group> _groups;
         private string _selectedGroupPath;
         private readonly IDialogService _dialogs;
+        private readonly IInfobaseRepository _repository =
+            AppServices.GetRequiredService<IInfobaseRepository>();
 
         private readonly ComboBox _typeBox = new() { Padding = new Thickness(8, 5) };
         private readonly TextBox _nameBox = new() { Padding = new Thickness(8, 5) };
@@ -309,8 +311,118 @@ namespace Configuration_Management
             if (platforms.Count == 0)
                 platforms = _platformVersions.ToList();
 
-            if (platforms.Count > 0 && string.IsNullOrWhiteSpace(_platformBox.Text))
-                _platformBox.Text = platforms[0];
+            if (platforms.Count == 0)
+                return;
+
+            // По умолчанию подставляем последнюю успешно использованную версию для текущего
+            // типа базы (файловая/клиент-серверная), если она всё ещё установлена. Иначе — самую новую.
+            string selected = platforms[0];
+            var saved = GetSavedPlatformVersion();
+            if (!string.IsNullOrWhiteSpace(saved))
+            {
+                foreach (var p in platforms)
+                {
+                    PlatformVersionService.ParseVariant(p, out var clean, out _);
+                    var candidate = string.IsNullOrWhiteSpace(clean) ? p : clean;
+                    if (string.Equals(candidate, saved, StringComparison.OrdinalIgnoreCase))
+                    {
+                        selected = p;
+                        break;
+                    }
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(_platformBox.Text))
+                _platformBox.Text = selected;
+        }
+
+        /// <summary>
+        /// Возвращает последнюю успешно использованную версию платформы для текущего типа базы.
+        /// Тип базы определяется по <see cref="_typeBox"/>; по умолчанию (до инициализации) — файловая.
+        /// </summary>
+        private string GetSavedPlatformVersion()
+        {
+            var settings = _repository.LoadSettings();
+            var isFile = _typeBox.SelectedIndex != 1;
+            return isFile
+                ? settings.LastFileCreatePlatformVersion ?? ""
+                : settings.LastClientServerCreatePlatformVersion ?? "";
+        }
+
+        /// <summary>
+        /// Запоминает последнюю успешно использованную версию платформы отдельно для
+        /// файловых и клиент-серверных баз. Ошибки сохранения не должны ломать создание ИБ.
+        /// </summary>
+        private void SaveLastPlatformVersion(bool isFile, string platform)
+        {
+            try
+            {
+                var settings = _repository.LoadSettings();
+                PlatformVersionService.ParseVariant(platform, out var cleanPlatform, out _);
+                var clean = string.IsNullOrWhiteSpace(cleanPlatform) ? platform : cleanPlatform;
+                if (isFile)
+                    settings.LastFileCreatePlatformVersion = clean;
+                else
+                    settings.LastClientServerCreatePlatformVersion = clean;
+                _repository.SaveSettings(settings);
+            }
+            catch
+            {
+                // Несохранение последней версии не должно прерывать создание ИБ.
+            }
+        }
+
+        /// <summary>
+        /// Разбирает строку версии на числовые компоненты (major, minor).
+        /// Суффиксы вроде « (64)» снимаются через <see cref="PlatformVersionService.ParseVariant"/>.
+        /// </summary>
+        private static (int Major, int Minor) GetMajorMinor(string version)
+        {
+            PlatformVersionService.ParseVariant(version, out var clean, out _);
+            var v = string.IsNullOrWhiteSpace(clean) ? version : clean;
+            var parts = (v ?? "").Split('.');
+            int.TryParse(parts.Length >= 1 ? parts[0] : "", out var major);
+            int.TryParse(parts.Length >= 2 ? parts[1] : "", out var minor);
+            return (major, minor);
+        }
+
+        /// <summary>
+        /// Эвристика Варианта 2 (#91): ищет среди уже существующих клиент-серверных баз на том же
+        /// сервере базу, версия платформы которой отличается от выбранной по первым двум числам
+        /// (major.minor). Возвращает версию такой базы или null, если расхождений нет.
+        /// Ошибки чтения списка баз не блокируют создание — возвращаем null.
+        /// </summary>
+        private string? GetIncompatibleExistingVersion(string platform, string server)
+        {
+            var (selectedMajor, selectedMinor) = GetMajorMinor(platform);
+
+            List<Infobase> infobases;
+            try
+            {
+                infobases = _repository.Load();
+            }
+            catch
+            {
+                return null;
+            }
+
+            var targetServer = (server ?? "").Trim();
+            foreach (var ib in infobases)
+            {
+                var conn = ib.Connection;
+                if (conn == null || conn.Type != ConnectionType.ClientServer)
+                    continue;
+                if (!string.Equals((conn.Server ?? "").Trim(), targetServer, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (string.IsNullOrWhiteSpace(ib.PlatformVersion))
+                    continue;
+
+                var (major, minor) = GetMajorMinor(ib.PlatformVersion);
+                if (major != selectedMajor || minor != selectedMinor)
+                    return ib.PlatformVersion;
+            }
+
+            return null;
         }
 
         private void OnPickPlatform_Click()
@@ -425,6 +537,21 @@ namespace Configuration_Management
                 var dbPwd = _dbPwdBox.Password ?? "";
                 var createSqlDatabase = _createDbCheck.IsChecked == true;
 
+                // Вариант 2 (#91): заранее предупреждаем, если выбранная версия платформы
+                // отличается (по major.minor) от версий, которыми уже работают
+                // клиент-серверные базы на этом же сервере. Создание можно продолжить.
+                var existingVersion = GetIncompatibleExistingVersion(platform, server);
+                if (existingVersion != null)
+                {
+                    var proceed = _dialogs.Confirm(
+                        string.Format(
+                            LocalizationManager.T("CreateInfobase.VersionMismatchMsg"),
+                            platform, existingVersion, server),
+                        LocalizationManager.T("CreateInfobase.VersionMismatchTitle"));
+                    if (!proceed)
+                        return;
+                }
+
                 (ok, error) = OneCLauncher.CreateInfoBase(
                     platformVersion: platform,
                     isFile: false,
@@ -437,7 +564,8 @@ namespace Configuration_Management
                     dbName: dbName,
                     dbUser: dbUser,
                     dbPassword: dbPwd,
-                    createSqlDatabase: createSqlDatabase);
+                    createSqlDatabase: createSqlDatabase,
+                    blockScheduledJobs: _blockJobsCheck.IsChecked == true);
                 if (!ok)
                 {
                     _dialogs.ShowError(string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""), LocalizationManager.T("CreateInfobase.CreateTitle"));
@@ -468,6 +596,9 @@ namespace Configuration_Management
                 Architecture = storedArchitecture,
                 Connection = connection
             };
+
+            // Создание прошло успешно — запоминаем версию для подстановки по умолчанию.
+            SaveLastPlatformVersion(isFile, platform);
 
             DialogResult = true;
             Close();

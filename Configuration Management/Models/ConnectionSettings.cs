@@ -18,7 +18,9 @@ public class ConnectionSettings
     public string FilePath { get; set; } = string.Empty;
 
     /// <summary>
-    /// Блокировать фоновые задания (параметр строки подключения <c>SCHEDJOBS=NO</c>).
+    /// Блокировать фоновые задания.
+    /// Действует только при создании базы (документированный параметр строки соединения
+    /// <c>SchJobDn="Y"</c>); на уже созданную ИБ не влияет (issue #94).
     /// </summary>
     public bool BlockScheduledJobs { get; set; }
 
@@ -137,11 +139,9 @@ public class ConnectionSettings
     /// </summary>
     public string ToConnectionString()
     {
-        if (Type == ConnectionType.ClientServer && BlockScheduledJobs)
-        {
-            return $"Srvr=\"{EscapeConnectValue(GetServerWithPort())}\";Ref=\"{EscapeConnectValue(DatabaseName)}\";SCHEDJOBS=NO";
-        }
-
+        // Примечание (issue #94): блокировка фоновых заданий не добавляется в строку соединения —
+        // документированный параметр SchJobDn действует только при создании базы и не влияет
+        // на уже созданную ИБ, поэтому писать его в строку подключения нет смысла.
         return Type switch
         {
             ConnectionType.File => $"File=\"{EscapeConnectValue(FilePath)}\"",
@@ -155,6 +155,20 @@ public class ConnectionSettings
     /// Симметрично разворачивается при обратном разборе (см. <see cref="ExtractQuoted"/>).
     /// </summary>
     private static string EscapeConnectValue(string value) => value.Replace("\"", "\"\"");
+
+    /// <summary>
+    /// Проверяет «истинное» значение логического параметра строки соединения 1С
+    /// (Y/1/True/Yes/On).
+    /// </summary>
+    private static bool IsTrueValue(string? value)
+    {
+        var s = value?.Trim();
+        return string.Equals(s, "Y", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(s, "1", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(s, "True", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(s, "Yes", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(s, "On", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Разбирает строку подключения 1С на отдельные поля настроек.
@@ -201,7 +215,19 @@ public class ConnectionSettings
             ? AuthenticationMode.Credentials
             : AuthenticationMode.Prompt;
 
-        // Блокировка фоновых заданий: SCHEDJOBS=NO (значение без кавычек).
+        // Блокировка фоновых заданий: документированный параметр SchJobDn (значение без кавычек).
+        // Для совместимости также распознаётся устаревший SCHEDJOBS=NO из прежних версий.
+        var denyValue = ExtractQuoted(connect, "SchJobDn");
+        if (denyValue == null)
+        {
+            var mDeny = System.Text.RegularExpressions.Regex.Match(
+                connect, @"SchJobDn\s*=\s*(?<v>[^;\s""]+)",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (mDeny.Success)
+                denyValue = mDeny.Groups["v"].Value;
+        }
+        var blockedByDeny = IsTrueValue(denyValue);
+
         var schedjobs = ExtractQuoted(connect, "SCHEDJOBS");
         if (schedjobs == null)
         {
@@ -211,7 +237,9 @@ public class ConnectionSettings
             if (m.Success)
                 schedjobs = m.Groups["v"].Value;
         }
-        settings.BlockScheduledJobs = string.Equals(schedjobs?.Trim(), "NO", StringComparison.OrdinalIgnoreCase);
+        var blockedByLegacy = string.Equals(schedjobs?.Trim(), "NO", StringComparison.OrdinalIgnoreCase);
+
+        settings.BlockScheduledJobs = blockedByDeny || blockedByLegacy;
 
         return settings;
     }
