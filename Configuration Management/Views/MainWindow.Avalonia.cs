@@ -1042,6 +1042,14 @@ namespace Configuration_Management
                     LocalizationManager.T("Main.ToggleFavoriteTooltip"), "ToggleFavoriteForCommand", FavoriteColumnWidth);
                 grid.Children.Add(favorite);
                 Grid.SetColumn(favorite, 0);
+
+                // Номер слота Alt+N поверх звезды, в правом нижнем углу её
+                // колонки: в разметке WPF он стоит там же (MainWindow.xaml:1160).
+                // Дерево ради него не пересобирается, строка обновляет номер
+                // сама по уведомлению модели.
+                var slot = FavoriteSlotBadge(card, ib);
+                grid.Children.Add(slot);
+                Grid.SetColumn(slot, 0);
             }
 
             if (showPin)
@@ -1402,6 +1410,55 @@ namespace Configuration_Management
         /// Цвет иконки следит за состоянием самой базы, поэтому после переключения
         /// строку не нужно пересобирать, и за кистями темы он тоже следует.
         /// </summary>
+        /// <summary>
+        /// Номер слота Alt+N у избранной базы. Пусто, если слот не назначен:
+        /// их девять, а избранных может быть больше.
+        /// </summary>
+        private Control FavoriteSlotBadge(InfobaseRowCard card, Infobase infobase)
+        {
+            var text = new TextBlock
+            {
+                FontSize = UiMetrics.Scaled(9),
+                FontWeight = FontWeight.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsHitTestVisible = false
+            };
+            ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+
+            var host = new Border
+            {
+                Child = text,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Width = UiMetrics.Scaled(12),
+                Height = UiMetrics.Scaled(12),
+                IsHitTestVisible = false
+            };
+
+            void Apply()
+            {
+                text.Text = infobase.FavoriteHotkeyDisplay;
+                host.IsVisible = !string.IsNullOrEmpty(text.Text);
+            }
+
+            void OnChanged(object? _, PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName == nameof(Infobase.FavoriteHotkeyDisplay)
+                    || e.PropertyName == nameof(Infobase.FavoriteHotkeyNumber))
+                    Apply();
+            }
+
+            card.AddSubscription(() =>
+            {
+                infobase.PropertyChanged += OnChanged;
+                Apply();
+                return new ActionDisposable(() => infobase.PropertyChanged -= OnChanged);
+            });
+
+            return host;
+        }
+
         private Button RowMarkButton(InfobaseRowCard card, Infobase infobase, string iconKey,
             string activeBrushKey, string stateProperty, Func<bool> isActive,
             string tooltip, string commandPath, double width)
@@ -3408,6 +3465,7 @@ namespace Configuration_Management
                     if (_tree is not null)
                         _tree.ContextMenu = BuildRowContextMenu();
                 };
+
             }
             SetupTray();
         }
@@ -3701,6 +3759,19 @@ namespace Configuration_Management
             AddHotkey(_vm.HotkeyShowAll, _vm.ShowAllCommand);
             AddHotkey(_vm.HotkeyShowFavorites, _vm.ShowFavoritesCommand);
             AddHotkey(_vm.HotkeyShowRecent, _vm.ShowRecentCommand);
+
+            // Alt+1…Alt+9 запускают избранные базы по порядку слотов.
+            // Привязки ставятся все девять сразу и не зависят от того, сколько
+            // слотов занято: незанятый номер модель просто игнорирует.
+            for (var number = 1; number <= 9; number++)
+            {
+                var slot = number;
+                KeyBindings.Add(new KeyBinding
+                {
+                    Gesture = new KeyGesture((Key)((int)Key.D0 + slot), KeyModifiers.Alt),
+                    Command = new ViewModels.RelayCommand(_ => _vm.LaunchFavoriteByHotkey(slot))
+                });
+            }
         }
 
         /// <summary>
