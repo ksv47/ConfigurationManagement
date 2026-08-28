@@ -301,7 +301,7 @@ namespace Configuration_Management
             };
 
             // Все команды верхней панели значками без подписей, как в разметке WPF.
-            var addBtn = TopBarIconButton("IconAdd", LocalizationManager.T("Main.AddTooltip"), "#22C55E");
+            var addBtn = TopBarIconButton("IconAdd", LocalizationManager.T("Main.AddBase"), "#22C55E");
             addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
             actions.Children.Add(addBtn);
 
@@ -358,7 +358,7 @@ namespace Configuration_Management
             };
             actions.Children.Add(compactBtn);
 
-            var settingsBtn = TopBarIconButton("IconSettings", LocalizationManager.T("Main.SettingsTooltip"));
+            var settingsBtn = TopBarIconButton("IconSettings", LocalizationManager.T("Main.SettingsTooltip"), themeBrushKey: "TextSecondaryColorBrush");
             settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
             actions.Children.Add(settingsBtn);
 
@@ -541,33 +541,19 @@ namespace Configuration_Management
         }
 
         /// <summary>Secondary-кнопка топ-бара: приглушённый фон, иконка + подпись, hover/pressed.</summary>
-        private static PanelButton TopBarSecondaryButton(string iconKey, string text, string tooltip)
-        {
-            var button = new PanelButton(
-                "SecondaryButtonBackgroundBrush",
-                "SecondaryButtonHoverBrush",
-                "SecondaryButtonPressedBrush",
-                "BorderColorBrush")
-            {
-                Content = ThemedIconAndText(iconKey, text, "ButtonTextBrush", UiMetrics.ScaledFont(15), centered: false),
-                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
-                HorizontalContentAlignment = HorizontalAlignment.Center
-            };
-            ToolTip.SetTip(button, tooltip);
-            return button;
-        }
 
         /// <summary>Компактная иконко-кнопка топ-бара (например тема) с состояниями из темы.</summary>
         /// <param name="colorHex">
         /// Явный цвет значка, как в разметке WPF: там часть команд верхней панели
         /// покрашена вручную, а часть берёт цвет из темы. Без него берётся тема.
         /// </param>
-        private static PanelButton TopBarIconButton(string iconKey, string tooltip, string? colorHex = null)
+        private static PanelButton TopBarIconButton(string iconKey, string tooltip, string? colorHex = null,
+            string themeBrushKey = "ButtonTextBrush")
         {
             Control icon;
             if (colorHex is null)
             {
-                icon = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(18), "ButtonTextBrush");
+                icon = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(18), themeBrushKey);
             }
             else
             {
@@ -2080,10 +2066,6 @@ namespace Configuration_Management
             new(key => string.IsNullOrEmpty(key) ? null : IconHelper.Geometry(key));
 
         /// <summary>
-        /// Карточка-секция: лёгкий фон/граница из темы + компактный заголовок с иконкой.
-        /// Без тяжёлой тени — правая панель выглядит современнее и занимает меньше места.
-        /// </summary>
-        /// <summary>
         /// Подпись секции правой панели: у автора она стоит снаружи рамки,
         /// малыми капителями и вторичным цветом, без значка.
         /// </summary>
@@ -2123,6 +2105,10 @@ namespace Configuration_Management
             return card;
         }
 
+        /// <summary>
+        /// Карточка-секция с заголовком и значком внутри рамки. Осталась только
+        /// у карточки текущей сессии: у остальных секций подпись вынесена наружу.
+        /// </summary>
         private static Control SectionCard(string title, string iconKey, params Control[] children)
         {
             var card = new Border
