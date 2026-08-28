@@ -684,6 +684,25 @@ public class MainViewModel : ViewModelBase
         set => SetProperty(ref _statusBarInfo, value);
     }
 
+    /// <summary>
+    /// Идёт длительная фоновая работа: окно закрывается затемняющим индикатором,
+    /// как в разметке (MainWindow.xaml:2349).
+    /// </summary>
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set => SetProperty(ref _isLoading, value);
+    }
+    private bool _isLoading;
+
+    /// <summary>Что именно делается: подпись внутри индикатора.</summary>
+    public string LoadingMessage
+    {
+        get => _loadingMessage;
+        set => SetProperty(ref _loadingMessage, value);
+    }
+    private string _loadingMessage = string.Empty;
+
     public string SyncMessage
     {
         get => _syncMessage;
@@ -3648,6 +3667,8 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
+        IsLoading = true;
+        LoadingMessage = LocalizationManager.T("Main.CheckAvailabilityLabel");
         _ = Task.Run(() =>
         {
             // Результаты собираем заранее, чтобы не трогать модель из фонового потока.
@@ -3657,6 +3678,7 @@ public class MainViewModel : ViewModelBase
 
             Dispatcher.UIThread.Post(() =>
             {
+                IsLoading = false;
                 foreach (var (ib, available) in results)
                     ib.SetCheckedAvailability(available);
                 RebuildTree();
