@@ -1199,8 +1199,21 @@ namespace Configuration_Management
         /// <returns>Индекс колонки «Действия».</returns>
         private int AddListColumns(Grid grid, bool showFavorite, bool showPin)
         {
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(showFavorite ? FavoriteColumnWidth : 0) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(showPin ? PinColumnWidth : 0) });
+            // Колонки звезды и булавки по содержимому: в разметке звезда, плашка
+            // номера, булавка, значок и имя лежат в одной горизонтальной панели
+            // и пакуются вплотную (MainWindow.xaml:1152). При жёсткой ширине
+            // у неизбранной базы между звездой и булавкой оставался пустой зазор,
+            // а плашка избранного упиралась в край колонки.
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = showFavorite ? GridLength.Auto : new GridLength(0),
+                MinWidth = showFavorite ? UiMetrics.Scaled(16) : 0
+            });
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = showPin ? GridLength.Auto : new GridLength(0),
+                MinWidth = showPin ? UiMetrics.Scaled(16) : 0
+            });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(IconColumnWidth) });
             grid.ColumnDefinitions.Add(new ColumnDefinition
             {
@@ -1748,11 +1761,11 @@ namespace Configuration_Management
                 Padding = new Thickness(0),
                 MinWidth = 0,
                 MinHeight = 0,
-                Width = width,
+                // Своей ширины у кнопки нет: колонка теперь по содержимому,
+                // и звезда с плашкой и без неё занимают ровно столько, сколько надо.
                 HorizontalAlignment = HorizontalAlignment.Left,
-                // Содержимое прижато влево: по центру звезда без плашки уходила
-                // от булавки, а с плашкой упиралась в её колонку.
                 HorizontalContentAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 4, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 Cursor = new Cursor(StandardCursorType.Hand),
                 CommandParameter = infobase

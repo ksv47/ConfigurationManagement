@@ -71,32 +71,23 @@ namespace Configuration_Management.Controls
                     new Setter(TemplatedControl.PaddingProperty, new Thickness(0)),
                     new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<ToggleButton>((_, scope) =>
                     {
-                        var minus = new Path
-                        {
-                            Name = "ЗнакРазвёрнуто",
-                            Width = 12,
-                            Height = 12,
-                            Stretch = Stretch.Uniform,
-                            HorizontalAlignment = HorizontalAlignment.Center,
-                            VerticalAlignment = VerticalAlignment.Center,
-                            Data = IconHelper.Geometry("IconMinus")
-                        };
-                        ThemeBrushes.Bind(minus, Path.FillProperty, "AccentBrush");
-                        var plus = new Path
-                        {
-                            Name = "ЗнакСвёрнуто",
-                            Width = 12,
-                            Height = 12,
-                            Stretch = Stretch.Uniform,
-                            HorizontalAlignment = HorizontalAlignment.Center,
-                            VerticalAlignment = VerticalAlignment.Center,
-                            Data = IconHelper.Geometry("IconPlus")
-                        };
-                        ThemeBrushes.Bind(plus, Path.FillProperty, "AccentBrush");
+                        // Значки строятся общим помощником: у голого Path со Stretch
+                        // контур растягивается по своим границам, и минус, чьи
+                        // границы это тонкая полоса, вставал не по центру коробки.
+                        var minus = IconHelper.MakeIcon("IconMinus", 12, out var minusPath);
+                        minus.Name = "ЗнакРазвёрнуто";
+                        minusPath.Name = "КонтурРазвёрнуто";
+                        ThemeBrushes.Bind(minusPath, Path.FillProperty, "AccentBrush");
+                        var plus = IconHelper.MakeIcon("IconPlus", 12, out var plusPath);
+                        plus.Name = "ЗнакСвёрнуто";
+                        plusPath.Name = "КонтурСвёрнуто";
+                        ThemeBrushes.Bind(plusPath, Path.FillProperty, "AccentBrush");
 
                         var glyphs = new Panel();
-                        glyphs.Children.Add(minus);
-                        glyphs.Children.Add(plus);
+                        glyphs.Children.Add(minus.RegisterInNameScope(scope));
+                        glyphs.Children.Add(plus.RegisterInNameScope(scope));
+                        minusPath.RegisterInNameScope(scope);
+                        plusPath.RegisterInNameScope(scope);
 
                         var border = new Border
                         {
@@ -138,7 +129,7 @@ namespace Configuration_Management.Controls
             {
                 Setters = { new Setter(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AccentBrush")) }
             });
-            foreach (var part in new[] { "ЗнакРазвёрнуто", "ЗнакСвёрнуто" })
+            foreach (var part in new[] { "КонтурРазвёрнуто", "КонтурСвёрнуто" })
                 theme.Add(new Style(x => x.Nesting().Class(":pointerover").Template().Name(part))
                 {
                     Setters = { new Setter(Path.FillProperty, Brushes.White) }
