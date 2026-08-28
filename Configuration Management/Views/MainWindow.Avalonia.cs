@@ -1687,7 +1687,7 @@ namespace Configuration_Management
 
             // Запуск 1С:Предприятие (primary) — акцентная кнопка запуска с меню
             // дополнительных вариантов.
-            panel.Children.Add(BuildLaunchSplitButton(
+            var launchEnterpriseBlock = BuildLaunchSplitButton(
                 "IconPlay",
                 LocalizationManager.T("Main.LaunchEnterprise"),
                 "LaunchEnterpriseCommand",
@@ -1697,10 +1697,10 @@ namespace Configuration_Management
                 {
                     (LocalizationManager.T("Main.LaunchWithParams"), "LaunchEnterpriseWithParamsCommand"),
                     (LocalizationManager.T("Main.LaunchWithAuth"), "LaunchEnterpriseWithAuthCommand")
-                }));
+                });
 
             // Конфигуратор — secondary full-width (без отдельной тяжёлой карточки).
-            panel.Children.Add(BuildLaunchSplitButton(
+            var launchConfiguratorBlock = BuildLaunchSplitButton(
                 "IconWrench",
                 LocalizationManager.T("Main.LaunchConfiguratorSection"),
                 "LaunchConfiguratorCommand",
@@ -1709,17 +1709,17 @@ namespace Configuration_Management
                 new[]
                 {
                     (LocalizationManager.T("Main.LaunchWithParams"), "LaunchConfiguratorWithParamsCommand")
-                }));
+                });
 
             // Остальные действия («Очистить кеш», «Изменить настройки», «Удалить»,
             // «Добавить») перенесены в колонку «Действия» строк базы и верхнюю панель
             // команд. Здесь остаются вторичные действия списком.
-            panel.Children.Add(BuildActionList(
+            var actionListBlock = BuildActionList(
                 CompactActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
                 CompactActionButton("IconKeyboard", LocalizationManager.T("Main.NativeStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
                 CompactActionButtonBound("IconWeb", "OpenByLinkCaption", "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip")),
                 CompactActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand", LocalizationManager.T("Main.DesktopShortcutTooltip"))
-            ));
+            );
 
             // Бейдж «Закреплено» и секция тегов выбранной базы, как в разметке WPF.
             var pinnedBadge = new Border
@@ -1733,7 +1733,6 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(pinnedBadge, Border.BackgroundProperty, "ItemHoverColorBrush");
             pinnedBadge.Bind(Control.IsVisibleProperty, new Binding("SelectedInfobase.IsPinned"));
-            panel.Children.Add(pinnedBadge);
 
             var tagsHeader = ThemedIconAndText("IconTag", LocalizationManager.T("Main.Tags"),
                 "TextSecondaryColorBrush", 14, centered: false);
@@ -1760,12 +1759,12 @@ namespace Configuration_Management
             var tagsBlock = new StackPanel { Spacing = 4 };
             tagsBlock.Children.Add(tagsHeader);
             tagsBlock.Children.Add(tagsList);
-            panel.Children.Add(tagsBlock);
 
             // Информация о подключении.
             // Блок сведений подчинён переключателю подробностей правой панели,
             // как в WPF: там по нему прячется та же таблица.
-            var connectionCard = SectionCard(LocalizationManager.T("Main.SectionConnInfo"), "IconInfo",
+            var connectionLabel = SectionLabel(LocalizationManager.T("Main.SectionConnInfo"));
+            var connectionCard = PlainCard(
                 DetailRow(LocalizationManager.T("Main.Type"), new Binding("SelectedInfobase.ConnectionTypeDisplay")),
                 DetailRow(LocalizationManager.T("Main.ServerPath"), new Binding("SelectedInfobase.ConnectionPathDisplay")),
                 DetailRow(LocalizationManager.T("Column.ServerBase"), new Binding("SelectedInfobase.ServerDatabaseDisplay")),
@@ -1778,10 +1777,9 @@ namespace Configuration_Management
                 DetailRow(LocalizationManager.T("Main.LastLaunch"), new Binding("SelectedInfobase.LastLaunchDisplay")),
                 DetailRow(LocalizationManager.T("Main.CacheSize"), new Binding("SelectedInfobase.CacheSizeDisplay")));
             connectionCard.Bind(Control.IsVisibleProperty, new Binding("ShowConnectionInfo"));
-            panel.Children.Add(connectionCard);
 
             // Блок «Текущая сессия»: значения действуют только на следующий запуск.
-            panel.Children.Add(BuildSessionCard());
+            var sessionCard = BuildSessionCard();
 
             // Описание (стиль из ConfigurationManagement): значение TextPrimaryBrush, нижний отступ.
             var desc = new TextBlock
@@ -1792,7 +1790,20 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(desc, TextBlock.ForegroundProperty, "TextPrimaryBrush");
             desc.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.Description"));
-            panel.Children.Add(SectionCard(LocalizationManager.T("Main.Description"), "IconInfo", desc));
+            var descriptionLabel = SectionLabel(LocalizationManager.T("Main.Description"), smallCaps: false);
+
+            // Порядок блоков взят из разметки WPF: сведения о подключении, описание,
+            // теги, затем действия и текущая сессия. Раньше действия стояли первыми.
+            panel.Children.Add(pinnedBadge);
+            panel.Children.Add(connectionLabel);
+            panel.Children.Add(connectionCard);
+            panel.Children.Add(descriptionLabel);
+            panel.Children.Add(desc);
+            panel.Children.Add(tagsBlock);
+            panel.Children.Add(launchEnterpriseBlock);
+            panel.Children.Add(launchConfiguratorBlock);
+            panel.Children.Add(actionListBlock);
+            panel.Children.Add(sessionCard);
 
             // Выход — компактная кнопка внизу, без лишней «карточки».
             var exitBtn = CompactActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand",
@@ -1978,6 +1989,46 @@ namespace Configuration_Management
         /// Карточка-секция: лёгкий фон/граница из темы + компактный заголовок с иконкой.
         /// Без тяжёлой тени — правая панель выглядит современнее и занимает меньше места.
         /// </summary>
+        /// <summary>
+        /// Подпись секции правой панели: у автора она стоит снаружи рамки,
+        /// малыми капителями и вторичным цветом, без значка.
+        /// </summary>
+        private static Control SectionLabel(string text, bool smallCaps = true)
+        {
+            // У автора подпись набрана малыми капителями (Typography.Capitals).
+            // В Avalonia 11.3 такого свойства у TextBlock нет, поэтому приближаем:
+            // прописные буквы кеглем помельче дают тот же рисунок строки.
+            var block = new TextBlock
+            {
+                Text = smallCaps ? text.ToUpperInvariant() : text,
+                FontSize = UiMetrics.ScaledFont(smallCaps ? 10.5 : 12),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, smallCaps ? 8 : 4)
+            };
+            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
+            return block;
+        }
+
+        /// <summary>Рамка секции без собственного заголовка: подпись живёт снаружи.</summary>
+        private static Control PlainCard(params Control[] children)
+        {
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(UiMetrics.SectionPad),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
+            UiMetrics.AddBrushTransition(card);
+            var content = new StackPanel { Spacing = UiMetrics.Gap };
+            foreach (var child in children)
+                content.Children.Add(child);
+            card.Child = content;
+            return card;
+        }
+
         private static Control SectionCard(string title, string iconKey, params Control[] children)
         {
             var card = new Border
@@ -2249,21 +2300,25 @@ namespace Configuration_Management
         private Control DetailRow(string label, Binding binding)
         {
             var grid = new Grid { Margin = new Thickness(0, 0, 0, 3) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
+            // 100 точек не хватало самой длинной подписи («Последний запуск»),
+            // она упиралась в значение. У автора колонка шире.
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(124) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var labelBlock = new TextBlock
             {
                 Text = label,
-                FontSize = UiMetrics.ScaledFont(11.5),
-                Opacity = 0.7
+                FontSize = UiMetrics.ScaledFont(12)
             };
+            ThemeBrushes.Bind(labelBlock, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
             grid.Children.Add(labelBlock);
             Grid.SetColumn(labelBlock, 0);
 
+            // Значение полужирное, как в разметке WPF: подпись вторичная, значение основное.
             var valueBlock = new TextBlock
             {
-                FontSize = UiMetrics.ScaledFont(11.5),
+                FontSize = UiMetrics.ScaledFont(12),
+                FontWeight = FontWeight.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             };
             valueBlock.Bind(TextBlock.TextProperty, binding);

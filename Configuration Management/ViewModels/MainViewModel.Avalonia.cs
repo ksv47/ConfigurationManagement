@@ -644,7 +644,8 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public string RightPanelSubtitle =>
         SelectedInfobase is { } infobase
-            ? infobase.GroupDisplay
+            // Как в разметке WPF: «Группа: <имя>», а не голое имя группы.
+            ? $"{LocalizationManager.T("Main.GroupLabel")}: {infobase.GroupDisplay}"
             : SelectedGroupNode?.FullPath ?? string.Empty;
 
     /// <summary>Подсказка «выберите базу» под заголовком, пока база не выбрана.</summary>
