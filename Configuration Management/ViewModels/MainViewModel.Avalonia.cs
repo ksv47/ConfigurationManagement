@@ -2643,6 +2643,38 @@ public class MainViewModel : ViewModelBase
                 ? OneCArchitecture.x86
                 : OneCArchitecture.x64;
 
+    /// <summary>
+    /// Смена версии платформы у базы двойным щелчком по колонке версии.
+    /// Разбирает вариант вида «8.3.27.1234 (64)»: разрядность уходит в своё
+    /// поле, а в версии остаётся чистый номер, как в версии для Windows
+    /// (MainWindow.Events.cs, OpenPlatformVersionPicker).
+    /// </summary>
+    public void PickPlatformVersionFor(Infobase? infobase)
+    {
+        if (infobase is null)
+            return;
+
+        SelectedInfobase = infobase;
+        var dialog = new PlatformVersionPickerWindow(InstalledPlatformVersions(), infobase.PlatformVersion);
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        var selected = dialog.Result?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(selected))
+            return;
+
+        PlatformVersionService.ParseVariant(selected, out var cleanVersion, out var arch);
+        var newVersion = string.IsNullOrWhiteSpace(cleanVersion) ? selected : cleanVersion;
+        if (string.Equals(infobase.PlatformVersion, newVersion, StringComparison.Ordinal))
+            return;
+
+        infobase.PlatformVersion = newVersion;
+        if (arch is "32" or "64")
+            infobase.Architecture = arch;
+        SaveSilently();
+        RebuildTree();
+    }
+
     private List<string> InstalledPlatformVersions()
     {
         try { return _platformService.FindInstalledVersions(_settings.AdditionalPlatformSearchPaths); }
