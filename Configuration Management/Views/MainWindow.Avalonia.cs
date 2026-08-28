@@ -2752,6 +2752,12 @@ namespace Configuration_Management
             private bool _pressed;
             private bool _focused;
 
+            private IBrush? _restingBorder;
+
+            /// <summary>Постоянная рамка в покое: нужна тегам панели фильтра.</summary>
+            public void ShowRestingBorder(string brushKey)
+                => ThemeBrushes.Observe(this, brushKey, brush => { _restingBorder = brush; ApplyState(); });
+
             public SegmentButton(string iconKey, string text, string hoverBgKey, string pressedBgKey, bool lockOn = true)
             {
                 _iconKey = iconKey;
@@ -2877,7 +2883,9 @@ namespace Configuration_Management
                 // Толщина постоянна, меняется только цвет: иначе фокус
                 // расширял бы кнопку на четыре пикселя, а по её правому краю
                 // выравнивается подпись «Название» в шапке списка.
-                BorderBrush = _focused ? _accent : Brushes.Transparent;
+                // Рамка в покое видна только там, где её просили: у тегов
+                // панели фильтра. У остальных сегментов она прозрачная.
+                BorderBrush = _focused ? _accent : (_restingBorder ?? Brushes.Transparent);
             }
         }
 
@@ -3861,10 +3869,9 @@ namespace Configuration_Management
                 };
                 // Теги панели фильтра у автора в скруглённой рамке и мельче
                 // сегментов верхней панели: свои отступы и кегль.
-                button.BorderThickness = new Thickness(1);
                 button.Padding = new Thickness(8, 2);
                 button.FontSize = UiMetrics.ScaledFont(11);
-                ThemeBrushes.Bind(button, TemplatedControl.BorderBrushProperty, "BorderColorBrush");
+                button.ShowRestingBorder("BorderColorBrush");
                 button.Click += (_, _) => _vm.SearchByTagCommand.Execute(item.Name);
                 _tagPanelItems.Children.Add(button);
             }
