@@ -1258,8 +1258,8 @@ namespace Configuration_Management
             actions.Children.Add(RowActionButton(ib, "IconPlay", "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconDelete", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip")));
+            actions.Children.Add(RowActionButton(ib, "IconBroom", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
+            actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#EF4444"));
             grid.Children.Add(actions);
             Grid.SetColumn(actions, actionsCol);
 
@@ -1633,11 +1633,35 @@ namespace Configuration_Management
         /// Кнопка действия в колонке «Действия» строки базы: иконка, команда из вьюмодели,
         /// параметром служит сама информационная база строки.
         /// </summary>
-        private Button RowActionButton(Infobase ib, string iconKey, string commandPath, string tooltip)
+        /// <param name="colorHex">
+        /// Явный цвет значка. У автора кнопки строки вторичного цвета, кроме
+        /// удаления: оно красное.
+        /// </param>
+        private Button RowActionButton(Infobase ib, string iconKey, string commandPath, string tooltip,
+            string? colorHex = null)
         {
+            Control glyph;
+            if (colorHex is null)
+            {
+                glyph = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush");
+            }
+            else
+            {
+                glyph = new Avalonia.Controls.Shapes.Path
+                {
+                    Width = UiMetrics.Scaled(15),
+                    Height = UiMetrics.Scaled(15),
+                    Data = IconHelper.Geometry(iconKey),
+                    Stretch = Stretch.Uniform,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Fill = new SolidColorBrush(Color.Parse(colorHex))
+                };
+            }
+
             var button = new Button
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush"),
+                Content = glyph,
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(4),
