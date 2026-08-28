@@ -241,7 +241,10 @@ namespace Configuration_Management
             _groupByToggle.Click += (_, _) => { if (_vm is not null) _vm.GroupByGroup = _groupByToggle.IsChecked == true; };
             left.Children.Add(_groupByToggle);
 
-            _tagsToggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleTags"));
+            // Подсказка подробная, как в разметке WPF (MainWindow.xaml:194): этот
+            // переключатель управляет и панелью тегов сверху, и тегами в списке,
+            // в отличие от переключателя в шапке списка.
+            _tagsToggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleTagsFull"));
             _tagsToggle.IsChecked = _vm?.ShowTagFilterPanel ?? true;
             _tagsToggle.Click += (_, _) => { if (_vm is not null) _vm.ShowTagFilterPanel = _tagsToggle.IsChecked == true; };
             left.Children.Add(_tagsToggle);
@@ -277,7 +280,8 @@ namespace Configuration_Management
             clearCacheBtn.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
             actions.Children.Add(clearCacheBtn);
 
-            var syncBtn = TopBarSecondaryButton("IconSync", LocalizationManager.T("Main.Sync"), LocalizationManager.T("Main.SyncWithIbases"));
+            var syncBtn = TopBarSecondaryButton("IconSync", LocalizationManager.T("Main.Sync"),
+                LocalizationManager.T("Main.SyncDetailedTooltip"));
             syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
             actions.Children.Add(syncBtn);
 
@@ -1042,6 +1046,15 @@ namespace Configuration_Management
                     LocalizationManager.T("Main.ToggleFavoriteTooltip"), "ToggleFavoriteForCommand", FavoriteColumnWidth);
                 grid.Children.Add(favorite);
                 Grid.SetColumn(favorite, 0);
+
+                // Номер слота Alt+N. В разметке WPF это плашка рядом со звездой,
+                // здесь номер наложен на угол её колонки: колонки строки узкие
+                // и заданы по ширине значков, отдельного места под плашку в них
+                // нет. Дерево ради номера не пересобирается, строка обновляет
+                // его сама по уведомлению модели.
+                var slot = FavoriteSlotBadge(card, ib);
+                grid.Children.Add(slot);
+                Grid.SetColumn(slot, 0);
             }
 
             if (showPin)
@@ -1130,6 +1143,19 @@ namespace Configuration_Management
                 var value = ColumnValue(ib, columns[i].Key);
                 var cell = SecondaryText(string.IsNullOrWhiteSpace(value) ? string.Empty : value, card);
                 cell.VerticalAlignment = VerticalAlignment.Center;
+                if (columns[i].Key == "Version")
+                {
+                    // Двойной щелчок открывает выбор версии платформы, как
+                    // в разметке WPF (MainWindow.xaml:1230). До этого окно
+                    // PlatformVersionPickerWindow собиралось, но из интерфейса
+                    // Linux-версии было недостижимо.
+                    ToolTip.SetTip(cell, LocalizationManager.T("Main.PlatformVersionTooltip"));
+                    cell.DoubleTapped += (_, e) =>
+                    {
+                        e.Handled = true;
+                        _vm?.PickPlatformVersionFor(ib);
+                    };
+                }
                 grid.Children.Add(cell);
                 Grid.SetColumn(cell, dataColumn);
                 dataColumn++;
@@ -1326,6 +1352,7 @@ namespace Configuration_Management
                 VerticalContentAlignment = VerticalAlignment.Center,
                 IsVisible = false
             };
+            ToolTip.SetTip(input, LocalizationManager.T("Main.EnterTagHint"));
 
             void ShowEditor()
             {
@@ -1402,6 +1429,59 @@ namespace Configuration_Management
         /// Цвет иконки следит за состоянием самой базы, поэтому после переключения
         /// строку не нужно пересобирать, и за кистями темы он тоже следует.
         /// </summary>
+        /// <summary>
+        /// Номер слота Alt+N у избранной базы. Пусто, если слот не назначен:
+        /// их девять, а избранных может быть больше.
+        /// </summary>
+        private Control FavoriteSlotBadge(InfobaseRowCard card, Infobase infobase)
+        {
+            var text = new TextBlock
+            {
+                FontSize = UiMetrics.ScaledFont(9),
+                FontWeight = FontWeight.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                IsHitTestVisible = false
+            };
+            ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+
+            var host = new Border
+            {
+                Child = text,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Width = UiMetrics.Scaled(12),
+                Height = UiMetrics.Scaled(12),
+                IsHitTestVisible = false
+            };
+
+            void Apply()
+            {
+                text.Text = infobase.FavoriteHotkeyDisplay;
+                // Разметка WPF гасит плашку и по номеру, и по самой звезде
+                // (MainWindow.xaml:1156-1183): без второго условия номер
+                // остаётся висеть у базы, которую убрали из избранного.
+                host.IsVisible = infobase.IsFavorite && !string.IsNullOrEmpty(text.Text);
+            }
+
+            void OnChanged(object? _, PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName == nameof(Infobase.FavoriteHotkeyDisplay)
+                    || e.PropertyName == nameof(Infobase.FavoriteHotkeyNumber)
+                    || e.PropertyName == nameof(Infobase.IsFavorite))
+                    Apply();
+            }
+
+            card.AddSubscription(() =>
+            {
+                infobase.PropertyChanged += OnChanged;
+                Apply();
+                return new ActionDisposable(() => infobase.PropertyChanged -= OnChanged);
+            });
+
+            return host;
+        }
+
         private Button RowMarkButton(InfobaseRowCard card, Infobase infobase, string iconKey,
             string activeBrushKey, string stateProperty, Func<bool> isActive,
             string tooltip, string commandPath, double width)
@@ -2570,6 +2650,17 @@ namespace Configuration_Management
         /// уведомляют о шестнадцати свойствах подряд, и без склейки заголовок
         /// пересобирался бы на каждое из них.
         /// </summary>
+        /// <summary>
+        /// Подсказка, описывающая колонку списка. Есть не у всех: набор взят
+        /// из разметки WPF, где такие подсказки стоят только у части заголовков.
+        /// </summary>
+        private static string? ColumnHeaderTooltipKey(string columnKey) => columnKey switch
+        {
+            "Size" => "Main.ColumnSizeTooltip",
+            "Configuration" => "Main.ColumnNameTooltip",
+            _ => null
+        };
+
         private void QueueColumnHeaderRefresh()
         {
             if (_columnHeaderRefreshQueued)
@@ -2670,6 +2761,10 @@ namespace Configuration_Management
                 var text = ColumnHeader(columns[i].Header, IconHelper.ColumnIconKey(columns[i].Key));
                 if (columns[i].Key == "LastLaunch")
                     MakeSortableHeader(text, "LastLaunchDate", LocalizationManager.T("Main.ColumnLastLaunchSortTooltip"));
+                // Подсказка, описывающая саму колонку. В разметке WPF она есть
+                // не у всех заголовков, набор взят оттуда (MainWindow.xaml:687, 697).
+                if (ColumnHeaderTooltipKey(columns[i].Key) is { } tooltipKey)
+                    ToolTip.SetTip(text, LocalizationManager.T(tooltipKey));
                 _columnHeaderRow.Children.Add(text);
                 Grid.SetColumn(text, dataColumn);
 
@@ -2681,6 +2776,7 @@ namespace Configuration_Management
             // Подпись колонки «Действия» — сразу после колонки «Режим запуска»,
             // без разделителя.
             var actionsHeader = ColumnHeader(LocalizationManager.T("Column.Actions"), IconHelper.ColumnIconKey("Actions"));
+            ToolTip.SetTip(actionsHeader, LocalizationManager.T("Main.Actions"));
             _columnHeaderRow.Children.Add(actionsHeader);
             Grid.SetColumn(actionsHeader, NameHeaderColumn + 1 + actionsOffset);
 
@@ -3306,8 +3402,18 @@ namespace Configuration_Management
                 "TextSecondaryBrush", UiMetrics.ScaledFont(12), centered: false);
             hint.HorizontalAlignment = HorizontalAlignment.Left;
 
+            // Кнопка справки рядом с заголовком панели, как в разметке WPF.
+            var hintRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            hintRow.Children.Add(hint);
+            hintRow.Children.Add(new Controls.HelpLink
+            {
+                HelpText = LocalizationManager.T("Main.TagFilterHelp"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            hintRow.HorizontalAlignment = HorizontalAlignment.Left;
+
             var header = new Grid();
-            header.Children.Add(hint);
+            header.Children.Add(hintRow);
             header.Children.Add(_tagClearButton);
 
             var rows = new StackPanel { Orientation = Orientation.Vertical, Spacing = 6 };
@@ -3363,11 +3469,22 @@ namespace Configuration_Management
 
             _statusInfo = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
             _statusInfo.Bind(TextBlock.TextProperty, new Binding("StatusBarInfo"));
+            // Подсказка показывает строку целиком: в нижней панели она обрезается
+            // многоточием. Контекстное меню с копированием строки подключения
+            // взято из разметки WPF (MainWindow.xaml:2288-2292).
+            _statusInfo.Bind(ToolTip.TipProperty, new Binding("StatusBarInfo"));
+            if (_vm is not null)
+            {
+                var statusMenu = new ContextMenu();
+                statusMenu.Items.Add(MenuAction("Main.CopyPath", _vm.CopyConnectionStringCommand));
+                _statusInfo.ContextMenu = statusMenu;
+            }
             grid.Children.Add(_statusInfo);
             Grid.SetColumn(_statusInfo, 0);
 
             _syncMessage = new TextBlock { FontSize = 12, Margin = new Thickness(16, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
             _syncMessage.Bind(TextBlock.TextProperty, new Binding("SyncMessage"));
+            ToolTip.SetTip(_syncMessage, LocalizationManager.T("Main.SyncResultTooltip"));
             grid.Children.Add(_syncMessage);
             Grid.SetColumn(_syncMessage, 1);
 
@@ -3408,6 +3525,7 @@ namespace Configuration_Management
                     if (_tree is not null)
                         _tree.ContextMenu = BuildRowContextMenu();
                 };
+
             }
             SetupTray();
         }
@@ -3688,6 +3806,26 @@ namespace Configuration_Management
                 return;
 
             KeyBindings.Clear();
+
+            // Alt+1…Alt+9 запускают избранные базы по порядку слотов и ставятся
+            // ПЕРЕД пользовательскими: Avalonia перебирает привязки по порядку
+            // списка и останавливается на первой подошедшей, поэтому иначе
+            // назначенный пользователем Alt+1 перебивал бы избранное. Версия
+            // для Windows добивается того же с другого конца: там
+            // RegisterFavoriteHotkeys сперва удаляет из InputBindings все
+            // Alt+1…9, включая пользовательские (MainWindow.Hotkeys.cs:118).
+            // Незанятый слот привязку всё равно имеет и клавишу поглощает,
+            // но действия не выполняет: так же ведёт себя и версия для Windows.
+            for (var number = 1; number <= 9; number++)
+            {
+                var slot = number;
+                KeyBindings.Add(new KeyBinding
+                {
+                    Gesture = new KeyGesture((Key)((int)Key.D0 + slot), KeyModifiers.Alt),
+                    Command = new ViewModels.RelayCommand(_ => _vm.LaunchFavoriteByHotkey(slot))
+                });
+            }
+
             // Delete в привязки не идёт: он правит текст, и в поле ввода
             // не должен удалять базу. Ему отдельный обработчик ниже.
             AddHotkey(_vm.HotkeyEnterprise, _vm.LaunchEnterpriseCommand);

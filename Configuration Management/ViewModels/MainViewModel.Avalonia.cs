@@ -1119,6 +1119,13 @@ public class MainViewModel : ViewModelBase
             RebuildTree();
             UpdateStatus(string.Format(LocalizationManager.T("Main.LoadedBases"), _allInfobases.Count));
 
+            // Слоты Alt+1…9 читаются из общего с версией для Windows файла
+            // настроек, затем раздаются избранным без слота.
+            _favoriteHotkeyIds.Clear();
+            if (_settings.FavoriteHotkeyIds is { } savedSlots)
+                _favoriteHotkeyIds.AddRange(savedSlots.Where(k => !string.IsNullOrWhiteSpace(k)).Take(9));
+            SyncFavoriteHotkeys();
+
             // При запуске синхронизируемся при любом триггере, как в WPF:
             // «при старте» это сразу и только, интервал и расписание это сразу
             // и дальше по таймеру.
@@ -1719,6 +1726,13 @@ public class MainViewModel : ViewModelBase
         ib.ConfiguratorAuth = dialog.Result.ConfiguratorAuth;
         ib.Repository = dialog.Result.Repository;
 
+        // Правка могла снять или поставить звезду, а у базы без идентификатора
+        // сменить и ключ слота: он строится из имени. Версия для Windows этого
+        // не делает, и там слот теряется молча до следующего пересчёта.
+        if (!ib.IsFavorite)
+            _favoriteHotkeyIds.Remove(FavoriteKey(ib));
+        SyncFavoriteHotkeys();
+
         SaveSilently();
         RebuildTree();
         ExportToIbasesAfterLocalChange();
@@ -1967,6 +1981,9 @@ public class MainViewModel : ViewModelBase
     /// <summary>Сообщение из окна настроек.</summary>
     public void ShowInfo(string message) => _dialog.ShowInfo(message);
 
+    /// <summary>Сообщение со своим заголовком окна.</summary>
+    public void ShowInfo(string message, string title) => _dialog.ShowInfo(message, title);
+
     /// <summary>Сообщение об ошибке из окна настроек.</summary>
     public void ShowError(string message) => _dialog.ShowError(message);
 
@@ -1981,7 +1998,8 @@ public class MainViewModel : ViewModelBase
         _dialog.SaveFileDialog(title, defaultFileName);
 
     /// <summary>Диалог выбора каталога для окна настроек.</summary>
-    public string? PickFolder(string title) => _dialog.OpenFolderDialog(title);
+    public string? PickFolder(string title, string? initialDirectory = null)
+        => _dialog.OpenFolderDialog(title, initialDirectory);
 
     /// <summary>
     /// Применяет настройки вкладки «Платформы»: дополнительные пути поиска
@@ -2065,6 +2083,9 @@ public class MainViewModel : ViewModelBase
 
         _allInfobases.Clear();
         _allInfobases.AddRange(remaining);
+        // Состав списка изменился: слоты избранного пересчитываются, иначе
+        // номер остаётся у удалённой базы, а её слот занят навсегда.
+        SyncFavoriteHotkeys();
 
         if (SelectedInfobase is { } selected && !_allInfobases.Contains(selected))
             SelectedInfobase = null;
@@ -2154,6 +2175,9 @@ public class MainViewModel : ViewModelBase
             if (!SaveList(previousInfobases))
             {
                 _allInfobases.Clear();
+                // Состав списка изменился: слоты избранного пересчитываются, иначе
+                // номер остаётся у удалённой базы, а её слот занят навсегда.
+                SyncFavoriteHotkeys();
                 _groups.Clear();
                 SelectedInfobase = null;
                 RebuildTree();
@@ -2168,6 +2192,9 @@ public class MainViewModel : ViewModelBase
         }
 
         _allInfobases.Clear();
+        // Состав списка изменился: слоты избранного пересчитываются, иначе
+        // номер остаётся у удалённой базы, а её слот занят навсегда.
+        SyncFavoriteHotkeys();
         _groups.Clear();
         SelectedInfobase = null;
 
@@ -2287,6 +2314,9 @@ public class MainViewModel : ViewModelBase
 
             _allInfobases.Clear();
             _allInfobases.AddRange(loaded);
+            // Состав списка изменился: слоты избранного пересчитываются, иначе
+            // номер остаётся у удалённой базы, а её слот занят навсегда.
+            SyncFavoriteHotkeys();
             _groups.Clear();
             _groups.AddRange(loadedGroups);
             SelectedInfobase = null;
@@ -2472,6 +2502,9 @@ public class MainViewModel : ViewModelBase
 
             _allInfobases.Clear();
             _allInfobases.AddRange(candidateInfobases);
+            // Состав списка изменился: слоты избранного пересчитываются, иначе
+            // номер остаётся у удалённой базы, а её слот занят навсегда.
+            SyncFavoriteHotkeys();
             _groups.Clear();
             _groups.AddRange(candidateGroups);
 
@@ -2609,6 +2642,38 @@ public class MainViewModel : ViewModelBase
             string.Equals(_settings.DefaultArchitecture, "X86", StringComparison.OrdinalIgnoreCase)
                 ? OneCArchitecture.x86
                 : OneCArchitecture.x64;
+
+    /// <summary>
+    /// Смена версии платформы у базы двойным щелчком по колонке версии.
+    /// Разбирает вариант вида «8.3.27.1234 (64)»: разрядность уходит в своё
+    /// поле, а в версии остаётся чистый номер, как в версии для Windows
+    /// (MainWindow.Events.cs, OpenPlatformVersionPicker).
+    /// </summary>
+    public void PickPlatformVersionFor(Infobase? infobase)
+    {
+        if (infobase is null)
+            return;
+
+        SelectedInfobase = infobase;
+        var dialog = new PlatformVersionPickerWindow(InstalledPlatformVersions(), infobase.PlatformVersion);
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        var selected = dialog.Result?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(selected))
+            return;
+
+        PlatformVersionService.ParseVariant(selected, out var cleanVersion, out var arch);
+        var newVersion = string.IsNullOrWhiteSpace(cleanVersion) ? selected : cleanVersion;
+        if (string.Equals(infobase.PlatformVersion, newVersion, StringComparison.Ordinal))
+            return;
+
+        infobase.PlatformVersion = newVersion;
+        if (arch is "32" or "64")
+            infobase.Architecture = arch;
+        SaveSilently();
+        RebuildTree();
+    }
 
     private List<string> InstalledPlatformVersions()
     {
@@ -2808,6 +2873,9 @@ public class MainViewModel : ViewModelBase
         }
 
         _allInfobases.Remove(ib);
+        // Состав списка изменился: слоты избранного пересчитываются, иначе
+        // номер остаётся у удалённой базы, а её слот занят навсегда.
+        SyncFavoriteHotkeys();
         SaveSilently();
         RebuildTree();
         SelectedInfobase = null;
@@ -3154,13 +3222,112 @@ public class MainViewModel : ViewModelBase
             return;
 
         infobase.IsFavorite = !infobase.IsFavorite;
+
+        // Снятая звезда освобождает слот явно: пересчёт сам этого не сделает,
+        // он выбрасывает только ключи баз, которых больше нет в списке.
+        // Тот же порядок в версии для Windows (MainViewModel.Commands.cs:460).
+        if (!infobase.IsFavorite)
+            _favoriteHotkeyIds.Remove(FavoriteKey(infobase));
+
+        SyncFavoriteHotkeys();
         SaveSilently();
+        // Слоты живут в настройках, а не в списке баз, поэтому сохраняются
+        // отдельно: SaveSilently пишет только список.
+        SaveSettingsSilently();
 
         // Состав списка меняется только при активном временном фильтре: там база
         // может выпасть из выборки. Без фильтра строка перекрашивается сама
         // по уведомлению модели, и пересобирать дерево незачем.
         if (IsFilterModeActive())
             ApplyFilter();
+    }
+
+
+    // ======================= Горячие клавиши избранного =======================
+
+    /// <summary>Слоты Alt+1…Alt+9 в порядке назначения: ключи баз.</summary>
+    private readonly List<string> _favoriteHotkeyIds = new();
+
+    /// <summary>
+    /// Ключ базы для слота. Идентификатор, а при его отсутствии имя: тот же
+    /// ключ, что и в версии для Windows, поэтому список слотов переносится
+    /// между платформами через общий файл настроек.
+    /// </summary>
+    private static string FavoriteKey(Infobase ib) =>
+        !string.IsNullOrEmpty(ib.Id) ? ib.Id : "name:" + ib.Name;
+
+    /// <summary>Упорядоченный список ключей слотов, для окна настроек.</summary>
+    public IReadOnlyList<string> FavoriteHotkeyIds => _favoriteHotkeyIds;
+
+    /// <summary>Возвращает базу по ключу слота.</summary>
+    public Infobase? FindByFavoriteKey(string key) =>
+        _allInfobases.FirstOrDefault(ib => FavoriteKey(ib) == key);
+
+    /// <summary>
+    /// Раздаёт слоты избранным базам и проставляет номера на самих базах.
+    /// Список хранится в настройках, поэтому здесь же переписывается в них:
+    /// любое последующее сохранение унесёт его на диск.
+    /// </summary>
+    private void SyncFavoriteHotkeys()
+    {
+        try
+        {
+            _favoriteHotkeyIds.RemoveAll(key => !_allInfobases.Any(ib => FavoriteKey(ib) == key));
+
+            // Избранные без слота получают его в порядке имени, как в версии
+            // для Windows. Слотов девять, лишние остаются без номера.
+            foreach (var ib in _allInfobases
+                         .Where(i => i.IsFavorite)
+                         .OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                var key = FavoriteKey(ib);
+                if (!_favoriteHotkeyIds.Contains(key) && _favoriteHotkeyIds.Count < 9)
+                    _favoriteHotkeyIds.Add(key);
+            }
+
+            foreach (var ib in _allInfobases)
+            {
+                var idx = _favoriteHotkeyIds.IndexOf(FavoriteKey(ib));
+                ib.FavoriteHotkeyNumber = idx >= 0 ? idx + 1 : 0;
+            }
+
+            _settings.FavoriteHotkeyIds = _favoriteHotkeyIds.ToList();
+        }
+        catch (Exception ex)
+        {
+            // Избранное не повод ронять окно: без слотов список просто
+            // остаётся без номеров.
+            _logger.Error("Не удалось разложить слоты избранного", ex);
+        }
+    }
+
+    /// <summary>Заменяет порядок слотов, заданный в окне настроек.</summary>
+    public void SetFavoriteHotkeyOrder(IEnumerable<string> orderedKeys)
+    {
+        _favoriteHotkeyIds.Clear();
+        foreach (var key in orderedKeys.Where(k => !string.IsNullOrWhiteSpace(k)).Take(9))
+            _favoriteHotkeyIds.Add(key);
+        SyncFavoriteHotkeys();
+        SaveSettingsSilently();
+    }
+
+    /// <summary>
+    /// Запускает Предприятие для базы из слота. Запуск идёт обычным путём окна,
+    /// а не прямым вызовом лаунчера, как в версии для Windows: так работают
+    /// и разовые параметры, и действие после запуска.
+    /// </summary>
+    public void LaunchFavoriteByHotkey(int number)
+    {
+        if (number < 1 || number > _favoriteHotkeyIds.Count)
+            return;
+
+        var ib = FindByFavoriteKey(_favoriteHotkeyIds[number - 1]);
+        if (ib is null)
+            return;
+
+        SelectedInfobase = ib;
+        _logger.Info($"Запуск избранной базы «{ib.Name}» по Alt+{number}");
+        Launch(_launchVm.LaunchCommand, LaunchKind.Enterprise);
     }
 
     private void TogglePinFor(Infobase? infobase)
@@ -3684,6 +3851,9 @@ public class MainViewModel : ViewModelBase
             {
                 _logger.Warn($"Автосинхронизация: файл {filePath} не дал ни одной базы, список приложения не меняем");
                 _allInfobases = _repository.Load();
+                // Состав списка изменился: слоты избранного пересчитываются, иначе
+                // номер остаётся у удалённой базы, а её слот занят навсегда.
+                SyncFavoriteHotkeys();
                 RebuildTree();
                 return false;
             }

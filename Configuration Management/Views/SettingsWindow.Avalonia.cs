@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using Avalonia.Controls.Presenters;
@@ -289,11 +290,13 @@ namespace Configuration_Management
             platforms.Children.Add(Hint(LocalizationManager.T("Settings.Platforms.Intro")));
 
             var versionsList = new ListBox { MinHeight = 120, MaxHeight = 180 };
+            ToolTip.SetTip(versionsList, LocalizationManager.T("Settings.Platforms.TreeTooltip"));
             var versionsEmpty = Hint(LocalizationManager.T("Settings.PlatformsNotFound"));
             platforms.Children.Add(versionsList);
             platforms.Children.Add(versionsEmpty);
 
             var pathsList = new ListBox { MinHeight = 90, MaxHeight = 140 };
+            ToolTip.SetTip(pathsList, LocalizationManager.T("Settings.AdditionalPaths.ListTooltip"));
             // Наблюдаемый список: список сам обновляется и не теряет выделение
             // с прокруткой, как было бы при подмене ItemsSource.
             var paths = new ObservableCollection<string>(_viewModel.AdditionalPlatformSearchPaths);
@@ -331,6 +334,45 @@ namespace Configuration_Management
                 // Список версий пересчитывается сразу, как в WPF-версии.
                 RefreshVersions();
             };
+            // Кнопка «Изменить» из разметки WPF (SettingsWindow.xaml:434). Поведение
+            // повторяет OnEditPlatformPath_Click целиком, включая оба сообщения:
+            // без них при пустом выделении кнопка выглядит нерабочей, а на дубле
+            // строка молча исчезала бы вместо предупреждения.
+            var editPath = new Button { Content = LocalizationManager.T("Common.Edit") };
+            ToolTip.SetTip(editPath, LocalizationManager.T("Settings.AdditionalPaths.EditTooltip"));
+            editPath.Click += (_, _) =>
+            {
+                if (pathsList.SelectedItem is not string selected || string.IsNullOrEmpty(selected))
+                {
+                    _viewModel.ShowInfo(LocalizationManager.T("Settings.SelectPathToEdit"),
+                        LocalizationManager.T("Settings.AdditionalPathsTitle"));
+                    return;
+                }
+
+                // Диалог открывается на редактируемом каталоге, как в версии
+                // для Windows: иначе искать приходится с начала.
+                var folder = _viewModel.PickFolder(
+                    LocalizationManager.T("Settings.ChooseNewPlatformFolder"), selected)?.Trim();
+                if (string.IsNullOrWhiteSpace(folder)
+                    || string.Equals(folder, selected, StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                if (paths.Any(existing => !string.Equals(existing, selected, StringComparison.OrdinalIgnoreCase)
+                                          && string.Equals(existing, folder, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _viewModel.ShowInfo(LocalizationManager.T("Settings.PathAlreadyAdded"),
+                        LocalizationManager.T("Settings.AdditionalPathsTitle"));
+                    return;
+                }
+
+                var index = paths.IndexOf(selected);
+                if (index < 0)
+                    return;
+                paths[index] = folder;
+                pathsList.SelectedItem = folder;
+                RefreshVersions();
+            };
+
             var removePath = new Button { Content = LocalizationManager.T("Common.Delete") };
             ToolTip.SetTip(removePath, LocalizationManager.T("Settings.AdditionalPaths.RemoveTooltip"));
             removePath.Click += (_, _) =>
@@ -341,6 +383,7 @@ namespace Configuration_Management
                 RefreshVersions();
             };
             pathButtons.Children.Add(addPath);
+            pathButtons.Children.Add(editPath);
             pathButtons.Children.Add(removePath);
             platforms.Children.Add(pathButtons);
 
@@ -829,6 +872,8 @@ namespace Configuration_Management
 
             // ===== Оформление =====
             var appearance = new StackPanel { Spacing = 6 };
+            // Заголовок группы из разметки WPF (SettingsWindow.xaml:824).
+            appearance.Children.Add(GroupTitle(LocalizationManager.T("Settings.Theme")));
             appearance.Children.Add(Hint(LocalizationManager.T("Settings.Theme.Description")));
 
             // Правки идут по копии сохранённой схемы, а не применённой предпросмотром:
@@ -1625,6 +1670,88 @@ namespace Configuration_Management
             var hotkeyShowFavorites = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowFavorites"), _viewModel.HotkeyShowFavorites);
             var hotkeyShowRecent = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowRecent"), _viewModel.HotkeyShowRecent);
 
+            // Порядок слотов Alt+1…Alt+9, как в разметке WPF (SettingsWindow.xaml:1030):
+            // заголовок, пояснение, список слотов и кнопки перестановки справа.
+            hotkeys.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Hotkeys.FavoritesOrder"),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 4, 0, 6)
+            });
+            var favoritesHint = Hint(LocalizationManager.T("Settings.Hotkeys.FavoritesOrderHint"));
+            favoritesHint.Margin = new Thickness(0, 0, 0, 8);
+            hotkeys.Children.Add(favoritesHint);
+
+            var favoriteSlots = new ObservableCollection<FavoriteSlotItem>(
+                _viewModel.FavoriteHotkeyIds
+                    .Select(key => new FavoriteSlotItem(key, _viewModel.FindByFavoriteKey(key)?.Name ?? key))
+                    .ToList());
+            void RenumberSlots()
+            {
+                for (var i = 0; i < favoriteSlots.Count; i++)
+                    favoriteSlots[i].Number = i + 1;
+            }
+            RenumberSlots();
+
+            var favoritesGrid = new Grid { MinHeight = 140, Margin = new Thickness(0, 0, 0, 12) };
+            favoritesGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            favoritesGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+
+            var favoritesList = new ListBox
+            {
+                ItemsSource = favoriteSlots,
+                SelectionMode = SelectionMode.Single,
+                MinHeight = 140,
+                MaxHeight = 220
+            };
+            favoritesList.ItemTemplate = new FuncDataTemplate<FavoriteSlotItem>((item, _) =>
+            {
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+                var badge = new TextBlock { FontWeight = FontWeight.Bold, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+                badge.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(nameof(FavoriteSlotItem.Caption)));
+                row.Children.Add(badge);
+                var name = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+                name.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(nameof(FavoriteSlotItem.Name)));
+                row.Children.Add(name);
+                return row;
+            }, supportsRecycling: true);
+            favoritesGrid.Children.Add(favoritesList);
+
+            var favoriteButtons = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Spacing = 6,
+                Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            var slotUp = new Button { Content = "\u2191" };
+            ToolTip.SetTip(slotUp, LocalizationManager.T("Settings.Hotkeys.MoveUpTooltip"));
+            slotUp.Click += (_, _) =>
+            {
+                var idx = favoritesList.SelectedIndex;
+                if (idx <= 0)
+                    return;
+                favoriteSlots.Move(idx, idx - 1);
+                RenumberSlots();
+                favoritesList.SelectedIndex = idx - 1;
+            };
+            var slotDown = new Button { Content = "\u2193" };
+            ToolTip.SetTip(slotDown, LocalizationManager.T("Settings.Hotkeys.MoveDownTooltip"));
+            slotDown.Click += (_, _) =>
+            {
+                var idx = favoritesList.SelectedIndex;
+                if (idx < 0 || idx >= favoriteSlots.Count - 1)
+                    return;
+                favoriteSlots.Move(idx, idx + 1);
+                RenumberSlots();
+                favoritesList.SelectedIndex = idx + 1;
+            };
+            favoriteButtons.Children.Add(slotUp);
+            favoriteButtons.Children.Add(slotDown);
+            Grid.SetColumn(favoriteButtons, 1);
+            favoritesGrid.Children.Add(favoriteButtons);
+            hotkeys.Children.Add(favoritesGrid);
+
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabHotkeys"), Content = new ScrollViewer { Content = hotkeys, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
             // ===== О программе =====
@@ -1743,6 +1870,21 @@ namespace Configuration_Management
 
                 _viewModel.ApplyProfileBackupSettings(profileDirBox.Text, profileRestoreCheck.IsChecked == true);
 
+                // Список слотов в окне это снимок, снятый при его построении.
+                // Пока окно живёт, состав избранного могли изменить импорт,
+                // автосинхронизация или само главное окно, если окно настроек
+                // открыто немодально из трея. Поэтому снимок не пишется целиком,
+                // а накладывается на текущее состояние: сохраняется заданный
+                // пользователем порядок тех слотов, что ещё есть, а появившиеся
+                // за это время дописываются в конец и не теряются.
+                var currentSlots = _viewModel.FavoriteHotkeyIds;
+                var orderedSlots = favoriteSlots
+                    .Select(slot => slot.Key)
+                    .Where(currentSlots.Contains)
+                    .Concat(currentSlots.Where(key => favoriteSlots.All(slot => slot.Key != key)))
+                    .ToList();
+                _viewModel.SetFavoriteHotkeyOrder(orderedSlots);
+
                 _viewModel.ApplyHotkeys(
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
                     hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value,
@@ -1856,6 +1998,10 @@ namespace Configuration_Management
                 Background = ParseBrush(value)
             };
 
+            // Подпись значения объявляется ниже, а обновлять её надо отсюда,
+            // поэтому обновление передаётся отложенно.
+            Action<string>? hexText = null;
+
             var button = new Button
             {
                 Content = swatch,
@@ -1864,7 +2010,7 @@ namespace Configuration_Management
                 BorderThickness = new Thickness(0),
                 HorizontalAlignment = HorizontalAlignment.Right
             };
-            button.Click += (_, _) =>
+            void PickColor()
             {
                 var picker = new ColorPickerWindow(value);
                 if (!picker.ShowDialogSync(this))
@@ -1873,15 +2019,47 @@ namespace Configuration_Management
                 value = picker.Result;
                 scheme.Colors[key] = value;
                 swatch.Background = ParseBrush(value);
-            };
+                hexText?.Invoke(value);
+            }
 
+            button.Click += (_, _) => PickColor();
+
+            // Строка как в разметке WPF (SettingsWindow.xaml:903): подпись, образец,
+            // шестнадцатеричное значение и кнопка выбора. Значение показывается
+            // потому, что цвет часто переносят копированием, а не глазом.
+            var hex = new TextBlock
+            {
+                Text = value,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(12, 0, 0, 0)
+            };
+            ThemeBrushes.Bind(hex, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+
+            hexText = updated => hex.Text = updated;
+
+            var choose = new Button
+            {
+                Content = LocalizationManager.T("Settings.ChooseColor"),
+                Margin = new Thickness(12, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            choose.Click += (_, _) => PickColor();
+
+            // Ширины колонок как в разметке WPF (SettingsWindow.xaml:906): подпись
+            // по содержимому, тянется колонка со значением, а не подпись.
             var grid = new Grid { Margin = new Thickness(0, 1) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(60)));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
             grid.Children.Add(text);
             grid.Children.Add(button);
             Grid.SetColumn(button, 1);
+            grid.Children.Add(hex);
+            Grid.SetColumn(hex, 2);
+            grid.Children.Add(choose);
+            Grid.SetColumn(choose, 3);
             return grid;
         }
 
@@ -2307,6 +2485,40 @@ namespace Configuration_Management
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
             };
             _ = win.ShowDialog(this);
+        }
+
+        /// <summary>Строка списка слотов избранного: ключ базы, её имя и номер слота.</summary>
+        private sealed class FavoriteSlotItem : INotifyPropertyChanged
+        {
+            private int _number;
+
+            public FavoriteSlotItem(string key, string name)
+            {
+                Key = key;
+                Name = name;
+            }
+
+            public string Key { get; }
+
+            public string Name { get; }
+
+            public int Number
+            {
+                get => _number;
+                set
+                {
+                    if (_number == value)
+                        return;
+                    _number = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Number)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Caption)));
+                }
+            }
+
+            /// <summary>Подпись слота в списке: «Alt+1» и так далее.</summary>
+            public string Caption => $"Alt+{_number}";
+
+            public event PropertyChangedEventHandler? PropertyChanged;
         }
 
         /// <summary>
