@@ -278,6 +278,9 @@ namespace Configuration_Management
             // Рамка у группы фильтров своя, её строит BuildListModeSegments.
             // Второй обёртки не нужно: у автора рамка ровно одна.
             var tabs = BuildListModeSegments();
+            // Имя нужно настройке шрифта области «Вкладки»: ThemeManager ищет
+            // область по этому имени, как и Windows-версия.
+            tabs.Name = "TabsPanel";
             grid.Children.Add(tabs);
             Grid.SetColumn(tabs, 2);
 
