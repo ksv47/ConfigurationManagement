@@ -885,6 +885,7 @@ public class MainViewModel : ViewModelBase
     public double ServerColumnWidth => _settings.ServerColumnWidth;
     public double LastLaunchColumnWidth => _settings.LastLaunchColumnWidth;
     public double SizeColumnWidth => _settings.SizeColumnWidth;
+    public double ActionsColumnWidth => _settings.ActionsColumnWidth;
 
     /// <summary>
     /// Запоминает ширину колонки списка по её ключу. Уведомления намеренно нет:
@@ -902,6 +903,9 @@ public class MainViewModel : ViewModelBase
             case "ServerBase": _settings.ServerColumnWidth = width; break;
             case "LastLaunch": _settings.LastLaunchColumnWidth = width; break;
             case "Size": _settings.SizeColumnWidth = width; break;
+            // Колонка «Действия» тоже перетаскиваемая и сохраняемая, как в разметке
+            // (MainWindow.xaml:528): раньше её ширина была константой.
+            case "Actions": _settings.ActionsColumnWidth = width; break;
             default: return;
         }
 
@@ -4223,6 +4227,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ServerColumnWidth));
         OnPropertyChanged(nameof(LastLaunchColumnWidth));
         OnPropertyChanged(nameof(SizeColumnWidth));
+        OnPropertyChanged(nameof(ActionsColumnWidth));
         OnPropertyChanged(nameof(ColumnOrderKeys));
     }
 

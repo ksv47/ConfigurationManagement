@@ -303,6 +303,14 @@ namespace Configuration_Management
             clearCacheBtn.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
             actions.Children.Add(clearCacheBtn);
 
+            // Индикатор выгрузки .dt и .cf: виден только во время пакетной
+            // операции, подсказка сводкой (MainWindow.xaml:293).
+            var exportBtn = TopBarIconButton("IconUpload", string.Empty, "#F59E0B");
+            exportBtn.Bind(ToolTip.TipProperty, new Binding("ExportIndicatorTooltip"));
+            exportBtn.Bind(Control.IsVisibleProperty, new Binding("IsExporting"));
+            exportBtn.Focusable = false;
+            actions.Children.Add(exportBtn);
+
             var syncBtn = TopBarIconButton("IconSync", LocalizationManager.T("Main.SyncDetailedTooltip"), "#14B8A6");
             syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
             actions.Children.Add(syncBtn);
@@ -1994,7 +2002,26 @@ namespace Configuration_Management
             panel.Children.Add(launchEnterpriseBlock);
             panel.Children.Add(launchConfiguratorBlock);
             panel.Children.Add(starterBlock);
+
+            // Линия между запуском и остальными действиями (MainWindow.xaml:2097).
+            var afterStarterSeparator = new Border
+            {
+                Height = 1,
+                Margin = new Thickness(0, 10, 0, 10),
+                Opacity = 0.7
+            };
+            ThemeBrushes.Bind(afterStarterSeparator, Border.BackgroundProperty, "BorderColorBrush");
+            panel.Children.Add(afterStarterSeparator);
+
             panel.Children.Add(sessionCard);
+
+            // Линия между текущей сессией и переходом по ссылке видна вместе
+            // с самой карточкой сессии (MainWindow.xaml:2191).
+            var beforeByLinkSeparator = new Border { Height = 1, Margin = new Thickness(0, 6, 0, 10) };
+            ThemeBrushes.Bind(beforeByLinkSeparator, Border.BackgroundProperty, "BorderColorBrush");
+            beforeByLinkSeparator.Bind(Control.IsVisibleProperty, new Binding("ShowSessionLaunchPanel"));
+            panel.Children.Add(beforeByLinkSeparator);
+
             panel.Children.Add(byLinkBlock);
 
             // Линия между переходом по ссылке и выходом, как в разметке.
@@ -3000,13 +3027,14 @@ namespace Configuration_Management
         private const double NameColumnMinWidth = 220;
 
         /// <summary>Ширина колонки звезды «избранное» в заголовке и в строке базы.</summary>
-        private static double FavoriteColumnWidth => UiMetrics.Scaled(24);
+        private static double FavoriteColumnWidth => UiMetrics.Scaled(30);
 
         /// <summary>Ширина колонки булавки «закреплено» в заголовке и в строке базы.</summary>
-        private static double PinColumnWidth => UiMetrics.Scaled(22);
+        private static double PinColumnWidth => UiMetrics.Scaled(26);
 
         /// <summary>Ширина фиксированной колонки «Действия» в заголовке и в строке базы.</summary>
-        private static double ActionsColumnWidth => UiMetrics.Scaled(170);
+        private double ActionsColumnWidth
+            => UiMetrics.Scaled(_vm is { ActionsColumnWidth: > 0 } vm ? vm.ActionsColumnWidth : 170);
 
         /// <summary>
         /// Ширина колонки иконки базы: сама иконка и её правый отступ. В заголовке
@@ -3070,8 +3098,8 @@ namespace Configuration_Management
             if (_vm is null)
                 return columns;
 
-            // Ширина из настроек, а при нуле (настройка ещё не трогалась) свой
-            // разумный размер под содержимое колонки.
+            // Ширина из настроек, а при нуле (настройка ещё не трогалась) запасная
+            // из разметки: там она задана параметром конвертера (MainWindow.xaml:512-569).
             void Add(bool visible, string key, string header, double width, double fallback)
             {
                 if (visible)
@@ -3085,22 +3113,22 @@ namespace Configuration_Management
                 switch (key)
                 {
                     case "Version":
-                        Add(_vm.ShowVersionColumn, "Version", "Column.Version", _vm.VersionColumnWidth, 95);
+                        Add(_vm.ShowVersionColumn, "Version", "Column.Version", _vm.VersionColumnWidth, 120);
                         break;
                     case "Configuration":
-                        Add(_vm.ShowConfigurationColumn, "Configuration", "Column.Configuration", _vm.ConfigurationColumnWidth, 140);
+                        Add(_vm.ShowConfigurationColumn, "Configuration", "Column.Configuration", _vm.ConfigurationColumnWidth, 160);
                         break;
                     case "LaunchMode":
-                        Add(_vm.ShowLaunchModeColumn, "LaunchMode", "Column.LaunchMode", _vm.LaunchModeColumnWidth, 115);
+                        Add(_vm.ShowLaunchModeColumn, "LaunchMode", "Column.LaunchMode", _vm.LaunchModeColumnWidth, 120);
                         break;
                     case "ServerBase":
-                        Add(_vm.ShowServerColumn, "ServerBase", "Column.ServerBase", _vm.ServerColumnWidth, 140);
+                        Add(_vm.ShowServerColumn, "ServerBase", "Column.ServerBase", _vm.ServerColumnWidth, 200);
                         break;
                     case "LastLaunch":
-                        Add(_vm.ShowLastLaunchColumn, "LastLaunch", "Column.LastLaunch", _vm.LastLaunchColumnWidth, 115);
+                        Add(_vm.ShowLastLaunchColumn, "LastLaunch", "Column.LastLaunch", _vm.LastLaunchColumnWidth, 140);
                         break;
                     case "Size":
-                        Add(_vm.ShowSizeColumn, "Size", "Column.Size", _vm.SizeColumnWidth, 65);
+                        Add(_vm.ShowSizeColumn, "Size", "Column.Size", _vm.SizeColumnWidth, 90);
                         break;
                 }
             }
@@ -3125,10 +3153,11 @@ namespace Configuration_Management
         {
             "Version" => ib.PlatformVersion ?? string.Empty,
             "Configuration" => ib.ConfigurationDisplay ?? string.Empty,
-            "LaunchMode" => ib.LaunchMode ?? string.Empty,
-            "ServerBase" => ib.Connection.Type == ConnectionType.WebServer
-                ? (ib.Connection.WebUrl ?? string.Empty)
-                : (ib.ServerDatabaseDisplay ?? string.Empty),
+            // Режим запуска показывается разобранным, а серверная колонка всегда
+            // берёт ServerDatabaseDisplay, в том числе у веб-баз: подстановка WebUrl
+            // была расхождением с разметкой (MainWindow.xaml:1261 и 1265).
+            "LaunchMode" => ib.ParsedLaunchMode ?? string.Empty,
+            "ServerBase" => ib.ServerDatabaseDisplay ?? string.Empty,
             "LastLaunch" => ib.LastLaunchDisplay ?? string.Empty,
             "Size" => ib.FileSizeDisplay ?? string.Empty,
             _ => string.Empty
@@ -3288,12 +3317,16 @@ namespace Configuration_Management
                 dataColumn++;
             }
 
-            // Подпись колонки «Действия» — сразу после колонки «Режим запуска»,
-            // без разделителя.
+            // Подпись колонки «Действия» — сразу после колонки «Режим запуска».
+            // Разделитель у неё есть и в разметке (ActionsSplitter,
+            // MainWindow.xaml:745), поэтому ширина тянется и сохраняется.
+            var actionsColumn = NameHeaderColumn + 1 + actionsOffset;
+            _headerColumnIndex["Actions"] = actionsColumn;
             var actionsHeader = ColumnHeader(LocalizationManager.T("Column.Actions"), IconHelper.ColumnIconKey("Actions"));
             ToolTip.SetTip(actionsHeader, LocalizationManager.T("Main.Actions"));
             _columnHeaderRow.Children.Add(actionsHeader);
-            Grid.SetColumn(actionsHeader, NameHeaderColumn + 1 + actionsOffset);
+            Grid.SetColumn(actionsHeader, actionsColumn);
+            _columnHeaderRow.Children.Add(BuildResizeGrip("Actions", actionsColumn));
 
             UpdateListMinWidth();
 
@@ -3996,6 +4029,7 @@ namespace Configuration_Management
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             _statusInfo = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+            ThemeBrushes.Bind(_statusInfo, TextBlock.ForegroundProperty, "TextOnAccentBrush");
             _statusInfo.Bind(TextBlock.TextProperty, new Binding("StatusBarInfo"));
             // Подсказка показывает строку целиком: в нижней панели она обрезается
             // многоточием. Контекстное меню с копированием строки подключения
@@ -4004,31 +4038,59 @@ namespace Configuration_Management
             if (_vm is not null)
             {
                 var statusMenu = new ContextMenu();
-                statusMenu.Items.Add(MenuAction("Main.CopyPath", _vm.CopyConnectionStringCommand));
+                statusMenu.Items.Add(MenuAction("Main.CopyPath", _vm.CopyConnectionStringCommand, iconKey: "IconCopy"));
                 _statusInfo.ContextMenu = statusMenu;
             }
             grid.Children.Add(_statusInfo);
             Grid.SetColumn(_statusInfo, 0);
 
             _syncMessage = new TextBlock { FontSize = 12, Margin = new Thickness(16, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+            ThemeBrushes.Bind(_syncMessage, TextBlock.ForegroundProperty, "TextOnAccentBrush");
             _syncMessage.Bind(TextBlock.TextProperty, new Binding("SyncMessage"));
             ToolTip.SetTip(_syncMessage, LocalizationManager.T("Main.SyncResultTooltip"));
             grid.Children.Add(_syncMessage);
             Grid.SetColumn(_syncMessage, 1);
 
-            var sessionToggleBtn = new Button { Content = IconHelper.MakeIcon("IconRecent", 16), Margin = new Thickness(4, 0, 0, 0) };
+            var sessionToggleBtn = StatusBarIconButton("IconRecent");
             ToolTip.SetTip(sessionToggleBtn, LocalizationManager.T("Main.CurrentSession"));
             sessionToggleBtn.Bind(Button.CommandProperty, new Binding("ToggleSessionLaunchPanelCommand"));
             grid.Children.Add(sessionToggleBtn);
             Grid.SetColumn(sessionToggleBtn, 2);
 
-            var toggleBtn = new Button { Content = IconHelper.MakeIcon("IconPanel", 16), Margin = new Thickness(4, 0, 0, 0) };
-            ToolTip.SetTip(toggleBtn, LocalizationManager.T("Main.RightPanel"));
+            var toggleBtn = StatusBarIconButton("IconPanel");
+            // Подсказка меняется вместе с состоянием панели, как в разметке
+            // (MainWindow.xaml:2337): раньше здесь стояла постоянная строка.
+            toggleBtn.Bind(ToolTip.TipProperty, new Binding("RightPanelToggleTooltip"));
             toggleBtn.Bind(Button.CommandProperty, new Binding("ToggleRightPanelDetailsCommand"));
             grid.Children.Add(toggleBtn);
             Grid.SetColumn(toggleBtn, 3);
 
-            return new Border { Child = grid, Name = "StatusBarBorder", Padding = new Thickness(UiMetrics.TopBarH, 6) };
+            // Фон панели и цвет текста в разметке заданы явно (MainWindow.xaml:2300):
+            // тёмная полоса SidebarBrush с контрастным текстом, а не прозрачная
+            // область с обычным текстом.
+            var bar = new Border { Child = grid, Name = "StatusBarBorder", Padding = new Thickness(12, 6) };
+            ThemeBrushes.Bind(bar, Border.BackgroundProperty, "SidebarBrush");
+            return bar;
+        }
+
+        /// <summary>
+        /// Кнопка строки состояния: плоская, со своим наведением по SidebarHover,
+        /// значок 18 контрастной кистью (стиль StatusBarIconButton, LightTheme.xaml:616).
+        /// </summary>
+        private static Button StatusBarIconButton(string iconKey)
+        {
+            var button = new PanelButton("", "SidebarHoverBrush", "SidebarHoverBrush", "",
+                new CornerRadius(6))
+            {
+                Content = IconHelper.MakeIcon(iconKey, 18, "TextOnAccentBrush"),
+                Padding = new Thickness(6, 4),
+                Margin = new Thickness(4, 0, 0, 0),
+                MinWidth = 0,
+                MinHeight = 0,
+                VerticalAlignment = VerticalAlignment.Center,
+                Cursor = new Cursor(StandardCursorType.Hand)
+            };
+            return button;
         }
 
         // ======================= Обработчики =======================
