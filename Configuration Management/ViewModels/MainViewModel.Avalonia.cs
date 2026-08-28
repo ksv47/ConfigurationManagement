@@ -149,7 +149,6 @@ public class MainViewModel : ViewModelBase
     /// <summary>Настройки трея изменились: окну нужно обновить значок.</summary>
     public event Action? TraySettingsChanged;
 
-    /// <summary>Применяет настройки поведения трея из окна настроек.</summary>
     /// <summary>
     /// Применяет настройки поведения приложения. Обе лежали в общем с версией
     /// для Windows файле настроек, но в Linux-сборке их нечем было изменить.
@@ -165,6 +164,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(RememberWindowLayout));
     }
 
+    /// <summary>Применяет настройки поведения трея из окна настроек.</summary>
     public void ApplyTraySettings(bool showTrayIcon, bool closeToTray, bool escapeToTray)
     {
         _settings.ShowTrayIcon = showTrayIcon;

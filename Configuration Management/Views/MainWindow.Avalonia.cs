@@ -108,6 +108,12 @@ namespace Configuration_Management
             Loaded += OnWindowLoaded;
             KeyDown += OnWindowKeyDown;
 
+            // Геометрия обычного состояния запоминается на ходу: у Avalonia нет
+            // аналога RestoreBounds, а развёрнутое окно надо сохранять размером,
+            // к которому оно вернётся.
+            PositionChanged += (_, _) => RememberNormalBounds();
+            SizeChanged += (_, _) => RememberNormalBounds();
+
             // Действие после запуска базы или конфигуратора по глобальной настройке.
             _vm.AfterLaunchRequested += OnAfterLaunchRequested;
 
@@ -142,10 +148,13 @@ namespace Configuration_Management
         /// на GNOME Shell без AppIndicator он не появится, а ошибки при этом не
         /// будет. Второй путь, повторный запуск приложения через файл-сигнал,
         /// работает только пока включён режим единственного экземпляра.
+        /// Берётся состояние текущего процесса, а не настройка: блокировка
+        /// и слушатель сигнала заводятся один раз при старте, и снятый на ходу
+        /// флажок «несколько экземпляров» пути возврата не создаёт.
         /// </summary>
         private bool CanRestoreHiddenWindow =>
             (_trayIconCreated && TrayIconWanted && !Services.LinuxDesktopEnvironment.TrayMayBeUnavailable)
-            || _vm?.AllowMultipleInstances == false;
+            || App.SingleInstanceActive;
 
         /// <summary>Нужен ли значок по настройкам: сам значок либо закрытие в трей.</summary>
         private bool TrayIconWanted => _vm is null || _vm.ShowTrayIcon || _vm.CloseToTray;
@@ -173,6 +182,7 @@ namespace Configuration_Management
                     return;
                 }
 
+                SaveWindowLayout();
                 Hide();
                 if (action == Models.AfterLaunchAction.MinimizeToTray
                     && WindowState == WindowState.Minimized)
@@ -3718,6 +3728,7 @@ namespace Configuration_Management
                 && _vm.EscapeToTray && _vm.ShowTrayIcon && CanRestoreHiddenWindow
                 && FocusManager?.GetFocusedElement() is not TextBox)
             {
+                SaveWindowLayout();
                 _vm.PersistSettings();
                 ApplyTrayVisibility();
                 Hide();
@@ -4016,7 +4027,9 @@ namespace Configuration_Management
             Screen? screen;
             try
             {
-                screen = Screens.ScreenFromPoint(point);
+                // Точка вне всех экранов (монитор отключили) даёт null, а не
+                // исключение: тогда берётся основной, как это делает WPF-версия.
+                screen = Screens.ScreenFromPoint(point) ?? Screens.Primary;
             }
             catch
             {
@@ -4030,8 +4043,11 @@ namespace Configuration_Management
 
             var area = screen.WorkingArea;
             var scaling = screen.Scaling > 0 ? screen.Scaling : 1.0;
-            var width = Math.Min((int)Math.Round(Width * scaling), area.Width);
-            var height = Math.Min((int)Math.Round(Height * scaling), area.Height);
+            // Position это угол рамки, а Width и Height задают клиентскую часть,
+            // поэтому к размеру добавляется то, что рисует менеджер окон.
+            var frame = FrameSize ?? new Size(Width, Height);
+            var width = Math.Min((int)Math.Round(Math.Max(frame.Width, Width) * scaling), area.Width);
+            var height = Math.Min((int)Math.Round(Math.Max(frame.Height, Height) * scaling), area.Height);
             return new PixelPoint(
                 Math.Max(area.X, Math.Min(point.X, area.Right - width)),
                 Math.Max(area.Y, Math.Min(point.Y, area.Bottom - height)));
@@ -4059,13 +4075,51 @@ namespace Configuration_Management
                 return;
             }
 
-            // Только в обычном состоянии: развёрнутое окно нельзя сохранять
-            // как размер по умолчанию.
-            if (WindowState != WindowState.Normal)
+            // У спрятанного окна X11 отдаёт Position со сдвигом на высоту
+            // заголовка, и каждый уход в трей с последующим выходом сдвигал бы
+            // окно вниз. Геометрия такого окна уже записана перед Hide.
+            if (!IsVisible)
                 return;
 
-            _vm.SaveWindowLayout(Width, Height, Position.X, Position.Y,
-                WindowState.ToString());
+            if (WindowState == WindowState.Normal)
+            {
+                RememberNormalBounds();
+            }
+            else if (WindowState == WindowState.Minimized)
+            {
+                // Свёрнутое окно ничего не говорит о своей геометрии.
+                return;
+            }
+
+            // Развёрнутое окно сохраняется своим состоянием, но размером
+            // и положением обычного: иначе следующий запуск взял бы размер
+            // во весь экран как обычный. Так же устроена версия для Windows
+            // (MainWindow.Events.cs, ветка Maximized и RestoreBounds).
+            if (_normalBounds is not { } bounds)
+                return;
+
+            // Ничего не изменилось: лишняя запись настроек при закрытии не нужна.
+            var state = WindowState.ToString();
+            if (bounds.Width == _vm.SavedWindowWidth && bounds.Height == _vm.SavedWindowHeight
+                && bounds.Position.X == _vm.SavedWindowLeft && bounds.Position.Y == _vm.SavedWindowTop
+                && string.Equals(state, _vm.SavedWindowState, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _vm.SaveWindowLayout(bounds.Width, bounds.Height,
+                bounds.Position.X, bounds.Position.Y, state);
+        }
+
+        /// <summary>Геометрия окна в обычном состоянии, чтобы развёрнутое
+        /// сохранялось размером, к которому оно вернётся.</summary>
+        private (double Width, double Height, PixelPoint Position)? _normalBounds;
+
+        /// <summary>Запоминает геометрию, пока окно в обычном состоянии.</summary>
+        private void RememberNormalBounds()
+        {
+            if (WindowState == WindowState.Normal && IsVisible)
+                _normalBounds = (ClientSize.Width, ClientSize.Height, Position);
         }
 
         /// <summary>
