@@ -1870,7 +1870,20 @@ namespace Configuration_Management
 
                 _viewModel.ApplyProfileBackupSettings(profileDirBox.Text, profileRestoreCheck.IsChecked == true);
 
-                _viewModel.SetFavoriteHotkeyOrder(favoriteSlots.Select(slot => slot.Key));
+                // Список слотов в окне это снимок, снятый при его построении.
+                // Пока окно живёт, состав избранного могли изменить импорт,
+                // автосинхронизация или само главное окно, если окно настроек
+                // открыто немодально из трея. Поэтому снимок не пишется целиком,
+                // а накладывается на текущее состояние: сохраняется заданный
+                // пользователем порядок тех слотов, что ещё есть, а появившиеся
+                // за это время дописываются в конец и не теряются.
+                var currentSlots = _viewModel.FavoriteHotkeyIds;
+                var orderedSlots = favoriteSlots
+                    .Select(slot => slot.Key)
+                    .Where(currentSlots.Contains)
+                    .Concat(currentSlots.Where(key => favoriteSlots.All(slot => slot.Key != key)))
+                    .ToList();
+                _viewModel.SetFavoriteHotkeyOrder(orderedSlots);
 
                 _viewModel.ApplyHotkeys(
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
