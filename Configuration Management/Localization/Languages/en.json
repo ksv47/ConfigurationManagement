@@ -401,6 +401,7 @@
 
     "Settings.Ibases.Description": "Synchronization of the application with the standard 1C base list file (ibases.v8i).",
     "Settings.Ibases.HelpText": "Synchronization with the standard 1C base list file ibases.v8i.\n\n• Mode: disabled / load only / export only / two-way (export first, then load).\n• File: path to ibases.v8i (default %APPDATA%\\1C\\1CEStart\\).\n• Synchronization moment: on start, by interval (min) or by schedule (HH:MM).\n• Load from file adds infobases from the file into the application; Export to file does the opposite.\n• It is recommended to enable ibases.v8i backups before synchronization — they can be restored with the Restore from the latest copy button.",
+    "Settings.Ibases.HelpTextLinux": "Synchronization with the standard 1C infobase list file ibases.v8i.\n\n• Mode: disabled / import only / export only / two-way (export first, then import).\n• File: path to ibases.v8i (by default ~/.1C/1cestart/, on older platform versions ~/.1cv8/1CEStart/).\n• Sync moment: at startup, by interval (min) or on schedule (HH:MM).\n• «Load from file» adds infobases from the file to the application; «Export to file» does the opposite.\n• It is recommended to enable ibases.v8i backups before synchronization — they can be restored with the «Restore from the latest backup» button.",
     "Settings.Ibases.SyncMode": "Synchronization mode:",
     "Settings.Ibases.File": "ibases.v8i file:",
     "Settings.Ibases.BrowseTooltip": "Choose the ibases.v8i file manually",
