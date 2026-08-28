@@ -260,44 +260,58 @@ namespace Configuration_Management
 
             // Сегментированный контроль «Все / Избранное / Недавние» в общем контейнере.
             var tabs = BuildListModeSegments();
-            grid.Children.Add(tabs);
-            Grid.SetColumn(tabs, 2);
+            // Группа фильтров обведена рамкой той же, что и группа команд справа:
+            // в разметке WPF это Border с ContentBackgroundBrush, скруглением 12
+            // и отступом 4.
+            var tabsGroup = new Border
+            {
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(4),
+                Margin = new Thickness(0, 0, 12, 0),
+                BorderThickness = new Thickness(1),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = tabs
+            };
+            ThemeBrushes.Bind(tabsGroup, Border.BackgroundProperty, "ContentBackgroundColorBrush");
+            ThemeBrushes.Bind(tabsGroup, Border.BorderBrushProperty, "BorderColorBrush");
+            grid.Children.Add(tabsGroup);
+            Grid.SetColumn(tabsGroup, 2);
 
             // Справа: добавить базу, синхронизация, тема, настройки — иконки + подписи, состояния.
             var actions = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center,
-                Spacing = 6
+                Spacing = 2
             };
 
             // Все команды верхней панели значками без подписей, как в разметке WPF.
-            var addBtn = TopBarIconButton("IconAdd", LocalizationManager.T("Main.AddTooltip"));
+            var addBtn = TopBarIconButton("IconAdd", LocalizationManager.T("Main.AddTooltip"), "#22C55E");
             addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
             actions.Children.Add(addBtn);
 
             // Очистить кеш выбранной базы: перенесено в верхнюю панель команд,
             // действует на SelectedInfobase (недоступна, если база не выбрана).
-            var clearCacheBtn = TopBarIconButton("IconBroom", LocalizationManager.T("Main.ClearCacheTooltip"));
+            var clearCacheBtn = TopBarIconButton("IconBroom", LocalizationManager.T("Main.ClearCacheTooltip"), "#F59E0B");
             clearCacheBtn.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
             actions.Children.Add(clearCacheBtn);
 
-            var syncBtn = TopBarIconButton("IconSync", LocalizationManager.T("Main.SyncDetailedTooltip"));
+            var syncBtn = TopBarIconButton("IconSync", LocalizationManager.T("Main.SyncDetailedTooltip"), "#14B8A6");
             syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
             actions.Children.Add(syncBtn);
 
             // Проверить доступность всех баз 1С: ручная команда вместо автопроверки при запуске.
             // Иконка — зелёный гидролокатор (сонар), как экран на подводных лодках.
             var checkAvailBtn = new PanelButton(
+                "",
                 "SecondaryButtonBackgroundBrush",
-                "SecondaryButtonHoverBrush",
                 "SecondaryButtonPressedBrush",
-                "BorderColorBrush")
+                "")
             {
                 Content = new Avalonia.Controls.Shapes.Path
                 {
-                    Width = UiMetrics.Scaled(16),
-                    Height = UiMetrics.Scaled(16),
+                    Width = UiMetrics.Scaled(18),
+                    Height = UiMetrics.Scaled(18),
                     Data = IconHelper.Geometry("IconSonar"),
                     Stretch = Stretch.Uniform,
                     VerticalAlignment = VerticalAlignment.Center,
@@ -312,13 +326,13 @@ namespace Configuration_Management
             // Проверка доступности стоит между синхронизацией и темой, как у автора.
             actions.Children.Add(checkAvailBtn);
 
-            var themeBtn = TopBarIconButton("IconTheme", LocalizationManager.T("Main.Theme"));
+            var themeBtn = TopBarIconButton("IconTheme", LocalizationManager.T("Main.Theme"), "#8B5CF6");
             themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
             actions.Children.Add(themeBtn);
 
             // Быстрый переключатель плотности интерфейса, как в разметке WPF:
             // тот же режим уже есть в настройках, здесь он под рукой.
-            var compactBtn = TopBarIconButton("IconCollapseAll", LocalizationManager.T("Main.CompactModeTooltip"));
+            var compactBtn = TopBarIconButton("IconCompress", LocalizationManager.T("Main.CompactModeTooltip"));
             compactBtn.Click += (_, _) =>
             {
                 if (_vm is null)
@@ -341,8 +355,22 @@ namespace Configuration_Management
                 Margin = new Thickness(4, 0, 0, 0)
             });
 
-            grid.Children.Add(actions);
-            Grid.SetColumn(actions, 3);
+            // Группа команд обведена рамкой с фоном, как в разметке WPF:
+            // Border с CornerRadius 12, Padding 4 и рамкой в одну точку.
+            var actionsGroup = new Border
+            {
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(4),
+                Margin = new Thickness(0, 0, 12, 0),
+                BorderThickness = new Thickness(1),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = actions
+            };
+            ThemeBrushes.Bind(actionsGroup, Border.BackgroundProperty, "ContentBackgroundColorBrush");
+            ThemeBrushes.Bind(actionsGroup, Border.BorderBrushProperty, "BorderColorBrush");
+
+            grid.Children.Add(actionsGroup);
+            Grid.SetColumn(actionsGroup, 3);
 
             var topBarBorder = new Border
             {
@@ -515,15 +543,40 @@ namespace Configuration_Management
         }
 
         /// <summary>Компактная иконко-кнопка топ-бара (например тема) с состояниями из темы.</summary>
-        private static PanelButton TopBarIconButton(string iconKey, string tooltip)
+        /// <param name="colorHex">
+        /// Явный цвет значка, как в разметке WPF: там часть команд верхней панели
+        /// покрашена вручную, а часть берёт цвет из темы. Без него берётся тема.
+        /// </param>
+        private static PanelButton TopBarIconButton(string iconKey, string tooltip, string? colorHex = null)
         {
-            var button = new PanelButton(
-                "SecondaryButtonBackgroundBrush",
-                "SecondaryButtonHoverBrush",
-                "SecondaryButtonPressedBrush",
-                "BorderColorBrush")
+            Control icon;
+            if (colorHex is null)
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(16), "ButtonTextBrush"),
+                icon = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(18), "ButtonTextBrush");
+            }
+            else
+            {
+                icon = new Avalonia.Controls.Shapes.Path
+                {
+                    Width = UiMetrics.Scaled(18),
+                    Height = UiMetrics.Scaled(18),
+                    Data = IconHelper.Geometry(iconKey),
+                    Stretch = Stretch.Uniform,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Fill = new SolidColorBrush(Color.Parse(colorHex))
+                };
+            }
+
+            // Плоская кнопка: у автора значковые команды верхней панели без
+            // подложки и рамки, подсветка появляется только при наведении.
+            var button = new PanelButton(
+                "",
+                "SecondaryButtonBackgroundBrush",
+                "SecondaryButtonPressedBrush",
+                "")
+            {
+                Content = icon,
                 Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
@@ -2397,10 +2450,17 @@ namespace Configuration_Management
             }
 
             private void Subscribe(string key, Action<IBrush> setter)
+            {
+                // Пустой ключ означает «прозрачно»: у автора значковые кнопки
+                // верхней панели без подложки и без рамки, подсветка только
+                // при наведении.
+                if (string.IsNullOrEmpty(key))
+                    return;
                 // Подписка снимается вместе с уходом кнопки из дерева: список
                 // _subs не освобождался нигде, и каждая пересборка правой панели
                 // оставляла кнопку и всё её дерево укоренёнными.
-                => ThemeBrushes.Observe(this, key, brush => { setter(brush); ApplyState(); });
+                ThemeBrushes.Observe(this, key, brush => { setter(brush); ApplyState(); });
+            }
 
             /// <summary>Применяет состояние к фону/границе/прозрачности кнопки.</summary>
             private void ApplyState()

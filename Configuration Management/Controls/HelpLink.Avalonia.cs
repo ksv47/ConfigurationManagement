@@ -45,7 +45,9 @@ namespace Configuration_Management.Controls
             _helpToggle.VerticalContentAlignment = VerticalAlignment.Center;
             _helpToggle.HorizontalAlignment = HorizontalAlignment.Center;
             _helpToggle.VerticalAlignment = VerticalAlignment.Center;
-            _helpToggle.Content = new TextBlock
+            // Цвета как в разметке WPF: прозрачный фон, обводка и знак акцентным
+            // цветом. Раньше кнопка брала цвета темы и терялась среди команд.
+            var questionMark = new TextBlock
             {
                 Text = "?",
                 FontWeight = FontWeight.Bold,
@@ -53,6 +55,11 @@ namespace Configuration_Management.Controls
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            ThemeBrushes.Bind(questionMark, TextBlock.ForegroundProperty, "AccentColorBrush");
+            _helpToggle.Content = questionMark;
+            _helpToggle.Background = Brushes.Transparent;
+            _helpToggle.BorderThickness = new Thickness(1);
+            ThemeBrushes.Bind(_helpToggle, TemplatedControl.BorderBrushProperty, "AccentColorBrush");
             ToolTip.SetTip(_helpToggle, LocalizationManager.T("HelpLink.Tooltip"));
             _helpToggle.IsCheckedChanged += (_, _) => OnToggleChanged();
 
