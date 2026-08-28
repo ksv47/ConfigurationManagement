@@ -2341,7 +2341,9 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>
     /// Путь для ручной операции с ibases.v8i: заданный в окне настроек, а если
-    /// поле пустое, стандартный. Так же выбирает путь версия для Windows.
+    /// поле пустое, стандартный. Берётся набранное в поле, а не сохранённое:
+    /// в версии для Windows так делает только восстановление из копии,
+    /// а загрузка и выгрузка проверяют один путь, а читают другой.
     /// </summary>
     private static string? ResolveIbasesPathForCommand(string? filePath)
         => string.IsNullOrWhiteSpace(filePath)
@@ -2376,7 +2378,7 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
-        if (TryExportToIbases(path, out var error))
+        if (TryExportToIbases(path, backup: false, "Ручная выгрузка", out var error))
         {
             _dialog.ShowInfo(LocalizationManager.T("Settings.Ibases.ExportOk"),
                 LocalizationManager.T("Settings.Ibases.ExportTitle"));
@@ -3556,9 +3558,13 @@ public class MainViewModel : ViewModelBase
 
         if (_settings.IbasesSyncTrigger == IbasesSyncTrigger.Schedule)
         {
-            // Строгий разбор ЧЧ:ММ: обычный TryParse принимает и локальные
-            // форматы, и длительности вроде 25:00, а это время суток.
-            if (!TimeSpan.TryParseExact(_settings.IbasesSyncScheduleTime?.Trim(), @"hh\:mm",
+            // Строгий разбор времени суток: обычный TryParse принимает и локальные
+            // форматы, и длительности вроде 25:00, и «9» как девять суток.
+            // Час допускается с ведущим нулём и без: поле свободного ввода,
+            // и «9:00» пользователь набирает не реже, чем «09:00», а раньше
+            // такое расписание молча не запускалось вовсе.
+            if (!TimeSpan.TryParseExact(_settings.IbasesSyncScheduleTime?.Trim(),
+                    new[] { @"hh\:mm", @"h\:mm" },
                     System.Globalization.CultureInfo.InvariantCulture, out var time)
                 || time < TimeSpan.Zero || time >= TimeSpan.FromDays(1))
             {
@@ -3616,25 +3622,33 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>Выгрузка списка баз в файл платформы с резервной копией.</summary>
-    private bool ExportToIbases(string filePath) => TryExportToIbases(filePath, out _);
+    private bool ExportToIbases(string filePath)
+        => TryExportToIbases(filePath, backup: true, "Автосинхронизация: выгрузка", out _);
 
     /// <summary>
-    /// Выгрузка с текстом ошибки: ручной операции его надо показать
-    /// пользователю, автоматической достаточно записи в журнал.
+    /// Выгрузка с текстом ошибки и своей записью в журнал: по ней отличают
+    /// автоматическую синхронизацию от нажатой кнопки, а текст ошибки нужен
+    /// только ручной операции.
     /// </summary>
-    private bool TryExportToIbases(string filePath, out string error)
+    /// <param name="backup">
+    /// Создавать ли резервную копию файла. Автоматическая синхронизация её
+    /// создаёт по настройке, ручная выгрузка нет: так же устроена версия
+    /// для Windows, и иначе выгрузка вытесняла бы ту самую копию, которую
+    /// восстанавливает соседняя кнопка.
+    /// </param>
+    private bool TryExportToIbases(string filePath, bool backup, string logPrefix, out string error)
     {
         error = string.Empty;
         try
         {
-            if (_settings.IbasesBackupEnabled && System.IO.File.Exists(filePath))
+            if (backup && _settings.IbasesBackupEnabled && System.IO.File.Exists(filePath))
             {
                 try { IbasesBackupService.CreateBackup(filePath, _settings.IbasesBackupKeepCount); }
                 catch (Exception ex) { _logger.Error("Не удалось создать резервную копию ibases.v8i", ex); }
             }
 
             _sync.Export(filePath, _allInfobases, _groups);
-            _logger.Info($"Выгрузка в {filePath}");
+            _logger.Info($"{logPrefix} в {filePath}");
             return true;
         }
         catch (Exception ex)

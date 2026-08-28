@@ -24,11 +24,10 @@ using Configuration_Management.ViewModels;
 namespace Configuration_Management
 {
     /// <summary>
-    /// Диалог настроек приложения (Avalonia/Linux). Портированы ключевые вкладки:
-    /// «Настройки», «Клавиши», «О программе». Полноценные вкладки «Отображение»,
-    /// «Платформы», «ibases.v8i», «Базы» и редактор цветовых схем требуют
-    /// публичного API сохранения настроек в Avalonia-версии <see cref="MainViewModel"/>
-    /// (отложено — см. комментарии и итоговый отчёт).
+    /// Диалог настроек приложения (Avalonia/Linux). Восемь вкладок: «Настройки»,
+    /// «Платформы», «Отображение», «Цветовое оформление», «Базы», «Резервное
+    /// копирование», «Клавиши», «О программе». Блок ibases.v8i вложен во вкладку
+    /// «Базы», тогда как в версии для Windows это отдельная вкладка.
     /// </summary>
     public class SettingsWindow : ModalWindowBase
     {
@@ -1320,29 +1319,29 @@ namespace Configuration_Management
             clearAll.Click += (_, _) => _viewModel.ClearAllInfobases();
             bases.Children.Add(clearAll);
 
-            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.TabIbases")));
-            bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.Description")));
-
-            // Заголовок группы и справка по ней, как в разметке WPF
-            // (SettingsWindow.xaml:1183 и 1186): справка стоит в правом
-            // верхнем углу группы, до строки режима.
-            var syncHeader = new StackPanel
+            // Справка ставится к заголовку блока, а не отдельной строкой:
+            // в разметке WPF «ibases.v8i» это имя вкладки, а «Настройки
+            // синхронизации» заголовок группы внутри неё, и рядом они
+            // не стоят никогда. Здесь блок вложен во вкладку «Базы», поэтому
+            // два заголовка подряд означали бы одно и то же.
+            var ibasesHeader = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 Margin = new Thickness(0, 12, 0, 2)
             };
-            syncHeader.Children.Add(new TextBlock
+            ibasesHeader.Children.Add(new TextBlock
             {
-                Text = LocalizationManager.T("Settings.SyncSettings"),
+                Text = LocalizationManager.T("Settings.TabIbases"),
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
             });
-            syncHeader.Children.Add(new Controls.HelpLink
+            ibasesHeader.Children.Add(new Controls.HelpLink
             {
-                HelpText = LocalizationManager.T("Settings.Ibases.HelpText"),
+                HelpText = LocalizationManager.T("Settings.Ibases.HelpTextLinux"),
                 Margin = new Thickness(6, 0, 0, 0)
             });
-            bases.Children.Add(syncHeader);
+            bases.Children.Add(ibasesHeader);
+            bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.Description")));
 
             bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Ibases.SyncMode")));
             var syncModes = new[]
@@ -1394,10 +1393,15 @@ namespace Configuration_Management
             bases.Children.Add(triggerBox);
 
             var intervalRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
-            intervalRow.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.Ibases.Interval"), VerticalAlignment = VerticalAlignment.Center });
+            // Подписи держатся в переменных: версия для Windows гасит их вместе
+            // с полями (SettingsWindow.Sync.cs, SyncIntervalLabel и SyncScheduleLabel),
+            // иначе рядом с погашенным полем стоит подпись в полную яркость.
+            var intervalLabel = new TextBlock { Text = LocalizationManager.T("Settings.Ibases.Interval"), VerticalAlignment = VerticalAlignment.Center };
+            intervalRow.Children.Add(intervalLabel);
             var intervalBox = new TextBox { Text = _viewModel.IbasesSyncIntervalMinutes.ToString(), Width = 80 };
             intervalRow.Children.Add(intervalBox);
-            intervalRow.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.Ibases.ScheduleTime"), VerticalAlignment = VerticalAlignment.Center });
+            var scheduleLabel = new TextBlock { Text = LocalizationManager.T("Settings.Ibases.ScheduleTime"), VerticalAlignment = VerticalAlignment.Center };
+            intervalRow.Children.Add(scheduleLabel);
             var scheduleBox = new TextBox { Text = _viewModel.IbasesSyncScheduleTime, Width = 80 };
             intervalRow.Children.Add(scheduleBox);
             bases.Children.Add(intervalRow);
@@ -1439,7 +1443,9 @@ namespace Configuration_Management
                 browse.IsEnabled = enabled;
                 triggerBox.IsEnabled = enabled;
                 intervalBox.IsEnabled = enabled && trigger == IbasesSyncTrigger.Interval;
+                intervalLabel.IsEnabled = intervalBox.IsEnabled;
                 scheduleBox.IsEnabled = enabled && trigger == IbasesSyncTrigger.Schedule;
+                scheduleLabel.IsEnabled = scheduleBox.IsEnabled;
                 importButton.IsEnabled = enabled && mode is IbasesSyncMode.Import or IbasesSyncMode.Both;
                 exportButton.IsEnabled = enabled && mode is IbasesSyncMode.Export or IbasesSyncMode.Both;
                 syncStatus.Text = BuildSyncStatus(mode, fileBox.Text, trigger, intervalBox.Text, scheduleBox.Text);
