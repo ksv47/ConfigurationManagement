@@ -495,7 +495,11 @@
                                     <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=144}"/>
                                     <!-- Компенсация сдвига дерева (отступ вложенности групп) — ширина уточняется в AlignHeaderToData -->
                                     <ColumnDefinition x:Name="HeaderOffsetColumn" Width="0"/>
-                                    <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
+                                    <!-- Колонка переключателя тегов: всегда резервирует место под переключатель
+                                         (даже когда кнопка «Избранное» скрыта), иначе при включённой группировке
+                                         всегда видимый переключатель тегов срезается границей колонки «Название»
+                                         (issue #84). -->
+                                    <ColumnDefinition MinWidth="30" Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
                                     <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
                                     <!-- Имя: растягивается на оставшееся место, пока не задана фиксированная
                                          ширина перетаскиванием разделителя (NameColumnWidth). -->
@@ -888,7 +892,9 @@
                                                  что и кнопки строк баз, а имя/счётчик группы — в области названия. -->
                                             <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=144}"/>
                                             <ColumnDefinition Width="0"/>
-                                            <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
+                                            <!-- MinWidth совпадает с шапкой: колонка переключателя тегов всегда
+                                                 резервирует место, чтобы заголовки и строки не разъезжались (issue #84). -->
+                                            <ColumnDefinition MinWidth="30" Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
                                             <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
                                             <ColumnDefinition>
                                                 <ColumnDefinition.Width>
@@ -1070,7 +1076,9 @@
                                                  даёт отступ названия LevelToThickness). -->
                                             <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=144}"/>
                                             <ColumnDefinition Width="0"/>
-                                            <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
+                                            <!-- MinWidth совпадает с шапкой: колонка переключателя тегов всегда
+                                                 резервирует место, чтобы заголовки и строки не разъезжались (issue #84). -->
+                                            <ColumnDefinition MinWidth="30" Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
                                             <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
                                             <ColumnDefinition>
                                                 <ColumnDefinition.Width>

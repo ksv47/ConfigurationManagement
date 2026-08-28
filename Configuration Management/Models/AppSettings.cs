@@ -91,6 +91,19 @@ public class AppSettings
     /// </summary>
     public List<string> AdditionalPlatformSearchPaths { get; set; } = new();
 
+    /// <summary>
+    /// Последняя успешно использованная версия платформы при создании файловой ИБ.
+    /// Подставляется по умолчанию в поле «Версия» окна создания (если версия ещё установлена).
+    /// </summary>
+    public string LastFileCreatePlatformVersion { get; set; } = "";
+
+    /// <summary>
+    /// Последняя успешно использованная версия платформы при создании клиент-серверной ИБ.
+    /// Для клиент-серверной базы версия должна совпадать с версией сервера 1С,
+    /// поэтому сохраняется отдельно от файловых баз.
+    /// </summary>
+    public string LastClientServerCreatePlatformVersion { get; set; } = "";
+
     /// <summary>Режим синхронизации с файлом ibases.v8i.</summary>
     public IbasesSyncMode IbasesSyncMode { get; set; } = IbasesSyncMode.None;
 

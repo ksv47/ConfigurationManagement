@@ -321,9 +321,9 @@ public static class IbasesV8iExporter
                     sb.Append(";Pwd=\"").Append(EscapeConnectValue(connection.Password)).Append('"');
                 }
             }
-            // Блокировка фоновых заданий (SCHEDJOBS=NO).
-            if (connection.BlockScheduledJobs)
-                sb.Append(";SCHEDJOBS=NO");
+            // Примечание (issue #94): блокировка фоновых заданий не пишется в ibases.v8i —
+            // документированный параметр SchJobDn действует только при создании базы и не влияет
+            // на уже созданную ИБ, поэтому включать его в список баз не имеет смысла.
         }
 
         // Завершающая точка с запятой обязательна: EDT (и ряд других средств 1С)

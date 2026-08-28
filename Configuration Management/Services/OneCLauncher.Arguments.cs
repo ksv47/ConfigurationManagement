@@ -266,7 +266,8 @@ public static partial class OneCLauncher
         string? dbName = null,
         string? dbUser = null,
         string? dbPassword = null,
-        bool createSqlDatabase = false)
+        bool createSqlDatabase = false,
+        bool blockScheduledJobs = false)
     {
         var exePath = FindExecutable(platformVersion, OneCArchitecture.x64, OneCClientType.Thick, OneCLaunchMode.Configurator);
         if (string.IsNullOrEmpty(exePath) ||

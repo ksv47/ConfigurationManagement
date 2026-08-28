@@ -937,7 +937,8 @@ namespace Configuration_Management.Services
             string? dbName = null,
             string? dbUser = null,
             string? dbPassword = null,
-            bool createSqlDatabase = false)
+            bool createSqlDatabase = false,
+            bool blockScheduledJobs = false)
         {
             PlatformVersionService.ParseVariant(platformVersion, out var version, out var arch);
             var exe = FindExecutable(version, arch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86,
