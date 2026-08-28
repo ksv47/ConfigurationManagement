@@ -852,8 +852,16 @@ namespace Configuration_Management
                 // Более плотные отступы — кнопки и карточки занимают меньше места.
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                MinWidth = UiMetrics.RightPanelMin,
-                MaxWidth = UiMetrics.RightPanelMax
+                // Ширина как в разметке WPF: при показанных подробностях 320
+                // с минимумом 280, при скрытых панель сжимается по содержимому
+                // и не шире 200. У автора это триггер по ShowRightPanelDetails,
+                // а не по компактному режиму.
+                Width = _vm?.ShowRightPanelDetails == false ? double.NaN : 320,
+                MinWidth = _vm?.ShowRightPanelDetails == false ? 0 : 280,
+                MaxWidth = _vm?.ShowRightPanelDetails == false ? 200 : double.PositiveInfinity,
+                HorizontalAlignment = _vm?.ShowRightPanelDetails == false
+                    ? HorizontalAlignment.Left
+                    : HorizontalAlignment.Stretch
             };
 
             grid.Children.Add(rightPanel);
@@ -1809,7 +1817,7 @@ namespace Configuration_Management
 
             // Переход по ссылке идёт после карточки сессии, как в разметке.
             var byLinkBlock = BuildActionList(
-                CompactActionButtonBound("IconWeb", "OpenByLinkCaption", "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip"))
+                CompactActionButtonBound("IconLink", "OpenByLinkCaption", "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip"), "#0EA5E9", "IconArrowRight", colorTextToo: false)
             );
 
             // Бейджи «Избранное» и «Закреплено», как в разметке WPF: цвета там
@@ -1933,8 +1941,8 @@ namespace Configuration_Management
 
             // Выход — компактная кнопка внизу, без лишней «карточки».
             // «Выход» у автора красный, #DC2626 в обеих темах.
-            var exitBtn = CompactActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand",
-                LocalizationManager.T("Main.ExitTooltip"), "#DC2626");
+            var exitBtn = CompactActionButton("IconExitToApp", LocalizationManager.T("Main.Exit"), "ExitCommand",
+                LocalizationManager.T("Main.ExitTooltip"), "#DC2626", "IconClose");
             // Нижний отступ обязателен: без него последний элемент не попадает
             // в прокручиваемую высоту целиком и снизу остаётся видна только рамка.
             exitBtn.Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, UiMetrics.ActionGridGap);
@@ -1977,7 +1985,7 @@ namespace Configuration_Management
         /// одинаково в обеих темах.
         /// </param>
         private static Control CompactActionButton(string iconKey, string text, string commandPath, string tooltip,
-            string? colorHex = null)
+            string? colorHex = null, string? trailingIconKey = null)
         {
             var btn = new PanelButton(
                 "SecondaryButtonBackgroundBrush",
@@ -1986,8 +1994,8 @@ namespace Configuration_Management
                 "BorderColorBrush",
                 new CornerRadius(UiMetrics.RadiusMd))
             {
-                Content = CompactIconAndText(iconKey, text, "ButtonTextBrush", colorHex: colorHex),
-                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Content = CompactIconAndText(iconKey, text, "ButtonTextBrush", colorHex: colorHex, trailingIconKey: trailingIconKey),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 MinHeight = UiMetrics.ActionButtonMinHeight,
                 Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV),
@@ -2003,7 +2011,8 @@ namespace Configuration_Management
         /// Вариант кнопки действия с подписью из привязки: нужен там, где текст
         /// меняется по состоянию, как короткая подпись открытия по ссылке.
         /// </summary>
-        private static Control CompactActionButtonBound(string iconKey, string textPath, string commandPath, string tooltip)
+        private static Control CompactActionButtonBound(string iconKey, string textPath, string commandPath, string tooltip,
+            string? colorHex = null, string? trailingIconKey = null, bool colorTextToo = true)
         {
             var btn = new PanelButton(
                 "SecondaryButtonBackgroundBrush",
@@ -2012,8 +2021,8 @@ namespace Configuration_Management
                 "BorderColorBrush",
                 new CornerRadius(UiMetrics.RadiusMd))
             {
-                Content = CompactIconAndText(iconKey, "", "ButtonTextBrush", textPath),
-                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Content = CompactIconAndText(iconKey, "", "ButtonTextBrush", textPath, colorHex, trailingIconKey, colorTextToo),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 MinHeight = UiMetrics.ActionButtonMinHeight,
                 Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV),
@@ -2025,14 +2034,23 @@ namespace Configuration_Management
         }
 
         private static Control CompactIconAndText(string iconKey, string text, string brushKey, string? textPath = null,
-            string? colorHex = null)
+            string? colorHex = null, string? trailingIconKey = null, bool colorTextToo = true)
         {
             // Сеткой, а не горизонтальной панелью: панель меряет подпись
             // бесконечной шириной, поэтому обрезка многоточием не срабатывает
             // и длинный текст вылезает за кнопку вместо того, чтобы сократиться.
-            var sp = new Grid { ColumnSpacing = 6, VerticalAlignment = VerticalAlignment.Center };
+            var sp = new Grid
+            {
+                ColumnSpacing = 6,
+                VerticalAlignment = VerticalAlignment.Center,
+                // Растягиваем на ширину кнопки, иначе хвостовой значок липнет
+                // к подписи, а у автора он прижат к правому краю.
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
             sp.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             sp.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            if (trailingIconKey is not null)
+                sp.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             if (colorHex is null)
             {
                 sp.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.ActionIconSize, brushKey));
@@ -2057,7 +2075,10 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
-            if (colorHex is null)
+            // У автора цвет значка и подписи совпадает не всегда: у выхода
+            // красное и то и другое, у перехода по ссылке значок голубой,
+            // а подпись обычная.
+            if (colorHex is null || !colorTextToo)
                 ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
             else
                 tb.Foreground = new SolidColorBrush(Color.Parse(colorHex));
@@ -2065,6 +2086,23 @@ namespace Configuration_Management
                 tb.Bind(TextBlock.TextProperty, new Binding(textPath));
             Grid.SetColumn(tb, 1);
             sp.Children.Add(tb);
+            if (trailingIconKey is not null)
+            {
+                // Хвостовой значок справа, как в разметке: стрелка у перехода
+                // по ссылке и крестик у выхода.
+                var trailing = new Avalonia.Controls.Shapes.Path
+                {
+                    Width = 12,
+                    Height = 12,
+                    Data = IconHelper.Geometry(trailingIconKey),
+                    Stretch = Stretch.Uniform,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Opacity = 0.85,
+                    Fill = new SolidColorBrush(Color.Parse(colorHex ?? "#0EA5E9"))
+                };
+                Grid.SetColumn(trailing, 2);
+                sp.Children.Add(trailing);
+            }
             return sp;
         }
 
@@ -2085,9 +2123,23 @@ namespace Configuration_Management
             ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             ToolTip.SetTip(hint, LocalizationManager.T("Main.CurrentSessionHelp"));
 
+            // Переключатели идут вплотную, как у автора: карточка добавляет свой
+            // интервал между каждым дочерним элементом, и от этого строки
+            // расходились. Внутри контейнера интервала нет, работают только
+            // собственные отступы переключателей.
+            var options = new StackPanel { Spacing = 0 };
+            void AddOption(params Control[] items)
+            {
+                foreach (var item in items)
+                    options.Children.Add(item);
+            }
+
             var card = SectionCard(LocalizationManager.T("Main.CurrentSession"), "IconInfo",
                 hint,
-                SessionGroupLabel(LocalizationManager.T("Main.ClientMode")),
+                options);
+
+            AddOption(SessionGroupLabel(LocalizationManager.T("Main.ClientMode")));
+            AddOption(
                 SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionClient", "IsSessionClientAuto"),
                 SessionOption(LocalizationManager.T("Main.SessionClientOrdinary"), "SessionClient", "IsSessionClientOrdinary"),
                 SessionOption(LocalizationManager.T("Main.SessionClientThickManaged"), "SessionClient", "IsSessionClientThick",
