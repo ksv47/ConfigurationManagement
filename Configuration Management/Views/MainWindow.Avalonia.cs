@@ -271,41 +271,20 @@ namespace Configuration_Management
                 Spacing = 6
             };
 
-            var addBtn = TopBarPrimaryButton("IconAdd", LocalizationManager.T("Main.Add"), LocalizationManager.T("Main.AddTooltip"));
+            // Все команды верхней панели значками без подписей, как в разметке WPF.
+            var addBtn = TopBarIconButton("IconAdd", LocalizationManager.T("Main.AddTooltip"));
             addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
             actions.Children.Add(addBtn);
 
             // Очистить кеш выбранной базы: перенесено в верхнюю панель команд,
             // действует на SelectedInfobase (недоступна, если база не выбрана).
-            var clearCacheBtn = TopBarIconButton("IconDelete", LocalizationManager.T("Main.ClearCacheTooltip"));
+            var clearCacheBtn = TopBarIconButton("IconBroom", LocalizationManager.T("Main.ClearCacheTooltip"));
             clearCacheBtn.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
             actions.Children.Add(clearCacheBtn);
 
-            var syncBtn = TopBarSecondaryButton("IconSync", LocalizationManager.T("Main.Sync"),
-                LocalizationManager.T("Main.SyncDetailedTooltip"));
+            var syncBtn = TopBarIconButton("IconSync", LocalizationManager.T("Main.SyncDetailedTooltip"));
             syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
             actions.Children.Add(syncBtn);
-
-            var themeBtn = TopBarIconButton("IconTheme", LocalizationManager.T("Main.Theme"));
-            themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
-            actions.Children.Add(themeBtn);
-
-            // Быстрый переключатель плотности интерфейса, как в разметке WPF:
-            // тот же режим уже есть в настройках, здесь он под рукой.
-            var compactBtn = TopBarIconButton("IconCollapseAll", LocalizationManager.T("Main.CompactModeTooltip"));
-            compactBtn.Click += (_, _) =>
-            {
-                if (_vm is null)
-                    return;
-                var next = !_vm.CompactMode;
-                _vm.CompactMode = next;
-                ApplyCompactMode(next);
-            };
-            actions.Children.Add(compactBtn);
-
-            var settingsBtn = TopBarSecondaryButton("IconSettings", LocalizationManager.T("Main.Settings"), LocalizationManager.T("Main.SettingsTooltip"));
-            settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
-            actions.Children.Add(settingsBtn);
 
             // Проверить доступность всех баз 1С: ручная команда вместо автопроверки при запуске.
             // Иконка — зелёный гидролокатор (сонар), как экран на подводных лодках.
@@ -330,7 +309,30 @@ namespace Configuration_Management
             };
             ToolTip.SetTip(checkAvailBtn, LocalizationManager.T("Main.CheckAvailabilityTooltip"));
             checkAvailBtn.Bind(Button.CommandProperty, new Binding("CheckAvailabilityCommand"));
+            // Проверка доступности стоит между синхронизацией и темой, как у автора.
             actions.Children.Add(checkAvailBtn);
+
+            var themeBtn = TopBarIconButton("IconTheme", LocalizationManager.T("Main.Theme"));
+            themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
+            actions.Children.Add(themeBtn);
+
+            // Быстрый переключатель плотности интерфейса, как в разметке WPF:
+            // тот же режим уже есть в настройках, здесь он под рукой.
+            var compactBtn = TopBarIconButton("IconCollapseAll", LocalizationManager.T("Main.CompactModeTooltip"));
+            compactBtn.Click += (_, _) =>
+            {
+                if (_vm is null)
+                    return;
+                var next = !_vm.CompactMode;
+                _vm.CompactMode = next;
+                ApplyCompactMode(next);
+            };
+            actions.Children.Add(compactBtn);
+
+            var settingsBtn = TopBarIconButton("IconSettings", LocalizationManager.T("Main.SettingsTooltip"));
+            settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
+            actions.Children.Add(settingsBtn);
+
 
             // Подсказка «?»: справа, после всех команд верхней панели.
             actions.Children.Add(new HelpLink
