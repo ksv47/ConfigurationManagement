@@ -3684,6 +3684,10 @@ namespace Configuration_Management
             AddHotkey(_vm.HotkeyFavorite, _vm.ToggleFavoriteCommand);
             AddHotkey(_vm.HotkeyPin, _vm.TogglePinCommand);
             AddHotkey(_vm.HotkeyClearCache, _vm.ClearCacheCommand);
+            // Переключение режимов списка баз: Все, Избранное, Недавние.
+            AddHotkey(_vm.HotkeyShowAll, _vm.ShowAllCommand);
+            AddHotkey(_vm.HotkeyShowFavorites, _vm.ShowFavoritesCommand);
+            AddHotkey(_vm.HotkeyShowRecent, _vm.ShowRecentCommand);
         }
 
         /// <summary>

@@ -1129,25 +1129,39 @@ namespace Configuration_Management
 
             // ===== Клавиши =====
             var hotkeys = new StackPanel { Spacing = 10 };
-            hotkeys.Children.Add(new TextBlock
+            var hotkeysTitle = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 0, 2)
+            };
+            hotkeysTitle.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("Settings.Hotkeys.Title"),
                 FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 0, 0, 6)
+                VerticalAlignment = VerticalAlignment.Center
             });
+            hotkeysTitle.Children.Add(new Controls.HelpLink
+            {
+                HelpText = LocalizationManager.T("Settings.Hotkeys.HelpText"),
+                Margin = new Thickness(6, 0, 0, 0)
+            });
+            hotkeys.Children.Add(hotkeysTitle);
+            hotkeys.Children.Add(Hint(LocalizationManager.T("Settings.Hotkeys.Description")));
 
             // Поля назначения: HotkeyBox ловит сочетание с клавиатуры, Delete
-            // снимает назначение, Escape отменяет ввод.
-            var hotkeyEnterprise = HotkeyRow(hotkeys, LocalizationManager.T("Main.LaunchEnterprise"), _viewModel.HotkeyEnterprise);
-            var hotkeyConfigurator = HotkeyRow(hotkeys, LocalizationManager.T("Main.SectionConfigurator"), _viewModel.HotkeyConfigurator);
-            var hotkeyEdit = HotkeyRow(hotkeys, LocalizationManager.T("Main.EditSettings"), _viewModel.HotkeyEdit);
-            var hotkeyAdd = HotkeyRow(hotkeys, LocalizationManager.T("Main.AddBaseOrGroup"), _viewModel.HotkeyAdd);
-            var hotkeyFavorite = HotkeyRow(hotkeys, LocalizationManager.T("Main.Favorites"), _viewModel.HotkeyFavorite);
-            var hotkeyPin = HotkeyRow(hotkeys, LocalizationManager.T("Main.Pin"), _viewModel.HotkeyPin);
-            var hotkeyDelete = HotkeyRow(hotkeys, LocalizationManager.T("Common.Delete"), _viewModel.HotkeyDelete);
-            var hotkeyClearCache = HotkeyRow(hotkeys, LocalizationManager.T("Main.ClearCache"), _viewModel.HotkeyClearCache);
-
-            hotkeys.Children.Add(Hint(LocalizationManager.T("Hotkey.Tooltip")));
+            // снимает назначение, Escape отменяет ввод. Подписи и порядок строк
+            // взяты из разметки WPF (SettingsWindow.xaml, вкладка «Клавиши»).
+            var hotkeyEnterprise = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.Enterprise"), _viewModel.HotkeyEnterprise);
+            var hotkeyConfigurator = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.Configurator"), _viewModel.HotkeyConfigurator);
+            var hotkeyFavorite = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.Favorites"), _viewModel.HotkeyFavorite);
+            var hotkeyEdit = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.Edit"), _viewModel.HotkeyEdit);
+            var hotkeyDelete = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.Delete"), _viewModel.HotkeyDelete);
+            var hotkeyClearCache = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearCache"), _viewModel.HotkeyClearCache);
+            var hotkeyAdd = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.AddBase"), _viewModel.HotkeyAdd);
+            var hotkeyPin = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.Pin"), _viewModel.HotkeyPin);
+            var hotkeyShowAll = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowAll"), _viewModel.HotkeyShowAll);
+            var hotkeyShowFavorites = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowFavorites"), _viewModel.HotkeyShowFavorites);
+            var hotkeyShowRecent = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowRecent"), _viewModel.HotkeyShowRecent);
 
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabHotkeys"), Content = new ScrollViewer { Content = hotkeys, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
 
@@ -1169,16 +1183,22 @@ namespace Configuration_Management
             {
                 // Проверка дублей идёт первой: иначе при конфликте окно
                 // остаётся открытым, а часть настроек уже на диске.
+                // Имена действий в сообщении о дубле берутся не из подписей вкладки:
+                // там они с двоеточием на конце и в предложение не встают. Набор
+                // ключей тот же, что в проверке WPF (SettingsWindow.xaml.cs:149).
                 var assignments = new (string Action, Controls.HotkeyBox Box)[]
                 {
-                    (LocalizationManager.T("Main.LaunchEnterprise"), hotkeyEnterprise),
+                    (LocalizationManager.T("Main.Enterprise"), hotkeyEnterprise),
                     (LocalizationManager.T("Main.SectionConfigurator"), hotkeyConfigurator),
-                    (LocalizationManager.T("Main.EditSettings"), hotkeyEdit),
-                    (LocalizationManager.T("Main.AddBaseOrGroup"), hotkeyAdd),
                     (LocalizationManager.T("Main.Favorites"), hotkeyFavorite),
-                    (LocalizationManager.T("Main.Pin"), hotkeyPin),
+                    (LocalizationManager.T("Main.EditShort"), hotkeyEdit),
                     (LocalizationManager.T("Common.Delete"), hotkeyDelete),
-                    (LocalizationManager.T("Main.ClearCache"), hotkeyClearCache)
+                    (LocalizationManager.T("Main.ClearCache"), hotkeyClearCache),
+                    (LocalizationManager.T("Main.AddBase"), hotkeyAdd),
+                    (LocalizationManager.T("Main.Pin"), hotkeyPin),
+                    (LocalizationManager.T("Main.AllBasesTooltip"), hotkeyShowAll),
+                    (LocalizationManager.T("Main.FavoritesTooltip"), hotkeyShowFavorites),
+                    (LocalizationManager.T("Main.RecentTooltip"), hotkeyShowRecent)
                 };
 
                 if (!ValidateHotkeys(assignments))
@@ -1224,7 +1244,8 @@ namespace Configuration_Management
 
                 _viewModel.ApplyHotkeys(
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
-                    hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value);
+                    hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value,
+                    hotkeyShowAll.Value, hotkeyShowFavorites.Value, hotkeyShowRecent.Value);
 
                 // Настройки отображения применяются и сохраняются одним вызовом.
                 // Видимость колонок читается из тех же элементов списка, где
