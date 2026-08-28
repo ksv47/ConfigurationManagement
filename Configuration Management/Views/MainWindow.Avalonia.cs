@@ -3859,8 +3859,11 @@ namespace Configuration_Management
                     Margin = new Thickness(0, 0, 4, 0),
                     IsChecked = item.IsSelected
                 };
-                // Теги панели фильтра у автора в скруглённой рамке, а не плоские.
+                // Теги панели фильтра у автора в скруглённой рамке и мельче
+                // сегментов верхней панели: свои отступы и кегль.
                 button.BorderThickness = new Thickness(1);
+                button.Padding = new Thickness(8, 2);
+                button.FontSize = UiMetrics.ScaledFont(11);
                 ThemeBrushes.Bind(button, TemplatedControl.BorderBrushProperty, "BorderColorBrush");
                 button.Click += (_, _) => _vm.SearchByTagCommand.Execute(item.Name);
                 _tagPanelItems.Children.Add(button);
