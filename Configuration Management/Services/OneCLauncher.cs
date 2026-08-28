@@ -361,10 +361,15 @@ public static partial class OneCLauncher
         var conn = infobase.Connection;
         string connectionArg = conn.Type switch
         {
-            ConnectionType.File => $" /F \"{conn.FilePath}\"",
-            ConnectionType.WebServer => $" /WS \"{conn.WebUrl}\"",
+            // Значение в кавычках по грамматике ключа 1С (/F"…"). Это НЕ строка подключения:
+            // кавычку внутри значения удвоением не экранируют — поэтому небезопасное значение
+            // (с «"») не подставляется, чтобы не допустить инъекцию /ключа (см. IsSafeCliValue).
+            ConnectionType.File => IsSafeCliValue(conn.FilePath) ? $" /F \"{conn.FilePath}\"" : "",
+            ConnectionType.WebServer => IsSafeCliValue(conn.WebUrl) ? $" /WS \"{conn.WebUrl}\"" : "",
             // /S "server\base" — server может быть host:port при нестандартном порте.
-            _ => $" /S \"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
+            _ => IsSafeCliValue(conn.GetServerWithPort()) && IsSafeCliValue(conn.DatabaseName)
+                ? $" /S \"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
+                : ""
         };
 
         // Режим аутентификации — как в стандартном лаунчере 1С:
@@ -400,7 +405,7 @@ public static partial class OneCLauncher
         string authArg = authMode switch
         {
             AuthenticationMode.Credentials when !string.IsNullOrWhiteSpace(authUser)
-                => $" /N\"{authUser}\" /P\"{authPassword}\"",
+                => BuildCredentialsArg(authUser, authPassword),
             AuthenticationMode.Windows
                 => " /WA+",
             _ => ""
@@ -418,10 +423,15 @@ public static partial class OneCLauncher
             var server = repo.Server.Trim().TrimEnd('/');
             var name = (repo.RepositoryName ?? string.Empty).Trim();
             var repoPath = string.IsNullOrWhiteSpace(name) ? server : $"{server}/{name}";
-            repositoryArg = $" /ConfigurationRepositoryF \"{repoPath}\"";
-            if (!string.IsNullOrWhiteSpace(repo.User))
+            // Значения /ConfigurationRepository* тоже идут по грамматике ключа (не строки
+            // подключения): небезопасное значение (с «"») не подставляется (см. IsSafeCliValue).
+            if (IsSafeCliValue(repoPath))
+                repositoryArg = $" /ConfigurationRepositoryF \"{repoPath}\"";
+            if (IsSafeCliValue(repo.User))
             {
-                repositoryArg += $" /ConfigurationRepositoryN \"{repo.User}\" /ConfigurationRepositoryP \"{repo.Password}\"";
+                repositoryArg += $" /ConfigurationRepositoryN \"{repo.User}\"";
+                if (IsSafeCliValue(repo.Password))
+                    repositoryArg += $" /ConfigurationRepositoryP \"{repo.Password}\"";
             }
         }
 

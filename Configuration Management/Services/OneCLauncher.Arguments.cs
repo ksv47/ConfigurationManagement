@@ -15,15 +15,56 @@ namespace Configuration_Management.Services;
 /// </summary>
 public static partial class OneCLauncher
 {
+    /// <summary>
+    /// Проверяет, можно ли безопасно подставить значение внутрь кавычек ключа командной строки
+    /// 1С вида /Key"value".
+    /// ВАЖНО: грамматика таких ключей — НЕ грамматика строки подключения. Внутри значения кавычку
+    /// экранировать удвоением («""») НЕЛЬЗЯ: для ключа командной строки это неверно, и 1С получит
+    /// искажённое значение. Поэтому «"» внутри значения — единственный реальный вектор инъекции
+    /// дополнительного /ключа 1cv8 (можно «вырваться» из кавычек). Пробелы внутри значения
+    /// безопасны (остаются внутри кавычек и не создают новых аргументов). Также отклоняются
+    /// управляющие символы (CR/LF/…), способные нарушить разбор командной строки.
+    /// Если метод вернул false, корректно представить значение в этой грамматике невозможно —
+    /// такой аргумент нужно отбросить/отказаться, а НЕ «экранировать».
+    /// </summary>
+    private static bool IsSafeCliValue(string? value)
+        => !string.IsNullOrEmpty(value) &&
+           value!.IndexOf('"') < 0 &&
+           !value.Any(c => char.IsControl(c));
+
+    /// <summary>
+    /// Собирает /N"user" /P"password". Небезопасное значение (содержит «"» или управляющий символ)
+    /// опускается, чтобы не допустить инъекции аргумента — см. <see cref="IsSafeCliValue"/>.
+    /// </summary>
+    private static string BuildCredentialsArg(string user, string password)
+    {
+        if (!IsSafeCliValue(user))
+            return "";
+        var auth = $" /N\"{user}\"";
+        if (!string.IsNullOrEmpty(password) && IsSafeCliValue(password))
+            auth += $" /P\"{password}\"";
+        return auth;
+    }
+
     /// <summary>Аргумент подключения в стиле 1С: /F"path", /S"srv\db", /WS"url".</summary>
     public static string BuildConnectionArgument(Infobase infobase)
     {
         var conn = infobase.Connection;
         return conn.Type switch
         {
-            ConnectionType.File => $"/F\"{conn.FilePath.Trim().TrimEnd('\\')}\"",
-            ConnectionType.WebServer => $"/WS\"{conn.WebUrl}\"",
-            _ => $"/S\"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
+            // Значение заключается в кавычки по грамматике ключа 1С (/F"…"). Это НЕ строка
+            // подключения: кавычку внутри значения экранировать удвоением нельзя — иначе 1С
+            // получит неверный путь. Поэтому небезопасное значение (содержит «"») не подставляется,
+            // иначе возможна инъекция дополнительного /ключа (см. IsSafeCliValue).
+            ConnectionType.File => IsSafeCliValue(conn.FilePath)
+                ? $"/F\"{conn.FilePath.Trim().TrimEnd('\\')}\""
+                : "",
+            ConnectionType.WebServer => IsSafeCliValue(conn.WebUrl)
+                ? $"/WS\"{conn.WebUrl}\""
+                : "",
+            _ => IsSafeCliValue(conn.GetServerWithPort()) && IsSafeCliValue(conn.DatabaseName)
+                ? $"/S\"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
+                : ""
         };
     }
 
@@ -36,20 +77,14 @@ public static partial class OneCLauncher
             cfgAuth.AuthenticationMode == AuthenticationMode.Credentials &&
             !string.IsNullOrWhiteSpace(cfgAuth.User))
         {
-            var cAuth = $" /N\"{cfgAuth.User}\"";
-            if (!string.IsNullOrEmpty(cfgAuth.Password))
-                cAuth += $" /P\"{cfgAuth.Password}\"";
-            return cAuth;
+            return BuildCredentialsArg(cfgAuth.User, cfgAuth.Password);
         }
 
         var conn = infobase.Connection;
         if (conn.AuthenticationMode != AuthenticationMode.Credentials ||
             string.IsNullOrWhiteSpace(conn.User))
             return "";
-        var auth = $" /N\"{conn.User}\"";
-        if (!string.IsNullOrEmpty(conn.Password))
-            auth += $" /P\"{conn.Password}\"";
-        return auth;
+        return BuildCredentialsArg(conn.User, conn.Password);
     }
 
     /// <summary>
@@ -213,18 +248,24 @@ public static partial class OneCLauncher
                 value, @"Ref\s*=\s*""(?<r>(?:[^""]|"""")*)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             var server = UnescapeConnectValue(srvrMatch.Groups["s"].Value).Trim();
             var database = refMatch.Success ? UnescapeConnectValue(refMatch.Groups["r"].Value).Trim() : string.Empty;
-            if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(database))
+            // Значения идут в /S"…" по грамматике ключа (не строки подключения): значение с «"»
+            // недопустимо (см. IsSafeCliValue) — отказываемся от запуска вместо инъекции /ключа.
+            if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(database) ||
+                !IsSafeCliValue(server) || !IsSafeCliValue(database))
                 return null;
             return new ParsedLink { Arguments = $" /S \"{server}\\{database}\"" };
         }
 
         // 3. Файловая база: File="..." или File=...
+        //    Кавычка внутри пути экранируется удвоением (симметрично записи), поэтому шаблон
+        //    допускает «""» внутри и разворачивает его обратно (см. UnescapeConnectValue).
         var fileMatch = System.Text.RegularExpressions.Regex.Match(
-            value, @"File\s*=\s*""?(?<f>[^"";]*)""?", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            value, @"File\s*=\s*""(?<f>(?:[^""]|"""")*)""|File\s*=\s*(?<f>[^;]+)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         if (fileMatch.Success)
         {
-            var path = fileMatch.Groups["f"].Value.Trim();
-            if (string.IsNullOrWhiteSpace(path))
+            var path = UnescapeConnectValue(fileMatch.Groups["f"].Value).Trim();
+            if (string.IsNullOrWhiteSpace(path) || !IsSafeCliValue(path))
                 return null;
             return new ParsedLink { Arguments = $" /F \"{path}\"" };
         }
@@ -234,19 +275,24 @@ public static partial class OneCLauncher
         {
             // Если это существующий каталог — трактуем как файловую базу.
             if (Directory.Exists(value))
-                return new ParsedLink { Arguments = $" /F \"{value}\"" };
+                return IsSafeCliValue(value)
+                    ? new ParsedLink { Arguments = $" /F \"{value}\"" }
+                    : null;
 
             var separator = value.IndexOf('\\');
             var server = value.Substring(0, separator).Trim();
             var database = value.Substring(separator + 1).Trim();
-            if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(database))
+            if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(database) ||
+                !IsSafeCliValue(server) || !IsSafeCliValue(database))
                 return null;
             return new ParsedLink { Arguments = $" /S \"{server}\\{database}\"" };
         }
 
         // 5. Простой путь к каталогу файловой базы (существует на диске).
         if (Directory.Exists(value))
-            return new ParsedLink { Arguments = $" /F \"{value}\"" };
+            return IsSafeCliValue(value)
+                ? new ParsedLink { Arguments = $" /F \"{value}\"" }
+                : null;
 
         return null;
     }
@@ -342,6 +388,14 @@ public static partial class OneCLauncher
             {
                 CleanupCreatedDir(createdDirPath);
                 return (false, string.Format(LocalizationManager.T("Launcher.CreateTemplateNotFoundFormat"), templatePath));
+            }
+            // /UseTemplate"…" — это ключ командной строки, а не строка подключения: кавычку внутри
+            // пути здесь экранировать удвоением нельзя (см. IsSafeCliValue), поэтому при «"» в пути
+            // отказываемся от создания, а не пытаемся «экранировать».
+            if (!IsSafeCliValue(templatePath))
+            {
+                CleanupCreatedDir(createdDirPath);
+                return (false, string.Format(LocalizationManager.T("Launcher.CreateTemplateInvalidPathFormat"), templatePath));
             }
             arguments += $" /UseTemplate\"{templatePath}\"";
         }

@@ -143,17 +143,21 @@ public static partial class OneCLauncher
         var connectionArg = BuildConnectionArgument(infobase);
         var authArg = BuildAuthArgument(infobase);
 
-        // Важно: у 1С ключи вида /DumpIB"C:\path\file.dt" (значение сразу в кавычках).
+        // Важно: у 1С ключи вида /DumpIB"C:\path\file.dt" (значение сразу в кавычках). Это НЕ строка
+        // подключения: кавычку внутри пути экранировать удвоением нельзя, поэтому путь с «"»
+        // недопустим (см. IsSafeCliValue) — безопасно выгрузить его невозможно, отказываемся.
         string opArg = operation switch
         {
-            DesignerBatchOperation.DumpIB => $"/DumpIB\"{outputPath}\"",
-            DesignerBatchOperation.DumpCfg => $"/DumpCfg\"{outputPath}\"",
+            DesignerBatchOperation.DumpIB when IsSafeCliValue(outputPath) => $"/DumpIB\"{outputPath}\"",
+            DesignerBatchOperation.DumpCfg when IsSafeCliValue(outputPath) => $"/DumpCfg\"{outputPath}\"",
             DesignerBatchOperation.TestAndRepair => "/IBCheckAndRepair -TestOnly",
             _ => ""
         };
         if (string.IsNullOrEmpty(opArg))
             return false;
 
+        // /Out — путь к временному логу, всегда системный GUID-файл, без пользовательских данных,
+        // поэтому экранирование не требуется (вектора инъекции нет).
         var outLog = Path.Combine(Path.GetTempPath(), $"1c_batch_{Guid.NewGuid():N}.log");
         var arguments = $"DESIGNER {connectionArg}{authArg} {opArg} /DisableStartupDialogs /DisableStartupMessages /Out\"{outLog}\"";
 

@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Configuration_Management.Localization;
@@ -124,6 +125,12 @@ namespace Configuration_Management.Services
                 return false;
             }
 
+            // Запуск идёт через ProcessStartInfo.Arguments (строку), а не ArgumentList: .NET сам
+            // разбивает строку по правилам CommandLineToArgvW, снимая внешние кавычки у /N"user"
+            // и /F"path". Для 1С это и есть рабочий, проверенный формат. Перевод на ArgumentList
+            // передавал бы кавычки платформе дословно — поведение 1С при этом не гарантировано,
+            // поэтому осознанно не переводим (защита от инъекции реализована на уровне значений,
+            // см. IsSafeCliValue).
             var arguments = BuildArguments(infobase, mode, clientType, runMode);
 
             try
@@ -212,6 +219,37 @@ namespace Configuration_Management.Services
             return best;
         }
 
+        /// <summary>
+        /// Проверяет, можно ли безопасно подставить значение внутрь кавычек ключа командной строки
+        /// 1С вида /Key"value".
+        /// ВАЖНО: грамматика таких ключей — НЕ грамматика строки подключения. Внутри значения кавычку
+        /// экранировать удвоением («""») НЕЛЬЗЯ: для ключа командной строки это неверно, и 1С получит
+        /// искажённое значение. Поэтому «"» внутри значения — единственный реальный вектор инъекции
+        /// дополнительного /ключа 1cv8 (можно «вырваться» из кавычек). Пробелы внутри значения
+        /// безопасны (остаются внутри кавычек и не создают новых аргументов). Также отклоняются
+        /// управляющие символы (CR/LF/…), способные нарушить разбор командной строки.
+        /// Если метод вернул false, корректно представить значение в этой грамматике невозможно —
+        /// такой аргумент нужно отбросить/отказаться, а НЕ «экранировать».
+        /// </summary>
+        private static bool IsSafeCliValue(string? value)
+            => !string.IsNullOrEmpty(value) &&
+               value!.IndexOf('"') < 0 &&
+               !value.Any(c => char.IsControl(c));
+
+        /// <summary>
+        /// Собирает /N"user" /P"password". Небезопасное значение (содержит «"» или управляющий символ)
+        /// опускается, чтобы не допустить инъекции аргумента — см. <see cref="IsSafeCliValue"/>.
+        /// </summary>
+        private static string BuildCredentialsArg(string user, string password)
+        {
+            if (!IsSafeCliValue(user))
+                return "";
+            var auth = $" /N\"{user}\"";
+            if (!string.IsNullOrEmpty(password) && IsSafeCliValue(password))
+                auth += $" /P\"{password}\"";
+            return auth;
+        }
+
         /// <summary>Формирует аргументы командной строки для запуска 1С.</summary>
         private static string BuildArguments(Infobase infobase, OneCLaunchMode mode, OneCClientType? clientType, OneCRunMode? runMode)
         {
@@ -230,11 +268,16 @@ namespace Configuration_Management.Services
                 : "";
 
             var conn = infobase.Connection;
+            // Значение в кавычках по грамматике ключа 1С (/F"…"). Это НЕ строка подключения:
+            // кавычку внутри значения удвоением не экранируют — поэтому небезопасное значение
+            // (с «"») не подставляется, чтобы не допустить инъекцию /ключа (см. IsSafeCliValue).
             string connectionArg = conn.Type switch
             {
-                ConnectionType.File => $" /F \"{conn.FilePath}\"",
-                ConnectionType.WebServer => $" /WS \"{conn.WebUrl}\"",
-                _ => $" /S \"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
+                ConnectionType.File => IsSafeCliValue(conn.FilePath) ? $" /F \"{conn.FilePath}\"" : "",
+                ConnectionType.WebServer => IsSafeCliValue(conn.WebUrl) ? $" /WS \"{conn.WebUrl}\"" : "",
+                _ => IsSafeCliValue(conn.GetServerWithPort()) && IsSafeCliValue(conn.DatabaseName)
+                    ? $" /S \"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
+                    : ""
             };
 
             AuthenticationMode authMode;
@@ -262,7 +305,7 @@ namespace Configuration_Management.Services
             string authArg = authMode switch
             {
                 AuthenticationMode.Credentials when !string.IsNullOrWhiteSpace(authUser)
-                    => $" /N\"{authUser}\" /P\"{authPassword}\"",
+                    => BuildCredentialsArg(authUser, authPassword),
                 AuthenticationMode.Windows
                     => " /WA+",
                 _ => ""
@@ -280,10 +323,15 @@ namespace Configuration_Management.Services
                 var server = repo.Server.Trim().TrimEnd('/');
                 var name = (repo.RepositoryName ?? string.Empty).Trim();
                 var repoPath = string.IsNullOrWhiteSpace(name) ? server : $"{server}/{name}";
-                repositoryArg = $" /ConfigurationRepositoryF \"{repoPath}\"";
-                if (!string.IsNullOrWhiteSpace(repo.User))
+                // Значения /ConfigurationRepository* тоже идут по грамматике ключа (не строки
+                // подключения): небезопасное значение (с «"») не подставляется (см. IsSafeCliValue).
+                if (IsSafeCliValue(repoPath))
+                    repositoryArg = $" /ConfigurationRepositoryF \"{repoPath}\"";
+                if (IsSafeCliValue(repo.User))
                 {
-                    repositoryArg += $" /ConfigurationRepositoryN \"{repo.User}\" /ConfigurationRepositoryP \"{repo.Password}\"";
+                    repositoryArg += $" /ConfigurationRepositoryN \"{repo.User}\"";
+                    if (IsSafeCliValue(repo.Password))
+                        repositoryArg += $" /ConfigurationRepositoryP \"{repo.Password}\"";
                 }
             }
 
@@ -494,16 +542,21 @@ namespace Configuration_Management.Services
             var connectionArg = BuildConnectionArgument(infobase);
             var authArg = BuildAuthArgument(infobase);
 
+            // Ключи вида /DumpIB"path" — по грамматике ключа, НЕ строки подключения: кавычку внутри
+            // пути удвоением не экранируют, поэтому путь с «"» недопустим (см. IsSafeCliValue) —
+            // безопасно выгрузить его невозможно, отказываемся.
             string opArg = operation switch
             {
-                DesignerBatchOperation.DumpIB => $"/DumpIB\"{outputPath}\"",
-                DesignerBatchOperation.DumpCfg => $"/DumpCfg\"{outputPath}\"",
+                DesignerBatchOperation.DumpIB when IsSafeCliValue(outputPath) => $"/DumpIB\"{outputPath}\"",
+                DesignerBatchOperation.DumpCfg when IsSafeCliValue(outputPath) => $"/DumpCfg\"{outputPath}\"",
                 DesignerBatchOperation.TestAndRepair => "/IBCheckAndRepair -TestOnly",
                 _ => ""
             };
             if (string.IsNullOrEmpty(opArg))
                 return false;
 
+            // /Out — путь к временному логу, всегда системный GUID-файл (без пользовательских
+            // данных), поэтому экранирование не требуется (вектора инъекции нет).
             var outLog = Path.Combine(Path.GetTempPath(), $"1c_batch_{Guid.NewGuid():N}.log");
             var arguments = $"DESIGNER {connectionArg}{authArg} {opArg} /DisableStartupDialogs /DisableStartupMessages /Out\"{outLog}\"";
 
@@ -712,11 +765,20 @@ namespace Configuration_Management.Services
         public static string BuildConnectionArgument(Infobase infobase)
         {
             var conn = infobase.Connection;
+            // Значение в кавычках по грамматике ключа 1С (/F"…"). Это НЕ строка подключения:
+            // кавычку внутри значения удвоением не экранируют — небезопасное значение (с «"»)
+            // не подставляется, чтобы не допустить инъекцию /ключа (см. IsSafeCliValue).
             return conn.Type switch
             {
-                ConnectionType.File => $"/F\"{conn.FilePath.Trim().TrimEnd('\\', '/')}\"",
-                ConnectionType.WebServer => $"/WS\"{conn.WebUrl}\"",
-                _ => $"/S\"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
+                ConnectionType.File => IsSafeCliValue(conn.FilePath)
+                    ? $"/F\"{conn.FilePath.Trim().TrimEnd('\\', '/')}\""
+                    : "",
+                ConnectionType.WebServer => IsSafeCliValue(conn.WebUrl)
+                    ? $"/WS\"{conn.WebUrl}\""
+                    : "",
+                _ => IsSafeCliValue(conn.GetServerWithPort()) && IsSafeCliValue(conn.DatabaseName)
+                    ? $"/S\"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
+                    : ""
             };
         }
 
@@ -726,20 +788,14 @@ namespace Configuration_Management.Services
                 cfgAuth.AuthenticationMode == AuthenticationMode.Credentials &&
                 !string.IsNullOrWhiteSpace(cfgAuth.User))
             {
-                var cAuth = $" /N\"{cfgAuth.User}\"";
-                if (!string.IsNullOrEmpty(cfgAuth.Password))
-                    cAuth += $" /P\"{cfgAuth.Password}\"";
-                return cAuth;
+                return BuildCredentialsArg(cfgAuth.User, cfgAuth.Password);
             }
 
             var conn = infobase.Connection;
             if (conn.AuthenticationMode != AuthenticationMode.Credentials ||
                 string.IsNullOrWhiteSpace(conn.User))
                 return "";
-            var auth = $" /N\"{conn.User}\"";
-            if (!string.IsNullOrEmpty(conn.Password))
-                auth += $" /P\"{conn.Password}\"";
-            return auth;
+            return BuildCredentialsArg(conn.User, conn.Password);
         }
 
         /// <summary>Аргументы командной строки для ярлыка «как у стартера 1С».</summary>
@@ -845,17 +901,23 @@ namespace Configuration_Management.Services
                 var re = Regex.Match(value, @"Ref\s*=\s*""(?<r>(?:[^""]|"""")*)""", RegexOptions.IgnoreCase);
                 var server = UnescapeConnectValue(srvr.Groups["s"].Value).Trim();
                 var db = re.Success ? UnescapeConnectValue(re.Groups["r"].Value).Trim() : string.Empty;
-                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(db))
+                // Значения идут в /S"…" по грамматике ключа (не строки подключения): значение с «"»
+                // недопустимо (см. IsSafeCliValue) — отказываемся от запуска вместо инъекции /ключа.
+                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(db) ||
+                    !IsSafeCliValue(server) || !IsSafeCliValue(db))
                     return null;
                 return $"/S \"{server}\\{db}\"";
             }
 
             // 2. Файловая база: File="..." или File=...
-            var file = Regex.Match(value, @"File\s*=\s*""?(?<f>[^"";]*)""?", RegexOptions.IgnoreCase);
+            //    Кавычка внутри пути экранируется удвоением (симметрично записи), поэтому шаблон
+            //    допускает «""» внутри и разворачивает его обратно (см. UnescapeConnectValue).
+            var file = Regex.Match(value,
+                @"File\s*=\s*""(?<f>(?:[^""]|"""")*)""|File\s*=\s*(?<f>[^;]+)", RegexOptions.IgnoreCase);
             if (file.Success)
             {
-                var path = file.Groups["f"].Value.Trim();
-                if (string.IsNullOrWhiteSpace(path))
+                var path = UnescapeConnectValue(file.Groups["f"].Value).Trim();
+                if (string.IsNullOrWhiteSpace(path) || !IsSafeCliValue(path))
                     return null;
                 return $"/F \"{path}\"";
             }
@@ -864,18 +926,19 @@ namespace Configuration_Management.Services
             if (value.Contains('\\'))
             {
                 if (Directory.Exists(value))
-                    return $"/F \"{value}\"";
+                    return IsSafeCliValue(value) ? $"/F \"{value}\"" : null;
                 var sep = value.IndexOf('\\');
                 var server = value.Substring(0, sep).Trim();
                 var db = value.Substring(sep + 1).Trim();
-                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(db))
+                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(db) ||
+                    !IsSafeCliValue(server) || !IsSafeCliValue(db))
                     return null;
                 return $"/S \"{server}\\{db}\"";
             }
 
             // 4. Простой путь к существующему каталогу файловой базы.
             if (Directory.Exists(value))
-                return $"/F \"{value}\"";
+                return IsSafeCliValue(value) ? $"/F \"{value}\"" : null;
 
             return null;
         }
@@ -1004,6 +1067,14 @@ namespace Configuration_Management.Services
                 {
                     CleanupCreatedDir(createdDirPath);
                     return (false, string.Format(LocalizationManager.T("Launcher.CreateTemplateNotFoundFormat"), templatePath));
+                }
+                // /UseTemplate"…" — это ключ командной строки, а не строка подключения: кавычку внутри
+                // пути здесь экранировать удвоением нельзя (см. IsSafeCliValue), поэтому при «"» в пути
+                // отказываемся от создания, а не пытаемся «экранировать».
+                if (!IsSafeCliValue(templatePath))
+                {
+                    CleanupCreatedDir(createdDirPath);
+                    return (false, string.Format(LocalizationManager.T("Launcher.CreateTemplateInvalidPathFormat"), templatePath));
                 }
                 args.Add($"/UseTemplate\"{templatePath}\"");
             }
