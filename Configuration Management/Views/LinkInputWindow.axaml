@@ -27,22 +27,33 @@
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
         </StackPanel>
 
+        <!-- Порядок, размеры и цвета по разметке WPF (LinkInputWindow.xaml:50):
+             зелёный переход слева, красная отмена справа, зазор 10. -->
         <StackPanel Grid.Row="2" Orientation="Horizontal"
-                    HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
-            <Button x:Name="CancelButton" MinWidth="110" IsCancel="True">
+                    HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+            <Button x:Name="OkButton" Width="150" Height="38" IsDefault="True"
+                    Classes="greyed"
+                    Theme="{DynamicResource DialogConfirmButton}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Path Data="{DynamicResource IconClose}" Width="14" Height="14"
-                          Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"
-                          VerticalAlignment="Center"/>
-                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center"/>
+                    <!-- Контур кладётся в холст 24 на 24 и масштабируется целиком,
+                         как это делает IconHelper.MakeIcon и PackIcon в WPF. -->
+                    <Viewbox Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="{DynamicResource IconArrowRight}" Fill="White"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="{loc:Loc LinkInput.Go}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
-            <Button x:Name="OkButton" MinWidth="130" IsDefault="True">
+            <Button x:Name="CancelButton" Width="140" Height="38" IsCancel="True"
+                    Theme="{DynamicResource DialogCancelButton}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Path Data="{DynamicResource IconOk}" Width="14" Height="14"
-                          Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"
-                          VerticalAlignment="Center"/>
-                    <TextBlock Text="{loc:Loc LinkInput.Go}" VerticalAlignment="Center"/>
+                    <Viewbox Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="{DynamicResource IconClose}" Fill="#EF4444"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
         </StackPanel>

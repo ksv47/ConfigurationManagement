@@ -40,7 +40,20 @@ namespace Configuration_Management
             Grid.SetRow(_picker, 0);
             root.Children.Add(_picker);
 
-            var buttons = BuildButtons(LocalizationManager.T("Common.Ok"), 90, OnOk_Click);
+            // Порядок и оформление как в разметке: подтверждение слева основной
+            // кнопкой, отмена справа вторичной. Общая панель базового класса
+            // ставит их наоборот, поэтому кнопки собираются здесь по одной.
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Spacing = 8,
+                Children =
+                {
+                    BuildConfirmButton(LocalizationManager.T("Common.Ok"), 90, OnOk_Click, minimumWidth: true),
+                    BuildCancelButton(110, secondary: true, minimumWidth: true)
+                }
+            };
             Grid.SetRow(buttons, 1);
             root.Children.Add(buttons);
 

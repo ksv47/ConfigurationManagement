@@ -26,7 +26,8 @@ namespace Configuration_Management
             // Кнопки строит базовый класс: у них общий вид и поведение
             // на все модальные окна, поэтому в разметке стоит только место.
             var buttonsHost = this.FindControl<ContentControl>("ButtonsHost")!;
-            buttonsHost.Content = BuildButtons(null, 130, OnOk_Click);
+            buttonsHost.Content = BuildButtons(Localization.LocalizationManager.T("Common.Add"), 110, OnOk_Click,
+                cancelWidth: 90, okIconKey: "IconAdd");
 
             Opened += (_, _) =>
             {

@@ -151,8 +151,10 @@ namespace Configuration_Management
 
         private Control BuildRoot()
         {
-            var grid = new Grid { Margin = new Thickness(16) };
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            // Раскладка по разметке (GroupEditWindow.xaml:154): вкладки тянутся
+            // на всю высоту, кнопки прижаты к низу отдельной полосой с отбивкой.
+            var grid = new Grid();
+            grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
             var tabs = new TabControl();
@@ -231,12 +233,35 @@ namespace Configuration_Management
             iconTab.Children.Add(iconScroll);
             tabs.Items.Add(new TabItem { Header = LocalizationManager.T("GroupEdit.TabIcon"), Content = iconTab });
 
+            tabs.Margin = new Thickness(16, 16, 16, 0);
             Grid.SetRow(tabs, 0);
             grid.Children.Add(tabs);
 
-            var buttons = BuildButtons(LocalizationManager.T("Common.Save"), 140, OnSave_Click);
-            Grid.SetRow(buttons, 1);
-            grid.Children.Add(buttons);
+            // Нижняя панель по разметке (GroupEditWindow.xaml:293): зелёное
+            // сохранение шириной 130 слева, красная отмена шириной 120 справа.
+            // Значок отмены в разметке взят из ключа IconClear, у нас тот же
+            // контур лежит под именем IconClose.
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Spacing = 10,
+                Children =
+                {
+                    BuildConfirmActionButton("Common.Save", "IconSave", 130, OnSave_Click),
+                    BuildCancelActionButton(120, iconSize: 14)
+                }
+            };
+            var buttonsBar = new Border
+            {
+                Padding = new Thickness(16, 10, 16, 16),
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Child = buttons
+            };
+            Themes.ThemeBrushes.Bind(buttonsBar, Border.BorderBrushProperty, "BorderBrushColor");
+            Themes.ThemeBrushes.Bind(buttonsBar, Border.BackgroundProperty, "CardBackgroundBrush");
+            Grid.SetRow(buttonsBar, 1);
+            grid.Children.Add(buttonsBar);
 
             return grid;
         }
