@@ -107,7 +107,7 @@ namespace Configuration_Management
         /// <summary>Ширина колонки подписей, как в разметке (ConnectionSettingsWindow.xaml:203).</summary>
         private const double LabelColumn = 120;
 
-        private static TextBox Tb(string path, string? watermark = null, bool multiline = false)
+        private static TextBox Tb(string path, bool readOnly = false)
         {
             var tb = new TextBox
             {
@@ -116,12 +116,13 @@ namespace Configuration_Management
                 FontSize = 12,
                 Margin = new Thickness(0, 3),
                 VerticalContentAlignment = VerticalAlignment.Center,
-                Watermark = watermark,
-                AcceptsReturn = multiline
+                IsReadOnly = readOnly
             };
-            if (multiline)
-                tb.MinHeight = 70;
-            tb.Bind(TextBox.TextProperty, new Binding(path) { Mode = BindingMode.TwoWay });
+            // Свойство только для чтения привязывается односторонне, как в разметке
+            // (ConnectionSettingsWindow.xaml:219): двусторонняя привязка к свойству
+            // без сеттера пишет ошибку в журнал при каждом обновлении.
+            tb.Bind(TextBox.TextProperty,
+                new Binding(path) { Mode = readOnly ? BindingMode.OneWay : BindingMode.TwoWay });
             return tb;
         }
 
@@ -197,7 +198,7 @@ namespace Configuration_Management
 
         /// <summary>Вторичная кнопка со значком и подписью, как в разметке окна.</summary>
         private static Button SecondaryButton(string iconKey, string textKey, Action onClick,
-            string? tooltipKey = null, double iconSize = 14)
+            string? tooltipKey = null, double iconSize = 14, IBrush? iconBrush = null)
         {
             var button = new Button
             {
@@ -207,7 +208,9 @@ namespace Configuration_Management
                     Spacing = 4,
                     Children =
                     {
-                        IconHelper.MakeIcon(iconKey, iconSize, "SecondaryButtonTextBrush"),
+                        iconBrush is null
+                            ? IconHelper.MakeIcon(iconKey, iconSize, "SecondaryButtonTextBrush")
+                            : IconHelper.MakeIcon(iconKey, iconSize, iconBrush),
                         new TextBlock
                         {
                             Text = LocalizationManager.T(textKey),
@@ -279,7 +282,7 @@ namespace Configuration_Management
         /// Карточка варианта выбора: переключатель в рамке с подписью и пояснением.
         /// </summary>
         private static RadioButton OptionCard(string groupName, string path, string titleKey, string hintKey,
-            string? enabledPath = null)
+            string? enabledPath = null, bool wrapHint = false)
         {
             var card = new RadioButton
             {
@@ -294,13 +297,17 @@ namespace Configuration_Management
                             FontWeight = FontWeight.SemiBold,
                             FontSize = 12
                         },
+                        // Перенос строк и отступ пояснения у автора разные: на
+                        // вкладках выбора типа и авторизации это одна строка
+                        // с отступом 1 (xaml:279), на запуске и разрядности
+                        // перенос и отступ 2 (xaml:657).
                         new TextBlock
                         {
                             Text = LocalizationManager.T(hintKey),
                             FontSize = 11,
                             Opacity = 0.75,
-                            TextWrapping = TextWrapping.Wrap,
-                            Margin = new Thickness(0, 2, 0, 0)
+                            TextWrapping = wrapHint ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                            Margin = new Thickness(0, wrapHint ? 2 : 1, 0, 0)
                         }
                     }
                 }
@@ -314,11 +321,11 @@ namespace Configuration_Management
 
         /// <summary>Мелкое пояснение под группой: кегль 11, второстепенный цвет.</summary>
         private static TextBlock Hint(string? textKey = null, string? bindingPath = null,
-            Thickness? margin = null)
+            Thickness? margin = null, double fontSize = 11)
         {
             var block = new TextBlock
             {
-                FontSize = 11,
+                FontSize = fontSize,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = margin ?? new Thickness(2, 6, 0, 0)
             };
@@ -334,19 +341,27 @@ namespace Configuration_Management
         {
             var tab = new TabItem
             {
-                Header = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 8,
-                    Children =
-                    {
-                        IconHelper.MakeIcon(iconKey, 16),
-                        new TextBlock { Text = LocalizationManager.T(titleKey), VerticalAlignment = VerticalAlignment.Center }
-                    }
-                },
                 Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
             };
             tab.Styled(ControlThemes.ConnTabItem);
+
+            // Значок берёт цвет подписи: у выбранной вкладки тема меняет Foreground,
+            // а заливка контура сама по себе не наследуется, и значок остался бы
+            // светлым на тёмно-оранжевом.
+            var icon = IconHelper.MakeIcon(iconKey, 16, out var path);
+            path.Bind(Avalonia.Controls.Shapes.Shape.FillProperty,
+                new Binding(nameof(TabItem.Foreground)) { Source = tab });
+
+            tab.Header = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Children =
+                {
+                    icon,
+                    new TextBlock { Text = LocalizationManager.T(titleKey), VerticalAlignment = VerticalAlignment.Center }
+                }
+            };
             return tab;
         }
 
@@ -454,9 +469,15 @@ namespace Configuration_Management
 
         private TabControl BuildTabs()
         {
-            var tabs = new TabControl { TabStripPlacement = Dock.Left };
+            // Колонку вкладок слева задаёт сам шаблон темы, поэтому
+            // TabStripPlacement здесь не нужен: шаблон его не читает.
+            var tabs = new TabControl();
             tabs.Styled(ControlThemes.ConnTabControl);
 
+            // Значков MaterialDesign в Linux-сборке нет, поэтому взяты ближайшие
+            // из словаря автора: LanConnect это IconNetwork, SourceBranch это
+            // IconMerge, PlayCircleOutline это IconPlay, Chip это IconMonitor,
+            // CubeOutline это IconPackage, Identifier это IconInfo.
             tabs.Items.Add(Tab("IconDatabase", "Connection.Tab.Base", BuildBaseTab()));
             tabs.Items.Add(Tab("IconNetwork", "Connection.Tab.Connection", BuildConnectionTab()));
             tabs.Items.Add(Tab("IconMerge", "Connection.Tab.Repository", BuildRepositoryTab()));
@@ -473,8 +494,7 @@ namespace Configuration_Management
             var fields = FieldsGrid(3);
             Place(fields, 0, "Connection.NameLabel", Tb("Name"));
 
-            var groupPath = Tb("GroupDisplayPath");
-            groupPath.IsReadOnly = true;
+            var groupPath = Tb("GroupDisplayPath", readOnly: true);
             groupPath.Padding = new Thickness(8, 6);
             Place(fields, 1, "Connection.GroupLabel",
                 WithButton(groupPath, SecondaryButton("IconFolderOutline", "Connection.ChooseGroup", OnSelectGroup_Click)));
@@ -551,7 +571,15 @@ namespace Configuration_Management
                     {
                         Orientation = Orientation.Horizontal,
                         Margin = new Thickness(4, 8, 4, 0),
-                        Children = { paste, HelpLink("Connection.PasteStringHelp") }
+                        Children =
+                        {
+                            paste,
+                            new Configuration_Management.Controls.HelpLink
+                            {
+                                HelpText = LocalizationManager.T("Connection.PasteStringHelp"),
+                                VerticalAlignment = VerticalAlignment.Center
+                            }
+                        }
                     }
                 }
             };
@@ -653,13 +681,13 @@ namespace Configuration_Management
             {
                 Children =
                 {
-                    OptionCard("LaunchMode", "IsAutoMode", "Connection.LaunchAuto", "Connection.LaunchAutoHint"),
-                    OptionCard("LaunchMode", "IsThinClient", "Connection.LaunchThin", "Connection.LaunchThinHint"),
-                    OptionCard("LaunchMode", "IsThickClient", "Connection.LaunchThickManaged", "Connection.LaunchThickManagedHint"),
-                    OptionCard("LaunchMode", "IsThickOrdinaryClient", "Connection.LaunchThickOrdinary", "Connection.LaunchThickOrdinaryHint"),
+                    OptionCard("LaunchMode", "IsAutoMode", "Connection.LaunchAuto", "Connection.LaunchAutoHint", wrapHint: true),
+                    OptionCard("LaunchMode", "IsThinClient", "Connection.LaunchThin", "Connection.LaunchThinHint", wrapHint: true),
+                    OptionCard("LaunchMode", "IsThickClient", "Connection.LaunchThickManaged", "Connection.LaunchThickManagedHint", wrapHint: true),
+                    OptionCard("LaunchMode", "IsThickOrdinaryClient", "Connection.LaunchThickOrdinary", "Connection.LaunchThickOrdinaryHint", wrapHint: true),
                     // Веб-клиент доступен только у веб-подключения, как в разметке
                     // (ConnectionSettingsWindow.xaml:734).
-                    OptionCard("LaunchMode", "IsWebClient", "Connection.LaunchWeb", "Connection.LaunchWebHint", "IsWebClientAllowed"),
+                    OptionCard("LaunchMode", "IsWebClient", "Connection.LaunchWeb", "Connection.LaunchWebHint", "IsWebClientAllowed", wrapHint: true),
                     Hint(bindingPath: "LaunchModeHint")
                 }
             };
@@ -680,11 +708,11 @@ namespace Configuration_Management
             {
                 Children =
                 {
-                    OptionCard("Arch", "IsArchitecture32Priority", "Connection.Arch32Priority", "Connection.Arch32PriorityHint"),
-                    OptionCard("Arch", "IsArchitecture64Priority", "Connection.Arch64Priority", "Connection.Arch64PriorityHint"),
-                    OptionCard("Arch", "IsArchitecture32", "Connection.ArchOnly32", "Connection.ArchOnly32Hint"),
+                    OptionCard("Arch", "IsArchitecture32Priority", "Connection.Arch32Priority", "Connection.Arch32PriorityHint", wrapHint: true),
+                    OptionCard("Arch", "IsArchitecture64Priority", "Connection.Arch64Priority", "Connection.Arch64PriorityHint", wrapHint: true),
+                    OptionCard("Arch", "IsArchitecture32", "Connection.ArchOnly32", "Connection.ArchOnly32Hint", wrapHint: true),
                     // Только 64 недоступно на 32-битной системе (xaml:852).
-                    OptionCard("Arch", "IsArchitecture64", "Connection.ArchOnly64", "Connection.ArchOnly64Hint", "IsOs64Bit"),
+                    OptionCard("Arch", "IsArchitecture64", "Connection.ArchOnly64", "Connection.ArchOnly64Hint", "IsOs64Bit", wrapHint: true),
                     Hint(bindingPath: "ArchitectureHint"),
                     osHint
                 }
@@ -733,7 +761,6 @@ namespace Configuration_Management
         private Control BuildIdTab()
         {
             var id = Tb("Id");
-            id.Margin = new Thickness(0);
             ToolTip.SetTip(id, LocalizationManager.T("Connection.IdTooltip"));
 
             var label = new TextBlock
@@ -745,8 +772,10 @@ namespace Configuration_Management
             };
             Themes.ThemeBrushes.Bind(label, TextBlock.ForegroundProperty, "TextSecondaryBrush");
 
+            // Значок обновления зелёный, как в разметке (xaml:996).
             var generate = SecondaryButton("IconRefresh", "Connection.GenerateId",
-                () => _viewModel.Id = Guid.NewGuid().ToString("D"), "Connection.GenerateIdTooltip");
+                () => _viewModel.Id = Guid.NewGuid().ToString("D"), "Connection.GenerateIdTooltip",
+                iconBrush: new SolidColorBrush(Color.Parse("#22C55E")));
             generate.Padding = new Thickness(10, 5);
             generate.Margin = new Thickness(0, 0, 8, 0);
             var copy = SecondaryButton("IconCopy", "Connection.CopyId", OnCopyId_Click, "Connection.CopyIdTooltip");
@@ -758,7 +787,7 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Top,
                 Children =
                 {
-                    Hint("Connection.IdDescription", margin: new Thickness(0, 0, 0, 10)),
+                    Hint("Connection.IdDescription", margin: new Thickness(0, 0, 0, 10), fontSize: 12),
                     label,
                     id,
                     new StackPanel
