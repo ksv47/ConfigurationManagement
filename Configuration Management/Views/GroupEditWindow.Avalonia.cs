@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Path = Avalonia.Controls.Shapes.Path;
 using Configuration_Management.Controls;
 using Configuration_Management.Localization;
+using Configuration_Management.Themes;
 using Configuration_Management.Models;
 using Configuration_Management.ViewModels;
 
@@ -188,7 +189,14 @@ namespace Configuration_Management
                 Margin = new Thickness(8, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            var selectParent = new Button { Content = LocalizationManager.T("GroupEdit.SelectParent"), MinWidth = 90 };
+            var selectParent = new Button
+            {
+                Content = IconHelper.IconAndText("IconFolder", LocalizationManager.T("GroupEdit.SelectParent"), 14,
+                    "SecondaryButtonTextBrush"),
+                MinWidth = 90,
+                Padding = new Thickness(10, 4)
+            };
+            selectParent.Styled(Themes.ControlThemes.SecondaryButton);
             selectParent.IsEnabled = !_noGroupMode;
             selectParent.Click += (_, _) => OnSelectParent_Click();
             ToolTip.SetTip(selectParent, LocalizationManager.T("GroupEdit.SelectParentTooltip"));
@@ -248,8 +256,8 @@ namespace Configuration_Management
                 Spacing = 10,
                 Children =
                 {
-                    BuildConfirmActionButton("Common.Save", "IconSave", 130, OnSave_Click),
-                    BuildCancelActionButton(120, iconSize: 14)
+                    BuildConfirmActionButton("Common.Save", "IconSave", 130, OnSave_Click, iconGap: 8),
+                    BuildCancelActionButton(120, iconSize: 14, iconGap: 8)
                 }
             };
             var buttonsBar = new Border

@@ -81,7 +81,10 @@ namespace Configuration_Management
             // Кнопка выбора создаётся до дерева: её доступность меняет обработчик
             // выделения, а выделение дерево умеет выставить само при подготовке
             // контейнеров.
-            _selectButton = BuildConfirmActionButton("Common.Select", "IconCheck", 140);
+            // Закрывает окно сам обработчик: у него есть проверка на пустой выбор,
+            // и терять её нельзя (PlatformVersionPickerWindow.xaml:259).
+            _selectButton = BuildConfirmActionButton("Common.Select", "IconCheck", 140,
+                OnSelect_Click, closeOnClick: false);
             _selectButton.Classes.Add("dimmed");
             _selectButton.IsEnabled = false;
 
@@ -150,6 +153,7 @@ namespace Configuration_Management
                 }
                 else
                 {
+                    _selectedVersion = string.Empty;
                     _selectButton.IsEnabled = false;
                 }
             };

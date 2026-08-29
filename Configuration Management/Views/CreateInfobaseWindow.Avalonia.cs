@@ -198,6 +198,8 @@ namespace Configuration_Management
             Grid.SetColumn(_groupPathBox, 1);
             groupRow.Children.Add(_groupPathBox);
             var pickGroup = new Button { Content = LocalizationManager.T("CreateInfobase.ChooseGroup"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+            pickGroup.Styled(ControlThemes.SecondaryButton);
+            pickGroup.Padding = new Thickness(10, 4);
             ToolTip.SetTip(pickGroup, LocalizationManager.T("CreateInfobase.ChooseGroupTooltip"));
             pickGroup.Click += (_, _) => OnPickGroup_Click();
             Grid.SetColumn(pickGroup, 2);
@@ -217,10 +219,14 @@ namespace Configuration_Management
             platRow.Children.Add(_platformBox);
             var platButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(8, 0, 0, 0) };
             var pickPlatform = new Button { Content = LocalizationManager.T("CreateInfobase.List"), MinWidth = 90 };
+            pickPlatform.Styled(ControlThemes.SecondaryButton);
+            pickPlatform.Padding = new Thickness(10, 4);
             ToolTip.SetTip(pickPlatform, LocalizationManager.T("CreateInfobase.ListTooltip"));
             pickPlatform.Click += (_, _) => OnPickPlatform_Click();
             platButtons.Children.Add(pickPlatform);
             var editPaths = new Button { Content = LocalizationManager.T("CreateInfobase.Paths"), MinWidth = 70 };
+            editPaths.Styled(ControlThemes.SecondaryButton);
+            editPaths.Padding = new Thickness(10, 4);
             ToolTip.SetTip(editPaths, LocalizationManager.T("CreateInfobase.PathsTooltip"));
             editPaths.Click += (_, _) => OnEditPlatformPaths_Click();
             platButtons.Children.Add(editPaths);
@@ -230,6 +236,8 @@ namespace Configuration_Management
 
             // Файловая база: путь к каталогу.
             var browseFile = new Button { Content = LocalizationManager.T("Common.Browse"), MinWidth = 90 };
+            browseFile.Styled(ControlThemes.SecondaryButton);
+            browseFile.Padding = new Thickness(10, 4);
             browseFile.Click += (_, _) => OnBrowseFolder_Click();
             var fileRow = new Grid();
             fileRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
@@ -340,10 +348,14 @@ namespace Configuration_Management
                 tplRow.Children.Add(_templateBox);
                 var tplButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(8, 0, 0, 0) };
                 var refreshTemplates = new Button { Content = LocalizationManager.T("CreateInfobase.Refresh"), MinWidth = 90 };
+                refreshTemplates.Styled(ControlThemes.SecondaryButton);
+                refreshTemplates.Padding = new Thickness(10, 4);
                 ToolTip.SetTip(refreshTemplates, LocalizationManager.T("CreateInfobase.RefreshTooltip"));
                 refreshTemplates.Click += (_, _) => LoadInstalledTemplates();
                 tplButtons.Children.Add(refreshTemplates);
                 var browseTemplate = new Button { Content = LocalizationManager.T("CreateInfobase.File"), MinWidth = 90 };
+                browseTemplate.Styled(ControlThemes.SecondaryButton);
+                browseTemplate.Padding = new Thickness(10, 4);
                 ToolTip.SetTip(browseTemplate, LocalizationManager.T("CreateInfobase.FileTooltip"));
                 browseTemplate.Click += (_, _) => OnBrowseTemplate_Click();
                 tplButtons.Children.Add(browseTemplate);
@@ -375,27 +387,25 @@ namespace Configuration_Management
             // зелёное создание шириной 140 слева, красная отмена шириной 130 справа.
             // Кнопка создания закрывает окно сама, только если проверки прошли,
             // поэтому она собирается здесь, а не общим методом базового класса.
+            var createCaption = new TextBlock
+            {
+                Text = LocalizationManager.T("CreateInfobase.Create"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
             var create = new Button
             {
                 Content = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
                     Spacing = 8,
-                    Children =
-                    {
-                        IconHelper.MakeIcon("IconDatabase", 16, Brushes.White),
-                        new TextBlock
-                        {
-                            Text = LocalizationManager.T("CreateInfobase.Create"),
-                            VerticalAlignment = VerticalAlignment.Center
-                        }
-                    }
+                    Children = { IconHelper.MakeIcon("IconDatabase", 16, Brushes.White), createCaption }
                 },
                 Width = 140,
                 Height = 36,
                 IsDefault = true
             };
             create.Styled(ControlThemes.DialogConfirmButton);
+            RegisterConfirmCaption(createCaption, "CreateInfobase.Create");
             create.Click += (_, _) => OnCreate_Click();
             buttons.Children.Add(create);
             buttons.Children.Add(BuildCancelActionButton(130));

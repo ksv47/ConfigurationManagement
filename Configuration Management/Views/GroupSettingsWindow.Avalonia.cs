@@ -10,6 +10,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Localization;
+using Configuration_Management.Themes;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.ViewModels;
@@ -26,7 +27,7 @@ namespace Configuration_Management
         private readonly ObservableCollection<Group> _groups;
         private readonly IDialogService _dialogs;
         private readonly TreeView _tree = new();
-        private readonly Button _doneButton = new() { Content = LocalizationManager.T("GroupSettings.Done"), MinWidth = 110, IsDefault = true };
+        private readonly Button _doneButton = new() { IsDefault = true };
 
         /// <summary>
         /// Создаёт диалог управления группами.
@@ -99,22 +100,48 @@ namespace Configuration_Management
             Grid.SetRow(treeBorder, 1);
             grid.Children.Add(treeBorder);
 
-            // Кнопки управления
+            // Кнопки управления по разметке (GroupSettingsWindow.xaml:67):
+            // добавление корневой группы основной кнопкой, остальные вторичными,
+            // все шириной 120.
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0), Spacing = 8 };
-            actions.Children.Add(MakeButton(LocalizationManager.T("GroupSettings.AddRoot"), "IconAdd", OnAddRoot_Click));
-            actions.Children.Add(MakeButton(LocalizationManager.T("GroupSettings.AddSubgroup"), "IconAdd", OnAddSubgroup_Click));
-            actions.Children.Add(MakeButton(LocalizationManager.T("Common.Edit"), "IconEdit", OnEdit_Click));
-            actions.Children.Add(MakeButton(LocalizationManager.T("Common.Delete"), "IconDelete", OnDelete_Click));
+            actions.Children.Add(MakeButton(LocalizationManager.T("Common.Add"), "IconAdd", OnAddRoot_Click, ControlThemes.ModernButton));
+            actions.Children.Add(MakeButton(LocalizationManager.T("GroupSettings.AddSubgroup"), "IconAdd", OnAddSubgroup_Click, ControlThemes.SecondaryButton));
+            actions.Children.Add(MakeButton(LocalizationManager.T("Common.Edit"), "IconEdit", OnEdit_Click, ControlThemes.SecondaryButton));
+            actions.Children.Add(MakeButton(LocalizationManager.T("Common.Delete"), "IconDelete", OnDelete_Click, ControlThemes.SecondaryButton));
             Grid.SetRow(actions, 2);
             grid.Children.Add(actions);
 
             // Нижняя панель
-            var bottom = new Grid { Margin = new Thickness(0, 12, 0, 0) };
-            bottom.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            bottom.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            // Нижняя панель по разметке (GroupSettingsWindow.xaml:101): готово
+            // основной кнопкой, отмена вторичной, обе 120 на 34, зазор 10.
+            var doneCaption = new TextBlock
+            {
+                Text = LocalizationManager.T("GroupSettings.Done"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _doneButton.Content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                Children = { IconHelper.MakeIcon("IconOk", 14, "ButtonTextBrush"), doneCaption }
+            };
+            _doneButton.Styled(ControlThemes.ModernButton);
+            _doneButton.Width = 120;
+            _doneButton.Height = 34;
             _doneButton.Click += (_, _) => { DialogResult = true; Close(); };
-            Grid.SetColumn(_doneButton, 1);
-            bottom.Children.Add(_doneButton);
+            RegisterConfirmCaption(doneCaption, "GroupSettings.Done");
+
+            var cancel = BuildCancelButton(120, secondary: true);
+            cancel.Height = 34;
+
+            var bottom = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Spacing = 10,
+                Margin = new Thickness(0, 12, 0, 0),
+                Children = { _doneButton, cancel }
+            };
             Grid.SetRow(bottom, 3);
             grid.Children.Add(bottom);
 
@@ -123,9 +150,17 @@ namespace Configuration_Management
             return grid;
         }
 
-        private Button MakeButton(string text, string iconKey, Action onClick)
+        private Button MakeButton(string text, string iconKey, Action onClick, string themeKey)
         {
-            var button = new Button { Content = IconHelper.IconAndText(iconKey, text) };
+            // Значок красится под тему кнопки: у основной подпись и значок идут
+            // цветом текста на акценте, у вторичной своим.
+            var button = new Button
+            {
+                Content = IconHelper.IconAndText(iconKey, text, 16,
+                    themeKey == ControlThemes.ModernButton ? "ButtonTextBrush" : "SecondaryButtonTextBrush"),
+                Width = 120
+            };
+            button.Styled(themeKey);
             button.Click += (_, _) => onClick();
             return button;
         }

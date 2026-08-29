@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Controls;
 using Configuration_Management.Localization;
+using Configuration_Management.Themes;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 
@@ -96,11 +97,14 @@ namespace Configuration_Management
             return panel;
         }
 
-        private StackPanel BuildButtons()
+        private Control BuildButtons()
         {
+            // Раскладка по разметке (ProfilesWindow.xaml:161): отмена прижата
+            // влево, остальные кнопки вправо. Удаление, как и отмена, идёт мягкой
+            // заливкой, три остальные акцентом.
             var panel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8 };
 
-            var delete = new Button { Content = LocalizationManager.T("Profiles.Delete"), MinWidth = 110 };
+            var delete = SoftButton("Profiles.Delete", "IconDelete", 120);
             delete.Click += (_, _) => OnDelete();
             panel.Children.Add(delete);
 
@@ -108,19 +112,55 @@ namespace Configuration_Management
             // (ProfilesWindow.xaml:183). Без неё сменить активный профиль
             // из интерфейса было нельзя вовсе: команда живёт в ProfilesViewModel,
             // а тот в Linux-сборку не входит.
-            var activate = new Button { Content = LocalizationManager.T("Profiles.Activate"), MinWidth = 150 };
+            var activate = AccentButton("Profiles.Activate", "IconStar", 150);
             activate.Click += (_, _) => OnActivate();
             panel.Children.Add(activate);
 
-            var save = new Button { Content = LocalizationManager.T("Profiles.Save"), MinWidth = 130 };
+            var save = AccentButton("Profiles.Save", "IconOk", 130);
             save.Click += (_, _) => OnSave();
             panel.Children.Add(save);
 
-            var create = new Button { Content = LocalizationManager.T("Profiles.Create"), MinWidth = 130 };
+            var create = AccentButton("Profiles.Create", "IconAdd", 130);
             create.Click += (_, _) => OnCreate();
             panel.Children.Add(create);
 
-            return panel;
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+
+            var cancel = BuildCancelButton(110);
+            Grid.SetColumn(cancel, 0);
+            row.Children.Add(cancel);
+
+            Grid.SetColumn(panel, 1);
+            row.Children.Add(panel);
+            return row;
+        }
+
+        /// <summary>Кнопка акцентной заливки со значком и подписью.</summary>
+        private static Button AccentButton(string textKey, string iconKey, double width)
+        {
+            var button = new Button
+            {
+                Content = IconHelper.IconAndText(iconKey, LocalizationManager.T(textKey), 14, "ButtonTextBrush"),
+                Width = width
+            };
+            button.Styled(Themes.ControlThemes.ModernButton);
+            return button;
+        }
+
+        /// <summary>Кнопка мягкой заливки: в разметке ей задан фон ItemHoverBrush.</summary>
+        private static Button SoftButton(string textKey, string iconKey, double width)
+        {
+            var button = new Button
+            {
+                Content = IconHelper.IconAndText(iconKey, LocalizationManager.T(textKey), 14, "TextPrimaryBrush"),
+                Width = width
+            };
+            button.Styled(Themes.ControlThemes.ModernButton);
+            Themes.ThemeBrushes.Bind(button, Button.BackgroundProperty, "ItemHoverBrush");
+            Themes.ThemeBrushes.Bind(button, Button.ForegroundProperty, "TextPrimaryBrush");
+            return button;
         }
 
         private UserProfile? SelectedProfile => _profilesList.SelectedItem as UserProfile;

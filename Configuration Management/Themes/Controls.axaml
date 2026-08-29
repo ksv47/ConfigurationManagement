@@ -101,12 +101,18 @@
         <Style Selector="^:pressed /template/ Border#PART_Surface">
             <Setter Property="Background" Value="{DynamicResource SecondaryButtonPressedSurfaceBrush}"/>
         </Style>
+        <!-- Гашение задано и здесь, хотя оно есть у основной кнопки: вторичная
+             переопределяет шаблон целиком, и вложенный стиль основной ссылается
+             на её часть шаблона, а не на эту. -->
+        <Style Selector="^:disabled /template/ Border#PART_Surface">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
     </ControlTheme>
     <!-- ===================== Кнопки нижней панели диалогов =====================
          В разметке WPF эти две кнопки заданы не именованным стилем, а встроенным
-         шаблоном, и повторены так в девяти окнах: AddEditWindow.xaml:152,
+         шаблоном, и повторены так в десяти окнах: AddEditWindow.xaml:152,
          CacheCleanWindow.xaml:206, ConnectionSettingsWindow.xaml:1026,
-         ConnectionStringInputWindow.xaml:71, CreateInfobaseWindow.xaml:208,
+         ConnectionStringInputWindow.xaml:71, CreateInfobaseWindow.xaml:185,
          GroupEditWindow.xaml:294, LaunchParametersWindow.xaml:78,
          LinkInputWindow.xaml:51, PlatformVersionPickerWindow.xaml:258,
          SettingsWindow.xaml:1527. Здесь это две темы контролов, чтобы девять
