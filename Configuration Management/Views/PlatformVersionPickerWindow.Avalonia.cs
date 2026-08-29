@@ -208,6 +208,14 @@ namespace Configuration_Management
             // TreeViewItem, поэтому событие дерева доходит и до них.
             _tree.ContainerPrepared += OnTreeContainerPrepared;
 
+            // Дерево раскрыто целиком, как в версии для Windows
+            // (PlatformVersionPickerWindow.xaml.cs:60, ExpandAll): линии, группы
+            // сборок и сами сборки видны сразу. Значение стилем, а не локально,
+            // чтобы свернуть узел вручную было можно.
+            var expanded = new Style(x => x.OfType<TreeViewItem>());
+            expanded.Setters.Add(new Setter(TreeViewItem.IsExpandedProperty, true));
+            _tree.Styles.Add(expanded);
+
             // Элемент дерева по общему шаблону автора (ModernTreeViewItem):
             // раскрыватель «+»/«-», подсветка наведения и выбора, отступ вложенных 16.
             if (Application.Current?.TryFindResource(ControlThemes.ModernTreeItem, out var treeItemTheme) == true
@@ -467,18 +475,14 @@ namespace Configuration_Management
         /// </summary>
         private void OnTreeContainerPrepared(object? sender, ContainerPreparedEventArgs e)
         {
-            if (_initialLeaf is null)
-                return;
             if (e.Container?.DataContext is not PlatformVersionGroup node)
                 return;
 
-            // Предок на пути к текущей версии — раскрываем, чтобы появились дети.
-            if (_initialAncestors is not null && _initialAncestors.Contains(node))
-            {
-                if (e.Container is TreeViewItem tvi && !tvi.IsExpanded)
-                    tvi.IsExpanded = true;
+            if (_initialLeaf is null)
                 return;
-            }
+
+            if (_initialAncestors is not null && _initialAncestors.Contains(node))
+                return;
 
             // Сам лист — выделяем его как единственный источник выбора.
             if (ReferenceEquals(node, _initialLeaf))
