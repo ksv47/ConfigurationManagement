@@ -3134,14 +3134,18 @@ namespace Configuration_Management
         /// <summary>Ширина кнопки разворота группы: на неё сдвигается пустая группа.</summary>
         private static double EmptyGroupOffset => UiMetrics.Scaled(26);
 
-        /// <summary>Ширина колонки звезды «избранное» в заголовке и в строке базы.</summary>
-        private static double FavoriteColumnWidth => UiMetrics.Scaled(28);
+        /// <summary>
+        /// Ширина колонки звезды «избранное» в заголовке и в строке базы.
+        /// Компактным режимом ведущие колонки не сжимаются: у автора их ширины
+        /// заданы числом, а компактный режим меняет только отступы и шрифты.
+        /// </summary>
+        private static double FavoriteColumnWidth => 28;
 
         /// <summary>
         /// Резерв под переключатель тегов: минимум колонки звезды, который держится
         /// и при скрытой звезде (MainWindow.xaml:502).
         /// </summary>
-        private static double TagsToggleReserve => UiMetrics.Scaled(30);
+        private static double TagsToggleReserve => 30;
 
         /// <summary>
         /// Место под кнопки групп в ведущих колонках всех трёх сеток списка.
@@ -3149,10 +3153,10 @@ namespace Configuration_Management
         /// (MainWindow.xaml:495).
         /// </summary>
         private double GroupButtonsColumnWidth
-            => (_vm?.ShowExpandCollapseButtons ?? true) ? UiMetrics.Scaled(144) : 0;
+            => (_vm?.ShowExpandCollapseButtons ?? true) ? 144 : 0;
 
         /// <summary>Ширина колонки булавки «закреплено» в заголовке и в строке базы.</summary>
-        private static double PinColumnWidth => UiMetrics.Scaled(26);
+        private static double PinColumnWidth => 26;
 
         /// <summary>
         /// Ширина фиксированной колонки «Действия» в заголовке и в строке базы.
@@ -3162,17 +3166,6 @@ namespace Configuration_Management
         /// </summary>
         private double ActionsColumnWidth
             => _vm is { ActionsColumnWidth: > 0 } vm ? vm.ActionsColumnWidth : 170;
-
-        /// <summary>
-        /// Ширина колонки иконки базы: сама иконка и её правый отступ. В заголовке
-        /// эта колонка пустая, но она есть, иначе подпись «Название» стояла бы
-        /// левее имён строк на ширину иконки.
-        /// </summary>
-        /// <summary>
-        /// Ширина колонки значка подключения: сам значок 14 и отступ 6 справа,
-        /// как в разметке. Прежние 48 остались от подложки, которой больше нет.
-        /// </summary>
-        private static double IconColumnWidth => UiMetrics.Scaled(20);
 
         /// <summary>Ширина одной кнопки панели инструментов над списком.</summary>
         private static double ToolbarButtonWidth => UiMetrics.Scaled(24);
@@ -3953,8 +3946,11 @@ namespace Configuration_Management
                 return;
 
             var definitions = _columnHeaderRow.ColumnDefinitions;
+            // Считаются все ведущие колонки, включая нулевую с местом под кнопки
+            // групп: без неё минимум занижался, и правые колонки подрезались
+            // раньше, чем включалась горизонтальная прокрутка.
             double lead = 0;
-            for (var i = 1; i < NameHeaderColumn; i++)
+            for (var i = 0; i < NameHeaderColumn; i++)
                 lead += definitions[i].Width.IsAbsolute ? definitions[i].Width.Value : 0;
 
             var nameWidth = definitions[NameHeaderColumn].Width.IsAbsolute
