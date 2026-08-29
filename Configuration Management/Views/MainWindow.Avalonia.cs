@@ -3238,12 +3238,42 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Сколько колонок данных стоит до колонки «Действия»: она встаёт сразу
-        /// после колонки «Режим запуска» (или в самый конец, если та скрыта или
-        /// отсутствует в текущем порядке).
+        /// Сколько колонок данных стоит до колонки «Действия». Колонка участвует
+        /// в пользовательском порядке наравне с остальными, как в разметке после
+        /// правки автора (MainWindow.Columns.cs, задача апстрима 103: перенос
+        /// колонки в настройках не давал никакого эффекта). Если ключа
+        /// «Действия» в сохранённом порядке нет, она встаёт сразу после режима
+        /// запуска, как было раньше.
         /// </summary>
-        private static int ActionsOffsetInColumns(List<ListColumn> columns)
+        private int ActionsOffsetInColumns(List<ListColumn> columns)
         {
+            var order = _vm?.ColumnOrderKeys;
+            if (order is not null)
+            {
+                var actionsAt = -1;
+                for (var i = 0; i < order.Count; i++)
+                    if (order[i] == "Actions")
+                    {
+                        actionsAt = i;
+                        break;
+                    }
+
+                if (actionsAt >= 0)
+                {
+                    // Считаем только те колонки порядка, которые сейчас видимы:
+                    // скрытая колонка места не занимает.
+                    var before = 0;
+                    for (var i = 0; i < actionsAt; i++)
+                        for (var c = 0; c < columns.Count; c++)
+                            if (columns[c].Key == order[i])
+                            {
+                                before++;
+                                break;
+                            }
+                    return before;
+                }
+            }
+
             for (var i = 0; i < columns.Count; i++)
                 if (columns[i].Key == "LaunchMode")
                     return i + 1;
