@@ -378,6 +378,10 @@ public static partial class OneCLauncher
             // к несуществующей. Проверено запуском на PostgreSQL и на MS SQL.
             if (createSqlDatabase)
                 csb.Append(";CrSQLDB=\"Y\"");
+            // SchJobDn действует только в CREATEINFOBASE: он задаёт состояние создаваемой
+            // клиент-серверной базы и не должен попадать в обычную строку подключения.
+            if (blockScheduledJobs)
+                csb.Append(";SchJobDn=\"Y\"");
             connectionString = csb.ToString();
         }
 
@@ -432,8 +436,13 @@ public static partial class OneCLauncher
                 var err = "";
                 try { err = process.StandardError.ReadToEnd(); } catch { /* ignore */ }
                 CleanupCreatedDir(createdDirPath);
-                return (false,
-                    string.Format(LocalizationManager.T("Launcher.CreateExitCodeFormat"), process.ExitCode, err, exePath, arguments));
+                var message = string.Format(
+                    LocalizationManager.T("Launcher.CreateExitCodeFormat"),
+                    process.ExitCode,
+                    err,
+                    exePath,
+                    arguments);
+                return (false, SensitiveDataMasker.MaskDbPassword(message));
             }
 
             return (true, null);
@@ -441,7 +450,12 @@ public static partial class OneCLauncher
         catch (Exception ex)
         {
             CleanupCreatedDir(createdDirPath);
-            return (false, string.Format(LocalizationManager.T("Launcher.CreateCommandErrorFormat"), ex.Message, exePath, arguments));
+            var message = string.Format(
+                LocalizationManager.T("Launcher.CreateCommandErrorFormat"),
+                ex.Message,
+                exePath,
+                arguments);
+            return (false, SensitiveDataMasker.MaskDbPassword(message));
         }
     }
 
