@@ -450,17 +450,13 @@ namespace Configuration_Management
             var displayFont = new StackPanel();
 
             displayIcons.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description"), bottom: 10));
-            // Значки и их цвета из разметки (SettingsWindow.xaml:498-517),
-            // нижнее поле строки 6.
+            // Значки и их цвета из разметки (SettingsWindow.xaml:498-517).
             var favoritesCheck = DisplayCheck("Settings.Icons.FavoritesButton", _viewModel.ShowFavoritesButton, "IconStar", "#FBBF24");
             var pinnedCheck = DisplayCheck("Settings.Icons.PinButton", _viewModel.ShowPinnedButton, "IconPin", "#F59E0B");
             var tagsCheck = DisplayCheck("Settings.Icons.Tags", _viewModel.ShowTags, "IconTag", "#EC4899");
             var tagPanelCheck = DisplayCheck("Settings.Icons.TagFilterPanel", _viewModel.ShowTagFilterPanel, "IconFilter", "#EC4899");
             foreach (var check in new[] { favoritesCheck, pinnedCheck, tagsCheck, tagPanelCheck })
-            {
-                check.Margin = new Thickness(0, 0, 0, 6);
                 displayIcons.Children.Add(check);
-            }
 
             // Видимость и порядок колонок редактируются в одном списке: у каждой
             // строки есть флажок видимости, а порядок задаётся кнопками «Вверх»/«Вниз»
@@ -664,17 +660,12 @@ namespace Configuration_Management
 
             displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description"), bottom: 10));
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails, "IconPageLayoutSidebarRight", "#14B8A6");
-            rightPanelCheck.Margin = new Thickness(0, 0, 0, 6);
             var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel, "IconMonitor", "#8B5CF6");
-            sessionPanelCheck.Margin = new Thickness(0, 0, 0, 6);
             var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup, "IconFolderMultiple", "#3B82F6");
-            groupByGroupCheck.Margin = new Thickness(0, 0, 0, 6);
             // Режим списка «только избранные» тот же, что переключается кнопкой
             // в главном окне: флажок и кнопка меняют одно значение.
             var favoritesOnlyCheck = DisplayCheck("Settings.Panels.ShowFavoritesOnly", _viewModel.IsListModeFavorites, "IconStarCircle", "#FBBF24");
-            favoritesOnlyCheck.Margin = new Thickness(0, 0, 0, 6);
             var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups, "IconFolderOutline", "#0EA5E9");
-            emptyGroupsCheck.Margin = new Thickness(0, 0, 0, 6);
 
             // Пояснения под переключателями стоят там же, где в разметке WPF
             // (SettingsWindow.xaml:628): у правой панели, у блока сессии
@@ -703,11 +694,8 @@ namespace Configuration_Management
 
             displayStatus.Children.Add(Hint(LocalizationManager.T("Settings.Status.Description"), bottom: 10));
             var statusPathCheck = DisplayCheck("Settings.Status.ConnectionPath", _viewModel.StatusShowConnectionPath, "IconFolderOutline", "#3B82F6");
-            statusPathCheck.Margin = new Thickness(0, 0, 0, 6);
             var statusPortCheck = DisplayCheck("Settings.Status.Port", _viewModel.StatusShowPort, "IconLan", "#6366F1");
-            statusPortCheck.Margin = new Thickness(0, 0, 0, 6);
             var statusArchCheck = DisplayCheck("Settings.Status.Architecture", _viewModel.StatusShowArchitecture, "IconChip", "#8B5CF6");
-            statusArchCheck.Margin = new Thickness(0, 0, 0, 6);
             var statusVersionCheck = DisplayCheck("Column.Version", _viewModel.StatusShowPlatformVersion, "IconCubeOutline", "#A855F7");
             var statusLaunchModeCheck = DisplayCheck("Column.LaunchMode", _viewModel.StatusShowLaunchMode, "IconPlayCircleOutline", "#22C55E");
             var statusClientTypeCheck = DisplayCheck("Settings.Status.ClientType", _viewModel.StatusShowClientType, "IconMonitor", "#EC4899");
@@ -2616,7 +2604,13 @@ namespace Configuration_Management
 
         private static ToggleButton DisplayCheck(string textKey, bool value,
             string? iconKey = null, string? iconColor = null)
-            => SettingsSwitch(textKey, value, iconKey, iconColor);
+        {
+            var toggle = SettingsSwitch(textKey, value, iconKey, iconColor);
+            // Нижнее поле у всех переключателей раздела одинаковое
+            // (SettingsWindow.xaml:498 и далее).
+            toggle.Margin = new Thickness(0, 0, 0, 6);
+            return toggle;
+        }
 
         private static void ThemeChanged(
             RadioButton light, RadioButton dark, MainViewModel viewModel,
