@@ -205,7 +205,7 @@ namespace Configuration_Management
 
             var selectParent = new Button
             {
-                Content = IconHelper.IconAndText("IconFolderOutline", LocalizationManager.T("GroupEdit.SelectParent"), 14,
+                Content = IconHelper.IconAndText("IconFolder", LocalizationManager.T("GroupEdit.SelectParent"), 14,
                     "SecondaryButtonTextBrush"),
                 Margin = new Thickness(6, 0, 0, 0),
                 Padding = new Thickness(10, 4),
@@ -236,35 +236,34 @@ namespace Configuration_Management
             tabs.Items.Add(SubTab("IconFileDocument", "GroupEdit.TabMain", generalBox));
 
             // ===== Вкладка «Цвет» =====
-            var colorTab = new StackPanel { Spacing = 10 };
-            colorTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.TitleColor") });
+            var colorTab = new StackPanel();
             colorTab.Children.Add(SectionHint("GroupEdit.ColorHint"));
             colorTab.Children.Add(_colorControl);
-            tabs.Items.Add(SubTab("IconPalette", "GroupEdit.TabColor", colorTab));
+            var colorBox = Controls.GroupBoxPanel.Build("GroupEdit.TitleColor", colorTab,
+                margin: new Thickness(0, 0, 0, 12), padding: new Thickness(10));
+            tabs.Items.Add(SubTab("IconPalette", "GroupEdit.TabColor", colorBox));
 
             // ===== Вкладка «Иконка» =====
-            var iconTab = new StackPanel { Spacing = 10 };
+            // Значок вкладки: в разметке это Kind="Shape" из пакета MaterialDesign,
+            // в словаре автора такого контура нет, поэтому взят IconApplication.
+            var iconTab = new StackPanel();
+            iconTab.Children.Add(SectionHint("GroupEdit.IconColorHint"));
+            _iconColorControl.Margin = new Thickness(0, 0, 0, 12);
+            iconTab.Children.Add(_iconColorControl);
             iconTab.Children.Add(new TextBlock
             {
-                Text = LocalizationManager.T("GroupEdit.IconAndColor"),
-                FontWeight = FontWeight.SemiBold
+                Text = LocalizationManager.T("GroupEdit.IconLabel"),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 6, 0, 0)
             });
-            iconTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.IconColorLabel") });
-            iconTab.Children.Add(SectionHint("GroupEdit.IconColorHint"));
-            iconTab.Children.Add(_iconColorControl);
-            iconTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.IconLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
             BuildIconPicker();
-            var iconScroll = new ScrollViewer
-            {
-                Content = _iconPickerPanel,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                MaxHeight = 300
-            };
-            iconTab.Children.Add(iconScroll);
-            tabs.Items.Add(SubTab("IconApplication", "GroupEdit.TabIcon", iconTab));
+            // Прокрутка одна, её даёт вкладка: в разметке набор значков лежит
+            // в WrapPanel без своей прокрутки (GroupEditWindow.xaml:284).
+            iconTab.Children.Add(_iconPickerPanel);
+            var iconBox = Controls.GroupBoxPanel.Build("GroupEdit.IconAndColor", iconTab,
+                margin: new Thickness(0, 0, 0, 12), padding: new Thickness(10));
+            tabs.Items.Add(SubTab("IconApplication", "GroupEdit.TabIcon", iconBox));
 
-            tabs.Margin = new Thickness(16, 16, 16, 0);
             Grid.SetRow(tabs, 0);
             grid.Children.Add(tabs);
 

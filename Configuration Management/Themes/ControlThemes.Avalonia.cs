@@ -45,6 +45,9 @@ namespace Configuration_Management.Themes
         /// <summary>Переключатель настроек: дорожка 40 на 22 с кружком 16.</summary>
         public const string SettingsToggle = "SettingsToggle";
 
+        /// <summary>Пилюля видимости колонки: та же дорожка без подписи.</summary>
+        public const string ColumnVisibilitySwitch = "ColumnVisibilitySwitch";
+
         /// <summary>Полоса горизонтальных вкладок раздела: равная ширина, общая линия снизу.</summary>
         public const string SettingsSubTabControl = "SettingsSubTabControl";
 

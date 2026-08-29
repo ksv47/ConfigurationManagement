@@ -684,4 +684,39 @@
             <Setter Property="Opacity" Value="0.5"/>
         </Style>
     </ControlTheme>
+    <!-- ===================== Пилюля видимости колонки =====================
+         Стиль ColumnVisibilitySwitch (SettingsWindow.xaml:31): та же дорожка,
+         что у переключателя настроек, но без подписи слева. -->
+    <ControlTheme x:Key="ColumnVisibilitySwitch" TargetType="ToggleButton">
+        <Setter Property="Width" Value="40"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ToggleButton">
+                <Border Name="PART_Track"
+                        CornerRadius="11"
+                        Background="{DynamicResource SettingsToggleTrackBrush}">
+                    <Ellipse Name="PART_Thumb"
+                             Width="16" Height="16"
+                             Fill="White"
+                             HorizontalAlignment="Left"
+                             VerticalAlignment="Center"
+                             Margin="3,0,0,0"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:checked /template/ Border#PART_Track">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Ellipse#PART_Thumb">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="Margin" Value="0,0,3,0"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+    </ControlTheme>
 </ResourceDictionary>
