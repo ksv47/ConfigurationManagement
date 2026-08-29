@@ -328,7 +328,7 @@ namespace Configuration_Management
             // Иконка — зелёный гидролокатор (сонар), как экран на подводных лодках.
             var checkAvailBtn = new PanelButton(
                 "",
-                "ItemHoverColorBrush",
+                "ItemHoverBrush",
                 "SecondaryButtonPressedBrush",
                 "")
             {
@@ -612,7 +612,7 @@ namespace Configuration_Management
             // кнопки: в тёмной теме та светлая, и значок на ней пропадал.
             var button = new PanelButton(
                 "",
-                "ItemHoverColorBrush",
+                "ItemHoverBrush",
                 "SecondaryButtonPressedBrush",
                 "",
                 new CornerRadius(8))
@@ -1806,7 +1806,7 @@ namespace Configuration_Management
             // ContentPresenter через :pointerover, и локальный прозрачный Background
             // этот фон не перебивает. Подсветка наведения оставалась висеть, когда
             // строка пересобиралась под курсором, и фон то появлялся, то пропадал.
-            var button = new PanelButton("", "ItemHoverColorBrush", "SecondaryButtonPressedBrush", "",
+            var button = new PanelButton("", "ItemHoverBrush", "SecondaryButtonPressedBrush", "",
                 new CornerRadius(UiMetrics.RadiusSm))
             {
                 Content = glyph,
@@ -2725,7 +2725,7 @@ namespace Configuration_Management
             // залит только первичный запуск, а кремовым остаётся штатный стартер.
             var main = primary
                 ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", mainCorner)
-                : new PanelButton("", "ItemHoverColorBrush",
+                : new PanelButton("", "ItemHoverBrush",
                     "SecondaryButtonPressedBrush", "BorderColorBrush", mainCorner);
 
             // У вторичной кнопки подпись и значок берут основной цвет текста,
@@ -2767,7 +2767,7 @@ namespace Configuration_Management
             var arrow = primary
                 ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", arrowCorner)
                 // Стрелка вторичной кнопки прозрачная, как и её основная часть.
-                : new PanelButton("", "ItemHoverColorBrush",
+                : new PanelButton("", "ItemHoverBrush",
                     "SecondaryButtonPressedBrush", "BorderColorBrush", arrowCorner);
             arrow.Width = UiMetrics.Scaled(28);
             arrow.MinHeight = main.MinHeight;
