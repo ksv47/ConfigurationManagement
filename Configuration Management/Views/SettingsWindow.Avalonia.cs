@@ -1604,7 +1604,9 @@ namespace Configuration_Management
             var hotkeysTitle = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 0, 0, 2)
+                // Нижний отступ строки заголовка из разметки
+                // (SettingsWindow.xaml:945).
+                Margin = new Thickness(0, 0, 0, 4)
             };
             hotkeysTitle.Children.Add(new TextBlock
             {
@@ -1673,9 +1675,20 @@ namespace Configuration_Management
             };
             favoritesList.ItemTemplate = new FuncDataTemplate<FavoriteSlotItem>((item, _) =>
             {
-                var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-                var badge = new TextBlock { FontWeight = FontWeight.Bold, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
-                badge.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(nameof(FavoriteSlotItem.Caption)));
+                // Номер слота стоит в карточке цветом избранного, со скруглением 4
+                // и отступом 6 на 2, а до имени 10 (SettingsWindow.xaml:1050).
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 2) };
+                var badgeText = new TextBlock { FontWeight = FontWeight.Bold, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+                badgeText.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(nameof(FavoriteSlotItem.Caption)));
+                var badge = new Border
+                {
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 2),
+                    Margin = new Thickness(0, 0, 10, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Child = badgeText
+                };
+                ThemeBrushes.Bind(badge, Border.BackgroundProperty, "FavoriteBrush");
                 row.Children.Add(badge);
                 var name = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
                 name.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(nameof(FavoriteSlotItem.Name)));
@@ -1691,7 +1704,12 @@ namespace Configuration_Management
                 Margin = new Thickness(8, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Top
             };
-            var slotUp = new Button { Content = "\u2191" };
+            var slotUp = new Button
+            {
+                Content = IconHelper.MakeIcon("IconArrowUp", 18),
+                Padding = new Thickness(10, 6)
+            };
+            slotUp.Styled(ControlThemes.SecondaryButton);
             ToolTip.SetTip(slotUp, LocalizationManager.T("Settings.Hotkeys.MoveUpTooltip"));
             slotUp.Click += (_, _) =>
             {
@@ -1702,7 +1720,12 @@ namespace Configuration_Management
                 RenumberSlots();
                 favoritesList.SelectedIndex = idx - 1;
             };
-            var slotDown = new Button { Content = "\u2193" };
+            var slotDown = new Button
+            {
+                Content = IconHelper.MakeIcon("IconArrowDown", 18),
+                Padding = new Thickness(10, 6)
+            };
+            slotDown.Styled(ControlThemes.SecondaryButton);
             ToolTip.SetTip(slotDown, LocalizationManager.T("Settings.Hotkeys.MoveDownTooltip"));
             slotDown.Click += (_, _) =>
             {
@@ -1720,7 +1743,14 @@ namespace Configuration_Management
             hotkeys.Children.Add(favoritesGrid);
 
             var tabHotkeys = MainTab("IconKeyboardOutline", "Settings.TabHotkeys",
-                new ScrollViewer { Content = hotkeys, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+                new ScrollViewer
+                {
+                    Content = hotkeys,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    // Отступы прокрутки из разметки (SettingsWindow.xaml:943).
+                    Margin = new Thickness(4, 12, 4, 0),
+                    Padding = new Thickness(0, 0, 4, 0)
+                });
 
             // ===== О программе =====
             var about = BuildAboutTab();
