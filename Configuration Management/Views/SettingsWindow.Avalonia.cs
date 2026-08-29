@@ -117,9 +117,10 @@ namespace Configuration_Management
             tabs.Styled(ControlThemes.SettingsTabControl);
 
             // ===== Настройки =====
-            // Расстояния как в разметке (SettingsWindow.xaml:1107): между
-            // переключателями 6, перед компактным режимом 12.
-            var settings = new StackPanel { Spacing = 6 };
+            // Общего зазора у панели нет: в Avalonia он складывается с полями
+            // соседей, а поля взяты из разметки поштучно (SettingsWindow.xaml:1106
+            // и далее), поэтому иначе каждый промежуток вырос бы на 6.
+            var settings = new StackPanel();
 
             // Тема оформления. Редактируемая схема и колбэк обновления редактора объявляются
             // здесь, чтобы радиокнопки «Светлая/Тёмная» переключали базовую тему именно той
@@ -196,36 +197,29 @@ namespace Configuration_Management
             {
                 Text = LocalizationManager.T("Settings.General.Behavior"),
                 FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 8, 0, 0)
+                Margin = new Thickness(0, 0, 0, 8)
             });
 
             // Несколько экземпляров: настройка лежит в общем с версией для
             // Windows файле и уже учитывается при запуске (App.axaml.cs),
             // но в Linux-сборке её нечем было изменить.
-            var multipleInstancesCheck = SettingsSwitch("Settings.General.AllowMultipleInstances", _viewModel.AllowMultipleInstances, "IconApplication", "#3B82F6");
+            var multipleInstancesCheck = SettingsSwitch("Settings.General.AllowMultipleInstances", _viewModel.AllowMultipleInstances, "IconApplicationOutline", "#3B82F6");
+            multipleInstancesCheck.Margin = new Thickness(0, 0, 0, 6);
             settings.Children.Add(multipleInstancesCheck);
 
             // Поведение значка в области уведомлений. До этого три настройки
             // жили только в файле и в версии для Windows: в Linux-сборке ни
             // флажков, ни учёта не было.
-            var trayIconCheck = SettingsSwitch("Settings.General.ShowTrayIcon", _viewModel.ShowTrayIcon, "IconDockBottom", "#14B8A6");
-            var closeToTrayCheck = SettingsSwitch("Settings.General.CloseToTray", _viewModel.CloseToTray, "IconMinus", "#F59E0B");
+            var trayIconCheck = SettingsSwitch("Settings.General.ShowTrayIcon", _viewModel.ShowTrayIcon, "IconTrayFull", "#14B8A6");
+            var closeToTrayCheck = SettingsSwitch("Settings.General.CloseToTray", _viewModel.CloseToTray, "IconWindowMinimize", "#F59E0B");
             var escapeToTrayCheck = SettingsSwitch("Settings.General.EscapeToTray", _viewModel.EscapeToTray, "IconKeyboard", "#8B5CF6");
+            trayIconCheck.Margin = new Thickness(0, 0, 0, 6);
+            closeToTrayCheck.Margin = new Thickness(0, 0, 0, 6);
+            escapeToTrayCheck.Margin = new Thickness(0, 0, 0, 6);
             settings.Children.Add(trayIconCheck);
             settings.Children.Add(closeToTrayCheck);
             settings.Children.Add(escapeToTrayCheck);
 
-            // Компактный режим интерфейса.
-            var compactToggle = SettingsSwitch("Settings.CompactMode", _viewModel.CompactMode, "IconCompress", "#22C55E");
-            // Отступ сверху из разметки (SettingsWindow.xaml:1144).
-            compactToggle.Margin = new Thickness(0, 12, 0, 0);
-            compactToggle.IsCheckedChanged += (_, _) =>
-            {
-                var value = compactToggle.IsChecked == true;
-                _viewModel.CompactMode = value;
-                _viewModel.ApplyCompactMode(value);
-            };
-            settings.Children.Add(compactToggle);
 
             // Параметры текущей сессии
             settings.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.DefaultClientLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
@@ -276,19 +270,51 @@ namespace Configuration_Management
             // Запоминание геометрии окна. Значения лежали в общем файле настроек,
             // но Linux-сборка их не читала и не писала вовсе.
             var rememberLayoutCheck = SettingsSwitch("Settings.General.RememberWindowLayout", _viewModel.RememberWindowLayout, "IconMonitor", "#EC4899");
-            rememberLayoutCheck.Margin = new Thickness(0, 6, 0, 0);
+            // У автора у этой строки своего отступа нет (SettingsWindow.xaml:1139).
+            rememberLayoutCheck.Margin = new Thickness(0);
             settings.Children.Add(rememberLayoutCheck);
 
+            // Компактный режим интерфейса.
+            var compactToggle = SettingsSwitch("Settings.CompactMode", _viewModel.CompactMode, "IconCompress", "#22C55E");
+            // Отступ сверху из разметки (SettingsWindow.xaml:1144).
+            compactToggle.Margin = new Thickness(0, 12, 0, 0);
+            compactToggle.IsCheckedChanged += (_, _) =>
+            {
+                var value = compactToggle.IsChecked == true;
+                _viewModel.CompactMode = value;
+                _viewModel.ApplyCompactMode(value);
+            };
+            settings.Children.Add(compactToggle);
+
             // Управление учётными записями (профилями).
+            // Кнопка учётных записей: значок и тема из разметки
+            // (SettingsWindow.xaml:1151-1157).
+            var profilesIcon = IconHelper.MakeIcon("IconAccountMultiple", 16, new SolidColorBrush(Color.Parse("#3B82F6")));
+            profilesIcon.Margin = new Thickness(0, 0, 8, 0);
+            profilesIcon.VerticalAlignment = VerticalAlignment.Center;
             var manageProfilesButton = new Button
             {
-                Content = LocalizationManager.T("Settings.General.ManageProfiles"),
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Children =
+                    {
+                        profilesIcon,
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T("Settings.General.ManageProfiles"),
+                            VerticalAlignment = VerticalAlignment.Center
+                        }
+                    }
+                },
                 HorizontalAlignment = HorizontalAlignment.Left,
                 // Числа из разметки (SettingsWindow.xaml:1151).
                 Width = 250,
                 Height = 36,
                 Margin = new Thickness(0, 18, 0, 0)
             };
+            manageProfilesButton.Styled(ControlThemes.ModernButton);
             manageProfilesButton.Click += (_, _) =>
             {
                 var profiles = AppServices.GetRequiredService<IProfileService>();
@@ -1569,6 +1595,7 @@ namespace Configuration_Management
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 8)
             };
+            ThemeBrushes.Bind(profileDescription, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             profile.Children.Add(profileDescription);
             var profileIncludes = new TextBlock
             {
@@ -1746,14 +1773,26 @@ namespace Configuration_Management
                 ItemsSource = favoriteSlots,
                 SelectionMode = SelectionMode.Single,
                 MinHeight = 140,
-                MaxHeight = 220
+                MaxHeight = 220,
+                BorderThickness = new Thickness(1)
             };
+            // Фон и рамка карточки, как в разметке (SettingsWindow.xaml:1052).
+            ThemeBrushes.Bind(favoritesList, ListBox.BackgroundProperty, "CardBackgroundColorBrush");
+            ThemeBrushes.Bind(favoritesList, ListBox.BorderBrushProperty, "BorderColorBrush");
             favoritesList.ItemTemplate = new FuncDataTemplate<FavoriteSlotItem>((item, _) =>
             {
                 // Номер слота стоит в карточке цветом избранного, со скруглением 4
                 // и отступом 6 на 2, а до имени 10 (SettingsWindow.xaml:1050).
                 var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 2) };
-                var badgeText = new TextBlock { FontWeight = FontWeight.Bold, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+                var badgeText = new TextBlock
+                {
+                    FontWeight = FontWeight.Bold,
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    // Цвет из разметки: на жёлтой плашке текст всегда тёмный,
+                    // иначе в тёмной теме он сливается (SettingsWindow.xaml:1061).
+                    Foreground = new SolidColorBrush(Color.Parse("#1C1917"))
+                };
                 badgeText.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(nameof(FavoriteSlotItem.Caption)));
                 var badge = new Border
                 {
