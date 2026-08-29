@@ -320,9 +320,13 @@ namespace Configuration_Management
 
             var dock = new DockPanel { LastChildFill = true };
 
-            // Вид поля берётся из стиля Material Design, которого в разметке нет
-            // явно; до ответа Windows-стороны оставлено штатное поле с числами
-            // из разметки (CacheCleanWindow.xaml:141-145).
+            // Вид поля Windows-сторона сняла с живого окна (задание 15): своего
+            // стиля в разметке нет, применяется неявный MaterialDesignTextBox,
+            // а он даёт прозрачную подложку и одну черту снизу цветом #7F000000.
+            // Фон под полем это фон самой карточки списка, отдельной заливки нет.
+            _searchBox.Background = Brushes.Transparent;
+            _searchBox.BorderThickness = new Thickness(0, 0, 0, 1);
+            _searchBox.BorderBrush = new SolidColorBrush(Color.Parse("#7F000000"));
             _searchBox.FontSize = 13;
             _searchBox.VerticalContentAlignment = VerticalAlignment.Center;
             _searchBox.Margin = new Thickness(8, 8, 8, 2);
