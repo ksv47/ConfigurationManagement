@@ -28,7 +28,7 @@
                    Margin="0,0,0,8"
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
 
-        <TextBox Grid.Row="2" x:Name="LinkBox" Padding="8,6"/>
+        <TextBox Grid.Row="2" x:Name="LinkBox" Theme="{DynamicResource ModernTextBox}"/>
 
         <!-- Порядок, размеры и цвета по разметке WPF (LinkInputWindow.xaml:50):
              зелёный переход слева, красная отмена справа, зазор 10. -->

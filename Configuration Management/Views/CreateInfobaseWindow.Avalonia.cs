@@ -35,21 +35,21 @@ namespace Configuration_Management
             AppServices.GetRequiredService<IInfobaseRepository>();
 
         private readonly ComboBox _typeBox = new() { Padding = new Thickness(8, 5) };
-        private readonly TextBox _nameBox = new() { Padding = new Thickness(8, 5) };
+        private readonly TextBox _nameBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly TextBlock _groupPathBox = new() { VerticalAlignment = VerticalAlignment.Center };
-        private readonly TextBox _platformBox = new() { Padding = new Thickness(8, 5), IsReadOnly = true };
-        private readonly TextBox _filePathBox = new() { Padding = new Thickness(8, 5) };
-        private readonly TextBox _templateBox = new() { Padding = new Thickness(8, 5) };
+        private readonly TextBox _platformBox = new TextBox { Padding = new Thickness(6, 4), IsReadOnly = true }.Styled(ControlThemes.ModernTextBox);
+        private readonly TextBox _filePathBox = new TextBox { Padding = new Thickness(6, 4) }.Styled(ControlThemes.ModernTextBox);
+        private readonly TextBox _templateBox = new TextBox { Padding = new Thickness(6, 4) }.Styled(ControlThemes.ModernTextBox);
         private readonly StackPanel _filePanel = new() { Spacing = 8 };
 
         // Поля клиент-серверного варианта.
         private readonly StackPanel _serverPanel = new() { Spacing = 8 };
-        private readonly TextBox _serverBox = new() { Padding = new Thickness(8, 5) };
-        private readonly TextBox _refBox = new() { Padding = new Thickness(8, 5) };
+        private readonly TextBox _serverBox = new TextBox().Styled(ControlThemes.ModernTextBox);
+        private readonly TextBox _refBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly ComboBox _dbmsBox = new() { Padding = new Thickness(8, 5), IsEditable = true };
-        private readonly TextBox _dbServerBox = new() { Padding = new Thickness(8, 5) };
-        private readonly TextBox _dbNameBox = new() { Padding = new Thickness(8, 5) };
-        private readonly TextBox _dbUserBox = new() { Padding = new Thickness(8, 5) };
+        private readonly TextBox _dbServerBox = new TextBox().Styled(ControlThemes.ModernTextBox);
+        private readonly TextBox _dbNameBox = new TextBox().Styled(ControlThemes.ModernTextBox);
+        private readonly TextBox _dbUserBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly PasswordBox _dbPwdBox = new() { Padding = new Thickness(8, 5) };
         private readonly CheckBox _createDbCheck = new();
         private readonly CheckBox _blockJobsCheck = new();

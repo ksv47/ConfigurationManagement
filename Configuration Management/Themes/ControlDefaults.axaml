@@ -1,0 +1,29 @@
+<!-- Умолчания оформления контролов (Linux). В разметке WPF словари тем
+     объявляют неявные стили ComboBox и CheckBox (LightTheme.xaml:413 и :477),
+     то есть эти два контрола выглядят одинаково во всём приложении без явного
+     указания стиля. Здесь это те же две строки: тема ставится селектором по типу.
+     Поле ввода в неявный стиль не входит: у автора оно объявляется отдельно
+     в каждом окне, и в главном окне у поиска своё оформление. -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Style Selector="ComboBox">
+        <Setter Property="Theme" Value="{DynamicResource ModernComboBox}"/>
+    </Style>
+    <!-- Рамка выпадающего списка живёт в отдельном окне (PopupRoot), и селектор
+         части шаблона из темы ComboBox до неё не достаёт: проверено прогоном,
+         тема применялась, а рамка оставалась штатной. Поэтому она задаётся
+         отдельным стилем по имени части Fluent. -->
+    <Style Selector="Border#PopupBorder">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="4"/>
+    </Style>
+    <Style Selector="ComboBoxItem">
+        <Setter Property="Theme" Value="{DynamicResource ModernComboBoxItem}"/>
+    </Style>
+    <Style Selector="CheckBox">
+        <Setter Property="Theme" Value="{DynamicResource ModernMaterialCheckBox}"/>
+    </Style>
+</Styles>

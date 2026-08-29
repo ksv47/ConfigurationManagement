@@ -1418,7 +1418,7 @@ namespace Configuration_Management
             var fileGrid = new Grid();
             fileGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             fileGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var fileBox = new TextBox { Text = _viewModel.IbasesSyncFilePath, HorizontalAlignment = HorizontalAlignment.Stretch };
+            var fileBox = new TextBox { Text = _viewModel.IbasesSyncFilePath, HorizontalAlignment = HorizontalAlignment.Stretch }.Styled(ControlThemes.ModernTextBox);
             var browse = new Button { Content = "...", Margin = new Thickness(8, 0, 0, 0) };
             ToolTip.SetTip(browse, LocalizationManager.T("Settings.Ibases.BrowseTooltip"));
             browse.Click += (_, _) =>
@@ -1453,11 +1453,11 @@ namespace Configuration_Management
             // иначе рядом с погашенным полем стоит подпись в полную яркость.
             var intervalLabel = new TextBlock { Text = LocalizationManager.T("Settings.Ibases.Interval"), VerticalAlignment = VerticalAlignment.Center };
             intervalRow.Children.Add(intervalLabel);
-            var intervalBox = new TextBox { Text = _viewModel.IbasesSyncIntervalMinutes.ToString(), Width = 80 };
+            var intervalBox = new TextBox { Text = _viewModel.IbasesSyncIntervalMinutes.ToString(), Width = 80 }.Styled(ControlThemes.ModernTextBox);
             intervalRow.Children.Add(intervalBox);
             var scheduleLabel = new TextBlock { Text = LocalizationManager.T("Settings.Ibases.ScheduleTime"), VerticalAlignment = VerticalAlignment.Center };
             intervalRow.Children.Add(scheduleLabel);
-            var scheduleBox = new TextBox { Text = _viewModel.IbasesSyncScheduleTime, Width = 80 };
+            var scheduleBox = new TextBox { Text = _viewModel.IbasesSyncScheduleTime, Width = 80 }.Styled(ControlThemes.ModernTextBox);
             intervalRow.Children.Add(scheduleBox);
             bases.Children.Add(intervalRow);
 
@@ -1523,7 +1523,7 @@ namespace Configuration_Management
             bases.Children.Add(backupCheck);
             var keepRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             keepRow.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.Ibases.BackupKeepCount"), VerticalAlignment = VerticalAlignment.Center });
-            var keepBox = new TextBox { Text = _viewModel.IbasesBackupKeepCount.ToString(), Width = 80 };
+            var keepBox = new TextBox { Text = _viewModel.IbasesBackupKeepCount.ToString(), Width = 80 }.Styled(ControlThemes.ModernTextBox);
             keepRow.Children.Add(keepBox);
             bases.Children.Add(keepRow);
             bases.Children.Add(Hint(LocalizationManager.T("Settings.Ibases.BackupNote")));
@@ -1567,6 +1567,7 @@ namespace Configuration_Management
                 Text = _viewModel.ProfileBackupDirectory,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
+            profileDirBox.Styled(ControlThemes.ModernTextBox);
             var profileBrowse = new Button { Content = LocalizationManager.T("Settings.Profile.Browse"), Margin = new Thickness(8, 0, 0, 0) };
             ToolTip.SetTip(profileBrowse, LocalizationManager.T("Settings.Profile.BrowseTooltip"));
             profileBrowse.Click += (_, _) =>
