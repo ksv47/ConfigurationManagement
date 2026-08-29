@@ -140,21 +140,22 @@ namespace Configuration_Management
             themePanel.Children.Add(darkTheme);
             settings.Children.Add(themePanel);
 
-            // Язык интерфейса. Как в разметке WPF (SettingsWindow.xaml:1088):
-            // заголовок раздела и подпись самой строки это разные ключи.
-            settings.Children.Add(new TextBlock
-            {
-                Text = LocalizationManager.T("Settings.Language"),
-                FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 8, 0, 4)
-            });
-            var langRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+            // Язык интерфейса лежит в рамке с заголовком, отступом 8 и полем
+            // снизу 12 (SettingsWindow.xaml:1088). Список 280 на 34, подпись
+            // с полем 10 до него, пояснение с верхним отступом 8.
+            var langRow = new StackPanel { Orientation = Orientation.Horizontal };
             langRow.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("Settings.LanguageLabel"),
                 VerticalAlignment = VerticalAlignment.Center
             });
-            var langBox = new ComboBox { MinWidth = 220, HorizontalAlignment = HorizontalAlignment.Left };
+            var langBox = new ComboBox
+            {
+                Width = 280,
+                Height = 34,
+                Margin = new Thickness(10, 0, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
             langBox.ItemsSource = LocalizationManager.Instance.AvailableLanguages;
             langBox.DisplayMemberBinding = new Avalonia.Data.Binding("Name");
             langBox.SelectedItem = LocalizationManager.Instance.AvailableLanguages
@@ -170,14 +171,23 @@ namespace Configuration_Management
                 }
             };
             langRow.Children.Add(langBox);
-            settings.Children.Add(langRow);
-            settings.Children.Add(new TextBlock
+
+            var langContent = new StackPanel();
+            langContent.Children.Add(langRow);
+            var langHint = new TextBlock
             {
                 Text = LocalizationManager.T("Settings.Language.AppliedHint"),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
-                Opacity = 0.7
-            });
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            ThemeBrushes.Bind(langHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            langContent.Children.Add(langHint);
+
+            settings.Children.Add(Controls.GroupBoxPanel.Build(
+                "Settings.Language", langContent,
+                margin: new Thickness(0, 0, 0, 12),
+                padding: new Thickness(8)));
 
             // Раздел поведения приложения: в разметке WPF (SettingsWindow.xaml:1104)
             // он начинается своим заголовком, а первым в нём идёт разрешение
@@ -207,7 +217,8 @@ namespace Configuration_Management
 
             // Компактный режим интерфейса.
             var compactToggle = SettingsSwitch("Settings.CompactMode", _viewModel.CompactMode, "IconCompress", "#22C55E");
-            compactToggle.Margin = new Thickness(0, 6, 0, 0);
+            // Отступ сверху из разметки (SettingsWindow.xaml:1144).
+            compactToggle.Margin = new Thickness(0, 12, 0, 0);
             compactToggle.IsCheckedChanged += (_, _) =>
             {
                 var value = compactToggle.IsChecked == true;
@@ -234,14 +245,24 @@ namespace Configuration_Management
             archPanel.Children.Add(Radio("SessionArch", "IsSessionArch64", "64"));
             settings.Children.Add(archPanel);
 
-            // Действие после запуска базы или конфигуратора.
-            settings.Children.Add(new TextBlock
+            // Действие после запуска идёт одной строкой: значок, подпись
+            // с полем 10 и список 230 на 30 (SettingsWindow.xaml:1131-1136).
+            var afterLaunchRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 6, 0, 6)
+            };
+            var afterLaunchIcon = IconHelper.MakeIcon("IconRocketLaunch", 16, new SolidColorBrush(Color.Parse("#22C55E")));
+            afterLaunchIcon.Margin = new Thickness(0, 0, 8, 0);
+            afterLaunchIcon.VerticalAlignment = VerticalAlignment.Center;
+            afterLaunchRow.Children.Add(afterLaunchIcon);
+            afterLaunchRow.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("Settings.General.AfterLaunchAction"),
-                FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 8, 0, 0)
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0)
             });
-            var afterLaunchBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            var afterLaunchBox = new ComboBox { Width = 230, Height = 30 };
             afterLaunchBox.ItemsSource = new[]
             {
                 LocalizationManager.T("Settings.General.AfterLaunchAction.None"),
@@ -249,7 +270,8 @@ namespace Configuration_Management
                 LocalizationManager.T("Settings.General.AfterLaunchAction.Close")
             };
             afterLaunchBox.SelectedIndex = (int)Models.AfterLaunchActionHelper.Parse(_viewModel.AfterLaunchAction);
-            settings.Children.Add(afterLaunchBox);
+            afterLaunchRow.Children.Add(afterLaunchBox);
+            settings.Children.Add(afterLaunchRow);
 
             // Запоминание геометрии окна. Значения лежали в общем файле настроек,
             // но Linux-сборка их не читала и не писала вовсе.
@@ -262,7 +284,10 @@ namespace Configuration_Management
             {
                 Content = LocalizationManager.T("Settings.General.ManageProfiles"),
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 12, 0, 0)
+                // Числа из разметки (SettingsWindow.xaml:1151).
+                Width = 250,
+                Height = 36,
+                Margin = new Thickness(0, 18, 0, 0)
             };
             manageProfilesButton.Click += (_, _) =>
             {
@@ -272,7 +297,14 @@ namespace Configuration_Management
             settings.Children.Add(manageProfilesButton);
 
             var tabGeneral = MainTab("IconApplicationCog", "Settings.TabGeneral",
-                new ScrollViewer { Content = settings, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+                new ScrollViewer
+                {
+                    Content = settings,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    // Отступы прокрутки из разметки (SettingsWindow.xaml:1085).
+                    Margin = new Thickness(4, 12, 4, 0),
+                    Padding = new Thickness(0, 0, 4, 0)
+                });
 
             // ===== Платформы =====
             var platforms = new StackPanel { Spacing = 6 };
