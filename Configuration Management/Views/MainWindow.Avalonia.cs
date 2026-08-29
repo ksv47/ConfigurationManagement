@@ -1186,30 +1186,35 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Колонки строки списка: звезда, булавка, значок подключения, имя, затем
-        /// колонки значений с «Действиями» на своём месте. Тот же набор нужен
-        /// заголовку группы, чтобы её команды встали под кнопками строк базы,
-        /// как в разметке (MainWindow.xaml:921 и 1015).
+        /// Колонки строки списка. Ведущих ровно пять и они одинаковы у заголовка,
+        /// строки группы и строки базы: место под кнопки групп, компенсатор отступа
+        /// дерева, звезда, булавка, название (MainWindow.xaml:495-512, 893-905
+        /// и 1077-1088). Одинаковый набор ведущих колонок и есть причина, по которой
+        /// значения строк стоят ровно под своими заголовками: дальше идут колонки
+        /// значений с «Действиями» на своём месте.
         /// </summary>
+        /// <param name="compensator">
+        /// Колонка-компенсатор заголовка: её ширину подбирает <see cref="AlignHeaderToRows"/>.
+        /// У строк компенсатор всегда нулевой, поэтому там передаётся null.
+        /// </param>
         /// <returns>Индекс колонки «Действия».</returns>
-        private int AddListColumns(Grid grid, bool showFavorite, bool showPin)
+        private int AddListColumns(Grid grid, bool showFavorite, bool showPin,
+            ColumnDefinition? compensator = null)
         {
-            // Колонки звезды и булавки по содержимому: в разметке звезда, плашка
-            // номера, булавка, значок и имя лежат в одной горизонтальной панели
-            // и пакуются вплотную (MainWindow.xaml:1152). При жёсткой ширине
-            // у неизбранной базы между звездой и булавкой оставался пустой зазор,
-            // а плашка избранного упиралась в край колонки.
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(GroupButtonsColumnWidth) });
+            grid.ColumnDefinitions.Add(compensator ?? new ColumnDefinition { Width = new GridLength(0) });
+            // Минимум колонки звезды держится всегда: под ним в заголовке стоит
+            // переключатель тегов, и без резерва он срезался бы границей колонки
+            // «Название» (MainWindow.xaml:502, issue 84 апстрима).
             grid.ColumnDefinitions.Add(new ColumnDefinition
             {
-                Width = showFavorite ? GridLength.Auto : new GridLength(0),
-                MinWidth = showFavorite ? UiMetrics.Scaled(16) : 0
+                Width = new GridLength(showFavorite ? FavoriteColumnWidth : 0),
+                MinWidth = TagsToggleReserve
             });
             grid.ColumnDefinitions.Add(new ColumnDefinition
             {
-                Width = showPin ? GridLength.Auto : new GridLength(0),
-                MinWidth = showPin ? UiMetrics.Scaled(16) : 0
+                Width = new GridLength(showPin ? PinColumnWidth : 0)
             });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(IconColumnWidth) });
             grid.ColumnDefinitions.Add(new ColumnDefinition
             {
                 Width = NameColumnLength(),
@@ -1254,6 +1259,19 @@ namespace Configuration_Management
             var columns = ListColumns();
             var actionsOffset = ActionsOffsetInColumns(columns);
 
+            // Звезда, булавка, значок подключения и имя лежат в одной горизонтальной
+            // панели, которая занимает все пять ведущих колонок (MainWindow.xaml:1152).
+            // Так их собственная ширина не двигает колонки значений: те начинаются
+            // после ведущих и стоят под своими заголовками. Отступ вложенности
+            // ставит контейнер строки, панель его получает от него же.
+            var lead = new StackPanel
+            {
+                Name = LeadBlockName,
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                ClipToBounds = true
+            };
+
             if (showFavorite)
             {
                 // Номер слота Alt+N идёт плашкой сразу за звездой и внутри той же
@@ -1263,8 +1281,7 @@ namespace Configuration_Management
                     nameof(Infobase.IsFavorite), () => ib.IsFavorite,
                     LocalizationManager.T("Main.ToggleFavoriteTooltip"), "ToggleFavoriteForCommand", FavoriteColumnWidth,
                     FavoriteSlotBadge(card, ib));
-                grid.Children.Add(favorite);
-                Grid.SetColumn(favorite, 0);
+                lead.Children.Add(favorite);
             }
 
             if (showPin)
@@ -1272,8 +1289,7 @@ namespace Configuration_Management
                 var pin = RowMarkButton(card, ib, "IconPin", "AccentBrush",
                     nameof(Infobase.IsPinned), () => ib.IsPinned,
                     LocalizationManager.T("Main.TogglePinTooltip"), "TogglePinForCommand", PinColumnWidth);
-                grid.Children.Add(pin);
-                Grid.SetColumn(pin, 1);
+                lead.Children.Add(pin);
             }
 
             // Иконка статуса базы слева: тип подключения (папка / глобус / сеть)
@@ -1291,8 +1307,7 @@ namespace Configuration_Management
             iconBox.Margin = new Thickness(0, 0, 6, 0);
             ToolTip.SetTip(iconBox, ib.StatusDisplay);
 
-            grid.Children.Add(iconBox);
-            Grid.SetColumn(iconBox, 2);
+            lead.Children.Add(iconBox);
 
             // Правая колонка: имя (крупно) + строки вторичной информации.
             // В компактном режиме уменьшаем и межстрочный промежуток, чтобы строки с
@@ -1316,8 +1331,10 @@ namespace Configuration_Management
             // Второй подписи под именем в разметке нет: первая строка это значок
             // статуса и имя, а вторая отдана тегам (MainWindow.xaml:1230-1247).
             // Расположение живёт в своей колонке и в сведениях правой панели.
-            grid.Children.Add(content);
-            Grid.SetColumn(content, 3);
+            lead.Children.Add(content);
+            grid.Children.Add(lead);
+            Grid.SetColumn(lead, 0);
+            Grid.SetColumnSpan(lead, NameRowColumn + 1);
 
             var dataColumn = NameRowColumn + 1;
             for (var i = 0; i < columns.Count; i++)
@@ -3118,14 +3135,33 @@ namespace Configuration_Management
         private static double EmptyGroupOffset => UiMetrics.Scaled(26);
 
         /// <summary>Ширина колонки звезды «избранное» в заголовке и в строке базы.</summary>
-        private static double FavoriteColumnWidth => UiMetrics.Scaled(30);
+        private static double FavoriteColumnWidth => UiMetrics.Scaled(28);
+
+        /// <summary>
+        /// Резерв под переключатель тегов: минимум колонки звезды, который держится
+        /// и при скрытой звезде (MainWindow.xaml:502).
+        /// </summary>
+        private static double TagsToggleReserve => UiMetrics.Scaled(30);
+
+        /// <summary>
+        /// Место под кнопки групп в ведущих колонках всех трёх сеток списка.
+        /// Ширина фиксированная, как в разметке, и обнуляется вместе с кнопками
+        /// (MainWindow.xaml:495).
+        /// </summary>
+        private double GroupButtonsColumnWidth
+            => (_vm?.ShowExpandCollapseButtons ?? true) ? UiMetrics.Scaled(144) : 0;
 
         /// <summary>Ширина колонки булавки «закреплено» в заголовке и в строке базы.</summary>
         private static double PinColumnWidth => UiMetrics.Scaled(26);
 
-        /// <summary>Ширина фиксированной колонки «Действия» в заголовке и в строке базы.</summary>
+        /// <summary>
+        /// Ширина фиксированной колонки «Действия» в заголовке и в строке базы.
+        /// Компактным режимом не сжимается: остальные колонки списка тоже берут
+        /// ширину из настроек как есть (MainWindow.xaml:529), а кнопки действий
+        /// в сжатой колонке налезали на «Сервер/База».
+        /// </summary>
         private double ActionsColumnWidth
-            => UiMetrics.Scaled(_vm is { ActionsColumnWidth: > 0 } vm ? vm.ActionsColumnWidth : 170);
+            => _vm is { ActionsColumnWidth: > 0 } vm ? vm.ActionsColumnWidth : 170;
 
         /// <summary>
         /// Ширина колонки иконки базы: сама иконка и её правый отступ. В заголовке
@@ -3155,16 +3191,23 @@ namespace Configuration_Management
         private const double HeaderToolbarGap = 2;
 
         /// <summary>
-        /// Номер колонки заголовка с именем базы: компенсатор отступа дерева,
-        /// звезда, булавка, иконка.
+        /// Номер колонки с именем: место кнопок групп, компенсатор, звезда, булавка.
+        /// Одинаков у заголовка и у строк, потому что набор ведущих колонок общий.
         /// </summary>
         private const int NameHeaderColumn = 4;
 
         /// <summary>Номер колонки заголовка с пометкой закрепления.</summary>
-        private const int PinHeaderColumn = NameHeaderColumn - 2;
+        private const int PinHeaderColumn = NameHeaderColumn - 1;
 
-        /// <summary>Номер колонки строки с именем базы: звезда, булавка, иконка.</summary>
-        private const int NameRowColumn = 3;
+        /// <summary>Номер колонки строки с именем базы, он же номер колонки заголовка.</summary>
+        private const int NameRowColumn = NameHeaderColumn;
+
+        /// <summary>
+        /// Имя ведущего блока строки базы: по нему контейнер дерева находит панель,
+        /// чтобы поставить ей отступ вложенности. Сдвигается только она, а сама
+        /// строка стоит от левого края, иначе значения уехали бы от заголовков.
+        /// </summary>
+        internal const string LeadBlockName = "ВедущийБлокСтроки";
 
         /// <summary>Минимальная ширина колонки при перетаскивании разделителя.</summary>
         private const double MinColumnWidth = 40;
@@ -3363,29 +3406,13 @@ namespace Configuration_Management
             // ширину подставляет AlignHeaderToRows, когда панель разложена.
             _headerToolbarWidth = (_vm.ShowExpandCollapseButtons ? GroupToolbarWidth : 0)
                 + TagsToggleWidth + HeaderToolbarGap;
-            var favoriteWidth = _vm.ShowFavoritesButton ? FavoriteColumnWidth : 0;
-            var pinWidth = _vm.ShowPinnedButton ? PinColumnWidth : 0;
 
+            // Колонки заголовка строятся тем же построителем, что и колонки строк:
+            // набор ведущих колонок обязан совпадать, иначе значения разъезжаются
+            // с заголовками (MainWindow.xaml:1071-1076).
             _headerOffsetColumn = new ColumnDefinition { Width = new GridLength(0) };
-            _columnHeaderRow.ColumnDefinitions.Add(_headerOffsetColumn);
-            _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(favoriteWidth) });
-            _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(pinWidth) });
-            _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(IconColumnWidth) });
-            _columnHeaderRow.ColumnDefinitions.Add(
-                new ColumnDefinition { Width = NameColumnLength(), MinWidth = MinColumnWidth });
-            // Колонка «Действия» встаёт сразу после колонки «Режим запуска», поэтому
-            // её определение встраивается в последовательность, а не добавляется в конец.
             var actionsOffset = ActionsOffsetInColumns(columns);
-            for (var i = 0; i < columns.Count; i++)
-            {
-                if (i == actionsOffset)
-                    _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
-                _columnHeaderRow.ColumnDefinitions.Add(
-                    new ColumnDefinition { Width = new GridLength(columns[i].Width), MinWidth = MinColumnWidth });
-            }
-            // «Режим запуска» скрыт или стоит последним — действия уходят в самый конец.
-            if (actionsOffset >= columns.Count)
-                _columnHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
+            AddListColumns(_columnHeaderRow, _vm.ShowFavoritesButton, _vm.ShowPinnedButton, _headerOffsetColumn);
 
             _headerPinMark = null;
             if (_vm.ShowPinnedButton)
@@ -3975,35 +4002,32 @@ namespace Configuration_Management
         private void AlignHeaderToRows()
         {
             if (_headerOffsetColumn is null || _columnHeaderRow is null || _tree is null
-                || _columnHeaderRow.ColumnDefinitions.Count == 0)
+                || _columnHeaderRow.ColumnDefinitions.Count <= NameHeaderColumn)
                 return;
 
-            // Ориентир — самая левая из видимых строк: узлы разной вложенности
-            // сдвинуты по-разному, и по первой встреченной заголовок уехал бы
-            // вправо от большинства строк.
-            double? left = null;
+            // Арифметика авторская (MainWindow.Columns.cs:265): компенсатор равен
+            // разнице между началом первой колонки значений строки и началом той же
+            // колонки заголовка, посчитанным без самого компенсатора. Ведущие колонки
+            // у обеих сеток одинаковы, поэтому разницу даёт только сдвиг строки
+            // деревом, и после подгонки значения стоят ровно под заголовками.
+            Grid? rowGrid = null;
+            double rowOrigin = 0;
             foreach (var card in _tree.GetVisualDescendants().OfType<InfobaseRowCard>())
             {
-                if (card.Child is not { } content)
+                if (card.Child is not Grid content)
                     continue;
                 var origin = content.TranslatePoint(new Point(0, 0), _columnHeaderRow);
                 if (origin is null)
                     continue;
-                if (left is null || origin.Value.X < left.Value)
-                    left = origin.Value.X;
+                if (rowGrid is null || origin.Value.X < rowOrigin)
+                {
+                    rowGrid = content;
+                    rowOrigin = origin.Value.X;
+                }
             }
-            // Строк может не быть вовсе: список пуст, всё отобрано фильтром
-            // или группы свёрнуты. Выходить нельзя, иначе подпись «Название»
-            // остаётся под блоком кнопок и он её перекрывает.
 
-            // Пустые колонки звезды, булавки и иконки заголовка кнопки перекрывают,
-            // а на подпись «Название» налезать не должны, отсюда нижняя граница.
-            var lead = _columnHeaderRow.ColumnDefinitions[1].ActualWidth
-                + _columnHeaderRow.ColumnDefinitions[2].ActualWidth
-                + _columnHeaderRow.ColumnDefinitions[3].ActualWidth;
-            // Измеренная ширина точнее расчётной, и она же нужна минимуму
-            // области списка: там расчёт по константам оставил бы пустоту
-            // или лишнюю прокрутку.
+            // Измеренная ширина блока кнопок нужна минимуму области списка:
+            // по константам он оставлял бы пустоту или лишнюю прокрутку.
             if (MeasuredToolbarWidth is { } measured)
             {
                 var target = measured + HeaderToolbarGap;
@@ -4014,14 +4038,59 @@ namespace Configuration_Management
                 }
             }
 
-            var offset = Math.Max(Math.Max(0, _headerToolbarWidth - lead), left ?? 0);
+            double offset = 0;
+            if (rowGrid is not null && rowGrid.ColumnDefinitions.Count > NameRowColumn)
+            {
+                double rowLead = 0;
+                for (var i = 0; i <= NameRowColumn; i++)
+                    rowLead += rowGrid.ColumnDefinitions[i].ActualWidth;
+
+                double headerLead = 0;
+                for (var i = 0; i <= NameHeaderColumn; i++)
+                {
+                    if (!ReferenceEquals(_columnHeaderRow.ColumnDefinitions[i], _headerOffsetColumn))
+                        headerLead += _columnHeaderRow.ColumnDefinitions[i].ActualWidth;
+                }
+
+                offset = Math.Max(0, (rowOrigin + rowLead) - headerLead);
+            }
+
             if (Math.Abs(offset - _headerOffsetColumn.Width.Value) > 0.5)
                 _headerOffsetColumn.Width = new GridLength(offset);
 
+            SyncHeaderWidthWithList();
+
+
             // Пометка булавки прячется, когда её место занял блок кнопок.
             if (_headerPinMark is not null)
-                _headerPinMark.IsVisible = offset + _columnHeaderRow.ColumnDefinitions[1].ActualWidth
+                _headerPinMark.IsVisible = _columnHeaderRow.ColumnDefinitions[0].ActualWidth
+                    + offset + _columnHeaderRow.ColumnDefinitions[PinHeaderColumn - 1].ActualWidth
                     >= _headerToolbarWidth;
+        }
+
+        /// <summary>
+        /// Приравнивает ширину сетки заголовка ширине содержимого списка
+        /// (MainWindow.Columns.cs:299). Колонка «Название» звёздная, и лишний
+        /// пиксель общей ширины целиком уходит в неё: если заголовок шире строк
+        /// на полосу прокрутки, все колонки значений строк оказываются левее
+        /// своих заголовков ровно на эту разницу.
+        /// </summary>
+        private void SyncHeaderWidthWithList()
+        {
+            if (_columnHeaderRow is null || _tree is null)
+                return;
+
+            double extent = _tree.Bounds.Width;
+            double viewport = _tree.Bounds.Width;
+            if (TreeScroll is { } scroll)
+            {
+                extent = Math.Max(scroll.Extent.Width, scroll.Viewport.Width);
+                viewport = scroll.Viewport.Width;
+            }
+
+            var target = Math.Max(extent, viewport);
+            if (target > 0 && Math.Abs(_columnHeaderRow.Width - target) > 0.5)
+                _columnHeaderRow.Width = target;
         }
 
         /// <summary>

@@ -11,6 +11,8 @@ using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
+using System.Linq;
+using Avalonia.VisualTree;
 using Configuration_Management.Themes;
 
 namespace Configuration_Management.Controls
@@ -45,6 +47,35 @@ namespace Configuration_Management.Controls
             if (_chevron is ToggleButton chevron)
                 chevron.Theme = ExpanderTheme();
             UpdateChevronTooltip();
+            ApplyLevelIndent();
+        }
+
+        /// <summary>
+        /// Отступ вложенности ставится двум местам, как в разметке WPF
+        /// (MainWindow.xaml:1452 и 1155): кнопке разворота, которая сдвигает
+        /// заголовок группы, и ведущему блоку строки базы. Сама строка от левого
+        /// края не сдвигается, иначе колонки значений уехали бы от заголовков.
+        /// </summary>
+        private void ApplyLevelIndent()
+        {
+            var level = Level;
+            if (_chevron is not null)
+                _chevron.Margin = new Thickness(level * Converters.LevelToThicknessConverter.IndentStep, 0, 0, 0);
+
+            var lead = this.GetVisualDescendants().OfType<StackPanel>()
+                .FirstOrDefault(x => x.Name == MainWindow.LeadBlockName);
+            if (lead is null)
+                return;
+            var parentLevel = level > 0 ? level - 1 : 0;
+            lead.Margin = new Thickness(
+                parentLevel * Converters.LevelToThicknessConverter.IndentStep
+                + Converters.LevelToThicknessConverter.ExpanderWidth, 0, 0, 0);
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            ApplyLevelIndent();
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
