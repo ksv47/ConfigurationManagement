@@ -275,7 +275,6 @@ namespace Configuration_Management
                 margin: new Thickness(0, 0, 0, 12), padding: new Thickness(10));
             tabs.Items.Add(SubTab("IconApplication", "GroupEdit.TabIcon", iconBox));
 
-            tabs.Margin = new Thickness(16, 16, 16, 0);
             Grid.SetRow(tabs, 0);
             grid.Children.Add(tabs);
 
