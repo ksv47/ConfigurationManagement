@@ -325,8 +325,10 @@
         <Style Selector="^:checked /template/ Ellipse#PART_Dot">
             <Setter Property="IsVisible" Value="True"/>
         </Style>
+        <!-- Гашение 0.45, как у недоступных карточек в разметке
+             (ConnectionSettingsWindow.xaml:744 и :862). -->
         <Style Selector="^:disabled /template/ Border#PART_Surface">
-            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="Opacity" Value="0.45"/>
         </Style>
     </ControlTheme>
 </ResourceDictionary>
