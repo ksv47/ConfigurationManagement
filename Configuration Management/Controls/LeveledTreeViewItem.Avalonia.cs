@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Controls.Primitives;
 using Path = Avalonia.Controls.Shapes.Path;
@@ -11,8 +12,6 @@ using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
-using System.Linq;
-using Avalonia.VisualTree;
 using Configuration_Management.Themes;
 
 namespace Configuration_Management.Controls
@@ -36,7 +35,7 @@ namespace Configuration_Management.Controls
         private Control? _chevron;
 
         /// <summary>
-        /// Подсказка стрелки раскрытия. Сама стрелка приходит из шаблона Fluent,
+        /// Подсказка стрелки раскрытия. Кнопка приходит из нашего шаблона,
         /// поэтому ищется по имени части после его применения. В разметке WPF
         /// подсказка тоже своя на каждое состояние (MainWindow.xaml:1436 и 1439).
         /// </summary>
@@ -47,36 +46,100 @@ namespace Configuration_Management.Controls
             if (_chevron is ToggleButton chevron)
                 chevron.Theme = ExpanderTheme();
             UpdateChevronTooltip();
-            ApplyLevelIndent();
         }
 
         /// <summary>
-        /// Отступ вложенности ставится двум местам, как в разметке WPF
-        /// (MainWindow.xaml:1452 и 1155): кнопке разворота, которая сдвигает
-        /// заголовок группы, и ведущему блоку строки базы. Сама строка от левого
-        /// края не сдвигается, иначе колонки значений уехали бы от заголовков.
+        /// Шаблон строки списка по разметке WPF (MainWindow.xaml:1432-1441):
+        /// колонка кнопки разворота по содержимому и колонка заголовка, а список
+        /// вложенных строк без отступа. Штатный шаблон Fluent вместо этого
+        /// сдвигает всю строку на каждый уровень вложенности, и тогда колонки
+        /// значений вложенных строк уезжают от заголовков, как только ширина
+        /// колонки «Название» задана числом.
         /// </summary>
-        private void ApplyLevelIndent()
+        public static ControlTheme RowTheme()
         {
-            var level = Level;
-            if (_chevron is not null)
-                _chevron.Margin = new Thickness(level * Converters.LevelToThicknessConverter.IndentStep, 0, 0, 0);
+            var theme = new ControlTheme(typeof(TreeViewItem))
+            {
+                Setters =
+                {
+                    new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent),
+                    new Setter(TemplatedControl.PaddingProperty, new Thickness(0)),
+                    new Setter(TemplatedControl.BorderThicknessProperty, new Thickness(0)),
+                    new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<TreeViewItem>((_, scope) =>
+                    {
+                        var chevron = new ToggleButton { Name = "PART_ExpandCollapseChevron" };
+                        chevron[!ToggleButton.IsCheckedProperty] = new Binding(nameof(TreeViewItem.IsExpanded))
+                        {
+                            RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
+                            Mode = BindingMode.TwoWay
+                        };
+                        // Отступ уровня стоит на кнопке разворота, как у автора:
+                        // он сдвигает заголовок группы, а строка остаётся у края.
+                        chevron[!Layoutable.MarginProperty] = new Binding(nameof(TreeViewItem.Level))
+                        {
+                            RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
+                            Converter = LevelIndent
+                        };
+                        chevron.RegisterInNameScope(scope);
 
-            var lead = this.GetVisualDescendants().OfType<StackPanel>()
-                .FirstOrDefault(x => x.Name == MainWindow.LeadBlockName);
-            if (lead is null)
-                return;
-            var parentLevel = level > 0 ? level - 1 : 0;
-            lead.Margin = new Thickness(
-                parentLevel * Converters.LevelToThicknessConverter.IndentStep
-                + Converters.LevelToThicknessConverter.ExpanderWidth, 0, 0, 0);
+                        var header = new ContentPresenter
+                        {
+                            Name = "PART_HeaderPresenter",
+                            VerticalAlignment = VerticalAlignment.Center
+                        };
+                        header[!ContentPresenter.ContentProperty] =
+                            new TemplateBinding(HeaderedItemsControl.HeaderProperty);
+                        header[!ContentPresenter.ContentTemplateProperty] =
+                            new TemplateBinding(HeaderedItemsControl.HeaderTemplateProperty);
+                        header.RegisterInNameScope(scope);
+                        Grid.SetColumn(header, 1);
+
+                        var row = new Grid();
+                        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 0 });
+                        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                        row.Children.Add(chevron);
+                        row.Children.Add(header);
+
+                        var items = new ItemsPresenter { Name = "PART_ItemsPresenter" };
+                        items[!Visual.IsVisibleProperty] = new TemplateBinding(TreeViewItem.IsExpandedProperty);
+                        items[!ItemsPresenter.ItemsPanelProperty] = new TemplateBinding(ItemsControl.ItemsPanelProperty);
+                        items.RegisterInNameScope(scope);
+
+                        var stack = new StackPanel();
+                        stack.Children.Add(row);
+                        stack.Children.Add(items);
+                        return stack;
+                    }))
+                }
+            };
+
+            // У строки базы вложенных нет, и кнопка разворота ей не нужна:
+            // у автора она в этом случае Collapsed (MainWindow.xaml:1524).
+            theme.Add(new Style(x => x.Nesting().Class(":empty").Template().Name("PART_ExpandCollapseChevron"))
+            {
+                Setters = { new Setter(Visual.IsVisibleProperty, false) }
+            });
+            return theme;
         }
 
-        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
-        {
-            base.OnAttachedToVisualTree(e);
-            ApplyLevelIndent();
-        }
+        /// <summary>Уровень вложенности в отступ слева: шаг 18, как у автора.</summary>
+        public static readonly IValueConverter LevelIndent =
+            new FuncValueConverter<int, Thickness>(level =>
+                new Thickness(level * Converters.LevelToThicknessConverter.IndentStep, 0, 0, 0));
+
+        /// <summary>
+        /// Уровень вложенности в отступ ведущего блока строки базы: отступ
+        /// родительской группы плюс ширина кнопки разворота, которой у строки
+        /// базы нет (MainWindow.xaml:1155, параметр конвертера «base»).
+        /// </summary>
+        public static readonly IValueConverter LeadIndent =
+            new FuncValueConverter<int, Thickness>(level => new Thickness(LeadIndentFor(level), 0, 0, 0));
+
+        /// <summary>Тот же отступ числом: нужен там, где у панели есть свои отступы по другим сторонам.</summary>
+        public static double LeadIndentFor(int level)
+            => (level > 0 ? level - 1 : 0) * Converters.LevelToThicknessConverter.IndentStep
+                + Converters.LevelToThicknessConverter.ExpanderWidth;
+
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {

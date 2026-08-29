@@ -13,6 +13,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Controls.Shapes;
 using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -57,7 +58,6 @@ namespace Configuration_Management
         private Border? _columnHeader;
         private Grid? _columnHeaderRow;
         private ColumnDefinition? _headerOffsetColumn;
-        private Control? _headerPinMark;
         private double _headerToolbarWidth;
         private StackPanel? _groupToolbar;
         private Grid? _listContent;
@@ -642,24 +642,11 @@ namespace Configuration_Management
             _tree.Bind(TreeView.ItemsSourceProperty, new Binding("GroupNodes"));
             _tree.SelectionMode = SelectionMode.Single;
 
-            // Убираем стандартную подсветку контейнера TreeViewItem: карточка строки
-            // сама рисует hover и выделение из ресурсов темы. Селектор сопоставляется
-            // по ключу стиля, а он переопределён на TreeViewItem, иначе стиль
-            // не нашёл бы контейнеры.
-            var tviStyle = new Style(x => x.OfType<TreeViewItem>());
-            tviStyle.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent));
-            _tree.Styles.Add(tviStyle);
-
-            // Фон покоя этим снят, но состояния выделения и наведения Fluent задаёт
-            // не свойством контейнера, а вложенным стилем на части шаблона, поэтому
-            // синяя полоса рисовалась бы за карточкой. Гасим её адресно.
-            foreach (var state in new[] { ":selected", ":pointerover" })
-            {
-                var stateStyle = new Style(x => x.OfType<TreeViewItem>().Class(state)
-                    .Template().OfType<Border>().Name("PART_LayoutRoot"));
-                stateStyle.Setters.Add(new Setter(Border.BackgroundProperty, Brushes.Transparent));
-                _tree.Styles.Add(stateStyle);
-            }
+            // Строки списка идут по своему шаблону, а не по Fluent: тот сдвигает
+            // на уровень вложенности всю строку, и колонки значений вложенных
+            // строк уезжают от заголовков. Подсветки в этом шаблоне нет вовсе,
+            // фон рисует карточка строки из ресурсов темы.
+            _tree.ItemContainerTheme = LeveledTreeViewItem.RowTheme();
 
             // Раскрытие узла связывает с моделью сам LeveledTreeView, при подготовке
             // контейнера на любом уровне вложенности. Здесь остаётся только
@@ -1058,14 +1045,28 @@ namespace Configuration_Management
             {
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(UiMetrics.Compact ? 6 : 8, UiMetrics.GroupHeaderPadV),
-                // Пустая группа сдвигается вправо на ширину кнопки разворота:
-                // у неё этой кнопки нет, и без сдвига её заголовок начинался бы
-                // левее соседних (в разметке это делает GroupOffsetConverter).
-                Margin = new Thickness(group.Items.Count == 0 ? EmptyGroupOffset : 0,
-                    UiMetrics.GroupHeaderMarginV, 0, UiMetrics.GroupHeaderMarginV),
+                Margin = new Thickness(0, UiMetrics.GroupHeaderMarginV, 0, UiMetrics.GroupHeaderMarginV),
                 BorderThickness = new Thickness(2),
                 BorderBrush = Brushes.Transparent
             };
+            // Пустая группа сдвигается вправо на отступ своего уровня и ширину
+            // кнопки разворота: этой кнопки у неё нет, и без сдвига её заголовок
+            // начинался бы левее соседних (Converters/GroupOffsetConverter.cs:37).
+            if (group.Items.Count == 0)
+            {
+                var marginV = UiMetrics.GroupHeaderMarginV;
+                header[!Border.MarginProperty] = new Binding(nameof(TreeViewItem.Level))
+                {
+                    RelativeSource = new RelativeSource
+                    {
+                        Mode = RelativeSourceMode.FindAncestor,
+                        AncestorType = typeof(TreeViewItem)
+                    },
+                    Converter = new FuncValueConverter<int, Thickness>(level =>
+                        new Thickness(EmptyGroupOffsetFor(level), marginV, 0, marginV))
+                };
+            }
+
             header.Bind(Border.BackgroundProperty, new Binding("HeaderBrush") { Source = group });
 
             // Кисть берётся наблюдателем темы, а подписка на узел живёт ровно
@@ -1130,7 +1131,7 @@ namespace Configuration_Management
             // Колонки те же, что у строки базы: команды группы стоят в колонке
             // «Действия» и попадают ровно под кнопки строк, а имя со счётчиком
             // занимает всё, что левее (MainWindow.xaml:961 и 1015).
-            var row = new Grid();
+            var row = new Grid { Name = GroupRowGridName };
             var actionsIndex = AddListColumns(row,
                 _vm?.ShowFavoritesButton ?? true, _vm?.ShowPinnedButton ?? true);
 
@@ -1269,7 +1270,21 @@ namespace Configuration_Management
                 Name = LeadBlockName,
                 Orientation = Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center,
+                // Обрезка по границе колонки «Название»: у автора имя тоже лежит
+                // в горизонтальной панели и ширины не знает, но там оно упирается
+                // в край окна, а у нас налезало бы на колонки значений.
                 ClipToBounds = true
+            };
+            // Отступ вложенности: сдвигается только ведущий блок, сама строка
+            // остаётся у левого края (MainWindow.xaml:1155).
+            lead[!StackPanel.MarginProperty] = new Binding(nameof(TreeViewItem.Level))
+            {
+                RelativeSource = new RelativeSource
+                {
+                    Mode = RelativeSourceMode.FindAncestor,
+                    AncestorType = typeof(TreeViewItem)
+                },
+                Converter = LeveledTreeViewItem.LeadIndent
             };
 
             if (showFavorite)
@@ -1279,7 +1294,7 @@ namespace Configuration_Management
                 // наложен на угол колонки мелкой цифрой без подложки.
                 var favorite = RowMarkButton(card, ib, "IconFavorite", "FavoriteBrush",
                     nameof(Infobase.IsFavorite), () => ib.IsFavorite,
-                    LocalizationManager.T("Main.ToggleFavoriteTooltip"), "ToggleFavoriteForCommand", FavoriteColumnWidth,
+                    LocalizationManager.T("Main.ToggleFavoriteTooltip"), "ToggleFavoriteForCommand",
                     FavoriteSlotBadge(card, ib));
                 lead.Children.Add(favorite);
             }
@@ -1288,7 +1303,7 @@ namespace Configuration_Management
             {
                 var pin = RowMarkButton(card, ib, "IconPin", "AccentBrush",
                     nameof(Infobase.IsPinned), () => ib.IsPinned,
-                    LocalizationManager.T("Main.TogglePinTooltip"), "TogglePinForCommand", PinColumnWidth);
+                    LocalizationManager.T("Main.TogglePinTooltip"), "TogglePinForCommand");
                 lead.Children.Add(pin);
             }
 
@@ -1314,9 +1329,10 @@ namespace Configuration_Management
             // полным набором метаданных тоже «сжимались», а не оставались прежней высоты.
             var content = new StackPanel { Spacing = UiMetrics.Scaled(2), VerticalAlignment = VerticalAlignment.Center };
 
-            // Имя базы кладётся в колонку напрямую: в горизонтальной панели оно
-            // получало бы бесконечную ширину и при узкой колонке налезало бы
-            // на соседние значения вместо обрезки многоточием.
+            // Имя лежит в горизонтальной панели, как в разметке (MainWindow.xaml:1244),
+            // и своей ширины не знает: обрезку по краю колонки «Название» даёт
+            // ClipToBounds ведущего блока. Многоточия при этом не будет, у автора
+            // имя тоже не подрезается.
             var name = new TextBlock
             {
                 Text = ib.Name,
@@ -1391,6 +1407,19 @@ namespace Configuration_Management
                 Grid.SetRowSpan(actions, 2);
 
                 var tags = BuildRowTags(card, ib);
+                // Тот же отступ вложенности, что и у ведущего блока
+                // (MainWindow.xaml:1316): теги стоят под именем, а не левее его.
+                tags[!Control.MarginProperty] = new Binding(nameof(TreeViewItem.Level))
+                {
+                    RelativeSource = new RelativeSource
+                    {
+                        Mode = RelativeSourceMode.FindAncestor,
+                        AncestorType = typeof(TreeViewItem)
+                    },
+                    // Верхний отступ 2 сохраняется: привязка задаёт Margin целиком.
+                    Converter = new FuncValueConverter<int, Thickness>(level =>
+                        new Thickness(LeveledTreeViewItem.LeadIndentFor(level), 2, 0, 0))
+                };
                 grid.Children.Add(tags);
                 Grid.SetRow(tags, 1);
                 Grid.SetColumn(tags, 0);
@@ -1725,7 +1754,7 @@ namespace Configuration_Management
 
         private Button RowMarkButton(InfobaseRowCard card, Infobase infobase, string iconKey,
             string activeBrushKey, string stateProperty, Func<bool> isActive,
-            string tooltip, string commandPath, double width, Control? trailing = null)
+            string tooltip, string commandPath, Control? trailing = null)
         {
             var iconHost = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), out var icon);
             Control content = iconHost;
@@ -1773,8 +1802,8 @@ namespace Configuration_Management
                 Padding = new Thickness(0),
                 MinWidth = 0,
                 MinHeight = 0,
-                // Своей ширины у кнопки нет: колонка теперь по содержимому,
-                // и звезда с плашкой и без неё занимают ровно столько, сколько надо.
+                // Своей ширины у кнопки нет: она лежит в ведущем блоке строки
+                // и пакуется вплотную к соседям, как в разметке.
                 HorizontalAlignment = HorizontalAlignment.Left,
                 HorizontalContentAlignment = HorizontalAlignment.Left,
                 Margin = new Thickness(0, 0, 4, 0),
@@ -3131,8 +3160,15 @@ namespace Configuration_Management
         /// <summary>Минимум под имя базы: колонка звёздная, но схлопываться ей нельзя.</summary>
         private const double NameColumnMinWidth = 220;
 
-        /// <summary>Ширина кнопки разворота группы: на неё сдвигается пустая группа.</summary>
-        private static double EmptyGroupOffset => UiMetrics.Scaled(26);
+        /// <summary>
+        /// Сдвиг пустой группы: у неё нет кнопки разворота, и без сдвига её
+        /// заголовок начинался бы левее соседних. Считается как у автора
+        /// (Converters/GroupOffsetConverter.cs:37): отступ уровня плюс ширина
+        /// кнопки разворота, без масштабирования компактным режимом.
+        /// </summary>
+        private static double EmptyGroupOffsetFor(int level)
+            => level * Converters.LevelToThicknessConverter.IndentStep
+                + Converters.LevelToThicknessConverter.ExpanderWidth;
 
         /// <summary>
         /// Ширина колонки звезды «избранное» в заголовке и в строке базы.
@@ -3189,9 +3225,6 @@ namespace Configuration_Management
         /// </summary>
         private const int NameHeaderColumn = 4;
 
-        /// <summary>Номер колонки заголовка с пометкой закрепления.</summary>
-        private const int PinHeaderColumn = NameHeaderColumn - 1;
-
         /// <summary>Номер колонки строки с именем базы, он же номер колонки заголовка.</summary>
         private const int NameRowColumn = NameHeaderColumn;
 
@@ -3201,6 +3234,9 @@ namespace Configuration_Management
         /// строка стоит от левого края, иначе значения уехали бы от заголовков.
         /// </summary>
         internal const string LeadBlockName = "ВедущийБлокСтроки";
+
+        /// <summary>Имя сетки заголовка группы: по нему она находится при перетаскивании разделителя колонок.</summary>
+        private const string GroupRowGridName = "СеткаСтрокиГруппы";
 
         /// <summary>Минимальная ширина колонки при перетаскивании разделителя.</summary>
         private const double MinColumnWidth = 40;
@@ -3407,16 +3443,6 @@ namespace Configuration_Management
             var actionsOffset = ActionsOffsetInColumns(columns);
             AddListColumns(_columnHeaderRow, _vm.ShowFavoritesButton, _vm.ShowPinnedButton, _headerOffsetColumn);
 
-            _headerPinMark = null;
-            if (_vm.ShowPinnedButton)
-            {
-                // Значок закрепления в заголовке — только пометка колонки, как в WPF.
-                var pinMark = IconHelper.MakeIcon("IconPin", UiMetrics.Scaled(13), "TextSecondaryBrush");
-                ToolTip.SetTip(pinMark, LocalizationManager.T("Main.Pinned"));
-                _columnHeaderRow.Children.Add(pinMark);
-                Grid.SetColumn(pinMark, PinHeaderColumn);
-                _headerPinMark = pinMark;
-            }
 
             // Кнопки лежат поверх компенсатора и пустых колонок звезды,
             // булавки и иконки: своя колонка сдвинула бы подписи вправо
@@ -3532,6 +3558,18 @@ namespace Configuration_Management
 
             var tagsToggle = BuildTagsInListToggle();
             panel.Children.Add(tagsToggle);
+
+            // Пометка закрепления стоит сразу за переключателем тегов внутри
+            // того же блока, как в разметке (MainWindow.xaml:620): своей колонки
+            // у неё нет, поэтому и прятать её ни от чего не нужно.
+            if (_vm?.ShowPinnedButton == true)
+            {
+                var pinMark = IconHelper.MakeIcon("IconPin", UiMetrics.Scaled(14), "TextSecondaryBrush");
+                pinMark.Margin = new Thickness(4, 0, 0, 0);
+                pinMark.VerticalAlignment = VerticalAlignment.Center;
+                ToolTip.SetTip(pinMark, LocalizationManager.T("Main.Pinned"));
+                panel.Children.Add(pinMark);
+            }
 
             _groupToolbar = panel;
             // Ширина известна только после раскладки, а подпись выравнивается
@@ -3846,6 +3884,14 @@ namespace Configuration_Management
                     if (card.Child is Grid grid)
                         _resizeRowGrids.Add(grid);
                 }
+                // Заголовки групп ведут те же колонки и обязаны ехать вместе
+                // со строками баз, иначе кнопки группы расходятся с кнопками
+                // строк на всё время перетаскивания.
+                foreach (var group in _tree.GetVisualDescendants().OfType<Grid>())
+                {
+                    if (group.Name == GroupRowGridName)
+                        _resizeRowGrids.Add(group);
+                }
             }
 
             e.Pointer.Capture(grip);
@@ -4057,11 +4103,6 @@ namespace Configuration_Management
             SyncHeaderWidthWithList();
 
 
-            // Пометка булавки прячется, когда её место занял блок кнопок.
-            if (_headerPinMark is not null)
-                _headerPinMark.IsVisible = _columnHeaderRow.ColumnDefinitions[0].ActualWidth
-                    + offset + _columnHeaderRow.ColumnDefinitions[PinHeaderColumn - 1].ActualWidth
-                    >= _headerToolbarWidth;
         }
 
         /// <summary>
