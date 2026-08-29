@@ -16,7 +16,7 @@ namespace Configuration_Management.Localization
     /// Использование:
     /// <code>
     /// xmlns:loc="clr-namespace:Configuration_Management.Localization"
-    /// Title="{loc:Loc TagInput.Title}"
+    /// Title="{loc:Loc Settings.Title}"
     /// </code>
     /// </summary>
     public sealed class LocExtension

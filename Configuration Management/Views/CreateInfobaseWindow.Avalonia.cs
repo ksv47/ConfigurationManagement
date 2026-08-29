@@ -421,6 +421,10 @@ namespace Configuration_Management
             var isFile = _typeBox.SelectedIndex != 1;
             _filePanel.IsVisible = isFile;
             _serverPanel.IsVisible = !isFile;
+            // Для двух типов базы хранятся разные последние успешные версии. Окно всегда
+            // открывается с файловым типом, поэтому при смене типа нужно заменить значение
+            // read-only поля, а не оставлять выбранную для файловой базы версию.
+            RefreshPlatformList(replaceSelection: true);
         }
 
         private static Control BuildTemplateRow(object? item)
@@ -621,7 +625,7 @@ namespace Configuration_Management
             }
         }
 
-        private void RefreshPlatformList()
+        private void RefreshPlatformList(bool replaceSelection = false)
         {
             var extras = PlatformVersionService.GetAdditionalSearchPaths();
             var platforms = PlatformVersionService.FindInstalledVersions(extras);
@@ -649,7 +653,7 @@ namespace Configuration_Management
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(_platformBox.Text))
+            if (replaceSelection || string.IsNullOrWhiteSpace(_platformBox.Text))
                 _platformBox.Text = selected;
         }
 

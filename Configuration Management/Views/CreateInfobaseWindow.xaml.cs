@@ -84,7 +84,7 @@ namespace Configuration_Management
             }
         }
 
-        private void RefreshPlatformList()
+        private void RefreshPlatformList(bool replaceSelection = false)
         {
             var extras = PlatformVersionService.GetAdditionalSearchPaths();
             _platforms = PlatformVersionService.FindInstalledVersions(extras);
@@ -112,7 +112,7 @@ namespace Configuration_Management
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(PlatformBox.Text))
+            if (replaceSelection || string.IsNullOrWhiteSpace(PlatformBox.Text))
                 PlatformBox.Text = selected;
         }
 
@@ -214,6 +214,11 @@ namespace Configuration_Management
                 FilePanel.Visibility = isFile ? Visibility.Visible : Visibility.Collapsed;
             if (ServerPanel != null)
                 ServerPanel.Visibility = isFile ? Visibility.Collapsed : Visibility.Visible;
+            // Для двух типов базы хранятся разные последние успешные версии. Окно всегда
+            // открывается с файловым типом, поэтому без пересчёта здесь серверная версия
+            // никогда не попадала в read-only поле при переключении на клиент-серверную базу.
+            if (PlatformBox != null)
+                RefreshPlatformList(replaceSelection: true);
         }
 
         private void OnPickPlatform_Click(object sender, RoutedEventArgs e)

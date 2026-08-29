@@ -1057,6 +1057,10 @@ namespace Configuration_Management.Services
                 // к несуществующей. Проверено запуском на PostgreSQL 8.3.27.
                 if (createSqlDatabase)
                     cs += ";CrSQLDB=\"Y\"";
+                // SchJobDn действует только в CREATEINFOBASE: он задаёт состояние создаваемой
+                // клиент-серверной базы и не должен попадать в обычную строку подключения.
+                if (blockScheduledJobs)
+                    cs += ";SchJobDn=\"Y\"";
                 connectionString = cs;
             }
 
@@ -1114,7 +1118,13 @@ namespace Configuration_Management.Services
                     var err = "";
                     try { err = proc.StandardError.ReadToEnd(); } catch { }
                     CleanupCreatedDir(createdDirPath);
-                    return (false, string.Format(LocalizationManager.T("Launcher.CreateExitCodeFormat"), proc.ExitCode, err, exe, string.Join(" ", args)));
+                    var message = string.Format(
+                        LocalizationManager.T("Launcher.CreateExitCodeFormat"),
+                        proc.ExitCode,
+                        err,
+                        exe,
+                        string.Join(" ", args));
+                    return (false, SensitiveDataMasker.MaskDbPassword(message));
                 }
 
                 return (true, null);
@@ -1122,7 +1132,12 @@ namespace Configuration_Management.Services
             catch (Exception ex)
             {
                 CleanupCreatedDir(createdDirPath);
-                return (false, string.Format(LocalizationManager.T("Launcher.CreateCommandErrorFormat"), ex.Message, exe, string.Join(" ", args)));
+                var message = string.Format(
+                    LocalizationManager.T("Launcher.CreateCommandErrorFormat"),
+                    ex.Message,
+                    exe,
+                    string.Join(" ", args));
+                return (false, SensitiveDataMasker.MaskDbPassword(message));
             }
         }
 
