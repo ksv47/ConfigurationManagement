@@ -7,12 +7,13 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
-using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Data;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
+using Configuration_Management.Themes;
 
 namespace Configuration_Management
 {
@@ -38,16 +39,16 @@ namespace Configuration_Management
         private readonly RadioButton _filterAll = new() { Content = LocalizationManager.T("Common.All"), IsChecked = true, GroupName = "Arch" };
         private readonly RadioButton _filterX32 = new() { Content = LocalizationManager.T("PlatformVersionPicker.FilterX32"), GroupName = "Arch" };
         private readonly RadioButton _filterX64 = new() { Content = LocalizationManager.T("PlatformVersionPicker.FilterX64"), GroupName = "Arch" };
-        private readonly RadioButton _sortAsc = new() { Content = LocalizationManager.T("Common.SortAsc") };
-        private readonly RadioButton _sortDesc = new() { Content = LocalizationManager.T("Common.SortDesc"), IsChecked = true };
+        private readonly ToggleButton _sortAsc = new();
+        private readonly ToggleButton _sortDesc = new() { IsChecked = true };
 
         public PlatformVersionPickerWindow(IEnumerable<string> installedPlatformVersions, string currentVersion)
         {
             Title = LocalizationManager.T("PlatformVersionPicker.Title");
-            Width = 560;
-            Height = 580;
-            MinWidth = 480;
-            MinHeight = 440;
+            Width = 520;
+            Height = 560;
+            MinWidth = 400;
+            MinHeight = 400;
 
             _currentVersion = currentVersion ?? "";
 
@@ -88,15 +89,17 @@ namespace Configuration_Management
             _selectButton.Classes.Add("dimmed");
             _selectButton.IsEnabled = false;
 
-            var grid = new Grid { Margin = new Thickness(16) };
+            var grid = new Grid { Margin = new Thickness(14) };
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            // Панель фильтров/сортировки
-            var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 0, 0, 8), VerticalAlignment = VerticalAlignment.Center };
-            var filterPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-            filterPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("PlatformVersionPicker.FilterLabel"), VerticalAlignment = VerticalAlignment.Center });
+            // Фильтр разрядности и сортировка лежат в карточке с отступом 8,6
+            // и скруглением 6 (PlatformVersionPickerWindow.xaml:145): фильтры
+            // слева, кнопки сортировки прижаты вправо.
+            foreach (var radio in new[] { _filterAll, _filterX32, _filterX64 })
+                radio.Styled(ControlThemes.ArchRadio);
+
             _filterAll.IsCheckedChanged += (_, _) =>
             {
                 if (_filterAll.IsChecked != true) return;
@@ -112,28 +115,66 @@ namespace Configuration_Management
                 if (_filterX64.IsChecked != true) return;
                 _archFilter = "x64"; RefreshTree();
             };
+
+            var filterPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             filterPanel.Children.Add(_filterAll);
             filterPanel.Children.Add(_filterX32);
             filterPanel.Children.Add(_filterX64);
-            top.Children.Add(filterPanel);
 
-            var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-            sortPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("Common.SortLabel"), VerticalAlignment = VerticalAlignment.Center });
-            _sortAsc.IsCheckedChanged += (_, _) =>
+            _sortAsc.Content = IconHelper.MakeIcon("IconSortAscending", 16, out var sortAscIcon);
+            _sortDesc.Content = IconHelper.MakeIcon("IconSortDescending", 16, out var sortDescIcon);
+            foreach (var (toggle, icon) in new[] { (_sortAsc, sortAscIcon), (_sortDesc, sortDescIcon) })
             {
-                if (_sortAsc.IsChecked != true) return;
-                _sortAscending = true; _sortDesc.IsChecked = false; RefreshTree();
+                toggle.Styled(ControlThemes.VersionSortToggle);
+                // Значок красится подписью кнопки, как в разметке: у выбранной
+                // она белая, у остальных обычный цвет текста.
+                icon.Bind(Avalonia.Controls.Shapes.Path.FillProperty,
+                    new Binding(nameof(ToggleButton.Foreground)) { Source = toggle });
+            }
+            // Щелчок по уже выбранной кнопке оставляет её выбранной: у автора
+            // обработчик принудительно возвращает IsChecked = true
+            // (PlatformVersionPickerWindow.xaml.cs:126), и состояния «сортировка
+            // не выбрана ни одной кнопкой» в его версии не существует.
+            _sortAsc.Click += (_, _) =>
+            {
+                _sortAsc.IsChecked = true;
+                _sortDesc.IsChecked = false;
+                if (_sortAscending) return;
+                _sortAscending = true;
+                RefreshTree();
             };
-            _sortDesc.IsCheckedChanged += (_, _) =>
+            _sortDesc.Click += (_, _) =>
             {
-                if (_sortDesc.IsChecked != true) return;
-                _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree();
+                _sortDesc.IsChecked = true;
+                _sortAsc.IsChecked = false;
+                if (!_sortAscending) return;
+                _sortAscending = false;
+                RefreshTree();
             };
             ToolTip.SetTip(_sortAsc, LocalizationManager.T("PlatformVersionPicker.SortAscTooltip"));
             ToolTip.SetTip(_sortDesc, LocalizationManager.T("PlatformVersionPicker.SortDescTooltip"));
+
+            var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             sortPanel.Children.Add(_sortAsc);
             sortPanel.Children.Add(_sortDesc);
-            top.Children.Add(sortPanel);
+            Grid.SetColumn(sortPanel, 1);
+
+            var topGrid = new Grid();
+            topGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            topGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            topGrid.Children.Add(filterPanel);
+            topGrid.Children.Add(sortPanel);
+
+            var top = new Border
+            {
+                Padding = new Thickness(8, 6),
+                Margin = new Thickness(0, 0, 0, 8),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Child = topGrid
+            };
+            ThemeBrushes.Bind(top, Border.BackgroundProperty, "CardBackgroundColorBrush");
+            ThemeBrushes.Bind(top, Border.BorderBrushProperty, "BorderColorBrush");
 
             Grid.SetRow(top, 0);
             grid.Children.Add(top);
@@ -167,14 +208,21 @@ namespace Configuration_Management
             // TreeViewItem, поэтому событие дерева доходит и до них.
             _tree.ContainerPrepared += OnTreeContainerPrepared;
 
-            // Подсветка выбранной строки. Фон покоя/наведения/выделения Fluent рисует
-            // не на контейнере TreeViewItem, а вложенным стилем на части шаблона
-            // PART_LayoutRoot, поэтому прозрачным фоном покоя его не снять и просто
-            // задать Background контейнера нельзя. Таргетируем ту же часть шаблона
-            // псевдоклассами :selected / :pointerover и красим кистями темы, чтобы
-            // выделение по клику было видно (по наведению — тоже, как у стартера 1С).
-            AddTreeItemStateStyle(":selected", "TreeSelectedBrush");
-            AddTreeItemStateStyle(":pointerover", "TreeHoverBrush");
+            // Дерево раскрыто целиком, как в версии для Windows
+            // (PlatformVersionPickerWindow.xaml.cs:60, ExpandAll): линии, группы
+            // сборок и сами сборки видны сразу. Значение стилем, а не локально,
+            // чтобы свернуть узел вручную было можно.
+            var expanded = new Style(x => x.OfType<TreeViewItem>());
+            expanded.Setters.Add(new Setter(TreeViewItem.IsExpandedProperty, true));
+            _tree.Styles.Add(expanded);
+
+            // Элемент дерева по общему шаблону автора (ModernTreeViewItem):
+            // раскрыватель «+»/«-», подсветка наведения и выбора, отступ вложенных 16.
+            if (Application.Current?.TryFindResource(ControlThemes.ModernTreeItem, out var treeItemTheme) == true
+                && treeItemTheme is ControlTheme itemTheme)
+            {
+                _tree.ItemContainerTheme = itemTheme;
+            }
 
             var treeBorder = new Border
             {
@@ -183,11 +231,17 @@ namespace Configuration_Management
                     Content = _tree,
                     HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                     VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Padding = new Thickness(8, 8)
+                    Padding = new Thickness(4)
                 },
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(6)
             };
+            // Фон и рамка карточки дерева из ресурсов темы
+            // (PlatformVersionPickerWindow.xaml:183): без привязки рамка была
+            // невидимой, а фон совпадал с фоном окна вместо карточного.
+            ThemeBrushes.Bind(treeBorder, Border.BackgroundProperty, "CardBackgroundColorBrush");
+            ThemeBrushes.Bind(treeBorder, Border.BorderBrushProperty, "BorderColorBrush");
+
             Grid.SetRow(treeBorder, 1);
             grid.Children.Add(treeBorder);
 
@@ -213,17 +267,32 @@ namespace Configuration_Management
         {
             if (item is PlatformVersionGroup node)
             {
-                var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 2) };
-                // У раскрываемого узла дерево уже рисует свой раскрыватель,
-                // поэтому значок строки не должен быть второй стрелкой: в версии
-                // для Windows здесь папка, а раскрыватель это «+» и «−».
-                var iconKey = node.IsLeaf ? "IconConfiguration" : (node.Kind == PlatformNodeKind.Line ? "IconFolder" : "IconBullet");
-                panel.Children.Add(IconHelper.MakeIcon(iconKey, 14));
+                var panel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1) };
+                // Значок и его цвет кодируют тип узла, как в разметке
+                // (PlatformVersionPickerWindow.xaml:197): линия это жёлтая папка,
+                // группа сборок открытая синяя папка, сборка x64 контурный
+                // зелёный куб, x32 сплошной фиолетовый, без метки синее окно.
+                var (iconKey, iconColor) = node.Kind switch
+                {
+                    PlatformNodeKind.Line => ("IconFolder", "#F59E0B"),
+                    PlatformNodeKind.BuildGroup => ("IconFolderOpen", "#3B82F6"),
+                    PlatformNodeKind.LeafX64 => ("IconCubeOutline", "#22C55E"),
+                    PlatformNodeKind.LeafX32 => ("IconCube", "#8B5CF6"),
+                    _ => ("IconApplication", "#0EA5E9")
+                };
+                var icon = IconHelper.MakeIcon(iconKey, 16, new SolidColorBrush(Color.Parse(iconColor)));
+                icon.Margin = new Thickness(0, 0, 6, 0);
+                icon.VerticalAlignment = VerticalAlignment.Center;
+                panel.Children.Add(icon);
                 var text = new TextBlock
                 {
                     Text = node.Name,
+                    FontSize = 12,
                     VerticalAlignment = VerticalAlignment.Center,
-                    FontWeight = node.IsCurrent ? FontWeight.Bold : FontWeight.Normal
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    FontWeight = node.IsCurrent
+                        ? FontWeight.Bold
+                        : (node.IsLeaf ? FontWeight.Normal : FontWeight.SemiBold)
                 };
                 panel.Children.Add(text);
                 return panel;
@@ -406,18 +475,14 @@ namespace Configuration_Management
         /// </summary>
         private void OnTreeContainerPrepared(object? sender, ContainerPreparedEventArgs e)
         {
-            if (_initialLeaf is null)
-                return;
             if (e.Container?.DataContext is not PlatformVersionGroup node)
                 return;
 
-            // Предок на пути к текущей версии — раскрываем, чтобы появились дети.
-            if (_initialAncestors is not null && _initialAncestors.Contains(node))
-            {
-                if (e.Container is TreeViewItem tvi && !tvi.IsExpanded)
-                    tvi.IsExpanded = true;
+            if (_initialLeaf is null)
                 return;
-            }
+
+            if (_initialAncestors is not null && _initialAncestors.Contains(node))
+                return;
 
             // Сам лист — выделяем его как единственный источник выбора.
             if (ReferenceEquals(node, _initialLeaf))
@@ -427,22 +492,6 @@ namespace Configuration_Management
                 if (!ReferenceEquals(_tree.SelectedItem, node))
                     _tree.SelectedItem = node;
             }
-        }
-
-        /// <summary>
-        /// Подсвечивает строки дерева по псевдоклассу (выделение/наведение) на части
-        /// шаблона PART_LayoutRoot кистью темы. Фон этих состояний Fluent задаёт не
-        /// свойством контейнера, а вложенным стилем на части шаблона, поэтому без
-        /// таргетинга PART_LayoutRoot клик не давал бы видимого выделения.
-        /// </summary>
-        private void AddTreeItemStateStyle(string state, string brushKey)
-        {
-            var style = new Style(x => x.OfType<TreeViewItem>().Class(state)
-                .Template().OfType<Border>().Name("PART_LayoutRoot"));
-            // DynamicResource в значении Setter — это наблюдаемая ссылка на ресурс темы:
-            // строка перекрашивается при смене схемы, как и кисти ThemeBrushes.Bind.
-            style.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResourceExtension(brushKey)));
-            _tree.Styles.Add(style);
         }
 
         private void OnSelect_Click()

@@ -971,4 +971,158 @@
             <Setter Property="Background" Value="{DynamicResource TreeSelectedBrush}"/>
         </Style>
     </ControlTheme>
+    <!-- Переключатель разрядности окна выбора версии платформы
+         (PlatformVersionPickerWindow.xaml:30). Материальный кружок: внешний
+         круг 20 с рамкой 2, точка 9 внутри, мягкая подложка наведения 32. -->
+    <ControlTheme x:Key="ArchRadio" TargetType="RadioButton">
+        <Setter Property="Margin" Value="0,0,14,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="RadioButton">
+                <Grid Background="{TemplateBinding Background}" ColumnDefinitions="Auto,*">
+                    <Panel Width="20" Height="20" VerticalAlignment="Center">
+                        <Ellipse Name="HoverRing" Width="32" Height="32" Opacity="0"
+                                 Fill="{DynamicResource ItemHoverBrush}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border Name="Outer" Width="20" Height="20" CornerRadius="10"
+                                BorderThickness="2"
+                                Background="{DynamicResource CardBackgroundBrush}"
+                                BorderBrush="{DynamicResource BorderBrushColor}"/>
+                        <Ellipse Name="Dot" Width="9" Height="9" IsVisible="False"
+                                 Fill="{DynamicResource AccentBrush}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Panel>
+                    <ContentPresenter Grid.Column="1" Margin="9,0,0,0"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      VerticalAlignment="Center"/>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Ellipse#HoverRing">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#Outer">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Border#Outer">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Ellipse#Dot">
+            <Setter Property="IsVisible" Value="True"/>
+            <Setter Property="Fill" Value="White"/>
+        </Style>
+        <Style Selector="^:checked:pointerover /template/ Ellipse#HoverRing">
+            <Setter Property="Opacity" Value="0.6"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Кнопка сортировки окна выбора версии платформы
+         (PlatformVersionPickerWindow.xaml:105): 32 на 28, скругление 4,
+         выбранная заливается акцентом, значок белеет. -->
+    <ControlTheme x:Key="VersionSortToggle" TargetType="ToggleButton">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Margin" Value="2,0"/>
+        <Setter Property="Padding" Value="2"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ToggleButton">
+                <Border Name="PART_Border"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        Padding="{TemplateBinding Padding}"
+                        CornerRadius="4">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <!-- У автора триггер наведения объявлен после триггера выбора и побеждает:
+             нажатая кнопка под курсором тоже заливается кистью наведения
+             (PlatformVersionPickerWindow.xaml:126). -->
+        <Style Selector="^:checked:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+        </Style>
+        <Style Selector="^:checked">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+    </ControlTheme>
+    <!-- Общий элемент дерева окон (Themes/LightTheme.xaml:670, ModernTreeViewItem):
+         раскрыватель «+»/«-» в колонке 26, подсветка наведения и выбора,
+         вложенные со сдвигом 16. -->
+    <ControlTheme x:Key="ModernTreeItem" TargetType="TreeViewItem">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Padding" Value="2,1"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel>
+                    <Border x:Name="PART_Header" Background="Transparent" CornerRadius="6"
+                            Padding="4,3" Margin="0,1">
+                        <Grid ColumnDefinitions="26,*">
+                            <ToggleButton x:Name="PART_ExpandCollapseChevron" Grid.Column="0"
+                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=TreeViewItem}, Mode=TwoWay}"
+                                          ClickMode="Press" Width="22" Height="22"
+                                          Background="Transparent" BorderThickness="0" Padding="0"
+                                          Cursor="Hand" VerticalAlignment="Center">
+                                <ToggleButton.Template>
+                                    <ControlTemplate>
+                                        <TextBlock x:Name="ExpanderSymbol" Text="+"
+                                                   FontSize="18" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <ToggleButton.Styles>
+                                    <Style Selector="ToggleButton:checked /template/ TextBlock#ExpanderSymbol">
+                                        <Setter Property="Text" Value="-"/>
+                                    </Style>
+                                    <Style Selector="ToggleButton:pointerover /template/ TextBlock#ExpanderSymbol">
+                                        <Setter Property="Opacity" Value="0.6"/>
+                                    </Style>
+                                </ToggleButton.Styles>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="PART_HeaderPresenter" Grid.Column="1"
+                                              Content="{TemplateBinding Header}"
+                                              ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                              VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <ItemsPresenter x:Name="PART_ItemsPresenter" Margin="16,0,0,0"
+                                    IsVisible="{TemplateBinding IsExpanded}"
+                                    ItemsPanel="{TemplateBinding ItemsPanel}"/>
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:empty /template/ ToggleButton#PART_ExpandCollapseChevron">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#PART_Header">
+            <Setter Property="Background" Value="{DynamicResource TreeHoverBrush}"/>
+        </Style>
+        <Style Selector="^:selected /template/ Border#PART_Header">
+            <Setter Property="Background" Value="{DynamicResource TreeSelectedBrush}"/>
+        </Style>
+    </ControlTheme>
 </ResourceDictionary>
