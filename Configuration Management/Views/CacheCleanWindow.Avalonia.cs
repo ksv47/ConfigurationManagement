@@ -317,6 +317,12 @@ namespace Configuration_Management
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(6)
             };
+            // Фон и рамка карточки: в разметке это CardBackgroundBrush
+            // и BorderBrushColor (CacheCleanWindow.xaml:136-137). Без привязки
+            // карточка сливалась с фоном окна, а рамка была невидимой, и серого
+            // блока от поля поиска до списка не получалось.
+            Themes.ThemeBrushes.Bind(basesBorder, Border.BackgroundProperty, "CardBackgroundColorBrush");
+            Themes.ThemeBrushes.Bind(basesBorder, Border.BorderBrushProperty, "BorderColorBrush");
 
             var dock = new DockPanel { LastChildFill = true };
 
