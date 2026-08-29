@@ -2228,15 +2228,17 @@ namespace Configuration_Management
         /// в версии для Windows это делает OnAboutLink_Click, которого
         /// в Linux-сборке нет.
         /// </summary>
-        private Control LinkBlock(string caption, string url)
+        private StackPanel LinkBlock(string caption, string url)
         {
-            var block = new StackPanel { Spacing = 2 };
-            block.Children.Add(new TextBlock
+            var block = new StackPanel();
+            var captionBlock = new TextBlock
             {
                 Text = caption,
                 FontWeight = FontWeight.SemiBold,
-                Opacity = 0.7
-            });
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            ThemeBrushes.Bind(captionBlock, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            block.Children.Add(captionBlock);
 
             var link = new TextBlock
             {
@@ -2469,7 +2471,9 @@ namespace Configuration_Management
 
         private Control BuildAboutTab()
         {
-            var panel = new StackPanel { Spacing = 12 };
+            // Отступы между элементами заданы поштучно, как в разметке
+            // (SettingsWindow.xaml:1487-1519), а не общим зазором панели.
+            var panel = new StackPanel();
 
             var asm = Assembly.GetExecutingAssembly();
             var infoVersion = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
@@ -2478,12 +2482,17 @@ namespace Configuration_Management
 
             // Название и справка по приложению в одной строке, как в разметке WPF
             // (SettingsWindow.xaml:1488-1494).
-            var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var titleRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
             titleRow.Children.Add(new TextBlock
             {
                 Text = title,
-                FontSize = 20,
-                FontWeight = FontWeight.Bold,
+                FontSize = 18,
+                FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
             });
             titleRow.Children.Add(new Controls.HelpLink
@@ -2500,20 +2509,24 @@ namespace Configuration_Management
             panel.Children.Add(new TextBlock
             {
                 Text = string.Format(LocalizationManager.T("Settings.About.Version"), infoVersion),
-                FontSize = 14
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 4)
             });
 
             panel.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("Settings.About.Author"),
-                FontSize = 14
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 16)
             });
 
             // Подписи и ссылки на публикацию и репозиторий, как в разметке WPF
             // (SettingsWindow.xaml:1497-1510). В версии для Windows их открывает
             // обработчик под #if WINDOWS, здесь используется системный xdg-open.
-            panel.Children.Add(LinkBlock(LocalizationManager.T("Settings.About.Infostart"),
-                "https://infostart.ru/1c/tools/2764888/"));
+            var infostart = LinkBlock(LocalizationManager.T("Settings.About.Infostart"),
+                "https://infostart.ru/1c/tools/2764888/");
+            infostart.Margin = new Thickness(0, 0, 0, 12);
+            panel.Children.Add(infostart);
             panel.Children.Add(LinkBlock(LocalizationManager.T("Settings.About.GitHub"),
                 "https://github.com/sivatorov/ConfigurationManagement"));
 
@@ -2521,7 +2534,8 @@ namespace Configuration_Management
             {
                 Text = LocalizationManager.T("Settings.About.AvaloniaText"),
                 TextWrapping = TextWrapping.Wrap,
-                FontSize = 13
+                FontSize = 13,
+                Margin = new Thickness(0, 16, 0, 0)
             });
 
             panel.Children.Add(new TextBlock
@@ -2530,16 +2544,33 @@ namespace Configuration_Management
                        string.Format(LocalizationManager.T("Settings.About.DataDir"), Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
-                Opacity = 0.7
+                Opacity = 0.7,
+                Margin = new Thickness(0, 8, 0, 0)
             });
 
+            // Кнопка копирования по разметке (SettingsWindow.xaml:1511-1518):
+            // вторичная кнопка, отступ сверху 24, значок копирования 16 синим
+            // с зазором 6 до подписи.
+            var copyCaption = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.About.CopyTechInfo"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var copyIcon = IconHelper.MakeIcon("IconCopy", 16, new SolidColorBrush(Color.Parse("#3B82F6")));
+            copyIcon.VerticalAlignment = VerticalAlignment.Center;
+            copyIcon.Margin = new Thickness(0, 0, 6, 0);
             var copyButton = new Button
             {
-                Content = LocalizationManager.T("Settings.About.CopyTechInfo"),
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Children = { copyIcon, copyCaption }
+                },
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 8, 0, 0),
+                Margin = new Thickness(0, 24, 0, 0),
                 Padding = new Thickness(14, 8)
             };
+            copyButton.Styled(ControlThemes.SecondaryButton);
             copyButton.Click += async (_, _) =>
             {
                 try
