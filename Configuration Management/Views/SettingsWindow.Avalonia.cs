@@ -1557,23 +1557,45 @@ namespace Configuration_Management
                 });
 
             // ===== Резервное копирование профиля =====
-            var profile = new StackPanel { Spacing = 6 };
+            // Отступы поштучно, как в коде за разметкой (SettingsWindow.Profile.cs:61-130),
+            // а не общим зазором панели.
+            var profile = new StackPanel { Margin = new Thickness(4, 12, 4, 0) };
 
             profile.Children.Add(GroupTitle(LocalizationManager.T("Settings.TabProfile")));
-            profile.Children.Add(Hint(LocalizationManager.T("Settings.Profile.Description")));
-            profile.Children.Add(Hint(LocalizationManager.T("Settings.Profile.Includes")));
+            var profileDescription = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Profile.Description"),
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            profile.Children.Add(profileDescription);
+            var profileIncludes = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Profile.Includes"),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            ThemeBrushes.Bind(profileIncludes, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            profile.Children.Add(profileIncludes);
 
-            profile.Children.Add(GroupTitle(LocalizationManager.T("Settings.Profile.Directory")));
             var profileDirGrid = new Grid();
             profileDirGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             profileDirGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             var profileDirBox = new TextBox
             {
                 Text = _viewModel.ProfileBackupDirectory,
+                Height = 28,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
             profileDirBox.Styled(ControlThemes.ModernTextBox);
-            var profileBrowse = new Button { Content = LocalizationManager.T("Settings.Profile.Browse"), Margin = new Thickness(8, 0, 0, 0) };
+            var profileBrowse = new Button
+            {
+                Content = LocalizationManager.T("Settings.Profile.Browse"),
+                Padding = new Thickness(10, 4),
+                Margin = new Thickness(8, 0, 0, 0)
+            };
             ToolTip.SetTip(profileBrowse, LocalizationManager.T("Settings.Profile.BrowseTooltip"));
             profileBrowse.Click += (_, _) =>
             {
@@ -1585,19 +1607,36 @@ namespace Configuration_Management
             Grid.SetColumn(profileBrowse, 1);
             profileDirGrid.Children.Add(profileDirBox);
             profileDirGrid.Children.Add(profileBrowse);
-            profile.Children.Add(profileDirGrid);
+
+            // Каталог лежит в рамке с заголовком, отступом 8 и полем снизу 10.
+            profile.Children.Add(Controls.GroupBoxPanel.Build(
+                "Settings.Profile.Directory", profileDirGrid,
+                margin: new Thickness(0, 0, 0, 10),
+                padding: new Thickness(8)));
 
             var profileRestoreCheck = new CheckBox
             {
                 Content = LocalizationManager.T("Settings.Profile.RestoreOnStartup"),
                 IsChecked = _viewModel.ProfileRestoreOnStartup,
-                Margin = new Thickness(0, 8, 0, 0)
+                Margin = new Thickness(0, 0, 0, 4)
             };
             profile.Children.Add(profileRestoreCheck);
-            profile.Children.Add(Hint(LocalizationManager.T("Settings.Profile.RestoreOnStartupHint")));
+            var profileRestoreHint = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Profile.RestoreOnStartupHint"),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(24, 0, 0, 12)
+            };
+            ThemeBrushes.Bind(profileRestoreHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            profile.Children.Add(profileRestoreHint);
 
-            var profileButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
-            var backupNow = new Button { Content = LocalizationManager.T("Settings.Profile.BackupNow") };
+            var profileButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
+            var backupNow = new Button
+            {
+                Content = LocalizationManager.T("Settings.Profile.BackupNow"),
+                Padding = new Thickness(12, 6)
+            };
             ToolTip.SetTip(backupNow, LocalizationManager.T("Settings.Profile.BackupNowTooltip"));
             backupNow.Click += (_, _) =>
             {
@@ -1605,7 +1644,11 @@ namespace Configuration_Management
                 _viewModel.ApplyProfileBackupSettings(profileDirBox.Text, profileRestoreCheck.IsChecked == true);
                 _viewModel.BackupProfile();
             };
-            var restoreNow = new Button { Content = LocalizationManager.T("Settings.Profile.RestoreNow") };
+            var restoreNow = new Button
+            {
+                Content = LocalizationManager.T("Settings.Profile.RestoreNow"),
+                Padding = new Thickness(12, 6)
+            };
             ToolTip.SetTip(restoreNow, LocalizationManager.T("Settings.Profile.RestoreNowTooltip"));
             restoreNow.Click += (_, _) =>
             {
