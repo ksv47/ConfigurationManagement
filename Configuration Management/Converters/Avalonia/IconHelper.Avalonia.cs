@@ -130,7 +130,7 @@ namespace Configuration_Management
         public static string ColumnIconKey(string key) => key switch
         {
             "Version" => "IconInfo",
-            "Configuration" => "IconConfiguration",
+            "Configuration" => "IconCubeOutline",
             "LaunchMode" => "IconPlay",
             // В разметке у этой колонки значок Server, а не шестерёнка
             // (MainWindow.xaml:670): шестерёнка стоит у «Действий».
@@ -138,7 +138,7 @@ namespace Configuration_Management
             "LastLaunch" => "IconRecent",
             "Size" => "IconDatabase",
             "Actions" => "IconSettings",
-            _ => "IconList"
+            _ => "IconFormatTitle"
         };
 
     }
