@@ -920,4 +920,55 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
     </ControlTheme>
+    <!-- Элемент дерева окна выбора группы: шаблон автора
+         (GroupPickerWindow.xaml:29). Раскрыватель это «+»/«-» в колонке 24,
+         подсвечивается только сама выбранная строка, вложенные сдвинуты на 16. -->
+    <ControlTheme x:Key="GroupPickerTreeItem" TargetType="TreeViewItem">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="IsExpanded" Value="True"/>
+        <Setter Property="Padding" Value="4,2"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel>
+                    <Border x:Name="PART_Header" Background="Transparent" CornerRadius="6"
+                            Padding="4,3" Margin="0,1">
+                        <Grid ColumnDefinitions="24,*">
+                            <ToggleButton x:Name="PART_ExpandCollapseChevron" Grid.Column="0"
+                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=TreeViewItem}, Mode=TwoWay}"
+                                          ClickMode="Press" Width="20" Height="22"
+                                          Background="Transparent" BorderThickness="0" Padding="0"
+                                          Cursor="Hand" VerticalAlignment="Center">
+                                <ToggleButton.Template>
+                                    <ControlTemplate>
+                                        <TextBlock x:Name="ExpanderSymbol" Text="+"
+                                                   FontSize="16" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <ToggleButton.Styles>
+                                    <Style Selector="ToggleButton:checked /template/ TextBlock#ExpanderSymbol">
+                                        <Setter Property="Text" Value="-"/>
+                                    </Style>
+                                </ToggleButton.Styles>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="PART_HeaderPresenter" Grid.Column="1"
+                                              Content="{TemplateBinding Header}"
+                                              ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                              VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <ItemsPresenter x:Name="PART_ItemsPresenter" Margin="16,0,0,0"
+                                    IsVisible="{TemplateBinding IsExpanded}"
+                                    ItemsPanel="{TemplateBinding ItemsPanel}"/>
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:empty /template/ ToggleButton#PART_ExpandCollapseChevron">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="^:selected /template/ Border#PART_Header">
+            <Setter Property="Background" Value="{DynamicResource TreeSelectedBrush}"/>
+        </Style>
+    </ControlTheme>
 </ResourceDictionary>

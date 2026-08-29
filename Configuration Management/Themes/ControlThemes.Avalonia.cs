@@ -59,6 +59,8 @@ namespace Configuration_Management.Themes
 
         /// <summary>Значковая кнопка строки состояния: отступ 6 на 4, подсветка боковой панели.</summary>
         public const string StatusBarIconButton = "StatusBarIconButton";
+        /// <summary>Элемент дерева окна выбора группы: раскрыватель «+»/«-» и подсветка выбранной строки.</summary>
+        public const string GroupPickerTreeItem = "GroupPickerTreeItem";
 
         /// <summary>Плитка выбора значка группы: тёмная в обеих темах, как у автора.</summary>
         public const string IconPickButton = "IconPickButton";
