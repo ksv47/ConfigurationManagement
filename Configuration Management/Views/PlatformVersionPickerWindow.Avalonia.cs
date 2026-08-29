@@ -220,6 +220,12 @@ namespace Configuration_Management
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(6)
             };
+            // Фон и рамка карточки дерева из ресурсов темы
+            // (PlatformVersionPickerWindow.xaml:183): без привязки рамка была
+            // невидимой, а фон совпадал с фоном окна вместо карточного.
+            ThemeBrushes.Bind(treeBorder, Border.BackgroundProperty, "CardBackgroundColorBrush");
+            ThemeBrushes.Bind(treeBorder, Border.BorderBrushProperty, "BorderColorBrush");
+
             Grid.SetRow(treeBorder, 1);
             grid.Children.Add(treeBorder);
 

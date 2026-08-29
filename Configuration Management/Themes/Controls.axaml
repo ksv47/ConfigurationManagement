@@ -1059,6 +1059,12 @@
         <Style Selector="^:checked /template/ Border#PART_Border">
             <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
         </Style>
+        <!-- У автора триггер наведения объявлен после триггера выбора и побеждает:
+             нажатая кнопка под курсором тоже заливается кистью наведения
+             (PlatformVersionPickerWindow.xaml:126). -->
+        <Style Selector="^:checked:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+        </Style>
         <Style Selector="^:checked">
             <Setter Property="Foreground" Value="White"/>
         </Style>
