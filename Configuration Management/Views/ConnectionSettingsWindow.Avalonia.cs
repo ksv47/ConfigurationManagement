@@ -118,6 +118,7 @@ namespace Configuration_Management
                 VerticalContentAlignment = VerticalAlignment.Center,
                 IsReadOnly = readOnly
             };
+            tb.Styled(ControlThemes.ModernTextBox);
             // Свойство только для чтения привязывается односторонне, как в разметке
             // (ConnectionSettingsWindow.xaml:219): двусторонняя привязка к свойству
             // без сеттера пишет ошибку в журнал при каждом обновлении.

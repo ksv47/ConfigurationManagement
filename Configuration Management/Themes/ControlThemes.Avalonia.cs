@@ -33,6 +33,15 @@ namespace Configuration_Management.Themes
         /// <summary>Карточка варианта выбора: рамка вокруг переключателя с подписью и пояснением.</summary>
         public const string OptionCard = "OptionCard";
 
+        /// <summary>Поле ввода: карточный фон, скругление 6, акцентный контур при наведении и фокусе.</summary>
+        public const string ModernTextBox = "ModernTextBox";
+
+        /// <summary>Выпадающий список: карточный фон, скругление 8, акцентный контур.</summary>
+        public const string ModernComboBox = "ModernComboBox";
+
+        /// <summary>Флажок в стиле Material Design: квадрат 18 со скруглением 3.</summary>
+        public const string ModernMaterialCheckBox = "ModernMaterialCheckBox";
+
         /// <summary>
         /// Ставит элементу тему контрола по ключу словаря и возвращает сам элемент,
         /// чтобы вызов можно было встроить в инициализацию.

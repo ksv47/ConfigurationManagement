@@ -15,7 +15,7 @@
         <TextBlock Grid.Row="0"
                    Text="{loc:Loc TagInput.Prompt}"
                    Margin="0,0,0,8"/>
-        <TextBox Grid.Row="1" x:Name="TagBox" Padding="8,6"/>
+        <TextBox Grid.Row="1" x:Name="TagBox" Theme="{DynamicResource ModernTextBox}"/>
         <!-- Отступ панели кнопок сверху взят из разметки WPF. -->
         <ContentControl Grid.Row="2" x:Name="ButtonsHost" Margin="0,16,0,0"/>
     </Grid>

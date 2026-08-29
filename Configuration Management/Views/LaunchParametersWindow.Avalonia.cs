@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Localization;
+using Configuration_Management.Themes;
 
 namespace Configuration_Management
 {
@@ -34,14 +35,17 @@ namespace Configuration_Management
             MinWidth = 720;
             MinHeight = 480;
 
+            // Высота и выравнивание из разметки (LaunchParametersWindow.xaml:28 и :48).
             _txtCustom = new TextBox
             {
                 Text = currentParameters ?? string.Empty,
-                Padding = new Thickness(8, 6),
                 AcceptsReturn = true,
-                MinHeight = 90,
+                TextWrapping = TextWrapping.Wrap,
+                MinHeight = 110,
+                VerticalContentAlignment = VerticalAlignment.Top,
                 Watermark = LocalizationManager.T("LaunchParams.InputWatermark")
             };
+            _txtCustom.Styled(Themes.ControlThemes.ModernTextBox);
             ToolTip.SetTip(_txtCustom, LocalizationManager.T("LaunchParams.InputTooltip"));
 
             Content = BuildRoot();

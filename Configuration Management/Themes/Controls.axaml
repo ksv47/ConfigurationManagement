@@ -32,6 +32,18 @@
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
+    <!-- Ресурсы штатной темы Fluent, которыми она красит выпадающий список.
+         Рамка списка живёт в отдельном окне, и селектор части шаблона до неё
+         не достаёт (проверено прогоном), поэтому вид задаётся через ресурсы,
+         на которые её шаблон и ссылается. Значения из разметки WPF
+         (ConnectionSettingsWindow.xaml:365: фон карточки, контур, скругление 8,
+         внутренний отступ 4). -->
+    <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="{DynamicResource CardBackgroundColor}"/>
+    <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="{DynamicResource BorderColor}"/>
+    <Thickness x:Key="ComboBoxDropdownBorderThickness">1</Thickness>
+    <Thickness x:Key="ComboBoxDropdownBorderPadding">4</Thickness>
+    <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
+
     <!-- ===================== Основная кнопка ===================== -->
     <ControlTheme x:Key="ModernButton" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
@@ -329,6 +341,164 @@
              (ConnectionSettingsWindow.xaml:744 и :862). -->
         <Style Selector="^:disabled /template/ Border#PART_Surface">
             <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </ControlTheme>
+    <!-- ===================== Поля ввода и списки =====================
+         Стили ModernTextBox, ModernComboBox, ModernComboBoxItem и
+         ModernMaterialCheckBox из словарей WPF (LightTheme.xaml:211, :277, :341,
+         :415; в тёмной теме они дословно те же). Поле ввода и список наследуют
+         штатную тему Fluent и переопределяют её части: свой шаблон здесь опасен,
+         у TextBox обязательна часть PART_TextPresenter, у ComboBox PART_Popup.
+         У флажка обязательных частей нет, поэтому его шаблон повторяет авторский
+         целиком. -->
+    <ControlTheme x:Key="ModernTextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+
+        <Style Selector="^ /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="ModernComboBoxItem" TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+
+        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="^:selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ItemSelectedBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="^:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ItemSelectedBrush}"/>
+        </Style>
+        <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="ModernComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1.5"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="MinWidth" Value="120"/>
+        <Setter Property="MaxDropDownHeight" Value="280"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="ItemContainerTheme" Value="{StaticResource ModernComboBoxItem}"/>
+
+        <Style Selector="^ /template/ Border#Background">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#Background">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Background">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:focus /template/ Border#Background">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^ /template/ PathIcon#DropDownGlyph">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="ModernMaterialCheckBox" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="CheckBox">
+                <Grid Background="{TemplateBinding Background}" ColumnDefinitions="Auto,*">
+                    <Border Name="PART_Box"
+                            Width="18" Height="18"
+                            CornerRadius="3"
+                            BorderThickness="2"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrushColor}">
+                        <Panel>
+                            <Path Name="PART_Check"
+                                  Data="M 3.2,8.2 L 6.8,11.8 L 14.6,4.2"
+                                  Stroke="White" StrokeThickness="2.2"
+                                  StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stretch="None"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  IsVisible="False"/>
+                            <Path Name="PART_Dash"
+                                  Data="M 4.2,9 L 13.8,9"
+                                  Stroke="White" StrokeThickness="2.2"
+                                  StrokeLineCap="Round"
+                                  Stretch="None"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  IsVisible="False"/>
+                        </Panel>
+                    </Border>
+                    <ContentPresenter Grid.Column="1"
+                                      Name="PART_ContentPresenter"
+                                      Margin="9,0,0,0"
+                                      VerticalAlignment="Center"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"/>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Box">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Border#PART_Box">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Path#PART_Check">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="^:indeterminate /template/ Border#PART_Box">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:indeterminate /template/ Path#PART_Dash">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
         </Style>
     </ControlTheme>
 </ResourceDictionary>
