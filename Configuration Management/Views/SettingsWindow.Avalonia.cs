@@ -958,13 +958,20 @@ namespace Configuration_Management
             var appearance = new StackPanel { Spacing = 6 };
             // Заголовок группы из разметки WPF (SettingsWindow.xaml:824).
             appearance.Children.Add(GroupTitle(LocalizationManager.T("Settings.Theme")));
-            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Theme.Description")));
+            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Theme.Description"), bottom: 10));
 
             // Правки идут по копии сохранённой схемы, а не применённой предпросмотром:
             // закрытие окна крестиком не должно оставлять редактор на непринятых цветах.
             editedScheme = _viewModel.ActiveColorScheme.Clone();
 
-            var schemeBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
+            // Список схем 280 на 34 с левым полем 10 (SettingsWindow.xaml:829).
+            var schemeBox = new ComboBox
+            {
+                Width = 280,
+                Height = 34,
+                Margin = new Thickness(10, 0, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
             var colorsPanel = new StackPanel { Spacing = 2 };
             var schemeNames = new List<string>();
             var suppressSchemeEvent = false;
@@ -1057,7 +1064,15 @@ namespace Configuration_Management
 
             Button SchemeButton(string textKey, string tooltipKey, Action action)
             {
-                var button = new Button { Content = LocalizationManager.T(textKey), Margin = new Thickness(0, 0, 6, 4) };
+                // Числа из разметки (SettingsWindow.xaml:843): отступ 10 на 6,
+                // поля справа 8 и снизу 4, вторичная тема.
+                var button = new Button
+                {
+                    Content = LocalizationManager.T(textKey),
+                    Padding = new Thickness(10, 6),
+                    Margin = new Thickness(0, 0, 8, 4)
+                };
+                button.Styled(ControlThemes.SecondaryButton);
                 ToolTip.SetTip(button, LocalizationManager.T(tooltipKey));
                 button.Click += (_, _) => action();
                 schemeButtons.Children.Add(button);
@@ -1245,7 +1260,7 @@ namespace Configuration_Management
 
             appearance.Children.Add(schemeButtons);
             appearance.Children.Add(GroupTitle(LocalizationManager.T("Settings.Colors")));
-            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Colors.Description")));
+            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Colors.Description"), bottom: 8));
             appearance.Children.Add(colorsPanel);
 
             var tabAppearance = MainTab("IconPalette", "Settings.TabAppearance",
@@ -2174,9 +2189,11 @@ namespace Configuration_Management
         /// </summary>
         private Control ColorRow(ColorScheme scheme, string key, string label, string value)
         {
+            // Числа из разметки (SettingsWindow.xaml:912): образец 28 на 20
+            // в колонке шириной 36.
             var swatch = new Border
             {
-                Width = 44,
+                Width = 28,
                 Height = 20,
                 CornerRadius = new CornerRadius(4),
                 BorderThickness = new Thickness(1),
@@ -2226,16 +2243,18 @@ namespace Configuration_Management
             var choose = new Button
             {
                 Content = LocalizationManager.T("Settings.ChooseColor"),
+                Padding = new Thickness(10, 3),
                 Margin = new Thickness(12, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
+            choose.Styled(ControlThemes.SecondaryButton);
             choose.Click += (_, _) => PickColor();
 
             // Ширины колонок как в разметке WPF (SettingsWindow.xaml:906): подпись
             // по содержимому, тянется колонка со значением, а не подпись.
-            var grid = new Grid { Margin = new Thickness(0, 1) };
+            var grid = new Grid { Margin = new Thickness(0, 3) };
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(36)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
