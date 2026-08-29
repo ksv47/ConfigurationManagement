@@ -4,6 +4,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Configuration_Management.Controls;
 using Configuration_Management.Localization;
@@ -27,16 +28,24 @@ namespace Configuration_Management
             new PasswordBox { Width = 260 }.Styled(Themes.ControlThemes.ModernPasswordBox);
         private readonly CheckBox _protectCheck = new() { Content = LocalizationManager.T("Profiles.ProtectWithPassword"), Margin = new Thickness(108, 0, 0, 0) };
         private readonly TextBlock _errorLabel;
+        private readonly TextBlock _editingTitle;
+        private readonly TextBlock _selectPrompt;
+        private readonly StackPanel _fieldsPanel;
+        private readonly ComboBox _activeAccountBox = new();
         private bool _suppressSelection;
+        private bool _suppressActiveAccount;
 
         public ProfilesWindow(IProfileService profileService)
         {
             _profileService = profileService;
             Title = LocalizationManager.T("Profiles.Title");
-            Width = 560;
-            Height = 520;
-            MinWidth = 500;
-            CanResize = false;
+            // Размеры и возможность растягивания из разметки
+            // (ProfilesWindow.xaml:10-13).
+            Width = 760;
+            Height = 560;
+            MinWidth = 640;
+            MinHeight = 500;
+            CanResize = true;
             SystemDecorations = SystemDecorations.Full;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
@@ -46,31 +55,96 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            _currentAccountLabel = new TextBlock { FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 4) };
-            Grid.SetRow(_currentAccountLabel, 0);
+            // Подсказка и подпись текущей записи (ProfilesWindow.xaml:43-45).
+            var header = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
+            header.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Profiles.Hint"),
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.85
+            });
+            _currentAccountLabel = new TextBlock
+            {
+                FontWeight = FontWeight.SemiBold,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            header.Children.Add(_currentAccountLabel);
+            Grid.SetRow(header, 0);
 
-            var hint = new TextBlock { Text = LocalizationManager.T("Profiles.RestartHint"), TextWrapping = TextWrapping.Wrap, Opacity = 0.85, Margin = new Thickness(0, 0, 0, 12) };
-            Grid.SetRow(hint, 1);
+            // Выбор активной учётной записи: смена применяется сразу, кнопкой
+            // «Сохранить» она не подтверждается (ProfilesWindow.xaml:49-60).
+            var activeRow = new DockPanel { Margin = new Thickness(0, 0, 0, 12) };
+            var activeLabel = new TextBlock
+            {
+                Text = LocalizationManager.T("Profiles.ActiveAccount"),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 0, 10, 0)
+            };
+            DockPanel.SetDock(activeLabel, Dock.Left);
+            activeRow.Children.Add(activeLabel);
+            _activeAccountBox.DisplayMemberBinding = new Avalonia.Data.Binding("Name");
+            _activeAccountBox.SelectionChanged += (_, _) => OnActiveAccountChanged();
+            activeRow.Children.Add(_activeAccountBox);
+            Grid.SetRow(activeRow, 1);
 
-            _profilesList = new ListBox { Margin = new Thickness(0, 0, 0, 12), DisplayMemberBinding = new Avalonia.Data.Binding("Name") };
+            // Список слева шириной 240 и карточка редактора справа
+            // (ProfilesWindow.xaml:63-67).
+            var body = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+            body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(240) });
+            body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            _profilesList = new ListBox { Margin = new Thickness(0, 0, 12, 0) };
+            _profilesList.ItemTemplate = new FuncDataTemplate<UserProfile>((profile, _) => BuildProfileRow(profile), true);
             _profilesList.SelectionChanged += (_, _) => OnSelectionChanged();
-            Grid.SetRow(_profilesList, 2);
+            Grid.SetColumn(_profilesList, 0);
+            body.Children.Add(_profilesList);
 
-            var editor = BuildEditor();
-            Grid.SetRow(editor, 3);
+            _editingTitle = new TextBlock
+            {
+                FontWeight = FontWeight.SemiBold,
+                FontSize = 15,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            _selectPrompt = new TextBlock
+            {
+                Text = LocalizationManager.T("Profiles.SelectToEdit"),
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.8,
+                IsVisible = false
+            };
+            _fieldsPanel = BuildEditor();
+
+            var editorContent = new StackPanel();
+            editorContent.Children.Add(_editingTitle);
+            editorContent.Children.Add(_selectPrompt);
+            editorContent.Children.Add(_fieldsPanel);
+
+            var editorCard = new Border
+            {
+                Padding = new Thickness(14, 12),
+                CornerRadius = new CornerRadius(8),
+                BorderThickness = new Thickness(1),
+                Child = editorContent
+            };
+            Themes.ThemeBrushes.Bind(editorCard, Border.BackgroundProperty, "ItemHoverBrush");
+            Themes.ThemeBrushes.Bind(editorCard, Border.BorderBrushProperty, "BorderColorBrush");
+            Grid.SetColumn(editorCard, 1);
+            body.Children.Add(editorCard);
+            Grid.SetRow(body, 2);
 
             _errorLabel = new TextBlock { Foreground = Brushes.IndianRed, TextWrapping = TextWrapping.Wrap, IsVisible = false, Margin = new Thickness(0, 0, 0, 12) };
-            Grid.SetRow(_errorLabel, 4);
+            Grid.SetRow(_errorLabel, 3);
 
             var buttons = BuildButtons();
-            Grid.SetRow(buttons, 5);
+            Grid.SetRow(buttons, 4);
 
-            grid.Children.Add(_currentAccountLabel);
-            grid.Children.Add(hint);
-            grid.Children.Add(_profilesList);
-            grid.Children.Add(editor);
+            grid.Children.Add(header);
+            grid.Children.Add(activeRow);
+            grid.Children.Add(body);
             grid.Children.Add(_errorLabel);
             grid.Children.Add(buttons);
 
@@ -79,9 +153,36 @@ namespace Configuration_Management
             RefreshList();
         }
 
+        /// <summary>
+        /// Строка списка: имя и зелёный бейдж «активная» у активной записи
+        /// (ProfilesWindow.xaml:74-90).
+        /// </summary>
+        private Control BuildProfileRow(UserProfile? profile)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            row.Children.Add(new TextBlock
+            {
+                Text = profile?.Name ?? string.Empty,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            row.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Profiles.Active"),
+                Margin = new Thickness(8, 0, 0, 0),
+                FontSize = 11,
+                FontWeight = FontWeight.Bold,
+                Foreground = new SolidColorBrush(Color.Parse("#2E7D32")),
+                VerticalAlignment = VerticalAlignment.Center,
+                // Признака «активная» у модели профиля нет: активной считается та,
+                // что сейчас выбрана службой профилей, как и в вьюмодели WPF.
+                IsVisible = profile is not null && profile.Id == _profileService.CurrentProfile?.Id
+            });
+            return row;
+        }
+
         private StackPanel BuildEditor()
         {
-            var panel = new StackPanel { Spacing = 8, Margin = new Thickness(0, 0, 0, 12) };
+            var panel = new StackPanel { Spacing = 8 };
 
             var nameRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             nameRow.Children.Add(new TextBlock { Text = LocalizationManager.T("Profiles.Name"), VerticalAlignment = VerticalAlignment.Center, Width = 100 });
@@ -166,6 +267,30 @@ namespace Configuration_Management
 
         private UserProfile? SelectedProfile => _profilesList.SelectedItem as UserProfile;
 
+        /// <summary>
+        /// Смена активной записи выпадающим списком: применяется сразу, как
+        /// в вьюмодели WPF (ProfilesViewModel.cs, сеттер CurrentProfile).
+        /// </summary>
+        private void OnActiveAccountChanged()
+        {
+            if (_suppressActiveAccount)
+                return;
+            if (_activeAccountBox.SelectedItem is not UserProfile profile)
+                return;
+            if (profile.Id == _profileService.CurrentProfile?.Id)
+                return;
+
+            try
+            {
+                _profileService.SetCurrentProfile(profile.Id);
+                RefreshList(profile.Id);
+            }
+            catch (Exception ex)
+            {
+                ShowError(ex.Message);
+            }
+        }
+
         private void ApplyCurrentAccountLabel()
         {
             var name = _profileService.CurrentProfile?.Name ?? "-";
@@ -174,8 +299,15 @@ namespace Configuration_Management
 
         private void RefreshList(string? selectId = null)
         {
+            var profiles = _profileService.Profiles.ToList();
+
+            _suppressActiveAccount = true;
+            _activeAccountBox.ItemsSource = profiles;
+            _activeAccountBox.SelectedItem = profiles.FirstOrDefault(p => p.Id == _profileService.CurrentProfile?.Id);
+            _suppressActiveAccount = false;
+
             _suppressSelection = true;
-            _profilesList.ItemsSource = _profileService.Profiles.ToList();
+            _profilesList.ItemsSource = profiles;
 
             selectId ??= _profileService.CurrentProfile?.Id;
             var target = _profileService.Profiles.FirstOrDefault(p => p.Id == selectId);
@@ -203,6 +335,11 @@ namespace Configuration_Management
 
         private void LoadEditor(UserProfile profile)
         {
+            // Заголовок карточки и приглашение переключаются вместе с выбором,
+            // как триггеры разметки (ProfilesWindow.xaml:101-125).
+            _editingTitle.Text = string.Format(LocalizationManager.T("Profiles.Editing"), profile.Name);
+            _selectPrompt.IsVisible = false;
+            _fieldsPanel.IsVisible = true;
             _nameBox.Text = profile.Name;
             _protectCheck.IsChecked = profile.HasPassword;
             _passwordInput.Clear();
@@ -210,6 +347,9 @@ namespace Configuration_Management
 
         private void ClearEditor()
         {
+            _editingTitle.Text = LocalizationManager.T("Profiles.EditingNone");
+            _selectPrompt.IsVisible = true;
+            _fieldsPanel.IsVisible = false;
             _nameBox.Text = string.Empty;
             _protectCheck.IsChecked = false;
             _passwordInput.Clear();
