@@ -202,6 +202,7 @@ namespace Configuration_Management
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Spacing = 10,
+                Margin = new Thickness(0, 8, 0, 0),
                 Children =
                 {
                     BuildConfirmActionButton("Common.Ok", "IconCheck", 140, OnOk_Click),

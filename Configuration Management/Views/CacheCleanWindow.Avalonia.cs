@@ -374,20 +374,18 @@ namespace Configuration_Management
             _cleanButton.Classes.Add("dimmed");
             _cleanButton.Width = 180;
             _cleanButton.Height = 36;
+            var cleanCaption = new TextBlock
+            {
+                Text = LocalizationManager.T("CacheClean.Clean"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
             _cleanButton.Content = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 6,
-                Children =
-                {
-                    IconHelper.MakeIcon("IconBroom", 16, Brushes.White),
-                    new TextBlock
-                    {
-                        Text = LocalizationManager.T("CacheClean.Clean"),
-                        VerticalAlignment = VerticalAlignment.Center
-                    }
-                }
+                Children = { IconHelper.MakeIcon("IconBroom", 16, Brushes.White), cleanCaption }
             };
+            RegisterConfirmCaption(cleanCaption, "CacheClean.Clean");
             _cleanButton.Click += (_, _) => OnClean_Click();
 
             var rightPanel = new StackPanel

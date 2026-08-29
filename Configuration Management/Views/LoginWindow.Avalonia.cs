@@ -160,26 +160,24 @@ namespace Configuration_Management
             var cancel = BuildCancelButton(110);
             panel.Children.Add(cancel);
 
+            var loginCaption = new TextBlock
+            {
+                Text = LocalizationManager.T("Auth.Login"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
             var login = new Button
             {
                 Content = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
                     Spacing = 6,
-                    Children =
-                    {
-                        IconHelper.MakeIcon("IconOk", 14, "ButtonTextBrush"),
-                        new TextBlock
-                        {
-                            Text = LocalizationManager.T("Auth.Login"),
-                            VerticalAlignment = VerticalAlignment.Center
-                        }
-                    }
+                    Children = { IconHelper.MakeIcon("IconOk", 14, "ButtonTextBrush"), loginCaption }
                 },
                 Width = 130,
                 IsDefault = true
             };
             login.Styled(ControlThemes.ModernButton);
+            RegisterConfirmCaption(loginCaption, "Auth.Login");
             login.Click += (_, _) => TryLogin();
             panel.Children.Add(login);
 

@@ -48,6 +48,7 @@ namespace Configuration_Management
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Spacing = 8,
+                Margin = new Thickness(0, 16, 0, 0),
                 Children =
                 {
                     BuildConfirmButton(LocalizationManager.T("Common.Ok"), 90, OnOk_Click, minimumWidth: true),

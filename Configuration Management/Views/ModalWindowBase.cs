@@ -23,8 +23,10 @@ namespace Configuration_Management
         /// <summary>
         /// Задаёт окну фон темы. В разметке WPF его ставит каждое окно
         /// (<c>Background="{DynamicResource ContentBackgroundBrush}"</c>),
-        /// здесь это одно место на все диалоги. Окно, которому нужен свой фон,
-        /// присваивает его после базового конструктора, и его значение старше.
+        /// здесь это одно место на все диалоги. Окну, которому нужен свой фон,
+        /// присвоения мало: привязка держит то же местное значение и вернёт своё
+        /// при следующей смене темы или схемы, поэтому её надо снимать
+        /// (<c>ClearValue(BackgroundProperty)</c>) до присвоения.
         /// </summary>
         protected ModalWindowBase()
         {
@@ -139,8 +141,12 @@ namespace Configuration_Management
         /// <param name="onOk">Что выполнить перед закрытием с положительным результатом.</param>
         /// <param name="cancelWidth">Ширина кнопки отмены.</param>
         /// <param name="okIconKey">Ключ значка кнопки подтверждения.</param>
+        /// <param name="okTextKey">
+        /// Ключ подписи подтверждения вместо готовой строки: только так подпись
+        /// переводится при смене языка.
+        /// </param>
         protected StackPanel BuildButtons(string? okText = null, double okWidth = 130, Action? onOk = null,
-            double cancelWidth = 110, string okIconKey = "IconOk")
+            double cancelWidth = 110, string okIconKey = "IconOk", string? okTextKey = null)
         {
             var panel = new StackPanel
             {
@@ -150,7 +156,7 @@ namespace Configuration_Management
             };
 
             panel.Children.Add(BuildCancelButton(cancelWidth));
-            panel.Children.Add(BuildConfirmButton(okText, okWidth, onOk, okIconKey: okIconKey));
+            panel.Children.Add(BuildConfirmButton(okText, okWidth, onOk, okIconKey: okIconKey, okTextKey: okTextKey));
             return panel;
         }
 
@@ -209,12 +215,15 @@ namespace Configuration_Management
         /// <param name="onOk">Что выполнить перед закрытием.</param>
         /// <param name="minimumWidth">Ширина задаётся как минимальная, а не жёсткая.</param>
         /// <param name="okIconKey">Ключ значка.</param>
+        /// <param name="okTextKey">Ключ подписи вместо готовой строки.</param>
         protected Button BuildConfirmButton(string? okText, double width = 130, Action? onOk = null,
-            bool minimumWidth = false, string okIconKey = "IconOk")
+            bool minimumWidth = false, string okIconKey = "IconOk", string? okTextKey = null)
         {
             var caption = new TextBlock
             {
-                Text = ResolveOkText(okText),
+                Text = okTextKey is { Length: > 0 } captionKey
+                    ? LocalizationManager.T(captionKey)
+                    : ResolveOkText(okText),
                 VerticalAlignment = VerticalAlignment.Center
             };
 
@@ -244,14 +253,14 @@ namespace Configuration_Management
 
             _lastOkText = caption;
             _lastOkRaw = okText ?? "";
-            _lastOkKey = null;
+            _lastOkKey = okTextKey;
             EnsureLanguageSubscription();
             return button;
         }
 
         /// <summary>
         /// Кнопка подтверждения нижней панели диалога: зелёная заливка, белые
-        /// значок и подпись. Так эта кнопка задана в разметке WPF у девяти окон.
+        /// значок и подпись. Так эта кнопка задана в разметке WPF у десяти окон.
         /// </summary>
         /// <param name="textKey">Ключ локализации подписи.</param>
         /// <param name="iconKey">Ключ значка.</param>
@@ -259,8 +268,14 @@ namespace Configuration_Management
         /// <param name="onOk">Что выполнить перед закрытием с положительным результатом.</param>
         /// <param name="height">Высота кнопки.</param>
         /// <param name="iconSize">Размер значка.</param>
+        /// <param name="iconGap">Зазор между значком и подписью.</param>
+        /// <param name="closeOnClick">
+        /// Закрывать окно по нажатию. Ложь нужна окнам, где кнопка сначала
+        /// проверяет введённое и закрывает окно сама.
+        /// </param>
         protected Button BuildConfirmActionButton(string textKey, string iconKey, double width,
-            Action? onOk = null, double height = 36, double iconSize = 16)
+            Action? onOk = null, double height = 36, double iconSize = 16, double iconGap = 6,
+            bool closeOnClick = true)
         {
             var caption = new TextBlock
             {
@@ -273,7 +288,7 @@ namespace Configuration_Management
                 Content = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Spacing = 6,
+                    Spacing = iconGap,
                     Children =
                     {
                         IconHelper.MakeIcon(iconKey, iconSize, Brushes.White),
@@ -286,12 +301,19 @@ namespace Configuration_Management
             };
 
             button.Styled(ControlThemes.DialogConfirmButton);
-            button.Click += (_, _) =>
+            if (closeOnClick)
             {
-                onOk?.Invoke();
-                DialogResult = true;
-                Close();
-            };
+                button.Click += (_, _) =>
+                {
+                    onOk?.Invoke();
+                    DialogResult = true;
+                    Close();
+                };
+            }
+            else if (onOk is not null)
+            {
+                button.Click += (_, _) => onOk();
+            }
 
             _lastOkText = caption;
             _lastOkKey = textKey;
@@ -306,7 +328,9 @@ namespace Configuration_Management
         /// <param name="width">Ширина кнопки.</param>
         /// <param name="height">Высота кнопки.</param>
         /// <param name="iconSize">Размер значка.</param>
-        protected Button BuildCancelActionButton(double width = 140, double height = 36, double iconSize = 16)
+        /// <param name="iconGap">Зазор между значком и подписью.</param>
+        protected Button BuildCancelActionButton(double width = 140, double height = 36,
+            double iconSize = 16, double iconGap = 6)
         {
             var caption = new TextBlock
             {
@@ -319,7 +343,7 @@ namespace Configuration_Management
                 Content = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Spacing = 6,
+                    Spacing = iconGap,
                     Children =
                     {
                         IconHelper.MakeIcon("IconClose", iconSize, DangerBrush),
@@ -341,6 +365,20 @@ namespace Configuration_Management
 
         /// <summary>Красный цвет отмены и удаления: в разметке WPF он задан числом.</summary>
         protected static readonly IBrush DangerBrush = new SolidColorBrush(Color.Parse("#EF4444"));
+
+        /// <summary>
+        /// Берёт на себя перевод подписи кнопки, которую окно собрало само.
+        /// Без этого при смене языка переводится только «Отмена», и панель
+        /// остаётся двуязычной.
+        /// </summary>
+        /// <param name="caption">Подпись кнопки подтверждения.</param>
+        /// <param name="textKey">Ключ локализации этой подписи.</param>
+        protected void RegisterConfirmCaption(TextBlock caption, string textKey)
+        {
+            _lastOkText = caption;
+            _lastOkKey = textKey;
+            EnsureLanguageSubscription();
+        }
 
         private static void SetButtonWidth(Button button, double width, bool minimumWidth)
         {
