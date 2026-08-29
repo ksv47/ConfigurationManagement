@@ -24,6 +24,15 @@ namespace Configuration_Management.Themes
         /// <summary>Кнопка отмены нижней панели диалога: красный контур.</summary>
         public const string DialogCancelButton = "DialogCancelButton";
 
+        /// <summary>Набор вертикальных вкладок окна подключения.</summary>
+        public const string ConnTabControl = "ConnTabControl";
+
+        /// <summary>Вертикальная вкладка: полоса акцента справа у выбранной.</summary>
+        public const string ConnTabItem = "ConnTabItem";
+
+        /// <summary>Карточка варианта выбора: рамка вокруг переключателя с подписью и пояснением.</summary>
+        public const string OptionCard = "OptionCard";
+
         /// <summary>
         /// Ставит элементу тему контрола по ключу словаря и возвращает сам элемент,
         /// чтобы вызов можно было встроить в инициализацию.
