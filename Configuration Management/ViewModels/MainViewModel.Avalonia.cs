@@ -3763,12 +3763,15 @@ public class MainViewModel : ViewModelBase
 
     // ======================= Этап 6: папки / ярлыки / стартер =======================
 
-    /// <summary>Недавно запускавшиеся базы (для меню трея). До 8 по дате запуска.</summary>
+    /// <summary>
+    /// Недавно запускавшиеся базы (для меню трея). До семи по дате запуска,
+    /// как в Windows-версии (MainWindow.Tray.cs:216 запрашивает семь).
+    /// </summary>
     public List<Infobase> RecentInfobases =>
         _allInfobases
             .Where(ib => ib.LastLaunchDate.HasValue)
             .OrderByDescending(ib => ib.LastLaunchDate)
-            .Take(8)
+            .Take(7)
             .ToList();
 
     /// <summary>Все информационные базы (для диалога выбора при очистке кеша).</summary>

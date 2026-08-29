@@ -4805,41 +4805,32 @@ namespace Configuration_Management
         {
             menu.Items.Clear();
 
-            var showItem = new NativeMenuItem(LocalizationManager.T("Main.ShowWindow"));
+            // Состав и порядок как в Windows-версии (MainWindow.Tray.cs:209):
+            // открыть, недавние базы (или выбранная, если недавних нет),
+            // синхронизация, настройки, выход. У каждой базы своё подменю
+            // «Предприятие / Конфигуратор»: раньше пункт запускал только
+            // Предприятие, а выбора не было.
+            var showItem = new NativeMenuItem(LocalizationManager.T("Main.TrayOpen"));
             showItem.Click += (_, _) => ShowAndActivate();
             menu.Add(showItem);
-            menu.Add(new NativeMenuItemSeparator());
 
-            // Недавние базы (быстрый запуск прямо из трея).
             var recent = _vm?.RecentInfobases;
             if (recent is { Count: > 0 })
             {
-                var recentMenu = new NativeMenu();
+                menu.Add(new NativeMenuItemSeparator());
+                menu.Add(TrayHeader(LocalizationManager.T("Main.RecentBases")));
                 foreach (var ib in recent)
-                {
-                    var item = new NativeMenuItem($"{ib.Name}  ({ib.ServerDatabaseDisplay})");
-                    var baseRef = ib;
-                    item.Click += (_, _) => LaunchInfobase(baseRef);
-                    recentMenu.Add(item);
-                }
-                menu.Add(new NativeMenuItem(LocalizationManager.T("Main.RecentBases")) { Menu = recentMenu });
-                menu.Add(new NativeMenuItemSeparator());
+                    menu.Add(TrayInfobaseItem(ib, TrayItemName(ib.Name, "Main.NoName")));
             }
-
-            // Запуск выбранной базы: Предприятие / Конфигуратор.
-            if (_vm?.SelectedInfobase is { } sel)
+            else if (_vm?.SelectedInfobase is { } sel)
             {
-                var ent = new NativeMenuItem($"{LocalizationManager.T("Main.LaunchEnterprise")}: {sel.Name}");
-                ent.Click += (_, _) => _vm.LaunchEnterpriseCommand.Execute(null);
-                menu.Add(ent);
-
-                var cfg = new NativeMenuItem($"{LocalizationManager.T("Main.LaunchConfigurator")}: {sel.Name}");
-                cfg.Click += (_, _) => _vm.LaunchConfiguratorCommand.Execute(null);
-                menu.Add(cfg);
                 menu.Add(new NativeMenuItemSeparator());
+                menu.Add(TrayHeader(LocalizationManager.T("Main.SelectedBase")));
+                menu.Add(TrayInfobaseItem(sel, TrayItemName(sel.Name, "Main.SelectedBaseNoName")));
             }
 
-            // Синхронизация и настройки.
+            menu.Add(new NativeMenuItemSeparator());
+
             var sync = new NativeMenuItem(LocalizationManager.T("Main.SyncWithIbases"));
             sync.Click += (_, _) => _vm?.SynchronizeWithIbasesCommand.Execute(null);
             menu.Add(sync);
@@ -4857,6 +4848,49 @@ namespace Configuration_Management
                 _vm?.ExitCommand.Execute(null);
             };
             menu.Add(exitItem);
+        }
+
+        /// <summary>
+        /// Заголовок раздела в меню трея. В Windows это отдельный нерабочий
+        /// пункт (MainWindow.Tray.cs:216), здесь он же, но недоступный:
+        /// собственного вида у заголовка в системном меню нет.
+        /// </summary>
+        private static NativeMenuItem TrayHeader(string text) => new(text) { IsEnabled = false };
+
+        /// <summary>
+        /// Подпись базы в меню трея: пустое имя заменяется на подпись автора,
+        /// длинное обрезается до 48 знаков, как в Windows-версии
+        /// (MainWindow.Tray.cs:224).
+        /// </summary>
+        private static string TrayItemName(string? name, string emptyKey)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return LocalizationManager.T(emptyKey);
+            return name.Length > 48 ? name.Substring(0, 45) + "…" : name;
+        }
+
+        /// <summary>
+        /// Пункт базы с подменю выбора режима запуска: сам пункт запускает
+        /// Предприятие, подменю даёт Предприятие и Конфигуратор
+        /// (MainWindow.Tray.cs:271).
+        /// </summary>
+        private NativeMenuItem TrayInfobaseItem(Infobase ib, string title)
+        {
+            var baseRef = ib;
+            var item = new NativeMenuItem(title);
+            item.Click += (_, _) => LaunchInfobase(baseRef, configurator: false);
+
+            var submenu = new NativeMenu();
+            var enterprise = new NativeMenuItem(LocalizationManager.T("Main.Enterprise"));
+            enterprise.Click += (_, _) => LaunchInfobase(baseRef, configurator: false);
+            submenu.Add(enterprise);
+
+            var configurator = new NativeMenuItem(LocalizationManager.T("Main.SectionConfigurator"));
+            configurator.Click += (_, _) => LaunchInfobase(baseRef, configurator: true);
+            submenu.Add(configurator);
+
+            item.Menu = submenu;
+            return item;
         }
 
         private void SetupTray()
@@ -4899,7 +4933,7 @@ namespace Configuration_Management
         }
 
         /// <summary>Запускает базу из меню трея (Предприятие).</summary>
-        private void LaunchInfobase(Infobase ib)
+        private void LaunchInfobase(Infobase ib, bool configurator = false)
         {
             if (_vm is null)
                 return;
@@ -4911,7 +4945,10 @@ namespace Configuration_Management
                 return;
             }
             _vm.SelectedInfobase = ib;
-            _vm.LaunchEnterpriseCommand.Execute(null);
+            if (configurator)
+                _vm.LaunchConfiguratorCommand.Execute(null);
+            else
+                _vm.LaunchEnterpriseCommand.Execute(null);
         }
 
         /// <summary>
