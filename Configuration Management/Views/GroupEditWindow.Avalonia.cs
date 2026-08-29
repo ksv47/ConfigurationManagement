@@ -34,9 +34,10 @@ namespace Configuration_Management
             new TextBox { Padding = new Thickness(4, 3) }.Styled(ControlThemes.ModernTextBox);
 
         private readonly TextBox _descriptionBox =
-            new TextBox { Padding = new Thickness(4, 3), AcceptsReturn = true, MinHeight = 70 }
+            new TextBox { Padding = new Thickness(4, 3) }.Styled(ControlThemes.ModernTextBox);
+        private readonly TextBox _parentPathBox =
+            new TextBox { Padding = new Thickness(4, 3), IsReadOnly = true, VerticalContentAlignment = VerticalAlignment.Center }
                 .Styled(ControlThemes.ModernTextBox);
-        private readonly TextBlock _parentPathBox = new();
         private readonly ColorPickerControl _colorControl = new();
         private readonly ColorPickerControl _iconColorControl = new();
         private readonly WrapPanel _iconPickerPanel = new();
@@ -162,66 +163,84 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            var tabs = new TabControl();
+            var tabs = new TabControl { Margin = new Thickness(16, 16, 16, 0) };
+            tabs.Styled(ControlThemes.SettingsSubTabControl);
 
-            // ===== Вкладка «Общие» =====
-            var general = new StackPanel { Spacing = 10 };
+            // ===== Вкладка «Основные» =====
+            // Раскладка по разметке (GroupEditWindow.xaml:175): колонка подписей 140,
+            // поля строками, всё внутри рамки с заголовком.
+            var general = new Grid();
+            general.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(140)));
+            general.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            for (var i = 0; i < 3; i++)
+                general.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            general.Children.Add(new TextBlock
+            void PlaceRow(int row, string labelKey, Control control)
             {
-                Text = LocalizationManager.T("GroupEdit.BasicParams"),
-                FontWeight = FontWeight.SemiBold
-            });
+                var label = new TextBlock
+                {
+                    Text = LocalizationManager.T(labelKey),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 4)
+                };
+                Grid.SetRow(label, row);
+                Grid.SetColumn(label, 0);
+                general.Children.Add(label);
 
-            var nameLabel = new TextBlock { Text = LocalizationManager.T("GroupEdit.NameLabel") };
-            general.Children.Add(nameLabel);
-            general.Children.Add(_nameBox);
+                control.Margin = new Thickness(0, 4);
+                Grid.SetRow(control, row);
+                Grid.SetColumn(control, 1);
+                general.Children.Add(control);
+            }
 
-            var parentLabel = new TextBlock { Text = LocalizationManager.T("GroupEdit.ParentGroupLabel") };
-            general.Children.Add(parentLabel);
+            PlaceRow(0, "GroupEdit.NameLabel", _nameBox);
+
             var parentRow = new Grid();
             parentRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             parentRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            _parentPathBox.VerticalAlignment = VerticalAlignment.Center;
+            parentRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             ToolTip.SetTip(_parentPathBox, LocalizationManager.T("GroupEdit.ParentTooltip"));
             Grid.SetColumn(_parentPathBox, 0);
             parentRow.Children.Add(_parentPathBox);
-            var parentButtons = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 6,
-                Margin = new Thickness(8, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
+
             var selectParent = new Button
             {
-                Content = IconHelper.IconAndText("IconFolder", LocalizationManager.T("GroupEdit.SelectParent"), 14,
+                Content = IconHelper.IconAndText("IconFolderOutline", LocalizationManager.T("GroupEdit.SelectParent"), 14,
                     "SecondaryButtonTextBrush"),
-                MinWidth = 90,
-                Padding = new Thickness(10, 4)
+                Margin = new Thickness(6, 0, 0, 0),
+                Padding = new Thickness(10, 4),
+                VerticalAlignment = VerticalAlignment.Center
             };
-            selectParent.Styled(Themes.ControlThemes.SecondaryButton);
+            selectParent.Styled(ControlThemes.SecondaryButton);
             selectParent.IsEnabled = !_noGroupMode;
             selectParent.Click += (_, _) => OnSelectParent_Click();
             ToolTip.SetTip(selectParent, LocalizationManager.T("GroupEdit.SelectParentTooltip"));
-            parentButtons.Children.Add(selectParent);
-            parentButtons.Children.Add(HelpLink("GroupEdit.ParentHelp"));
-            Grid.SetColumn(parentButtons, 1);
-            parentRow.Children.Add(parentButtons);
-            general.Children.Add(parentRow);
+            Grid.SetColumn(selectParent, 1);
+            parentRow.Children.Add(selectParent);
 
-            var descLabel = new TextBlock { Text = LocalizationManager.T("GroupEdit.DescriptionLabel") };
-            general.Children.Add(descLabel);
-            general.Children.Add(_descriptionBox);
+            var parentHelp = new Controls.HelpLink
+            {
+                HelpText = LocalizationManager.T("GroupEdit.ParentHelp"),
+                Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(parentHelp, 2);
+            parentRow.Children.Add(parentHelp);
 
-            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("GroupEdit.TabMain"), Content = new ScrollViewer { Content = general, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            PlaceRow(1, "GroupEdit.ParentGroupLabel", parentRow);
+            PlaceRow(2, "GroupEdit.DescriptionLabel", _descriptionBox);
+
+            var generalBox = Controls.GroupBoxPanel.Build("GroupEdit.BasicParams", general,
+                margin: new Thickness(0, 0, 0, 12), padding: new Thickness(10));
+
+            tabs.Items.Add(SubTab("IconFileDocument", "GroupEdit.TabMain", generalBox));
 
             // ===== Вкладка «Цвет» =====
             var colorTab = new StackPanel { Spacing = 10 };
             colorTab.Children.Add(new TextBlock { Text = LocalizationManager.T("GroupEdit.TitleColor") });
             colorTab.Children.Add(SectionHint("GroupEdit.ColorHint"));
             colorTab.Children.Add(_colorControl);
-            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("GroupEdit.TabColor"), Content = new ScrollViewer { Content = colorTab, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            tabs.Items.Add(SubTab("IconPalette", "GroupEdit.TabColor", colorTab));
 
             // ===== Вкладка «Иконка» =====
             var iconTab = new StackPanel { Spacing = 10 };
@@ -243,7 +262,7 @@ namespace Configuration_Management
                 MaxHeight = 300
             };
             iconTab.Children.Add(iconScroll);
-            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("GroupEdit.TabIcon"), Content = iconTab });
+            tabs.Items.Add(SubTab("IconApplication", "GroupEdit.TabIcon", iconTab));
 
             tabs.Margin = new Thickness(16, 16, 16, 0);
             Grid.SetRow(tabs, 0);
@@ -276,6 +295,42 @@ namespace Configuration_Management
             grid.Children.Add(buttonsBar);
 
             return grid;
+        }
+
+        /// <summary>
+        /// Вкладка раздела: значок и подпись по центру, содержимое в прокрутке.
+        /// </summary>
+        private static TabItem SubTab(string iconKey, string titleKey, Control content)
+        {
+            var tab = new TabItem
+            {
+                Content = new ScrollViewer
+                {
+                    Content = content,
+                    Padding = new Thickness(2, 8, 2, 4),
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+                }
+            };
+            tab.Styled(ControlThemes.SettingsSubTabItem);
+
+            // Значок красится подписью вкладки: в разметке он берёт Foreground
+            // у самой вкладки (GroupEditWindow.xaml:168).
+            var icon = IconHelper.MakeIcon(iconKey, 16, out var path);
+            path.Bind(Avalonia.Controls.Shapes.Shape.FillProperty,
+                new Avalonia.Data.Binding(nameof(TabItem.Foreground)) { Source = tab });
+            icon.Margin = new Thickness(0, 0, 6, 0);
+
+            tab.Header = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Children =
+                {
+                    icon,
+                    new TextBlock { Text = LocalizationManager.T(titleKey), VerticalAlignment = VerticalAlignment.Center }
+                }
+            };
+            return tab;
         }
 
         /// <summary>Серое пояснение под подписью поля, как в разметке WPF.</summary>
