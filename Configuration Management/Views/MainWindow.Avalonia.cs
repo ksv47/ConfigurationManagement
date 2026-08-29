@@ -592,7 +592,7 @@ namespace Configuration_Management
         /// Явный цвет значка, как в разметке WPF: там часть команд верхней панели
         /// покрашена вручную, а часть берёт цвет из темы. Без него берётся тема.
         /// </param>
-        private static PanelButton TopBarIconButton(string iconKey, string tooltip, string? colorHex = null,
+        private static Button TopBarIconButton(string iconKey, string tooltip, string? colorHex = null,
             string themeBrushKey = "ButtonTextBrush")
         {
             Control icon;
@@ -606,21 +606,19 @@ namespace Configuration_Management
                     new SolidColorBrush(Color.Parse(colorHex)));
             }
 
-            // Плоская кнопка: у автора значковые команды верхней панели без
-            // подложки и рамки, подсветка появляется только при наведении.
-            // Подсветка наведения из ItemHover, а не из кремовой кисти вторичной
-            // кнопки: в тёмной теме та светлая, и значок на ней пропадал.
-            var button = new PanelButton(
-                "",
-                "ItemHoverBrush",
-                "SecondaryButtonPressedBrush",
-                "",
-                new CornerRadius(8))
+            // Оформление берёт тема IconButton разметки (LightTheme.xaml:561
+            // и DarkTheme.xaml:1105): прозрачный фон, скругление 8, отступ 8,
+            // подсветка только при наведении. Своя реализация красила наведение
+            // кистью ItemHover в обеих темах, тогда как в светлой у автора это
+            // серый #F1F5F9, и гасила недоступную кнопку прозрачностью, которой
+            // у этого стиля нет вовсе.
+            var button = new Button
             {
                 Content = icon,
                 Padding = new Thickness(UiMetrics.Scaled(8)),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
+            button.Styled(Themes.ControlThemes.IconButton);
             ToolTip.SetTip(button, tooltip);
             return button;
         }
@@ -1176,17 +1174,15 @@ namespace Configuration_Management
                 Content = colorHex is not null
                     ? IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), new SolidColorBrush(Color.Parse(colorHex)))
                     : IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), brushKey ?? "TextSecondaryBrush"),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
                 Padding = new Thickness(4),
                 Margin = new Thickness(1, 0),
                 MinWidth = 0,
                 MinHeight = 0,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Cursor = new Cursor(StandardCursorType.Hand),
                 CommandParameter = group
             };
+            button.Styled(Themes.ControlThemes.IconButton);
             ToolTip.SetTip(button, tooltip);
             // Команда живёт во вьюмодели, а контекстом строки служит узел группы.
             button.Bind(Button.CommandProperty, new Binding(commandPath) { Source = _vm });
@@ -3552,20 +3548,17 @@ namespace Configuration_Management
         /// <summary>Компактная иконко-кнопка панели инструментов над списком.</summary>
         private Button HeaderIconButton(string iconKey, string tooltip, string commandPath)
         {
+            // Оформление берёт тема IconButton разметки (LightTheme.xaml:561):
+            // прозрачный фон, скругление 8, подсветка при наведении, отступ 8.
             var button = new Button
             {
-                // Отступ 8 и значок 15, как у IconButton в разметке
-                // (MainWindow.xaml:494, LightTheme.xaml:561): своя ширина 24
-                // делала кнопки заметно теснее.
                 Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush"),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
                 Padding = new Thickness(UiMetrics.Scaled(8)),
                 MinWidth = 0,
                 MinHeight = 0,
-                VerticalAlignment = VerticalAlignment.Center,
-                Cursor = new Cursor(StandardCursorType.Hand)
+                VerticalAlignment = VerticalAlignment.Center
             };
+            button.Styled(Themes.ControlThemes.IconButton);
             ToolTip.SetTip(button, tooltip);
             button.Bind(Button.CommandProperty, new Binding(commandPath));
             return button;
@@ -4083,11 +4076,14 @@ namespace Configuration_Management
                 Content = ThemedIconAndText("IconClose", LocalizationManager.T("Common.Clear"),
                     "ButtonTextBrush", UiMetrics.Scaled(12), centered: false, fontSize: UiMetrics.ScaledFont(11)),
                 Padding = new Thickness(4, 2),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            // Оформление и состояния берёт тема HeaderIconButton разметки
+            // (LightTheme.xaml:586): наведение, нажатие и гашение у автора
+            // заданы, а здесь кнопка была плоской без единого состояния.
+            _tagClearButton.Styled(Themes.ControlThemes.HeaderIconButton);
+            ToolTip.SetTip(_tagClearButton, LocalizationManager.T("Main.ClearTagFilters"));
             _tagClearButton.Bind(Button.CommandProperty, new Binding("ClearTagFiltersCommand"));
 
             // Подсказка остаётся на месте и когда тегов нет: панель не прячется,
@@ -4271,22 +4267,22 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Кнопка строки состояния: плоская, со своим наведением по SidebarHover,
-        /// значок 18 контрастной кистью (стиль StatusBarIconButton, LightTheme.xaml:616).
+        /// Кнопка строки состояния: оформление берёт тема StatusBarIconButton
+        /// разметки (LightTheme.xaml:616). Нажатие у автора различается темами:
+        /// в светлой это тёмная заливка, в тёмной прозрачность 0.85, и тема
+        /// повторяет обе.
         /// </summary>
         private static Button StatusBarIconButton(string iconKey)
         {
-            var button = new PanelButton("", "SidebarHoverBrush", "SidebarHoverBrush", "",
-                new CornerRadius(6))
+            var button = new Button
             {
                 Content = IconHelper.MakeIcon(iconKey, 18, "TextOnAccentBrush"),
-                Padding = new Thickness(6, 4),
                 Margin = new Thickness(4, 0, 0, 0),
                 MinWidth = 0,
                 MinHeight = 0,
-                VerticalAlignment = VerticalAlignment.Center,
-                Cursor = new Cursor(StandardCursorType.Hand)
+                VerticalAlignment = VerticalAlignment.Center
             };
+            button.Styled(Themes.ControlThemes.StatusBarIconButton);
             return button;
         }
 
