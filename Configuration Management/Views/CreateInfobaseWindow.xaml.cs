@@ -68,7 +68,8 @@ namespace Configuration_Management
                 _groups,
                 currentGroupId: null,
                 allowNone: true,
-                noneLabel: LocalizationManager.T("Connection.NoGroup"))
+                noneLabel: LocalizationManager.T("Connection.NoGroup"),
+                kind: GroupPickerObjectKind.Infobase)
             {
                 Owner = this
             };

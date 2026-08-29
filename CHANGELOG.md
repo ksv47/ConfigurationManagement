@@ -9,6 +9,30 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.5.24] — 2026-08-29
+
+Три WPF-точки вызова окна выбора группы `GroupPickerWindow` в Windows/WPF теперь передают вид выбираемого объекта, чтобы заголовок/подзаголовок/справка называли именно тот объект, для которого выбирается группа (issue #83, часть 3).
+
+### Добавлено
+
+- **Передача вида объекта из WPF-точек вызова** (Windows/WPF, issue #83, часть 3). При создании информационной базы ([`CreateInfobaseWindow.xaml.cs`](Configuration Management/Views/CreateInfobaseWindow.xaml.cs)) и при настройке подключения базы ([`ConnectionSettingsWindow.xaml.cs`](Configuration Management/Views/ConnectionSettingsWindow.xaml.cs)) в конструктор `GroupPickerWindow` передаётся `GroupPickerObjectKind.Infobase` — используются формулировки про **базу**. При выборе родительской группы в окне настройки группы ([`GroupEditWindow.xaml.cs`](Configuration Management/Views/GroupEditWindow.xaml.cs)) передаётся `GroupPickerObjectKind.Group` — используются формулировки про **группу**.
+
+## [0.3.5.23] — 2026-08-29
+
+Окно выбора группы `GroupPickerWindow` в Windows/WPF теперь принимает вид выбираемого объекта и подставляет конкретные формулировки заголовка/подзаголовка/справки вместо нейтральных (issue #83, часть 2).
+
+### Добавлено
+
+- **Выбор формулировок окна по виду объекта** (Windows/WPF, issue #83, часть 2). В конструктор [`GroupPickerWindow`](Configuration Management/Views/GroupPickerWindow.xaml.cs) добавлен параметр `kind` (по умолчанию `Group`) типа `GroupPickerObjectKind` (`Group`/`Infobase`). Новый метод `ApplyObjectKind` выбирает ключи локализации в зависимости от вида: для **группы** — `GroupPicker.TitleGroup`/`SubtitleGroup`/`HelpGroup`, для **базы** — `GroupPicker.TitleBase`/`SubtitleBase`/`HelpBase`. Заголовку, подзаголовку и справке в [`GroupPickerWindow.xaml`](Configuration Management/Views/GroupPickerWindow.xaml) присвоены имена `TitleText`/`SubtitleText`/`HelpLink`, а нейтральные привязки `{loc:Loc GroupPicker.Title/Subtitle/Help}` заменены пустыми строками — текст подставляется кодом. Нейтральные `Hint`/`SearchPlaceholder` сохранены как есть.
+
+## [0.3.5.22] — 2026-08-29
+
+Введены отдельные формулировки окна выбора группы для **группы** и для **информационной базы** в Windows/WPF (issue #83, часть 1): текст теперь зависит от вида выбираемого объекта.
+
+### Добавлено
+
+- **Конкретные ключи локализации окна выбора группы** (issue #83, часть 1). Раньше окно выбора группы использовало нейтральные формулировки о «выбранном элементе» (`GroupPicker.Title/Subtitle/Help`), которые подходят для Linux/Avalonia. Теперь добавлены специализированные ключи для Windows/WPF, чтобы заголовок, подзаголовок и справка называли именно тот объект, для которого выбирается группа: для **группы** — `GroupPicker.TitleGroup` («Выбор родительской группы»), `GroupPicker.SubtitleGroup` («Группа будет размещена внутри выбранной группы»), `GroupPicker.HelpGroup`; для **базы** — `GroupPicker.TitleBase` («Выбор группы для базы»), `GroupPicker.SubtitleBase` («База будет размещена внутри выбранной группы»), `GroupPicker.HelpBase`. Нейтральные ключи `GroupPicker.Title/Subtitle/Help/Hint/SearchPlaceholder` сохранены как есть и продолжают использоваться Avalonia/Linux. Ключи добавлены в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
 ## [0.3.5.21] — 2026-08-29
 
 Исправлена ошибка issue #103 на Windows/WPF: изменение положения колонки «Действия» (и любой другой колонки) в списке баз теперь реально применяется.
