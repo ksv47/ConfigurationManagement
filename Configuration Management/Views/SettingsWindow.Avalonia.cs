@@ -183,21 +183,21 @@ namespace Configuration_Management
             // Несколько экземпляров: настройка лежит в общем с версией для
             // Windows файле и уже учитывается при запуске (App.axaml.cs),
             // но в Linux-сборке её нечем было изменить.
-            var multipleInstancesCheck = SettingsSwitch("Settings.General.AllowMultipleInstances", _viewModel.AllowMultipleInstances);
+            var multipleInstancesCheck = SettingsSwitch("Settings.General.AllowMultipleInstances", _viewModel.AllowMultipleInstances, "IconApplication", "#3B82F6");
             settings.Children.Add(multipleInstancesCheck);
 
             // Поведение значка в области уведомлений. До этого три настройки
             // жили только в файле и в версии для Windows: в Linux-сборке ни
             // флажков, ни учёта не было.
-            var trayIconCheck = SettingsSwitch("Settings.General.ShowTrayIcon", _viewModel.ShowTrayIcon);
-            var closeToTrayCheck = SettingsSwitch("Settings.General.CloseToTray", _viewModel.CloseToTray);
-            var escapeToTrayCheck = SettingsSwitch("Settings.General.EscapeToTray", _viewModel.EscapeToTray);
+            var trayIconCheck = SettingsSwitch("Settings.General.ShowTrayIcon", _viewModel.ShowTrayIcon, "IconDockBottom", "#14B8A6");
+            var closeToTrayCheck = SettingsSwitch("Settings.General.CloseToTray", _viewModel.CloseToTray, "IconMinus", "#F59E0B");
+            var escapeToTrayCheck = SettingsSwitch("Settings.General.EscapeToTray", _viewModel.EscapeToTray, "IconKeyboard", "#8B5CF6");
             settings.Children.Add(trayIconCheck);
             settings.Children.Add(closeToTrayCheck);
             settings.Children.Add(escapeToTrayCheck);
 
             // Компактный режим интерфейса.
-            var compactToggle = SettingsSwitch("Settings.CompactMode", _viewModel.CompactMode);
+            var compactToggle = SettingsSwitch("Settings.CompactMode", _viewModel.CompactMode, "IconCompress", "#22C55E");
             compactToggle.Margin = new Thickness(0, 8, 0, 4);
             compactToggle.IsCheckedChanged += (_, _) =>
             {
@@ -244,7 +244,7 @@ namespace Configuration_Management
 
             // Запоминание геометрии окна. Значения лежали в общем файле настроек,
             // но Linux-сборка их не читала и не писала вовсе.
-            var rememberLayoutCheck = SettingsSwitch("Settings.General.RememberWindowLayout", _viewModel.RememberWindowLayout);
+            var rememberLayoutCheck = SettingsSwitch("Settings.General.RememberWindowLayout", _viewModel.RememberWindowLayout, "IconMonitor", "#EC4899");
             rememberLayoutCheck.Margin = new Thickness(0, 8, 0, 0);
             settings.Children.Add(rememberLayoutCheck);
 
@@ -563,13 +563,13 @@ namespace Configuration_Management
 
 
             displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
-            var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails);
-            var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel);
-            var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup);
+            var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails, "IconPageLayoutSidebarRight", "#14B8A6");
+            var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel, "IconMonitor", "#8B5CF6");
+            var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup, "IconFolder", "#3B82F6");
             // Режим списка «только избранные» тот же, что переключается кнопкой
             // в главном окне: флажок и кнопка меняют одно значение.
-            var favoritesOnlyCheck = DisplayCheck("Settings.Panels.ShowFavoritesOnly", _viewModel.IsListModeFavorites);
-            var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups);
+            var favoritesOnlyCheck = DisplayCheck("Settings.Panels.ShowFavoritesOnly", _viewModel.IsListModeFavorites, "IconStar", "#FBBF24");
+            var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups, "IconFolderOutline", "#0EA5E9");
 
             // Пояснения под переключателями стоят там же, где в разметке WPF
             // (SettingsWindow.xaml:628): у правой панели, у блока сессии
@@ -585,15 +585,15 @@ namespace Configuration_Management
             displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.ShowEmptyGroupsHint")));
 
             displayStatus.Children.Add(Hint(LocalizationManager.T("Settings.Status.Description")));
-            var statusPathCheck = DisplayCheck("Settings.Status.ConnectionPath", _viewModel.StatusShowConnectionPath);
-            var statusPortCheck = DisplayCheck("Settings.Status.Port", _viewModel.StatusShowPort);
-            var statusArchCheck = DisplayCheck("Settings.Status.Architecture", _viewModel.StatusShowArchitecture);
-            var statusVersionCheck = DisplayCheck("Column.Version", _viewModel.StatusShowPlatformVersion);
-            var statusLaunchModeCheck = DisplayCheck("Column.LaunchMode", _viewModel.StatusShowLaunchMode);
-            var statusClientTypeCheck = DisplayCheck("Settings.Status.ClientType", _viewModel.StatusShowClientType);
-            var statusConnectionTypeCheck = DisplayCheck("Settings.Status.ConnectionType", _viewModel.StatusShowConnectionType);
-            var statusUserCheck = DisplayCheck("Settings.Status.User", _viewModel.StatusShowUser);
-            var statusIdCheck = DisplayCheck("Settings.Status.Id", _viewModel.StatusShowId);
+            var statusPathCheck = DisplayCheck("Settings.Status.ConnectionPath", _viewModel.StatusShowConnectionPath, "IconFolderOutline", "#3B82F6");
+            var statusPortCheck = DisplayCheck("Settings.Status.Port", _viewModel.StatusShowPort, "IconNetwork", "#6366F1");
+            var statusArchCheck = DisplayCheck("Settings.Status.Architecture", _viewModel.StatusShowArchitecture, "IconMonitor", "#8B5CF6");
+            var statusVersionCheck = DisplayCheck("Column.Version", _viewModel.StatusShowPlatformVersion, "IconPackage", "#A855F7");
+            var statusLaunchModeCheck = DisplayCheck("Column.LaunchMode", _viewModel.StatusShowLaunchMode, "IconPlay", "#22C55E");
+            var statusClientTypeCheck = DisplayCheck("Settings.Status.ClientType", _viewModel.StatusShowClientType, "IconMonitor", "#EC4899");
+            var statusConnectionTypeCheck = DisplayCheck("Settings.Status.ConnectionType", _viewModel.StatusShowConnectionType, "IconDatabase", "#6366F1");
+            var statusUserCheck = DisplayCheck("Settings.Status.User", _viewModel.StatusShowUser, "IconUsers", "#94A3B8");
+            var statusIdCheck = DisplayCheck("Settings.Status.Id", _viewModel.StatusShowId, "IconInfo", "#0EA5E9");
             foreach (var check in new[]
             {
                 statusPathCheck, statusPortCheck, statusArchCheck, statusVersionCheck, statusLaunchModeCheck,
@@ -2306,23 +2306,45 @@ namespace Configuration_Management
         /// Переключатель настройки: подпись слева, дорожка справа. В разметке
         /// это ToggleButton со стилем SettingsToggle (25 применений), а не флажок.
         /// </summary>
-        private static ToggleButton SettingsSwitch(string textKey, bool value)
+        private static ToggleButton SettingsSwitch(string textKey, bool value,
+            string? iconKey = null, string? iconColor = null)
         {
+            var caption = new TextBlock
+            {
+                Text = LocalizationManager.T(textKey),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            // Значок слева от подписи и его цвет заданы в разметке числом
+            // у каждого переключателя (SettingsWindow.xaml:500 и далее).
+            Control content = iconKey is null
+                ? caption
+                : new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Children =
+                    {
+                        IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(16),
+                            new SolidColorBrush(Color.Parse(iconColor ?? "#94A3B8"))),
+                        caption
+                    }
+                };
+            if (content is StackPanel panel)
+                ((Control)panel.Children[0]).Margin = new Thickness(0, 0, 8, 0);
+
             var toggle = new ToggleButton
             {
-                Content = new TextBlock
-                {
-                    Text = LocalizationManager.T(textKey),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    TextWrapping = TextWrapping.Wrap
-                },
+                Content = content,
                 IsChecked = value
             };
             toggle.Styled(ControlThemes.SettingsToggle);
             return toggle;
         }
 
-        private static ToggleButton DisplayCheck(string textKey, bool value) => SettingsSwitch(textKey, value);
+        private static ToggleButton DisplayCheck(string textKey, bool value,
+            string? iconKey = null, string? iconColor = null)
+            => SettingsSwitch(textKey, value, iconKey, iconColor);
 
         private static void ThemeChanged(
             RadioButton light, RadioButton dark, MainViewModel viewModel,
