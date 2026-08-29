@@ -49,10 +49,15 @@ namespace Configuration_Management
             ("IconPin", LocalizationManager.T("GroupEdit.Icon.Pin")), ("IconInfo", LocalizationManager.T("GroupEdit.Icon.Info")), ("IconPlay", LocalizationManager.T("GroupEdit.Icon.Play")),
             ("IconSettings", LocalizationManager.T("GroupEdit.Icon.Settings")), ("IconSearch", LocalizationManager.T("GroupEdit.Icon.Search")), ("IconAdd", LocalizationManager.T("GroupEdit.Icon.Add")),
             ("IconUsers", LocalizationManager.T("GroupEdit.Icon.Users")), ("IconHistory", LocalizationManager.T("GroupEdit.Icon.History")), ("IconSync", LocalizationManager.T("GroupEdit.Icon.Sync")),
-            ("IconBackup", LocalizationManager.T("GroupEdit.Icon.Backup")), ("IconConfiguration", LocalizationManager.T("GroupEdit.Icon.Configuration")),
+            ("IconBackup", LocalizationManager.T("GroupEdit.Icon.Backup")), ("IconConfiguration", LocalizationManager.T("GroupEdit.Icon.Configuration")), ("IconPublish", LocalizationManager.T("GroupEdit.Icon.Publish")),
+            ("IconMonitoring", LocalizationManager.T("GroupEdit.Icon.Monitoring")), ("IconScheduler", LocalizationManager.T("GroupEdit.Icon.Scheduler")), ("IconLogs", LocalizationManager.T("GroupEdit.Icon.Logs")),
+            ("IconRights", LocalizationManager.T("GroupEdit.Icon.Rights")), ("IconExtension", LocalizationManager.T("GroupEdit.Icon.Extension")), ("IconImport", LocalizationManager.T("GroupEdit.Icon.Import")),
+            ("IconExport", LocalizationManager.T("GroupEdit.Icon.Export")), ("IconFilter", LocalizationManager.T("GroupEdit.Icon.Filter")), ("IconCopy", LocalizationManager.T("GroupEdit.Icon.Copy")),
             ("IconEdit", LocalizationManager.T("GroupEdit.Icon.Edit")), ("IconSave", LocalizationManager.T("GroupEdit.Icon.Save")), ("IconRefresh", LocalizationManager.T("GroupEdit.Icon.Refresh")),
-            ("IconWarning", LocalizationManager.T("GroupEdit.Icon.Warning")), ("IconError", LocalizationManager.T("GroupEdit.Icon.Error")), ("IconTheme", LocalizationManager.T("GroupEdit.Icon.Theme")),
-            ("IconCompare", LocalizationManager.T("GroupEdit.Icon.Compare")), ("IconMerge", LocalizationManager.T("GroupEdit.Icon.Merge"))
+            ("IconOpen", LocalizationManager.T("GroupEdit.Icon.Open")), ("IconWarning", LocalizationManager.T("GroupEdit.Icon.Warning")), ("IconOk", LocalizationManager.T("GroupEdit.Icon.Ok")),
+            ("IconError", LocalizationManager.T("GroupEdit.Icon.Error")), ("IconAutostart", LocalizationManager.T("GroupEdit.Icon.Autostart")), ("IconTheme", LocalizationManager.T("GroupEdit.Icon.Theme")),
+            ("IconSun", LocalizationManager.T("GroupEdit.Icon.Sun")), ("IconMoon", LocalizationManager.T("GroupEdit.Icon.Moon")), ("IconCompare", LocalizationManager.T("GroupEdit.Icon.Compare")),
+            ("IconMerge", LocalizationManager.T("GroupEdit.Icon.Merge"))
         };
 
 
