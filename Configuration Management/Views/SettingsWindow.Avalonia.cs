@@ -1719,7 +1719,13 @@ namespace Configuration_Management
             // ===== О программе =====
             var about = BuildAboutTab();
             var tabAbout = MainTab("IconInformationOutline", "Settings.TabAbout",
-                new ScrollViewer { Content = about, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+                new ScrollViewer
+                {
+                    Content = about,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    // Отступ прокрутки из разметки (SettingsWindow.xaml:1486).
+                    Margin = new Thickness(4, 12, 4, 0)
+                });
 
             // Порядок вкладок по разметке (SettingsWindow.xaml:293 и далее):
             // платформы, отображение, оформление, клавиши, настройки, базы,
@@ -2478,7 +2484,15 @@ namespace Configuration_Management
             var asm = Assembly.GetExecutingAssembly();
             var infoVersion = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                               ?? asm.GetName().Version?.ToString() ?? "";
-            var title = asm.GetCustomAttribute<AssemblyTitleAttribute>()?.Title ?? LocalizationManager.T("App.Title");
+            // SDK дописывает к информационной версии хеш коммита через плюс,
+            // и строка «Версия: v0.3.5.24+c825d452…» срезается по ширине.
+            var plus = infoVersion.IndexOf('+');
+            if (plus > 0)
+                infoVersion = infoVersion[..plus];
+            // Название берётся из ключа локализации, как в разметке
+            // (SettingsWindow.xaml:1489): из атрибута сборки оно не переводится
+            // и при английском языке осталось бы русским.
+            var title = LocalizationManager.T("App.Title");
 
             // Название и справка по приложению в одной строке, как в разметке WPF
             // (SettingsWindow.xaml:1488-1494).
@@ -2488,13 +2502,15 @@ namespace Configuration_Management
                 Spacing = 8,
                 Margin = new Thickness(0, 0, 0, 8)
             };
-            titleRow.Children.Add(new TextBlock
+            var titleBlock = new TextBlock
             {
                 Text = title,
                 FontSize = 18,
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
-            });
+            };
+            ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            titleRow.Children.Add(titleBlock);
             titleRow.Children.Add(new Controls.HelpLink
             {
                 // Свой текст без строки про версию: в общем ключе она вписана
@@ -2513,12 +2529,14 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 0, 0, 4)
             });
 
-            panel.Children.Add(new TextBlock
+            var authorBlock = new TextBlock
             {
                 Text = LocalizationManager.T("Settings.About.Author"),
                 FontSize = 14,
                 Margin = new Thickness(0, 0, 0, 16)
-            });
+            };
+            ThemeBrushes.Bind(authorBlock, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            panel.Children.Add(authorBlock);
 
             // Подписи и ссылки на публикацию и репозиторий, как в разметке WPF
             // (SettingsWindow.xaml:1497-1510). В версии для Windows их открывает
