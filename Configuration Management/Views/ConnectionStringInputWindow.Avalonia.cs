@@ -30,8 +30,11 @@ namespace Configuration_Management
         public ConnectionStringInputWindow(string? initialValue = null)
         {
             Title = LocalizationManager.T("ConnectionStringInput.Title");
+            // Кегль окна из разметки: подписи без явного размера берут его по наследству.
+            FontSize = 13;
             Width = 520;
-            SizeToContent = SizeToContent.Height;
+            // Высота из разметки, а не подгонка по содержимому.
+            Height = 230;
             CanResize = false;
             SystemDecorations = SystemDecorations.Full;
 
@@ -99,6 +102,8 @@ namespace Configuration_Management
                     Children = { IconHelper.MakeIcon("IconCopy", 15, "SecondaryButtonTextBrush"), pasteCaption }
                 },
                 Height = 38,
+                // Отступ справа из разметки (ConnectionStringInputWindow.xaml:58).
+                Margin = new Thickness(0, 0, 10, 0),
                 Padding = new Thickness(12, 0)
             };
             pasteButton.Styled(ControlThemes.SecondaryButton);

@@ -7,7 +7,8 @@
                        xmlns:local="clr-namespace:Configuration_Management"
                        x:Class="Configuration_Management.NameInputWindow"
                        Width="440"
-                       SizeToContent="Height"
+                       Height="200"
+                       FontSize="13"
                        CanResize="False"
                        SystemDecorations="Full">
     <Grid Margin="16" RowDefinitions="Auto,Auto,Auto">

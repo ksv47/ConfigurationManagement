@@ -1214,4 +1214,38 @@
             <Setter Property="Opacity" Value="0.7"/>
         </Style>
     </ControlTheme>
+    <!-- Карточка варианта окна добавления (AddEditWindow.xaml:26): рамка без
+         маркера радиокнопки, у выбранного варианта рамка акцентом толщиной 2
+         и заливка AccentHoverBrush. Это местный стиль автора, он отличается
+         от общей карточки OptionCard, где маркер есть. -->
+    <ControlTheme x:Key="AddOptionCard" TargetType="RadioButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Margin" Value="0,0,0,10"/>
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="RadioButton">
+                <Border Name="PART_Surface"
+                        Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrushColor}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#PART_Surface">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Border#PART_Surface">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+        </Style>
+    </ControlTheme>
 </ResourceDictionary>

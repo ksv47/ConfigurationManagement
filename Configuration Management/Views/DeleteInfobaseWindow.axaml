@@ -6,60 +6,75 @@
                        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                        xmlns:local="clr-namespace:Configuration_Management"
                        xmlns:loc="clr-namespace:Configuration_Management.Localization"
+                       xmlns:controls="clr-namespace:Configuration_Management.Controls"
                        x:Class="Configuration_Management.DeleteInfobaseWindow"
                        Title="{loc:Loc DeleteInfobase.Title}"
                        Width="520"
+                       MinWidth="460"
                        SizeToContent="Height"
+                       FontSize="13"
                        CanResize="False"
                        SystemDecorations="Full">
-    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
 
-        <TextBlock Grid.Row="0"
-                   Text="{loc:Loc DeleteInfobase.Title}"
-                   FontSize="15" FontWeight="SemiBold"
-                   Margin="0,0,0,12"/>
+        <!-- Заголовок со значком предупреждения 28 и отступом 12
+             (DeleteInfobaseWindow.xaml:37-41). -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,14">
+            <Path Data="{DynamicResource IconAlertCircleOutline}" Width="28" Height="28"
+                  Stretch="Uniform" Fill="#EF4444" VerticalAlignment="Center"
+                  Margin="0,0,12,0"/>
+            <TextBlock Text="{loc:Loc DeleteInfobase.Title}"
+                       FontSize="16" FontWeight="SemiBold"
+                       VerticalAlignment="Center"/>
+        </StackPanel>
 
         <Border Grid.Row="1"
                 Background="{DynamicResource CardBackgroundBrush}"
                 BorderBrush="{DynamicResource BorderColorBrush}"
                 BorderThickness="1" CornerRadius="8"
-                Padding="12,10" Margin="0,0,0,12">
-            <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                Padding="12" Margin="0,0,0,14">
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc DeleteInfobase.NameLabel}"
-                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                           FontWeight="SemiBold" Margin="0,0,12,6"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <TextBlock Grid.Row="0" Grid.Column="1" x:Name="NameText"
-                           FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                           TextWrapping="Wrap" Margin="0,0,0,6"/>
 
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc DeleteInfobase.TypeLabel}"
-                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                           FontWeight="SemiBold" Margin="0,0,12,6"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TypeText"
-                           FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                           TextWrapping="Wrap" Margin="0,0,0,6"/>
 
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc DeleteInfobase.PathLabel}"
-                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                           FontWeight="SemiBold" Margin="0,0,12,6"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <TextBlock Grid.Row="2" Grid.Column="1" x:Name="PathText"
-                           FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                           TextWrapping="Wrap" Margin="0,0,0,6"/>
 
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc DeleteInfobase.GroupLabel}"
-                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                           FontWeight="SemiBold" Margin="0,0,12,6"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GroupText"
-                           FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                           TextWrapping="Wrap" Margin="0,0,0,6"/>
 
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc DeleteInfobase.PlatformLabel}"
-                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                           FontWeight="SemiBold" Margin="0,0,12,6"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <TextBlock Grid.Row="4" Grid.Column="1" x:Name="PlatformText"
-                           FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                           TextWrapping="Wrap" Margin="0,0,0,6"/>
 
                 <TextBlock Grid.Row="5" Grid.Column="0" Text="{loc:Loc DeleteInfobase.OnDiskLabel}"
-                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                           FontWeight="SemiBold" Margin="0,0,12,0"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <TextBlock Grid.Row="5" Grid.Column="1" x:Name="ExistsText"
-                           FontSize="12" TextWrapping="Wrap"/>
+                           TextWrapping="Wrap"/>
             </Grid>
         </Border>
 
         <TextBlock Grid.Row="2" Text="{loc:Loc DeleteInfobase.Note}"
                    Foreground="{DynamicResource TextSecondaryBrush}"
-                   FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                   TextWrapping="Wrap" Margin="0,0,0,12"/>
 
         <!-- Панель физического удаления выделена красным, как у автора:
              это необратимое действие, и оно не должно выглядеть рядовой галочкой. -->
@@ -71,12 +86,10 @@
                     <CheckBox x:Name="PhysicalCheck"
                               Content="{loc:Loc DeleteInfobase.PhysicalDelete}"
                               FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <Border x:Name="PhysicalHelp" Width="18" Height="18" CornerRadius="9"
-                            Background="#FECACA" VerticalAlignment="Center"
-                            ToolTip.Tip="{loc:Loc DeleteInfobase.PhysicalHelp}">
-                        <TextBlock Text="?" FontSize="12" Foreground="#B91C1C"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
+                    <!-- Тот же контрол справки, что и в остальных окнах:
+                         в разметке это controls:HelpLink (DeleteInfobaseWindow.xaml:97). -->
+                    <controls:HelpLink x:Name="PhysicalHelp" VerticalAlignment="Center"
+                                       HelpText="{loc:Loc DeleteInfobase.PhysicalHelp}"/>
                 </StackPanel>
                 <TextBlock x:Name="PhysicalHint" Margin="24,6,0,0" FontSize="12"
                            Foreground="#B91C1C" TextWrapping="Wrap"
@@ -101,7 +114,15 @@
                     CornerRadius="8" HorizontalContentAlignment="Center"
                     Background="Transparent" BorderThickness="1.5"
                     BorderBrush="{DynamicResource BorderColorBrush}"
-                    Content="{loc:Loc DeleteInfobase.Cancel}"/>
+                    Foreground="{DynamicResource TextPrimaryBrush}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Path Data="{DynamicResource IconClose}" Width="16" Height="16"
+                          Stretch="Uniform" VerticalAlignment="Center"
+                          Fill="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{loc:Loc DeleteInfobase.Cancel}" FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
         </StackPanel>
 
     </Grid>
