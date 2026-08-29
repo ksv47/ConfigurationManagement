@@ -49,6 +49,10 @@ namespace Configuration_Management
             MinWidth = 760;
             MinHeight = 560;
             FontSize = 13;
+            // Окно не показывается в панели задач (SettingsWindow.xaml:22):
+            // на менеджерах окон, которые показывают дочерние окна, без этого
+            // настройки попадали бы в панель, чего в версии для Windows нет.
+            ShowInTaskbar = false;
 
             _viewModel = viewModel;
             // Без контекста привязки переключателей клиента и разрядности
@@ -1781,7 +1785,10 @@ namespace Configuration_Management
             var ok = new Button
             {
                 Content = okContent,
-                MinWidth = UiMetrics.Scaled(140),
+                // Числа из разметки (SettingsWindow.xaml:1527): у автора ширина
+                // и высота жёсткие, а не минимум по содержимому.
+                Width = 140,
+                Height = 36,
                 CornerRadius = new CornerRadius(8),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 BorderThickness = new Thickness(0),
@@ -1948,15 +1955,18 @@ namespace Configuration_Management
             var cancel = new Button
             {
                 Content = cancelContent,
-                MinWidth = UiMetrics.Scaled(140),
+                Width = 140,
+                Height = 36,
                 CornerRadius = new CornerRadius(8),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 BorderThickness = new Thickness(1.5),
                 IsCancel = true
             };
+            // У автора у отмены только наведение, нажатого состояния нет
+            // (SettingsWindow.xaml:1560), поэтому цвет нажатия равен наведению.
             PaintButtonStates(cancel, Brushes.Transparent,
                 new SolidColorBrush(Color.Parse("#FEF2F2")),
-                new SolidColorBrush(Color.Parse("#FEE2E2")));
+                new SolidColorBrush(Color.Parse("#FEF2F2")));
             cancel.BorderBrush = dangerBrush;
             // Отмена закрывает окно так же, как крестик: DialogResult остаётся
             // ложным, и вызывающая сторона ничего не применяет.
@@ -2563,8 +2573,15 @@ namespace Configuration_Management
 
             panel.Children.Add(new TextBlock
             {
-                Text = string.Format(LocalizationManager.T("Settings.About.RuntimeInfo"), Environment.OSVersion, Environment.Is64BitOperatingSystem) + "\n" +
-                       string.Format(LocalizationManager.T("Settings.About.DataDir"), Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)),
+                // Разрядность печатается как x64 или x86: булево значение
+                // выводилось словом True и не переводилось. Каталог данных
+                // берётся у той же службы, что и остальное приложение, иначе
+                // на нестандартном XDG_CONFIG_HOME он расходится с настоящим.
+                Text = string.Format(LocalizationManager.T("Settings.About.RuntimeInfo"),
+                           Environment.OSVersion,
+                           Environment.Is64BitOperatingSystem ? "x64" : "x86") + "\n" +
+                       string.Format(LocalizationManager.T("Settings.About.DataDir"),
+                           Services.PlatformPaths.AppDataDirectory),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
                 Opacity = 0.7,
@@ -2603,9 +2620,12 @@ namespace Configuration_Management
                         await cb.SetTextAsync(text);
                     ShowAboutMessage(LocalizationManager.T("Settings.About.TechInfoCopied"));
                 }
-                catch
+                catch (Exception ex)
                 {
-                    ShowAboutMessage(LocalizationManager.T("Settings.About.TechInfoCopyFailed"));
+                    // У автора это окно ошибки с текстом исключения
+                    // (SettingsWindow.Platforms.cs:361), а не сообщение.
+                    ShowAboutError(LocalizationManager.T("Settings.About.TechInfoCopyFailed")
+                        + "\n\n" + ex.Message);
                 }
             };
             panel.Children.Add(copyButton);
@@ -2616,6 +2636,16 @@ namespace Configuration_Management
         /// <summary>
         /// Показывает информационное окно поверх текущего окна настроек.
         /// </summary>
+        /// <summary>Окно ошибки вкладки «О программе» с текстом исключения.</summary>
+        private void ShowAboutError(string message)
+        {
+            var win = new MaterialMessageWindowAvalonia(message, LocalizationManager.T("Common.Error"), MaterialMessageKind.Error)
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            _ = win.ShowDialog(this);
+        }
+
         private void ShowAboutMessage(string message)
         {
             var win = new MaterialMessageWindowAvalonia(message, LocalizationManager.T("Common.Information"), MaterialMessageKind.Info)

@@ -1023,7 +1023,7 @@
     "Settings.AvaloniaPendingTabs": "In the Linux build the Bases tab has no template directories and no list export or import yet.",
     "Settings.AvaloniaHotkeysPending": "Reassigning hotkeys is deferred — a reference list of current combinations is available.",
     "Settings.About.Version": "Version: v{0}",
-    "Settings.About.AvaloniaText": "An application for managing the list of 1C:Enterprise infobases.\nPortable version for Linux (Avalonia) — Stage 3: dialog windows.",
+    "Settings.About.AvaloniaText": "Application for managing the list of 1C:Enterprise infobases.\nPortable Linux version built with Avalonia.",
     "Settings.About.RuntimeInfo": "Platform: {0} | {1}",
     "Settings.About.DataDir": "Data directory: {0}/ConfigurationManagement",
     "Settings.About.CopyTechInfo": "Copy technical information",
