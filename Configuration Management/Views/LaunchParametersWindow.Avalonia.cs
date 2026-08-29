@@ -45,14 +45,24 @@ namespace Configuration_Management
                 TextWrapping = TextWrapping.Wrap,
                 MinHeight = 110,
                 Padding = new Thickness(6, 6),
-                VerticalContentAlignment = VerticalAlignment.Top,
-                Watermark = LocalizationManager.T("LaunchParams.InputWatermark")
+                VerticalContentAlignment = VerticalAlignment.Top
             };
             _txtCustom.Styled(Themes.ControlThemes.ModernTextBox);
             ToolTip.SetTip(_txtCustom, LocalizationManager.T("LaunchParams.InputTooltip"));
 
             Content = BuildRoot();
         }
+
+        /// <summary>
+        /// Кружок справки тем же контролом, что и в остальных окнах
+        /// (Controls/HelpLink.Avalonia.cs): в разметке это controls:HelpLink,
+        /// с всплывающим окном по клику, а не только подсказкой.
+        /// </summary>
+        private static Control BuildHelpLink(string helpKey) => new Controls.HelpLink
+        {
+            HelpText = LocalizationManager.T(helpKey),
+            VerticalAlignment = VerticalAlignment.Center
+        };
 
         /// <summary>Итоговая строка параметров запуска.</summary>
         public string Result { get; private set; } = string.Empty;
@@ -73,7 +83,7 @@ namespace Configuration_Management
                 "Main.Parameters", _txtCustom,
                 margin: new Thickness(0, 0, 0, 12),
                 padding: new Thickness(12),
-                headerExtra: HelpLink("LaunchParams.InputHelp"));
+                headerExtra: BuildHelpLink("LaunchParams.InputHelp"));
             Grid.SetRow(inputBox, 0);
             grid.Children.Add(inputBox);
 
@@ -89,8 +99,8 @@ namespace Configuration_Management
                     return new Control();
 
                 var panel = new Grid { Margin = new Thickness(2, 3) };
-                // 220 под текст, как в колонке WPF, плюс зазор до описания.
-                panel.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(232)));
+                // Ширина колонки параметра из разметки (LaunchParametersWindow.xaml:69).
+                panel.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(220)));
                 panel.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
 
                 var key = new TextBlock
@@ -133,7 +143,7 @@ namespace Configuration_Management
             // Подписи колонок над списком: в WPF это шапка GridView, у нас список,
             // поэтому строка своя, но ширины те же, что у строк справочника.
             var columnsHeader = new Grid { Margin = new Thickness(2, 0, 2, 4) };
-            columnsHeader.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(232)));
+            columnsHeader.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(220)));
             columnsHeader.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             var paramHead = new TextBlock
             {
@@ -167,7 +177,7 @@ namespace Configuration_Management
                 "LaunchParams.Reference", refContent,
                 margin: new Thickness(0, 0, 0, 12),
                 padding: new Thickness(12),
-                headerExtra: HelpLink("LaunchParams.ReferenceHelp"));
+                headerExtra: BuildHelpLink("LaunchParams.ReferenceHelp"));
             Grid.SetRow(referenceBox, 1);
             grid.Children.Add(referenceBox);
 

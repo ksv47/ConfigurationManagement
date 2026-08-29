@@ -134,12 +134,14 @@ namespace Configuration_Management
                 Child = editorContent
             };
             Themes.ThemeBrushes.Bind(editorCard, Border.BackgroundProperty, "ItemHoverBrush");
-            Themes.ThemeBrushes.Bind(editorCard, Border.BorderBrushProperty, "BorderColorBrush");
+            // Рамка не красится намеренно: в разметке она привязана к ресурсу
+            // DividerBrush (ProfilesWindow.xaml:99), которого в словарях нет,
+            // поэтому в версии для Windows рамка карточки не рисуется вовсе.
             Grid.SetColumn(editorCard, 1);
             body.Children.Add(editorCard);
             Grid.SetRow(body, 2);
 
-            _errorLabel = new TextBlock { Foreground = Brushes.IndianRed, TextWrapping = TextWrapping.Wrap, IsVisible = false, Margin = new Thickness(0, 0, 0, 12) };
+            _errorLabel = new TextBlock { Foreground = new SolidColorBrush(Color.Parse("#E53935")), TextWrapping = TextWrapping.Wrap, IsVisible = false, Margin = new Thickness(0, 0, 0, 12) };
             Grid.SetRow(_errorLabel, 3);
 
             var buttons = BuildButtons();

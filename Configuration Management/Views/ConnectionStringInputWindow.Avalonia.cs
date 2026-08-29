@@ -102,6 +102,8 @@ namespace Configuration_Management
                     Children = { IconHelper.MakeIcon("IconCopy", 15, "SecondaryButtonTextBrush"), pasteCaption }
                 },
                 Height = 38,
+                // Отступ справа из разметки (ConnectionStringInputWindow.xaml:58).
+                Margin = new Thickness(0, 0, 10, 0),
                 Padding = new Thickness(12, 0)
             };
             pasteButton.Styled(ControlThemes.SecondaryButton);

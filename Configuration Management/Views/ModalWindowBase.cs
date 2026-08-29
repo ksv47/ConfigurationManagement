@@ -105,32 +105,6 @@ namespace Configuration_Management
         /// <param name="okText">Текст кнопки подтверждения. Если пуст/null — используется локализованный текст <c>Common.Ok</c>.</param>
         /// <param name="okWidth">Ширина кнопки подтверждения.</param>
         /// <param name="onOk">Необязательный обратный вызов при подтверждении (например, сохранить результат).</param>
-        /// <summary>
-        /// Кружок «?» с подсказкой: в Windows-версии для этого есть свой контрол
-        /// HelpLink, здесь он не нужен целиком, хватает круглой рамки с текстом
-        /// во всплывающей подсказке. Длинные пояснения автор хранит в тех же
-        /// ключах локализации, поэтому текст берётся по ключу.
-        /// </summary>
-        protected static Control HelpLink(string helpKey)
-        {
-            var mark = new Border
-            {
-                Width = 18,
-                Height = 18,
-                CornerRadius = new CornerRadius(9),
-                VerticalAlignment = VerticalAlignment.Center,
-                Child = new TextBlock
-                {
-                    Text = "?",
-                    FontSize = 12,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                }
-            };
-            Themes.ThemeBrushes.Bind(mark, Border.BackgroundProperty, "SecondaryButtonBackgroundBrush");
-            ToolTip.SetTip(mark, LocalizationManager.T(helpKey));
-            return mark;
-        }
 
         /// <summary>
         /// Строит правую панель кнопок «Отмена» и подтверждение, как в разметке WPF:

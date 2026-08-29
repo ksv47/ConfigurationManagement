@@ -69,8 +69,10 @@ namespace Configuration_Management
             {
                 // Не файловая база: физически удалять нечего, панель прячется целиком.
                 existsText.Text = LocalizationManager.T("DeleteInfobase.NonFileOnlyFromList");
-                // Значение гасится серым, как в коде за разметкой
-                // (DeleteInfobaseWindow.xaml.cs:65): удалять с диска нечего.
+                // Значение гасится, как в коде за разметкой
+                // (DeleteInfobaseWindow.xaml.cs:65, там жёсткий серый): удалять
+                // с диска нечего. Кисть берём из темы, иначе в тёмной схеме
+                // постоянный серый выпадает из палитры.
                 Themes.ThemeBrushes.Bind(existsText, TextBlock.ForegroundProperty, "TextSecondaryBrush");
                 _physicalPanel.IsVisible = false;
                 return;
@@ -96,7 +98,6 @@ namespace Configuration_Management
             Themes.ThemeBrushes.Bind(existsText, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             _physicalCheck.IsEnabled = false;
             _physicalCheck.IsChecked = false;
-            this.FindControl<Border>("PhysicalHelp")!.IsVisible = false;
             hint.Text = LocalizationManager.T("DeleteInfobase.PhysicalUnavailable");
         }
 

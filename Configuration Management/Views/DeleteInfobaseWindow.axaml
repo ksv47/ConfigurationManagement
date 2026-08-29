@@ -6,6 +6,7 @@
                        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                        xmlns:local="clr-namespace:Configuration_Management"
                        xmlns:loc="clr-namespace:Configuration_Management.Localization"
+                       xmlns:controls="clr-namespace:Configuration_Management.Controls"
                        x:Class="Configuration_Management.DeleteInfobaseWindow"
                        Title="{loc:Loc DeleteInfobase.Title}"
                        Width="520"
@@ -85,12 +86,10 @@
                     <CheckBox x:Name="PhysicalCheck"
                               Content="{loc:Loc DeleteInfobase.PhysicalDelete}"
                               FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <Border x:Name="PhysicalHelp" Width="18" Height="18" CornerRadius="9"
-                            Background="#FECACA" VerticalAlignment="Center"
-                            ToolTip.Tip="{loc:Loc DeleteInfobase.PhysicalHelp}">
-                        <TextBlock Text="?" FontSize="12" Foreground="#B91C1C"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
+                    <!-- Тот же контрол справки, что и в остальных окнах:
+                         в разметке это controls:HelpLink (DeleteInfobaseWindow.xaml:97). -->
+                    <controls:HelpLink x:Name="PhysicalHelp" VerticalAlignment="Center"
+                                       HelpText="{loc:Loc DeleteInfobase.PhysicalHelp}"/>
                 </StackPanel>
                 <TextBlock x:Name="PhysicalHint" Margin="24,6,0,0" FontSize="12"
                            Foreground="#B91C1C" TextWrapping="Wrap"
