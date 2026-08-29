@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Localization;
+using Configuration_Management.Themes;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 
@@ -355,7 +356,6 @@ namespace Configuration_Management
             var bottom = new Grid { Margin = new Thickness(0, 12, 0, 0) };
             bottom.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             bottom.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            bottom.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
 
             var leftPanel = new StackPanel
             {
@@ -367,33 +367,38 @@ namespace Configuration_Management
             Grid.SetColumn(leftPanel, 0);
             bottom.Children.Add(leftPanel);
 
-            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
-            cancel.Click += (_, _) => Close();
-            Grid.SetColumn(cancel, 1);
-            cancel.Margin = new Thickness(0, 0, 8, 0);
-            bottom.Children.Add(cancel);
-
-            _cleanButton.Background = new SolidColorBrush(Color.Parse("#16A34A"));
-            _cleanButton.Foreground = Brushes.White;
+            // Оформление и порядок по разметке (CacheCleanWindow.xaml:205):
+            // зелёная очистка шириной 180 слева, красная отмена справа, зазор 10.
+            // Пока нечего чистить, кнопка недоступна и приглушена, как там же.
+            _cleanButton.Styled(ControlThemes.DialogConfirmButton);
+            _cleanButton.Classes.Add("dimmed");
+            _cleanButton.Width = 180;
+            _cleanButton.Height = 36;
             _cleanButton.Content = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 6,
                 Children =
                 {
-                    IconHelper.MakeIcon("IconDelete", 16, "White"),
+                    IconHelper.MakeIcon("IconBroom", 16, Brushes.White),
                     new TextBlock
                     {
                         Text = LocalizationManager.T("CacheClean.Clean"),
-                        VerticalAlignment = VerticalAlignment.Center,
-                        Foreground = Brushes.White
+                        VerticalAlignment = VerticalAlignment.Center
                     }
                 }
             };
-            _cleanButton.MinWidth = 130;
             _cleanButton.Click += (_, _) => OnClean_Click();
-            Grid.SetColumn(_cleanButton, 2);
-            bottom.Children.Add(_cleanButton);
+
+            var rightPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Spacing = 10,
+                Children = { _cleanButton, BuildCancelActionButton(140) }
+            };
+            Grid.SetColumn(rightPanel, 1);
+            bottom.Children.Add(rightPanel);
 
             Grid.SetRow(bottom, 5);
             grid.Children.Add(bottom);

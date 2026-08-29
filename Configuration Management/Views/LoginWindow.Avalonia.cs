@@ -8,6 +8,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Controls;
 using Configuration_Management.Localization;
+using Configuration_Management.Themes;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 
@@ -154,11 +155,31 @@ namespace Configuration_Management
                 Spacing = 8
             };
 
-            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 110 };
-            cancel.Click += (_, _) => Close();
+            // Оформление по разметке (LoginWindow.xaml:62): обе кнопки в стиле
+            // основной, у отмены заливка мягкая, у входа акцентная.
+            var cancel = BuildCancelButton(110);
             panel.Children.Add(cancel);
 
-            var login = new Button { Content = LocalizationManager.T("Auth.Login"), MinWidth = 130 };
+            var login = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        IconHelper.MakeIcon("IconOk", 14, "ButtonTextBrush"),
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T("Auth.Login"),
+                            VerticalAlignment = VerticalAlignment.Center
+                        }
+                    }
+                },
+                Width = 130,
+                IsDefault = true
+            };
+            login.Styled(ControlThemes.ModernButton);
             login.Click += (_, _) => TryLogin();
             panel.Children.Add(login);
 

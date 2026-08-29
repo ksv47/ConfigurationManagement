@@ -368,26 +368,38 @@ namespace Configuration_Management
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Spacing = 8,
+                Spacing = 10,
                 Margin = new Thickness(0, 16, 0, 0)
             };
-            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
-            cancel.Click += (_, _) => Close();
-            buttons.Children.Add(cancel);
+            // Оформление и порядок по разметке (CreateInfobaseWindow.xaml:184):
+            // зелёное создание шириной 140 слева, красная отмена шириной 130 справа.
+            // Кнопка создания закрывает окно сама, только если проверки прошли,
+            // поэтому она собирается здесь, а не общим методом базового класса.
             var create = new Button
             {
-                Content = new TextBlock
+                Content = new StackPanel
                 {
-                    Text = LocalizationManager.T("CreateInfobase.Create"),
-                    Foreground = Brushes.White
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        IconHelper.MakeIcon("IconDatabase", 16, Brushes.White),
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T("CreateInfobase.Create"),
+                            VerticalAlignment = VerticalAlignment.Center
+                        }
+                    }
                 },
-                MinWidth = 120,
-                IsDefault = true,
-                Background = new SolidColorBrush(Color.Parse("#16A34A")),
-                Foreground = Brushes.White
+                Width = 140,
+                Height = 36,
+                IsDefault = true
             };
+            create.Styled(ControlThemes.DialogConfirmButton);
             create.Click += (_, _) => OnCreate_Click();
             buttons.Children.Add(create);
+            buttons.Children.Add(BuildCancelActionButton(130));
+
             Grid.SetRow(buttons, 5);
             grid.Children.Add(buttons);
 
