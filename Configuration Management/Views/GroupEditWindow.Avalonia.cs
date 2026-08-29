@@ -30,8 +30,12 @@ namespace Configuration_Management
         private string _icon = string.Empty;
         private string _parentId = string.Empty;
 
-        private readonly TextBox _nameBox = new() { Padding = new Thickness(8, 6) };
-        private readonly TextBox _descriptionBox = new() { Padding = new Thickness(8, 6), AcceptsReturn = true, MinHeight = 70 };
+        private readonly TextBox _nameBox =
+            new TextBox { Padding = new Thickness(4, 3) }.Styled(ControlThemes.ModernTextBox);
+
+        private readonly TextBox _descriptionBox =
+            new TextBox { Padding = new Thickness(4, 3), AcceptsReturn = true, MinHeight = 70 }
+                .Styled(ControlThemes.ModernTextBox);
         private readonly TextBlock _parentPathBox = new();
         private readonly ColorPickerControl _colorControl = new();
         private readonly ColorPickerControl _iconColorControl = new();

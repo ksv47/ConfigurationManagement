@@ -2387,7 +2387,10 @@ namespace Configuration_Management
             var label = new TextBlock { Text = action, VerticalAlignment = VerticalAlignment.Center };
             grid.Children.Add(label);
 
+            // Поле сочетания в разметке идёт тем же стилем, что и обычное поле
+            // ввода (SettingsWindow.xaml:977 и далее).
             var box = new Controls.HotkeyBox { Value = value ?? string.Empty, HorizontalAlignment = HorizontalAlignment.Stretch, Height = 34 };
+            box.Styled(ControlThemes.ModernTextBox);
             Grid.SetColumn(box, 1);
             grid.Children.Add(box);
 

@@ -32,17 +32,23 @@
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
-    <!-- Ресурсы штатной темы Fluent, которыми она красит выпадающий список.
-         Рамка списка живёт в отдельном окне, и селектор части шаблона до неё
-         не достаёт (проверено прогоном), поэтому вид задаётся через ресурсы,
-         на которые её шаблон и ссылается. Значения из разметки WPF
-         (ConnectionSettingsWindow.xaml:365: фон карточки, контур, скругление 8,
-         внутренний отступ 4). -->
+    <!-- Ресурсы штатной темы Fluent, которыми она красит выпадающий список
+         и стрелку. Через ресурсы, а не селектором: рамка списка и стрелка
+         получают значения прямо из шаблона, а у значения из шаблона приоритет
+         выше, чем у именованного стиля, поэтому селектор части ничего не меняет.
+         Значения из разметки WPF (ConnectionSettingsWindow.xaml:365: фон
+         карточки, контур темы, толщина 1, внутренний отступ 4; стрелка
+         второстепенным цветом, LightTheme.xaml:352).
+         Скругление списка остаётся штатным: у Fluent за него отвечает общий
+         OverlayCornerRadius, и подъём его до авторских 8 заодно скруглил бы
+         подсказки и меню, у которых в разметке WPF свои значения. -->
     <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="{DynamicResource CardBackgroundColor}"/>
     <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="{DynamicResource BorderColor}"/>
-    <Thickness x:Key="ComboBoxDropdownBorderThickness">1</Thickness>
+    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForeground" Color="{DynamicResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundPointerOver" Color="{DynamicResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundPressed" Color="{DynamicResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="ComboBoxDropDownGlyphForegroundDisabled" Color="{DynamicResource TextSecondaryColor}"/>
     <Thickness x:Key="ComboBoxDropdownBorderPadding">4</Thickness>
-    <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
 
     <!-- ===================== Основная кнопка ===================== -->
     <ControlTheme x:Key="ModernButton" TargetType="Button">
@@ -344,9 +350,9 @@
         </Style>
     </ControlTheme>
     <!-- ===================== Поля ввода и списки =====================
-         Стили ModernTextBox, ModernComboBox, ModernComboBoxItem и
-         ModernMaterialCheckBox из словарей WPF (LightTheme.xaml:211, :277, :341,
-         :415; в тёмной теме они дословно те же). Поле ввода и список наследуют
+         Стили ModernTextBox (LightTheme.xaml:211), ModernComboBoxItem (:242),
+         ModernComboBox (:277), ModernMaterialCheckBox (:417) и PasswordBox
+         (:1121); в тёмной теме все они дословно те же. Поле ввода и список наследуют
          штатную тему Fluent и переопределяют её части: свой шаблон здесь опасен,
          у TextBox обязательна часть PART_TextPresenter, у ComboBox PART_Popup.
          У флажка обязательных частей нет, поэтому его шаблон повторяет авторский
@@ -360,6 +366,10 @@
         <Setter Property="Padding" Value="8,6"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+        <!-- Штатная тема задаёт полю минимум 32 на 64; в разметке WPF габаритов
+             нет, высоту определяют отступы и кегль. -->
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="MinWidth" Value="0"/>
 
         <Style Selector="^ /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
@@ -373,6 +383,23 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <!-- Штатная тема на наведении, фокусе и в недоступном состоянии красит
+             и текст, и фон своими системными кистями; в разметке WPF у поля
+             таких правил нет вовсе, цвет там всегда один. -->
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="^:focus">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+        <Style Selector="^:disabled /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
         </Style>
     </ControlTheme>
 
@@ -412,6 +439,8 @@
         <Setter Property="MaxDropDownHeight" Value="280"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
         <Setter Property="ItemContainerTheme" Value="{StaticResource ModernComboBoxItem}"/>
+        <!-- Штатная тема прижимает список влево, в WPF он растягивается по месту. -->
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
 
         <Style Selector="^ /template/ Border#Background">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
@@ -425,15 +454,31 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
         </Style>
+        <!-- У редактируемого списка фокус живёт во вложенном поле ввода,
+             поэтому одного :focus мало: разметка WPF смотрит IsKeyboardFocusWithin
+             (LightTheme.xaml:397). -->
         <Style Selector="^:focus /template/ Border#Background">
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
         </Style>
-        <Style Selector="^ /template/ PathIcon#DropDownGlyph">
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Style Selector="^:focus-within /template/ Border#Background">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
         </Style>
         <Style Selector="^:disabled">
             <Setter Property="Opacity" Value="0.5"/>
         </Style>
+        <Style Selector="^:disabled /template/ Border#Background">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Поле пароля: свой стиль словаря WPF (LightTheme.xaml:1121), отличается
+         от поля ввода толщиной контура, скруглением и отступом. -->
+    <ControlTheme x:Key="ModernPasswordBox" TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}">
+        <Setter Property="BorderThickness" Value="1.5"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
     </ControlTheme>
 
     <ControlTheme x:Key="ModernMaterialCheckBox" TargetType="CheckBox">

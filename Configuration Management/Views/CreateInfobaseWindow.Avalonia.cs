@@ -34,7 +34,7 @@ namespace Configuration_Management
         private readonly IInfobaseRepository _repository =
             AppServices.GetRequiredService<IInfobaseRepository>();
 
-        private readonly ComboBox _typeBox = new() { Padding = new Thickness(8, 5) };
+        private readonly ComboBox _typeBox = new();
         private readonly TextBox _nameBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly TextBlock _groupPathBox = new() { VerticalAlignment = VerticalAlignment.Center };
         private readonly TextBox _platformBox = new TextBox { Padding = new Thickness(6, 4), IsReadOnly = true }.Styled(ControlThemes.ModernTextBox);
@@ -46,11 +46,11 @@ namespace Configuration_Management
         private readonly StackPanel _serverPanel = new() { Spacing = 8 };
         private readonly TextBox _serverBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly TextBox _refBox = new TextBox().Styled(ControlThemes.ModernTextBox);
-        private readonly ComboBox _dbmsBox = new() { Padding = new Thickness(8, 5), IsEditable = true };
+        private readonly ComboBox _dbmsBox = new() { Padding = new Thickness(6, 2), IsEditable = true };
         private readonly TextBox _dbServerBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly TextBox _dbNameBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly TextBox _dbUserBox = new TextBox().Styled(ControlThemes.ModernTextBox);
-        private readonly PasswordBox _dbPwdBox = new() { Padding = new Thickness(8, 5) };
+        private readonly PasswordBox _dbPwdBox = new PasswordBox().Styled(ControlThemes.ModernPasswordBox);
         private readonly CheckBox _createDbCheck = new();
         private readonly CheckBox _blockJobsCheck = new();
 

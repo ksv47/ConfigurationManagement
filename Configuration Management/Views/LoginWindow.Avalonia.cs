@@ -84,7 +84,8 @@ namespace Configuration_Management
                 IsVisible = false
             };
             _passwordPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("Auth.Password") });
-            _passwordInput = new PasswordBox { Padding = new Thickness(8, 6) };
+            _passwordInput = new PasswordBox();
+            _passwordInput.Styled(ControlThemes.ModernPasswordBox);
             _passwordInput.KeyDown += OnPasswordInput_KeyDown;
             _passwordPanel.Children.Add(_passwordInput);
             Grid.SetRow(_passwordPanel, 2);
