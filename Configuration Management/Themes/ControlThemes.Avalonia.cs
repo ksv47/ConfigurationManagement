@@ -36,6 +36,15 @@ namespace Configuration_Management.Themes
         /// <summary>Поле ввода: карточный фон, скругление 6, акцентный контур при наведении и фокусе.</summary>
         public const string ModernTextBox = "ModernTextBox";
 
+        /// <summary>Колонка вертикальных вкладок окна настроек.</summary>
+        public const string SettingsTabControl = "SettingsTabControl";
+
+        /// <summary>Вертикальная вкладка окна настроек: та же, что в окне подключения, шириной 235.</summary>
+        public const string SettingsTabItem = "SettingsTabItem";
+
+        /// <summary>Переключатель настроек: дорожка 40 на 22 с кружком 16.</summary>
+        public const string SettingsToggle = "SettingsToggle";
+
         /// <summary>Полоса горизонтальных вкладок раздела: равная ширина, общая линия снизу.</summary>
         public const string SettingsSubTabControl = "SettingsSubTabControl";
 

@@ -19,6 +19,7 @@
             <SolidColorBrush x:Key="SecondaryButtonHoverOutlineBrush" Color="{DynamicResource SecondaryButtonHoverColor}"/>
             <SolidColorBrush x:Key="SecondaryButtonPressedSurfaceBrush" Color="{DynamicResource SecondaryButtonPressedColor}"/>
             <Thickness x:Key="SecondaryButtonOutlineThickness">0</Thickness>
+            <SolidColorBrush x:Key="SettingsToggleTrackBrush">#CBD5E1</SolidColorBrush>
         </ResourceDictionary>
         <!-- Тёмная: вторичная кнопка это карточка в контуре, при наведении контур акцентный. -->
         <ResourceDictionary x:Key="Dark">
@@ -29,6 +30,7 @@
             <SolidColorBrush x:Key="SecondaryButtonHoverOutlineBrush" Color="{DynamicResource AccentColor}"/>
             <SolidColorBrush x:Key="SecondaryButtonPressedSurfaceBrush" Color="{DynamicResource SidebarHoverColor}"/>
             <Thickness x:Key="SecondaryButtonOutlineThickness">1</Thickness>
+            <SolidColorBrush x:Key="SettingsToggleTrackBrush">#475569</SolidColorBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
@@ -620,6 +622,66 @@
         </Style>
         <Style Selector="^:disabled">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+    </ControlTheme>
+    <!-- ===================== Вертикальные вкладки окна настроек =====================
+         Стили SettingsTabControl и SettingsTabItem (SettingsWindow.xaml:119 и :146)
+         повторяют вкладки окна подключения и отличаются одной шириной. -->
+    <ControlTheme x:Key="SettingsTabControl" TargetType="TabControl" BasedOn="{StaticResource ConnTabControl}"/>
+
+    <ControlTheme x:Key="SettingsTabItem" TargetType="TabItem" BasedOn="{StaticResource ConnTabItem}">
+        <Setter Property="Width" Value="235"/>
+    </ControlTheme>
+
+    <!-- ===================== Переключатель настроек =====================
+         Стиль SettingsToggle (LightTheme.xaml:1223, DarkTheme.xaml:1256).
+         Дорожка 40 на 22 со скруглением 11, кружок 16 белый; во включённом
+         положении дорожка акцентная, кружок уезжает вправо. Тёмная тема
+         отличается только цветом дорожки в выключенном положении. -->
+    <ControlTheme x:Key="SettingsToggle" TargetType="ToggleButton">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0,6"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ToggleButton">
+                <Grid Background="{TemplateBinding Background}" ColumnDefinitions="*,Auto">
+                    <ContentPresenter Grid.Column="0"
+                                      Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"
+                                      VerticalAlignment="Center"/>
+                    <Border Grid.Column="1"
+                            Name="PART_Track"
+                            Width="40" Height="22"
+                            CornerRadius="11"
+                            Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource SettingsToggleTrackBrush}">
+                        <Ellipse Name="PART_Thumb"
+                                 Width="16" Height="16"
+                                 Fill="White"
+                                 HorizontalAlignment="Left"
+                                 VerticalAlignment="Center"
+                                 Margin="3,0,0,0"/>
+                    </Border>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:checked /template/ Border#PART_Track">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Ellipse#PART_Thumb">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="Margin" Value="0,0,3,0"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
         </Style>
     </ControlTheme>
 </ResourceDictionary>
