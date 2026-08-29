@@ -34,7 +34,7 @@ namespace Configuration_Management
         private HashSet<PlatformVersionGroup>? _initialAncestors;
 
         private readonly TreeView _tree = new();
-        private readonly Button _selectButton = new() { Content = LocalizationManager.T("Common.Select"), MinWidth = 110, IsDefault = true };
+        private Button _selectButton = null!;
         private readonly RadioButton _filterAll = new() { Content = LocalizationManager.T("Common.All"), IsChecked = true, GroupName = "Arch" };
         private readonly RadioButton _filterX32 = new() { Content = LocalizationManager.T("PlatformVersionPicker.FilterX32"), GroupName = "Arch" };
         private readonly RadioButton _filterX64 = new() { Content = LocalizationManager.T("PlatformVersionPicker.FilterX64"), GroupName = "Arch" };
@@ -78,6 +78,16 @@ namespace Configuration_Management
 
         private Control BuildRoot()
         {
+            // Кнопка выбора создаётся до дерева: её доступность меняет обработчик
+            // выделения, а выделение дерево умеет выставить само при подготовке
+            // контейнеров.
+            // Закрывает окно сам обработчик: у него есть проверка на пустой выбор,
+            // и терять её нельзя (PlatformVersionPickerWindow.xaml:259).
+            _selectButton = BuildConfirmActionButton("Common.Select", "IconCheck", 140,
+                OnSelect_Click, closeOnClick: false);
+            _selectButton.Classes.Add("dimmed");
+            _selectButton.IsEnabled = false;
+
             var grid = new Grid { Margin = new Thickness(16) };
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
@@ -143,6 +153,7 @@ namespace Configuration_Management
                 }
                 else
                 {
+                    _selectedVersion = string.Empty;
                     _selectButton.IsEnabled = false;
                 }
             };
@@ -185,14 +196,13 @@ namespace Configuration_Management
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Spacing = 8,
+                Spacing = 10,
                 Margin = new Thickness(0, 12, 0, 0)
             };
-            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
-            cancel.Click += (_, _) => Close();
-            buttons.Children.Add(cancel);
-            _selectButton.Click += (_, _) => OnSelect_Click();
+            // Оформление и порядок по разметке (PlatformVersionPickerWindow.xaml:257):
+            // зелёный «Выбрать» слева, красная «Отмена» справа, зазор 10.
             buttons.Children.Add(_selectButton);
+            buttons.Children.Add(BuildCancelActionButton(140));
             Grid.SetRow(buttons, 2);
             grid.Children.Add(buttons);
 

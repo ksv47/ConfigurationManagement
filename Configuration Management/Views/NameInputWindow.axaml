@@ -13,6 +13,7 @@
     <Grid Margin="16" RowDefinitions="Auto,Auto,Auto">
         <TextBlock Grid.Row="0" x:Name="Prompt" Margin="0,0,0,8"/>
         <TextBox Grid.Row="1" x:Name="NameBox" Padding="8,6"/>
-        <ContentControl Grid.Row="2" x:Name="ButtonsHost"/>
+        <!-- Отступ панели кнопок сверху взят из разметки WPF. -->
+        <ContentControl Grid.Row="2" x:Name="ButtonsHost" Margin="0,16,0,0"/>
     </Grid>
 </local:ModalWindowBase>

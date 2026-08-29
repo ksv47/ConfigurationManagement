@@ -60,41 +60,20 @@ namespace Configuration_Management
             Grid.SetRow(options, 1);
             grid.Children.Add(options);
 
+            // Порядок и оформление по разметке (AddEditWindow.xaml:151):
+            // зелёное «Далее» слева, красная «Отмена» справа, зазор 10.
             var buttons = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Spacing = 8,
-                Margin = new Thickness(0, 12, 0, 0)
-            };
-            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
-            cancel.Click += (_, _) => Close();
-            buttons.Children.Add(cancel);
-
-            var next = new Button
-            {
-                Content = new StackPanel
+                Spacing = 10,
+                Margin = new Thickness(0, 12, 0, 0),
+                Children =
                 {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 6,
-                    Children =
-                    {
-                        new TextBlock
-                        {
-                            Text = LocalizationManager.T("AddEdit.Next"),
-                            VerticalAlignment = VerticalAlignment.Center,
-                            Foreground = Brushes.White
-                        },
-                        IconHelper.MakeIcon("IconArrowRight", 16, "White")
-                    }
-                },
-                MinWidth = 110,
-                Background = new SolidColorBrush(Color.Parse("#16A34A")),
-                Foreground = Brushes.White,
-                IsDefault = true
+                    BuildConfirmActionButton("AddEdit.Next", "IconArrowRight", 130),
+                    BuildCancelActionButton(130)
+                }
             };
-            next.Click += (_, _) => { DialogResult = true; Close(); };
-            buttons.Children.Add(next);
 
             Grid.SetRow(buttons, 2);
             grid.Children.Add(buttons);

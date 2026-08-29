@@ -7,6 +7,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Localization;
+using Configuration_Management.Themes;
 using Configuration_Management.Services;
 
 namespace Configuration_Management
@@ -36,7 +37,14 @@ namespace Configuration_Management
 
             _dialogs = AppServices.GetRequiredService<IDialogService>();
 
-            _inputBox = new TextBox { Padding = new Thickness(8, 6), AcceptsReturn = true, MinHeight = 80 };
+            // Поле однострочное и во всю ширину, как в разметке
+            // (ConnectionStringInputWindow.xaml:44).
+            _inputBox = new TextBox
+            {
+                Padding = new Thickness(8, 6),
+                MinHeight = 34,
+                VerticalContentAlignment = VerticalAlignment.Center
+            };
             _inputBox.TextChanged += (_, _) => UpdateOkEnabled();
             _inputBox.KeyDown += OnInputBox_KeyDown;
 
@@ -48,55 +56,72 @@ namespace Configuration_Management
 
             var title = new TextBlock
             {
-                Text = LocalizationManager.T("ConnectionStringInput.Header"),
-                FontSize = 15,
-                FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 0, 0, 8)
+                Text = LocalizationManager.T("ConnectionStringInput.Label"),
+                Margin = new Thickness(0, 0, 0, 6)
             };
             Grid.SetRow(title, 0);
             grid.Children.Add(title);
 
             var hint = new TextBlock
             {
-                Text = LocalizationManager.T("ConnectionStringInput.HintText"),
+                Text = LocalizationManager.T("ConnectionStringInput.Hint"),
                 TextWrapping = TextWrapping.Wrap,
-                FontSize = 12,
+                FontSize = 11,
                 Margin = new Thickness(0, 0, 0, 8)
             };
+            Themes.ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             Grid.SetRow(hint, 1);
             grid.Children.Add(hint);
 
-            var inputArea = new Grid();
-            inputArea.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            inputArea.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            Grid.SetColumn(_inputBox, 0);
-            _inputBox.HorizontalAlignment = HorizontalAlignment.Stretch;
-            inputArea.Children.Add(_inputBox);
+            Grid.SetRow(_inputBox, 2);
+            grid.Children.Add(_inputBox);
 
-            var pasteButton = new Button { Content = LocalizationManager.T("ConnectionStringInput.Paste"), MinWidth = 130, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
+            // Нижняя строка: вставка из буфера слева, применение и отмена справа
+            // (ConnectionStringInputWindow.xaml:50).
+            var bottom = new Grid { Margin = new Thickness(0, 14, 0, 0) };
+            bottom.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            bottom.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            bottom.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+
+            var pasteCaption = new TextBlock
+            {
+                Text = LocalizationManager.T("ConnectionStringInput.Paste"),
+                FontSize = 12,
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var pasteButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children = { IconHelper.MakeIcon("IconCopy", 15, "SecondaryButtonTextBrush"), pasteCaption }
+                },
+                Height = 38,
+                Padding = new Thickness(12, 0)
+            };
+            pasteButton.Styled(ControlThemes.SecondaryButton);
             ToolTip.SetTip(pasteButton, LocalizationManager.T("ConnectionStringInput.PasteTooltip"));
             pasteButton.Click += (_, _) => OnPasteClipboard_Click();
-            Grid.SetColumn(pasteButton, 1);
-            inputArea.Children.Add(pasteButton);
+            Grid.SetColumn(pasteButton, 0);
+            bottom.Children.Add(pasteButton);
 
-            Grid.SetRow(inputArea, 2);
-            grid.Children.Add(inputArea);
+            _okButton = BuildConfirmActionButton("Common.Apply", "IconCheck", 150, OnOk_Click, height: 38);
+            _okButton.Classes.Add("greyed");
 
             var buttons = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Spacing = 8,
-                Margin = new Thickness(0, 16, 0, 0)
+                Spacing = 10,
+                Children = { _okButton, BuildCancelActionButton(140, height: 38) }
             };
-            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
-            cancel.Click += (_, _) => Close();
-            buttons.Children.Add(cancel);
-            _okButton = new Button { Content = LocalizationManager.T("Common.Apply"), MinWidth = 120, IsDefault = true };
-            _okButton.Click += (_, _) => OnOk_Click();
-            buttons.Children.Add(_okButton);
-            Grid.SetRow(buttons, 3);
-            grid.Children.Add(buttons);
+            Grid.SetColumn(buttons, 2);
+            bottom.Children.Add(buttons);
+
+            Grid.SetRow(bottom, 3);
+            grid.Children.Add(bottom);
 
             Content = grid;
             UpdateOkEnabled();
@@ -208,8 +233,6 @@ namespace Configuration_Management
         private void OnOk_Click()
         {
             Result = _inputBox.Text?.Trim();
-            DialogResult = true;
-            Close();
         }
 
         private void OnInputBox_KeyDown(object? sender, KeyEventArgs e)
@@ -217,6 +240,8 @@ namespace Configuration_Management
             if (e.Key == Key.Enter && _okButton.IsEnabled)
             {
                 OnOk_Click();
+                DialogResult = true;
+                Close();
                 e.Handled = true;
             }
         }

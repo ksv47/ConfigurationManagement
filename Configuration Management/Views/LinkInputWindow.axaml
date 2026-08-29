@@ -12,37 +12,51 @@
                        SizeToContent="Height"
                        CanResize="False"
                        SystemDecorations="Full">
-    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto">
+    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,Auto">
 
+        <!-- Порядок по разметке (LinkInputWindow.xaml:35): подпись, примеры
+             допустимых ссылок, затем поле ввода. -->
         <TextBlock Grid.Row="0"
                    Text="{loc:Loc LinkInput.Label}"
                    TextWrapping="Wrap"
-                   Margin="0,0,0,8"/>
+                   Margin="0,0,0,6"/>
 
-        <StackPanel Grid.Row="1" Spacing="4">
-            <TextBox x:Name="LinkBox" Padding="8,6"/>
-            <!-- Примеры допустимых ссылок, как под полем в разметке WPF. -->
-            <TextBlock Text="{loc:Loc LinkInput.Hint}" FontSize="11"
-                       TextWrapping="Wrap"
-                       Foreground="{DynamicResource TextSecondaryBrush}"/>
-        </StackPanel>
+        <TextBlock Grid.Row="1"
+                   Text="{loc:Loc LinkInput.Hint}"
+                   FontSize="11"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,8"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal"
-                    HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
-            <Button x:Name="CancelButton" MinWidth="110" IsCancel="True">
+        <TextBox Grid.Row="2" x:Name="LinkBox" Padding="8,6"/>
+
+        <!-- Порядок, размеры и цвета по разметке WPF (LinkInputWindow.xaml:50):
+             зелёный переход слева, красная отмена справа, зазор 10. -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Spacing="10" Margin="0,16,0,0">
+            <Button x:Name="OkButton" Width="150" Height="38" IsDefault="True"
+                    Classes="greyed"
+                    Theme="{DynamicResource DialogConfirmButton}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Path Data="{DynamicResource IconClose}" Width="14" Height="14"
-                          Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"
-                          VerticalAlignment="Center"/>
-                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center"/>
+                    <!-- Контур кладётся в холст 24 на 24 и масштабируется целиком,
+                         как это делает IconHelper.MakeIcon и PackIcon в WPF. -->
+                    <Viewbox Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="{DynamicResource IconArrowRight}" Fill="White"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="{loc:Loc LinkInput.Go}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
-            <Button x:Name="OkButton" MinWidth="130" IsDefault="True">
+            <Button x:Name="CancelButton" Width="140" Height="38" IsCancel="True"
+                    Theme="{DynamicResource DialogCancelButton}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Path Data="{DynamicResource IconOk}" Width="14" Height="14"
-                          Stretch="Uniform" Fill="{DynamicResource TextPrimaryBrush}"
-                          VerticalAlignment="Center"/>
-                    <TextBlock Text="{loc:Loc LinkInput.Go}" VerticalAlignment="Center"/>
+                    <Viewbox Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="{DynamicResource IconClose}" Fill="#EF4444"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock Text="{loc:Loc Common.Cancel}" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
         </StackPanel>

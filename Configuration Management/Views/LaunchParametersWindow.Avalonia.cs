@@ -196,18 +196,19 @@ namespace Configuration_Management
             grid.Children.Add(listBorder);
 
             // Кнопки
+            // Оформление и порядок по разметке (LaunchParametersWindow.xaml:77).
             var buttons = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Spacing = 8
+                Spacing = 10,
+                Margin = new Thickness(0, 8, 0, 0),
+                Children =
+                {
+                    BuildConfirmActionButton("Common.Ok", "IconCheck", 140, OnOk_Click),
+                    BuildCancelActionButton(140)
+                }
             };
-            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
-            cancel.Click += (_, _) => Close();
-            buttons.Children.Add(cancel);
-            var ok = new Button { Content = LocalizationManager.T("Common.Ok"), MinWidth = 110, IsDefault = true };
-            ok.Click += (_, _) => OnOk_Click();
-            buttons.Children.Add(ok);
             Grid.SetRow(buttons, 6);
             grid.Children.Add(buttons);
 
@@ -235,8 +236,6 @@ namespace Configuration_Management
         private void OnOk_Click()
         {
             Result = (_txtCustom.Text ?? string.Empty).Trim();
-            DialogResult = true;
-            Close();
         }
 
         /// <summary>Строит каталог ключей командной строки 1С для справочника.</summary>
