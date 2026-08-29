@@ -435,7 +435,8 @@ namespace Configuration_Management
                 currentGroupId: _parentId,
                 excludeGroupId: _editingGroup?.Id,
                 allowNone: true,
-                noneLabel: LocalizationManager.T("GroupEdit.RootGroup"));
+                noneLabel: LocalizationManager.T("GroupEdit.RootGroup"),
+                kind: GroupPickerObjectKind.Group);
             if (dialog.ShowDialogSync(this))
             {
                 _parentId = dialog.ResultGroupId;
