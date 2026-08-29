@@ -1,0 +1,18 @@
+<!-- Умолчания оформления контролов (Linux). В разметке WPF словари тем
+     объявляют неявные стили ComboBox и CheckBox (LightTheme.xaml:413 и :477),
+     то есть эти два контрола выглядят одинаково во всём приложении без явного
+     указания стиля. Здесь это те же две строки: тема ставится селектором по типу.
+     Поле ввода в неявный стиль не входит: у автора оно объявляется отдельно
+     в каждом окне, и в главном окне у поиска своё оформление. -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Style Selector="ComboBox">
+        <Setter Property="Theme" Value="{DynamicResource ModernComboBox}"/>
+    </Style>
+    <Style Selector="ComboBoxItem">
+        <Setter Property="Theme" Value="{DynamicResource ModernComboBoxItem}"/>
+    </Style>
+    <Style Selector="CheckBox">
+        <Setter Property="Theme" Value="{DynamicResource ModernMaterialCheckBox}"/>
+    </Style>
+</Styles>

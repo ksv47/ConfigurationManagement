@@ -33,6 +33,12 @@ namespace Configuration_Management.Themes
         /// <summary>Карточка варианта выбора: рамка вокруг переключателя с подписью и пояснением.</summary>
         public const string OptionCard = "OptionCard";
 
+        /// <summary>Поле ввода: карточный фон, скругление 6, акцентный контур при наведении и фокусе.</summary>
+        public const string ModernTextBox = "ModernTextBox";
+
+        /// <summary>Поле пароля: то же поле, но с контуром 1.5, скруглением 8 и отступом 10 на 6.</summary>
+        public const string ModernPasswordBox = "ModernPasswordBox";
+
         /// <summary>
         /// Ставит элементу тему контрола по ключу словаря и возвращает сам элемент,
         /// чтобы вызов можно было встроить в инициализацию.

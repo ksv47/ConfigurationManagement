@@ -41,10 +41,10 @@ namespace Configuration_Management
             // (ConnectionStringInputWindow.xaml:44).
             _inputBox = new TextBox
             {
-                Padding = new Thickness(8, 6),
                 MinHeight = 34,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
+            _inputBox.Styled(ControlThemes.ModernTextBox);
             _inputBox.TextChanged += (_, _) => UpdateOkEnabled();
             _inputBox.KeyDown += OnInputBox_KeyDown;
 
