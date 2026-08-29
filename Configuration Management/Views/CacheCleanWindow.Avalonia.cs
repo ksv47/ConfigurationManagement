@@ -320,17 +320,11 @@ namespace Configuration_Management
 
             var dock = new DockPanel { LastChildFill = true };
 
-            // Поле поиска не обособлено рамкой: в разметке это обычное поле
-            // внутри карточки списка, видна только подсказка
-            // (CacheCleanWindow.xaml:141). Штатное поле Avalonia рисует рамку
-            // и подложку, поэтому их снимаем.
-            _searchBox.Styled(ControlThemes.ModernTextBox);
+            // Вид поля берётся из стиля Material Design, которого в разметке нет
+            // явно; до ответа Windows-стороны оставлено штатное поле с числами
+            // из разметки (CacheCleanWindow.xaml:141-145).
             _searchBox.FontSize = 13;
             _searchBox.VerticalContentAlignment = VerticalAlignment.Center;
-            _searchBox.BorderThickness = new Thickness(0);
-            // Рамки нет, но заливка есть: поле чуть темнее карточки списка,
-            // как заполненное поле Material Design в версии для Windows.
-            Themes.ThemeBrushes.Bind(_searchBox, TextBox.BackgroundProperty, "ItemHoverBrush");
             _searchBox.Margin = new Thickness(8, 8, 8, 2);
             DockPanel.SetDock(_searchBox, Dock.Top);
             dock.Children.Add(_searchBox);
