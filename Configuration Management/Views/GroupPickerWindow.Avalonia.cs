@@ -233,6 +233,7 @@ namespace Configuration_Management
                 Padding = new Thickness(10, 2)
             };
             ThemeBrushes.Bind(field, Border.BorderBrushProperty, "BorderColorBrush");
+            ThemeBrushes.Bind(field, Border.BackgroundProperty, "CardBackgroundColorBrush");
 
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -420,7 +421,7 @@ namespace Configuration_Management
 
             buttons.Children.Add(BuildActionButton(
                 "SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush", "SecondaryButtonPressedBrush", "BorderColorBrush",
-                ActionContent("IconClose", LocalizationManager.T("Common.Cancel"), "ButtonTextBrush"),
+                ActionContent("IconClose", LocalizationManager.T("Common.Cancel"), "ButtonTextBrush", iconSize: 15),
                 minWidth: 116, isCancel: true, isDefault: false, onClick: () => Close()));
             Grid.SetColumn(buttons, 1);
             footer.Children.Add(buttons);
@@ -480,7 +481,7 @@ namespace Configuration_Management
             return btn;
         }
 
-        /// <summary>Переключатель сортировки (А→Я / Я→А): активное состояние — акцентная заливка.</summary>
+        /// <summary>Переключатель сортировки (А→Я / Я→А): активный заливается акцентом, значок белеет.</summary>
         private ToggleButton BuildSortToggle(string iconKey, string tooltip, bool isAscending)
         {
             var toggle = new ToggleButton
@@ -492,7 +493,7 @@ namespace Configuration_Management
                 BorderThickness = new Thickness(1),
                 Cursor = new Cursor(StandardCursorType.Hand),
                 IsChecked = isAscending == _sortAscending,
-                Content = IconHelper.MakeIcon(iconKey, 16, "ButtonTextBrush")
+                Content = IconHelper.MakeIcon(iconKey, 16, out var iconPath)
             };
             ToolTip.SetTip(toggle, tooltip);
 
@@ -518,9 +519,11 @@ namespace Configuration_Management
                 }
             };
 
-            var state = new ToggleState();
+            var state = new ToggleState { Icon = iconPath };
             ThemeBrushes.Observe(toggle, "SecondaryButtonBackgroundBrush", b => { state.Base = b; state.Apply(toggle); });
-            ThemeBrushes.Observe(toggle, "SecondaryButtonHoverBrush", b => { state.Hover = b; state.Apply(toggle); });
+            ThemeBrushes.Observe(toggle, "ItemHoverBrush", b => { state.Hover = b; state.Apply(toggle); });
+            ThemeBrushes.Observe(toggle, "ButtonTextBrush", b => { state.IconBase = b; state.Apply(toggle); });
+            ThemeBrushes.Observe(toggle, "TextOnAccentBrush", b => { state.IconOnAccent = b; state.Apply(toggle); });
             ThemeBrushes.Observe(toggle, "SecondaryButtonPressedBrush", b => { state.Pressed = b; state.Apply(toggle); });
             ThemeBrushes.Observe(toggle, "BorderColorBrush", b => { state.Border = b; state.Apply(toggle); });
             ThemeBrushes.Observe(toggle, "AccentBrush", b => { state.Accent = b; state.Apply(toggle); });
@@ -590,12 +593,12 @@ namespace Configuration_Management
         }
 
         /// <summary>Содержимое кнопки: иконка + подпись цветом из темы.</summary>
-        private static Control ActionContent(string iconKey, string text, string brushKey)
+        private static Control ActionContent(string iconKey, string text, string brushKey, double iconSize = 16)
         {
             var tb = new TextBlock
             {
                 Text = text,
-                FontSize = 13.5,
+                FontSize = 13,
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -606,7 +609,7 @@ namespace Configuration_Management
                 Spacing = 6,
                 Children =
                 {
-                    IconHelper.MakeIcon(iconKey, 16, brushKey),
+                    IconHelper.MakeIcon(iconKey, iconSize, brushKey),
                     tb
                 }
             };
@@ -763,27 +766,30 @@ namespace Configuration_Management
             public IBrush Pressed = Brushes.Transparent;
             public IBrush Border = Brushes.Transparent;
             public IBrush Accent = Brushes.Transparent;
+            public IBrush IconBase = Brushes.Transparent;
+            public IBrush IconOnAccent = Brushes.Transparent;
+            public Avalonia.Controls.Shapes.Path? Icon;
             public bool Hovered;
             public bool IsPressed;
 
             public void Apply(Button btn)
             {
                 var isActive = btn is ToggleButton t && t.IsChecked == true;
+                var fill = isActive ? Accent : (IsPressed ? Pressed : (Hovered ? Hover : Base));
+                if (Icon is not null)
+                    Icon.Fill = isActive ? IconOnAccent : IconBase;
+
                 if (!btn.IsEnabled)
                 {
                     btn.Opacity = 0.5;
-                    btn.Background = Base;
-                    btn.BorderBrush = isActive ? Accent : Border;
-                    btn.BorderThickness = new Thickness(isActive ? 2 : 1);
+                    btn.Background = fill;
+                    btn.BorderBrush = Border;
                     return;
                 }
 
                 btn.Opacity = 1.0;
-                btn.Background = IsPressed ? Pressed : (Hovered ? Hover : Base);
-                btn.BorderBrush = isActive ? Accent : Border;
-                // Активный сегмент сортировки подсвечивается акцентной рамкой (как сегментный
-                // переключатель Material): контраст иконки сохраняется в обеих темах.
-                btn.BorderThickness = new Thickness(isActive ? 2 : 1);
+                btn.Background = fill;
+                btn.BorderBrush = Border;
             }
         }
 
