@@ -49,10 +49,6 @@ namespace Configuration_Management
             MinWidth = 760;
             MinHeight = 560;
             FontSize = 13;
-            // Окно не показывается в панели задач (SettingsWindow.xaml:22):
-            // на менеджерах окон, которые показывают дочерние окна, без этого
-            // настройки попадали бы в панель, чего в версии для Windows нет.
-            ShowInTaskbar = false;
 
             _viewModel = viewModel;
             // Без контекста привязки переключателей клиента и разрядности
@@ -1587,7 +1583,6 @@ namespace Configuration_Management
             // а не общим зазором панели.
             var profile = new StackPanel { Margin = new Thickness(4, 12, 4, 0) };
 
-            profile.Children.Add(GroupTitle(LocalizationManager.T("Settings.TabProfile")));
             var profileDescription = new TextBlock
             {
                 Text = LocalizationManager.T("Settings.Profile.Description"),
@@ -1740,6 +1735,12 @@ namespace Configuration_Management
             var hotkeyShowAll = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowAll"), _viewModel.HotkeyShowAll);
             var hotkeyShowFavorites = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowFavorites"), _viewModel.HotkeyShowFavorites);
             var hotkeyShowRecent = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowRecent"), _viewModel.HotkeyShowRecent);
+            // У автора последняя строка идёт без нижнего поля, а весь блок строк
+            // несёт низ 12 (SettingsWindow.xaml:957 и 1039). У нас строки лежат
+            // в общей панели, поэтому поле снимается у последней и добирается
+            // отступом следующего заголовка.
+            if (hotkeys.Children.Count > 0 && hotkeys.Children[^1] is Control lastHotkeyRow)
+                lastHotkeyRow.Margin = new Thickness(0, 0, 0, 12);
 
             // Порядок слотов Alt+1…Alt+9, как в разметке WPF (SettingsWindow.xaml:1030):
             // заголовок, пояснение, список слотов и кнопки перестановки справа.
@@ -1751,6 +1752,8 @@ namespace Configuration_Management
             });
             var favoritesHint = Hint(LocalizationManager.T("Settings.Hotkeys.FavoritesOrderHint"));
             favoritesHint.Margin = new Thickness(0, 0, 0, 8);
+            favoritesHint.Opacity = 1;
+            ThemeBrushes.Bind(favoritesHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             hotkeys.Children.Add(favoritesHint);
 
             var favoriteSlots = new ObservableCollection<FavoriteSlotItem>(
@@ -2769,7 +2772,7 @@ namespace Configuration_Management
                     // У автора это окно ошибки с текстом исключения
                     // (SettingsWindow.Platforms.cs:361), а не сообщение.
                     ShowAboutError(LocalizationManager.T("Settings.About.TechInfoCopyFailed")
-                        + "\n\n" + ex.Message);
+                        + "\n" + ex.Message);
                 }
             };
             panel.Children.Add(copyButton);
@@ -2777,9 +2780,6 @@ namespace Configuration_Management
             return panel;
         }
 
-        /// <summary>
-        /// Показывает информационное окно поверх текущего окна настроек.
-        /// </summary>
         /// <summary>Окно ошибки вкладки «О программе» с текстом исключения.</summary>
         private void ShowAboutError(string message)
         {
@@ -2790,6 +2790,9 @@ namespace Configuration_Management
             _ = win.ShowDialog(this);
         }
 
+        /// <summary>
+        /// Показывает информационное окно поверх текущего окна настроек.
+        /// </summary>
         private void ShowAboutMessage(string message)
         {
             var win = new MaterialMessageWindowAvalonia(message, LocalizationManager.T("Common.Information"), MaterialMessageKind.Info)

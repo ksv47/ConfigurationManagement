@@ -1025,7 +1025,7 @@
     "Settings.About.Version": "Версия: v{0}",
     "Settings.About.AvaloniaText": "Приложение для управления списком информационных баз 1С:Предприятие.\nПортируемая версия для Linux на Avalonia.",
     "Settings.About.RuntimeInfo": "Платформа: {0} | {1}",
-    "Settings.About.DataDir": "Каталог данных: {0}/ConfigurationManagement",
+    "Settings.About.DataDir": "Каталог данных: {0}",
     "Settings.About.CopyTechInfo": "Скопировать техническую информацию",
     "Settings.About.TechInfoCopied": "Техническая информация скопирована в буфер обмена.",
     "Settings.About.TechInfoCopyFailed": "Не удалось скопировать техническую информацию в буфер обмена.",

@@ -1025,7 +1025,7 @@
     "Settings.About.Version": "Version: v{0}",
     "Settings.About.AvaloniaText": "Application for managing the list of 1C:Enterprise infobases.\nPortable Linux version built with Avalonia.",
     "Settings.About.RuntimeInfo": "Platform: {0} | {1}",
-    "Settings.About.DataDir": "Data directory: {0}/ConfigurationManagement",
+    "Settings.About.DataDir": "Data directory: {0}",
     "Settings.About.CopyTechInfo": "Copy technical information",
     "Settings.About.TechInfoCopied": "Technical information has been copied to the clipboard.",
     "Settings.About.TechInfoCopyFailed": "Failed to copy technical information to the clipboard.",
