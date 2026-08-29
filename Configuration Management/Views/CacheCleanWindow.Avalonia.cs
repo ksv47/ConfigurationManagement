@@ -86,7 +86,6 @@ namespace Configuration_Management
                 check.Styled(ControlThemes.CacheCleanCheckBox);
             foreach (var size in new[] { _programCacheSizeText, _userCacheSizeText, _orphanCacheSizeText })
                 PrepareSizeText(size);
-            _orphanCacheCheck.HorizontalAlignment = HorizontalAlignment.Stretch;
             ToolTip.SetTip(_orphanCacheCheck, LocalizationManager.T("CacheClean.OrphanCacheTooltip"));
 
             _programCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.Program);
@@ -102,15 +101,11 @@ namespace Configuration_Management
             UpdateCount();
             UpdateCleanEnabled();
 
-            // Внешний ScrollViewer гарантирует доступность всех элементов при любой высоте
-            // окна: если суммарная высота контента превышает высоту окна, появляется
-            // вертикальная прокрутка всего содержимого, а не обрезка нижней панели.
-            Content = new ScrollViewer
-            {
-                Content = BuildRoot(),
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            };
+            // Внешней прокрутки нет, как и в разметке: список занимает всё
+            // свободное место звёздной строкой и тянется вместе с окном, а нижняя
+            // панель прижата к низу. Минимальная высота окна 440 не даёт ей
+            // обрезаться (CacheCleanWindow.xaml:9 и 105).
+            Content = BuildRoot();
 
             Opened += (_, _) => RefreshCacheSizes();
             Closing += (_, _) => SaveColumnWidths();
@@ -257,7 +252,8 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            // Список растягивается на всё свободное место (CacheCleanWindow.xaml:105).
+            grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
             var title = new TextBlock
@@ -319,24 +315,22 @@ namespace Configuration_Management
             {
                 Margin = new Thickness(0, 12, 0, 0),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
-                // Фиксированная высота вместо Star-строки: внутри внешнего ScrollViewer
-                // звёздные строки схлопываются в 0, поэтому блоку списка задаём постоянную
-                // высоту с MinHeight. Внутренний ScrollViewer базы остаётся рабочим, а при
-                // малой высоте окна весь контент прокручивается внешним ScrollViewer —
-                // нижняя панель (чекбокс остатков и кнопки) никогда не обрезается.
-                Height = 260,
-                MinHeight = 220
+                CornerRadius = new CornerRadius(6)
             };
 
             var dock = new DockPanel { LastChildFill = true };
 
-            // Поле поиска той же темой, что и остальные поля ввода приложения:
-            // штатное поле Avalonia отличается от того, что рисует разметка автора
-            // (кегль 13 и отступ 10,7 оттуда же, CacheCleanWindow.xaml:141).
+            // Поле поиска не обособлено рамкой: в разметке это обычное поле
+            // внутри карточки списка, видна только подсказка
+            // (CacheCleanWindow.xaml:141). Штатное поле Avalonia рисует рамку
+            // и подложку, поэтому их снимаем.
             _searchBox.Styled(ControlThemes.ModernTextBox);
             _searchBox.FontSize = 13;
             _searchBox.VerticalContentAlignment = VerticalAlignment.Center;
+            _searchBox.BorderThickness = new Thickness(0);
+            // Рамки нет, но заливка есть: поле чуть темнее карточки списка,
+            // как заполненное поле Material Design в версии для Windows.
+            Themes.ThemeBrushes.Bind(_searchBox, TextBox.BackgroundProperty, "ItemHoverBrush");
             _searchBox.Margin = new Thickness(8, 8, 8, 2);
             DockPanel.SetDock(_searchBox, Dock.Top);
             dock.Children.Add(_searchBox);
