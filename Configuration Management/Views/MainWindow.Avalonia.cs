@@ -326,17 +326,14 @@ namespace Configuration_Management
 
             // Проверить доступность всех баз 1С: ручная команда вместо автопроверки при запуске.
             // Иконка — зелёный гидролокатор (сонар), как экран на подводных лодках.
-            var checkAvailBtn = new PanelButton(
-                "",
-                "ItemHoverBrush",
-                "SecondaryButtonPressedBrush",
-                "")
+            var checkAvailBtn = new Button
             {
                 Content = IconHelper.MakeIcon("IconSonar", UiMetrics.Scaled(18),
                     new SolidColorBrush(Color.Parse("#14B8A6"))),
-                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
+                Padding = new Thickness(UiMetrics.Scaled(8)),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
+            checkAvailBtn.Styled(Themes.ControlThemes.IconButton);
             ToolTip.SetTip(checkAvailBtn, LocalizationManager.T("Main.CheckAvailabilityTooltip"));
             checkAvailBtn.Bind(Button.CommandProperty, new Binding("CheckAvailabilityCommand"));
             // Проверка доступности стоит между синхронизацией и темой, как у автора.
@@ -1174,7 +1171,6 @@ namespace Configuration_Management
                 Content = colorHex is not null
                     ? IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), new SolidColorBrush(Color.Parse(colorHex)))
                     : IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), brushKey ?? "TextSecondaryBrush"),
-                Padding = new Thickness(4),
                 Margin = new Thickness(1, 0),
                 MinWidth = 0,
                 MinHeight = 0,
@@ -1798,22 +1794,22 @@ namespace Configuration_Management
                     new SolidColorBrush(Color.Parse(colorHex)));
             }
 
-            // Не штатный Button: тема Fluent красит не саму кнопку, а её внутренний
-            // ContentPresenter через :pointerover, и локальный прозрачный Background
-            // этот фон не перебивает. Подсветка наведения оставалась висеть, когда
-            // строка пересобиралась под курсором, и фон то появлялся, то пропадал.
-            var button = new PanelButton("", "ItemHoverBrush", "SecondaryButtonPressedBrush", "",
-                new CornerRadius(UiMetrics.RadiusSm))
+            // Оформление берёт тема IconButton разметки: у автора все пять команд
+            // строки идут этим стилем с полем 1,0 (MainWindow.xaml:1282).
+            // Своя кнопка была нужна, пока темы не было: штатная тема Fluent красит
+            // не саму кнопку, а её внутренний ContentPresenter, и локальный
+            // прозрачный фон её не перебивал.
+            var button = new Button
             {
                 Content = glyph,
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(4),
+                Margin = new Thickness(1, 0),
                 MinWidth = 0,
                 MinHeight = 0,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 CommandParameter = ib
             };
+            button.Styled(Themes.ControlThemes.IconButton);
             ToolTip.SetTip(button, tooltip);
             // Команда живёт во вьюмодели, а контекстом строки служит сама база.
             button.Bind(Button.CommandProperty, new Binding(commandPath) { Source = _vm });
@@ -4826,7 +4822,13 @@ namespace Configuration_Management
             {
                 menu.Add(new NativeMenuItemSeparator());
                 menu.Add(TrayHeader(LocalizationManager.T("Main.SelectedBase")));
-                menu.Add(TrayInfobaseItem(sel, TrayItemName(sel.Name, "Main.SelectedBaseNoName")));
+                // У выбранной базы сам пункт ничего не запускает, только раскрывает
+                // подменю, и её имя не обрезается: так у автора
+                // (MainWindow.Tray.cs:240).
+                var selName = string.IsNullOrWhiteSpace(sel.Name)
+                    ? LocalizationManager.T("Main.SelectedBaseNoName")
+                    : sel.Name;
+                menu.Add(TrayInfobaseItem(sel, selName, launchOnClick: false));
             }
 
             menu.Add(new NativeMenuItemSeparator());
@@ -4874,11 +4876,12 @@ namespace Configuration_Management
         /// Предприятие, подменю даёт Предприятие и Конфигуратор
         /// (MainWindow.Tray.cs:271).
         /// </summary>
-        private NativeMenuItem TrayInfobaseItem(Infobase ib, string title)
+        private NativeMenuItem TrayInfobaseItem(Infobase ib, string title, bool launchOnClick = true)
         {
             var baseRef = ib;
             var item = new NativeMenuItem(title);
-            item.Click += (_, _) => LaunchInfobase(baseRef, configurator: false);
+            if (launchOnClick)
+                item.Click += (_, _) => LaunchInfobase(baseRef, configurator: false);
 
             var submenu = new NativeMenu();
             var enterprise = new NativeMenuItem(LocalizationManager.T("Main.Enterprise"));
@@ -4944,11 +4947,7 @@ namespace Configuration_Management
                 QueueTrayMenuRefresh();
                 return;
             }
-            _vm.SelectedInfobase = ib;
-            if (configurator)
-                _vm.LaunchConfiguratorCommand.Execute(null);
-            else
-                _vm.LaunchEnterpriseCommand.Execute(null);
+            _vm.LaunchFromTray(ib, configurator);
         }
 
         /// <summary>
