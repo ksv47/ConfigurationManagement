@@ -97,7 +97,8 @@ namespace Configuration_Management
                 _viewModel.Groups,
                 currentGroupId: _viewModel.SelectedGroup?.Id,
                 allowNone: true,
-                noneLabel: LocalizationManager.T("Connection.NoGroup"))
+                noneLabel: LocalizationManager.T("Connection.NoGroup"),
+                kind: GroupPickerObjectKind.Infobase)
             {
                 Owner = this
             };

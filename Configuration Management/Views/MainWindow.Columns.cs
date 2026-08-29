@@ -40,18 +40,24 @@ namespace Configuration_Management
 
         /// <summary>
         /// Строит целевую последовательность колонок (логические ключи) по выбранному
-        /// пользователем порядку. Колонка «Действия» теперь участвует в порядке наравне
-        /// с остальными и размещается там, куда её поставил пользователь в настройках.
+        /// пользователем порядку. Первая итерация идёт по пользовательскому порядку
+        /// (<see cref="_viewModel.ColumnOrderKeys"/>), отбрасывая незнакомые ключи, — поэтому
+        /// фактически применяется порядок, заданный пользователем в настройках, в т.ч. перенос
+        /// колонки «Действия». Второй проход лишь дополняет недостающие известные колонки в
+        /// порядке по умолчанию, гарантируя их наличие.
         /// </summary>
         private List<string> BuildColumnLayout()
         {
             var known = new[] { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
             var keys = new List<string>();
-            foreach (var k in known)
-                if (_viewModel?.ColumnOrderKeys.Contains(k) == true && !keys.Contains(k))
+            // Идём по ПОЛЬЗОВАТЕЛЬСКОМУ порядку, отбрасывая незнакомые ключи,
+            // чтобы фактически применять выбранный порядок (в т.ч. перенос «Действий»).
+            var source = _viewModel?.ColumnOrderKeys ?? Array.Empty<string>();
+            foreach (var k in source)
+                if (Array.IndexOf(known, k) >= 0 && !keys.Contains(k))
                     keys.Add(k);
             // Гарантируем, что все известные колонки присутствуют (незнакомые ключи
-            // из сохранённого порядка пропускаются, как в Avalonia-версии).
+            // из сохранённого порядка пропускаются).
             foreach (var k in known)
                 if (!keys.Contains(k))
                     keys.Add(k);

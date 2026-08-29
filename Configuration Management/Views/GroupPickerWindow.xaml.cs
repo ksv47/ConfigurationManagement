@@ -7,6 +7,13 @@ using Configuration_Management.ViewModels;
 
 namespace Configuration_Management
 {
+    /// <summary>Вид объекта, для которого выбирается группа (определяет формулировки Title/Subtitle/Help).</summary>
+    public enum GroupPickerObjectKind
+    {
+        Group,
+        Infobase
+    }
+
     /// <summary>
     /// Диалог выбора группы в виде дерева (или «Без группы» / корень).
     /// </summary>
@@ -26,12 +33,14 @@ namespace Configuration_Management
         /// <param name="excludeGroupId">Группа, которую нельзя выбрать (сама редактируемая + потомки отфильтруются).</param>
         /// <param name="allowNone">Разрешить выбор «Без группы» / корень.</param>
         /// <param name="noneLabel">Подпись корневого пункта.</param>
+        /// <param name="kind">Вид выбираемого объекта (группа или база) — определяет формулировки Title/Subtitle/Help.</param>
         public GroupPickerWindow(
             IEnumerable<Group> groups,
             string? currentGroupId = null,
             string? excludeGroupId = null,
             bool allowNone = true,
-            string noneLabel = "")
+            string noneLabel = "",
+            GroupPickerObjectKind kind = GroupPickerObjectKind.Group)
         {
             InitializeComponent();
             _groups = groups.ToList();
@@ -40,6 +49,8 @@ namespace Configuration_Management
             _noneLabel = string.IsNullOrEmpty(noneLabel)
                 ? LocalizationManager.T("Connection.NoGroup")
                 : noneLabel;
+
+            ApplyObjectKind(kind);
 
             // IsAncestorOrSelf(g.Id, excludeId) = exclude is ancestor of g → g is under exclude.
             // Also exclude the group itself via Id check.
@@ -51,6 +62,30 @@ namespace Configuration_Management
                     .ToList();
 
             RefreshTree();
+        }
+
+        /// <summary>
+        /// Подставляет конкретные формулировки заголовка/подзаголовка/справки в зависимости от вида выбираемого объекта.
+        /// </summary>
+        private void ApplyObjectKind(GroupPickerObjectKind kind)
+        {
+            string titleKey, subtitleKey, helpKey;
+            if (kind == GroupPickerObjectKind.Infobase)
+            {
+                titleKey = "GroupPicker.TitleBase";
+                subtitleKey = "GroupPicker.SubtitleBase";
+                helpKey = "GroupPicker.HelpBase";
+            }
+            else
+            {
+                titleKey = "GroupPicker.TitleGroup";
+                subtitleKey = "GroupPicker.SubtitleGroup";
+                helpKey = "GroupPicker.HelpGroup";
+            }
+            Title = LocalizationManager.T(titleKey);
+            if (TitleText is not null) TitleText.Text = LocalizationManager.T(titleKey);
+            if (SubtitleText is not null) SubtitleText.Text = LocalizationManager.T(subtitleKey);
+            if (HelpLink is not null) HelpLink.HelpText = LocalizationManager.T(helpKey);
         }
 
         /// <summary>

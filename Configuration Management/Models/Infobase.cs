@@ -156,7 +156,11 @@ public class Infobase : INotifyPropertyChanged
     public string PlatformVersion
     {
         get => _platformVersion;
-        set => SetProperty(ref _platformVersion, value ?? string.Empty);
+        set
+        {
+            if (SetProperty(ref _platformVersion, value ?? string.Empty))
+                OnPropertyChanged(nameof(PlatformVersionDisplay));
+        }
     }
 
     private string _configurationName = string.Empty;
@@ -215,8 +219,18 @@ public class Infobase : INotifyPropertyChanged
     /// <summary>Дополнительные параметры запуска платформы 1С (например, /UC, /DisableStartupMessages и др.).</summary>
     public string LaunchParameters { get; set; } = string.Empty;
 
+    private string _architecture = "32-priority";
+
     /// <summary>Разрядность платформы при запуске базы («32» или «64» бита).</summary>
-    public string Architecture { get; set; } = "32-priority";
+    public string Architecture
+    {
+        get => _architecture;
+        set
+        {
+            if (SetProperty(ref _architecture, value ?? "32-priority"))
+                OnPropertyChanged(nameof(PlatformVersionDisplay));
+        }
+    }
 
     /// <summary>Человекочитаемая разрядность для UI (как в лаунчере 1С).</summary>
     public string ArchitectureDisplay => (Architecture ?? string.Empty).Trim().ToLowerInvariant() switch
@@ -227,6 +241,31 @@ public class Infobase : INotifyPropertyChanged
         "32-priority" => LocalizationManager.T("Infobase.ArchPriority32"),
         _ => string.IsNullOrWhiteSpace(Architecture) ? LocalizationManager.T("Infobase.ArchPriority32") : Architecture
     };
+
+    /// <summary>
+    /// Версия платформы с разрядностью для списка баз (issue #101).
+    /// Если разрядность выбрана явно (32/x86 или 64/x64), рядом с версией
+    /// показывается суффикс «[x86]»/«[x64]»; при автоопределении или приоритетном
+    /// режиме — только чистая версия. Примеры: «8.3.19 [x86]», «8.3 [x64]», «8.3.27.2325».
+    /// </summary>
+    public string PlatformVersionDisplay
+    {
+        get
+        {
+            var version = (PlatformVersion ?? string.Empty).Trim();
+            if (version.Length == 0)
+                return string.Empty;
+
+            var arch = (Architecture ?? string.Empty).Trim().ToLowerInvariant();
+            var suffix = arch switch
+            {
+                "32" or "x86" => " [x86]",
+                "64" or "x64" => " [x64]",
+                _ => string.Empty
+            };
+            return version + suffix;
+        }
+    }
 
     /// <summary>
     /// Тип клиента (тонкий или толстый). Каноническое строковое значение-идентификатор:

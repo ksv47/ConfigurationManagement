@@ -196,12 +196,12 @@
                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <StackPanel Grid.Column="1">
-                <TextBlock Text="{loc:Loc GroupPicker.Title}" FontSize="17" FontWeight="SemiBold"/>
-                <TextBlock Text="{loc:Loc GroupPicker.Subtitle}" FontSize="12.5"
+                <TextBlock x:Name="TitleText" Text="" FontSize="17" FontWeight="SemiBold"/>
+                <TextBlock x:Name="SubtitleText" Text="" FontSize="12.5"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
             </StackPanel>
-            <controls:HelpLink Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Top"
-                               HelpText="{loc:Loc GroupPicker.Help}"/>
+            <controls:HelpLink x:Name="HelpLink" Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Top"
+                               HelpText=""/>
         </Grid>
 
         <!-- Поиск + сортировка -->

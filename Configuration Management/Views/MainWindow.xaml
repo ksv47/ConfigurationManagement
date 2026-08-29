@@ -1246,7 +1246,7 @@
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
 
-                                        <TextBlock Grid.Column="5" Text="{Binding PlatformVersion}" FontSize="12"
+                                        <TextBlock Grid.Column="5" Text="{Binding PlatformVersionDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"
                                                    Tag="PlatformVersion"
