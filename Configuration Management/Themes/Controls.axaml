@@ -859,4 +859,53 @@
             <Setter Property="Opacity" Value="{DynamicResource StatusBarIconPressedOpacity}"/>
         </Style>
     </ControlTheme>
+    <!-- Ресурсы штатной темы, которыми она красит всплывающее меню и колонку
+         значка. Через ресурсы, а не селектором: подменю живёт в своём Popup,
+         и его рамка получает значения прямо из шаблона. Числа из разметки
+         (LightTheme.xaml:817 и :742): фон карточки, контур темы, толщина 1,
+         внутренний отступ 4, зазор после значка 8 вместо штатных 12. -->
+    <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="{DynamicResource CardBackgroundColor}"/>
+    <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush" Color="{DynamicResource BorderColor}"/>
+    <Thickness x:Key="MenuFlyoutPresenterBorderThemeThickness">1</Thickness>
+    <Thickness x:Key="MenuFlyoutPresenterThemePadding">4</Thickness>
+    <Thickness x:Key="MenuIconPresenterMargin">0,0,8,0</Thickness>
+
+    <!-- ===================== Меню =====================
+         Стили ModernContextMenu (LightTheme.xaml:817) и ModernMenuItem (:742);
+         в тёмной теме оба дословно те же. Темы наследуют штатные: у MenuItem
+         обязательна часть PART_Popup, без неё не открывается подменю, а у
+         ContextMenu нужен ItemsPresenter, иначе пункты не показываются.
+         Подсветка пункта идёт по :selected, а не по :pointerover: именно так
+         обработчик меню помечает пункт под указателем, и так же устроена
+         штатная тема. -->
+    <ControlTheme x:Key="ModernContextMenu" TargetType="ContextMenu" BasedOn="{StaticResource {x:Type ContextMenu}}">
+        <Setter Property="MinWidth" Value="280"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <!-- Аналог HasDropShadow разметки: подсказка оконному менеджеру. -->
+        <Setter Property="WindowManagerAddShadowHint" Value="True"/>
+    </ControlTheme>
+
+    <ControlTheme x:Key="ModernMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Margin" Value="2,1"/>
+
+        <Style Selector="^:selected /template/ Border#PART_LayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+        </Style>
+        <Style Selector="^:selected">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+    </ControlTheme>
 </ResourceDictionary>
