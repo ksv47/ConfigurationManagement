@@ -31,6 +31,10 @@ namespace Configuration_Management
         protected ModalWindowBase()
         {
             Themes.ThemeBrushes.Bind(this, BackgroundProperty, "ContentBackgroundBrush");
+            // Диалоги не показываются в панели задач: в разметке WPF
+            // ShowInTaskbar="False" стоит у всех шестнадцати окон, поэтому здесь
+            // это общее свойство базового окна, а не повторение в каждом.
+            ShowInTaskbar = false;
         }
 
         /// <summary>
