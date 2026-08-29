@@ -395,9 +395,12 @@
         <Style Selector="^:focus">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
+        <!-- Гашения у поля нет: в разметке WPF у ModernTextBox нет ни триггера
+             недоступности, ни прозрачности, и заблокированное поле там выглядит
+             как обычное (подтверждено Windows-стороной на окне «Без группы»).
+             Здесь только снимается перекраска штатной темой. -->
         <Style Selector="^:disabled">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="Opacity" Value="0.5"/>
         </Style>
         <Style Selector="^:disabled /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
@@ -717,6 +720,40 @@
         </Style>
         <Style Selector="^:disabled">
             <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+    </ControlTheme>
+    <!-- ===================== Плитка выбора значка группы =====================
+         Стиль IconPickButton (GroupEditWindow.xaml:45). Цвета зашиты числом
+         намеренно: у автора в комментарии сказано, что на тёмной подложке
+         белые и цветные значки читаются всегда, поэтому плитка остаётся
+         тёмной и в светлой теме. -->
+    <ControlTheme x:Key="IconPickButton" TargetType="Button">
+        <Setter Property="Width" Value="40"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="Margin" Value="3"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="#374151"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BorderBrush" Value="#4B5563"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="Button">
+                <Border Name="PART_Surface"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="8">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Surface">
+            <Setter Property="Background" Value="#4B5563"/>
+            <Setter Property="BorderBrush" Value="#9CA3AF"/>
         </Style>
     </ControlTheme>
 </ResourceDictionary>

@@ -45,6 +45,9 @@ namespace Configuration_Management.Themes
         /// <summary>Переключатель настроек: дорожка 40 на 22 с кружком 16.</summary>
         public const string SettingsToggle = "SettingsToggle";
 
+        /// <summary>Плитка выбора значка группы: тёмная в обеих темах, как у автора.</summary>
+        public const string IconPickButton = "IconPickButton";
+
         /// <summary>Пилюля видимости колонки: та же дорожка без подписи.</summary>
         public const string ColumnVisibilitySwitch = "ColumnVisibilitySwitch";
 

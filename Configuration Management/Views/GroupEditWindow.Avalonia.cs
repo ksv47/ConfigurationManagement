@@ -212,7 +212,13 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center
             };
             selectParent.Styled(ControlThemes.SecondaryButton);
+            // Для служебных узлов «Без группы» и «Закреплённые» разметка гасит
+            // четыре элемента сразу: наименование, описание, поле родителя
+            // и кнопку выбора (подтверждено Windows-стороной, задание 14).
             selectParent.IsEnabled = !_noGroupMode;
+            _nameBox.IsEnabled = !_noGroupMode;
+            _descriptionBox.IsEnabled = !_noGroupMode;
+            _parentPathBox.IsEnabled = !_noGroupMode;
             selectParent.Click += (_, _) => OnSelectParent_Click();
             ToolTip.SetTip(selectParent, LocalizationManager.T("GroupEdit.SelectParentTooltip"));
             Grid.SetColumn(selectParent, 1);
@@ -351,13 +357,8 @@ namespace Configuration_Management
             var iconBrush = new SolidColorBrush(ParseColor(_iconColor));
             foreach (var (key, label) in AvailableIcons)
             {
-                var btn = new Button
-                {
-                    Width = 40,
-                    Height = 40,
-                    Margin = new Thickness(3),
-                    Tag = key
-                };
+                var btn = new Button { Tag = key };
+                btn.Styled(ControlThemes.IconPickButton);
                 ToolTip.SetTip(btn, label);
 
                 if (string.IsNullOrEmpty(key))
