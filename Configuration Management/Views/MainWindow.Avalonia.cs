@@ -1142,12 +1142,7 @@ namespace Configuration_Management
             var actionsIndex = AddListColumns(row,
                 _vm?.ShowFavoritesButton ?? true, _vm?.ShowPinnedButton ?? true);
 
-            var actions = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
+            var actions = new ActionsPanel();
             actions.Children.Add(GroupRowActionButton(group, "IconEdit", "EditGroupCommand",
                 LocalizationManager.T("Main.EditGroupTooltip"), "TextSecondaryBrush"));
             // «Удалить» у служебных узлов скрыта: у них нет модели группы.
@@ -1156,10 +1151,8 @@ namespace Configuration_Management
             deleteBtn.IsVisible = group.Marker != GroupNodeViewModel.PinnedMarker
                                   && group.Marker != GroupNodeViewModel.NoGroupMarker;
             actions.Children.Add(deleteBtn);
-            var groupActionsHost = new Panel { ClipToBounds = true };
-            groupActionsHost.Children.Add(actions);
-            Grid.SetColumn(groupActionsHost, actionsIndex);
-            row.Children.Add(groupActionsHost);
+            Grid.SetColumn(actions, actionsIndex);
+            row.Children.Add(actions);
 
             Grid.SetColumn(caption, 0);
             Grid.SetColumnSpan(caption, actionsIndex);
@@ -1167,6 +1160,61 @@ namespace Configuration_Management
 
             header.Child = row;
             return header;
+        }
+
+        /// <summary>
+        /// Панель кнопок колонки «Действия»: раскладывает по горизонтали столько
+        /// кнопок, сколько помещается в колонку, остальные не показывает вовсе.
+        /// Обычная панель с обрезкой оставляла бы половину значка у самой границы
+        /// колонки «Сервер/База», а в версии для Windows лишние значки пропадают.
+        /// </summary>
+        private sealed class ActionsPanel : Panel
+        {
+            /// <summary>Зазор между кнопками.</summary>
+            public double Spacing { get; init; }
+
+            protected override Size MeasureOverride(Size availableSize)
+            {
+                double width = 0, height = 0;
+                foreach (var child in Children)
+                {
+                    child.Measure(Size.Infinity);
+                    width += child.DesiredSize.Width + Spacing;
+                    height = Math.Max(height, child.DesiredSize.Height);
+                }
+                return new Size(Math.Min(width, availableSize.Width), height);
+            }
+
+            protected override Size ArrangeOverride(Size finalSize)
+            {
+                double total = 0;
+                var fit = 0;
+                foreach (var child in Children)
+                {
+                    var next = total + child.DesiredSize.Width + (fit > 0 ? Spacing : 0);
+                    if (next > finalSize.Width)
+                        break;
+                    total = next;
+                    fit++;
+                }
+
+                var x = Math.Max(0, (finalSize.Width - total) / 2);
+                for (var i = 0; i < Children.Count; i++)
+                {
+                    var child = Children[i];
+                    if (i >= fit)
+                    {
+                        child.Arrange(new Rect(0, 0, 0, 0));
+                        continue;
+                    }
+                    if (i > 0)
+                        x += Spacing;
+                    var size = child.DesiredSize;
+                    child.Arrange(new Rect(x, Math.Max(0, (finalSize.Height - size.Height) / 2), size.Width, size.Height));
+                    x += size.Width;
+                }
+                return finalSize;
+            }
         }
 
         /// <summary>
@@ -1369,6 +1417,11 @@ namespace Configuration_Management
                 var value = ColumnValue(ib, columns[i].Key);
                 var cell = SecondaryText(string.IsNullOrWhiteSpace(value) ? string.Empty : value, card);
                 cell.VerticalAlignment = VerticalAlignment.Center;
+                // Отступ ячейки значения как в разметке (MainWindow.xaml:1249):
+                // без него значения стояли на 6 пикселей левее своих заголовков,
+                // у которых такой отступ есть.
+                cell.HorizontalAlignment = HorizontalAlignment.Left;
+                cell.Margin = new Thickness(6, 0, 6, 0);
                 if (columns[i].Key == "Version")
                 {
                     // Двойной щелчок открывает выбор версии платформы, как
@@ -1390,25 +1443,17 @@ namespace Configuration_Management
             // Кнопки действий в колонке «Действия» (после колонки «Режим запуска»):
             // запуск, конфигуратор, изменить настройки, очистить кеш, удалить.
             var actionsCol = NameRowColumn + 1 + actionsOffset;
-            var actions = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                Spacing = 1
-            };
+            var actions = new ActionsPanel { Spacing = 1 };
             actions.Children.Add(RowActionButton(ib, "IconPlay", "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconBroom", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#DC2626"));
-            // Кнопки живут внутри обрезающей колонку панели: в узкой колонке
-            // «Действия» они у автора просто срезаются её границей, а у нас
-            // вылезали поверх колонки «Сервер/База».
-            var actionsHost = new Panel { ClipToBounds = true };
-            actionsHost.Children.Add(actions);
-            grid.Children.Add(actionsHost);
-            Grid.SetColumn(actionsHost, actionsCol);
+            // Кнопки живут внутри панели, обрезанной по своей колонке: в узкой
+            // колонке «Действия» лишние значки у автора пропадают, а у нас
+            // рисовались поверх колонки «Сервер/База».
+            grid.Children.Add(actions);
+            Grid.SetColumn(actions, actionsCol);
 
             if (_vm?.ShowTags == true)
             {
@@ -1418,7 +1463,7 @@ namespace Configuration_Management
                 // действиями и остальными значениями.
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                Grid.SetRowSpan(actionsHost, 2);
+                Grid.SetRowSpan(actions, 2);
 
                 var tags = BuildRowTags(card, ib);
                 // Тот же отступ вложенности, что и у ведущего блока
@@ -4118,6 +4163,8 @@ namespace Configuration_Management
                 _headerOffsetColumn.Width = new GridLength(offset);
 
             SyncHeaderWidthWithList();
+
+
 
 
         }
