@@ -8,12 +8,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Data;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
-using Configuration_Management.Converters;
 using Configuration_Management.Services;
 using Configuration_Management.Themes;
 
@@ -133,15 +131,25 @@ namespace Configuration_Management
                 icon.Bind(Avalonia.Controls.Shapes.Path.FillProperty,
                     new Binding(nameof(ToggleButton.Foreground)) { Source = toggle });
             }
-            _sortAsc.IsCheckedChanged += (_, _) =>
+            // Щелчок по уже выбранной кнопке оставляет её выбранной: у автора
+            // обработчик принудительно возвращает IsChecked = true
+            // (PlatformVersionPickerWindow.xaml.cs:126), и состояния «сортировка
+            // не выбрана ни одной кнопкой» в его версии не существует.
+            _sortAsc.Click += (_, _) =>
             {
-                if (_sortAsc.IsChecked != true) return;
-                _sortAscending = true; _sortDesc.IsChecked = false; RefreshTree();
+                _sortAsc.IsChecked = true;
+                _sortDesc.IsChecked = false;
+                if (_sortAscending) return;
+                _sortAscending = true;
+                RefreshTree();
             };
-            _sortDesc.IsCheckedChanged += (_, _) =>
+            _sortDesc.Click += (_, _) =>
             {
-                if (_sortDesc.IsChecked != true) return;
-                _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree();
+                _sortDesc.IsChecked = true;
+                _sortAsc.IsChecked = false;
+                if (!_sortAscending) return;
+                _sortAscending = false;
+                RefreshTree();
             };
             ToolTip.SetTip(_sortAsc, LocalizationManager.T("PlatformVersionPicker.SortAscTooltip"));
             ToolTip.SetTip(_sortDesc, LocalizationManager.T("PlatformVersionPicker.SortDescTooltip"));
