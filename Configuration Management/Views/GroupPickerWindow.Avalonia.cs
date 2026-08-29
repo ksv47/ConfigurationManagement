@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -296,11 +297,8 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundColorBrush");
             ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
-            UiMetrics.AddSoftShadow(card);
 
             var root = new Grid();
-            root.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
-            root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
@@ -316,11 +314,14 @@ namespace Configuration_Management
                 _selectedNode = _tree.SelectedItem as GroupNodeViewModel;
                 UpdateSelection();
             };
-            _tree.DoubleTapped += (_, _) =>
+            // Двойной щелчок доходит до дерева только с handledEventsToo: у элемента
+            // с детьми Avalonia помечает событие обработанным (раскрытие узла), а
+            // разметка WPF подтверждает выбор при щелчке по любому узлу.
+            _tree.AddHandler(InputElement.DoubleTappedEvent, (object? _, TappedEventArgs _) =>
             {
                 if (_selectedNode is not null)
                     OnSelect_Click();
-            };
+            }, RoutingStrategies.Bubble, handledEventsToo: true);
 
             var treeHost = new ScrollViewer
             {
@@ -420,7 +421,7 @@ namespace Configuration_Management
             buttons.Children.Add(_selectButton);
 
             buttons.Children.Add(BuildActionButton(
-                "SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush", "SecondaryButtonPressedBrush", "BorderColorBrush",
+                "", "SecondaryButtonHoverBrush", "SecondaryButtonPressedBrush", "SecondaryButtonBackgroundBrush",
                 ActionContent("IconClose", LocalizationManager.T("Common.Cancel"), "ButtonTextBrush", iconSize: 15),
                 minWidth: 116, isCancel: true, isDefault: false, onClick: () => Close()));
             Grid.SetColumn(buttons, 1);
@@ -520,7 +521,6 @@ namespace Configuration_Management
             };
 
             var state = new ToggleState { Icon = iconPath };
-            ThemeBrushes.Observe(toggle, "SecondaryButtonBackgroundBrush", b => { state.Base = b; state.Apply(toggle); });
             ThemeBrushes.Observe(toggle, "ItemHoverBrush", b => { state.Hover = b; state.Apply(toggle); });
             ThemeBrushes.Observe(toggle, "ButtonTextBrush", b => { state.IconBase = b; state.Apply(toggle); });
             ThemeBrushes.Observe(toggle, "TextOnAccentBrush", b => { state.IconOnAccent = b; state.Apply(toggle); });
@@ -562,7 +562,8 @@ namespace Configuration_Management
             string baseKey, string hoverKey, string pressedKey, string borderKey, bool? isActive)
         {
             var state = new ToggleState();
-            ThemeBrushes.Observe(btn, baseKey, b => { state.Base = b; state.Apply(btn); });
+            if (baseKey.Length > 0)
+                ThemeBrushes.Observe(btn, baseKey, b => { state.Base = b; state.Apply(btn); });
             ThemeBrushes.Observe(btn, hoverKey, b => { state.Hover = b; state.Apply(btn); });
             ThemeBrushes.Observe(btn, pressedKey, b => { state.Pressed = b; state.Apply(btn); });
             ThemeBrushes.Observe(btn, borderKey, b => { state.Border = b; state.Apply(btn); });
