@@ -19,6 +19,7 @@
             <SolidColorBrush x:Key="SecondaryButtonHoverOutlineBrush" Color="{DynamicResource SecondaryButtonHoverColor}"/>
             <SolidColorBrush x:Key="SecondaryButtonPressedSurfaceBrush" Color="{DynamicResource SecondaryButtonPressedColor}"/>
             <Thickness x:Key="SecondaryButtonOutlineThickness">0</Thickness>
+            <SolidColorBrush x:Key="SettingsToggleTrackBrush">#CBD5E1</SolidColorBrush>
         </ResourceDictionary>
         <!-- Тёмная: вторичная кнопка это карточка в контуре, при наведении контур акцентный. -->
         <ResourceDictionary x:Key="Dark">
@@ -29,6 +30,7 @@
             <SolidColorBrush x:Key="SecondaryButtonHoverOutlineBrush" Color="{DynamicResource AccentColor}"/>
             <SolidColorBrush x:Key="SecondaryButtonPressedSurfaceBrush" Color="{DynamicResource SidebarHoverColor}"/>
             <Thickness x:Key="SecondaryButtonOutlineThickness">1</Thickness>
+            <SolidColorBrush x:Key="SettingsToggleTrackBrush">#475569</SolidColorBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
@@ -393,9 +395,12 @@
         <Style Selector="^:focus">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
+        <!-- Гашения у поля нет: в разметке WPF у ModernTextBox нет ни триггера
+             недоступности, ни прозрачности, и заблокированное поле там выглядит
+             как обычное (подтверждено Windows-стороной на окне «Без группы»).
+             Здесь только снимается перекраска штатной темой. -->
         <Style Selector="^:disabled">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="Opacity" Value="0.5"/>
         </Style>
         <Style Selector="^:disabled /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
@@ -544,6 +549,211 @@
         </Style>
         <Style Selector="^:disabled">
             <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+    </ControlTheme>
+    <!-- ===================== Горизонтальные вкладки разделов =====================
+         Стили SettingsSubTabControl и SettingsSubTabItem: объявлены в самих окнах
+         (GroupEditWindow.xaml:75 и :104, такие же в окне настроек). Полоса вкладок
+         равной ширины с общей линией снизу, у выбранной акцентное подчёркивание 3. -->
+    <ControlTheme x:Key="SettingsSubTabControl" TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="ItemsPanel">
+            <ItemsPanelTemplate>
+                <UniformGrid Rows="1"/>
+            </ItemsPanelTemplate>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="TabControl">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Grid.Row="0"
+                            BorderBrush="{DynamicResource BorderBrushColor}"
+                            BorderThickness="0,0,0,1"
+                            Margin="0,0,0,10">
+                        <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}"/>
+                    </Border>
+                    <ContentPresenter Grid.Row="1"
+                                      Name="PART_SelectedContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      Content="{TemplateBinding SelectedContent}"
+                                      ContentTemplate="{TemplateBinding SelectedContentTemplate}"/>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="SettingsSubTabItem" TargetType="TabItem">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="10,10"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="TabItem">
+                <Border Name="PART_Surface"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="0,0,0,3"
+                        Margin="0,0,0,-1"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Header}"
+                                      ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover:not(:selected) /template/ Border#PART_Surface">
+            <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+        </Style>
+        <Style Selector="^:pointerover:not(:selected)">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="^:selected /template/ Border#PART_Surface">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:selected">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+    </ControlTheme>
+    <!-- ===================== Вертикальные вкладки окна настроек =====================
+         Стили SettingsTabControl и SettingsTabItem (SettingsWindow.xaml:119 и :146)
+         повторяют вкладки окна подключения и отличаются одной шириной. -->
+    <ControlTheme x:Key="SettingsTabControl" TargetType="TabControl" BasedOn="{StaticResource ConnTabControl}"/>
+
+    <ControlTheme x:Key="SettingsTabItem" TargetType="TabItem" BasedOn="{StaticResource ConnTabItem}">
+        <Setter Property="Width" Value="235"/>
+    </ControlTheme>
+
+    <!-- ===================== Переключатель настроек =====================
+         Стиль SettingsToggle (LightTheme.xaml:1223, DarkTheme.xaml:1256).
+         Дорожка 40 на 22 со скруглением 11, кружок 16 белый; во включённом
+         положении дорожка акцентная, кружок уезжает вправо. Тёмная тема
+         отличается только цветом дорожки в выключенном положении. -->
+    <ControlTheme x:Key="SettingsToggle" TargetType="ToggleButton">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0,6"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ToggleButton">
+                <Grid Background="{TemplateBinding Background}" ColumnDefinitions="*,Auto">
+                    <ContentPresenter Grid.Column="0"
+                                      Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"
+                                      VerticalAlignment="Center"/>
+                    <Border Grid.Column="1"
+                            Name="PART_Track"
+                            Width="40" Height="22"
+                            CornerRadius="11"
+                            Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource SettingsToggleTrackBrush}">
+                        <Ellipse Name="PART_Thumb"
+                                 Width="16" Height="16"
+                                 Fill="White"
+                                 HorizontalAlignment="Left"
+                                 VerticalAlignment="Center"
+                                 Margin="3,0,0,0"/>
+                    </Border>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:checked /template/ Border#PART_Track">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Ellipse#PART_Thumb">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="Margin" Value="0,0,3,0"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+    </ControlTheme>
+    <!-- ===================== Пилюля видимости колонки =====================
+         Стиль ColumnVisibilitySwitch (SettingsWindow.xaml:31): та же дорожка,
+         что у переключателя настроек, но без подписи слева. -->
+    <ControlTheme x:Key="ColumnVisibilitySwitch" TargetType="ToggleButton">
+        <Setter Property="Width" Value="40"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="ToggleButton">
+                <Border Name="PART_Track"
+                        CornerRadius="11"
+                        Background="{DynamicResource SettingsToggleTrackBrush}">
+                    <Ellipse Name="PART_Thumb"
+                             Width="16" Height="16"
+                             Fill="White"
+                             HorizontalAlignment="Left"
+                             VerticalAlignment="Center"
+                             Margin="3,0,0,0"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:checked /template/ Border#PART_Track">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Ellipse#PART_Thumb">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="Margin" Value="0,0,3,0"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+    </ControlTheme>
+    <!-- ===================== Плитка выбора значка группы =====================
+         Стиль IconPickButton (GroupEditWindow.xaml:45). Цвета зашиты числом
+         намеренно: у автора в комментарии сказано, что на тёмной подложке
+         белые и цветные значки читаются всегда, поэтому плитка остаётся
+         тёмной и в светлой теме. -->
+    <ControlTheme x:Key="IconPickButton" TargetType="Button">
+        <Setter Property="Width" Value="40"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="Margin" Value="3"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="#374151"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BorderBrush" Value="#4B5563"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="Button">
+                <Border Name="PART_Surface"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="8">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Surface">
+            <Setter Property="Background" Value="#4B5563"/>
+            <Setter Property="BorderBrush" Value="#9CA3AF"/>
         </Style>
     </ControlTheme>
 </ResourceDictionary>

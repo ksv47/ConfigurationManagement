@@ -36,6 +36,27 @@ namespace Configuration_Management.Themes
         /// <summary>Поле ввода: карточный фон, скругление 6, акцентный контур при наведении и фокусе.</summary>
         public const string ModernTextBox = "ModernTextBox";
 
+        /// <summary>Колонка вертикальных вкладок окна настроек.</summary>
+        public const string SettingsTabControl = "SettingsTabControl";
+
+        /// <summary>Вертикальная вкладка окна настроек: та же, что в окне подключения, шириной 235.</summary>
+        public const string SettingsTabItem = "SettingsTabItem";
+
+        /// <summary>Переключатель настроек: дорожка 40 на 22 с кружком 16.</summary>
+        public const string SettingsToggle = "SettingsToggle";
+
+        /// <summary>Плитка выбора значка группы: тёмная в обеих темах, как у автора.</summary>
+        public const string IconPickButton = "IconPickButton";
+
+        /// <summary>Пилюля видимости колонки: та же дорожка без подписи.</summary>
+        public const string ColumnVisibilitySwitch = "ColumnVisibilitySwitch";
+
+        /// <summary>Полоса горизонтальных вкладок раздела: равная ширина, общая линия снизу.</summary>
+        public const string SettingsSubTabControl = "SettingsSubTabControl";
+
+        /// <summary>Горизонтальная вкладка раздела: акцентное подчёркивание у выбранной.</summary>
+        public const string SettingsSubTabItem = "SettingsSubTabItem";
+
         /// <summary>Поле пароля: то же поле, но с контуром 1.5, скруглением 8 и отступом 10 на 6.</summary>
         public const string ModernPasswordBox = "ModernPasswordBox";
 
