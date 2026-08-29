@@ -9,17 +9,6 @@
     <Style Selector="ComboBox">
         <Setter Property="Theme" Value="{DynamicResource ModernComboBox}"/>
     </Style>
-    <!-- Рамка выпадающего списка живёт в отдельном окне (PopupRoot), и селектор
-         части шаблона из темы ComboBox до неё не достаёт: проверено прогоном,
-         тема применялась, а рамка оставалась штатной. Поэтому она задаётся
-         отдельным стилем по имени части Fluent. -->
-    <Style Selector="Border#PopupBorder">
-        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="8"/>
-        <Setter Property="Padding" Value="4"/>
-    </Style>
     <Style Selector="ComboBoxItem">
         <Setter Property="Theme" Value="{DynamicResource ModernComboBoxItem}"/>
     </Style>

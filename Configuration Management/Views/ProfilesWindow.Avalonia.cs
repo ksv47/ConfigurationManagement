@@ -23,7 +23,8 @@ namespace Configuration_Management
         private readonly TextBlock _currentAccountLabel;
         private readonly ListBox _profilesList;
         private readonly TextBox _nameBox = new TextBox { Width = 260 }.Styled(Themes.ControlThemes.ModernTextBox);
-        private readonly PasswordBox _passwordInput = new() { Padding = new Thickness(8, 6), MinWidth = 280 };
+        private readonly PasswordBox _passwordInput =
+            new PasswordBox { Width = 260 }.Styled(Themes.ControlThemes.ModernPasswordBox);
         private readonly CheckBox _protectCheck = new() { Content = LocalizationManager.T("Profiles.ProtectWithPassword"), Margin = new Thickness(108, 0, 0, 0) };
         private readonly TextBlock _errorLabel;
         private bool _suppressSelection;

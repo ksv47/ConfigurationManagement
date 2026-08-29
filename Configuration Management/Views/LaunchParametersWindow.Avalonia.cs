@@ -42,6 +42,7 @@ namespace Configuration_Management
                 AcceptsReturn = true,
                 TextWrapping = TextWrapping.Wrap,
                 MinHeight = 110,
+                Padding = new Thickness(6, 6),
                 VerticalContentAlignment = VerticalAlignment.Top,
                 Watermark = LocalizationManager.T("LaunchParams.InputWatermark")
             };

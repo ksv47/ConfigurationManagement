@@ -36,11 +36,8 @@ namespace Configuration_Management.Themes
         /// <summary>Поле ввода: карточный фон, скругление 6, акцентный контур при наведении и фокусе.</summary>
         public const string ModernTextBox = "ModernTextBox";
 
-        /// <summary>Выпадающий список: карточный фон, скругление 8, акцентный контур.</summary>
-        public const string ModernComboBox = "ModernComboBox";
-
-        /// <summary>Флажок в стиле Material Design: квадрат 18 со скруглением 3.</summary>
-        public const string ModernMaterialCheckBox = "ModernMaterialCheckBox";
+        /// <summary>Поле пароля: то же поле, но с контуром 1.5, скруглением 8 и отступом 10 на 6.</summary>
+        public const string ModernPasswordBox = "ModernPasswordBox";
 
         /// <summary>
         /// Ставит элементу тему контрола по ключу словаря и возвращает сам элемент,

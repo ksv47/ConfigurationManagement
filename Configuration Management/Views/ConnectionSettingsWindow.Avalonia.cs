@@ -28,9 +28,9 @@ namespace Configuration_Management
         private readonly ConnectionSettingsViewModel _viewModel;
         private readonly IDialogService _dialogs;
 
-        private readonly PasswordBox _passwordBox = new();
-        private readonly PasswordBox _repositoryPasswordBox = new();
-        private readonly PasswordBox _configuratorPasswordBox = new();
+        private readonly PasswordBox _passwordBox = new PasswordBox().Styled(ControlThemes.ModernPasswordBox);
+        private readonly PasswordBox _repositoryPasswordBox = new PasswordBox().Styled(ControlThemes.ModernPasswordBox);
+        private readonly PasswordBox _configuratorPasswordBox = new PasswordBox().Styled(ControlThemes.ModernPasswordBox);
 
         private bool _isSyncingPassword;
         private bool _isSyncingRepositoryPassword;
@@ -129,12 +129,12 @@ namespace Configuration_Management
 
         private static ComboBox EditableCombo(string textPath, string itemsPath)
         {
+            // Высоту и кегль списку задаёт тема: в разметке у этих двух списков
+            // местных значений нет (ConnectionSettingsWindow.xaml:325 и :338).
             var combo = new ComboBox
             {
                 IsEditable = true,
                 Margin = new Thickness(0, 3),
-                MinHeight = 28,
-                FontSize = 12,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
             combo.Bind(ComboBox.TextProperty, new Binding(textPath) { Mode = BindingMode.TwoWay });
