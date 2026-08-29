@@ -2617,93 +2617,6 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Split-кнопка «Очистка кеша» по аналогии с кнопкой запуска 1С:Предприятие:
-        /// основная часть открывает окно очистки кеша (<see cref="CacheCleanWindow"/>)
-        /// (с выделенной базой или без неё, если выбрана группа), а правая стрелка «▾»
-        /// открывает выпадающее меню с выбором типа кеша и полным окном очистки.
-        /// Доступна даже при выбранной группе.
-        /// </summary>
-        private static Control BuildClearCacheSplitButton()
-        {
-            var radius = UiMetrics.RadiusLg;
-
-            // Основная часть: открывает окно очистки кеша.
-            var main = new PanelButton(
-                "SecondaryButtonBackgroundBrush",
-                "SecondaryButtonHoverBrush",
-                "SecondaryButtonPressedBrush",
-                "BorderColorBrush",
-                new CornerRadius(radius, 0, 0, radius))
-            {
-                Content = ThemedIconAndText("IconDelete", LocalizationManager.T("Main.ClearCache"), "ButtonTextBrush",
-                    UiMetrics.ActionIconSize, centered: false),
-                HorizontalContentAlignment = HorizontalAlignment.Left,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                MinHeight = UiMetrics.ActionButtonMinHeight,
-                Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV),
-                Margin = new Thickness(0)
-            };
-            ToolTip.SetTip(main, LocalizationManager.T("Main.ClearCacheTooltip"));
-            main.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
-
-            // Выпадающее меню, привязанное к кнопке-стрелке.
-            var menu = new ContextMenu();
-
-            var openDialog = new MenuItem { Header = LocalizationManager.T("Main.CacheCleanOpenDialog") };
-            openDialog.Bind(MenuItem.CommandProperty, new Binding("ClearCacheCommand"));
-            menu.Items.Add(openDialog);
-
-            var program = new MenuItem { Header = LocalizationManager.T("Main.ClearProgramCache") };
-            program.Bind(MenuItem.CommandProperty, new Binding("ClearProgramCacheCommand"));
-            menu.Items.Add(program);
-
-            var user = new MenuItem { Header = LocalizationManager.T("Main.ClearUserCache") };
-            user.Bind(MenuItem.CommandProperty, new Binding("ClearUserCacheCommand"));
-            menu.Items.Add(user);
-
-            menu.Items.Add(new Separator());
-
-            var both = new MenuItem { Header = LocalizationManager.T("Main.ClearCacheBoth") };
-            both.Bind(MenuItem.CommandProperty, new Binding("ClearCacheBothCommand"));
-            menu.Items.Add(both);
-
-            var arrow = new PanelButton(
-                "SecondaryButtonBackgroundBrush",
-                "SecondaryButtonHoverBrush",
-                "SecondaryButtonPressedBrush",
-                "BorderColorBrush",
-                new CornerRadius(0, radius, radius, 0))
-            {
-                Width = 32,
-                MinHeight = UiMetrics.ActionButtonMinHeight,
-                Padding = new Thickness(0),
-                Margin = new Thickness(0)
-            };
-            var arrowGlyph = new TextBlock
-            {
-                Text = "▾",
-                FontSize = UiMetrics.ScaledFont(12),
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
-            ThemeBrushes.Bind(arrowGlyph, TextBlock.ForegroundProperty, "ButtonTextBrush");
-            arrow.Content = arrowGlyph;
-            ToolTip.SetTip(arrow, LocalizationManager.T("Main.ClearCacheTooltip"));
-            arrow.ContextMenu = menu;
-            arrow.Click += (_, _) => menu.Open(arrow);
-
-            // Объединяем обе части в один визуально цельный контрол.
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            Grid.SetColumn(main, 0);
-            Grid.SetColumn(arrow, 1);
-            grid.Children.Add(main);
-            grid.Children.Add(arrow);
-            return grid;
-        }
-
-        /// <summary>
         /// Кнопка запуска со стрелкой и меню дополнительных вариантов, как
         /// в WPF-версии. Пункт «от имени администратора» не переносится:
         /// на Linux нет повышения прав через оболочку, параметр runAsAdmin
@@ -3325,12 +3238,42 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Сколько колонок данных стоит до колонки «Действия»: она встаёт сразу
-        /// после колонки «Режим запуска» (или в самый конец, если та скрыта или
-        /// отсутствует в текущем порядке).
+        /// Сколько колонок данных стоит до колонки «Действия». Колонка участвует
+        /// в пользовательском порядке наравне с остальными, как в разметке после
+        /// правки автора (MainWindow.Columns.cs, задача апстрима 103: перенос
+        /// колонки в настройках не давал никакого эффекта). Если ключа
+        /// «Действия» в сохранённом порядке нет, она встаёт сразу после режима
+        /// запуска, как было раньше.
         /// </summary>
-        private static int ActionsOffsetInColumns(List<ListColumn> columns)
+        private int ActionsOffsetInColumns(List<ListColumn> columns)
         {
+            var order = _vm?.ColumnOrderKeys;
+            if (order is not null)
+            {
+                var actionsAt = -1;
+                for (var i = 0; i < order.Count; i++)
+                    if (order[i] == "Actions")
+                    {
+                        actionsAt = i;
+                        break;
+                    }
+
+                if (actionsAt >= 0)
+                {
+                    // Считаем только те колонки порядка, которые сейчас видимы:
+                    // скрытая колонка места не занимает.
+                    var before = 0;
+                    for (var i = 0; i < actionsAt; i++)
+                        for (var c = 0; c < columns.Count; c++)
+                            if (columns[c].Key == order[i])
+                            {
+                                before++;
+                                break;
+                            }
+                    return before;
+                }
+            }
+
             for (var i = 0; i < columns.Count; i++)
                 if (columns[i].Key == "LaunchMode")
                     return i + 1;
@@ -3340,7 +3283,10 @@ namespace Configuration_Management
         /// <summary>Значение колонки для конкретной базы.</summary>
         private static string ColumnValue(Infobase ib, string key) => key switch
         {
-            "Version" => ib.PlatformVersion ?? string.Empty,
+            // Версия показывается вместе с разрядностью, как в разметке
+            // (MainWindow.xaml:1249): свойство PlatformVersionDisplay автор
+            // добавил в модель, а колонка брала голую версию.
+            "Version" => ib.PlatformVersionDisplay ?? string.Empty,
             "Configuration" => ib.ConfigurationDisplay ?? string.Empty,
             // Режим запуска показывается разобранным, а серверная колонка всегда
             // берёт ServerDatabaseDisplay, в том числе у веб-баз: подстановка WebUrl
