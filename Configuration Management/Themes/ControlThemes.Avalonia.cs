@@ -71,6 +71,12 @@ namespace Configuration_Management.Themes
         /// <summary>Элемент дерева окон: раскрыватель «+»/«-», подсветка наведения и выбора.</summary>
         public const string ModernTreeItem = "ModernTreeItem";
 
+        /// <summary>Флажок окна очистки кеша: 20 на 20, зелёная заливка выбранного.</summary>
+        public const string CacheCleanCheckBox = "CacheCleanCheckBox";
+
+        /// <summary>Кнопки «Выбрать все» и «Снять все» окна очистки кеша.</summary>
+        public const string SelectAllButton = "SelectAllButton";
+
         /// <summary>Плитка выбора значка группы: тёмная в обеих темах, как у автора.</summary>
         public const string IconPickButton = "IconPickButton";
 
