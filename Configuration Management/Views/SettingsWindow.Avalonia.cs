@@ -43,10 +43,12 @@ namespace Configuration_Management
             Title = LocalizationManager.T("Settings.Title");
             // Семь вкладок с длинными подписями в одну строку не помещаются
             // ни в какую разумную ширину, поэтому полоса вкладок слева.
-            Width = 940;
-            Height = 620;
-            MinWidth = 860;
-            MinHeight = 520;
+            // Размеры и кегль окна из разметки (SettingsWindow.xaml:14-21).
+            Width = 880;
+            Height = 680;
+            MinWidth = 760;
+            MinHeight = 560;
+            FontSize = 13;
 
             _viewModel = viewModel;
             // Без контекста привязки переключателей клиента и разрядности
@@ -1744,11 +1746,14 @@ namespace Configuration_Management
             Grid.SetRow(tabs, 0);
             grid.Children.Add(tabs);
 
+            // Подвал: верхний отступ 12 и зазор между кнопками 10
+            // (SettingsWindow.xaml:1526-1527).
             var buttons = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Spacing = 8
+                Margin = new Thickness(0, 12, 0, 0),
+                Spacing = 10
             };
             // Подвал как в разметке WPF: зелёная «Сохранить» со значком дискеты
             // и красная контурная «Отмена» со значком крестика.
