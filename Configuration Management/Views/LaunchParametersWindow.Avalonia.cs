@@ -42,6 +42,7 @@ namespace Configuration_Management
                 MinHeight = 90,
                 Watermark = LocalizationManager.T("LaunchParams.InputWatermark")
             };
+            ToolTip.SetTip(_txtCustom, LocalizationManager.T("LaunchParams.InputTooltip"));
 
             Content = BuildRoot();
         }
@@ -55,6 +56,7 @@ namespace Configuration_Management
             // По высоте тянется справочник (строка 4), а не подпись над ним:
             // раньше звёздочка стояла на подписи, справочник разворачивался
             // на всю высоту содержимого и выдавливал кнопки за край окна.
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
@@ -85,14 +87,36 @@ namespace Configuration_Management
             grid.Children.Add(_txtCustom);
 
             // Справочник параметров
-            var refLabel = new TextBlock { Text = LocalizationManager.T("LaunchParams.ReferenceTitle"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 12, 0, 6) };
-            Grid.SetRow(refLabel, 3);
-            grid.Children.Add(refLabel);
+            // Заголовок справочника со справкой и шапка колонок, как в разметке
+            // WPF (LaunchParametersWindow.xaml:57 и :69): там это GridView,
+            // у нас список, поэтому подписи колонок стоят отдельной строкой.
+            var refHeader = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                Margin = new Thickness(0, 12, 0, 6)
+            };
+            refHeader.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("LaunchParams.Reference"),
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            refHeader.Children.Add(HelpLink("LaunchParams.ReferenceHelp"));
+            Grid.SetRow(refHeader, 3);
+            grid.Children.Add(refHeader);
 
             var list = new ListBox();
             list.ItemsSource = BuildReferenceCatalog();
             list.ItemTemplate = new FuncDataTemplate<ParamRef>((item, _) =>
             {
+                // Переработка контейнеров виртуализацией строит шаблон с null:
+                // без этой проверки список из 52 строк роняет приложение
+                // при первой же прокрутке. Тот же дефект был в списке колонок
+                // окна настроек.
+                if (item is null)
+                    return new Control();
+
                 var panel = new Grid { Margin = new Thickness(2, 3) };
                 // 220 под текст, как в колонке WPF, плюс зазор до описания.
                 panel.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(232)));
@@ -142,7 +166,33 @@ namespace Configuration_Management
                 CornerRadius = new CornerRadius(6),
                 Margin = new Thickness(0, 0, 0, 12)
             };
-            Grid.SetRow(listBorder, 4);
+            // Подписи колонок над списком: в WPF это шапка GridView, у нас список,
+            // поэтому строка своя, но ширины те же, что у строк справочника.
+            var columnsHeader = new Grid { Margin = new Thickness(10, 0, 10, 4) };
+            columnsHeader.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(232)));
+            columnsHeader.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            var paramHead = new TextBlock
+            {
+                Text = LocalizationManager.T("LaunchParams.Parameter"),
+                FontSize = 12,
+                FontWeight = FontWeight.SemiBold
+            };
+            var descHead = new TextBlock
+            {
+                Text = LocalizationManager.T("LaunchParams.Description"),
+                FontSize = 12,
+                FontWeight = FontWeight.SemiBold
+            };
+            Themes.ThemeBrushes.Bind(paramHead, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            Themes.ThemeBrushes.Bind(descHead, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            Grid.SetColumn(paramHead, 0);
+            Grid.SetColumn(descHead, 1);
+            columnsHeader.Children.Add(paramHead);
+            columnsHeader.Children.Add(descHead);
+            Grid.SetRow(columnsHeader, 4);
+            grid.Children.Add(columnsHeader);
+
+            Grid.SetRow(listBorder, 5);
             grid.Children.Add(listBorder);
 
             // Кнопки
@@ -158,7 +208,7 @@ namespace Configuration_Management
             var ok = new Button { Content = LocalizationManager.T("Common.Ok"), MinWidth = 110, IsDefault = true };
             ok.Click += (_, _) => OnOk_Click();
             buttons.Children.Add(ok);
-            Grid.SetRow(buttons, 5);
+            Grid.SetRow(buttons, 6);
             grid.Children.Add(buttons);
 
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));

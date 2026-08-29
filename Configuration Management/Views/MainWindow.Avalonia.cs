@@ -48,9 +48,12 @@ namespace Configuration_Management
         // Поля empty-state (заглушка пустого списка / «ничего не найдено»).
         private Border _emptyState = null!;
         private Avalonia.Controls.Shapes.Path _emptyIcon = null!;
+        private Control _emptyIconHost = null!;
         private TextBlock _emptyTitle = null!;
         private SegmentButton? _tagsToggle;
+        private SegmentButton? _emptyGroupsToggle;
         private SegmentButton? _groupByToggle;
+        private SegmentButton? _compactToggle;
         private Border? _columnHeader;
         private Grid? _columnHeaderRow;
         private ColumnDefinition? _headerOffsetColumn;
@@ -194,26 +197,33 @@ namespace Configuration_Management
 
         private Control BuildRoot()
         {
+            // Панель фильтра тегов живёт внутри левой колонки, а не отдельной
+            // строкой окна (MainWindow.xaml:341-372): иначе при её показе вниз
+            // уезжала и правая панель, чего в версии для Windows не происходит.
             var grid = new Grid();
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             var topBar = BuildTopBar();
-            var tagPanel = BuildTagFilterPanel();
             var mainArea = BuildMainArea();
             var statusBar = BuildStatusBar();
 
             Grid.SetRow(topBar, 0);
-            Grid.SetRow(tagPanel, 1);
-            Grid.SetRow(mainArea, 2);
-            Grid.SetRow(statusBar, 3);
+            Grid.SetRow(mainArea, 1);
+            Grid.SetRow(statusBar, 2);
 
             grid.Children.Add(topBar);
-            grid.Children.Add(tagPanel);
             grid.Children.Add(mainArea);
             grid.Children.Add(statusBar);
+
+            // Затемняющий индикатор фоновой работы поверх всего окна
+            // (MainWindow.xaml:2349): карточка с подписью и полосой прогресса.
+            var overlay = BuildLoadingOverlay();
+            Grid.SetRow(overlay, 0);
+            Grid.SetRowSpan(overlay, grid.RowDefinitions.Count);
+            overlay.ZIndex = 1000;
+            grid.Children.Add(overlay);
 
             // Фон рабочей области окна следует теме (перекрашивается при смене схемы).
             ThemeBrushes.Bind(grid, Panel.BackgroundProperty, "ContentBackgroundColorBrush");
@@ -222,9 +232,11 @@ namespace Configuration_Management
 
         private Control BuildTopBar()
         {
-            var grid = new Grid { Margin = new Thickness(UiMetrics.TopBarH, UiMetrics.TopBarV) };
+            // Отступ у внешней рамки, а не здесь: задавать его в обоих местах
+            // значило удвоить его против разметки (MainWindow.xaml:157).
+            var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 180 });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 200 });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -233,14 +245,27 @@ namespace Configuration_Management
             {
                 Orientation = Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 10, 0),
-                Spacing = 2
+                Margin = new Thickness(0, 0, 10, 0)
             };
 
-            _groupByToggle = MakeSegmentToggle("IconGroups", LocalizationManager.T("Main.ToggleGroups"));
+            _groupByToggle = MakeSegmentToggle("IconFolder", LocalizationManager.T("Main.ToggleGroups"));
             _groupByToggle.IsChecked = _vm?.GroupByGroup ?? true;
             _groupByToggle.Click += (_, _) => { if (_vm is not null) _vm.GroupByGroup = _groupByToggle.IsChecked == true; };
             left.Children.Add(_groupByToggle);
+
+            // Показывать пустые группы: у автора этот переключатель виден только
+            // при включённой группировке (Visibility по GroupByGroup), иначе он
+            // висел бы в негруппированном списке без дела.
+            _emptyGroupsToggle = MakeSegmentToggle("IconFolderOutline",
+                LocalizationManager.T("Settings.Panels.ShowEmptyGroups"));
+            _emptyGroupsToggle.IsChecked = _vm?.ShowEmptyGroups ?? false;
+            _emptyGroupsToggle.Click += (_, _) =>
+            {
+                if (_vm is not null)
+                    _vm.ShowEmptyGroups = _emptyGroupsToggle.IsChecked == true;
+            };
+            _emptyGroupsToggle.Bind(Control.IsVisibleProperty, new Binding("GroupByGroup"));
+            left.Children.Add(_emptyGroupsToggle);
 
             // Подсказка подробная, как в разметке WPF (MainWindow.xaml:194): этот
             // переключатель управляет и панелью тегов сверху, и тегами в списке,
@@ -259,7 +284,12 @@ namespace Configuration_Management
             Grid.SetColumn(search, 1);
 
             // Сегментированный контроль «Все / Избранное / Недавние» в общем контейнере.
+            // Рамка у группы фильтров своя, её строит BuildListModeSegments.
+            // Второй обёртки не нужно: у автора рамка ровно одна.
             var tabs = BuildListModeSegments();
+            // Имя нужно настройке шрифта области «Вкладки»: ThemeManager ищет
+            // область по этому имени, как и Windows-версия.
+            tabs.Name = "TabsPanel";
             grid.Children.Add(tabs);
             Grid.SetColumn(tabs, 2);
 
@@ -268,69 +298,77 @@ namespace Configuration_Management
             {
                 Orientation = Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center,
-                Spacing = 6
+                Spacing = 2
             };
 
-            var addBtn = TopBarPrimaryButton("IconAdd", LocalizationManager.T("Main.Add"), LocalizationManager.T("Main.AddTooltip"));
+            // Все команды верхней панели значками без подписей, как в разметке WPF.
+            var addBtn = TopBarIconButton("IconAdd", LocalizationManager.T("Main.AddBase"), "#22C55E");
             addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
             actions.Children.Add(addBtn);
 
             // Очистить кеш выбранной базы: перенесено в верхнюю панель команд,
             // действует на SelectedInfobase (недоступна, если база не выбрана).
-            var clearCacheBtn = TopBarIconButton("IconDelete", LocalizationManager.T("Main.ClearCacheTooltip"));
+            var clearCacheBtn = TopBarIconButton("IconBroom", LocalizationManager.T("Main.ClearCacheTooltip"), "#F59E0B");
             clearCacheBtn.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
             actions.Children.Add(clearCacheBtn);
 
-            var syncBtn = TopBarSecondaryButton("IconSync", LocalizationManager.T("Main.Sync"),
-                LocalizationManager.T("Main.SyncDetailedTooltip"));
+            // Индикатор выгрузки .dt и .cf: виден только во время пакетной
+            // операции, подсказка сводкой (MainWindow.xaml:293).
+            var exportBtn = TopBarIconButton("IconUpload", string.Empty, "#F59E0B");
+            exportBtn.Bind(ToolTip.TipProperty, new Binding("ExportIndicatorTooltip"));
+            exportBtn.Bind(Control.IsVisibleProperty, new Binding("IsExporting"));
+            exportBtn.Focusable = false;
+            actions.Children.Add(exportBtn);
+
+            var syncBtn = TopBarIconButton("IconSync", LocalizationManager.T("Main.SyncDetailedTooltip"), "#14B8A6");
             syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
             actions.Children.Add(syncBtn);
-
-            var themeBtn = TopBarIconButton("IconTheme", LocalizationManager.T("Main.Theme"));
-            themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
-            actions.Children.Add(themeBtn);
-
-            // Быстрый переключатель плотности интерфейса, как в разметке WPF:
-            // тот же режим уже есть в настройках, здесь он под рукой.
-            var compactBtn = TopBarIconButton("IconCollapseAll", LocalizationManager.T("Main.CompactModeTooltip"));
-            compactBtn.Click += (_, _) =>
-            {
-                if (_vm is null)
-                    return;
-                var next = !_vm.CompactMode;
-                _vm.CompactMode = next;
-                ApplyCompactMode(next);
-            };
-            actions.Children.Add(compactBtn);
-
-            var settingsBtn = TopBarSecondaryButton("IconSettings", LocalizationManager.T("Main.Settings"), LocalizationManager.T("Main.SettingsTooltip"));
-            settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
-            actions.Children.Add(settingsBtn);
 
             // Проверить доступность всех баз 1С: ручная команда вместо автопроверки при запуске.
             // Иконка — зелёный гидролокатор (сонар), как экран на подводных лодках.
             var checkAvailBtn = new PanelButton(
-                "SecondaryButtonBackgroundBrush",
-                "SecondaryButtonHoverBrush",
+                "",
+                "ItemHoverColorBrush",
                 "SecondaryButtonPressedBrush",
-                "BorderColorBrush")
+                "")
             {
-                Content = new Avalonia.Controls.Shapes.Path
-                {
-                    Width = UiMetrics.Scaled(16),
-                    Height = UiMetrics.Scaled(16),
-                    Data = IconHelper.Geometry("IconSonar"),
-                    Stretch = Stretch.Uniform,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Fill = new SolidColorBrush(Color.Parse("#14B8A6"))
-                },
+                Content = IconHelper.MakeIcon("IconSonar", UiMetrics.Scaled(18),
+                    new SolidColorBrush(Color.Parse("#14B8A6"))),
                 Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
             ToolTip.SetTip(checkAvailBtn, LocalizationManager.T("Main.CheckAvailabilityTooltip"));
             checkAvailBtn.Bind(Button.CommandProperty, new Binding("CheckAvailabilityCommand"));
+            // Проверка доступности стоит между синхронизацией и темой, как у автора.
             actions.Children.Add(checkAvailBtn);
+
+            // Значок меняется вместе со схемой, как в версии для Windows
+            // (MainWindow.Language.cs:41): в тёмной солнце, в светлой луна.
+            var themeIconKey = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName ? "IconSun" : "IconMoon";
+            var themeBtn = TopBarIconButton(themeIconKey, LocalizationManager.T("Main.Theme"), "#8B5CF6");
+            themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
+            actions.Children.Add(themeBtn);
+
+            // Быстрый переключатель плотности интерфейса, как в разметке WPF:
+            // тот же режим уже есть в настройках, здесь он под рукой.
+            // Это ToggleButton (MainWindow.xaml:322): включённый компактный режим
+            // виден акцентной заливкой, а не только по плотности списка.
+            _compactToggle = MakeSegmentToggle("IconCompress", LocalizationManager.T("Main.CompactModeTooltip"));
+            _compactToggle.IsChecked = _vm?.CompactMode ?? false;
+            _compactToggle.Click += (_, _) =>
+            {
+                if (_vm is null)
+                    return;
+                var next = _compactToggle.IsChecked == true;
+                _vm.CompactMode = next;
+                ApplyCompactMode(next);
+            };
+            actions.Children.Add(_compactToggle);
+
+            var settingsBtn = TopBarIconButton("IconSettings", LocalizationManager.T("Main.SettingsTooltip"), themeBrushKey: "TextSecondaryColorBrush");
+            settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
+            actions.Children.Add(settingsBtn);
+
 
             // Подсказка «?»: справа, после всех команд верхней панели.
             actions.Children.Add(new HelpLink
@@ -339,8 +377,22 @@ namespace Configuration_Management
                 Margin = new Thickness(4, 0, 0, 0)
             });
 
-            grid.Children.Add(actions);
-            Grid.SetColumn(actions, 3);
+            // Группа команд обведена рамкой с фоном, как в разметке WPF:
+            // Border с CornerRadius 12, Padding 4 и рамкой в одну точку.
+            var actionsGroup = new Border
+            {
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(4),
+                Margin = new Thickness(0, 0, 12, 0),
+                BorderThickness = new Thickness(1),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = actions
+            };
+            ThemeBrushes.Bind(actionsGroup, Border.BackgroundProperty, "ContentBackgroundColorBrush");
+            ThemeBrushes.Bind(actionsGroup, Border.BorderBrushProperty, "BorderColorBrush");
+
+            grid.Children.Add(actionsGroup);
+            Grid.SetColumn(actionsGroup, 3);
 
             var topBarBorder = new Border
             {
@@ -350,15 +402,48 @@ namespace Configuration_Management
             };
             // Нижняя граница TopBar из темы.
             ThemeBrushes.Bind(topBarBorder, Border.BorderBrushProperty, "BorderColorBrush");
+            // Заливка полосы, как в разметке WPF: без неё фон групп команд
+            // и фильтров совпадает с фоном под ними и рамки выглядят пустыми.
+            ThemeBrushes.Bind(topBarBorder, Border.BackgroundProperty, "CardBackgroundBrush");
             return topBarBorder;
+        }
+
+        private ScrollViewer? _rightPanelHost;
+
+        /// <summary>
+        /// Ширина правой панели как в разметке WPF: при показанных подробностях
+        /// 320 с минимумом 280, при скрытых панель сжимается по содержимому
+        /// и не шире 200. У автора это триггер по ShowRightPanelDetails.
+        /// </summary>
+        private void UpdateRightPanelWidth()
+        {
+            if (_rightPanelHost is null)
+                return;
+            var details = _vm?.ShowRightPanelDetails != false;
+            _rightPanelHost.Width = details ? 320 : double.NaN;
+            _rightPanelHost.MinWidth = details ? 280 : 0;
+            _rightPanelHost.MaxWidth = details ? double.PositiveInfinity : 200;
+            _rightPanelHost.HorizontalAlignment = details
+                ? HorizontalAlignment.Stretch
+                : HorizontalAlignment.Left;
         }
 
         /// <summary>Сегментный переключатель (например «группы»/«теги») с иконкой и состояниями.</summary>
         private SegmentButton MakeSegmentToggle(string iconKey, string tooltip)
         {
-            var segment = new SegmentButton(iconKey, string.Empty, "ItemHoverBrush", "ItemSelectedBrush", lockOn: false)
+            // Размеры из разметки (MainWindow.xaml:171-179): значок 18, отступ 6,
+            // зазор между сегментами 2. Прежние 15, 12 на 5 и общий Spacing
+            // разносили кнопки заметно шире, чем в версии для Windows.
+            var segment = new SegmentButton(iconKey, string.Empty, "ItemHoverBrush", "ItemSelectedBrush", lockOn: false,
+                iconSize: UiMetrics.Scaled(18))
             {
-                IsChecked = true
+                IsChecked = true,
+                // У автора рамки нет, отступ 6. У нас рамка в 2 держит фокусное
+                // кольцо, поэтому отступ уменьшен на её толщину: внешний размер
+                // кнопки совпадает, а фокус остаётся видимым.
+                Padding = new Thickness(UiMetrics.Scaled(4)),
+                Margin = new Thickness(0, 0, 2, 0),
+                MinHeight = 0
             };
             ToolTip.SetTip(segment, tooltip);
             return segment;
@@ -367,31 +452,53 @@ namespace Configuration_Management
         /// <summary>Сегментированный контроль фильтра списка: Все / Избранное / Недавние.</summary>
         private Control BuildListModeSegments()
         {
+            // Размеры и кисть как у группы команд в разметке WPF: скругление 12,
+            // отступ 4, фон ContentBackgroundBrush.
             var container = new Border
             {
-                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
-                Padding = new Thickness(3),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(4),
                 BorderThickness = new Thickness(1),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 12, 0)
             };
-            ThemeBrushes.Bind(container, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(container, Border.BackgroundProperty, "ContentBackgroundColorBrush");
             ThemeBrushes.Bind(container, Border.BorderBrushProperty, "BorderColorBrush");
             UiMetrics.AddBrushTransition(container);
 
-            var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
+            // Отступ 14 на 7, кегль 13, значок 14, зазор до подписи 5 и поле 4
+            // между сегментами (MainWindow.xaml:234-241, LightTheme.xaml:537).
+            var panel = new StackPanel { Orientation = Orientation.Horizontal };
 
-            var allSeg = new SegmentButton("IconList", LocalizationManager.T("Main.AllBases"), "ItemHoverBrush", "ItemSelectedBrush");
+            var allSeg = new SegmentButton("IconDatabase", LocalizationManager.T("Main.AllBases"), "ItemHoverBrush", "ItemSelectedBrush",
+                iconSize: UiMetrics.Scaled(14), cornerRadius: 8)
+            {
+                Padding = new Thickness(12, 5),
+                Margin = new Thickness(0, 0, 4, 0),
+                MinHeight = 0
+            };
             ToolTip.SetTip(allSeg, LocalizationManager.T("Main.AllBasesTooltip"));
             allSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeAll") { Mode = BindingMode.TwoWay });
             panel.Children.Add(allSeg);
 
-            var favSeg = new SegmentButton("IconFavorite", LocalizationManager.T("Main.Favorites"), "ItemHoverBrush", "ItemSelectedBrush");
+            var favSeg = new SegmentButton("IconStar", LocalizationManager.T("Main.Favorites"), "ItemHoverBrush", "ItemSelectedBrush",
+                iconSize: UiMetrics.Scaled(14), cornerRadius: 8)
+            {
+                Padding = new Thickness(12, 5),
+                Margin = new Thickness(0, 0, 4, 0),
+                MinHeight = 0
+            };
             ToolTip.SetTip(favSeg, LocalizationManager.T("Main.FavoritesTooltip"));
             favSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeFavorites") { Mode = BindingMode.TwoWay });
             panel.Children.Add(favSeg);
 
-            var recSeg = new SegmentButton("IconRecent", LocalizationManager.T("Main.Recent"), "ItemHoverBrush", "ItemSelectedBrush");
+            var recSeg = new SegmentButton("IconHistory", LocalizationManager.T("Main.Recent"), "ItemHoverBrush", "ItemSelectedBrush",
+                iconSize: UiMetrics.Scaled(14), cornerRadius: 8)
+            {
+                Padding = new Thickness(12, 5),
+                Margin = new Thickness(0),
+                MinHeight = 0
+            };
             ToolTip.SetTip(recSeg, LocalizationManager.T("Main.RecentTooltip"));
             recSeg.Bind(ToggleButton.IsCheckedProperty, new Binding("IsListModeRecent") { Mode = BindingMode.TwoWay });
             panel.Children.Add(recSeg);
@@ -427,16 +534,19 @@ namespace Configuration_Management
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(2, 6),
-                VerticalContentAlignment = VerticalAlignment.Center,
-                Watermark = LocalizationManager.T("Main.SearchPlaceholder")
+                VerticalContentAlignment = VerticalAlignment.Center
             };
+            // Строка-подсказка в разметке служит только всплывающей подсказкой,
+            // внутри пустого поля текста нет (MainWindow.xaml:202-225).
+            ToolTip.SetTip(_searchBox, LocalizationManager.T("Main.SearchPlaceholder"));
             _searchBox.Bind(TextBox.TextProperty, new Binding("SearchText") { Mode = BindingMode.TwoWay });
             grid.Children.Add(_searchBox);
             Grid.SetColumn(_searchBox, 1);
 
             var clearBtn = new Button
             {
-                Content = IconHelper.MakeIcon("IconClose", 14, "TextSecondaryBrush"),
+                // Крестик очистки поиска в разметке 12 (MainWindow.xaml:220).
+                Content = IconHelper.MakeIcon("IconClose", 12, "TextSecondaryBrush"),
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(6, 0),
@@ -449,35 +559,15 @@ namespace Configuration_Management
 
             border.Child = grid;
 
-            // Hover-состояние: фон и граница подсвечиваются из ресурсов темы (без жёстких цветов).
-            IBrush baseBg = Brushes.Transparent;
-            IBrush hoverBg = Brushes.Transparent;
-            IBrush baseBorder = Brushes.Transparent;
-            IBrush hoverBorder = Brushes.Transparent;
-            IBrush accentBorder = Brushes.Transparent;
-            var hovered = false;
-            var focused = false;
-
-            void Refresh()
-            {
-                border.Background = (hovered || focused) ? hoverBg : baseBg;
-                border.BorderBrush = focused ? accentBorder : (hovered ? hoverBorder : baseBorder);
-                border.BorderThickness = focused ? new Thickness(2) : new Thickness(1);
-            }
-
+            // Ни наведение, ни фокус вида поля в разметке не меняют: фон и рамка
+            // там постоянные, толщина рамки всегда 1 (MainWindow.xaml:202-225).
+            // Прежние подсветка и утолщение рамки были нашей добавкой.
+            border.BorderThickness = new Thickness(1);
             // Подписки привязаны к жизни рамки: содержимое окна пересобирается
             // при переключении компактного режима, и наблюдатель, живущий
             // у приложения, удерживал бы прежнее дерево целиком.
-            ThemeBrushes.Observe(border, "CardBackgroundColorBrush", b => { baseBg = b; Refresh(); });
-            ThemeBrushes.Observe(border, "ItemHoverBrush", b => { hoverBg = b; Refresh(); });
-            ThemeBrushes.Observe(border, "BorderColorBrush", b => { baseBorder = b; Refresh(); });
-            ThemeBrushes.Observe(border, "AccentBrush", b => { hoverBorder = b; accentBorder = b; Refresh(); });
-
-            border.PointerEntered += (_, _) => { hovered = true; Refresh(); };
-            border.PointerExited += (_, _) => { hovered = false; Refresh(); };
-            // Фокус-ринг поля поиска (клавиатурная навигация) акцентным цветом темы.
-            _searchBox.GetObservable(TextBox.IsKeyboardFocusWithinProperty)
-                .Subscribe(new BoolObserver(v => { focused = v; Refresh(); }));
+            ThemeBrushes.Observe(border, "CardBackgroundColorBrush", b => border.Background = b);
+            ThemeBrushes.Observe(border, "BorderColorBrush", b => border.BorderBrush = b);
             UiMetrics.AddBrushTransition(border);
             return border;
         }
@@ -496,33 +586,39 @@ namespace Configuration_Management
         }
 
         /// <summary>Secondary-кнопка топ-бара: приглушённый фон, иконка + подпись, hover/pressed.</summary>
-        private static PanelButton TopBarSecondaryButton(string iconKey, string text, string tooltip)
-        {
-            var button = new PanelButton(
-                "SecondaryButtonBackgroundBrush",
-                "SecondaryButtonHoverBrush",
-                "SecondaryButtonPressedBrush",
-                "BorderColorBrush")
-            {
-                Content = ThemedIconAndText(iconKey, text, "ButtonTextBrush", UiMetrics.ScaledFont(15), centered: false),
-                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
-                HorizontalContentAlignment = HorizontalAlignment.Center
-            };
-            ToolTip.SetTip(button, tooltip);
-            return button;
-        }
 
         /// <summary>Компактная иконко-кнопка топ-бара (например тема) с состояниями из темы.</summary>
-        private static PanelButton TopBarIconButton(string iconKey, string tooltip)
+        /// <param name="colorHex">
+        /// Явный цвет значка, как в разметке WPF: там часть команд верхней панели
+        /// покрашена вручную, а часть берёт цвет из темы. Без него берётся тема.
+        /// </param>
+        private static PanelButton TopBarIconButton(string iconKey, string tooltip, string? colorHex = null,
+            string themeBrushKey = "ButtonTextBrush")
         {
-            var button = new PanelButton(
-                "SecondaryButtonBackgroundBrush",
-                "SecondaryButtonHoverBrush",
-                "SecondaryButtonPressedBrush",
-                "BorderColorBrush")
+            Control icon;
+            if (colorHex is null)
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(16), "ButtonTextBrush"),
-                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
+                icon = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(18), themeBrushKey);
+            }
+            else
+            {
+                icon = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(18),
+                    new SolidColorBrush(Color.Parse(colorHex)));
+            }
+
+            // Плоская кнопка: у автора значковые команды верхней панели без
+            // подложки и рамки, подсветка появляется только при наведении.
+            // Подсветка наведения из ItemHover, а не из кремовой кисти вторичной
+            // кнопки: в тёмной теме та светлая, и значок на ней пропадал.
+            var button = new PanelButton(
+                "",
+                "ItemHoverColorBrush",
+                "SecondaryButtonPressedBrush",
+                "",
+                new CornerRadius(8))
+            {
+                Content = icon,
+                Padding = new Thickness(UiMetrics.Scaled(8)),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
             ToolTip.SetTip(button, tooltip);
@@ -722,12 +818,24 @@ namespace Configuration_Management
             listWithBar.Children.Add(listArea);
             listWithBar.Children.Add(_listVerticalBar);
 
+            // Левая колонка: свой фон и правая граница, внутреннее поле 12,12,8,12
+            // (MainWindow.xaml:347-350). Сверху панель фильтра тегов.
+            var leftContent = new Grid { Margin = new Thickness(12, 12, 8, 12) };
+            leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
+            var tagPanel = BuildTagFilterPanel();
+            Grid.SetRow(tagPanel, 0);
+            Grid.SetRow(listWithBar, 1);
+            leftContent.Children.Add(tagPanel);
+            leftContent.Children.Add(listWithBar);
+
             var leftPanel = new Border
             {
-                Child = listWithBar,
-                Margin = new Thickness(UiMetrics.TopBarH, UiMetrics.TopBarV, 8, UiMetrics.TopBarV),
-                Padding = new Thickness(UiMetrics.Scaled(8), UiMetrics.Scaled(8))
+                Child = leftContent,
+                BorderThickness = new Thickness(0, 0, 1, 0)
             };
+            ThemeBrushes.Bind(leftPanel, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(leftPanel, Border.BorderBrushProperty, "BorderColorBrush");
 
             grid.Children.Add(leftPanel);
             Grid.SetColumn(leftPanel, 0);
@@ -770,6 +878,19 @@ namespace Configuration_Management
                     // поэтому переключатель подтягивает состояние вьюмодели.
                     if (e.PropertyName == nameof(MainViewModel.GroupByGroup) && _groupByToggle is not null)
                         _groupByToggle.IsChecked = _vm.GroupByGroup;
+                    // Пустые группы переключаются ещё и из окна настроек, поэтому
+                    // кнопка подтягивает состояние, иначе первый клик уходит вхолостую.
+                    if (e.PropertyName == nameof(MainViewModel.ShowEmptyGroups) && _emptyGroupsToggle is not null)
+                        _emptyGroupsToggle.IsChecked = _vm.ShowEmptyGroups;
+
+                    if (e.PropertyName == nameof(MainViewModel.CompactMode) && _compactToggle is not null)
+                        _compactToggle.IsChecked = _vm.CompactMode;
+                    // Ширина правой панели задана числами по этому свойству,
+                    // а переключатель подробностей живёт в строке состояния
+                    // и меняет его на живом окне. Без пересчёта панель застывала
+                    // в ширине, снятой при построении.
+                    if (e.PropertyName == nameof(MainViewModel.ShowRightPanelDetails))
+                        UpdateRightPanelWidth();
                     if (e.PropertyName == nameof(MainViewModel.ShowTagFilterPanel)
                         || e.PropertyName == nameof(MainViewModel.HasActiveTagFilter))
                     {
@@ -798,10 +919,14 @@ namespace Configuration_Management
                 // Более плотные отступы — кнопки и карточки занимают меньше места.
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Padding = new Thickness(UiMetrics.Scaled(12), UiMetrics.Scaled(10)),
-                MinWidth = UiMetrics.RightPanelMin,
-                MaxWidth = UiMetrics.RightPanelMax
+                MinWidth = 280
             };
+
+            // Панель светлее карточки, как в разметке: без своего фона карточка
+            // сведений совпадала с фоном окна и от неё оставалась одна рамка.
+            ThemeBrushes.Bind(rightPanel, TemplatedControl.BackgroundProperty, "CardBackgroundBrush");
+            _rightPanelHost = rightPanel;
+            UpdateRightPanelWidth();
 
             grid.Children.Add(rightPanel);
             Grid.SetColumn(rightPanel, 1);
@@ -838,10 +963,11 @@ namespace Configuration_Management
                 HorizontalAlignment = HorizontalAlignment.Center
             };
 
-            _emptyIcon = IconHelper.MakeIcon("IconDatabase", 44, "TextSecondaryBrush");
-            _emptyIcon.HorizontalAlignment = HorizontalAlignment.Center;
-            _emptyIcon.Margin = new Thickness(0, 0, 0, 6);
-            stack.Children.Add(_emptyIcon);
+            _emptyIconHost = IconHelper.MakeIcon("IconDatabase", 44, out _emptyIcon);
+            ThemeBrushes.Bind(_emptyIcon, Avalonia.Controls.Shapes.Path.FillProperty, "TextSecondaryBrush");
+            _emptyIconHost.HorizontalAlignment = HorizontalAlignment.Center;
+            _emptyIconHost.Margin = new Thickness(0, 0, 0, 6);
+            stack.Children.Add(_emptyIconHost);
 
             _emptyTitle = new TextBlock
             {
@@ -930,13 +1056,39 @@ namespace Configuration_Management
             // Высота оформления группы и расстояние между группами берутся из метрик:
             // в компактном режиме вертикальный padding заголовка и внешний отступ
             // уменьшаются, чтобы группы занимали меньше места.
+            // Отступ 8,3 в обычном режиме и 6,1 в компактном, рамка толщиной 2:
+            // прозрачная в покое и акцентная у выбранной группы
+            // (MainWindow.xaml:872-882). Рамки у нас не было вовсе.
             var header = new Border
             {
-                CornerRadius = new CornerRadius(UiMetrics.RadiusSm),
-                Padding = new Thickness(6, UiMetrics.GroupHeaderPadV),
-                Margin = new Thickness(0, UiMetrics.GroupHeaderMarginV)
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(UiMetrics.Compact ? 6 : 8, UiMetrics.GroupHeaderPadV),
+                // Пустая группа сдвигается вправо на ширину кнопки разворота:
+                // у неё этой кнопки нет, и без сдвига её заголовок начинался бы
+                // левее соседних (в разметке это делает GroupOffsetConverter).
+                Margin = new Thickness(group.Items.Count == 0 ? EmptyGroupOffset : 0,
+                    UiMetrics.GroupHeaderMarginV, 0, UiMetrics.GroupHeaderMarginV),
+                BorderThickness = new Thickness(2),
+                BorderBrush = Brushes.Transparent
             };
             header.Bind(Border.BackgroundProperty, new Binding("HeaderBrush") { Source = group });
+
+            // Кисть берётся наблюдателем темы, а подписка на узел живёт ровно
+            // столько, сколько строка находится в дереве: строки пересобираются
+            // часто, а узел группы переживает их все.
+            IBrush accent = Brushes.Transparent;
+            void ApplyGroupSelection()
+                => header.BorderBrush = group.IsSelected ? accent : Brushes.Transparent;
+            ThemeBrushes.Observe(header, "AccentBrush", brush => { accent = brush; ApplyGroupSelection(); });
+
+            void OnGroupChanged(object? _, PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName == nameof(GroupNodeViewModel.IsSelected))
+                    ApplyGroupSelection();
+            }
+            header.AttachedToVisualTree += (_, _) => { group.PropertyChanged += OnGroupChanged; ApplyGroupSelection(); };
+            header.DetachedFromVisualTree += (_, _) => group.PropertyChanged -= OnGroupChanged;
+            ApplyGroupSelection();
 
             // Имя и счётчик привязаны к узлу, а не подставлены строкой: состав узла
             // меняется и без пересборки дерева (закрепление базы), и тогда готовый
@@ -950,14 +1102,29 @@ namespace Configuration_Management
 
             // Имя группы наследует применяемый к интерфейсу шрифт; в компактном режиме
             // размер задаётся явно и уменьшается, чтобы строки групп были плотнее.
-            var text = new TextBlock { FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            // Значок группы перед именем, как в разметке (MainWindow.xaml:964).
+            var groupIcon = IconHelper.MakeIcon(group.Icon, UiMetrics.Compact ? 14 : 18, out var groupIconPath);
+            groupIconPath.Fill = group.IconBrush;
+            groupIcon.Margin = new Thickness(0, 0, 8, 0);
+            caption.Children.Add(groupIcon);
+
+            var text = new TextBlock
+            {
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = UiMetrics.ScaledFont(UiMetrics.Compact ? 12 : 15)
+            };
             if (UiMetrics.Compact)
                 text.FontSize = UiMetrics.GroupNameFont;
             text.Bind(TextBlock.TextProperty, new Binding("DisplayName") { Source = group });
             text.Bind(TextBlock.ForegroundProperty, new Binding("HeaderTextBrush") { Source = group });
             caption.Children.Add(text);
 
-            var count = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+            var count = new TextBlock
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = UiMetrics.ScaledFont(UiMetrics.Compact ? 11 : 13)
+            };
             if (UiMetrics.Compact)
                 count.FontSize = UiMetrics.GroupNameFont;
             count.Bind(TextBlock.TextProperty,
@@ -965,24 +1132,32 @@ namespace Configuration_Management
             count.Bind(TextBlock.ForegroundProperty, new Binding("HeaderTextBrush") { Source = group });
             caption.Children.Add(count);
 
-            // Команды группы «Изменить группу» и «Удалить группу» выровнены по
-            // левому краю строки; имя и счётчик группы следуют за ними правее.
+            // Колонки те же, что у строки базы: команды группы стоят в колонке
+            // «Действия» и попадают ровно под кнопки строк, а имя со счётчиком
+            // занимает всё, что левее (MainWindow.xaml:961 и 1015).
             var row = new Grid();
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var actionsIndex = AddListColumns(row,
+                _vm?.ShowFavoritesButton ?? true, _vm?.ShowPinnedButton ?? true);
 
             var actions = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Left,
+                HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            actions.Children.Add(GroupRowActionButton(group, "IconEdit", "EditGroupCommand", LocalizationManager.T("Main.EditGroupTooltip")));
-            actions.Children.Add(GroupRowActionButton(group, "IconDelete", "DeleteGroupCommand", LocalizationManager.T("Main.DeleteGroupTooltip")));
-            Grid.SetColumn(actions, 0);
+            actions.Children.Add(GroupRowActionButton(group, "IconEdit", "EditGroupCommand",
+                LocalizationManager.T("Main.EditGroupTooltip"), "TextSecondaryBrush"));
+            // «Удалить» у служебных узлов скрыта: у них нет модели группы.
+            var deleteBtn = GroupRowActionButton(group, "IconDelete", "DeleteGroupCommand",
+                LocalizationManager.T("Main.DeleteGroupTooltip"), colorHex: "#DC2626");
+            deleteBtn.IsVisible = group.Marker != GroupNodeViewModel.PinnedMarker
+                                  && group.Marker != GroupNodeViewModel.NoGroupMarker;
+            actions.Children.Add(deleteBtn);
+            Grid.SetColumn(actions, actionsIndex);
             row.Children.Add(actions);
 
-            Grid.SetColumn(caption, 1);
+            Grid.SetColumn(caption, 0);
+            Grid.SetColumnSpan(caption, actionsIndex);
             row.Children.Add(caption);
 
             header.Child = row;
@@ -993,14 +1168,18 @@ namespace Configuration_Management
         /// Кнопка действия в колонке «Действия» строки группы: иконка, команда из вьюмодели,
         /// параметром служит узел группы строки.
         /// </summary>
-        private Button GroupRowActionButton(GroupNodeViewModel group, string iconKey, string commandPath, string tooltip)
+        private Button GroupRowActionButton(GroupNodeViewModel group, string iconKey, string commandPath, string tooltip,
+            string? brushKey = null, string? colorHex = null)
         {
             var button = new Button
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush"),
+                Content = colorHex is not null
+                    ? IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), new SolidColorBrush(Color.Parse(colorHex)))
+                    : IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), brushKey ?? "TextSecondaryBrush"),
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(4),
+                Margin = new Thickness(1, 0),
                 MinWidth = 0,
                 MinHeight = 0,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -1012,6 +1191,58 @@ namespace Configuration_Management
             // Команда живёт во вьюмодели, а контекстом строки служит узел группы.
             button.Bind(Button.CommandProperty, new Binding(commandPath) { Source = _vm });
             return button;
+        }
+
+        /// <summary>
+        /// Колонки строки списка: звезда, булавка, значок подключения, имя, затем
+        /// колонки значений с «Действиями» на своём месте. Тот же набор нужен
+        /// заголовку группы, чтобы её команды встали под кнопками строк базы,
+        /// как в разметке (MainWindow.xaml:921 и 1015).
+        /// </summary>
+        /// <returns>Индекс колонки «Действия».</returns>
+        private int AddListColumns(Grid grid, bool showFavorite, bool showPin)
+        {
+            // Колонки звезды и булавки по содержимому: в разметке звезда, плашка
+            // номера, булавка, значок и имя лежат в одной горизонтальной панели
+            // и пакуются вплотную (MainWindow.xaml:1152). При жёсткой ширине
+            // у неизбранной базы между звездой и булавкой оставался пустой зазор,
+            // а плашка избранного упиралась в край колонки.
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = showFavorite ? GridLength.Auto : new GridLength(0),
+                MinWidth = showFavorite ? UiMetrics.Scaled(16) : 0
+            });
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = showPin ? GridLength.Auto : new GridLength(0),
+                MinWidth = showPin ? UiMetrics.Scaled(16) : 0
+            });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(IconColumnWidth) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = NameColumnLength(),
+                MinWidth = MinColumnWidth
+            });
+
+            var columns = ListColumns();
+            var actionsOffset = ActionsOffsetInColumns(columns);
+            var actionsIndex = -1;
+            for (var i = 0; i < columns.Count; i++)
+            {
+                if (i == actionsOffset)
+                {
+                    actionsIndex = grid.ColumnDefinitions.Count;
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
+                }
+                grid.ColumnDefinitions.Add(
+                    new ColumnDefinition { Width = new GridLength(columns[i].Width), MinWidth = MinColumnWidth });
+            }
+            if (actionsOffset >= columns.Count)
+            {
+                actionsIndex = grid.ColumnDefinitions.Count;
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
+            }
+            return actionsIndex;
         }
 
         private Control BuildInfobaseRow(Infobase ib)
@@ -1027,48 +1258,21 @@ namespace Configuration_Management
             // теми же ширинами и подчиняются тем же настройкам.
             var showFavorite = _vm?.ShowFavoritesButton ?? true;
             var showPin = _vm?.ShowPinnedButton ?? true;
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(showFavorite ? FavoriteColumnWidth : 0) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(showPin ? PinColumnWidth : 0) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(IconColumnWidth) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition
-            {
-                Width = NameColumnLength(),
-                MinWidth = MinColumnWidth
-            });
-
-            // Колонки идут теми же ширинами, что и в заголовке, поэтому значения
-            // строк выстраиваются под своими заголовками.
+            AddListColumns(grid, showFavorite, showPin);
             var columns = ListColumns();
-            // Колонка «Действия» встаёт сразу после колонки «Режим запуска», поэтому её
-            // определение встраивается в последовательность, как и в заголовке.
             var actionsOffset = ActionsOffsetInColumns(columns);
-            for (var i = 0; i < columns.Count; i++)
-            {
-                if (i == actionsOffset)
-                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
-                grid.ColumnDefinitions.Add(
-                    new ColumnDefinition { Width = new GridLength(columns[i].Width), MinWidth = MinColumnWidth });
-            }
-            // «Режим запуска» скрыт или стоит последним — действия уходят в самый конец.
-            if (actionsOffset >= columns.Count)
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
 
             if (showFavorite)
             {
+                // Номер слота Alt+N идёт плашкой сразу за звездой и внутри той же
+                // кнопки, как в разметке (MainWindow.xaml:1180). Прежде он был
+                // наложен на угол колонки мелкой цифрой без подложки.
                 var favorite = RowMarkButton(card, ib, "IconFavorite", "FavoriteBrush",
                     nameof(Infobase.IsFavorite), () => ib.IsFavorite,
-                    LocalizationManager.T("Main.ToggleFavoriteTooltip"), "ToggleFavoriteForCommand", FavoriteColumnWidth);
+                    LocalizationManager.T("Main.ToggleFavoriteTooltip"), "ToggleFavoriteForCommand", FavoriteColumnWidth,
+                    FavoriteSlotBadge(card, ib));
                 grid.Children.Add(favorite);
                 Grid.SetColumn(favorite, 0);
-
-                // Номер слота Alt+N. В разметке WPF это плашка рядом со звездой,
-                // здесь номер наложен на угол её колонки: колонки строки узкие
-                // и заданы по ширине значков, отдельного места под плашку в них
-                // нет. Дерево ради номера не пересобирается, строка обновляет
-                // его сама по уведомлению модели.
-                var slot = FavoriteSlotBadge(card, ib);
-                grid.Children.Add(slot);
-                Grid.SetColumn(slot, 0);
             }
 
             if (showPin)
@@ -1085,29 +1289,15 @@ namespace Configuration_Management
             // синий — веб, фиолетовый — клиент-сервер, красный — недоступна.
             var connectionIconKey = ib.StatusIconKey;
 
-            var iconBox = new Border
-            {
-                Width = UiMetrics.RowIconBox,
-                Height = UiMetrics.RowIconBox,
-                CornerRadius = new CornerRadius(UiMetrics.RadiusMd),
-                BorderThickness = new Thickness(1),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 0, 10, 0)
-            };
+            // Значок идёт без подложки и рамки: в разметке это голый Path 14 на 14
+            // с отступом 6 справа (MainWindow.xaml:1234). Коробка вокруг него была
+            // нашей отсебятиной.
+            var iconBox = IconHelper.MakeIcon(connectionIconKey, UiMetrics.RowIcon,
+                new SolidColorBrush(Color.Parse(ib.StatusColorHex)));
+            iconBox.HorizontalAlignment = HorizontalAlignment.Center;
+            iconBox.VerticalAlignment = VerticalAlignment.Center;
+            iconBox.Margin = new Thickness(0, 0, 6, 0);
             ToolTip.SetTip(iconBox, ib.StatusDisplay);
-            ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "CardBackgroundBrush");
-            ThemeBrushes.Bind(iconBox, Border.BorderBrushProperty, "BorderColorBrush");
-            iconBox.Child = new Avalonia.Controls.Shapes.Path
-            {
-                Width = UiMetrics.RowIcon,
-                Height = UiMetrics.RowIcon,
-                Data = IconHelper.Geometry(connectionIconKey),
-                Stretch = Stretch.Uniform,
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Fill = new SolidColorBrush(Color.Parse(ib.StatusColorHex))
-            };
 
             grid.Children.Add(iconBox);
             Grid.SetColumn(iconBox, 2);
@@ -1131,21 +1321,9 @@ namespace Configuration_Management
             ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush");
             content.Children.Add(name);
 
-            // Вторичной строкой остаётся только то, чего нет в колонках: тип
-            // подключения и путь. Остальное ушло в колонки, иначе одни и те же
-            // данные показывались бы дважды.
-            var shown = new HashSet<string>(columns.Select(c => c.Key), StringComparer.Ordinal);
-            var location = ib.Connection.Type switch
-            {
-                ConnectionType.WebServer => ib.Connection.WebUrl,
-                _ => ib.ServerDatabaseDisplay
-            };
-            var summary = shown.Contains("ServerBase")
-                ? ib.ConnectionTypeDisplay
-                : JoinSegments(ib.ConnectionTypeDisplay, location);
-            if (!string.IsNullOrWhiteSpace(summary))
-                content.Children.Add(SecondaryText(summary, card));
-
+            // Второй подписи под именем в разметке нет: первая строка это значок
+            // статуса и имя, а вторая отдана тегам (MainWindow.xaml:1230-1247).
+            // Расположение живёт в своей колонке и в сведениях правой панели.
             grid.Children.Add(content);
             Grid.SetColumn(content, 3);
 
@@ -1188,24 +1366,26 @@ namespace Configuration_Management
             actions.Children.Add(RowActionButton(ib, "IconPlay", "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconDelete", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip")));
+            actions.Children.Add(RowActionButton(ib, "IconBroom", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
+            actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#DC2626"));
             grid.Children.Add(actions);
             Grid.SetColumn(actions, actionsCol);
 
             if (_vm?.ShowTags == true)
             {
-                // Теги идут второй строкой сетки во всю ширину, как в WPF-версии:
-                // внутри колонки имени они переносились бы по её ширине и тянули
-                // высоту строки вверх.
+                // Теги идут второй строкой от левого края и до колонки действий,
+                // а сами действия охватывают обе строки (MainWindow.xaml:1278
+                // и 1318). У нас теги начинались с колонки имени и проходили под
+                // действиями и остальными значениями.
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                Grid.SetRowSpan(actions, 2);
 
                 var tags = BuildRowTags(card, ib);
                 grid.Children.Add(tags);
                 Grid.SetRow(tags, 1);
-                Grid.SetColumn(tags, NameRowColumn);
-                Grid.SetColumnSpan(tags, grid.ColumnDefinitions.Count - NameRowColumn);
+                Grid.SetColumn(tags, 0);
+                Grid.SetColumnSpan(tags, actionsCol);
             }
 
             card.Child = grid;
@@ -1263,13 +1443,14 @@ namespace Configuration_Management
             var text = new TextBlock
             {
                 Text = tag,
-                FontSize = UiMetrics.ScaledFont(10),
+                FontSize = UiMetrics.ScaledFont(11),
+                FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
                 MaxWidth = UiMetrics.Scaled(180),
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
             ToolTip.SetTip(text, tag);
-            ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "AccentBrush");
 
             var name = new Button
             {
@@ -1285,13 +1466,27 @@ namespace Configuration_Management
             ToolTip.SetTip(name, LocalizationManager.T("Main.ShowTagBases"));
             name.Bind(Button.CommandProperty, new Binding("SearchByTagCommand") { Source = _vm });
 
+            // Крестик в разметке это знак × кеглем 11 в коробке 12 на 12
+            // (MainWindow.xaml:1357), а не контур.
+            var removeGlyph = new TextBlock
+            {
+                Text = "\u00D7",
+                FontSize = UiMetrics.ScaledFont(11),
+                LineHeight = UiMetrics.Scaled(12),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ThemeBrushes.Bind(removeGlyph, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+
             var remove = new Button
             {
-                Content = IconHelper.MakeIcon("IconClose", UiMetrics.Scaled(9), "TextSecondaryBrush"),
+                Content = removeGlyph,
+                Width = UiMetrics.Scaled(12),
+                Height = UiMetrics.Scaled(12),
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(0),
-                Margin = new Thickness(4, 0, 0, 0),
+                Margin = new Thickness(2, 0, 0, 0),
                 MinWidth = 0,
                 MinHeight = 0,
                 Cursor = new Cursor(StandardCursorType.Hand),
@@ -1305,16 +1500,19 @@ namespace Configuration_Management
             row.Children.Add(name);
             row.Children.Add(remove);
 
+            // Рамки у чипа в строке нет, подложка ItemHover и скругление 3:
+            // рамка была нашей отсебятиной (MainWindow.xaml:1335-1338).
             var chip = new Border
             {
-                CornerRadius = new CornerRadius(UiMetrics.RadiusMd),
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(6, 1),
-                Margin = new Thickness(0, 0, 4, 2),
+                CornerRadius = new CornerRadius(3),
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(4, 0),
+                Margin = new Thickness(0, 0, 3, 2),
+                Height = UiMetrics.Scaled(16),
+                VerticalAlignment = VerticalAlignment.Center,
                 Child = row
             };
-            ThemeBrushes.Bind(chip, Border.BackgroundProperty, "CardBackgroundBrush");
-            ThemeBrushes.Bind(chip, Border.BorderBrushProperty, "BorderColorBrush");
+            ThemeBrushes.Bind(chip, Border.BackgroundProperty, "ItemHoverBrush");
             return chip;
         }
 
@@ -1334,13 +1532,13 @@ namespace Configuration_Management
             var text = new TextBlock
             {
                 Text = LocalizationManager.T("Main.AddTagShort"),
-                FontSize = UiMetrics.ScaledFont(10),
+                FontSize = UiMetrics.ScaledFont(11),
                 VerticalAlignment = VerticalAlignment.Center
             };
             ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush");
 
-            var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-            content.Children.Add(IconHelper.MakeIcon("IconTag", UiMetrics.Scaled(9), "TextSecondaryBrush"));
+            var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3 };
+            content.Children.Add(IconHelper.MakeIcon("IconTag", UiMetrics.Scaled(11), "TextSecondaryBrush"));
             content.Children.Add(text);
 
             var button = new Button
@@ -1348,9 +1546,13 @@ namespace Configuration_Management
                 Content = content,
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
-                Padding = new Thickness(2, 1),
+                // Отступ 2,0, высота 16 и поле 2 слева (MainWindow.xaml:1377).
+                Padding = new Thickness(2, 0),
+                Height = UiMetrics.Scaled(16),
+                Margin = new Thickness(2, 0, 0, 0),
                 MinWidth = 0,
                 MinHeight = 0,
+                VerticalAlignment = VerticalAlignment.Center,
                 Cursor = new Cursor(StandardCursorType.Hand)
             };
             ToolTip.SetTip(button, LocalizationManager.T("Main.AddTag"));
@@ -1358,14 +1560,23 @@ namespace Configuration_Management
             // Поле ввода тега показывается на месте кнопки во время редактирования.
             var input = new TextBox
             {
+                // Числа и кисти из разметки (MainWindow.xaml:1390): ширина 120,
+                // кегль 12, отступ 6,3, высота не меньше 24, поле 4 слева,
+                // акцентная рамка толщиной 1.
                 Watermark = LocalizationManager.T("Main.AddTag"),
-                MinWidth = UiMetrics.Scaled(120),
-                MaxWidth = UiMetrics.Scaled(220),
-                FontSize = UiMetrics.ScaledFont(11),
-                Padding = new Thickness(4, 1),
+                Width = UiMetrics.Scaled(120),
+                FontSize = UiMetrics.ScaledFont(12),
+                Padding = new Thickness(6, 3),
+                MinHeight = UiMetrics.Scaled(24),
+                Margin = new Thickness(4, 0, 0, 0),
+                BorderThickness = new Thickness(1),
                 VerticalContentAlignment = VerticalAlignment.Center,
                 IsVisible = false
             };
+            ThemeBrushes.Bind(input, TemplatedControl.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(input, TemplatedControl.ForegroundProperty, "TextPrimaryColorBrush");
+            ThemeBrushes.Bind(input, TemplatedControl.BorderBrushProperty, "AccentBrush");
+            ThemeBrushes.Bind(input, TextBox.CaretBrushProperty, "TextPrimaryColorBrush");
             ToolTip.SetTip(input, LocalizationManager.T("Main.EnterTagHint"));
 
             void ShowEditor()
@@ -1451,23 +1662,30 @@ namespace Configuration_Management
         {
             var text = new TextBlock
             {
-                FontSize = UiMetrics.ScaledFont(9),
+                FontSize = UiMetrics.ScaledFont(10),
                 FontWeight = FontWeight.Bold,
+                // Цвет подписи в разметке задан числом и одинаков в обеих темах.
+                Foreground = new SolidColorBrush(Color.Parse("#1C1917")),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 IsHitTestVisible = false
             };
-            ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, "TextSecondaryBrush");
 
+            // Отступы и минимум плашки ужаты против разметки: там колонка звезды
+            // шириной 28 и содержимое кнопки выходит за её край, а WPF ничего
+            // не обрезает. Здесь оно обрезалось, поэтому звезда с плашкой
+            // укладываются в 30 целиком.
             var host = new Border
             {
                 Child = text,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Bottom,
-                Width = UiMetrics.Scaled(12),
-                Height = UiMetrics.Scaled(12),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(3, 0, 3, 1),
+                Margin = new Thickness(2, 0, 0, 0),
+                MinWidth = UiMetrics.Scaled(13),
+                VerticalAlignment = VerticalAlignment.Center,
                 IsHitTestVisible = false
             };
+            ThemeBrushes.Bind(host, Border.BackgroundProperty, "FavoriteBrush");
 
             void Apply()
             {
@@ -1498,17 +1716,17 @@ namespace Configuration_Management
 
         private Button RowMarkButton(InfobaseRowCard card, Infobase infobase, string iconKey,
             string activeBrushKey, string stateProperty, Func<bool> isActive,
-            string tooltip, string commandPath, double width)
+            string tooltip, string commandPath, double width, Control? trailing = null)
         {
-            var icon = new Avalonia.Controls.Shapes.Path
+            var iconHost = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), out var icon);
+            Control content = iconHost;
+            if (trailing is not null)
             {
-                Width = UiMetrics.Scaled(14),
-                Height = UiMetrics.Scaled(14),
-                Data = IconHelper.Geometry(iconKey),
-                Stretch = Stretch.Uniform,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
+                var pair = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                pair.Children.Add(iconHost);
+                pair.Children.Add(trailing);
+                content = pair;
+            }
 
             IBrush? active = null;
             IBrush? idle = null;
@@ -1540,14 +1758,17 @@ namespace Configuration_Management
 
             var button = new Button
             {
-                Content = icon,
+                Content = content,
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(0),
                 MinWidth = 0,
                 MinHeight = 0,
-                Width = width,
+                // Своей ширины у кнопки нет: колонка теперь по содержимому,
+                // и звезда с плашкой и без неё занимают ровно столько, сколько надо.
                 HorizontalAlignment = HorizontalAlignment.Left,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 4, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 Cursor = new Cursor(StandardCursorType.Hand),
                 CommandParameter = infobase
@@ -1563,19 +1784,38 @@ namespace Configuration_Management
         /// Кнопка действия в колонке «Действия» строки базы: иконка, команда из вьюмодели,
         /// параметром служит сама информационная база строки.
         /// </summary>
-        private Button RowActionButton(Infobase ib, string iconKey, string commandPath, string tooltip)
+        /// <param name="colorHex">
+        /// Явный цвет значка. У автора кнопки строки вторичного цвета, кроме
+        /// удаления: оно красное.
+        /// </param>
+        private Control RowActionButton(Infobase ib, string iconKey, string commandPath, string tooltip,
+            string? colorHex = null)
         {
-            var button = new Button
+            Control glyph;
+            if (colorHex is null)
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush"),
-                Background = Brushes.Transparent,
+                glyph = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush");
+            }
+            else
+            {
+                glyph = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15),
+                    new SolidColorBrush(Color.Parse(colorHex)));
+            }
+
+            // Не штатный Button: тема Fluent красит не саму кнопку, а её внутренний
+            // ContentPresenter через :pointerover, и локальный прозрачный Background
+            // этот фон не перебивает. Подсветка наведения оставалась висеть, когда
+            // строка пересобиралась под курсором, и фон то появлялся, то пропадал.
+            var button = new PanelButton("", "ItemHoverColorBrush", "SecondaryButtonPressedBrush", "",
+                new CornerRadius(UiMetrics.RadiusSm))
+            {
+                Content = glyph,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(4),
                 MinWidth = 0,
                 MinHeight = 0,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Cursor = new Cursor(StandardCursorType.Hand),
                 CommandParameter = ib
             };
             ToolTip.SetTip(button, tooltip);
@@ -1630,16 +1870,20 @@ namespace Configuration_Management
         {
             // Компактная правая панель: primary-запуски на всю ширину, вторичные
             // действия — списком в один столбец, секции без тяжёлых карточек.
+            // Отступы держит само содержимое, а не Padding у ScrollViewer:
+            // его отступ не входит в прокручиваемую высоту, и нижняя кнопка
+            // становилась недостижимой, от неё была видна одна рамка.
             var panel = new StackPanel
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                Spacing = UiMetrics.ActionGridGap
+                Spacing = UiMetrics.ActionGridGap,
+                Margin = new Thickness(UiMetrics.Scaled(12), UiMetrics.Scaled(10))
             };
 
             // Заголовок базы
             var nameBlock = new TextBlock
             {
-                FontSize = UiMetrics.ScaledFont(15),
+                FontSize = UiMetrics.ScaledFont(16),
                 FontWeight = FontWeight.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             };
@@ -1647,22 +1891,28 @@ namespace Configuration_Management
 
             var groupBlock = new TextBlock
             {
-                FontSize = UiMetrics.ScaledFont(11.5),
-                Opacity = 0.7,
+                FontSize = UiMetrics.ScaledFont(12),
+                Margin = new Thickness(0, 2, 0, 0),
                 TextWrapping = TextWrapping.Wrap
             };
+            ThemeBrushes.Bind(groupBlock, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
             groupBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelSubtitle"));
 
             // Заголовок сеткой, а не горизонтальной панелью: в панели подпись
             // получала бы бесконечную ширину и не переносилась бы по словам.
-            var header = new Grid { Margin = new Thickness(0, 0, 0, 4), ColumnSpacing = 8 };
+            var header = new Grid { Margin = new Thickness(0, 0, 0, 8) };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             // Значок базы показывается только когда база выбрана: при выбранной
             // группе и при пустом выборе он висел бы один без подписи.
-            var headerIcon = IconHelper.MakeIcon("IconDatabase", UiMetrics.Scaled(24));
-            headerIcon.Bind(Avalonia.Controls.Shapes.Path.DataProperty,
+            // Значок 28 акцентной кистью и правым полем 10, как в разметке
+            // (MainWindow.xaml:1709). Контур привязывается к самому Path внутри
+            // холста: у Viewbox такого свойства нет, и привязка молча не работала.
+            var headerIcon = IconHelper.MakeIcon("IconDatabase", UiMetrics.Scaled(28), out var headerIconPath);
+            headerIconPath.Bind(Avalonia.Controls.Shapes.Path.DataProperty,
                 new Binding("RightPanelIconKey") { Converter = IconKeyConverter });
+            ThemeBrushes.Bind(headerIconPath, Avalonia.Controls.Shapes.Path.FillProperty, "AccentBrush");
+            headerIcon.Margin = new Thickness(0, 0, 10, 0);
             headerIcon.Bind(Control.IsVisibleProperty, new Binding("HasRightPanelIcon"));
             header.Children.Add(headerIcon);
             var headerText = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 1 };
@@ -1682,58 +1932,79 @@ namespace Configuration_Management
             };
             hintBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelHint"));
             hintBlock.Bind(Control.IsVisibleProperty, new Binding("!IsInfobaseSelected"));
+            // Заголовок выбранной базы скрыт вместе с подробностями и при пустом
+            // выборе, как в разметке (MainWindow.xaml:1694-1706): раньше он висел
+            // в узкой панели всегда.
+            header.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
             panel.Children.Add(header);
             panel.Children.Add(hintBlock);
 
             // Запуск 1С:Предприятие (primary) — акцентная кнопка запуска с меню
             // дополнительных вариантов.
-            panel.Children.Add(BuildLaunchSplitButton(
+            var launchEnterpriseBlock = BuildLaunchSplitButton(
                 "IconPlay",
-                LocalizationManager.T("Main.LaunchEnterprise"),
+                LocalizationManager.T("Main.Enterprise"),
                 "LaunchEnterpriseCommand",
                 LocalizationManager.T("Main.LaunchEnterpriseTooltip"),
                 primary: true,
-                new[]
+                new (string, string, string?, string?)[]
                 {
-                    (LocalizationManager.T("Main.LaunchWithParams"), "LaunchEnterpriseWithParamsCommand"),
-                    (LocalizationManager.T("Main.LaunchWithAuth"), "LaunchEnterpriseWithAuthCommand")
-                }));
+                    (LocalizationManager.T("Main.LaunchWithParams"), "LaunchEnterpriseWithParamsCommand", "IconTune", "#0EA5E9"),
+                    (LocalizationManager.T("Main.LaunchWithAuth"), "LaunchEnterpriseWithAuthCommand", "IconAccountKey", "#8B5CF6")
+                });
 
             // Конфигуратор — secondary full-width (без отдельной тяжёлой карточки).
-            panel.Children.Add(BuildLaunchSplitButton(
+            var launchConfiguratorBlock = BuildLaunchSplitButton(
                 "IconWrench",
-                LocalizationManager.T("Main.LaunchConfiguratorSection"),
+                LocalizationManager.T("Main.SectionConfigurator"),
                 "LaunchConfiguratorCommand",
                 LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip"),
                 primary: false,
-                new[]
+                new (string, string, string?, string?)[]
                 {
-                    (LocalizationManager.T("Main.LaunchWithParams"), "LaunchConfiguratorWithParamsCommand")
-                }));
+                    (LocalizationManager.T("Main.LaunchWithParams"), "LaunchConfiguratorWithParamsCommand", "IconTune", "#0EA5E9")
+                });
 
             // Остальные действия («Очистить кеш», «Изменить настройки», «Удалить»,
             // «Добавить») перенесены в колонку «Действия» строк базы и верхнюю панель
             // команд. Здесь остаются вторичные действия списком.
-            panel.Children.Add(BuildActionList(
-                CompactActionButton("IconOpen", LocalizationManager.T("Main.OpenFolder"), "OpenInfobaseFolderCommand", LocalizationManager.T("Main.OpenFolderTooltip")),
-                CompactActionButton("IconKeyboard", LocalizationManager.T("Main.NativeStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux")),
-                CompactActionButtonBound("IconWeb", "OpenByLinkCaption", "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip")),
-                CompactActionButton("IconShortcut", LocalizationManager.T("Main.DesktopShortcut"), "CreateDesktopShortcutCommand", LocalizationManager.T("Main.DesktopShortcutTooltip"))
-            ));
+            // Под «Действиями» у автора ровно три кнопки: Предприятие, Конфигуратор
+            // и штатный стартер. «Открыть каталог» и «Ярлык на рабочем столе»
+            // у него живут в контекстном меню строки, там они есть и у нас.
+            var starterBlock = BuildActionList(
+                CompactActionButton("IconApplication", LocalizationManager.T("Main.NativeStarter"), "OpenNativeStarterCommand", LocalizationManager.T("Main.NativeStarterTooltipLinux"), "#F59E0B", colorTextToo: false,
+                    iconSize: UiMetrics.Scaled(15), widePadding: new Thickness(8, 6), narrowPadding: new Thickness(6, 8))
+            );
 
-            // Бейдж «Закреплено» и секция тегов выбранной базы, как в разметке WPF.
-            var pinnedBadge = new Border
-            {
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(8, 3),
-                Margin = new Thickness(0, 0, 6, 4),
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Child = ThemedIconAndText("IconPin", LocalizationManager.T("Main.PinnedLabel"),
-                    "AccentColorBrush", 12, centered: false)
-            };
-            ThemeBrushes.Bind(pinnedBadge, Border.BackgroundProperty, "ItemHoverColorBrush");
+            // Переход по ссылке идёт после карточки сессии, как в разметке.
+            var byLinkBlock = BuildActionList(
+                CompactActionButtonBound("IconLink", "OpenByLinkCaption", "OpenInfobaseByLinkCommand", LocalizationManager.T("Main.OpenLinkTooltip"), "#0EA5E9", "IconArrowRight", colorTextToo: false,
+                    iconSize: UiMetrics.Scaled(16), widePadding: new Thickness(14, 11), narrowPadding: new Thickness(6, 8))
+            );
+
+            // Бейджи «Избранное» и «Закреплено», как в разметке WPF: цвета там
+            // заданы явно и одинаковы в обеих темах, поэтому берутся числом.
+            var badges = new WrapPanel { Margin = new Thickness(0, 0, 0, 12) };
+
+            var favoriteBadge = Badge("#FEF3C7");
+            favoriteBadge.Child = BadgeContent("IconStar", "#F59E0B", textBinding:
+                new MultiBinding
+                {
+                    StringFormat = "{0} {1}",
+                    Bindings =
+                    {
+                        new Binding { Source = LocalizationManager.T("Main.Favorites") },
+                        new Binding("SelectedInfobase.FavoriteHotkeyDisplay")
+                    }
+                }, themeBrushKey: "FavoriteBrush");
+            favoriteBadge.Bind(Control.IsVisibleProperty, new Binding("SelectedInfobase.IsFavorite"));
+            badges.Children.Add(favoriteBadge);
+
+            var pinnedBadge = Badge("#EDE9FE");
+            pinnedBadge.Child = BadgeContent("IconPin", "#8B5CF6", "#5B21B6",
+                new Binding { Source = LocalizationManager.T("Main.PinnedLabel") });
             pinnedBadge.Bind(Control.IsVisibleProperty, new Binding("SelectedInfobase.IsPinned"));
-            panel.Children.Add(pinnedBadge);
+            badges.Children.Add(pinnedBadge);
 
             var tagsHeader = ThemedIconAndText("IconTag", LocalizationManager.T("Main.Tags"),
                 "TextSecondaryColorBrush", 14, centered: false);
@@ -1760,12 +2031,12 @@ namespace Configuration_Management
             var tagsBlock = new StackPanel { Spacing = 4 };
             tagsBlock.Children.Add(tagsHeader);
             tagsBlock.Children.Add(tagsList);
-            panel.Children.Add(tagsBlock);
 
             // Информация о подключении.
             // Блок сведений подчинён переключателю подробностей правой панели,
             // как в WPF: там по нему прячется та же таблица.
-            var connectionCard = SectionCard(LocalizationManager.T("Main.SectionConnInfo"), "IconInfo",
+            var connectionLabel = SectionLabel(LocalizationManager.T("Main.SectionConnInfo"));
+            var connectionCard = PlainCard(
                 DetailRow(LocalizationManager.T("Main.Type"), new Binding("SelectedInfobase.ConnectionTypeDisplay")),
                 DetailRow(LocalizationManager.T("Main.ServerPath"), new Binding("SelectedInfobase.ConnectionPathDisplay")),
                 DetailRow(LocalizationManager.T("Column.ServerBase"), new Binding("SelectedInfobase.ServerDatabaseDisplay")),
@@ -1778,10 +2049,9 @@ namespace Configuration_Management
                 DetailRow(LocalizationManager.T("Main.LastLaunch"), new Binding("SelectedInfobase.LastLaunchDisplay")),
                 DetailRow(LocalizationManager.T("Main.CacheSize"), new Binding("SelectedInfobase.CacheSizeDisplay")));
             connectionCard.Bind(Control.IsVisibleProperty, new Binding("ShowConnectionInfo"));
-            panel.Children.Add(connectionCard);
 
             // Блок «Текущая сессия»: значения действуют только на следующий запуск.
-            panel.Children.Add(BuildSessionCard());
+            var sessionCard = BuildSessionCard();
 
             // Описание (стиль из ConfigurationManagement): значение TextPrimaryBrush, нижний отступ.
             var desc = new TextBlock
@@ -1792,12 +2062,86 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(desc, TextBlock.ForegroundProperty, "TextPrimaryBrush");
             desc.Bind(TextBlock.TextProperty, new Binding("SelectedInfobase.Description"));
-            panel.Children.Add(SectionCard(LocalizationManager.T("Main.Description"), "IconInfo", desc));
+            var descriptionLabel = SectionLabel(LocalizationManager.T("Main.Description"), smallCaps: false);
+
+            // Порядок блоков взят из разметки WPF: сведения о подключении, описание,
+            // теги, затем действия и текущая сессия. Раньше действия стояли первыми.
+            // Подписи секций подчинены тем же условиям, что и их содержимое:
+            // иначе в компактной панели и без выбранной базы висели заголовки
+            // без содержимого.
+            badges.Bind(Control.IsVisibleProperty, new Binding("IsInfobaseSelected"));
+            connectionLabel.Bind(Control.IsVisibleProperty, new Binding("ShowConnectionInfo"));
+            descriptionLabel.Bind(Control.IsVisibleProperty, new Binding("ShowConnectionInfo"));
+            desc.Bind(Control.IsVisibleProperty, new Binding("ShowConnectionInfo"));
+            tagsBlock.Bind(Control.IsVisibleProperty, new Binding("ShowConnectionInfo"));
+
+            panel.Children.Add(badges);
+            panel.Children.Add(connectionLabel);
+            panel.Children.Add(connectionCard);
+            panel.Children.Add(descriptionLabel);
+            panel.Children.Add(desc);
+            panel.Children.Add(tagsBlock);
+
+            // Линия и заголовок «Действия» перед кнопками запуска, как в разметке.
+            // Обе видны только при показанных подробностях правой панели.
+            var actionsSeparator = new Border
+            {
+                Height = 1,
+                Margin = new Thickness(0, 4, 0, 12)
+            };
+            ThemeBrushes.Bind(actionsSeparator, Border.BackgroundProperty, "BorderColorBrush");
+            actionsSeparator.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
+            panel.Children.Add(actionsSeparator);
+
+            var actionsLabel = new TextBlock
+            {
+                Text = LocalizationManager.T("Main.Actions"),
+                FontSize = UiMetrics.ScaledFont(12),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            ThemeBrushes.Bind(actionsLabel, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
+            actionsLabel.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
+            panel.Children.Add(actionsLabel);
+
+            panel.Children.Add(launchEnterpriseBlock);
+            panel.Children.Add(launchConfiguratorBlock);
+            panel.Children.Add(starterBlock);
+
+            // Линия между запуском и остальными действиями (MainWindow.xaml:2097).
+            var afterStarterSeparator = new Border
+            {
+                Height = 1,
+                Margin = new Thickness(0, 10, 0, 10),
+                Opacity = 0.7
+            };
+            ThemeBrushes.Bind(afterStarterSeparator, Border.BackgroundProperty, "BorderColorBrush");
+            panel.Children.Add(afterStarterSeparator);
+
+            panel.Children.Add(sessionCard);
+
+            // Линия между текущей сессией и переходом по ссылке видна вместе
+            // с самой карточкой сессии (MainWindow.xaml:2191).
+            var beforeByLinkSeparator = new Border { Height = 1, Margin = new Thickness(0, 6, 0, 10) };
+            ThemeBrushes.Bind(beforeByLinkSeparator, Border.BackgroundProperty, "BorderColorBrush");
+            beforeByLinkSeparator.Bind(Control.IsVisibleProperty, new Binding("ShowSessionLaunchPanel"));
+            panel.Children.Add(beforeByLinkSeparator);
+
+            panel.Children.Add(byLinkBlock);
+
+            // Линия между переходом по ссылке и выходом, как в разметке.
+            var exitSeparator = new Border { Height = 1, Margin = new Thickness(0, 10) };
+            ThemeBrushes.Bind(exitSeparator, Border.BackgroundProperty, "BorderColorBrush");
+            panel.Children.Add(exitSeparator);
 
             // Выход — компактная кнопка внизу, без лишней «карточки».
-            var exitBtn = CompactActionButton("IconExit", LocalizationManager.T("Main.Exit"), "ExitCommand",
-                LocalizationManager.T("Main.ExitTooltip"));
-            exitBtn.Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, 0);
+            // «Выход» у автора красный, #DC2626 в обеих темах.
+            var exitBtn = CompactActionButton("IconExitToApp", LocalizationManager.T("Main.Exit"), "ExitCommand",
+                LocalizationManager.T("Main.ExitTooltip"), "#DC2626", "IconClose",
+                iconSize: UiMetrics.Scaled(16), widePadding: new Thickness(14, 11), narrowPadding: new Thickness(6, 8));
+            // Нижний отступ обязателен: без него последний элемент не попадает
+            // в прокручиваемую высоту целиком и снизу остаётся видна только рамка.
+            exitBtn.Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, UiMetrics.ActionGridGap);
             panel.Children.Add(exitBtn);
 
             return panel;
@@ -1832,7 +2176,13 @@ namespace Configuration_Management
         /// Компактная кнопка действия правой панели: иконка + текст, низкая высота,
         /// растягивается на всю ширину панели.
         /// </summary>
-        private static Control CompactActionButton(string iconKey, string text, string commandPath, string tooltip)
+        /// <param name="colorHex">
+        /// Явный цвет значка и подписи. У автора так покрашен «Выход»: #DC2626
+        /// одинаково в обеих темах.
+        /// </param>
+        private static Control CompactActionButton(string iconKey, string text, string commandPath, string tooltip,
+            string? colorHex = null, string? trailingIconKey = null, bool colorTextToo = true,
+            double? iconSize = null, Thickness? widePadding = null, Thickness? narrowPadding = null)
         {
             var btn = new PanelButton(
                 "SecondaryButtonBackgroundBrush",
@@ -1841,16 +2191,32 @@ namespace Configuration_Management
                 "BorderColorBrush",
                 new CornerRadius(UiMetrics.RadiusMd))
             {
-                Content = CompactIconAndText(iconKey, text, "ButtonTextBrush"),
-                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Content = CompactIconAndText(iconKey, text, "ButtonTextBrush", colorHex: colorHex, trailingIconKey: trailingIconKey, colorTextToo: colorTextToo, iconSize: iconSize),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 MinHeight = UiMetrics.ActionButtonMinHeight,
                 Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV),
                 Margin = new Thickness(0)
             };
+            BindActionPadding(btn, widePadding, narrowPadding);
             ToolTip.SetTip(btn, tooltip);
             btn.Bind(Button.CommandProperty, new Binding(commandPath));
             return btn;
+        }
+
+        /// <summary>
+        /// Отступ кнопки действия меняется вместе с шириной правой панели, как
+        /// в разметке: у перехода по ссылке и выхода 14 на 11 в полной панели
+        /// и 6 на 8 в узкой (MainWindow.xaml:2205 и 2264).
+        /// </summary>
+        private static void BindActionPadding(Control button, Thickness? wide, Thickness? narrow)
+        {
+            if (wide is not { } w || narrow is not { } n)
+                return;
+            button.Bind(TemplatedControl.PaddingProperty, new Binding("ShowRightPanelDetails")
+            {
+                Converter = new Avalonia.Data.Converters.FuncValueConverter<bool, Thickness>(v => v ? w : n)
+            });
         }
 
         /// <summary>Компактное содержимое кнопки: иконка + подпись меньшего размера.</summary>
@@ -1858,7 +2224,9 @@ namespace Configuration_Management
         /// Вариант кнопки действия с подписью из привязки: нужен там, где текст
         /// меняется по состоянию, как короткая подпись открытия по ссылке.
         /// </summary>
-        private static Control CompactActionButtonBound(string iconKey, string textPath, string commandPath, string tooltip)
+        private static Control CompactActionButtonBound(string iconKey, string textPath, string commandPath, string tooltip,
+            string? colorHex = null, string? trailingIconKey = null, bool colorTextToo = true,
+            double? iconSize = null, Thickness? widePadding = null, Thickness? narrowPadding = null)
         {
             var btn = new PanelButton(
                 "SecondaryButtonBackgroundBrush",
@@ -1867,27 +2235,46 @@ namespace Configuration_Management
                 "BorderColorBrush",
                 new CornerRadius(UiMetrics.RadiusMd))
             {
-                Content = CompactIconAndText(iconKey, "", "ButtonTextBrush", textPath),
-                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Content = CompactIconAndText(iconKey, "", "ButtonTextBrush", textPath, colorHex, trailingIconKey, colorTextToo, iconSize),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 MinHeight = UiMetrics.ActionButtonMinHeight,
                 Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV),
                 Margin = new Thickness(0)
             };
+            BindActionPadding(btn, widePadding, narrowPadding);
             ToolTip.SetTip(btn, tooltip);
             btn.Bind(Button.CommandProperty, new Binding(commandPath));
             return btn;
         }
 
-        private static Control CompactIconAndText(string iconKey, string text, string brushKey, string? textPath = null)
+        private static Control CompactIconAndText(string iconKey, string text, string brushKey, string? textPath = null,
+            string? colorHex = null, string? trailingIconKey = null, bool colorTextToo = true, double? iconSize = null)
         {
             // Сеткой, а не горизонтальной панелью: панель меряет подпись
             // бесконечной шириной, поэтому обрезка многоточием не срабатывает
             // и длинный текст вылезает за кнопку вместо того, чтобы сократиться.
-            var sp = new Grid { ColumnSpacing = 6, VerticalAlignment = VerticalAlignment.Center };
+            var sp = new Grid
+            {
+                ColumnSpacing = 6,
+                VerticalAlignment = VerticalAlignment.Center,
+                // Растягиваем на ширину кнопки, иначе хвостовой значок липнет
+                // к подписи, а у автора он прижат к правому краю.
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
             sp.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             sp.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            sp.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.ActionIconSize, brushKey));
+            if (trailingIconKey is not null)
+                sp.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            if (colorHex is null)
+            {
+                sp.Children.Add(IconHelper.MakeIcon(iconKey, iconSize ?? UiMetrics.ActionIconSize, brushKey));
+            }
+            else
+            {
+                sp.Children.Add(IconHelper.MakeIcon(iconKey, iconSize ?? UiMetrics.ActionIconSize,
+                    new SolidColorBrush(Color.Parse(colorHex))));
+            }
             var tb = new TextBlock
             {
                 Text = text,
@@ -1896,11 +2283,33 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
-            ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+            // У автора цвет значка и подписи совпадает не всегда: у выхода
+            // красное и то и другое, у перехода по ссылке значок голубой,
+            // а подпись обычная.
+            if (colorHex is null || !colorTextToo)
+                ThemeBrushes.Bind(tb, TextBlock.ForegroundProperty, brushKey);
+            else
+                tb.Foreground = new SolidColorBrush(Color.Parse(colorHex));
             if (textPath is not null)
                 tb.Bind(TextBlock.TextProperty, new Binding(textPath));
             Grid.SetColumn(tb, 1);
             sp.Children.Add(tb);
+            if (trailingIconKey is not null)
+            {
+                // Хвостовой значок справа, как в разметке: стрелка у перехода
+                // по ссылке и крестик у выхода.
+                // Цвет и прозрачность как в разметке, и прячется вместе
+                // с подробностями правой панели, а не висит всегда.
+                var trailingHost = IconHelper.MakeIcon(trailingIconKey, 12, out var trailing);
+                trailingHost.Opacity = 0.75;
+                if (colorTextToo && colorHex is not null)
+                    trailing.Fill = new SolidColorBrush(Color.Parse(colorHex));
+                else
+                    ThemeBrushes.Bind(trailing, Avalonia.Controls.Shapes.Path.FillProperty, "ButtonTextBrush");
+                trailingHost.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
+                Grid.SetColumn(trailingHost, 2);
+                sp.Children.Add(trailingHost);
+            }
             return sp;
         }
 
@@ -1920,10 +2329,51 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             ToolTip.SetTip(hint, LocalizationManager.T("Main.CurrentSessionHelp"));
+            // Подсказка и подписи групп скрыты в узкой панели, как в разметке
+            // (MainWindow.xaml:2137 и 2170): без этого она выходила заметно выше.
+            hint.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
 
-            var card = SectionCard(LocalizationManager.T("Main.CurrentSession"), "IconInfo",
+            // Переключатели идут вплотную, как у автора: карточка добавляет свой
+            // интервал между каждым дочерним элементом, и от этого строки
+            // расходились. Внутри контейнера интервала нет, работают только
+            // собственные отступы переключателей.
+            var options = new StackPanel { Spacing = 0 };
+            // Кружки мельче штатных Fluent, как у автора. Части шаблона
+            // адресуются по именам: общий OfType<Ellipse> сделал бы одинаковыми
+            // все три окружности и раздул бы внутреннюю точку.
+            foreach (var (part, size) in new[] { ("OuterEllipse", 14d), ("CheckOuterEllipse", 14d), ("CheckGlyph", 6d) })
+            {
+                options.Styles.Add(new Style(x => x.OfType<RadioButton>().Class("compactRadio")
+                    .Template().Name(part))
+                {
+                    Setters =
+                    {
+                        new Setter(Layoutable.WidthProperty, size),
+                        new Setter(Layoutable.HeightProperty, size)
+                    }
+                });
+            }
+            // Внутри шаблона Fluent обойма кружков задана фиксированной высотой,
+            // и одного MinHeight на самой кнопке мало: строка оставалась 32
+            // пикселя против плотных строк версии для Windows.
+            options.Styles.Add(new Style(x => x.OfType<RadioButton>().Class("compactRadio")
+                .Template().OfType<Grid>())
+            {
+                Setters = { new Setter(Layoutable.HeightProperty, UiMetrics.Scaled(22)) }
+            });
+
+            void AddOption(params Control[] items)
+            {
+                foreach (var item in items)
+                    options.Children.Add(item);
+            }
+
+            var card = SectionCard(LocalizationManager.T("Main.CurrentSession"), "Main.CurrentSessionHelp",
                 hint,
-                SessionGroupLabel(LocalizationManager.T("Main.ClientMode")),
+                options);
+
+            AddOption(SessionGroupLabel(LocalizationManager.T("Main.ClientMode")));
+            AddOption(
                 SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionClient", "IsSessionClientAuto"),
                 SessionOption(LocalizationManager.T("Main.SessionClientOrdinary"), "SessionClient", "IsSessionClientOrdinary"),
                 SessionOption(LocalizationManager.T("Main.SessionClientThickManaged"), "SessionClient", "IsSessionClientThick",
@@ -1932,9 +2382,18 @@ namespace Configuration_Management
                     LocalizationManager.T("Main.SessionThickOrdinaryTooltip")),
                 SessionOption(LocalizationManager.T("Main.SessionClientThin"), "SessionClient", "IsSessionClientThin"),
                 SessionGroupLabel(LocalizationManager.T("Main.Bitness")),
-                SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionArch", "IsSessionArchAuto"),
-                SessionOption("32", "SessionArch", "IsSessionArch32"),
-                SessionOption("64", "SessionArch", "IsSessionArch64"));
+                // Разрядность у автора идёт строкой, а не колонкой, как режим клиента.
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 12,
+                    Children =
+                    {
+                        SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionArch", "IsSessionArchAuto"),
+                        SessionOption("32", "SessionArch", "IsSessionArch32"),
+                        SessionOption("64", "SessionArch", "IsSessionArch64")
+                    }
+                });
 
             card.Bind(Control.IsVisibleProperty, new Binding("ShowSessionLaunchPanel"));
             return card;
@@ -1951,6 +2410,7 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 6, 0, 2)
             };
             ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            block.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
             return block;
         }
 
@@ -1962,8 +2422,17 @@ namespace Configuration_Management
                 Content = text,
                 GroupName = group,
                 FontSize = UiMetrics.ScaledFont(12),
-                Margin = new Thickness(0, 1)
+                // Штатная строка Fluent высотой 32 растягивала список вдвое
+                // против версии для Windows: там строки идут вплотную.
+                MinHeight = UiMetrics.Scaled(22),
+                Padding = new Thickness(6, 0, 0, 0),
+                Margin = new Thickness(0, 2)
             };
+            // Класс нужен не для оформления, а чтобы поднять приоритет сеттеров:
+            // Fluent задаёт размеры частей шаблона приоритетом Template, который
+            // старше безусловного стиля. Условный селектор становится
+            // StyleTrigger и Template перебивает.
+            option.Classes.Add("compactRadio");
             option.Bind(RadioButton.IsCheckedProperty, new Binding(propertyPath) { Mode = BindingMode.TwoWay });
             if (tooltip is not null)
                 ToolTip.SetTip(option, tooltip);
@@ -1975,21 +2444,101 @@ namespace Configuration_Management
             new(key => string.IsNullOrEmpty(key) ? null : IconHelper.Geometry(key));
 
         /// <summary>
-        /// Карточка-секция: лёгкий фон/граница из темы + компактный заголовок с иконкой.
-        /// Без тяжёлой тени — правая панель выглядит современнее и занимает меньше места.
+        /// Подпись секции правой панели: у автора она стоит снаружи рамки,
+        /// малыми капителями и вторичным цветом, без значка.
         /// </summary>
-        private static Control SectionCard(string title, string iconKey, params Control[] children)
+        /// <summary>Рамка бейджа правой панели с явным фоном, как в разметке WPF.</summary>
+        private static Border Badge(string backHex) =>
+            new()
+            {
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(8, 3),
+                Margin = new Thickness(0, 0, 6, 4),
+                Background = new SolidColorBrush(Color.Parse(backHex))
+            };
+
+        /// <summary>Содержимое бейджа: значок и подпись из привязки.</summary>
+        private static Control BadgeContent(string iconKey, string iconHex, string? textHex = null,
+            IBinding? textBinding = null, string? themeBrushKey = null)
         {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            row.Children.Add(IconHelper.MakeIcon(iconKey, 12, new SolidColorBrush(Color.Parse(iconHex))));
+            var text = new TextBlock
+            {
+                FontSize = 11,
+                // У автора подпись бейджа закрепления обычного начертания.
+                FontWeight = themeBrushKey is null ? FontWeight.Normal : FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            if (themeBrushKey is not null)
+                ThemeBrushes.Bind(text, TextBlock.ForegroundProperty, themeBrushKey);
+            else
+                text.Foreground = new SolidColorBrush(Color.Parse(textHex ?? "#000000"));
+            if (textBinding is not null)
+                text.Bind(TextBlock.TextProperty, textBinding);
+            row.Children.Add(text);
+            return row;
+        }
+
+        private static Control SectionLabel(string text, bool smallCaps = true)
+        {
+            // У автора подпись набрана малыми капителями (Typography.Capitals).
+            // В Avalonia 11.3 такого свойства у TextBlock нет, поэтому приближаем:
+            // прописные буквы кеглем помельче дают тот же рисунок строки.
+            var block = new TextBlock
+            {
+                Text = smallCaps ? text.ToUpperInvariant() : text,
+                FontSize = UiMetrics.ScaledFont(smallCaps ? 10.5 : 12),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, smallCaps ? 8 : 4)
+            };
+            ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
+            return block;
+        }
+
+        /// <summary>Рамка секции без собственного заголовка: подпись живёт снаружи.</summary>
+        private static Control PlainCard(params Control[] children)
+        {
+            // Числа из разметки (MainWindow.xaml:1756): скругление 12,
+            // отступ 12 на 10, нижнее поле 14.
             var card = new Border
             {
-                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
+                CornerRadius = new CornerRadius(12),
                 BorderThickness = new Thickness(1),
-                Padding = new Thickness(UiMetrics.SectionPad),
-                Margin = new Thickness(0, UiMetrics.ActionGridGap, 0, 0),
+                Padding = new Thickness(12, 10),
+                Margin = new Thickness(0, 0, 0, 14),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundBrush");
+            // У автора панель светлее карточки, а не наоборот: панель
+            // CardBackgroundBrush, карточка ContentBackgroundBrush.
+            ThemeBrushes.Bind(card, Border.BackgroundProperty, "ContentBackgroundColorBrush");
             ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
+            UiMetrics.AddBrushTransition(card);
+            var content = new StackPanel { Spacing = UiMetrics.Gap };
+            foreach (var child in children)
+                content.Children.Add(child);
+            card.Child = content;
+            return card;
+        }
+
+        /// <summary>
+        /// Карточка-секция с заголовком и значком внутри рамки. Осталась только
+        /// у карточки текущей сессии: у остальных секций подпись вынесена наружу.
+        /// </summary>
+        private static Control SectionCard(string title, string helpKey, params Control[] children)
+        {
+            // Числа из разметки (MainWindow.xaml:2101-2113): скругление 8, фон
+            // ItemHover, отступ 10 на 8 и 6 на 6 в узкой панели, поле 8,0,8,10.
+            // Рамки у карточки нет.
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(8),
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(10, 8),
+                Margin = new Thickness(0, 0, 0, 10),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            ThemeBrushes.Bind(card, Border.BackgroundProperty, "ItemHoverBrush");
             UiMetrics.AddBrushTransition(card);
 
             var content = new StackPanel { Spacing = UiMetrics.Gap };
@@ -2000,16 +2549,25 @@ namespace Configuration_Management
                 Spacing = 6,
                 Margin = new Thickness(0, 0, 0, 2)
             };
-            header.Children.Add(IconHelper.MakeIcon(iconKey, 14, "TextSecondaryBrush"));
+            // Значка у заголовка в разметке нет, зато есть кнопка справки
+            // рядом с подписью (MainWindow.xaml:2118-2136). Подпись основным
+            // цветом, а не вторичным.
             var titleBlock = new TextBlock
             {
                 Text = title,
                 FontSize = UiMetrics.ScaledFont(12),
                 FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 0, 0, 6),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "TextPrimaryColorBrush");
             header.Children.Add(titleBlock);
+            if (!string.IsNullOrEmpty(helpKey))
+                header.Children.Add(new Controls.HelpLink
+                {
+                    Margin = new Thickness(6, 0, 0, 4),
+                    HelpText = LocalizationManager.T(helpKey)
+                });
             content.Children.Add(header);
 
             foreach (var child in children)
@@ -2158,29 +2716,35 @@ namespace Configuration_Management
             string commandPath,
             string tooltip,
             bool primary,
-            IReadOnlyList<(string Header, string Command)> menuItems)
+            IReadOnlyList<(string Header, string Command, string? IconKey, string? IconColor)> menuItems)
         {
             var radius = UiMetrics.RadiusLg;
             var mainCorner = new CornerRadius(radius, 0, 0, radius);
 
+            // Вторичная кнопка запуска у автора прозрачная с рамкой, а не залитая:
+            // залит только первичный запуск, а кремовым остаётся штатный стартер.
             var main = primary
                 ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", mainCorner)
-                : new PanelButton("SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush",
+                : new PanelButton("", "ItemHoverColorBrush",
                     "SecondaryButtonPressedBrush", "BorderColorBrush", mainCorner);
 
-            var contentBrush = primary ? "TextOnAccentBrush" : "ButtonTextBrush";
-            main.Content = ThemedIconAndText(iconKey, text, contentBrush,
-                primary ? UiMetrics.ScaledFont(16) : UiMetrics.ActionIconSize, centered: primary);
-            main.HorizontalContentAlignment = primary ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+            // У вторичной кнопки подпись и значок берут основной цвет текста,
+            // как в разметке: ButtonTextBrush чёрный в обеих темах и на прозрачной
+            // кнопке тёмной темы не читается.
+            var contentBrush = primary ? "TextOnAccentBrush" : "TextPrimaryColorBrush";
+            // Числа из разметки (MainWindow.xaml:1904): содержимое прижато влево,
+            // отступ 8,8,4,8, минимальная высота 34, значок 16, подпись 12.
+            main.Content = ThemedIconAndText(iconKey, text, contentBrush, UiMetrics.Scaled(16), centered: false);
+            main.HorizontalContentAlignment = HorizontalAlignment.Left;
             main.HorizontalAlignment = HorizontalAlignment.Stretch;
-            main.MinHeight = UiMetrics.ActionButtonMinHeight + (primary ? 4 : 0);
-            main.Padding = new Thickness(UiMetrics.ActionButtonPadH, UiMetrics.ActionButtonPadV + (primary ? 2 : 0));
+            main.MinHeight = UiMetrics.Scaled(34);
+            main.Padding = new Thickness(UiMetrics.Scaled(8), UiMetrics.Scaled(8), UiMetrics.Scaled(4), UiMetrics.Scaled(8));
             main.Margin = new Thickness(0);
             ToolTip.SetTip(main, tooltip);
             main.Bind(Button.CommandProperty, new Binding(commandPath));
 
             var menu = new ContextMenu();
-            foreach (var (header, command) in menuItems)
+            foreach (var (header, command, itemIcon, itemColor) in menuItems)
             {
                 if (header.Length == 0)
                 {
@@ -2188,7 +2752,13 @@ namespace Configuration_Management
                     continue;
                 }
 
+                // Значки пунктов заданы в разметке явным цветом
+                // (MainWindow.xaml:1954 и 1962): настройка параметров голубая,
+                // запуск с авторизацией фиолетовый.
                 var item = new MenuItem { Header = header };
+                if (itemIcon is not null)
+                    item.Icon = IconHelper.MakeIcon(itemIcon, 18,
+                        itemColor is not null ? new SolidColorBrush(Color.Parse(itemColor)) : Brushes.Gray);
                 item.Bind(MenuItem.CommandProperty, new Binding(command));
                 menu.Items.Add(item);
             }
@@ -2196,38 +2766,43 @@ namespace Configuration_Management
             var arrowCorner = new CornerRadius(0, radius, radius, 0);
             var arrow = primary
                 ? new PanelButton("AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush", arrowCorner)
-                : new PanelButton("SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush",
+                // Стрелка вторичной кнопки прозрачная, как и её основная часть.
+                : new PanelButton("", "ItemHoverColorBrush",
                     "SecondaryButtonPressedBrush", "BorderColorBrush", arrowCorner);
-            arrow.Width = 32;
+            arrow.Width = UiMetrics.Scaled(28);
             arrow.MinHeight = main.MinHeight;
             arrow.Padding = new Thickness(0);
             arrow.Margin = new Thickness(0);
-
-            var arrowGlyph = new TextBlock
-            {
-                Text = "▾",
-                FontSize = UiMetrics.ScaledFont(12),
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
-            ThemeBrushes.Bind(arrowGlyph, TextBlock.ForegroundProperty, contentBrush);
-            arrow.Content = arrowGlyph;
+            // Стрелка в разметке это контур ChevronDown 16, а не текстовый знак.
+            arrow.Content = IconHelper.MakeIcon("IconChevronDown", UiMetrics.Scaled(16), contentBrush);
             ToolTip.SetTip(arrow, LocalizationManager.T("Main.MoreLaunchOptions"));
             arrow.ContextMenu = menu;
             arrow.Click += (_, _) => menu.Open(arrow);
 
-            var grid = new Grid { Margin = new Thickness(0, 0, 0, 0) };
+            // Между частями в разметке стоит линия шириной 1 с полем 0,8:
+            // у первичной кнопки полупрозрачная белая, у вторичной цвет рамки.
+            var divider = new Border { Width = 1, Margin = new Thickness(0, 8) };
+            if (primary)
+                divider.Background = new SolidColorBrush(Color.Parse("#55FFFFFF"));
+            else
+                ThemeBrushes.Bind(divider, Border.BackgroundProperty, "BorderColorBrush");
+
+            var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             Grid.SetColumn(main, 0);
-            Grid.SetColumn(arrow, 1);
+            Grid.SetColumn(divider, 1);
+            Grid.SetColumn(arrow, 2);
             grid.Children.Add(main);
+            grid.Children.Add(divider);
             grid.Children.Add(arrow);
             return grid;
         }
 
         /// <summary>Содержимое кнопки: иконка + подпись, окрашенные кистью ресурса темы.</summary>
-        private static Control ThemedIconAndText(string iconKey, string text, string brushKey, double iconSize, bool centered)
+        private static Control ThemedIconAndText(string iconKey, string text, string brushKey, double iconSize, bool centered,
+            double? fontSize = null)
         {
             var sp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             if (centered)
@@ -2236,7 +2811,7 @@ namespace Configuration_Management
             var tb = new TextBlock
             {
                 Text = text,
-                FontSize = UiMetrics.ActionFontSize + (centered ? 0.5 : 0),
+                FontSize = fontSize ?? UiMetrics.ActionFontSize + (centered ? 0.5 : 0),
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis
@@ -2248,22 +2823,32 @@ namespace Configuration_Management
 
         private Control DetailRow(string label, Binding binding)
         {
-            var grid = new Grid { Margin = new Thickness(0, 0, 0, 3) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
+            // Отступ между строками меньше восьми из разметки: у системного шрифта
+            // строка выше, чем у Segoe UI, и при восьми карточка выходила заметно
+            // разреженнее версии для Windows при том же кегле.
+            var grid = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
+            // Высота строки задана явно: без неё шаг строк определяют метрики
+            // системного шрифта, и карточка выходила заметно разреженнее, чем
+            // в версии для Windows при том же кегле и тех же отступах.
             var labelBlock = new TextBlock
             {
                 Text = label,
-                FontSize = UiMetrics.ScaledFont(11.5),
-                Opacity = 0.7
+                FontSize = UiMetrics.ScaledFont(12),
+                LineHeight = UiMetrics.ScaledFont(16)
             };
+            ThemeBrushes.Bind(labelBlock, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
             grid.Children.Add(labelBlock);
             Grid.SetColumn(labelBlock, 0);
 
+            // Значение полужирное, как в разметке WPF: подпись вторичная, значение основное.
             var valueBlock = new TextBlock
             {
-                FontSize = UiMetrics.ScaledFont(11.5),
+                FontSize = UiMetrics.ScaledFont(12),
+                LineHeight = UiMetrics.ScaledFont(16),
+                FontWeight = FontWeight.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             };
             valueBlock.Bind(TextBlock.TextProperty, binding);
@@ -2340,10 +2925,17 @@ namespace Configuration_Management
             }
 
             private void Subscribe(string key, Action<IBrush> setter)
+            {
+                // Пустой ключ означает «прозрачно»: у автора значковые кнопки
+                // верхней панели без подложки и без рамки, подсветка только
+                // при наведении.
+                if (string.IsNullOrEmpty(key))
+                    return;
                 // Подписка снимается вместе с уходом кнопки из дерева: список
                 // _subs не освобождался нигде, и каждая пересборка правой панели
                 // оставляла кнопку и всё её дерево укоренёнными.
-                => ThemeBrushes.Observe(this, key, brush => { setter(brush); ApplyState(); });
+                ThemeBrushes.Observe(this, key, brush => { setter(brush); ApplyState(); });
+            }
 
             /// <summary>Применяет состояние к фону/границе/прозрачности кнопки.</summary>
             private void ApplyState()
@@ -2422,6 +3014,7 @@ namespace Configuration_Management
             private readonly string _iconKey;
             private readonly string _text;
             private readonly double _iconSize;
+            private readonly double _textSize;
             private readonly bool _lockOn;
 
             private IBrush _hoverBg = Brushes.Transparent;
@@ -2434,12 +3027,39 @@ namespace Configuration_Management
             private bool _pressed;
             private bool _focused;
 
-            public SegmentButton(string iconKey, string text, string hoverBgKey, string pressedBgKey, bool lockOn = true)
+            private Thickness _borderThickness = new(2);
+            private IBrush? _restingBorder;
+            private IBrush? _hoverBorder;
+            private IBrush? _restingBg;
+
+            /// <summary>Постоянная рамка в покое: нужна тегам панели фильтра.</summary>
+            public void ShowRestingBorder(string brushKey)
+                => ThemeBrushes.Observe(this, brushKey, brush => { _restingBorder = brush; ApplyState(); });
+
+            /// <summary>Рамка при наведении: у чипов фильтра меняется только она.</summary>
+            public void ShowHoverBorder(string brushKey)
+                => ThemeBrushes.Observe(this, brushKey, brush => { _hoverBorder = brush; ApplyState(); });
+
+            /// <summary>Толщина рамки: у чипов фильтра единица, как в разметке.</summary>
+            public void SetBorderThickness(double thickness)
+            {
+                _borderThickness = new Thickness(thickness);
+                ApplyState();
+            }
+
+            /// <summary>Заливка в покое: у чипов фильтра это фон карточки, а не пустота.</summary>
+            public void ShowRestingBackground(string brushKey)
+                => ThemeBrushes.Observe(this, brushKey, brush => { _restingBg = brush; ApplyState(); });
+
+            public SegmentButton(string iconKey, string text, string hoverBgKey, string pressedBgKey, bool lockOn = true,
+                double iconSize = 15, double cornerRadius = -1, double fontSize = 13)
             {
                 _iconKey = iconKey;
                 _text = text;
-                _iconSize = 15;
+                _iconSize = iconSize;
+                _textSize = fontSize;
                 _lockOn = lockOn;
+                var corner = cornerRadius >= 0 ? cornerRadius : UiMetrics.RadiusSm;
 
                 HorizontalContentAlignment = HorizontalAlignment.Center;
                 VerticalContentAlignment = VerticalAlignment.Center;
@@ -2456,7 +3076,10 @@ namespace Configuration_Management
                     {
                         new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<SegmentButton>((_, _) =>
                     {
-                        var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusSm), BorderThickness = new Thickness(0) };
+                        // Толщину локально не задаём: в Avalonia локальное значение
+                        // старше значения шаблона, и TemplateBinding ниже не сработал бы.
+                        // Рамка приходила кистью, но рисовать её было нечем.
+                        var border = new Border { CornerRadius = new CornerRadius(corner) };
                         border[!Border.BackgroundProperty] = new TemplateBinding(TemplatedControl.BackgroundProperty);
                         border[!Border.BorderBrushProperty] = new TemplateBinding(TemplatedControl.BorderBrushProperty);
                         border[!Border.BorderThicknessProperty] = new TemplateBinding(TemplatedControl.BorderThicknessProperty);
@@ -2526,10 +3149,13 @@ namespace Configuration_Management
                     sp.Children.Add(IconHelper.MakeIcon(_iconKey, _iconSize, brushKey));
                 if (!string.IsNullOrEmpty(_text))
                 {
+                    // Кегль берётся с самой кнопки: локальные 13 перебивали
+                    // значение, заданное снаружи, и теги панели фильтра
+                    // не становились мельче.
                     var tb = new TextBlock
                     {
                         Text = _text,
-                        FontSize = 13,
+                        FontSize = _textSize,
                         FontWeight = FontWeight.SemiBold,
                         VerticalAlignment = VerticalAlignment.Center
                     };
@@ -2551,15 +3177,28 @@ namespace Configuration_Management
                 }
 
                 Opacity = 1.0;
+                // Толщину надо вернуть: при отключении она обнулялась и обратно
+                // не восстанавливалась.
+                BorderThickness = _borderThickness;
+                var idle = _restingBg ?? Brushes.Transparent;
                 if (IsChecked == true)
                     Background = _pressed ? _accentPressed : (_hovered ? _accentHover : _accent);
+                else if (_restingBg is not null && _hoverBorder is not null)
+                    // Разметка при наведении меняет у чипа только рамку.
+                    Background = _pressed ? _pressedBg : idle;
                 else
-                    Background = _pressed ? _pressedBg : (_hovered ? _hoverBg : Brushes.Transparent);
+                    Background = _pressed ? _pressedBg : (_hovered ? _hoverBg : idle);
 
                 // Толщина постоянна, меняется только цвет: иначе фокус
                 // расширял бы кнопку на четыре пикселя, а по её правому краю
                 // выравнивается подпись «Название» в шапке списка.
-                BorderBrush = _focused ? _accent : Brushes.Transparent;
+                // Рамка в покое видна только там, где её просили: у тегов
+                // панели фильтра. У остальных сегментов она прозрачная.
+                BorderBrush = _focused
+                    ? _accent
+                    : (_hovered && _hoverBorder is not null
+                        ? _hoverBorder
+                        : (IsChecked == true && _restingBorder is not null ? _accent : _restingBorder ?? Brushes.Transparent));
             }
         }
 
@@ -2569,21 +3208,29 @@ namespace Configuration_Management
         /// <summary>Минимум под имя базы: колонка звёздная, но схлопываться ей нельзя.</summary>
         private const double NameColumnMinWidth = 220;
 
+        /// <summary>Ширина кнопки разворота группы: на неё сдвигается пустая группа.</summary>
+        private static double EmptyGroupOffset => UiMetrics.Scaled(26);
+
         /// <summary>Ширина колонки звезды «избранное» в заголовке и в строке базы.</summary>
-        private static double FavoriteColumnWidth => UiMetrics.Scaled(26);
+        private static double FavoriteColumnWidth => UiMetrics.Scaled(30);
 
         /// <summary>Ширина колонки булавки «закреплено» в заголовке и в строке базы.</summary>
-        private static double PinColumnWidth => UiMetrics.Scaled(24);
+        private static double PinColumnWidth => UiMetrics.Scaled(26);
 
         /// <summary>Ширина фиксированной колонки «Действия» в заголовке и в строке базы.</summary>
-        private static double ActionsColumnWidth => UiMetrics.Scaled(170);
+        private double ActionsColumnWidth
+            => UiMetrics.Scaled(_vm is { ActionsColumnWidth: > 0 } vm ? vm.ActionsColumnWidth : 170);
 
         /// <summary>
         /// Ширина колонки иконки базы: сама иконка и её правый отступ. В заголовке
         /// эта колонка пустая, но она есть, иначе подпись «Название» стояла бы
         /// левее имён строк на ширину иконки.
         /// </summary>
-        private static double IconColumnWidth => UiMetrics.RowIconBox + 10;
+        /// <summary>
+        /// Ширина колонки значка подключения: сам значок 14 и отступ 6 справа,
+        /// как в разметке. Прежние 48 остались от подложки, которой больше нет.
+        /// </summary>
+        private static double IconColumnWidth => UiMetrics.Scaled(20);
 
         /// <summary>Ширина одной кнопки панели инструментов над списком.</summary>
         private static double ToolbarButtonWidth => UiMetrics.Scaled(24);
@@ -2640,8 +3287,8 @@ namespace Configuration_Management
             if (_vm is null)
                 return columns;
 
-            // Ширина из настроек, а при нуле (настройка ещё не трогалась) свой
-            // разумный размер под содержимое колонки.
+            // Ширина из настроек, а при нуле (настройка ещё не трогалась) запасная
+            // из разметки: там она задана параметром конвертера (MainWindow.xaml:512-569).
             void Add(bool visible, string key, string header, double width, double fallback)
             {
                 if (visible)
@@ -2655,22 +3302,22 @@ namespace Configuration_Management
                 switch (key)
                 {
                     case "Version":
-                        Add(_vm.ShowVersionColumn, "Version", "Column.Version", _vm.VersionColumnWidth, 95);
+                        Add(_vm.ShowVersionColumn, "Version", "Column.Version", _vm.VersionColumnWidth, 120);
                         break;
                     case "Configuration":
-                        Add(_vm.ShowConfigurationColumn, "Configuration", "Column.Configuration", _vm.ConfigurationColumnWidth, 140);
+                        Add(_vm.ShowConfigurationColumn, "Configuration", "Column.Configuration", _vm.ConfigurationColumnWidth, 160);
                         break;
                     case "LaunchMode":
-                        Add(_vm.ShowLaunchModeColumn, "LaunchMode", "Column.LaunchMode", _vm.LaunchModeColumnWidth, 115);
+                        Add(_vm.ShowLaunchModeColumn, "LaunchMode", "Column.LaunchMode", _vm.LaunchModeColumnWidth, 120);
                         break;
                     case "ServerBase":
-                        Add(_vm.ShowServerColumn, "ServerBase", "Column.ServerBase", _vm.ServerColumnWidth, 140);
+                        Add(_vm.ShowServerColumn, "ServerBase", "Column.ServerBase", _vm.ServerColumnWidth, 200);
                         break;
                     case "LastLaunch":
-                        Add(_vm.ShowLastLaunchColumn, "LastLaunch", "Column.LastLaunch", _vm.LastLaunchColumnWidth, 115);
+                        Add(_vm.ShowLastLaunchColumn, "LastLaunch", "Column.LastLaunch", _vm.LastLaunchColumnWidth, 140);
                         break;
                     case "Size":
-                        Add(_vm.ShowSizeColumn, "Size", "Column.Size", _vm.SizeColumnWidth, 65);
+                        Add(_vm.ShowSizeColumn, "Size", "Column.Size", _vm.SizeColumnWidth, 90);
                         break;
                 }
             }
@@ -2695,10 +3342,11 @@ namespace Configuration_Management
         {
             "Version" => ib.PlatformVersion ?? string.Empty,
             "Configuration" => ib.ConfigurationDisplay ?? string.Empty,
-            "LaunchMode" => ib.LaunchMode ?? string.Empty,
-            "ServerBase" => ib.Connection.Type == ConnectionType.WebServer
-                ? (ib.Connection.WebUrl ?? string.Empty)
-                : (ib.ServerDatabaseDisplay ?? string.Empty),
+            // Режим запуска показывается разобранным, а серверная колонка всегда
+            // берёт ServerDatabaseDisplay, в том числе у веб-баз: подстановка WebUrl
+            // была расхождением с разметкой (MainWindow.xaml:1261 и 1265).
+            "LaunchMode" => ib.ParsedLaunchMode ?? string.Empty,
+            "ServerBase" => ib.ServerDatabaseDisplay ?? string.Empty,
             "LastLaunch" => ib.LastLaunchDisplay ?? string.Empty,
             "Size" => ib.FileSizeDisplay ?? string.Empty,
             _ => string.Empty
@@ -2716,10 +3364,10 @@ namespace Configuration_Management
                 // Имя как у шапки списка в разметке WPF: по нему ThemeManager
                 // применяет шрифт области «Шапка списка».
                 Name = "HeaderGrid",
-                // Отступы совпадают с карточкой строки: колонки в обеих сетках
-                // прижаты вправо, поэтому заголовки встают над значениями только
-                // при одинаковом правом отступе.
-                Padding = new Thickness(UiMetrics.PaddingControl, 4),
+                // Отступ 0,2 из разметки (MainWindow.xaml:484). Горизонтальный
+                // обязан совпадать с отступом строки, иначе заголовки разъедутся
+                // со значениями; в разметке он нулевой в обоих местах.
+                Padding = new Thickness(0, 2),
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Child = _columnHeaderRow
             };
@@ -2858,12 +3506,16 @@ namespace Configuration_Management
                 dataColumn++;
             }
 
-            // Подпись колонки «Действия» — сразу после колонки «Режим запуска»,
-            // без разделителя.
+            // Подпись колонки «Действия» — сразу после колонки «Режим запуска».
+            // Разделитель у неё есть и в разметке (ActionsSplitter,
+            // MainWindow.xaml:745), поэтому ширина тянется и сохраняется.
+            var actionsColumn = NameHeaderColumn + 1 + actionsOffset;
+            _headerColumnIndex["Actions"] = actionsColumn;
             var actionsHeader = ColumnHeader(LocalizationManager.T("Column.Actions"), IconHelper.ColumnIconKey("Actions"));
             ToolTip.SetTip(actionsHeader, LocalizationManager.T("Main.Actions"));
             _columnHeaderRow.Children.Add(actionsHeader);
-            Grid.SetColumn(actionsHeader, NameHeaderColumn + 1 + actionsOffset);
+            Grid.SetColumn(actionsHeader, actionsColumn);
+            _columnHeaderRow.Children.Add(BuildResizeGrip("Actions", actionsColumn));
 
             UpdateListMinWidth();
 
@@ -2906,9 +3558,12 @@ namespace Configuration_Management
 
             if (_vm?.ShowExpandCollapseButtons == true)
             {
-                panel.Children.Add(HeaderIconButton("IconExpandAll",
+                // Здесь у автора значки из пакета (PackIcon Kind="ExpandAll"
+                // и "CollapseAll", MainWindow.xaml:586 и 593), а не одноимённые
+                // ключи его словаря: те шевроны и живут в других местах.
+                panel.Children.Add(HeaderIconButton("IconExpandAllBox",
                     LocalizationManager.T("Main.ExpandAllGroups"), "ExpandAllGroupsCommand"));
-                panel.Children.Add(HeaderIconButton("IconCollapseAll",
+                panel.Children.Add(HeaderIconButton("IconCollapseAllBox",
                     LocalizationManager.T("Main.CollapseAllGroups"), "CollapseAllGroupsCommand"));
                 panel.Children.Add(HeaderIconButton("IconSortAscending",
                     LocalizationManager.T("Main.SortGroupsAscending"), "SortGroupsAscendingCommand"));
@@ -2953,13 +3608,15 @@ namespace Configuration_Management
         {
             var button = new Button
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), "TextSecondaryBrush"),
+                // Отступ 8 и значок 15, как у IconButton в разметке
+                // (MainWindow.xaml:494, LightTheme.xaml:561): своя ширина 24
+                // делала кнопки заметно теснее.
+                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush"),
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
-                Padding = new Thickness(2, 0),
+                Padding = new Thickness(UiMetrics.Scaled(8)),
                 MinWidth = 0,
                 MinHeight = 0,
-                Width = ToolbarButtonWidth,
                 VerticalAlignment = VerticalAlignment.Center,
                 Cursor = new Cursor(StandardCursorType.Hand)
             };
@@ -3475,9 +4132,11 @@ namespace Configuration_Management
 
             _tagClearButton = new Button
             {
-                Content = ThemedIconAndText("IconClose", LocalizationManager.T("Main.ClearTagFilters"),
-                    "ButtonTextBrush", UiMetrics.ScaledFont(12), centered: false),
-                Padding = new Thickness(8, 2),
+                // Короткая подпись и кегль 11, как в разметке (MainWindow.xaml:392):
+                // полная строка делала кнопку заметно длиннее.
+                Content = ThemedIconAndText("IconClose", LocalizationManager.T("Common.Clear"),
+                    "ButtonTextBrush", UiMetrics.Scaled(12), centered: false, fontSize: UiMetrics.ScaledFont(11)),
+                Padding = new Thickness(4, 2),
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 HorizontalAlignment = HorizontalAlignment.Right,
@@ -3510,10 +4169,15 @@ namespace Configuration_Management
             rows.Children.Add(header);
             rows.Children.Add(_tagPanelItems);
 
+            // Карточка с полем 4,0,4,8, отступом 8,6, рамкой и скруглением 8
+            // (MainWindow.xaml:367): у нас это была полоса во всю ширину окна
+            // с одной нижней линией.
             _tagPanel = new Border
             {
-                Padding = new Thickness(UiMetrics.TopBarH, 6),
-                BorderThickness = new Thickness(0, 0, 0, 1),
+                Margin = new Thickness(4, 0, 4, 8),
+                Padding = new Thickness(8, 6),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
                 Child = rows
             };
             ThemeBrushes.Bind(_tagPanel, Border.BackgroundProperty, "CardBackgroundBrush");
@@ -3536,17 +4200,75 @@ namespace Configuration_Management
             foreach (var tag in _vm.TagFilterItems)
             {
                 var item = tag;
-                var button = new SegmentButton("IconTag", item.Name, "ItemHoverBrush", "ItemSelectedBrush")
+                // Теги панели фильтра у автора в скруглённой рамке и мельче
+                // сегментов верхней панели: свои отступы, кегль, значок и радиус
+                // (MainWindow.xaml:414 и 455).
+                var button = new SegmentButton("IconTag", item.Name, "ItemHoverBrush", "ItemSelectedBrush",
+                    iconSize: UiMetrics.Scaled(12), cornerRadius: 8, fontSize: UiMetrics.ScaledFont(11))
                 {
-                    Margin = new Thickness(0, 0, 4, 0),
-                    IsChecked = item.IsSelected
+                    Margin = new Thickness(0, 0, 6, 4),
+                    IsChecked = item.IsSelected,
+                    MinHeight = 0,
+                    Padding = new Thickness(7, 2)
                 };
+                button.SetBorderThickness(1);
+                button.ShowRestingBackground("CardBackgroundBrush");
+                button.ShowRestingBorder("BorderColorBrush");
+                button.ShowHoverBorder("AccentBrush");
                 button.Click += (_, _) => _vm.SearchByTagCommand.Execute(item.Name);
                 _tagPanelItems.Children.Add(button);
             }
 
             _tagClearButton.IsVisible = _vm.HasActiveTagFilter;
             _tagPanel.IsVisible = _vm.ShowTagFilterPanel;
+        }
+
+        /// <summary>
+        /// Индикатор длительной фоновой работы: полупрозрачная подложка на всё
+        /// окно и карточка с подписью и неопределённой полосой прогресса.
+        /// Числа из разметки (MainWindow.xaml:2349-2366).
+        /// </summary>
+        private static Control BuildLoadingOverlay()
+        {
+            var message = new TextBlock
+            {
+                FontSize = 14,
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 0, 0, 16),
+                TextWrapping = TextWrapping.Wrap,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            ThemeBrushes.Bind(message, TextBlock.ForegroundProperty, "TextPrimaryColorBrush");
+            message.Bind(TextBlock.TextProperty, new Binding("LoadingMessage"));
+
+            var bar = new ProgressBar
+            {
+                IsIndeterminate = true,
+                Height = 6,
+                Background = new SolidColorBrush(Color.Parse("#22000000"))
+            };
+            ThemeBrushes.Bind(bar, TemplatedControl.ForegroundProperty, "AccentBrush");
+
+            var content = new StackPanel();
+            content.Children.Add(message);
+            content.Children.Add(bar);
+
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(32, 26),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                MinWidth = 320,
+                MaxWidth = 520,
+                Child = content
+            };
+            ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundBrush");
+
+            var overlay = new Panel { Background = new SolidColorBrush(Color.Parse("#99000000")) };
+            overlay.Children.Add(card);
+            overlay.Bind(Control.IsVisibleProperty, new Binding("IsLoading"));
+            return overlay;
         }
 
         private Control BuildStatusBar()
@@ -3558,6 +4280,7 @@ namespace Configuration_Management
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             _statusInfo = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+            ThemeBrushes.Bind(_statusInfo, TextBlock.ForegroundProperty, "TextOnAccentBrush");
             _statusInfo.Bind(TextBlock.TextProperty, new Binding("StatusBarInfo"));
             // Подсказка показывает строку целиком: в нижней панели она обрезается
             // многоточием. Контекстное меню с копированием строки подключения
@@ -3566,31 +4289,72 @@ namespace Configuration_Management
             if (_vm is not null)
             {
                 var statusMenu = new ContextMenu();
-                statusMenu.Items.Add(MenuAction("Main.CopyPath", _vm.CopyConnectionStringCommand));
+                statusMenu.Items.Add(MenuAction("Main.CopyPath", _vm.CopyConnectionStringCommand, iconKey: "IconCopy"));
                 _statusInfo.ContextMenu = statusMenu;
             }
             grid.Children.Add(_statusInfo);
             Grid.SetColumn(_statusInfo, 0);
 
             _syncMessage = new TextBlock { FontSize = 12, Margin = new Thickness(16, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+            ThemeBrushes.Bind(_syncMessage, TextBlock.ForegroundProperty, "TextOnAccentBrush");
             _syncMessage.Bind(TextBlock.TextProperty, new Binding("SyncMessage"));
             ToolTip.SetTip(_syncMessage, LocalizationManager.T("Main.SyncResultTooltip"));
             grid.Children.Add(_syncMessage);
             Grid.SetColumn(_syncMessage, 1);
 
-            var sessionToggleBtn = new Button { Content = IconHelper.MakeIcon("IconRecent", 16), Margin = new Thickness(4, 0, 0, 0) };
+            var sessionToggleBtn = StatusBarIconButton("IconRecent");
             ToolTip.SetTip(sessionToggleBtn, LocalizationManager.T("Main.CurrentSession"));
             sessionToggleBtn.Bind(Button.CommandProperty, new Binding("ToggleSessionLaunchPanelCommand"));
             grid.Children.Add(sessionToggleBtn);
             Grid.SetColumn(sessionToggleBtn, 2);
 
-            var toggleBtn = new Button { Content = IconHelper.MakeIcon("IconPanel", 16), Margin = new Thickness(4, 0, 0, 0) };
-            ToolTip.SetTip(toggleBtn, LocalizationManager.T("Main.RightPanel"));
+            var toggleBtn = StatusBarIconButton("IconPageLayoutSidebarRight");
+            // Подсказка меняется вместе с состоянием панели, как в разметке
+            // (MainWindow.xaml:2337): раньше здесь стояла постоянная строка.
+            toggleBtn.Bind(ToolTip.TipProperty, new Binding("RightPanelToggleTooltip"));
             toggleBtn.Bind(Button.CommandProperty, new Binding("ToggleRightPanelDetailsCommand"));
             grid.Children.Add(toggleBtn);
             Grid.SetColumn(toggleBtn, 3);
 
-            return new Border { Child = grid, Name = "StatusBarBorder", Padding = new Thickness(UiMetrics.TopBarH, 6) };
+            // Фон панели и цвет текста в разметке заданы явно (MainWindow.xaml:2300):
+            // тёмная полоса SidebarBrush с контрастным текстом, а не прозрачная
+            // область с обычным текстом.
+            var bar = new Border { Child = grid, Name = "StatusBarBorder", Padding = new Thickness(12, 6) };
+            ThemeBrushes.Bind(bar, Border.BackgroundProperty, "SidebarBrush");
+            return bar;
+        }
+
+        /// <summary>
+        /// Кнопка строки состояния: плоская, со своим наведением по SidebarHover,
+        /// значок 18 контрастной кистью (стиль StatusBarIconButton, LightTheme.xaml:616).
+        /// </summary>
+        private static Button StatusBarIconButton(string iconKey)
+        {
+            var button = new PanelButton("", "SidebarHoverBrush", "SidebarHoverBrush", "",
+                new CornerRadius(6))
+            {
+                Content = IconHelper.MakeIcon(iconKey, 18, "TextOnAccentBrush"),
+                Padding = new Thickness(6, 4),
+                Margin = new Thickness(4, 0, 0, 0),
+                MinWidth = 0,
+                MinHeight = 0,
+                VerticalAlignment = VerticalAlignment.Center,
+                Cursor = new Cursor(StandardCursorType.Hand)
+            };
+            return button;
+        }
+
+        /// <summary>Сводит состояние переключателей верхней панели с вьюмоделью.</summary>
+        private void SyncTopBarToggles()
+        {
+            if (_vm is null)
+                return;
+            if (_groupByToggle is not null)
+                _groupByToggle.IsChecked = _vm.GroupByGroup;
+            if (_emptyGroupsToggle is not null)
+                _emptyGroupsToggle.IsChecked = _vm.ShowEmptyGroups;
+            if (_compactToggle is not null)
+                _compactToggle.IsChecked = _vm.CompactMode;
         }
 
         // ======================= Обработчики =======================
@@ -3602,6 +4366,12 @@ namespace Configuration_Management
             // (импорт/восстановление конфига), и внутри отложенного колбэка их вложенный
             // цикл сообщений приводил к зависанию приложения.
             _vm?.Initialize();
+            // Настройки читаются здесь, уже после построения содержимого, поэтому
+            // переключатели верхней панели строились по значениям по умолчанию
+            // и не показывали сохранённое состояние до первого щелчка.
+            // Initialize присваивает поля напрямую, без уведомлений, так что
+            // обработчик изменений вьюмодели их тоже не догонял.
+            SyncTopBarToggles();
             RegisterHotkeys();
             // Шаблон дерева готов только после загрузки окна, раньше внутренней
             // прокрутки ещё нет.
@@ -3840,7 +4610,11 @@ namespace Configuration_Management
             if (_vm is null)
                 return menu;
 
-            var cacheMenu = new MenuItem { Header = LocalizationManager.T("Main.ClearCache") };
+            var cacheMenu = new MenuItem
+            {
+                Header = LocalizationManager.T("Main.ClearCache"),
+                Icon = MenuIcon("IconBroom", "#14B8A6")
+            };
             cacheMenu.Items.Add(MenuAction("Main.ClearProgramCache", _vm.ClearProgramCacheCommand));
             cacheMenu.Items.Add(MenuAction("Main.ClearUserCache", _vm.ClearUserCacheCommand));
             cacheMenu.Items.Add(new Separator());
@@ -3849,37 +4623,46 @@ namespace Configuration_Management
             // хотя клавиша делает то же самое, что этот пункт.
             cacheMenu.Items.Add(MenuAction("Main.ClearCacheBoth", _vm.ClearCacheBothCommand, _vm.HotkeyClearCache));
 
-            menu.Items.Add(MenuAction("Main.LaunchEnterprise", _vm.LaunchEnterpriseCommand, _vm.HotkeyEnterprise));
-            menu.Items.Add(MenuAction("Main.LaunchConfigurator", _vm.LaunchConfiguratorCommand, _vm.HotkeyConfigurator));
-            menu.Items.Add(MenuAction("Main.EditSettings", _vm.EditInfobaseCommand, _vm.HotkeyEdit));
-            menu.Items.Add(MenuAction("Main.RefreshConfigInfo", _vm.RefreshConfigurationInfoCommand));
+            menu.Items.Add(MenuAction("Main.LaunchEnterprise", _vm.LaunchEnterpriseCommand, _vm.HotkeyEnterprise, "IconPlay", "#22C55E"));
+            menu.Items.Add(MenuAction("Main.LaunchConfigurator", _vm.LaunchConfiguratorCommand, _vm.HotkeyConfigurator, "IconSettings", "#3B82F6"));
+            menu.Items.Add(MenuAction("Main.EditSettings", _vm.EditInfobaseCommand, _vm.HotkeyEdit, "IconEdit", "#3B82F6"));
+            menu.Items.Add(MenuAction("Main.RefreshConfigInfo", _vm.RefreshConfigurationInfoCommand, null, "IconCloudDownload", "#14B8A6"));
             // «Зарегистрировать COM-коннектор» здесь нет намеренно: внешнее соединение
             // это COM, в Linux регистрировать нечего. Windows-сторона решение подтвердила.
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuAction("Main.ToFavorites", _vm.ToggleFavoriteCommand, _vm.HotkeyFavorite));
-            menu.Items.Add(MenuAction("Main.Pin", _vm.TogglePinCommand, _vm.HotkeyPin));
+            menu.Items.Add(MenuAction("Main.ToFavorites", _vm.ToggleFavoriteCommand, _vm.HotkeyFavorite, "IconStar", "#FBBF24"));
+            menu.Items.Add(MenuAction("Main.Pin", _vm.TogglePinCommand, _vm.HotkeyPin, "IconPin", "#8B5CF6"));
             menu.Items.Add(cacheMenu);
+            menu.Items.Add(MenuAction("Main.CopyConnectionString", _vm.CopyConnectionStringCommand, null, "IconCopy", "#06B6D4"));
+            menu.Items.Add(MenuAction("Main.OpenCatalog", _vm.OpenInfobaseFolderCommand, null, "IconFolderOpen", "#0EA5E9"));
+            menu.Items.Add(MenuAction("Main.DesktopShortcut", _vm.CreateDesktopShortcutCommand, null, "IconDesktopClassic", "#6366F1"));
+            menu.Items.Add(MenuAction("Main.AddBase", _vm.AddInfobaseCommand, _vm.HotkeyAdd, "IconAdd", "#22C55E"));
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuAction("Main.CopyConnectionString", _vm.CopyConnectionStringCommand));
-            menu.Items.Add(MenuAction("Main.OpenCatalog", _vm.OpenInfobaseFolderCommand));
-            menu.Items.Add(MenuAction("Main.DesktopShortcut", _vm.CreateDesktopShortcutCommand));
-            menu.Items.Add(MenuAction("Main.AddBase", _vm.AddInfobaseCommand, _vm.HotkeyAdd));
+            menu.Items.Add(MenuAction("Main.DumpToDt", _vm.DumpInfobaseDtCommand, null, "IconDatabaseExport", "#0EA5E9"));
+            menu.Items.Add(MenuAction("Main.DumpConfigToCf", _vm.DumpConfigurationCfCommand, null, "IconFileExport", "#3B82F6"));
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuAction("Main.DumpToDt", _vm.DumpInfobaseDtCommand));
-            menu.Items.Add(MenuAction("Main.DumpConfigToCf", _vm.DumpConfigurationCfCommand));
-            menu.Items.Add(new Separator());
-            menu.Items.Add(MenuAction("Main.Delete", _vm.DeleteInfobaseCommand, _vm.HotkeyDelete));
+            menu.Items.Add(MenuAction("Main.Delete", _vm.DeleteInfobaseCommand, _vm.HotkeyDelete, "IconDelete", "#EF4444"));
             return menu;
         }
 
+        /// <summary>
+        /// Значок пункта меню. Цвет задаётся явно, а не ресурсом темы: в разметке
+        /// WPF у каждого пункта свой цвет, и он один и тот же в светлой и тёмной.
+        /// </summary>
+        private static Control MenuIcon(string iconKey, string colorHex)
+            => IconHelper.MakeIcon(iconKey, 16, new SolidColorBrush(Color.Parse(colorHex)));
+
         /// <summary>Пункт меню с подписью из словаря, командой и подсказкой сочетания клавиш.</summary>
-        private static MenuItem MenuAction(string textKey, System.Windows.Input.ICommand command, string? gesture = null)
+        private static MenuItem MenuAction(string textKey, System.Windows.Input.ICommand command, string? gesture = null,
+            string? iconKey = null, string? iconColor = null)
         {
             var item = new MenuItem
             {
                 Header = LocalizationManager.T(textKey),
                 Command = command
             };
+            if (iconKey is not null && iconColor is not null)
+                item.Icon = MenuIcon(iconKey, iconColor);
             if (Controls.HotkeyBox.TryParse(gesture, out var parsed) && parsed is not null)
                 item.InputGesture = parsed;
             return item;

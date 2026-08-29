@@ -544,7 +544,14 @@ public class MainViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _showEmptyGroups, value))
+            {
                 RebuildTree();
+                // Выбор надо сохранять: у автора здесь ScheduleSaveSettings,
+                // иначе он теряется при перезапуске, а любое сохранение настроек
+                // возвращает старое значение.
+                _settings.ShowEmptyGroups = value;
+                SaveSettingsSilently();
+            }
         }
     }
 
@@ -644,7 +651,8 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public string RightPanelSubtitle =>
         SelectedInfobase is { } infobase
-            ? infobase.GroupDisplay
+            // Как в разметке WPF: «Группа: <имя>», а не голое имя группы.
+            ? $"{LocalizationManager.T("Main.GroupLabel")}: {infobase.GroupDisplay}"
             : SelectedGroupNode?.FullPath ?? string.Empty;
 
     /// <summary>Подсказка «выберите базу» под заголовком, пока база не выбрана.</summary>
@@ -675,6 +683,25 @@ public class MainViewModel : ViewModelBase
         get => _statusBarInfo;
         set => SetProperty(ref _statusBarInfo, value);
     }
+
+    /// <summary>
+    /// Идёт длительная фоновая работа: окно закрывается затемняющим индикатором,
+    /// как в разметке (MainWindow.xaml:2349).
+    /// </summary>
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set => SetProperty(ref _isLoading, value);
+    }
+    private bool _isLoading;
+
+    /// <summary>Что именно делается: подпись внутри индикатора.</summary>
+    public string LoadingMessage
+    {
+        get => _loadingMessage;
+        set => SetProperty(ref _loadingMessage, value);
+    }
+    private string _loadingMessage = string.Empty;
 
     public string SyncMessage
     {
@@ -877,6 +904,7 @@ public class MainViewModel : ViewModelBase
     public double ServerColumnWidth => _settings.ServerColumnWidth;
     public double LastLaunchColumnWidth => _settings.LastLaunchColumnWidth;
     public double SizeColumnWidth => _settings.SizeColumnWidth;
+    public double ActionsColumnWidth => _settings.ActionsColumnWidth;
 
     /// <summary>
     /// Запоминает ширину колонки списка по её ключу. Уведомления намеренно нет:
@@ -894,6 +922,9 @@ public class MainViewModel : ViewModelBase
             case "ServerBase": _settings.ServerColumnWidth = width; break;
             case "LastLaunch": _settings.LastLaunchColumnWidth = width; break;
             case "Size": _settings.SizeColumnWidth = width; break;
+            // Колонка «Действия» тоже перетаскиваемая и сохраняемая, как в разметке
+            // (MainWindow.xaml:528): раньше её ширина была константой.
+            case "Actions": _settings.ActionsColumnWidth = width; break;
             default: return;
         }
 
@@ -3636,6 +3667,8 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
+        IsLoading = true;
+        LoadingMessage = LocalizationManager.T("Main.CheckAvailabilityLabel");
         _ = Task.Run(() =>
         {
             // Результаты собираем заранее, чтобы не трогать модель из фонового потока.
@@ -3645,6 +3678,7 @@ public class MainViewModel : ViewModelBase
 
             Dispatcher.UIThread.Post(() =>
             {
+                IsLoading = false;
                 foreach (var (ib, available) in results)
                     ib.SetCheckedAvailability(available);
                 RebuildTree();
@@ -4215,6 +4249,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ServerColumnWidth));
         OnPropertyChanged(nameof(LastLaunchColumnWidth));
         OnPropertyChanged(nameof(SizeColumnWidth));
+        OnPropertyChanged(nameof(ActionsColumnWidth));
         OnPropertyChanged(nameof(ColumnOrderKeys));
     }
 

@@ -104,6 +104,14 @@ namespace Configuration_Management
             delete.Click += (_, _) => OnDelete();
             panel.Children.Add(delete);
 
+            // Кнопка активации стоит между удалением и сохранением, как в разметке
+            // (ProfilesWindow.xaml:183). Без неё сменить активный профиль
+            // из интерфейса было нельзя вовсе: команда живёт в ProfilesViewModel,
+            // а тот в Linux-сборку не входит.
+            var activate = new Button { Content = LocalizationManager.T("Profiles.Activate"), MinWidth = 150 };
+            activate.Click += (_, _) => OnActivate();
+            panel.Children.Add(activate);
+
             var save = new Button { Content = LocalizationManager.T("Profiles.Save"), MinWidth = 130 };
             save.Click += (_, _) => OnSave();
             panel.Children.Add(save);
@@ -223,6 +231,29 @@ namespace Configuration_Management
                     _profileService.SetPassword(profile.Id, null);
 
                 RefreshList(profile.Id);
+            }
+            catch (Exception ex)
+            {
+                ShowError(ex.Message);
+            }
+        }
+
+        /// <summary>Делает выбранный профиль активным и обновляет список с подписью.</summary>
+        private void OnActivate()
+        {
+            _errorLabel.IsVisible = false;
+            var profile = SelectedProfile;
+            if (profile == null)
+            {
+                ShowError(LocalizationManager.T("Profiles.NoSelectionToActivate"));
+                return;
+            }
+
+            try
+            {
+                _profileService.SetCurrentProfile(profile.Id);
+                RefreshList(profile.Id);
+                ApplyCurrentAccountLabel();
             }
             catch (Exception ex)
             {

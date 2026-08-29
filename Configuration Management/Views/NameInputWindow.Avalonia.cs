@@ -1,18 +1,16 @@
 #if LINUX
-using System;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Layout;
-using Avalonia.Media;
+using Avalonia.Markup.Xaml;
 
 namespace Configuration_Management
 {
     /// <summary>
     /// Диалог ввода произвольного названия (например, названия темы оформления).
     /// Avalonia/Linux-версия WPF-окна <see cref="NameInputWindow"/>.
+    /// Раскладка лежит в NameInputWindow.axaml, здесь только поведение.
     /// </summary>
-    public class NameInputWindow : ModalWindowBase
+    public partial class NameInputWindow : ModalWindowBase
     {
         private readonly TextBox _nameBox;
 
@@ -25,37 +23,17 @@ namespace Configuration_Management
         /// <param name="initialText">Начальное значение поля ввода.</param>
         public NameInputWindow(string title, string label, string okText, string initialText = "")
         {
-            Title = title;
-            Width = 440;
-            SizeToContent = SizeToContent.Height;
-            CanResize = false;
-            SystemDecorations = SystemDecorations.Full;
+            AvaloniaXamlLoader.Load(this);
 
-            _nameBox = new TextBox
-            {
-                Text = initialText,
-                Padding = new Thickness(8, 6)
-            };
+            Title = title;
+            this.FindControl<TextBlock>("Prompt")!.Text = label;
+
+            _nameBox = this.FindControl<TextBox>("NameBox")!;
+            _nameBox.Text = initialText;
             _nameBox.KeyDown += OnNameBox_KeyDown;
 
-            var grid = new Grid { Margin = new Thickness(16) };
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-
-            var prompt = new TextBlock { Text = label, Margin = new Thickness(0, 0, 0, 8) };
-            Grid.SetRow(prompt, 0);
-
-            Grid.SetRow(_nameBox, 1);
-
-            var buttons = BuildButtons(okText, 130, OnOk_Click);
-            Grid.SetRow(buttons, 2);
-
-            grid.Children.Add(prompt);
-            grid.Children.Add(_nameBox);
-            grid.Children.Add(buttons);
-
-            Content = grid;
+            this.FindControl<ContentControl>("ButtonsHost")!.Content =
+                BuildButtons(okText, 130, OnOk_Click);
 
             Opened += (_, _) =>
             {

@@ -119,6 +119,53 @@ namespace Configuration_Management.Themes
                 return;
             foreach (Window window in desktop.Windows)
                 ApplyFont(window, fontFamily, fontSize, fontWeight, fontStyle);
+            ApplyFontToPopups(fontFamily, fontSize, fontWeight, fontStyle);
+        }
+
+        /// <summary>Стиль приложения, задающий шрифт всем корням, включая всплывающие.</summary>
+        private static Style? _popupFontStyle;
+
+        /// <summary>
+        /// Содержимое меню, подсказок и выпадающих списков живёт в отдельном
+        /// PopupRoot и потомком окна не является, поэтому наследуемый шрифт окна
+        /// до него не доходит и обход визуальных детей его не посещает.
+        /// В WPF наследование идёт по логическому дереву и такие корни
+        /// охватывает само. Здесь тот же охват даёт стиль приложения на TopLevel.
+        /// </summary>
+        public static void ApplyFontToPopups(string fontFamily, double fontSize, string fontWeight, string fontStyle)
+        {
+            if (Application.Current is not { } app)
+                return;
+            try
+            {
+                var family = string.IsNullOrWhiteSpace(fontFamily) ? DefaultFontFamily : fontFamily;
+                var size = fontSize > 0 ? fontSize : DefaultFontSize;
+                // Селектор именно Is, а не OfType: OfType в Avalonia совпадает
+                // только с точным типом, а всплывающий корень это наследник
+                // TopLevel, и по OfType стиль до него не доходил.
+                var style = new Style(x => x.Is<TopLevel>())
+                {
+                    Setters =
+                    {
+                        new Setter(TextElement.FontFamilyProperty, new FontFamily(family)),
+                        new Setter(TextElement.FontSizeProperty, size),
+                        new Setter(TextElement.FontWeightProperty,
+                            string.Equals(fontWeight, "Bold", StringComparison.OrdinalIgnoreCase)
+                                ? FontWeight.Bold : FontWeight.Normal),
+                        new Setter(TextElement.FontStyleProperty,
+                            string.Equals(fontStyle, "Italic", StringComparison.OrdinalIgnoreCase)
+                                ? FontStyle.Italic : FontStyle.Normal)
+                    }
+                };
+                if (_popupFontStyle is not null)
+                    app.Styles.Remove(_popupFontStyle);
+                app.Styles.Add(style);
+                _popupFontStyle = style;
+            }
+            catch
+            {
+                // Настройка шрифта не должна ронять приложение.
+            }
         }
 
         /// <summary>
@@ -136,7 +183,13 @@ namespace Configuration_Management.Themes
             // «По умолчанию» распространяется на всё окно (наследуется дочерними элементами).
             var def = GetScope(elementFonts, FontDefault);
             if (def is not null && def.FontSize > 0)
+            {
                 ApplyFont(window, def.FontFamily, def.FontSize, def.FontWeight, def.FontStyle);
+                // Кнопка «Применить» идёт этим путём, а не через ApplyFontToAllWindows,
+                // поэтому всплывающие корни надо обновить и здесь: иначе меню
+                // и подсказки остаются на прежнем шрифте до перезапуска.
+                ApplyFontToPopups(def.FontFamily, def.FontSize, def.FontWeight, def.FontStyle);
+            }
 
             ApplyFontToType(window, typeof(Avalonia.Controls.Button), GetScope(elementFonts, FontButtons));
             ApplyFontToType(window, typeof(Avalonia.Controls.TextBox), GetScope(elementFonts, FontInputs));
@@ -146,6 +199,10 @@ namespace Configuration_Management.Themes
             ApplyFontToType(window, typeof(Avalonia.Controls.ComboBox), GetScope(elementFonts, FontInputs));
             // Область «Шапка списка» была в списке настроек, но ни к чему
             // не применялась: имя элемента появилось только сейчас.
+            // Область «Вкладки» в Linux не применялась вовсе: она есть в списке
+            // областей и в настройках, но здесь для неё не было ни одной строки,
+            // тогда как Windows-версия применяет её к TabsPanel (ThemeManager.cs:236).
+            ApplyFontToNamed(window, "TabsPanel", GetScope(elementFonts, FontTabs));
             ApplyFontToNamed(window, "HeaderGrid", GetScope(elementFonts, FontListHeader));
             ApplyFontToNamed(window, "RightPanelBorder", GetScope(elementFonts, FontRightPanel));
             ApplyFontToNamed(window, "StatusBarBorder", GetScope(elementFonts, FontStatusBar));

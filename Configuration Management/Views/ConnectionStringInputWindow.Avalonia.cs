@@ -74,6 +74,7 @@ namespace Configuration_Management
             inputArea.Children.Add(_inputBox);
 
             var pasteButton = new Button { Content = LocalizationManager.T("ConnectionStringInput.Paste"), MinWidth = 130, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
+            ToolTip.SetTip(pasteButton, LocalizationManager.T("ConnectionStringInput.PasteTooltip"));
             pasteButton.Click += (_, _) => OnPasteClipboard_Click();
             Grid.SetColumn(pasteButton, 1);
             inputArea.Children.Add(pasteButton);

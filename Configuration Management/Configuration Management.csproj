@@ -117,6 +117,16 @@
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- Разметку Avalonia окна грузят сами, вызовом AvaloniaXamlLoader.Load(this)
+       из своего конструктора: компилятор превращает его в прямой вызов
+       сгенерированного метода. Запасной путь через загрузчик по типу не
+       используется, поэтому AVLN3001 («нет открытого конструктора без
+       параметров») здесь не о чем: у части окон конструктор с параметрами,
+       и заводить пустой ради инструмента значит портить их API. -->
+  <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
+  </PropertyGroup>
+
   <!-- Пакеты: только Linux (Avalonia). На этапе 1 подключаются как замена WPF;
        MaterialDesignThemes для Linux не подключается (полная замена иконок — позже). -->
   <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">

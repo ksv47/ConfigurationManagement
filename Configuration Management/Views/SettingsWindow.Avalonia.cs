@@ -658,11 +658,21 @@ namespace Configuration_Management
                 fontGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
             var fontFamilyBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 8) };
-            foreach (var family in new[]
+            // Первыми идут те же десять имён, что и у автора
+            // (Views/SettingsWindow.Fonts.cs:53-60): настройка, сделанная
+            // на Windows, должна открываться на Linux своим же значением.
+            var authorFamilies = new[]
             {
                 "Segoe UI", "Arial", "Calibri", "Tahoma", "Verdana",
                 "Trebuchet MS", "Georgia", "Times New Roman", "Courier New", "Consolas"
-            })
+            };
+            foreach (var family in authorFamilies)
+                fontFamilyBox.Items.Add(family);
+            // Дальше установленные в системе. Без них список на Linux наполовину
+            // мёртвый: четырёх имён автора здесь нет, а Skia подставляет вместо
+            // них Noto Sans молча, без исключения и без записи в журнал, поэтому
+            // выбор такого имени внешне не менял ничего.
+            foreach (var family in InstalledFontFamilies(authorFamilies))
                 fontFamilyBox.Items.Add(family);
 
             // Размер можно и выбрать из списка, и набрать руками: в разметке WPF
@@ -2099,6 +2109,30 @@ namespace Configuration_Management
         }
 
         /// <summary>Наблюдатель, который просто зовёт действие на каждое значение.</summary>
+        /// <summary>
+        /// Установленные в системе семейства, кроме уже перечисленных.
+        /// Коллекция заполняется синхронно при первом обращении и после
+        /// настройки платформы читается законно; до неё обращение незаконно,
+        /// поэтому отказ гасится и список остаётся авторским.
+        /// </summary>
+        private static IEnumerable<string> InstalledFontFamilies(IReadOnlyCollection<string> already)
+        {
+            try
+            {
+                return Avalonia.Media.FontManager.Current.SystemFonts
+                    .Select(f => f.Name)
+                    .Where(n => !string.IsNullOrWhiteSpace(n)
+                                && !already.Contains(n, StringComparer.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase)
+                    .ToArray();
+            }
+            catch
+            {
+                return Array.Empty<string>();
+            }
+        }
+
         /// <summary>Область интерфейса в списке подвкладки «Шрифт».</summary>
         private sealed class FontScopeItem
         {

@@ -196,6 +196,10 @@ namespace Configuration_Management
                     // (дерево групп, кнопки, поля ввода, правая панель, статус-бар).
                     ThemeManager.ApplyFont(mainWindow,
                         settings.FontFamily, settings.FontSize, settings.FontWeight, settings.FontStyle);
+                    // Меню, подсказки и выпадающие списки живут в отдельных корнях
+                    // и шрифт окна не наследуют, поэтому им он ставится стилем.
+                    ThemeManager.ApplyFontToPopups(
+                        settings.FontFamily, settings.FontSize, settings.FontWeight, settings.FontStyle);
                     ThemeManager.ApplyElementFonts(mainWindow, settings.ElementFonts);
 
                     desktop.MainWindow = mainWindow;
