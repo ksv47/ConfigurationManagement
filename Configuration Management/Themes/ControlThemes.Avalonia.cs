@@ -36,6 +36,12 @@ namespace Configuration_Management.Themes
         /// <summary>Поле ввода: карточный фон, скругление 6, акцентный контур при наведении и фокусе.</summary>
         public const string ModernTextBox = "ModernTextBox";
 
+        /// <summary>Полоса горизонтальных вкладок раздела: равная ширина, общая линия снизу.</summary>
+        public const string SettingsSubTabControl = "SettingsSubTabControl";
+
+        /// <summary>Горизонтальная вкладка раздела: акцентное подчёркивание у выбранной.</summary>
+        public const string SettingsSubTabItem = "SettingsSubTabItem";
+
         /// <summary>Поле пароля: то же поле, но с контуром 1.5, скруглением 8 и отступом 10 на 6.</summary>
         public const string ModernPasswordBox = "ModernPasswordBox";
 
