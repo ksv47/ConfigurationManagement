@@ -1719,6 +1719,36 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Запуск базы из меню трея: прямо по ссылке, не трогая выделение в списке.
+    /// В Windows-версии это делает LaunchInfobaseById (MainViewModel.Commands.cs:544),
+    /// и она тоже не меняет SelectedInfobase: иначе запуск из трея переставлял бы
+    /// выделение, правую панель и строку состояния. Источник записи в истории
+    /// тот же, что у автора.
+    /// </summary>
+    public void LaunchFromTray(Infobase ib, bool configurator)
+    {
+        if (!_allInfobases.Contains(ib))
+            return;
+
+        var ok = configurator
+            ? _launcher.Launch(ib, Services.OneCLaunchMode.Configurator)
+            : _launcher.Launch(ib, Services.OneCLaunchMode.Enterprise);
+
+        if (ok)
+        {
+            ib.AddLaunchHistory(configurator ? "Configurator" : "Enterprise", "tray");
+            SaveSilently();
+            OnPropertyChanged(nameof(RecentInfobases));
+            _logger.Info($"[tray] Запущена «{ib.Name}» ({(configurator ? "Конфигуратор" : "Предприятие")})");
+            NotifyAfterLaunch();
+        }
+        else
+        {
+            _logger.Warn($"[tray] Не удалось запустить «{ib.Name}»");
+        }
+    }
+
     private void OnLaunched()
     {
         if (SelectedInfobase is not null)

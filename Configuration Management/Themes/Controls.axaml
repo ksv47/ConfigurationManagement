@@ -898,14 +898,26 @@
         <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Margin" Value="2,1"/>
 
+        <!-- Цвет подписи штатная тема меняет не на контроле, а на части шаблона,
+             поэтому и здесь красится часть: у автора подсветка меняет только фон
+             (LightTheme.xaml:804), цвет текста остаётся прежним. -->
         <Style Selector="^:selected /template/ Border#PART_LayoutRoot">
             <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
         </Style>
-        <Style Selector="^:selected">
+        <Style Selector="^:selected /template/ ContentPresenter#PART_HeaderPresenter">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
+        <!-- Недоступный пункт у автора только гаснет прозрачностью
+             (LightTheme.xaml:807), фон и цвет текста не меняются, поэтому
+             перекраска штатной темы снимается. -->
         <Style Selector="^:disabled">
             <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+        <Style Selector="^:disabled /template/ Border#PART_LayoutRoot">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="^:disabled /template/ ContentPresenter#PART_HeaderPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
     </ControlTheme>
 </ResourceDictionary>
