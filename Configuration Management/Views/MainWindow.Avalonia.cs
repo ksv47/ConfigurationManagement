@@ -1156,8 +1156,10 @@ namespace Configuration_Management
             deleteBtn.IsVisible = group.Marker != GroupNodeViewModel.PinnedMarker
                                   && group.Marker != GroupNodeViewModel.NoGroupMarker;
             actions.Children.Add(deleteBtn);
-            Grid.SetColumn(actions, actionsIndex);
-            row.Children.Add(actions);
+            var groupActionsHost = new Panel { ClipToBounds = true };
+            groupActionsHost.Children.Add(actions);
+            Grid.SetColumn(groupActionsHost, actionsIndex);
+            row.Children.Add(groupActionsHost);
 
             Grid.SetColumn(caption, 0);
             Grid.SetColumnSpan(caption, actionsIndex);
@@ -1400,8 +1402,13 @@ namespace Configuration_Management
             actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconBroom", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#DC2626"));
-            grid.Children.Add(actions);
-            Grid.SetColumn(actions, actionsCol);
+            // Кнопки живут внутри обрезающей колонку панели: в узкой колонке
+            // «Действия» они у автора просто срезаются её границей, а у нас
+            // вылезали поверх колонки «Сервер/База».
+            var actionsHost = new Panel { ClipToBounds = true };
+            actionsHost.Children.Add(actions);
+            grid.Children.Add(actionsHost);
+            Grid.SetColumn(actionsHost, actionsCol);
 
             if (_vm?.ShowTags == true)
             {
@@ -1411,7 +1418,7 @@ namespace Configuration_Management
                 // действиями и остальными значениями.
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                Grid.SetRowSpan(actions, 2);
+                Grid.SetRowSpan(actionsHost, 2);
 
                 var tags = BuildRowTags(card, ib);
                 // Тот же отступ вложенности, что и у ведущего блока
