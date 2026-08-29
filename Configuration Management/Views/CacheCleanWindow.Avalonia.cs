@@ -327,6 +327,12 @@ namespace Configuration_Management
 
             var dock = new DockPanel { LastChildFill = true };
 
+            // Поле поиска той же темой, что и остальные поля ввода приложения:
+            // штатное поле Avalonia отличается от того, что рисует разметка автора
+            // (кегль 13 и отступ 10,7 оттуда же, CacheCleanWindow.xaml:141).
+            _searchBox.Styled(ControlThemes.ModernTextBox);
+            _searchBox.FontSize = 13;
+            _searchBox.VerticalContentAlignment = VerticalAlignment.Center;
             _searchBox.Margin = new Thickness(8, 8, 8, 2);
             DockPanel.SetDock(_searchBox, Dock.Top);
             dock.Children.Add(_searchBox);
