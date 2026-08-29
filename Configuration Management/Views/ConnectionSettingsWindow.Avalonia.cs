@@ -9,7 +9,9 @@ using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Controls;
+using Avalonia.Input;
 using Configuration_Management.Localization;
+using Configuration_Management.Themes;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
 using Configuration_Management.ViewModels;
@@ -47,11 +49,13 @@ namespace Configuration_Management
             IEnumerable<string>? installedPlatformVersions = null, string? defaultGroupPath = null,
             IEnumerable<string>? availableServers = null, IEnumerable<int>? availablePorts = null)
         {
+            // Размеры и базовый кегль по разметке (ConnectionSettingsWindow.xaml:13).
             Title = LocalizationManager.T("ConnectionSettings.Title");
-            Width = 720;
-            Height = 620;
-            MinWidth = 620;
-            MinHeight = 520;
+            Width = 760;
+            Height = 780;
+            MinWidth = 680;
+            MinHeight = 680;
+            FontSize = 13;
 
             _dialogs = AppServices.GetRequiredService<IDialogService>();
 
@@ -100,11 +104,18 @@ namespace Configuration_Management
 
         // ===================== Вспомогательные построители =====================
 
+        /// <summary>Ширина колонки подписей, как в разметке (ConnectionSettingsWindow.xaml:203).</summary>
+        private const double LabelColumn = 120;
+
         private static TextBox Tb(string path, string? watermark = null, bool multiline = false)
         {
             var tb = new TextBox
             {
-                Padding = new Thickness(8, 5),
+                Padding = new Thickness(6, 4),
+                MinHeight = 28,
+                FontSize = 12,
+                Margin = new Thickness(0, 3),
+                VerticalContentAlignment = VerticalAlignment.Center,
                 Watermark = watermark,
                 AcceptsReturn = multiline
             };
@@ -116,326 +127,648 @@ namespace Configuration_Management
 
         private static ComboBox EditableCombo(string textPath, string itemsPath)
         {
-            var combo = new ComboBox { IsEditable = true };
+            var combo = new ComboBox
+            {
+                IsEditable = true,
+                Margin = new Thickness(0, 3),
+                MinHeight = 28,
+                FontSize = 12,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
             combo.Bind(ComboBox.TextProperty, new Binding(textPath) { Mode = BindingMode.TwoWay });
             combo.Bind(ComboBox.ItemsSourceProperty, new Binding(itemsPath));
             return combo;
         }
 
-        private static Grid Field(string label, Control control, bool isEnabled = true)
+        /// <summary>Сетка «подпись / поле»: колонка подписей и остаток под поле.</summary>
+        private static Grid FieldsGrid(int rows)
         {
-            var grid = new Grid { Margin = new Thickness(0, 0, 0, 10) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(LabelColumn)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-
-            var labelBlock = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(labelBlock, 0);
-            grid.Children.Add(labelBlock);
-
-            control.IsEnabled = isEnabled;
-            Grid.SetColumn(control, 1);
-            grid.Children.Add(control);
+            for (var i = 0; i < rows; i++)
+                grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             return grid;
         }
 
-        private static StackPanel RadioGroup(params RadioButton[] radios)
+        /// <summary>
+        /// Кладёт в сетку строку «подпись и поле». Путь видимости нужен строкам,
+        /// которые в разметке лежат в одной и той же строке и переключаются
+        /// по типу подключения.
+        /// </summary>
+        private static void Place(Grid grid, int row, string labelKey, Control control,
+            string? visibilityPath = null, VerticalAlignment labelAlignment = VerticalAlignment.Center)
         {
-            var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14, VerticalAlignment = VerticalAlignment.Center };
-            foreach (var r in radios)
-                panel.Children.Add(r);
-            return panel;
+            var label = new TextBlock
+            {
+                Text = LocalizationManager.T(labelKey),
+                VerticalAlignment = labelAlignment,
+                Margin = new Thickness(0, 3)
+            };
+            Grid.SetRow(label, row);
+            Grid.SetColumn(label, 0);
+            grid.Children.Add(label);
+
+            Grid.SetRow(control, row);
+            Grid.SetColumn(control, 1);
+            grid.Children.Add(control);
+
+            if (visibilityPath is null)
+                return;
+
+            label.Bind(Visual.IsVisibleProperty, new Binding(visibilityPath));
+            control.Bind(Visual.IsVisibleProperty, new Binding(visibilityPath));
         }
 
-        private static RadioButton Radio(string groupName, string path, string content)
+        /// <summary>Строка «поле и кнопка справа», как в разметке.</summary>
+        private static Grid WithButton(Control field, Button button)
         {
-            var r = new RadioButton { Content = content, GroupName = groupName };
-            r.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
-                new Binding(path) { Mode = BindingMode.TwoWay });
-            return r;
+            var grid = new Grid { Margin = new Thickness(0, 3) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            field.Margin = new Thickness(0);
+            Grid.SetColumn(field, 0);
+            grid.Children.Add(field);
+            button.Margin = new Thickness(6, 0, 0, 0);
+            Grid.SetColumn(button, 1);
+            grid.Children.Add(button);
+            return grid;
         }
+
+        /// <summary>Вторичная кнопка со значком и подписью, как в разметке окна.</summary>
+        private static Button SecondaryButton(string iconKey, string textKey, Action onClick,
+            string? tooltipKey = null, double iconSize = 14)
+        {
+            var button = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 4,
+                    Children =
+                    {
+                        IconHelper.MakeIcon(iconKey, iconSize, "SecondaryButtonTextBrush"),
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T(textKey),
+                            FontSize = 12,
+                            VerticalAlignment = VerticalAlignment.Center
+                        }
+                    }
+                },
+                Padding = new Thickness(10, 4),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            button.Styled(ControlThemes.SecondaryButton);
+            button.Click += (_, _) => onClick();
+            if (tooltipKey is not null)
+                ToolTip.SetTip(button, LocalizationManager.T(tooltipKey));
+            return button;
+        }
+
+        /// <summary>
+        /// Группа с заголовком: рамка карточки, а над ней подпись со значком.
+        /// Повторяет шаблон GroupBox из разметки (ConnectionSettingsWindow.xaml:42).
+        /// </summary>
+        private static Control Group(string iconKey, string titleKey, Control content)
+        {
+            var grid = new Grid { Margin = new Thickness(4, 6, 4, 4), VerticalAlignment = VerticalAlignment.Top };
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
+
+            var frame = new Border { BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8) };
+            Themes.ThemeBrushes.Bind(frame, Border.BackgroundProperty, "CardBackgroundBrush");
+            Themes.ThemeBrushes.Bind(frame, Border.BorderBrushProperty, "BorderBrushColor");
+            Grid.SetRow(frame, 0);
+            Grid.SetRowSpan(frame, 2);
+            grid.Children.Add(frame);
+
+            var header = new Border
+            {
+                Padding = new Thickness(10, 4, 10, 0),
+                Margin = new Thickness(8, 0, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Child = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        IconHelper.MakeIcon(iconKey, 16, "AccentBrush"),
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T(titleKey),
+                            FontWeight = FontWeight.SemiBold,
+                            FontSize = 13,
+                            VerticalAlignment = VerticalAlignment.Center
+                        }
+                    }
+                }
+            };
+            Themes.ThemeBrushes.Bind(header, Border.BackgroundProperty, "CardBackgroundBrush");
+            Grid.SetRow(header, 0);
+            grid.Children.Add(header);
+
+            content.Margin = new Thickness(10, 8);
+            Grid.SetRow(content, 1);
+            grid.Children.Add(content);
+            return grid;
+        }
+
+        /// <summary>
+        /// Карточка варианта выбора: переключатель в рамке с подписью и пояснением.
+        /// </summary>
+        private static RadioButton OptionCard(string groupName, string path, string titleKey, string hintKey,
+            string? enabledPath = null)
+        {
+            var card = new RadioButton
+            {
+                GroupName = groupName,
+                Content = new StackPanel
+                {
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T(titleKey),
+                            FontWeight = FontWeight.SemiBold,
+                            FontSize = 12
+                        },
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T(hintKey),
+                            FontSize = 11,
+                            Opacity = 0.75,
+                            TextWrapping = TextWrapping.Wrap,
+                            Margin = new Thickness(0, 2, 0, 0)
+                        }
+                    }
+                }
+            };
+            card.Styled(ControlThemes.OptionCard);
+            card.Bind(ToggleButton.IsCheckedProperty, new Binding(path) { Mode = BindingMode.TwoWay });
+            if (enabledPath is not null)
+                card.Bind(InputElement.IsEnabledProperty, new Binding(enabledPath));
+            return card;
+        }
+
+        /// <summary>Мелкое пояснение под группой: кегль 11, второстепенный цвет.</summary>
+        private static TextBlock Hint(string? textKey = null, string? bindingPath = null,
+            Thickness? margin = null)
+        {
+            var block = new TextBlock
+            {
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = margin ?? new Thickness(2, 6, 0, 0)
+            };
+            if (textKey is not null)
+                block.Text = LocalizationManager.T(textKey);
+            if (bindingPath is not null)
+                block.Bind(TextBlock.TextProperty, new Binding(bindingPath));
+            Themes.ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            return block;
+        }
+
+        private static TabItem Tab(string iconKey, string titleKey, Control content)
+        {
+            var tab = new TabItem
+            {
+                Header = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        IconHelper.MakeIcon(iconKey, 16),
+                        new TextBlock { Text = LocalizationManager.T(titleKey), VerticalAlignment = VerticalAlignment.Center }
+                    }
+                },
+                Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+            };
+            tab.Styled(ControlThemes.ConnTabItem);
+            return tab;
+        }
+
+        // ===================== Раскладка окна =====================
 
         private Control BuildRoot()
         {
-            var grid = new Grid { Margin = new Thickness(16) };
+            var grid = new Grid();
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            grid.Children.Add(BuildHeader());
-            Grid.SetRow(grid.Children[^1], 0);
+            var header = BuildHeader();
+            Grid.SetRow(header, 0);
+            grid.Children.Add(header);
 
             var tabs = BuildTabs();
+            tabs.Margin = new Thickness(12, 8, 12, 4);
             Grid.SetRow(tabs, 1);
             grid.Children.Add(tabs);
 
-            var buttons = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                Spacing = 8,
-                Margin = new Thickness(0, 12, 0, 0)
-            };
-            var cancel = new Button { Content = LocalizationManager.T("Common.Cancel"), MinWidth = 100, IsCancel = true };
-            cancel.Click += (_, _) => Close();
-            buttons.Children.Add(cancel);
-            var save = new Button { Content = LocalizationManager.T("Common.Save"), MinWidth = 120, IsDefault = true };
-            save.Click += (_, _) => OnSave_Click();
-            buttons.Children.Add(save);
-            Grid.SetRow(buttons, 2);
-            grid.Children.Add(buttons);
+            var bottom = BuildBottomBar();
+            Grid.SetRow(bottom, 2);
+            grid.Children.Add(bottom);
 
             return grid;
         }
 
-        private Control BuildHeader()
+        /// <summary>Шапка окна: значок базы, заголовок и подзаголовок.</summary>
+        private static Control BuildHeader()
         {
-            var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 12), Spacing = 10 };
+            var iconBox = new Border
+            {
+                Width = 40,
+                Height = 40,
+                CornerRadius = new CornerRadius(10),
+                Margin = new Thickness(0, 0, 12, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = IconHelper.MakeIcon("IconDatabase", 22, Brushes.White)
+            };
+            Themes.ThemeBrushes.Bind(iconBox, Border.BackgroundProperty, "AccentBrush");
 
-            // Наименование
-            panel.Children.Add(Field(LocalizationManager.T("Connection.NameLabel"), Tb("Name")));
+            var title = new TextBlock
+            {
+                Text = LocalizationManager.T("Connection.HeaderTitle"),
+                FontSize = 18,
+                FontWeight = FontWeight.SemiBold
+            };
+            var subtitle = new TextBlock
+            {
+                Text = LocalizationManager.T("Connection.HeaderSubtitle"),
+                FontSize = 12,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            Themes.ThemeBrushes.Bind(subtitle, TextBlock.ForegroundProperty, "TextSecondaryBrush");
 
-            // Группа
-            var groupRow = new Grid();
-            groupRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
-            groupRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            groupRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var groupLabel = new TextBlock { Text = LocalizationManager.T("Connection.GroupLabel"), VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(groupLabel, 0);
-            groupRow.Children.Add(groupLabel);
-            var groupText = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
-            groupText.Bind(TextBlock.TextProperty, new Binding("GroupDisplayPath"));
-            Grid.SetColumn(groupText, 1);
-            groupRow.Children.Add(groupText);
-            var selectGroup = new Button { Content = LocalizationManager.T("Connection.ChooseGroup"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
-            selectGroup.Click += (_, _) => OnSelectGroup_Click();
-            Grid.SetColumn(selectGroup, 2);
-            groupRow.Children.Add(selectGroup);
-            panel.Children.Add(groupRow);
+            var band = new Border
+            {
+                Padding = new Thickness(20, 16),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Child = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Children =
+                    {
+                        iconBox,
+                        new StackPanel
+                        {
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Children = { title, subtitle }
+                        }
+                    }
+                }
+            };
+            Themes.ThemeBrushes.Bind(band, Border.BackgroundProperty, "CardBackgroundBrush");
+            Themes.ThemeBrushes.Bind(band, Border.BorderBrushProperty, "BorderBrushColor");
+            return band;
+        }
 
-            // Описание
-            panel.Children.Add(Field(LocalizationManager.T("Connection.DescriptionLabel"), Tb("Description", null, true)));
+        /// <summary>Нижняя панель: сохранение доступно, только пока есть изменения.</summary>
+        private Control BuildBottomBar()
+        {
+            // Сохранение доступно, только пока есть несохранённые изменения,
+            // и гаснет прозрачностью, как в разметке (ConnectionSettingsWindow.xaml:1040).
+            var save = BuildConfirmActionButton("Common.Save", "IconSave", 140, OnSave_Click, closeOnClick: false);
+            save.Classes.Add("dimmed");
+            save.Bind(InputElement.IsEnabledProperty, new Binding("HasChanges"));
 
-            // ID
-            var idRow = new Grid();
-            idRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
-            idRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            idRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            idRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var idLabel = new TextBlock { Text = LocalizationManager.T("ConnectionSettings.IdLabel"), VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(idLabel, 0);
-            idRow.Children.Add(idLabel);
-            var idText = new TextBox { Padding = new Thickness(8, 5), IsReadOnly = true };
-            idText.Bind(TextBox.TextProperty, new Binding("Id") { Mode = BindingMode.TwoWay });
-            Grid.SetColumn(idText, 1);
-            idRow.Children.Add(idText);
-            var copyId = new Button { Content = LocalizationManager.T("Connection.CopyId"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
-            copyId.Click += (_, _) => OnCopyId_Click();
-            Grid.SetColumn(copyId, 2);
-            idRow.Children.Add(copyId);
-            var genId = new Button { Content = LocalizationManager.T("Connection.GenerateId"), MinWidth = 110, Margin = new Thickness(8, 0, 0, 0) };
-            genId.Click += (_, _) => _viewModel.Id = Guid.NewGuid().ToString("D");
-            Grid.SetColumn(genId, 3);
-            idRow.Children.Add(genId);
-            panel.Children.Add(idRow);
-
-            // Строка подключения
-            var csRow = new Grid();
-            csRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
-            csRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            csRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var csLabel = new TextBlock { Text = LocalizationManager.T("ConnectionSettings.ConnectionStringLabel"), VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(csLabel, 0);
-            csRow.Children.Add(csLabel);
-            var csText = new TextBox { Padding = new Thickness(8, 5), AcceptsReturn = true, MinHeight = 60 };
-            csText.Bind(TextBox.TextProperty, new Binding("ConnectionString") { Mode = BindingMode.TwoWay });
-            Grid.SetColumn(csText, 1);
-            csRow.Children.Add(csText);
-            var pasteCs = new Button { Content = LocalizationManager.T("ConnectionSettings.PasteButton"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
-            pasteCs.Click += (_, _) => OnPasteConnectionString_Click();
-            Grid.SetColumn(pasteCs, 2);
-            csRow.Children.Add(pasteCs);
-            panel.Children.Add(csRow);
-
-            return panel;
+            var bar = new Border
+            {
+                Padding = new Thickness(16, 12),
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Child = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Spacing = 10,
+                    Children = { save, BuildCancelActionButton(140) }
+                }
+            };
+            Themes.ThemeBrushes.Bind(bar, Border.BackgroundProperty, "CardBackgroundBrush");
+            Themes.ThemeBrushes.Bind(bar, Border.BorderBrushProperty, "BorderBrushColor");
+            return bar;
         }
 
         private TabControl BuildTabs()
         {
-            var tabs = new TabControl();
+            var tabs = new TabControl { TabStripPlacement = Dock.Left };
+            tabs.Styled(ControlThemes.ConnTabControl);
 
-            // ===== Подключение =====
-            var conn = new StackPanel();
+            tabs.Items.Add(Tab("IconDatabase", "Connection.Tab.Base", BuildBaseTab()));
+            tabs.Items.Add(Tab("IconNetwork", "Connection.Tab.Connection", BuildConnectionTab()));
+            tabs.Items.Add(Tab("IconMerge", "Connection.Tab.Repository", BuildRepositoryTab()));
+            tabs.Items.Add(Tab("IconAccountKey", "Connection.Tab.Auth", BuildAuthTab()));
+            tabs.Items.Add(Tab("IconPlay", "Connection.Tab.Launch", BuildLaunchTab()));
+            tabs.Items.Add(Tab("IconMonitor", "Connection.Tab.Bitness", BuildBitnessTab()));
+            tabs.Items.Add(Tab("IconPackage", "Connection.Tab.Platform", BuildPlatformTab()));
+            tabs.Items.Add(Tab("IconInfo", "Connection.Tab.Id", BuildIdTab()));
+            return tabs;
+        }
 
-            var connType = RadioGroup(
-                Radio("ConnectionType", "IsClientServer", LocalizationManager.T("Connection.TypeServer")),
-                Radio("ConnectionType", "IsFile", LocalizationManager.T("Connection.TypeFile")),
-                Radio("ConnectionType", "IsWebServer", LocalizationManager.T("Connection.TypeWeb")));
-            conn.Children.Add(Field(LocalizationManager.T("ConnectionSettings.ConnectionTypeLabel"), connType));
+        private Control BuildBaseTab()
+        {
+            var fields = FieldsGrid(3);
+            Place(fields, 0, "Connection.NameLabel", Tb("Name"));
 
-            conn.Children.Add(Field(LocalizationManager.T("Connection.ServerLabel"), Tb("Server", LocalizationManager.T("ConnectionSettings.ServerWatermark"))));
-            conn.Children.Add(Field(LocalizationManager.T("Connection.DatabaseNameLabel"), Tb("DatabaseName", LocalizationManager.T("ConnectionSettings.DatabaseNameWatermark"))));
-            conn.Children.Add(Field(LocalizationManager.T("Connection.PortLabel"), EditableCombo("PortText", "AvailablePorts")));
+            var groupPath = Tb("GroupDisplayPath");
+            groupPath.IsReadOnly = true;
+            groupPath.Padding = new Thickness(8, 6);
+            Place(fields, 1, "Connection.GroupLabel",
+                WithButton(groupPath, SecondaryButton("IconFolderOutline", "Connection.ChooseGroup", OnSelectGroup_Click)));
 
-            var filePathRow = new Grid();
-            filePathRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
-            filePathRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            filePathRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var fileLabel = new TextBlock { Text = LocalizationManager.T("CreateInfobase.DirLabel"), VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(fileLabel, 0);
-            filePathRow.Children.Add(fileLabel);
-            var fileText = Tb("FilePath", LocalizationManager.T("ConnectionSettings.FilePathWatermark"));
-            Grid.SetColumn(fileText, 1);
-            filePathRow.Children.Add(fileText);
-            var browse = new Button { Content = LocalizationManager.T("Common.Browse"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
-            browse.Click += (_, _) => OnBrowseFilePath_Click();
-            Grid.SetColumn(browse, 2);
-            filePathRow.Children.Add(browse);
-            conn.Children.Add(Field("", filePathRow));
+            Place(fields, 2, "Connection.DescriptionLabel", Tb("Description"));
+            return Group("IconDatabase", "Connection.GroupBase", fields);
+        }
 
-            conn.Children.Add(Field(LocalizationManager.T("Connection.WebUrlLabel"), Tb("WebUrl", "https://…")));
+        private Control BuildConnectionTab()
+        {
+            var fields = FieldsGrid(4);
 
-            // Аутентификация
-            var auth = RadioGroup(
-                Radio("Auth", "IsAuthPrompt", LocalizationManager.T("ConnectionSettings.AuthPromptShort")),
-                Radio("Auth", "IsAuthCredentials", LocalizationManager.T("ConnectionSettings.AuthAutoShort")),
-                Radio("Auth", "IsAuthWindows", LocalizationManager.T("ConnectionSettings.AuthOsShort")));
-            conn.Children.Add(Field(LocalizationManager.T("ConnectionSettings.AuthLabel"), auth));
-
-            // Имя и пароль показываются только в режиме «вход автоматически»:
-            // в остальных они не участвуют, и в разметке WPF они скрыты
-            // привязкой к IsCredentialsVisible (ConnectionSettingsWindow.xaml:523).
-            var userField = Field(LocalizationManager.T("Connection.UserLabel"), Tb("User"));
-            userField.Bind(Control.IsVisibleProperty, new Binding("IsCredentialsVisible") { Source = _viewModel });
-            conn.Children.Add(userField);
-            _passwordBox.PasswordChanged += (_, _) =>
+            var types = new StackPanel
             {
-                if (_isSyncingPassword) return;
-                _viewModel.Password = _passwordBox.Password;
+                Children =
+                {
+                    OptionCard("ConnType", "IsClientServer", "Connection.TypeServer", "Connection.TypeServerHint"),
+                    OptionCard("ConnType", "IsFile", "Connection.TypeFile", "Connection.TypeFileHint"),
+                    OptionCard("ConnType", "IsWebServer", "Connection.TypeWeb", "Connection.TypeWebHint")
+                }
             };
-            var passwordField = Field(LocalizationManager.T("Connection.PasswordLabel"), _passwordBox);
-            passwordField.Bind(Control.IsVisibleProperty, new Binding("IsCredentialsVisible") { Source = _viewModel });
-            conn.Children.Add(passwordField);
+            Place(fields, 0, "Connection.TypeLabel", types, labelAlignment: VerticalAlignment.Top);
 
-            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Connection.Tab.Connection"), Content = new ScrollViewer { Content = conn, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            // Строки серверного, файлового и веб-подключения занимают одни и те же
+            // строки сетки и переключаются признаком типа, как в разметке
+            // (ConnectionSettingsWindow.xaml:324, :346, :363).
+            var server = EditableCombo("Server", "AvailableServers");
+            ToolTip.SetTip(server, LocalizationManager.T("Connection.ServerTooltip"));
+            Place(fields, 1, "Connection.ServerLabel", server, "IsClientServer");
+            Place(fields, 2, "Connection.DatabaseNameLabel", Tb("DatabaseName"), "IsClientServer");
+            var port = EditableCombo("PortText", "AvailablePorts");
+            ToolTip.SetTip(port, LocalizationManager.T("Connection.PortTooltip"));
+            Place(fields, 3, "Connection.PortLabel", port, "IsClientServer");
 
-            // ===== Платформа и запуск =====
-            var platform = new StackPanel();
+            Place(fields, 1, "Connection.FilePathLabel",
+                WithButton(Tb("FilePath"),
+                    SecondaryButton("IconFolderOpen", "Common.Browse", OnBrowseFilePath_Click, "Connection.BrowseFileTooltip")),
+                "IsFile");
 
-            var platRow = new Grid();
-            platRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
-            platRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            platRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var platLabel = new TextBlock { Text = LocalizationManager.T("Connection.VersionLabel"), VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(platLabel, 0);
-            platform.Children.Add(platRow);
-            platRow.Children.Add(platLabel);
-            var platCombo = new ComboBox();
-            platCombo.Bind(ComboBox.ItemsSourceProperty, new Binding("InstalledPlatformVersions"));
-            platCombo.Bind(ComboBox.SelectedItemProperty, new Binding("PlatformVersion") { Mode = BindingMode.TwoWay });
-            Grid.SetColumn(platCombo, 1);
-            platRow.Children.Add(platCombo);
-            var platBtn = new Button { Content = LocalizationManager.T("Connection.ChoosePlatform"), MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
-            platBtn.Click += (_, _) => OnPlatformSettings_Click();
-            Grid.SetColumn(platBtn, 2);
-            platRow.Children.Add(platBtn);
+            Place(fields, 1, "Connection.WebUrlLabel", Tb("WebUrl"), "IsWebServer");
 
-            platform.Children.Add(Field(LocalizationManager.T("ConnectionSettings.ArchLabel"), RadioGroup(
-                Radio("Arch", "IsArchitecture32", "32"),
-                Radio("Arch", "IsArchitecture64", "64"),
-                Radio("Arch", "IsArchitecture32Priority", LocalizationManager.T("ConnectionSettings.Arch32PriorityShort")),
-                Radio("Arch", "IsArchitecture64Priority", LocalizationManager.T("ConnectionSettings.Arch64PriorityShort")))));
-
-            // Две подсказки под выбором разрядности, как в разметке WPF
-            // (ConnectionSettingsWindow.xaml:877): первая объясняет выбранный
-            // режим и меняется вместе с ним, вторая сообщает про саму ОС.
-            var archHint = new TextBlock
+            var paste = new Button
             {
-                FontSize = UiMetrics.ScaledFont(12),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 2, 0, 0)
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        IconHelper.MakeIcon("IconCopy", 15, "SecondaryButtonTextBrush"),
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T("Connection.PasteString"),
+                            FontSize = 12,
+                            FontWeight = FontWeight.SemiBold,
+                            VerticalAlignment = VerticalAlignment.Center
+                        }
+                    }
+                },
+                Height = 36,
+                Padding = new Thickness(12, 0),
+                Margin = new Thickness(0, 0, 6, 0)
             };
-            archHint.Bind(TextBlock.TextProperty, new Binding("ArchitectureHint") { Source = _viewModel });
-            Themes.ThemeBrushes.Bind(archHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            platform.Children.Add(archHint);
+            paste.Styled(ControlThemes.SecondaryButton);
+            paste.Click += (_, _) => OnPasteConnectionString_Click();
+            ToolTip.SetTip(paste, LocalizationManager.T("Connection.PasteStringTooltip"));
 
-            // Тексты автора говорят «Windows» в обоих вариантах, поэтому для
-            // Linux заведены свои ключи, а не переиспользованы его.
-            var osHint = new TextBlock
+            return new StackPanel
             {
-                Text = LocalizationManager.T(Environment.Is64BitOperatingSystem
-                    ? "Connection.OsLinux64Text"
-                    : "Connection.OsLinux32Text"),
-                FontSize = UiMetrics.ScaledFont(12),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 2, 0, 8)
+                Children =
+                {
+                    Group("IconServer", "Connection.GroupConnectionType", fields),
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Margin = new Thickness(4, 8, 4, 0),
+                        Children = { paste, HelpLink("Connection.PasteStringHelp") }
+                    }
+                }
             };
-            Themes.ThemeBrushes.Bind(osHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            platform.Children.Add(osHint);
+        }
 
-            platform.Children.Add(Field(LocalizationManager.T("ConnectionSettings.LaunchModeLabel"), RadioGroup(
-                Radio("LaunchMode", "IsAutoMode", LocalizationManager.T("Main.SessionClientAuto")),
-                Radio("LaunchMode", "IsThinClient", LocalizationManager.T("Main.SessionClientThin")),
-                Radio("LaunchMode", "IsThickClient", LocalizationManager.T("ConnectionSettings.LaunchThickShort")),
-                Radio("LaunchMode", "IsThickOrdinaryClient", LocalizationManager.T("ConnectionSettings.LaunchThickOrdinaryShort")),
-                Radio("LaunchMode", "IsWebClient", LocalizationManager.T("Connection.LaunchWeb")))));
+        private Control BuildRepositoryTab()
+        {
+            var fields = FieldsGrid(4);
+            var server = Tb("RepositoryServer");
+            ToolTip.SetTip(server, LocalizationManager.T("Connection.RepositoryServerTooltip"));
+            Place(fields, 0, "Connection.RepositoryServerLabel", server);
+            var name = Tb("RepositoryName");
+            ToolTip.SetTip(name, LocalizationManager.T("Connection.RepositoryNameTooltip"));
+            Place(fields, 1, "Connection.RepositoryNameLabel", name);
+            var user = Tb("RepositoryUser");
+            ToolTip.SetTip(user, LocalizationManager.T("Connection.RepositoryUserTooltip"));
+            Place(fields, 2, "Connection.RepositoryLoginLabel", user);
 
-            var launchRow = new Grid();
-            launchRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
-            launchRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            launchRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var launchLabel = new TextBlock { Text = LocalizationManager.T("ConnectionSettings.LaunchParametersLabel"), VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(launchLabel, 0);
-            launchRow.Children.Add(launchLabel);
-            var launchText = new TextBox { Padding = new Thickness(8, 5), AcceptsReturn = true, MinHeight = 60 };
-            launchText.Bind(TextBox.TextProperty, new Binding("LaunchParameters") { Mode = BindingMode.TwoWay });
-            Grid.SetColumn(launchText, 1);
-            launchRow.Children.Add(launchText);
-            var launchBtn = new Button { Content = LocalizationManager.T("ConnectionSettings.ConfigureButton"), MinWidth = 100, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
-            launchBtn.Click += (_, _) => OnLaunchParameters_Click();
-            Grid.SetColumn(launchBtn, 2);
-            launchRow.Children.Add(launchBtn);
-            platform.Children.Add(Field("", launchRow));
-
-            platform.Children.Add(Field(LocalizationManager.T("Connection.ConfigurationLabel"), Tb("ConfigurationName")));
-            platform.Children.Add(Field(LocalizationManager.T("ConnectionSettings.ConfigurationVersionLabel"), Tb("ConfigurationVersion")));
-
-            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("ConnectionSettings.TabPlatformAndLaunch"), Content = new ScrollViewer { Content = platform, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
-
-            // ===== Репозиторий =====
-            var repo = new StackPanel();
-            repo.Children.Add(Field(LocalizationManager.T("Connection.RepositoryServerLabel"), Tb("RepositoryServer")));
-            repo.Children.Add(Field(LocalizationManager.T("Connection.RepositoryNameLabel"), Tb("RepositoryName")));
-            repo.Children.Add(Field(LocalizationManager.T("Connection.UserLabel"), Tb("RepositoryUser")));
+            _repositoryPasswordBox.Margin = new Thickness(0, 3);
+            _repositoryPasswordBox.Padding = new Thickness(6, 4);
+            _repositoryPasswordBox.VerticalContentAlignment = VerticalAlignment.Center;
+            ToolTip.SetTip(_repositoryPasswordBox, LocalizationManager.T("Connection.RepositoryPasswordTooltip"));
             _repositoryPasswordBox.PasswordChanged += (_, _) =>
             {
                 if (_isSyncingRepositoryPassword) return;
                 _viewModel.RepositoryPassword = _repositoryPasswordBox.Password;
             };
-            repo.Children.Add(Field(LocalizationManager.T("Connection.RepositoryPasswordLabel"), _repositoryPasswordBox));
-            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Connection.Tab.Repository"), Content = new ScrollViewer { Content = repo, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            Place(fields, 3, "Connection.RepositoryPasswordLabel", _repositoryPasswordBox);
 
-            // ===== Конфигуратор =====
-            var config = new StackPanel();
-            config.Children.Add(Field(LocalizationManager.T("ConnectionSettings.AuthLabel"), RadioGroup(
-                Radio("ConfigAuth", "IsConfiguratorAuthPrompt", LocalizationManager.T("ConnectionSettings.AuthPromptShort")),
-                Radio("ConfigAuth", "IsConfiguratorAuthCredentials", LocalizationManager.T("ConnectionSettings.AuthAutoShort")),
-                Radio("ConfigAuth", "IsConfiguratorAuthWindows", LocalizationManager.T("ConnectionSettings.AuthOsShort")))));
-            var configUserField = Field(LocalizationManager.T("Connection.UserLabel"), Tb("ConfiguratorUser"));
-            configUserField.Bind(Control.IsVisibleProperty,
-                new Binding("IsConfiguratorCredentialsVisible") { Source = _viewModel });
-            config.Children.Add(configUserField);
+            var content = new StackPanel
+            {
+                Children = { fields, Hint("Connection.RepositoryDescription", margin: new Thickness(0, 8, 0, 0)) }
+            };
+            return Group("IconMerge", "Connection.GroupRepository", content);
+        }
+
+        private Control BuildAuthTab()
+        {
+            var enterprise = FieldsGrid(3);
+            Place(enterprise, 0, "Connection.ModeLabel", new StackPanel
+            {
+                Children =
+                {
+                    OptionCard("Auth", "IsAuthPrompt", "Connection.AuthPrompt", "Connection.AuthPromptHint"),
+                    OptionCard("Auth", "IsAuthCredentials", "Connection.AuthAuto", "Connection.AuthAutoHint"),
+                    OptionCard("Auth", "IsAuthWindows", "Connection.AuthOs", "Connection.AuthOsHint")
+                }
+            }, labelAlignment: VerticalAlignment.Top);
+
+            var user = Tb("User");
+            Place(enterprise, 1, "Connection.UserLabel", user, "IsCredentialsVisible");
+
+            _passwordBox.Margin = new Thickness(0, 3);
+            _passwordBox.Padding = new Thickness(6, 4);
+            _passwordBox.VerticalContentAlignment = VerticalAlignment.Center;
+            _passwordBox.PasswordChanged += (_, _) =>
+            {
+                if (_isSyncingPassword) return;
+                _viewModel.Password = _passwordBox.Password;
+            };
+            Place(enterprise, 2, "Connection.PasswordLabel", _passwordBox, "IsCredentialsVisible");
+
+            var configurator = FieldsGrid(3);
+            Place(configurator, 0, "Connection.ModeLabel", new StackPanel
+            {
+                Children =
+                {
+                    OptionCard("ConfigAuth", "IsConfiguratorAuthPrompt", "Connection.AuthPrompt", "Connection.AuthConfiguratorPromptHint"),
+                    OptionCard("ConfigAuth", "IsConfiguratorAuthCredentials", "Connection.AuthAuto", "Connection.AuthAutoHint"),
+                    OptionCard("ConfigAuth", "IsConfiguratorAuthWindows", "Connection.AuthOs", "Connection.AuthOsHint")
+                }
+            }, labelAlignment: VerticalAlignment.Top);
+
+            Place(configurator, 1, "Connection.UserLabel", Tb("ConfiguratorUser"), "IsConfiguratorCredentialsVisible");
+
+            _configuratorPasswordBox.Margin = new Thickness(0, 3);
+            _configuratorPasswordBox.Padding = new Thickness(6, 4);
+            _configuratorPasswordBox.VerticalContentAlignment = VerticalAlignment.Center;
             _configuratorPasswordBox.PasswordChanged += (_, _) =>
             {
                 if (_isSyncingConfiguratorPassword) return;
                 _viewModel.ConfiguratorPassword = _configuratorPasswordBox.Password;
             };
-            var configPasswordField = Field(LocalizationManager.T("Connection.PasswordLabel"), _configuratorPasswordBox);
-            configPasswordField.Bind(Control.IsVisibleProperty,
-                new Binding("IsConfiguratorCredentialsVisible") { Source = _viewModel });
-            config.Children.Add(configPasswordField);
-            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("ConnectionSettings.TabConfigurator"), Content = new ScrollViewer { Content = config, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            Place(configurator, 2, "Connection.PasswordLabel", _configuratorPasswordBox, "IsConfiguratorCredentialsVisible");
 
-            return tabs;
+            return new StackPanel
+            {
+                Children =
+                {
+                    Group("IconAccountKey", "Connection.GroupAuthEnterprise", enterprise),
+                    Group("IconApplicationCog", "Connection.GroupAuthConfigurator", configurator)
+                }
+            };
+        }
+
+        private Control BuildLaunchTab()
+        {
+            var content = new StackPanel
+            {
+                Children =
+                {
+                    OptionCard("LaunchMode", "IsAutoMode", "Connection.LaunchAuto", "Connection.LaunchAutoHint"),
+                    OptionCard("LaunchMode", "IsThinClient", "Connection.LaunchThin", "Connection.LaunchThinHint"),
+                    OptionCard("LaunchMode", "IsThickClient", "Connection.LaunchThickManaged", "Connection.LaunchThickManagedHint"),
+                    OptionCard("LaunchMode", "IsThickOrdinaryClient", "Connection.LaunchThickOrdinary", "Connection.LaunchThickOrdinaryHint"),
+                    // Веб-клиент доступен только у веб-подключения, как в разметке
+                    // (ConnectionSettingsWindow.xaml:734).
+                    OptionCard("LaunchMode", "IsWebClient", "Connection.LaunchWeb", "Connection.LaunchWebHint", "IsWebClientAllowed"),
+                    Hint(bindingPath: "LaunchModeHint")
+                }
+            };
+            return Group("IconApplication", "Connection.GroupLaunchMode", content);
+        }
+
+        private Control BuildBitnessTab()
+        {
+            // Тексты автора говорят «Windows» в обоих вариантах, поэтому для
+            // Linux заведены свои ключи, а не переиспользованы его.
+            var osHint = Hint(Environment.Is64BitOperatingSystem
+                ? "Connection.OsLinux64Text"
+                : "Connection.OsLinux32Text", margin: new Thickness(2, 2, 0, 0));
+            if (!Environment.Is64BitOperatingSystem)
+                osHint.Foreground = new SolidColorBrush(Color.Parse("#DC2626"));
+
+            var content = new StackPanel
+            {
+                Children =
+                {
+                    OptionCard("Arch", "IsArchitecture32Priority", "Connection.Arch32Priority", "Connection.Arch32PriorityHint"),
+                    OptionCard("Arch", "IsArchitecture64Priority", "Connection.Arch64Priority", "Connection.Arch64PriorityHint"),
+                    OptionCard("Arch", "IsArchitecture32", "Connection.ArchOnly32", "Connection.ArchOnly32Hint"),
+                    // Только 64 недоступно на 32-битной системе (xaml:852).
+                    OptionCard("Arch", "IsArchitecture64", "Connection.ArchOnly64", "Connection.ArchOnly64Hint", "IsOs64Bit"),
+                    Hint(bindingPath: "ArchitectureHint"),
+                    osHint
+                }
+            };
+            return Group("IconMonitor", "Connection.GroupBitness", content);
+        }
+
+        private Control BuildPlatformTab()
+        {
+            var fields = FieldsGrid(3);
+
+            var version = Tb("PlatformVersion");
+            version.Padding = new Thickness(8, 6);
+            ToolTip.SetTip(version, LocalizationManager.T("Connection.PlatformVersionTooltip"));
+            var pickPlatform = SecondaryButton("IconPackage", "Connection.ChoosePlatform", OnPlatformSettings_Click);
+            pickPlatform.Padding = new Thickness(8, 3);
+            Place(fields, 0, "Connection.VersionLabel", WithButton(version, pickPlatform));
+
+            var configRow = new Grid { Margin = new Thickness(0, 6, 0, 3) };
+            configRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(2, GridUnitType.Star)));
+            configRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(8)));
+            configRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            var configName = Tb("ConfigurationName");
+            configName.Margin = new Thickness(0);
+            configName.Padding = new Thickness(8, 6);
+            ToolTip.SetTip(configName, LocalizationManager.T("Connection.ConfigurationNameTooltip"));
+            Grid.SetColumn(configName, 0);
+            configRow.Children.Add(configName);
+            var configVersion = Tb("ConfigurationVersion");
+            configVersion.Margin = new Thickness(0);
+            configVersion.Padding = new Thickness(8, 6);
+            ToolTip.SetTip(configVersion, LocalizationManager.T("Connection.ConfigurationVersionTooltip"));
+            Grid.SetColumn(configVersion, 2);
+            configRow.Children.Add(configVersion);
+            Place(fields, 1, "Connection.ConfigurationLabel", configRow);
+
+            var parameters = Tb("LaunchParameters");
+            parameters.Padding = new Thickness(8, 6);
+            var pickParameters = SecondaryButton("IconTune", "Connection.Parameters", OnLaunchParameters_Click);
+            pickParameters.Padding = new Thickness(8, 3);
+            Place(fields, 2, "Connection.ParametersLabel", WithButton(parameters, pickParameters));
+
+            return Group("IconPackage", "Connection.GroupPlatform", fields);
+        }
+
+        private Control BuildIdTab()
+        {
+            var id = Tb("Id");
+            id.Margin = new Thickness(0);
+            ToolTip.SetTip(id, LocalizationManager.T("Connection.IdTooltip"));
+
+            var label = new TextBlock
+            {
+                Text = LocalizationManager.T("Connection.IdLabel"),
+                FontSize = 11,
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            Themes.ThemeBrushes.Bind(label, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+
+            var generate = SecondaryButton("IconRefresh", "Connection.GenerateId",
+                () => _viewModel.Id = Guid.NewGuid().ToString("D"), "Connection.GenerateIdTooltip");
+            generate.Padding = new Thickness(10, 5);
+            generate.Margin = new Thickness(0, 0, 8, 0);
+            var copy = SecondaryButton("IconCopy", "Connection.CopyId", OnCopyId_Click, "Connection.CopyIdTooltip");
+            copy.Padding = new Thickness(10, 5);
+
+            return new StackPanel
+            {
+                Margin = new Thickness(8, 12, 8, 8),
+                VerticalAlignment = VerticalAlignment.Top,
+                Children =
+                {
+                    Hint("Connection.IdDescription", margin: new Thickness(0, 0, 0, 10)),
+                    label,
+                    id,
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Margin = new Thickness(0, 8, 0, 0),
+                        Children = { generate, copy }
+                    }
+                }
+            };
         }
 
         // ===================== Обработчики =====================
