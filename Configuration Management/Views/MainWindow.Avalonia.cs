@@ -2652,7 +2652,7 @@ namespace Configuration_Management
             ToolTip.SetTip(main, tooltip);
             main.Bind(Button.CommandProperty, new Binding(commandPath));
 
-            var menu = new ContextMenu();
+            var menu = new ContextMenu().Styled(Themes.ControlThemes.ModernContextMenu);
             foreach (var (header, command, itemIcon, itemColor) in menuItems)
             {
                 if (header.Length == 0)
@@ -2665,6 +2665,7 @@ namespace Configuration_Management
                 // (MainWindow.xaml:1954 и 1962): настройка параметров голубая,
                 // запуск с авторизацией фиолетовый.
                 var item = new MenuItem { Header = header };
+                item.Styled(Themes.ControlThemes.ModernMenuItem);
                 if (itemIcon is not null)
                     item.Icon = IconHelper.MakeIcon(itemIcon, 18,
                         itemColor is not null ? new SolidColorBrush(Color.Parse(itemColor)) : Brushes.Gray);
@@ -4230,7 +4231,7 @@ namespace Configuration_Management
             _statusInfo.Bind(ToolTip.TipProperty, new Binding("StatusBarInfo"));
             if (_vm is not null)
             {
-                var statusMenu = new ContextMenu();
+                var statusMenu = new ContextMenu().Styled(Themes.ControlThemes.ModernContextMenu);
                 statusMenu.Items.Add(MenuAction("Main.CopyPath", _vm.CopyConnectionStringCommand, iconKey: "IconCopy"));
                 _statusInfo.ContextMenu = statusMenu;
             }
@@ -4548,7 +4549,7 @@ namespace Configuration_Management
         /// </summary>
         private ContextMenu BuildRowContextMenu()
         {
-            var menu = new ContextMenu();
+            var menu = new ContextMenu().Styled(Themes.ControlThemes.ModernContextMenu);
             if (_vm is null)
                 return menu;
 
@@ -4557,6 +4558,7 @@ namespace Configuration_Management
                 Header = LocalizationManager.T("Main.ClearCache"),
                 Icon = MenuIcon("IconBroom", "#14B8A6")
             };
+            cacheMenu.Styled(Themes.ControlThemes.ModernMenuItem);
             cacheMenu.Items.Add(MenuAction("Main.ClearProgramCache", _vm.ClearProgramCacheCommand));
             cacheMenu.Items.Add(MenuAction("Main.ClearUserCache", _vm.ClearUserCacheCommand));
             cacheMenu.Items.Add(new Separator());
@@ -4603,6 +4605,7 @@ namespace Configuration_Management
                 Header = LocalizationManager.T(textKey),
                 Command = command
             };
+            item.Styled(Themes.ControlThemes.ModernMenuItem);
             if (iconKey is not null && iconColor is not null)
                 item.Icon = MenuIcon(iconKey, iconColor);
             if (Controls.HotkeyBox.TryParse(gesture, out var parsed) && parsed is not null)
