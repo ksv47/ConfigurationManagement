@@ -70,6 +70,9 @@ namespace Configuration_Management
             Height = 540;
             MinWidth = 480;
             MinHeight = 440;
+            // Кегль окна из разметки (CacheCleanWindow.xaml:13): подписи флажков
+            // и кнопок выбора берут его по наследству.
+            FontSize = 13;
             CanResize = true;
 
             _infobases = infobases.ToList();
@@ -273,6 +276,7 @@ namespace Configuration_Management
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 6, 0, 0)
             };
+            Themes.ThemeBrushes.Bind(description, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             Grid.SetRow(description, 1);
             grid.Children.Add(description);
 
@@ -476,7 +480,7 @@ namespace Configuration_Management
         /// <summary>Строит закреплённую шапку списка с зонами захвата для изменения ширины колонок.</summary>
         private Grid BuildHeaderGrid()
         {
-            var grid = new Grid { Margin = new Thickness(8, 0, 8, 4) };
+            var grid = new Grid { Margin = new Thickness(8, 0, 8, 2) };
             ApplyColumns(grid);
 
             grid.Children.Add(BuildHeaderText(LocalizationManager.T("CacheClean.ColumnBase"), HorizontalAlignment.Left, 0));
@@ -582,7 +586,7 @@ namespace Configuration_Management
 
             foreach (var ib in _infobases)
             {
-                var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+                var row = new Grid { Margin = new Thickness(4, 2, 4, 2) };
                 ApplyColumns(row);
 
                 var check = new CheckBox
@@ -624,12 +628,14 @@ namespace Configuration_Management
                 Text = text,
                 FontSize = 12,
                 FontWeight = FontWeight.SemiBold,
-                Foreground = Brushes.Gray,
                 HorizontalAlignment = align,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(8, 0, 8, 0),
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
+            // Цвет из темы, а не постоянный серый: в тёмной схеме вторичный
+            // текст светлее фона (CacheCleanWindow.xaml.cs:134).
+            Themes.ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             Grid.SetColumn(block, column);
             return block;
         }
@@ -637,16 +643,17 @@ namespace Configuration_Management
         /// <summary>Формирует поле отображения размера кеша базы.</summary>
         private static TextBlock BuildSizeText()
         {
-            return new TextBlock
+            var size = new TextBlock
             {
                 Text = "…",
                 FontSize = 12,
-                Foreground = Brushes.Gray,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(8, 0, 8, 0),
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
+            Themes.ThemeBrushes.Bind(size, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            return size;
         }
 
         private void OnSearchTextChanged()
