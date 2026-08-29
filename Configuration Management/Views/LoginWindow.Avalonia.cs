@@ -45,6 +45,8 @@ namespace Configuration_Management
         {
             _profileService = profileService;
             Title = LocalizationManager.T("Auth.Title");
+            // Кегль окна из разметки: подписи без явного размера берут его по наследству.
+            FontSize = 13;
             Width = 460;
             Height = 360;
             MinWidth = 400;

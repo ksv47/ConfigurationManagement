@@ -25,8 +25,11 @@ namespace Configuration_Management
         public ColorPickerWindow(string? initialColor = null)
         {
             Title = LocalizationManager.T("ColorPicker.Title");
+            // Кегль окна из разметки: подписи без явного размера берут его по наследству.
+            FontSize = 13;
             Width = 470;
-            SizeToContent = SizeToContent.Height;
+            // Высота из разметки, а не подгонка по содержимому.
+            Height = 560;
             CanResize = false;
             SystemDecorations = SystemDecorations.Full;
 

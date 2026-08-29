@@ -22,6 +22,8 @@ namespace Configuration_Management
         public AddEditWindow()
         {
             Title = LocalizationManager.T("AddEdit.Title");
+            // Кегль окна из разметки: подписи без явного размера берут его по наследству.
+            FontSize = 13;
             Width = 480;
             SizeToContent = SizeToContent.Height;
             CanResize = false;

@@ -11,6 +11,7 @@
                        Width="520"
                        MinWidth="460"
                        SizeToContent="Height"
+                       FontSize="13"
                        CanResize="False"
                        SystemDecorations="Full">
     <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,Auto">

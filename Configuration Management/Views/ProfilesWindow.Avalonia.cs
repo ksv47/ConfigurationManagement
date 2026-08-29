@@ -40,6 +40,8 @@ namespace Configuration_Management
         {
             _profileService = profileService;
             Title = LocalizationManager.T("Profiles.Title");
+            // Кегль окна из разметки: подписи без явного размера берут его по наследству.
+            FontSize = 13;
             // Размеры и возможность растягивания из разметки
             // (ProfilesWindow.xaml:10-13).
             Width = 760;
@@ -232,6 +234,9 @@ namespace Configuration_Management
             row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
 
             var cancel = BuildCancelButton(110);
+            // Отступ кнопки отмены из разметки (ProfilesWindow.xaml:162),
+            // общая тема кнопки даёт 14,9.
+            cancel.Padding = new Thickness(12, 6);
             Grid.SetColumn(cancel, 0);
             row.Children.Add(cancel);
 

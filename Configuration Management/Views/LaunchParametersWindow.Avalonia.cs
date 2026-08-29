@@ -30,6 +30,8 @@ namespace Configuration_Management
         public LaunchParametersWindow(string currentParameters)
         {
             Title = LocalizationManager.T("LaunchParams.Title");
+            // Кегль окна из разметки: подписи без явного размера берут его по наследству.
+            FontSize = 13;
             Width = 800;
             Height = 640;
             MinWidth = 720;
