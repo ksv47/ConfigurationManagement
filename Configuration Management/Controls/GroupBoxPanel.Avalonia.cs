@@ -1,6 +1,7 @@
 #if LINUX
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Localization;
 
@@ -21,8 +22,13 @@ namespace Configuration_Management.Controls
         /// <param name="content">Содержимое рамки.</param>
         /// <param name="margin">Внешний отступ рамки.</param>
         /// <param name="padding">Внутренний отступ содержимого; по умолчанию 8, как в стиле.</param>
+        /// <param name="headerExtra">
+        /// Довесок к подписи рамки, например кружок справки: в разметке автора
+        /// заголовок GroupBox это панель из подписи и HelpLink рядом
+        /// (LaunchParametersWindow.xaml:41-46).
+        /// </param>
         public static Control Build(string headerKey, Control content,
-            Thickness? margin = null, Thickness? padding = null)
+            Thickness? margin = null, Thickness? padding = null, Control? headerExtra = null)
         {
             var grid = new Grid { Margin = margin ?? default };
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
@@ -37,12 +43,22 @@ namespace Configuration_Management.Controls
             };
             Themes.ThemeBrushes.Bind(headerText, TextBlock.ForegroundProperty, "TextPrimaryBrush");
 
+            Control headerContent = headerText;
+            if (headerExtra is not null)
+            {
+                var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                headerText.VerticalAlignment = VerticalAlignment.Center;
+                headerPanel.Children.Add(headerText);
+                headerPanel.Children.Add(headerExtra);
+                headerContent = headerPanel;
+            }
+
             var header = new Border
             {
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(8, 4),
-                Child = headerText
+                Child = headerContent
             };
             Themes.ThemeBrushes.Bind(header, Border.BackgroundProperty, "CardBackgroundBrush");
             Themes.ThemeBrushes.Bind(header, Border.BorderBrushProperty, "BorderBrushColor");

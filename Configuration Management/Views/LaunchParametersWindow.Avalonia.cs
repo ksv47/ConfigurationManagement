@@ -58,58 +58,22 @@ namespace Configuration_Management
         private Control BuildRoot()
         {
             var grid = new Grid { Margin = new Thickness(16) };
-            // По высоте тянется справочник (строка 4), а не подпись над ним:
-            // раньше звёздочка стояла на подписи, справочник разворачивался
-            // на всю высоту содержимого и выдавливал кнопки за край окна.
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            // Три строки, как в разметке: рамка ввода, рамка справочника
+            // на всё оставшееся место и кнопки (LaunchParametersWindow.xaml:31-37).
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            var title = new TextBlock
-            {
-                Text = LocalizationManager.T("LaunchParams.Header"),
-                FontSize = 15,
-                FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 0, 0, 8)
-            };
-            Grid.SetRow(title, 0);
-            grid.Children.Add(title);
-
-            var hint = new TextBlock
-            {
-                Text = LocalizationManager.T("LaunchParams.Hint"),
-                FontSize = 12,
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 0, 0, 8)
-            };
-            Grid.SetRow(hint, 1);
-            grid.Children.Add(hint);
-
-            Grid.SetRow(_txtCustom, 2);
-            grid.Children.Add(_txtCustom);
-
-            // Справочник параметров
-            // Заголовок справочника со справкой и шапка колонок, как в разметке
-            // WPF (LaunchParametersWindow.xaml:57 и :69): там это GridView,
-            // у нас список, поэтому подписи колонок стоят отдельной строкой.
-            var refHeader = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 6,
-                Margin = new Thickness(0, 12, 0, 6)
-            };
-            refHeader.Children.Add(new TextBlock
-            {
-                Text = LocalizationManager.T("LaunchParams.Reference"),
-                FontWeight = FontWeight.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center
-            });
-            refHeader.Children.Add(HelpLink("LaunchParams.ReferenceHelp"));
-            Grid.SetRow(refHeader, 3);
-            grid.Children.Add(refHeader);
+            // Поле ввода лежит в рамке «Параметры» со справкой в заголовке,
+            // как в разметке (LaunchParametersWindow.xaml:40-51). Своих заголовка
+            // и подсказки у автора здесь нет.
+            var inputBox = Controls.GroupBoxPanel.Build(
+                "Main.Parameters", _txtCustom,
+                margin: new Thickness(0, 0, 0, 12),
+                padding: new Thickness(12),
+                headerExtra: HelpLink("LaunchParams.InputHelp"));
+            Grid.SetRow(inputBox, 0);
+            grid.Children.Add(inputBox);
 
             var list = new ListBox();
             list.ItemsSource = BuildReferenceCatalog();
@@ -158,22 +122,15 @@ namespace Configuration_Management
                 }
             };
 
-            var listBorder = new Border
+            var listHost = new ScrollViewer
             {
-                Child = new ScrollViewer
-                {
-                    Content = list,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Padding = new Thickness(8, 8)
-                },
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
-                Margin = new Thickness(0, 0, 0, 12)
+                Content = list,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
             // Подписи колонок над списком: в WPF это шапка GridView, у нас список,
             // поэтому строка своя, но ширины те же, что у строк справочника.
-            var columnsHeader = new Grid { Margin = new Thickness(10, 0, 10, 4) };
+            var columnsHeader = new Grid { Margin = new Thickness(2, 0, 2, 4) };
             columnsHeader.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(232)));
             columnsHeader.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             var paramHead = new TextBlock
@@ -194,11 +151,23 @@ namespace Configuration_Management
             Grid.SetColumn(descHead, 1);
             columnsHeader.Children.Add(paramHead);
             columnsHeader.Children.Add(descHead);
-            Grid.SetRow(columnsHeader, 4);
-            grid.Children.Add(columnsHeader);
+            // Справочник в такой же рамке со справкой в заголовке
+            // (LaunchParametersWindow.xaml:54-74).
+            var refContent = new Grid();
+            refContent.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            refContent.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
+            Grid.SetRow(columnsHeader, 0);
+            refContent.Children.Add(columnsHeader);
+            Grid.SetRow(listHost, 1);
+            refContent.Children.Add(listHost);
 
-            Grid.SetRow(listBorder, 5);
-            grid.Children.Add(listBorder);
+            var referenceBox = Controls.GroupBoxPanel.Build(
+                "LaunchParams.Reference", refContent,
+                margin: new Thickness(0, 0, 0, 12),
+                padding: new Thickness(12),
+                headerExtra: HelpLink("LaunchParams.ReferenceHelp"));
+            Grid.SetRow(referenceBox, 1);
+            grid.Children.Add(referenceBox);
 
             // Кнопки
             // Оформление и порядок по разметке (LaunchParametersWindow.xaml:77).
@@ -214,10 +183,8 @@ namespace Configuration_Management
                     BuildCancelActionButton(140)
                 }
             };
-            Grid.SetRow(buttons, 6);
+            Grid.SetRow(buttons, 2);
             grid.Children.Add(buttons);
-
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
             return grid;
         }
