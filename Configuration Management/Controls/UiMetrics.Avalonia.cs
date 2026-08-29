@@ -101,11 +101,11 @@ namespace Configuration_Management.Controls
         /// <summary>Размер квадратной подложки под иконку статуса базы в списке.</summary>
         public static double RowIconBox => Compact ? 28 : 38;
         /// <summary>Размер самой иконки статуса внутри подложки.</summary>
-        public static double RowIcon => Compact ? 14 : 20;
+        public static double RowIcon => 14;
         /// <summary>Размер шрифта имени базы в строке списка.</summary>
-        public static double RowNameFont => Compact ? 12.5 : 14;
+        public static double RowNameFont => Compact ? 12.5 : 13;
         /// <summary>Размер шрифта вторичной информации в строке списка.</summary>
-        public static double RowSecondaryFont => 11;
+        public static double RowSecondaryFont => Compact ? 11 : 12;
 
         /// <summary>
         /// Размер шрифта имени группы в списке. В обычном режиме имя группы наследует
@@ -115,7 +115,7 @@ namespace Configuration_Management.Controls
         public static double GroupNameFont => 12.5;
 
         /// <summary>Вертикальный внутренний отступ заголовка группы (высота оформления группы).</summary>
-        public static double GroupHeaderPadV => Compact ? 1 : 2;
+        public static double GroupHeaderPadV => Compact ? 1 : 3;
         /// <summary>Вертикальный внешний отступ заголовка группы (расстояние между группами).</summary>
         public static double GroupHeaderMarginV => Compact ? 0.5 : 1;
 

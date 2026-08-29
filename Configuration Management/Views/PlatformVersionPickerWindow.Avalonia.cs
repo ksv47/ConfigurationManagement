@@ -119,6 +119,8 @@ namespace Configuration_Management
                 if (_sortDesc.IsChecked != true) return;
                 _sortAscending = false; _sortAsc.IsChecked = false; RefreshTree();
             };
+            ToolTip.SetTip(_sortAsc, LocalizationManager.T("PlatformVersionPicker.SortAscTooltip"));
+            ToolTip.SetTip(_sortDesc, LocalizationManager.T("PlatformVersionPicker.SortDescTooltip"));
             sortPanel.Children.Add(_sortAsc);
             sortPanel.Children.Add(_sortDesc);
             top.Children.Add(sortPanel);
@@ -202,7 +204,10 @@ namespace Configuration_Management
             if (item is PlatformVersionGroup node)
             {
                 var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 2) };
-                var iconKey = node.IsLeaf ? "IconConfiguration" : (node.Kind == PlatformNodeKind.Line ? "IconChevronRight" : "IconBullet");
+                // У раскрываемого узла дерево уже рисует свой раскрыватель,
+                // поэтому значок строки не должен быть второй стрелкой: в версии
+                // для Windows здесь папка, а раскрыватель это «+» и «−».
+                var iconKey = node.IsLeaf ? "IconConfiguration" : (node.Kind == PlatformNodeKind.Line ? "IconFolder" : "IconBullet");
                 panel.Children.Add(IconHelper.MakeIcon(iconKey, 14));
                 var text = new TextBlock
                 {

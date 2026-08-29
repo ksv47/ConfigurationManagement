@@ -28,10 +28,7 @@ namespace Configuration_Management.Controls
         private bool _attached;
 
         // Актуальные кисти темы, обновляются при смене схемы/ресурсов.
-        private IBrush _cardBrush = Brushes.Transparent;
         private IBrush _hoverBrush = Brushes.Transparent;
-        private IBrush _selectedBrush = Brushes.Transparent;
-        private IBrush _borderBrush = Brushes.Transparent;
         private IBrush _accentBrush = Brushes.Transparent;
 
         private bool _isHovered;
@@ -40,10 +37,13 @@ namespace Configuration_Management.Controls
         {
             // Единый радиус из общих метрик UI; плавные переходы цвета фона/границы
             // при hover/выделении (без перегрузки — короткая длительность).
-            CornerRadius = new CornerRadius(UiMetrics.RadiusMd);
-            Padding = new Thickness(UiMetrics.PaddingControl, 8);
-            Margin = new Thickness(0, 2);
-            BorderThickness = new Thickness(1);
+            // Числа из разметки (MainWindow.xaml:1052): скругление 4, отступ 0,3,
+            // поле 0,1 и никакой рамки. Прежние радиус 8, отступ 8 и рамка 1
+            // делали из строки карточку, которой у автора нет.
+            CornerRadius = new CornerRadius(4);
+            Padding = new Thickness(0, 3);
+            Margin = new Thickness(0, 1);
+            BorderThickness = new Thickness(0);
             IsHitTestVisible = true;
             HorizontalAlignment = HorizontalAlignment.Stretch;
             UiMetrics.AddBrushTransition(this);
@@ -57,10 +57,7 @@ namespace Configuration_Management.Controls
             // при отсоединении подписки освобождаются, при присоединении
             // создаются заново. Иначе каждая пересборка списка оставляла бы
             // по пять живых наблюдателей на выброшенную строку.
-            AddSubscription(() => SubscribeBrush("CardBackgroundBrush", value => _cardBrush = value));
             AddSubscription(() => SubscribeBrush("ItemHoverBrush", value => _hoverBrush = value));
-            AddSubscription(() => SubscribeBrush("ItemSelectedBrush", value => _selectedBrush = value));
-            AddSubscription(() => SubscribeBrush("BorderColorBrush", value => _borderBrush = value));
             AddSubscription(() => SubscribeBrush("AccentBrush", value => _accentBrush = value));
         }
 
@@ -146,21 +143,15 @@ namespace Configuration_Management.Controls
         /// <summary>Применяет состояние к фону и границе в порядке приоритета: выделено > hover > обычное.</summary>
         private void ApplyState()
         {
+            // Три состояния разметки и только они: в покое прозрачно, при
+            // наведении ItemHover, у выбранной строки заливка акцентом. Рамки
+            // нет ни в одном из них.
             if (_container?.IsSelected == true)
-            {
-                Background = _selectedBrush;
-                BorderBrush = _accentBrush;
-            }
+                Background = _accentBrush;
             else if (_isHovered)
-            {
                 Background = _hoverBrush;
-                BorderBrush = _borderBrush;
-            }
             else
-            {
-                Background = _cardBrush;
-                BorderBrush = _borderBrush;
-            }
+                Background = Brushes.Transparent;
         }
 
         /// <summary>Передаёт текущее значение ресурса-кисти в слот и инициирует перерисовку.</summary>

@@ -1,0 +1,18 @@
+<!-- Диалог ввода произвольного названия (Avalonia/Linux). Тексты приходят
+     параметрами конструктора, а не из локализации: окно используется под
+     разные задачи (переименование схемы, группы и прочее), поэтому в разметке
+     только раскладка. Windows-аналог: Views/NameInputWindow.xaml. -->
+<local:ModalWindowBase xmlns="https://github.com/avaloniaui"
+                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                       xmlns:local="clr-namespace:Configuration_Management"
+                       x:Class="Configuration_Management.NameInputWindow"
+                       Width="440"
+                       SizeToContent="Height"
+                       CanResize="False"
+                       SystemDecorations="Full">
+    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto">
+        <TextBlock Grid.Row="0" x:Name="Prompt" Margin="0,0,0,8"/>
+        <TextBox Grid.Row="1" x:Name="NameBox" Padding="8,6"/>
+        <ContentControl Grid.Row="2" x:Name="ButtonsHost"/>
+    </Grid>
+</local:ModalWindowBase>

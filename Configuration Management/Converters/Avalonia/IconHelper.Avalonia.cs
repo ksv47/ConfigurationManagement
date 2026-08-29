@@ -43,18 +43,10 @@ namespace Configuration_Management
         /// живёт меньше приложения и пересоздаётся: без освобождения подписки
         /// накапливались бы на каждую пересборку.
         /// </param>
-        public static Avalonia.Controls.Shapes.Path MakeIcon(string key, double size = 16,
+        public static Control MakeIcon(string key, double size = 16,
             string brushKey = "TextPrimaryColorBrush")
         {
-            var path = new Avalonia.Controls.Shapes.Path
-            {
-                Width = size,
-                Height = size,
-                Data = Geometry(key),
-                Stretch = Stretch.Uniform,
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
+            var icon = BuildIcon(key, size, out var path);
 
             if (Application.Current is not null)
             {
@@ -69,8 +61,47 @@ namespace Configuration_Management
                 path.Fill = Brushes.Black;
             }
 
-            return path;
+            return icon;
         }
+
+        /// <summary>
+        /// То же, но с готовой кистью: нужно там, где цвет задан числом
+        /// (в разметке WPF такие значки покрашены явным Foreground).
+        /// </summary>
+        public static Control MakeIcon(string key, double size, IBrush brush)
+        {
+            var icon = BuildIcon(key, size, out var path);
+            path.Fill = brush;
+            return icon;
+        }
+
+        /// <summary>
+        /// Контур кладётся в неизменный холст 24 на 24 и масштабируется целиком,
+        /// как это делает PackIcon в версии для Windows. Без холста Stretch
+        /// растягивал каждый значок по его собственным границам: значки с мелким
+        /// контуром выглядели крупнее соседних и вставали по вертикали иначе.
+        /// </summary>
+        public static Control MakeIcon(string key, double size, out Avalonia.Controls.Shapes.Path path)
+            => BuildIcon(key, size, out path);
+
+        private static Control BuildIcon(string key, double size, out Avalonia.Controls.Shapes.Path path)
+        {
+            path = new Avalonia.Controls.Shapes.Path { Data = Geometry(key) };
+            var canvas = new Canvas { Width = IconViewportSize, Height = IconViewportSize };
+            canvas.Children.Add(path);
+            return new Viewbox
+            {
+                Width = size,
+                Height = size,
+                Stretch = Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Child = canvas
+            };
+        }
+
+        /// <summary>Координатное поле контуров Icons.axaml, оно же viewport PackIcon.</summary>
+        private const double IconViewportSize = 24;
 
         /// <summary>
         /// Строит содержимое кнопки «иконка + подпись» (горизонтальная панель).
@@ -101,7 +132,9 @@ namespace Configuration_Management
             "Version" => "IconInfo",
             "Configuration" => "IconConfiguration",
             "LaunchMode" => "IconPlay",
-            "ServerBase" => "IconServices",
+            // В разметке у этой колонки значок Server, а не шестерёнка
+            // (MainWindow.xaml:670): шестерёнка стоит у «Действий».
+            "ServerBase" => "IconServer",
             "LastLaunch" => "IconRecent",
             "Size" => "IconDatabase",
             "Actions" => "IconSettings",
