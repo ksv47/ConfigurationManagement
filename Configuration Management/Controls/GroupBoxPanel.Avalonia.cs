@@ -28,16 +28,21 @@ namespace Configuration_Management.Controls
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
 
+            // Цвет подписи задан явно, как в шаблоне разметки
+            // (TextElement.Foreground у ContentPresenter, LightTheme.xaml:946).
+            var headerText = new TextBlock
+            {
+                Text = LocalizationManager.T(headerKey),
+                FontWeight = FontWeight.SemiBold
+            };
+            Themes.ThemeBrushes.Bind(headerText, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+
             var header = new Border
             {
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(8, 4),
-                Child = new TextBlock
-                {
-                    Text = LocalizationManager.T(headerKey),
-                    FontWeight = FontWeight.SemiBold
-                }
+                Child = headerText
             };
             Themes.ThemeBrushes.Bind(header, Border.BackgroundProperty, "CardBackgroundBrush");
             Themes.ThemeBrushes.Bind(header, Border.BorderBrushProperty, "BorderBrushColor");

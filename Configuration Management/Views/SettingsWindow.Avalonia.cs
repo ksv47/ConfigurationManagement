@@ -104,13 +104,16 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            // Колонку вкладок слева и их вид задаёт тема из словаря,
-            // TabStripPlacement её шаблон не читает.
-            var tabs = new TabControl();
+            // Вид колонки вкладок задаёт тема из словаря; TabStripPlacement её
+            // шаблон не читает, но свойство ставится, чтобы состояние контрола
+            // отвечало фактическому расположению полосы, как в разметке.
+            var tabs = new TabControl { TabStripPlacement = Dock.Left };
             tabs.Styled(ControlThemes.SettingsTabControl);
 
             // ===== Настройки =====
-            var settings = new StackPanel { Spacing = 14 };
+            // Расстояния как в разметке (SettingsWindow.xaml:1107): между
+            // переключателями 6, перед компактным режимом 12.
+            var settings = new StackPanel { Spacing = 6 };
 
             // Тема оформления. Редактируемая схема и колбэк обновления редактора объявляются
             // здесь, чтобы радиокнопки «Светлая/Тёмная» переключали базовую тему именно той
@@ -198,7 +201,7 @@ namespace Configuration_Management
 
             // Компактный режим интерфейса.
             var compactToggle = SettingsSwitch("Settings.CompactMode", _viewModel.CompactMode, "IconCompress", "#22C55E");
-            compactToggle.Margin = new Thickness(0, 8, 0, 4);
+            compactToggle.Margin = new Thickness(0, 6, 0, 0);
             compactToggle.IsCheckedChanged += (_, _) =>
             {
                 var value = compactToggle.IsChecked == true;
@@ -245,7 +248,7 @@ namespace Configuration_Management
             // Запоминание геометрии окна. Значения лежали в общем файле настроек,
             // но Linux-сборка их не читала и не писала вовсе.
             var rememberLayoutCheck = SettingsSwitch("Settings.General.RememberWindowLayout", _viewModel.RememberWindowLayout, "IconMonitor", "#EC4899");
-            rememberLayoutCheck.Margin = new Thickness(0, 8, 0, 0);
+            rememberLayoutCheck.Margin = new Thickness(0, 6, 0, 0);
             settings.Children.Add(rememberLayoutCheck);
 
             // Управление учётными записями (профилями).
@@ -458,14 +461,10 @@ namespace Configuration_Management
                     content.Children.Add(label);
                     ToolTip.SetTip(content, LocalizationManager.T("Settings.Columns.RowSelectHint"));
 
-                    // Тумблер-пилюля, как ColumnVisibilitySwitch в разметке WPF:
-                    // подписей у положений нет, отметка только цветом и позицией.
-                    var check = new ToggleSwitch
-                    {
-                        VerticalAlignment = VerticalAlignment.Center,
-                        OnContent = null,
-                        OffContent = null
-                    };
+                    // Пилюля-переключатель стиля ColumnVisibilitySwitch разметки
+                    // (SettingsWindow.xaml:31): дорожка без подписи.
+                    var check = new ToggleButton();
+                    check.Styled(ControlThemes.ColumnVisibilitySwitch);
                     check.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
                         new Avalonia.Data.Binding(nameof(ColumnOrderItem.Visible))
                         { Mode = Avalonia.Data.BindingMode.TwoWay });
@@ -501,14 +500,14 @@ namespace Configuration_Management
             var nameRow = new Grid { Margin = new Thickness(4, 3) };
             nameRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             nameRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var nameRowSwitch = new ToggleSwitch
+            // Строка «Название» закреплена: переключатель показан отмеченным
+            // и недоступен, стиль тот же (SettingsWindow.xaml:554).
+            var nameRowSwitch = new ToggleButton
             {
-                VerticalAlignment = VerticalAlignment.Center,
-                OnContent = null,
-                OffContent = null,
                 IsChecked = true,
                 IsEnabled = false
             };
+            nameRowSwitch.Styled(ControlThemes.ColumnVisibilitySwitch);
             Grid.SetColumn(nameRowContent, 0);
             Grid.SetColumn(nameRowSwitch, 1);
             nameRow.Children.Add(nameRowContent);
@@ -1724,7 +1723,9 @@ namespace Configuration_Management
 
             // Порядок вкладок по разметке (SettingsWindow.xaml:293 и далее):
             // платформы, отображение, оформление, клавиши, настройки, базы,
-            // резервное копирование профиля, о программе.
+            // резервное копирование профиля, о программе. Девятой вкладки
+            // «ibases.v8i» (xaml:1164) здесь нет: её содержимое лежит разделом
+            // внутри «Баз», это расхождение старше правки и не закрыто.
             tabs.Items.Add(tabPlatforms);
             tabs.Items.Add(tabDisplay);
             tabs.Items.Add(tabAppearance);
@@ -2149,6 +2150,10 @@ namespace Configuration_Management
                 }
             };
             tab.Styled(ControlThemes.SettingsSubTabItem);
+            // Кегль подписи масштабируется компактным режимом: с полным кеглем
+            // пять вкладок не влезают в ряд, а перенос строки у UniformGrid
+            // невозможен. Местное значение старше темы, поэтому ставится здесь.
+            tab.FontSize = UiMetrics.ScaledFont(12);
 
             var icon = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), out var path);
             path.Bind(Avalonia.Controls.Shapes.Shape.FillProperty,
@@ -2275,7 +2280,6 @@ namespace Configuration_Management
             Margin = new Thickness(0, 0, 0, 4)
         };
 
-        /// <summary>Переключатель настройки отображения.</summary>
         /// <summary>
         /// Вкладка окна: значок 18 и подпись, содержимое как есть.
         /// Значок красится подписью, как в разметке (SettingsWindow.xaml:296).
@@ -2284,8 +2288,11 @@ namespace Configuration_Management
         {
             var tab = new TabItem { Content = content };
             tab.Styled(ControlThemes.SettingsTabItem);
+            // Ширина, кегль и значок вкладки уменьшаются в компактном режиме.
+            tab.Width = UiMetrics.Scaled(235);
+            tab.FontSize = UiMetrics.ScaledFont(13);
 
-            var icon = IconHelper.MakeIcon(iconKey, 18, out var path);
+            var icon = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(18), out var path);
             path.Bind(Avalonia.Controls.Shapes.Shape.FillProperty,
                 new Avalonia.Data.Binding(nameof(TabItem.Foreground)) { Source = tab });
             icon.Margin = new Thickness(0, 0, 8, 0);
@@ -2304,7 +2311,7 @@ namespace Configuration_Management
 
         /// <summary>
         /// Переключатель настройки: подпись слева, дорожка справа. В разметке
-        /// это ToggleButton со стилем SettingsToggle (25 применений), а не флажок.
+        /// это ToggleButton со стилем SettingsToggle, а не флажок.
         /// </summary>
         private static ToggleButton SettingsSwitch(string textKey, bool value,
             string? iconKey = null, string? iconColor = null)

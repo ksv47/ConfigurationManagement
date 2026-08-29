@@ -470,9 +470,10 @@ namespace Configuration_Management
 
         private TabControl BuildTabs()
         {
-            // Колонку вкладок слева задаёт сам шаблон темы, поэтому
-            // TabStripPlacement здесь не нужен: шаблон его не читает.
-            var tabs = new TabControl();
+            // Вид колонки задаёт шаблон темы; TabStripPlacement он не читает,
+            // но свойство ставится ради соответствия состояния контрола
+            // фактическому расположению полосы, как в разметке.
+            var tabs = new TabControl { TabStripPlacement = Dock.Left };
             tabs.Styled(ControlThemes.ConnTabControl);
 
             // Значков MaterialDesign в Linux-сборке нет, поэтому взяты ближайшие
