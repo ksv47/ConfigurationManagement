@@ -1291,6 +1291,7 @@
     "Launcher.CreateDirCreateFailedFormat": "Не удалось создать каталог:\n{0}\n{1}",
     "Launcher.CreateServerOrDbNotSpecified": "Не указаны сервер или имя базы.",
     "Launcher.CreateTemplateNotFoundFormat": "Файл шаблона не найден:\n{0}",
+    "Launcher.CreateTemplateInvalidPathFormat": "Недопустимый путь шаблона (содержит символ «\"»):\n{0}",
     "Launcher.CreateProcessFailed": "Не удалось запустить процесс 1cv8.",
     "Launcher.CreateTimeout": "Превышено время ожидания создания базы (5 мин).",
     "Launcher.CreateExitCodeFormat": "1cv8 завершился с кодом {0}.\n{1}\n\nКоманда:\n{2}\n{3}",

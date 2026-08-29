@@ -1291,6 +1291,7 @@
     "Launcher.CreateDirCreateFailedFormat": "Failed to create the directory:\n{0}\n{1}",
     "Launcher.CreateServerOrDbNotSpecified": "Server or database name is not specified.",
     "Launcher.CreateTemplateNotFoundFormat": "Template file not found:\n{0}",
+    "Launcher.CreateTemplateInvalidPathFormat": "Invalid template path (contains a double-quote):\n{0}",
     "Launcher.CreateProcessFailed": "Failed to start the 1cv8 process.",
     "Launcher.CreateTimeout": "Timed out waiting for the infobase to be created (5 min).",
     "Launcher.CreateExitCodeFormat": "1cv8 exited with code {0}.\n{1}\n\nCommand:\n{2}\n{3}",

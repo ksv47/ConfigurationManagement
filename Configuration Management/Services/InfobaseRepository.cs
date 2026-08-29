@@ -99,10 +99,11 @@ public class InfobaseRepository : IInfobaseRepository
             var hadInvalidIds = groups.Any(g => string.IsNullOrWhiteSpace(g.Id));
             var hadDuplicateIds = groups.GroupBy(g => g.Id, StringComparer.OrdinalIgnoreCase)
                 .Any(g => g.Count() > 1);
-            NormalizeGroups(groups);
-            // Если при загрузке были исправлены идентификаторы — сразу сохраняем,
-            // чтобы иерархия групп гарантированно восстановилась на диске.
-            if (hadInvalidIds || hadDuplicateIds)
+            var normalized = NormalizeGroups(groups);
+            // Если при загрузке были исправлены идентификаторы, устранены дубликаты или
+            // разорваны циклические ссылки — сразу сохраняем, чтобы иерархия групп
+            // гарантированно восстановилась на диске и не ломала последующие запуски.
+            if (hadInvalidIds || hadDuplicateIds || normalized)
             {
                 SaveGroups(groups);
             }
@@ -117,11 +118,14 @@ public class InfobaseRepository : IInfobaseRepository
     }
 
     /// <summary>
-    /// Восстанавливает корректность списка групп: генерирует недостающие идентификаторы
-    /// и устраняет дубликаты, сохраняя корректные ссылки на родителя.
+    /// Восстанавливает корректность списка групп: генерирует недостающие идентификаторы,
+    /// устраняет дубликаты и разрывает циклические ссылки на родителя (A→B→A), сохраняя
+    /// корректные ссылки на родителя. Возвращает <c>true</c>, если список был изменён.
     /// </summary>
-    private static void NormalizeGroups(List<Group> groups)
+    private static bool NormalizeGroups(List<Group> groups)
     {
+        var changed = false;
+
         // Идентификаторы, которые уже корректно используются группами.
         var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -131,6 +135,7 @@ public class InfobaseRepository : IInfobaseRepository
             if (string.IsNullOrWhiteSpace(group.Id))
             {
                 group.Id = Guid.NewGuid().ToString();
+                changed = true;
             }
         }
 
@@ -148,6 +153,7 @@ public class InfobaseRepository : IInfobaseRepository
                     newId = Guid.NewGuid().ToString();
                 }
                 group.Id = newId;
+                changed = true;
                 foreach (var child in groups)
                 {
                     if (string.Equals(child.ParentId, oldId, StringComparison.OrdinalIgnoreCase))
@@ -158,6 +164,47 @@ public class InfobaseRepository : IInfobaseRepository
             }
             usedIds.Add(group.Id);
         }
+
+        // Третий проход: разрываем циклические ссылки на родителя. Циклическая цепочка
+        // (A→B→A) в плоском списке приводит к бесконечной вложенности при построении дерева
+        // и могла вызывать зависание/переполнение стека на повреждённых или легаси-файлах
+        // (issue #64). Разрывается ровно та ссылка, которая замыкает цикл: для группы,
+        // чей ParentId указывает на узел, уже присутствующий в цепочке предков, ссылка
+        // очищается, и группа становится корневой — как это и делает построитель дерева.
+        var idToGroup = new Dictionary<string, Group>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in groups)
+        {
+            idToGroup[group.Id] = group;
+        }
+
+        foreach (var group in groups)
+        {
+            if (string.IsNullOrEmpty(group.ParentId))
+                continue;
+
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var current = group;
+            while (current is not null && !string.IsNullOrEmpty(current.ParentId))
+            {
+                if (!visited.Add(current.Id))
+                    break; // Уже прошли этот узел — цепочка замкнулась.
+
+                if (!idToGroup.TryGetValue(current.ParentId, out var parent))
+                    break; // Родитель не найден — это обычный корень.
+
+                if (visited.Contains(parent.Id))
+                {
+                    // Переход к родителю замкнул бы цепочку в цикл — разрываем эту ссылку.
+                    current.ParentId = string.Empty;
+                    changed = true;
+                    break;
+                }
+
+                current = parent;
+            }
+        }
+
+        return changed;
     }
 
     /// <summary>
@@ -182,6 +229,10 @@ public class InfobaseRepository : IInfobaseRepository
         {
             var json = File.ReadAllText(SettingsPath);
             var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+
+            // Восстанавливаем null-поля, которые могли прийти из легаси/повреждённого файла,
+            // чтобы конструкторы не спотыкались о них при старте (issue #64).
+            loaded.NormalizeForLoad();
 
             // Файл создан более новой версией приложения, чем текущая: его схема нам может
             // быть незнакома, безопасно прочитать его нельзя. Откладываем файл в резервную

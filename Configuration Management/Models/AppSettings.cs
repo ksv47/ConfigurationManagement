@@ -423,4 +423,32 @@ public class AppSettings
     /// </summary>
     public Dictionary<string, FileSizeCacheEntry> FileSizeCache { get; set; } = new();
 
+    /// <summary>
+    /// Приводит настройки, загруженные из файла, к безопасному состоянию (issue #64).
+    /// В легаси-файлах, созданных более ранними версиями приложения, поля-коллекции
+    /// могли отсутствовать либо явно содержать <c>null</c>. Десериализация в таком случае
+    /// перезаписывает инициализированные значения по умолчанию на <c>null</c>, а потребители
+    /// настроек (конструктор <see cref="Configuration_Management.ViewModels.MainViewModel"/>
+    /// и его Avalonia-версия) итерируют эти коллекции без проверки — это вызывало
+    /// <c>NullReferenceException</c> при старте поверх старых конфигов и «зависание»
+    /// (процесс запущен, но главное окно не появляется).
+    /// </summary>
+    public void NormalizeForLoad()
+    {
+        // Восстанавливаем непустые коллекции, которые могли прийти как null.
+        CollapsedGroups ??= new List<string>();
+        InstalledPlatformVersions ??= new List<string>();
+        AdditionalPlatformSearchPaths ??= new List<string>();
+        ColumnOrder ??= new List<string>();
+        FavoriteHotkeyIds ??= new List<string>();
+        TemplateCatalogPaths ??= new List<string>();
+        ElementFonts ??= new Dictionary<string, ElementFontSettings>();
+        FileSizeCache ??= new Dictionary<string, FileSizeCacheEntry>();
+
+        // Нормализуем строковые поля, чтобы избежать null-значений у потребителей.
+        NoGroupIcon ??= string.Empty;
+        PinnedIcon ??= string.Empty;
+        AfterLaunchAction = string.IsNullOrWhiteSpace(AfterLaunchAction) ? "None" : AfterLaunchAction;
+    }
+
 }
