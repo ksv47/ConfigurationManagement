@@ -525,9 +525,18 @@ namespace Configuration_Management.Services
 
                     foreach (var info in buildGroup.OrderByDescending(i => i.Display, new VersionDisplayComparer()))
                     {
+                        // Имя листа с меткой разрядности «x64»/«x32», как в
+                        // Windows-ветке (PlatformVersionService.cs:576): сырой
+                        // Display даёт «(64)», а на экране должно быть «(x64)».
+                        ParseVariant(info.Display, out var version, out var arch);
+                        var archLabel = FormatArchitectureLabel(arch);
+                        var leafName = string.IsNullOrEmpty(archLabel)
+                            ? version
+                            : $"{version} ({archLabel})";
+
                         var leaf = new PlatformVersionGroup
                         {
-                            Name = info.Display,
+                            Name = leafName,
                             Variant = info.Display,
                             Path = info.Path,
                             Kind = ParseVariantKind(info.Display),
