@@ -331,11 +331,29 @@ namespace Configuration_Management
                 });
 
             // ===== Платформы =====
-            // Общего зазора у панели нет: в Avalonia он складывается с полями
-            // соседей, а поля взяты из разметки поштучно (SettingsWindow.xaml:302
-            // и далее), поэтому иначе каждый промежуток вырос бы на 6.
-            var platforms = new StackPanel();
-            platforms.Children.Add(Hint(LocalizationManager.T("Settings.Platforms.Intro"), bottom: 8));
+            // Раздел собран гридом из пяти строк, как в разметке
+            // (SettingsWindow.xaml:302-310), а не панелью с общим зазором:
+            // строка дерева тянется, остальные идут по содержимому, поэтому
+            // дерево прокручивается внутри себя, а карточки ниже остаются
+            // на экране при любом числе найденных версий.
+            var platforms = new Grid { Margin = new Thickness(4, 12, 4, 0) };
+            platforms.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            platforms.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
+            platforms.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            platforms.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            platforms.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            // Кегль вводной строки в разметке не задан, то есть берётся оконный
+            // 13 (SettingsWindow.xaml:21), а не 12 общего пояснения.
+            var platformsIntro = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Platforms.Intro"),
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            ThemeBrushes.Bind(platformsIntro, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            platforms.Children.Add(platformsIntro);
 
             // Дерево вместо плоского списка, как в разметке (SettingsWindow.xaml:322):
             // линия 8.3, группа сборок 8.3.27, сама сборка с путём под именем.
@@ -380,6 +398,11 @@ namespace Configuration_Management
             // (DarkTheme.xaml:853): штатный фон Avalonia заметно темнее карточки.
             ThemeBrushes.Bind(pathsList, TemplatedControl.BackgroundProperty, "CardBackgroundColorBrush");
             ThemeBrushes.Bind(pathsList, TemplatedControl.BorderBrushProperty, "BorderColorBrush");
+            // Обе полосы прокрутки Auto, как в стиле ListBox тем автора
+            // (DarkTheme.xaml:860): без горизонтальной длинный путь обрезается
+            // по правому краю и хвост не прочитать.
+            ScrollViewer.SetHorizontalScrollBarVisibility(pathsList, ScrollBarVisibility.Auto);
+            ScrollViewer.SetVerticalScrollBarVisibility(pathsList, ScrollBarVisibility.Auto);
             ToolTip.SetTip(pathsList, LocalizationManager.T("Settings.AdditionalPaths.ListTooltip"));
             // Наблюдаемый список: список сам обновляется и не теряет выделение
             // с прокруткой, как было бы при подмене ItemsSource.
@@ -418,7 +441,9 @@ namespace Configuration_Management
             Grid.SetColumn(refreshButton, 1);
             versionsRow.Children.Add(versionsTree);
             versionsRow.Children.Add(refreshButton);
+            Grid.SetRow(versionsRow, 1);
             platforms.Children.Add(versionsRow);
+            Grid.SetRow(versionsStatus, 2);
             platforms.Children.Add(versionsStatus);
 
             var pathButtons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
@@ -432,9 +457,17 @@ namespace Configuration_Management
             ToolTip.SetTip(addPath, LocalizationManager.T("Settings.AdditionalPaths.AddTooltip"));
             addPath.Click += (_, _) =>
             {
-                var folder = _viewModel.PickFolder(LocalizationManager.T("Settings.AdditionalPaths.Add"));
-                if (string.IsNullOrWhiteSpace(folder) || paths.Contains(folder, StringComparer.OrdinalIgnoreCase))
+                var folder = _viewModel.PickFolder(LocalizationManager.T("Settings.AdditionalPaths.Add"))?.Trim();
+                if (string.IsNullOrWhiteSpace(folder))
                     return;
+                // На дубле WPF показывает предупреждение (SettingsWindow.Platforms.cs:56),
+                // иначе кнопка выглядит нерабочей.
+                if (paths.Contains(folder, StringComparer.OrdinalIgnoreCase))
+                {
+                    _viewModel.ShowInfo(LocalizationManager.T("Settings.PathAlreadyAdded"),
+                        LocalizationManager.T("Settings.AdditionalPathsTitle"));
+                    return;
+                }
                 paths.Add(folder);
                 // Дерево версий пересчитывается сразу, как в WPF-версии.
                 RefreshVersions();
@@ -494,7 +527,11 @@ namespace Configuration_Management
             removePath.Click += (_, _) =>
             {
                 if (pathsList.SelectedItem is not string selected)
+                {
+                    _viewModel.ShowInfo(LocalizationManager.T("Settings.SelectPathToRemove"),
+                        LocalizationManager.T("Settings.AdditionalPathsTitle"));
                     return;
+                }
                 paths.Remove(selected);
                 RefreshVersions();
             };
@@ -506,8 +543,10 @@ namespace Configuration_Management
             pathsBody.Children.Add(Hint(LocalizationManager.T("Settings.AdditionalPaths.HintLinux"), bottom: 8));
             pathsBody.Children.Add(pathsList);
             pathsBody.Children.Add(pathButtons);
-            platforms.Children.Add(SettingsGroup(LocalizationManager.T("Settings.AdditionalPaths"),
-                pathsBody, new Thickness(10, 8), bottom: 8));
+            var pathsGroup = SettingsGroup(LocalizationManager.T("Settings.AdditionalPaths"),
+                pathsBody, new Thickness(10, 8), bottom: 8);
+            Grid.SetRow(pathsGroup, 3);
+            platforms.Children.Add(pathsGroup);
 
             // Разрядность: подпись и список в одну строку, как в разметке
             // (SettingsWindow.xaml:458), а не подпись над списком.
@@ -533,22 +572,16 @@ namespace Configuration_Management
                 LocalizationManager.T("Settings.Arch64Recommended"),
                 LocalizationManager.T("Settings.Arch32")
             };
-            archBox.SelectedIndex = string.Equals(_viewModel.DefaultArchitecture, "X86", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            archBox.SelectedIndex = string.Equals(_viewModel.DefaultArchitecture, "X64", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
             Grid.SetColumn(archBox, 1);
             archRow.Children.Add(archLabel);
             archRow.Children.Add(archBox);
-            platforms.Children.Add(SettingsGroup(LocalizationManager.T("Settings.DefaultArch"),
-                archRow, new Thickness(10, 8), bottom: 8));
+            var archGroup = SettingsGroup(LocalizationManager.T("Settings.DefaultArch"),
+                archRow, new Thickness(10, 8), bottom: 8);
+            Grid.SetRow(archGroup, 4);
+            platforms.Children.Add(archGroup);
 
-            var tabPlatforms = MainTab("IconServer", "Settings.TabPlatforms",
-                new ScrollViewer
-                {
-                    Content = platforms,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    // Отступы содержимого вкладки из разметки (SettingsWindow.xaml:302).
-                    Margin = new Thickness(4, 12, 4, 0),
-                    Padding = new Thickness(0, 0, 4, 0)
-                });
+            var tabPlatforms = MainTab("IconServer", "Settings.TabPlatforms", platforms);
 
             // ===== Отображение =====
             // Общего зазора у панелей нет: он складывается с полями детей,
@@ -2546,7 +2579,7 @@ namespace Configuration_Management
                 Child = title,
                 Padding = new Thickness(8, 4),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6, 6, 0, 0)
+                CornerRadius = new CornerRadius(6)
             };
             ThemeBrushes.Bind(headerBorder, Border.BackgroundProperty, "CardBackgroundColorBrush");
             ThemeBrushes.Bind(headerBorder, Border.BorderBrushProperty, "BorderColorBrush");
@@ -2560,6 +2593,10 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(bodyBorder, Border.BackgroundProperty, "CardBackgroundColorBrush");
             ThemeBrushes.Bind(bodyBorder, Border.BorderBrushProperty, "BorderColorBrush");
+            // Цвет текста содержимого задаёт сама карточка, как TextElement.Foreground
+            // в шаблоне (DarkTheme.xaml:843): иначе подписи внутри достаются
+            // от штатной темы и не следуют за цветовой схемой.
+            ThemeBrushes.Bind(bodyBorder, Avalonia.Controls.Documents.TextElement.ForegroundProperty, "TextPrimaryBrush");
 
             var grid = new Grid { Margin = new Thickness(0, 0, 0, bottom) };
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
@@ -2628,21 +2665,20 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush");
 
-            var texts = new StackPanel { Children = { name } };
-            // Путь есть только у сборок. В WPF пустая строка не занимает высоты,
-            // в Avalonia занимает, поэтому у групп её просто нет.
-            if (!string.IsNullOrEmpty(node.Path))
+            // Строка пути есть у всех узлов, а не только у сборок: в разметке
+            // шаблон один на все виды узлов, и у групп пустой TextBlock занимает
+            // высоту строки. Замер снимка Windows: группа 38 пикселей, лист 39.
+            var path = new TextBlock
             {
-                var path = new TextBlock
-                {
-                    Text = node.Path,
-                    FontSize = 11,
-                    TextTrimming = TextTrimming.CharacterEllipsis
-                };
-                ThemeBrushes.Bind(path, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+                Text = node.Path ?? string.Empty,
+                FontSize = 11,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            ThemeBrushes.Bind(path, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            if (!string.IsNullOrEmpty(node.Path))
                 ToolTip.SetTip(path, node.Path);
-                texts.Children.Add(path);
-            }
+
+            var texts = new StackPanel { Children = { name, path } };
 
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
