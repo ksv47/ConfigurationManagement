@@ -18,10 +18,28 @@
         MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         Loaded="OnWindowLoaded"
+        SourceInitialized="OnWindowSourceInitialized"
         PreviewKeyDown="Window_PreviewKeyDown"
         FontFamily="Segoe UI"
         FontSize="13"
-        Background="{DynamicResource ContentBackgroundBrush}">
+        Background="{DynamicResource ContentBackgroundBrush}"
+        ResizeMode="CanResize"
+        StateChanged="OnWindowStateChanged">
+
+    <!-- Собственный каркас окна без системных кнопок: WindowChrome заменяет системную
+         рамку и скрывает системные кнопки (UseAeroCaptionButtons=false), оставляя
+         невидимую рамку ресайза за края окна (ResizeBorderThickness). Перетаскивание
+         за верхнюю панель реализовано вручную (OnTopBar_MouseLeftButtonDown -> DragMove).
+         GlassFrameThickness=-1 расширяет системную «стеклянную» рамку DWM на всю клиентскую
+         область, чтобы полупрозрачная подложка окна пропускала acrylic/размытие (подробнее
+         в OnWindowSourceInitialized и ApplySystemBackdrop). -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0"
+                      ResizeBorderThickness="6"
+                      GlassFrameThickness="-1"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
 
     <!-- Горячие клавиши F3/F4 (и настраиваемые) регистрируются в code-behind RegisterLaunchHotkeys -->
     <Window.InputBindings>
@@ -40,6 +58,9 @@
         <conv:GroupOffsetConverter x:Key="GroupOffset"/>
         <conv:MultiFormatConverter x:Key="MultiFormat"/>
 
+        <!-- Собственные кнопки управления окном вынесены в общие ресурсы приложения
+             (App.xaml): WindowControlButton / WindowControlCloseButton. Здесь они
+             переиспользуются через StaticResource. -->
         <!-- ScrollViewer списка баз: корректные PART_* и привязки полос прокрутки.
              Виртуализация TreeView отключена — иначе высота контента = viewport и ScrollableHeight=0. -->
         <Style x:Key="CardScrollViewer" TargetType="ScrollViewer">
@@ -155,12 +176,14 @@
         </Grid.RowDefinitions>
 
         <!-- ===================== Верхняя панель: кнопки групп | поиск | вкладки | действия ===== -->
-        <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
-                BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" Padding="12,10">
+        <Border x:Name="TopBarBorder" Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" Padding="12,10"
+                MouseLeftButtonDown="OnTopBar_MouseLeftButtonDown">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*" MinWidth="200"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
@@ -334,6 +357,41 @@
                                        HelpText="{loc:Loc Main.BaseListHelp}"/>
                 </StackPanel>
                 </Border>
+
+                <!-- Собственные кнопки управления окном: свернуть / развернуть / закрыть
+                     (вместо системных; окно без рамки, см. WindowChrome в корне окна). -->
+                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,0,0">
+                    <Button x:Name="MinimizeButton" Click="OnMinimizeButton_Click"
+                            Style="{StaticResource WindowControlButton}"
+                            ToolTip="{loc:Loc Window.Minimize}">
+                        <Path Width="11" Height="11" Stretch="Uniform"
+                              Data="M0,5.5 L11,5.5 L11,6.5 L0,6.5 Z"
+                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
+                    <Button x:Name="MaximizeButton" Click="OnMaximizeButton_Click"
+                            Style="{StaticResource WindowControlButton}"
+                            ToolTip="{loc:Loc Window.Maximize}">
+                        <Grid Width="13" Height="13">
+                            <Path x:Name="MaximizeGlyphPath" Stretch="Uniform"
+                                  StrokeThickness="1.2" Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="M1,1 H12 V12 H1 Z"/>
+                            <Path x:Name="RestoreGlyphPath" Stretch="Uniform"
+                                  Visibility="Collapsed"
+                                  StrokeThickness="1.2" Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="M3,1 H9 V7 H3 Z M1,3 H7 V9 H1 Z"/>
+                        </Grid>
+                    </Button>
+                    <Button x:Name="CloseButton" Click="OnCloseButton_Click"
+                            Style="{StaticResource WindowControlCloseButton}"
+                            ToolTip="{loc:Loc Common.Close}">
+                        <Path Width="13" Height="13" Stretch="Uniform"
+                              Data="M1,1 L12,12 M12,1 L1,12"
+                              StrokeThickness="1.2"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
 

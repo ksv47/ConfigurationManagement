@@ -65,6 +65,7 @@ namespace Configuration_Management
             InitializeColorSchemes();
             InitializeLanguage();
             InitializeProfileBackupTab();
+            InitializeAccountsTab();
         }
 
         /// <summary>Переключатель компактного режима: применяет изменение сразу и сохраняет.</summary>

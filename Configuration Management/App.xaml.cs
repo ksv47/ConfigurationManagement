@@ -22,6 +22,11 @@ namespace Configuration_Management
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Единое «стеклянное» оформление всех диалоговых окон: общий хелпер применяет
+            // WindowChrome, собственные кнопки окна и полупрозрачную подложку к каждому
+            // окну приложения (главное, оформленное самостоятельно, пропускается).
+            WindowChromeHelper.RegisterGlobalWindowStyling();
+
             // Режим COM-агента перехватывается раньше, в Program.Main: агенту не нужны
             // ни WPF, ни ресурсные словари тем. См. ComReadHost.
 
@@ -56,27 +61,6 @@ namespace Configuration_Management
                 // читает/пишет файлы данных в каталог активного профиля.
                 var profileService = AppServices.GetRequiredService<IProfileService>();
                 profileService.EnsureInitialized();
-
-                // Любое окно, закрытое до создания главного, гасит приложение: режим
-                // завершения по умолчанию OnLastWindowClose считает его последним,
-                // и главное окно уже не открывается. Поэтому до показа главного
-                // окна завершение только явное, прежний режим возвращается после.
-                var shutdownModeBeforeStartup = ShutdownMode;
-                ShutdownMode = ShutdownMode.OnExplicitShutdown;
-
-                // Локализацию поднимаем до окна входа и ранних окон ошибок: настройки
-                // выбранного профиля читаются ниже, а без словаря окно показывает
-                // ключи (Auth.Title, Auth.Login) вместо подписей. Язык берётся из
-                // профиля, активного с прошлого запуска, и уточняется после входа.
-                try
-                {
-                    var startupSettings = AppServices.GetRequiredService<IInfobaseRepository>().LoadSettings();
-                    LocalizationManager.Instance.Initialize(startupSettings.Language);
-                }
-                catch
-                {
-                    LocalizationManager.Instance.Initialize();
-                }
 
                 // Если в приложении несколько учётных записей — показываем окно авторизации
                 // по аналогии со списком пользователей 1С. При одной записи входим без запроса.
@@ -133,10 +117,6 @@ namespace Configuration_Management
                 try
                 {
                     LocalizationManager.Instance.Initialize(settings.Language);
-                    // Если словарь уже поднят ради окна входа, Initialize выходит сразу,
-                    // поэтому язык выбранного профиля применяется отдельно и по тем же
-                    // правилам: пустое значение означает язык системы.
-                    LocalizationManager.Instance.ApplyPreferredLanguage(settings.Language);
                 }
                 catch
                 {
@@ -215,11 +195,6 @@ namespace Configuration_Management
                 // окна оно ещё пустое, поэтому масштабирование не сработало бы.
 
                 mainWindow.Show();
-
-                // Прежний режим завершения возвращается: на время старта он
-                // переключался на явный, иначе закрытие окна входа гасило
-                // приложение до появления главного.
-                ShutdownMode = shutdownModeBeforeStartup;
             }
             catch (Exception ex)
             {

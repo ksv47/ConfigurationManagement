@@ -9,6 +9,99 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.5.41] — 2026-08-30
+
+Управление учётными записями (профилями) в Windows-версии перенесено из отдельного окна во вкладку **«Учётные записи»** окна настроек: весь редактор профилей теперь живёт прямо в настройках, а прежняя кнопка «Управление учётными записями…» и отдельное окно в Windows-версии упразднены. Изменение внесено только для Windows/WPF; Linux/Avalonia-версия не затрагивалась.
+
+### Добавлено
+
+- **Вкладка «Учётные записи» в окне настроек** (Windows/WPF). В окне настроек [`SettingsWindow`](Configuration Management/Views/SettingsWindow.xaml) появилась отдельная вкладка, встраивающая панель управления профилями — новый `UserControl` [`ProfilesPanel.xaml`](Configuration Management/Views/ProfilesPanel.xaml), размещённый рядом с прежним окном. Панель полностью повторяет интерфейс отдельного окна: выпадающее меню активной учётной записи, список «список + редактор» (имя, пароль, флажок «Защитить паролем»), сообщение об ошибке и кнопки «Создать / Сохранить / Удалить / Сделать активной». Бизнес-логика (CRUD, валидация, подтверждение удаления) переиспользует прежнюю [`ProfilesViewModel`](Configuration Management/ViewModels/ProfilesViewModel.cs); пароль по-прежнему передаётся из `PasswordBox` в code-behind ([`ProfilesPanel.xaml.cs`](Configuration Management/Views/ProfilesPanel.xaml.cs)). Вкладка строится в [`SettingsWindow.Accounts.cs`](Configuration Management/Views/SettingsWindow.Accounts.cs) и вставляется перед вкладкой «О программе», как и «Резервное копирование». Заголовок вкладки локализован ключом `Settings.TabAccounts` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Изменено
+
+- **Отказано от отдельного окна управления учётными записями** (Windows/WPF). Кнопка «Управление учётными записями…» во вкладке «Настройки» удалена, обработчик `OnManageProfiles_Click` убран; отдельное окно [`ProfilesWindow`](Configuration Management/Views/ProfilesWindow.xaml) в Windows-версии больше не открывается — управление доступно только во вкладке «Учётные записи».
+- **Версия поднята до `0.3.5.41`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.40] — 2026-08-30
+
+Все диалоговые окна приложения переведены на новый «стеклянный» стиль главного окна на обеих платформах: собственные кнопки управления окном (свернуть/закрыть, у закрытия красное выделение), полупрозрачный стеклянный фон и скруглённые углы (при максимизации обнуляются). Логика диалогов (DialogResult, кнопки ОК/Отмена, ShowDialogSync) не менялась.
+
+### Изменено
+
+- **Все диалоговые окна** (Windows/WPF). Добавлен общий класс [`WindowChromeHelper.cs`](Configuration Management/Views/WindowChromeHelper.cs): он применяет `WindowChrome` без системных кнопок, полупрозрачную подложку цвета темы (~0xE8), системный acrylic/mica (Windows 11, при недоступности — blur-behind) и скруглённые углы DWM, а также добавляет полосу заголовка с собственными кнопками «свернуть»/«закрыть» (у закрытия — красная подложка `#E81123`, при нажатии `#C50F1F`). Стили `WindowControlButton` / `WindowControlCloseButton` вынесены из [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) в общие ресурсы приложения [`App.xaml`](Configuration Management/App.xaml); глобальное оформление регистрируется в [`App.xaml.cs`](Configuration Management/App.xaml.cs). Оформляются все диалоги: `AddEditWindow`, `CacheCleanWindow`, `ColorPickerWindow`, `ConnectionSettingsWindow`, `ConnectionStringInputWindow`, `CreateInfobaseWindow`, `DeleteInfobaseWindow`, `GroupEditWindow`, `GroupPickerWindow`, `GroupSettingsWindow`, `LaunchParametersWindow`, `LinkInputWindow`, `LoginWindow`, `NameInputWindow`, `PlatformVersionPickerWindow`, `ProfilesWindow`, `SettingsWindow`, `TagInputWindow`, а также окно сообщений `MaterialMessageWindow`.
+- **Все диалоговые окна** (Linux/Avalonia). Базовый класс [`ModalWindowBase.cs`](Configuration Management/Views/ModalWindowBase.cs) задаёт `SystemDecorations=None`, `ExtendClientAreaToDecorationsHint=true`, `TransparencyLevelHint={AcrylicBlur, Blur, Transparent}`, прозрачный фон и автоматически оборачивает содержимое каждого диалога в «стеклянный» контейнер (скруглённые углы + полупрозрачная подложка цвета темы через `ThemeBrushes.WithAlpha`) с полосой заголовка, перетаскиванием (`BeginMoveDrag`) и невидимыми зонами ресайза для изменяемых окон. Собственные кнопки «свернуть»/«закрыть» с красным закрытием добавляются единообразно без правки восемнадцати окон. XAML-диалоги `NameInputWindow`, `LinkInputWindow`, `DeleteInfobaseWindow`, `TagInputWindow` переведены на `SystemDecorations="None"`.
+- **Версия поднята до `0.3.5.40`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.39] — 2026-08-30
+
+Кнопка «закрыть» в собственных кнопках управления окном получила классическое красное выделение при наведении/нажатии на обеих платформах: красная подложка (алый `#E81123` при наведении, темнее `#C50F1F` при нажатии) и белый значок креста поверх неё. У обычных кнопок «свернуть»/«развернуть» поведение и цвета темы не изменились.
+
+### Добавлено
+
+- **Красное выделение кнопки «закрыть»** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) добавлен отдельный стиль `WindowControlCloseButton` (`BasedOn="WindowControlButton"`): при наведении фон становится алым `#E81123`, при нажатии — `#C50F1F`, значок перекрашивается в белый. Стиль применён к `CloseButton`, кнопки «свернуть»/«развернуть» продолжают использовать прежний `WindowControlButton`.
+- **Красное выделение кнопки «закрыть»** (Linux/Avalonia). В [`MainWindow.Avalonia.cs`](Configuration Management/Views/MainWindow.Avalonia.cs) класс `WindowControlButton` для типа `WindowControlKind.Close` при наведении/нажатии красит фон в алый (`CloseHoverBrush` `#E81123` / `ClosePressedBrush` `#C50F1F`) и перекрашивает значок в белый; при выходе курсора значок возвращается к цвету темы (`TextPrimaryColorBrush`) через `ApplyState`. Кнопки «свернуть»/«развернуть» используют прежние hover/pressed-кисти темы.
+
+### Изменено
+
+- **Версия поднята до `0.3.5.39`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.38] — 2026-08-30
+
+В WPF-версии (Windows) главное окно оформлено в стиле «прозрачного стекла»: расширенная системная стеклянная рамка DWM + полупрозрачная подложка из цвета темы (~0xE8) вместо сплошного фона рабочей области, системный acrylic/mica backdrop (Windows 11, при недоступности — классический blur-behind) и скруглённые углы окна, которые при максимизации обнуляются. Собственные кнопки управления окном и верхняя панель из `0.3.5.37` остались нетронутыми и теперь выглядят согласованно с полупрозрачным фоном. Если системный акрил недоступен (старый Windows / аппаратное ограничение), окно остаётся рабочим и красивым за счёт полупрозрачного фона без размытия. Изменение внесено только для Windows/WPF.
+
+### Добавлено
+
+- **Стеклянный/полупрозрачный фон окна** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) `WindowChrome.GlassFrameThickness` расширен до `-1`, чтобы системная стеклянная рамка DWM покрывала всю клиентскую область; в [`MainWindow.xaml.cs`](Configuration Management/Views/MainWindow.xaml.cs) добавлен P/Invoke-помощник (`DwmSetWindowAttribute`/`DwmEnableBlurBehindWindow`): на Windows 11 включается системный acrylic backdrop (`DWMWA_SYSTEMBACKDROP_TYPE`, значение `DWMSBT_TRANSIENTWINDOW`), при недоступности — mica (`DWMSBT_MAINWINDOW`), на старых Windows — классический blur-behind. Если эффект недоступен, применяется откат на полупрозрачный фон без размытия, окно остаётся рабочим.
+- **Полупрозрачная подложка из цвета темы** (Windows/WPF). Вместо сплошного фона рабочей области фон окна задаётся пересчитанным из текущего `ContentBackgroundBrush` с альфой `0xE8` (~91% непрозрачности) — адаптивно для обеих тем (светлая/тёмная) и всех цветовых схем. Подложка пересчитывается при смене темы/схемы: слушатель коллекции `Application.Current.Resources.MergedDictionaries` (тема меняется через `ThemeManager.ApplyScheme`) вызывает `ApplyGlassBackground()`.
+- **Скруглённые углы окна в стиле glass** (Windows/WPF). На Windows 11 углы окна скругляются на уровне DWM через `DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_ROUND`; при развёрнутом состоянии углы обнуляются (`DWMWCP_DONOTROUND`), а толщина стеклянной рамки возвращается к `0`, чтобы окно корректно прилегало к краям экрана и панели задач.
+
+### Изменено
+
+- **Версия поднята до `0.3.5.38`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.37] — 2026-08-30
+
+В WPF-версии (Windows) главное окно отказалось от системных кнопок управления окном (закрыть/свернуть/развернуть) и системной рамки в пользу собственных кнопок, нарисованных средствами WPF. Окно оформлено через `WindowChrome` (без стеклянной рамки и системных кнопок), перетаскивание за верхнюю панель реализовано вручную через `DragMove`, а изменение размера — невидимой рамкой ресайза `WindowChrome`. Изменение внесено только для Windows/WPF.
+
+### Добавлено
+
+- **Собственные кнопки управления окном** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) добавлен стиль `WindowControlButton` и правый блок из трёх кнопок: «свернуть» (минус), «развернуть/восстановить» (квадрат / два квадрата — переключается по состоянию окна) и «закрыть» (крест); значки построены геометрией `Path`. Цвет значка и hover-подложка берутся из активной темы через `DynamicResource` (`TextSecondaryBrush`, `ItemHoverBrush`, `AccentPressedBrush`), поэтому корректно работают в светлой и тёмной темах. Закрытие идёт через штатный `Close()` и потому уважает настройку «свернуть в трей» (`CloseToTray`) в `OnClosing`. Подсказки используют существующие ключи локализации `Window.Minimize`, `Window.Maximize`, `Common.Close`.
+- **Отключение системной рамки и системных кнопок** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) задан `WindowChrome` с `GlassFrameThickness=0`, `UseAeroCaptionButtons=False`, `CaptionHeight=0`, `CornerRadius=0` и `ResizeBorderThickness=6`.
+- **Перетаскивание без системной рамки** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml.cs) добавлен обработчик `OnTopBar_MouseLeftButtonDown`: перетаскивание окна за фон верхней панели через `DragMove()` и разворот/восстановление по двойному клику (`ToggleMaximize`); интерактивные элементы (кнопки/поля) перехватывают нажатия сами, поэтому случайного перетаскивания при кликах нет.
+- **Изменение размера без системной рамки** (Windows/WPF). Рамка ресайза задана свойством `WindowChrome.ResizeBorderThickness`, поэтому окно растягивается за любую границу и углы.
+
+### Изменено
+
+- **Версия поднята до `0.3.5.37`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.36] — 2026-08-30
+
+В Avalonia-версии (Linux) главное окно оформлено в стиле «прозрачного стекла»: прозрачное окно с запрошенным уровнем прозрачности AcrylicBlur (с откатом на Blur, затем Transparent), полупрозрачная подложка цвета темы вместо сплошного фона рабочей области и скруглённые углы корня окна в стиле glass. Собственные кнопки управления окном и верхняя панель из `0.3.5.35` остались нетронутыми и теперь выглядят согласованно с полупрозрачным фоном. Если оконный менеджер не поддерживает размытие (вернулся Transparent), окно остаётся рабочим и красивым за счёт полупрозрачного фона без размытия. Изменение внесено только для Linux/Avalonia.
+
+### Добавлено
+
+- **Прозрачность окна** (Linux/Avalonia). В конструкторе [`MainWindow.Avalonia.cs`](Configuration Management/Views/MainWindow.Avalonia.cs) заданы `TransparencyLevelHint = { AcrylicBlur, Blur, Transparent }` (запасные варианты по убыванию желаемого) и `Background = Brushes.Transparent`, без чего эффект acrylic/размытия не активируется.
+- **Полупрозрачный «стеклянный» фон рабочей области** (Linux/Avalonia). Сплошная привязка `ContentBackgroundColorBrush` в корне окна (`BuildRoot`) заменена на полупрозрачную подложку: новая `ThemeBrushes.WithAlpha(brush, alpha)` берёт текущий цвет темы и пересчитывает его с альфой `0xE8` (~91% непрозрачности) — адаптивно для обеих тем (светлая/тёмная) и всех цветовых схем. Такой же полупрозрачный фон задан области списка баз, чтобы размытие проступало равномерно, а не пятнами.
+- **Скруглённые углы окна в стиле glass** (Linux/Avalonia). Корень окна обёрнут в `Border` с `CornerRadius = UiMetrics.RadiusLg` и `ClipToBounds`, при развёрнутом состоянии углы обнуляются, чтобы в углах окна не просвечивал рабочий стол.
+
+### Изменено
+
+- **Версия поднята до `0.3.5.36`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.35] — 2026-08-30
+
+В Avalonia-версии (Linux) главное окно отказалось от системной рамки и системных кнопок управления окном в пользу собственных кнопок «свернуть / развернуть / закрыть», нарисованных в коде. Перетаскивание окна за верхнюю панель и изменение размера за края/углы реализованы вручную, поэтому окно полноценно работает без системных декораций. Изменение внесено только для Linux/Avalonia.
+
+### Добавлено
+
+- **Собственные кнопки управления окном** (Linux/Avalonia). В [`MainWindow.Avalonia.cs`](Configuration Management/Views/MainWindow.Avalonia.cs) добавлен класс `WindowControlButton`: значки «свернуть» (минус), «развернуть/восстановить» (квадрат / два квадрата — переключается по состоянию окна) и «закрыть» (крест) построены из `StreamGeometry`; цвет значка и hover-подложка берутся из темы через `ThemeBrushes.Bind`/`Observe` (`TextPrimaryColorBrush`, `ItemHoverBrush`, `AccentPressedBrush`). Кнопки размещены справа в верхней панели (`BuildTopBar`); закрытие идёт через штатный `Close()` и потому уважает настройку «сворачивать в трей» (`CloseToTray`) в `OnClosing`. Строки подсказок добавлены в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json) (`Window.Minimize`, `Window.Maximize`).
+- **Перетаскивание без системной рамки** (Linux/Avalonia). В конструкторе [`MainWindow.Avalonia.cs`](Configuration Management/Views/MainWindow.Avalonia.cs) установлены `SystemDecorations = SystemDecorations.None` и `ExtendClientAreaToDecorationsHint = true`. Перемещение окна реализовано за фон верхней панели (`BeginMoveDrag` по `PointerPressed`, обработчик `OnTopBarPointerPressed`), интерактивные элементы исключаются проверкой источника.
+- **Изменение размера без системной рамки** (Linux/Avalonia). В [`MainWindow.Avalonia.cs`](Configuration Management/Views/MainWindow.Avalonia.cs) добавлены невидимые зоны ресайза по краям и углам окна (`AddResizeZones`/`AddResizeZone` с `BeginResizeDrag`), чтобы окно можно было растягивать за любую границу и углы.
+
+### Изменено
+
+- **Версия поднята до `0.3.5.35`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
 ## [0.3.5.34] — 2026-08-30
 
 Исправлены регрессии правок `0.3.5.31`–`0.3.5.33`: у всех комбобоксов вновь надёжно открывается выпадающий список по клику (в том числе по стрелке у редактируемых), а контент окон настройки и создания инфобазы больше не обрезается при увеличенных полях. Изменения внесены для обеих платформ (Windows/WPF и Linux/Avalonia).

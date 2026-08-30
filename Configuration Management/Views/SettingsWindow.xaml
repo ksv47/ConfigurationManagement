@@ -1155,14 +1155,6 @@
                                 <TextBlock Text="{loc:Loc Settings.CompactMode}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
-                        <Button x:Name="ManageProfilesButton" Width="250" Height="36" HorizontalAlignment="Left" Margin="0,18,0,0"
-                                Style="{StaticResource ModernButton}"
-                                Click="OnManageProfiles_Click">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="AccountMultiple" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="{loc:Loc Settings.General.ManageProfiles}" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

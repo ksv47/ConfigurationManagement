@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -49,6 +50,20 @@ namespace Configuration_Management
         public MainWindow(ViewModels.MainViewModel? viewModel = null)
         {
             InitializeComponent();
+
+            // «Стеклянный» полупрозрачный фон окна: подложка берётся из текущего цвета
+            // темы (светлая/тёмная и любые схемы) и пересчитывается при смене темы.
+            // ThemeManager.ApplyScheme заменяет словарь темы в Application.Resources,
+            // поэтому слушаем коллекцию MergedDictionaries и обновляем подложку заново.
+            if (Application.Current?.Resources is { } resources)
+            {
+                ((System.Collections.Specialized.INotifyCollectionChanged)resources.MergedDictionaries)
+                    .CollectionChanged += (_, _) =>
+                    {
+                        try { Dispatcher.BeginInvoke(new Action(ApplyGlassBackground)); }
+                        catch { /* не блокируем смену темы */ }
+                    };
+            }
 
             // Выводим версию программы в заголовок окна (информационная версия,
             // чтобы показать точное значение «0.3.3.41»).
@@ -434,6 +449,234 @@ namespace Configuration_Management
 
 
 
+        // ===================== Стеклянный фон окна (acrylic/mica через DWM) =====================
+        //
+        // Повторяем визуальный эффект Avalonia-версии («прозрачное стекло») средствами WPF.
+        // Механика: расширенная системная стеклянная рамка DWM (GlassFrameThickness=-1)
+        // + полупрозрачная подложка из цвета темы (~0xE8) + системный acrylic/mica backdrop
+        // (Windows 11) либо blur-behind (старые Windows). Если DWM недоступен — остаётся
+        // просто полупрозрачный фон без размытия, окно остаётся рабочим.
+
+        /// <summary>Альфа полупрозрачной подложки «стекла» — 0xE8 (~91% непрозрачности).</summary>
+        private const byte GlassBackgroundAlpha = 0xE8;
+
+        // DWMWA_SYSTEMBACKDROP_TYPE (38): 2 = Mica, 3 = Acrylic.
+        private const int DwmSystemBackdropType = 38;
+        private const int DwmBackdropAcrylic = 3;
+        private const int DwmBackdropMica = 2;
+
+        // DWMWA_WINDOW_CORNER_PREFERENCE (33): 1 = не скруглять, 2 = скруглять.
+        private const int DwmWindowCornerPreference = 33;
+        private const int DwmCornerRound = 2;
+        private const int DwmCornerDoNotRound = 1;
+
+        // DWM_BB_ENABLE для DwmEnableBlurBehindWindow.
+        private const int DwmBbEnable = 0x00000001;
+
+        [DllImport("dwmapi.dll", PreserveSig = true)]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+        [DllImport("dwmapi.dll", PreserveSig = true)]
+        private static extern int DwmEnableBlurBehindWindow(IntPtr hwnd, ref DwmBlurBehind pBlurBehind);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct DwmBlurBehind
+        {
+            public int dwFlags;
+            public int fEnable;
+            public IntPtr hRgnBlur;
+            public int fTransitionOnMaximized;
+        }
+
+        /// <summary>
+        /// Применяет стеклянное оформление, когда у окна появился HWND (SourceInitialized):
+        /// полупрозрачная подложка темы, системный acrylic/mica (или blur-behind) и
+        /// скруглённые углы. Никакие сбои DWM не должны блокировать запуск окна.
+        /// </summary>
+        private void OnWindowSourceInitialized(object? sender, EventArgs e)
+        {
+            try
+            {
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                ApplyGlassBackground();
+                ApplySystemBackdrop(hwnd);
+                ApplyCornerPreference();
+            }
+            catch
+            {
+                // Не блокируем запуск из-за недоступности эффекта стекла.
+            }
+        }
+
+        /// <summary>
+        /// Полупрозрачная подложка окна: берём текущий цвет темы (ContentBackgroundBrush,
+        /// обновляется для светлой/тёмной темы и любой цветовой схемы) и пересчитываем его
+        /// с альфой ~0xE8. Именно эта подложка остаётся основным фоном, а размытие DWM
+        /// лишь добавляет эффект «стекла» сквозь прозрачные области.
+        /// </summary>
+        private void ApplyGlassBackground()
+        {
+            if (TryFindResource("ContentBackgroundBrush") is SolidColorBrush brush)
+            {
+                var c = brush.Color;
+                Background = new SolidColorBrush(Color.FromArgb(GlassBackgroundAlpha, c.R, c.G, c.B));
+            }
+        }
+
+        /// <summary>
+        /// Включает системный размытый фон: на Windows 11 — acrylic (DWMSBT_TRANSIENTWINDOW),
+        /// при недоступности — mica (DWMSBT_MAINWINDOW); на старых Windows — blur-behind.
+        /// Если ничего не удалось, откатываемся на полупрозрачный фон без размытия.
+        /// </summary>
+        private void ApplySystemBackdrop(IntPtr hwnd)
+        {
+            if (hwnd == IntPtr.Zero)
+                return;
+
+            try
+            {
+                // Windows 11 (build >= 22000): системный acrylic backdrop,
+                // при недоступности — mica.
+                if (Environment.OSVersion.Version.Build >= 22000)
+                {
+                    int backdrop = DwmBackdropAcrylic;
+                    if (DwmSetWindowAttribute(hwnd, DwmSystemBackdropType, ref backdrop, sizeof(int)) == 0)
+                        return;
+
+                    backdrop = DwmBackdropMica;
+                    if (DwmSetWindowAttribute(hwnd, DwmSystemBackdropType, ref backdrop, sizeof(int)) == 0)
+                        return;
+                }
+
+                // Старые Windows: классический blur-behind.
+                var bb = new DwmBlurBehind { dwFlags = DwmBbEnable, fEnable = 1 };
+                DwmEnableBlurBehindWindow(hwnd, ref bb);
+            }
+            catch
+            {
+                // Не блокируем запуск: останется полупрозрачный фон без размытия.
+            }
+        }
+
+        /// <summary>
+        /// Скруглённые углы окна в стиле glass на уровне DWM (Windows 11). В развёрнутом
+        /// состоянии углы обнуляются, чтобы в углах окна не просвечивал рабочий стол.
+        /// </summary>
+        private void ApplyCornerPreference()
+        {
+            try
+            {
+                if (Environment.OSVersion.Version.Build < 22000)
+                    return;
+
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                if (hwnd == IntPtr.Zero)
+                    return;
+
+                int pref = WindowState == WindowState.Maximized ? DwmCornerDoNotRound : DwmCornerRound;
+                DwmSetWindowAttribute(hwnd, DwmWindowCornerPreference, ref pref, sizeof(int));
+            }
+            catch
+            {
+                // Игнорируем: скругление — некритичное улучшение.
+            }
+        }
+
+        /// <summary>
+        /// При максимизации возвращаем толщину стеклянной рамки к 0: это известное
+        /// обходное решение, иначе окно с WindowChrome и расширенной стеклянной рамкой
+        /// (GlassFrameThickness=-1) при развороте перекрывает панель задач Windows 11.
+        /// </summary>
+        private void UpdateGlassFrameForMaximize()
+        {
+            try
+            {
+                var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(this);
+                if (chrome is null)
+                    return;
+                chrome.GlassFrameThickness = WindowState == WindowState.Maximized
+                    ? new Thickness(0)
+                    : new Thickness(-1);
+            }
+            catch
+            {
+                // Игнорируем: если рамку не удалось поправить, окно всё равно работает.
+            }
+        }
+
+        // ===================== Собственные кнопки управления окном (без системной рамки) =====================
+
+        /// <summary>
+        /// Перетаскивание окна за фон верхней панели (окно без системной рамки, WindowChrome
+        /// с <c>CaptionHeight=0</c>). Двойной клик по пустой области переключает разворот.
+        /// Нажатия на интерактивных элементах (кнопки, поля, вкладки) перехватываются ими
+        /// самими и сюда не доходят, поэтому случайного перетаскивания при кликах нет.
+        /// </summary>
+        private void OnTopBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                if (e.ClickCount == 2)
+                {
+                    ToggleMaximize();
+                    return;
+                }
+
+                // Развёрнутое окно не перетаскиваем: возврат к «плавающему» виду делается
+                // кнопкой разворота, а DragMove по развёрнутому окну ведёт себя непредсказуемо.
+                if (WindowState == WindowState.Maximized)
+                    return;
+
+                DragMove();
+            }
+            catch
+            {
+                // Игнорируем: DragMove может выбросить при клике, ушедшем в дочерний элемент.
+            }
+        }
+
+        private void OnMinimizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
+        private void OnMaximizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleMaximize();
+        }
+
+        /// <summary>
+        /// Закрытие через штатный <see cref="Window.Close"/>: уважает настройку
+        /// «свернуть в трей» (<c>CloseToTray</c>), обрабатываемую в <c>OnClosing</c>.
+        /// </summary>
+        private void OnCloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
+        }
+
+        private void ToggleMaximize()
+        {
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        }
+
+        /// <summary>
+        /// Переключает значок кнопки «развернуть/восстановить» в зависимости от состояния окна
+        /// (одинарный квадрат — в обычном состоянии, два квадрата — в развёрнутом).
+        /// </summary>
+        private void OnWindowStateChanged(object? sender, EventArgs e)
+        {
+            if (MaximizeGlyphPath == null || RestoreGlyphPath == null)
+                return;
+
+            bool maximized = WindowState == WindowState.Maximized;
+            MaximizeGlyphPath.Visibility = maximized ? Visibility.Collapsed : Visibility.Visible;
+            RestoreGlyphPath.Visibility = maximized ? Visibility.Visible : Visibility.Collapsed;
+
+            // При развороте обнуляем скругление углов и толщину стеклянной рамки,
+            // чтобы окно корректно прилегало к краям экрана и панели задач.
+            ApplyCornerPreference();
+            UpdateGlassFrameForMaximize();
+        }
     }
 }
 #endif
