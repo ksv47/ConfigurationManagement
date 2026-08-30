@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Localization;
+using Configuration_Management.Themes;
 
 namespace Configuration_Management
 {
@@ -21,6 +22,8 @@ namespace Configuration_Management
         public AddEditWindow()
         {
             Title = LocalizationManager.T("AddEdit.Title");
+            // Кегль окна из разметки: подписи без явного размера берут его по наследству.
+            FontSize = 13;
             Width = 480;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
@@ -36,13 +39,20 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            var header = new TextBlock
+            // Заголовок со справкой рядом (AddEditWindow.xaml:63-68).
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
+            header.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("AddEdit.Question"),
                 FontSize = 15,
-                FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 0, 0, 12)
-            };
+                FontWeight = FontWeight.SemiBold
+            });
+            header.Children.Add(new Controls.HelpLink
+            {
+                HelpText = LocalizationManager.T("AddEdit.HelpText"),
+                Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            });
             Grid.SetRow(header, 0);
             grid.Children.Add(header);
 
@@ -87,26 +97,30 @@ namespace Configuration_Management
             {
                 Tag = tag,
                 GroupName = "AddType",
-                IsChecked = isChecked,
-                Margin = new Thickness(0, 0, 0, 10)
+                IsChecked = isChecked
             };
+            // Карточка без маркера, с акцентной рамкой у выбранного варианта
+            // (AddEditWindow.xaml:26). Отступы и поля задаёт сама тема.
+            radio.Styled(Themes.ControlThemes.AddOptionCard);
 
             var content = new Grid { Margin = new Thickness(0) };
             content.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(36)));
             content.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
 
-            var iconBlock = IconHelper.MakeIcon(iconKey, 26);
+            var iconBlock = IconHelper.MakeIcon(iconKey, 24, "AccentColorBrush");
             Grid.SetColumn(iconBlock, 0);
             content.Children.Add(iconBlock);
 
             var textPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             textPanel.Children.Add(new TextBlock { Text = title, FontWeight = FontWeight.SemiBold, FontSize = 14 });
-            textPanel.Children.Add(new TextBlock
+            var descriptionBlock = new TextBlock
             {
                 Text = description,
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12
-            });
+            };
+            Themes.ThemeBrushes.Bind(descriptionBlock, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            textPanel.Children.Add(descriptionBlock);
             Grid.SetColumn(textPanel, 1);
             content.Children.Add(textPanel);
 

@@ -45,6 +45,8 @@ namespace Configuration_Management
         {
             _profileService = profileService;
             Title = LocalizationManager.T("Auth.Title");
+            // Кегль окна из разметки: подписи без явного размера берут его по наследству.
+            FontSize = 13;
             Width = 460;
             Height = 360;
             MinWidth = 400;
@@ -86,6 +88,8 @@ namespace Configuration_Management
             _passwordPanel.Children.Add(new TextBlock { Text = LocalizationManager.T("Auth.Password") });
             _passwordInput = new PasswordBox();
             _passwordInput.Styled(ControlThemes.ModernPasswordBox);
+            // Отступ из разметки (LoginWindow.xaml), общая тема даёт 10,6.
+            _passwordInput.Padding = new Thickness(8, 6);
             _passwordInput.KeyDown += OnPasswordInput_KeyDown;
             _passwordPanel.Children.Add(_passwordInput);
             Grid.SetRow(_passwordPanel, 2);

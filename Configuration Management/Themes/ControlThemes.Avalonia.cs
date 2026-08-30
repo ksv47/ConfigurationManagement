@@ -77,6 +77,9 @@ namespace Configuration_Management.Themes
         /// <summary>Кнопки «Выбрать все» и «Снять все» окна очистки кеша.</summary>
         public const string SelectAllButton = "SelectAllButton";
 
+        /// <summary>Карточка варианта окна добавления: рамка без маркера радиокнопки.</summary>
+        public const string AddOptionCard = "AddOptionCard";
+
         /// <summary>Плитка выбора значка группы: тёмная в обеих темах, как у автора.</summary>
         public const string IconPickButton = "IconPickButton";
 

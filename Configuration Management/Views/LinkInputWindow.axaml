@@ -9,7 +9,8 @@
                        x:Class="Configuration_Management.LinkInputWindow"
                        Title="{loc:Loc LinkInput.Title}"
                        Width="460"
-                       SizeToContent="Height"
+                       Height="210"
+                       FontSize="13"
                        CanResize="False"
                        SystemDecorations="Full">
     <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,Auto">
