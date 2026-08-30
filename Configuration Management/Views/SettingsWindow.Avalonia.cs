@@ -770,6 +770,13 @@ namespace Configuration_Management
                 moveUp.IsEnabled = idx > 0;
                 moveDown.IsEnabled = idx >= 0 && idx < orderItems.Count - 1;
             }
+            // В разметке у этого списка свой ItemContainerStyle без BasedOn
+            // (SettingsWindow.xaml:565-570), то есть тема строки там отключена и
+            // работает штатный контейнер WPF. Дословно повторить это нельзя:
+            // штатный контейнер Avalonia красит выбранную строку акцентом,
+            // и замер даёт оранжевый 210,151,12 против синего 32,69,97 на снимке
+            // Windows, тогда как ModernListBoxItem даёт 30,58,95. Механизм
+            // расходится, вид совпадает, поэтому тема оставлена.
             // Отступы контейнера строки из разметки (SettingsWindow.xaml:566-570):
             // у штатной темы Avalonia они заметно больше, и карточка растёт.
             orderList.Styles.Add(new Style(x => x.OfType<ListBoxItem>())
