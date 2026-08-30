@@ -283,6 +283,28 @@ public sealed class LocalizationManager
             .ToList();
     }
 
+    /// <summary>
+    /// Применяет предпочтительный язык по тем же правилам, что и первичная
+    /// инициализация: пустое значение означает язык системы, а не «оставить как
+    /// есть». Нужно там, где словарь уже поднят раньше, чем прочитаны настройки.
+    /// </summary>
+    /// <param name="preferred">Сохранённый язык или пусто для автоматического выбора.</param>
+    public void ApplyPreferredLanguage(string? preferred) => SetLanguage(ResolveLanguage(preferred));
+
+    /// <summary>
+    /// Язык интерфейса системы, снятый до первой смены культуры. Нужен именно
+    /// снимок: <see cref="SetLanguage"/> перезаписывает CurrentUICulture, и после
+    /// первого переключения автоматический выбор указывал бы на уже выбранный
+    /// язык, а не на системный.
+    /// </summary>
+    private static readonly string OsUiLanguage = ReadOsUiLanguage();
+
+    private static string ReadOsUiLanguage()
+    {
+        try { return CultureInfo.CurrentUICulture.TwoLetterISOLanguageName; }
+        catch (CultureNotFoundException) { return string.Empty; }
+    }
+
     private string ResolveLanguage(string? preferred)
     {
         // 1) Предпочтительный (сохранённый пользователем) язык.
@@ -290,13 +312,8 @@ public sealed class LocalizationManager
             return preferred!;
 
         // 2) Язык операционной системы, если он есть среди доступных.
-        try
-        {
-            var osLang = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-            if (_languages.ContainsKey(osLang))
-                return osLang;
-        }
-        catch (CultureNotFoundException) { /* неизвестная культура */ }
+        if (!string.IsNullOrEmpty(OsUiLanguage) && _languages.ContainsKey(OsUiLanguage))
+            return OsUiLanguage;
 
         // 3) По умолчанию русский (основной язык приложения).
         return _languages.ContainsKey(BuiltInRussian) ? BuiltInRussian : _languages.Keys.First();

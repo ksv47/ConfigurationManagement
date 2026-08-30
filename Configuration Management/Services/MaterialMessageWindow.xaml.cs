@@ -20,8 +20,19 @@ public partial class MaterialMessageWindow : Window
         InitializeComponent();
         Title = title;
         MessageText.Text = message;
-        Owner = Application.Current.MainWindow;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        // На старте главного окна ещё нет, и первым MainWindow становится само это
+        // окно: присваивание Owner самому себе бросает ArgumentException. Без
+        // владельца окно просто открывается по центру экрана.
+        var owner = Application.Current?.MainWindow;
+        if (owner is not null && !ReferenceEquals(owner, this))
+        {
+            Owner = owner;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        }
+        else
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        }
 
         // Настройка иконки и кнопок по типу сообщения.
         if (kind == MaterialMessageKind.Question)

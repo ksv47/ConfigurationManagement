@@ -26,7 +26,16 @@ namespace Configuration_Management
         /// </summary>
         public static string? ShowLogin(IProfileService profileService)
         {
-            var window = new LoginWindow(profileService) { Owner = Application.Current.MainWindow };
+            var window = new LoginWindow(profileService);
+
+            // На старте главного окна ещё нет, и первым MainWindow приложения
+            // становится сам LoginWindow: присваивание Owner самому себе бросает
+            // ArgumentException «Невозможно указать себя в свойстве Owner»,
+            // и приложение не запускается вовсе.
+            var owner = Application.Current?.MainWindow;
+            if (owner is not null && !ReferenceEquals(owner, window))
+                window.Owner = owner;
+
             window.ShowDialog();
             return window.SelectedProfileId;
         }
