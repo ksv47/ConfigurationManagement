@@ -28,54 +28,60 @@ namespace Configuration_Management
     {
 
         /// <summary>
-        /// Собирает список узлов дерева в порядке их отображения (сверху вниз),
-        /// включая развёрнутые подгруппы. Возвращает элементы GroupNodeViewModel и Infobase.
+        /// Собирает контейнеры видимых строк дерева в порядке их отображения
+        /// (сверху вниз), включая строки развёрнутых подгрупп. Навигация ведётся
+        /// по контейнерам, а не по объектам данных: закреплённая база присутствует
+        /// в дереве дважды (узел «Закреплённые» и собственная группа), и работа
+        /// с данными всякий раз возвращала бы первое (верхнее) вхождение.
         /// </summary>
-        private List<object> GetVisibleTreeNodes()
+        private List<TreeViewItem> GetVisibleTreeViewItems()
         {
-            var result = new List<object>();
-            foreach (var root in _viewModel.GroupNodes)
-                AppendVisible(root, result);
-            return result;
-        }
+            if (MainTree is null)
+                return new List<TreeViewItem>();
+            var rows = new List<TreeViewItem>();
+            Collect(MainTree);
+            return rows;
 
-        private static void AppendVisible(object node, List<object> result)
-        {
-            result.Add(node);
-
-            if (node is not GroupNodeViewModel group || !group.IsExpanded)
-                return;
-
-            foreach (var item in group.Items)
-                AppendVisible(item, result);
+            void Collect(ItemsControl parent)
+            {
+                for (var i = 0; i < parent.Items.Count; i++)
+                {
+                    if (parent.ItemContainerGenerator.ContainerFromIndex(i) is not TreeViewItem item)
+                        continue;
+                    rows.Add(item);
+                    if (item.IsExpanded)
+                        Collect(item);
+                }
+            }
         }
 
         /// <summary>
-        /// Определяет текущий выбранный узел дерева по модели представления.
+        /// Индекс текущей строки навигации. Определяется по контейнеру под
+        /// фокусом либо под выделением, а не по объекту данных: закреплённая
+        /// база присутствует в дереве дважды (узел «Закреплённые» и собственная
+        /// группа), и поиск по ссылке данных вернул бы первое вхождение,
+        /// «перепрыгивая» выделение в начало списка.
         /// </summary>
-        private object? FindCurrentTreeNode(List<object> visible)
+        private int FindCurrentRowIndex(List<TreeViewItem> rows)
         {
-            if (_viewModel.SelectedInfobase is not null)
+            var focused = System.Windows.Input.Keyboard.FocusedElement as DependencyObject;
+            for (var node = focused; node is not null; node = VisualTreeHelper.GetParent(node))
             {
-                foreach (var node in visible)
-                {
-                    if (ReferenceEquals(node, _viewModel.SelectedInfobase))
-                        return node;
-                }
-                return _viewModel.SelectedInfobase;
+                if (node is not TreeViewItem tvi)
+                    continue;
+                var idx = rows.IndexOf(tvi);
+                if (idx >= 0)
+                    return idx;
+                break;
             }
 
-            if (_viewModel.SelectedGroupNode is not null)
-            {
-                foreach (var node in visible)
-                {
-                    if (ReferenceEquals(node, _viewModel.SelectedGroupNode))
-                        return node;
-                }
-                return _viewModel.SelectedGroupNode;
-            }
+            for (var i = 0; i < rows.Count; i++)
+                if (rows[i].IsSelected)
+                    return i;
 
-            return null;
+            return rows.FindIndex(item =>
+                (item.DataContext is Infobase ib && ReferenceEquals(ib, _viewModel.SelectedInfobase)) ||
+                (item.DataContext is GroupNodeViewModel gn && ReferenceEquals(gn, _viewModel.SelectedGroupNode)));
         }
 
         /// <summary>
@@ -114,6 +120,35 @@ namespace Configuration_Management
 
             // Прокручиваем список к выбранной строке (отложенно, чтобы контейнер
             // виртуализированного узла успел создаться после установки выделения).
+            var scrollTarget = item;
+            Dispatcher.BeginInvoke(new Action(() => ScrollSelectedIntoView(scrollTarget)),
+                System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        /// <summary>
+        /// Выделяет конкретную строку дерева и синхронизирует модель, не ища
+        /// контейнер заново по данным: у закреплённой базы данные встречаются
+        /// дважды (узел «Закреплённые» и собственная группа), и повторный поиск
+        /// вернул бы первую (верхнюю) копию, «перепрыгивая» выделение в начало.
+        /// </summary>
+        private void SelectRowItem(TreeViewItem item)
+        {
+            switch (item.DataContext)
+            {
+                case Infobase infobase:
+                    ApplySelection(item, infobase);
+                    break;
+                case GroupNodeViewModel group when group.Group is not null:
+                    ApplyGroupSelection(item, group);
+                    break;
+            }
+
+            // Фокус переносится и на служебные узлы («Закреплённые», «Без группы»):
+            // у них модель не выделяется, но навигация должна продолжиться оттуда.
+            item.Focus();
+            System.Windows.Input.Keyboard.Focus(item);
+
+            // Прокрутка к строке, как у SelectTreeNode.
             var scrollTarget = item;
             Dispatcher.BeginInvoke(new Action(() => ScrollSelectedIntoView(scrollTarget)),
                 System.Windows.Threading.DispatcherPriority.Loaded);

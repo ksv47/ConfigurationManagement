@@ -9,6 +9,48 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.5.28] — 2026-08-30
+
+Для Windows теперь собирается **один автономный (self-contained) single-file исполняемый файл**: скрипт [`build-windows-single-file.ps1`](Configuration Management/build-windows-single-file.ps1) публикует WPF-приложение (`net10.0-windows`, RID `win-x64`) и очищает выходную папку, оставляя в ней только `ConfigurationManagement.exe` — без `.dll`, `.pdb` и сопутствующих папок.
+
+### Добавлено
+
+- **Выделенный скрипт сборки одного Windows-файла** — [`build-windows-single-file.ps1`](Configuration Management/build-windows-single-file.ps1). В отличие от [`build.ps1`](Configuration Management/build.ps1), он запускается только на Windows, использует параметры `PublishSingleFile`, `IncludeNativeLibrariesForSelfExtract` и `EnableCompressionInSingleFile`, а затем удаляет из выходного каталога `dist\win-x64\` все лишние файлы и папки, оставляя единственный `ConfigurationManagement.exe`. Поддерживаются аргументы `-Configuration` (по умолчанию `Release`) и `-RID` (по умолчанию `win-x64`), а также `SKIP_PUBLISH=1` для быстрой проверки синтаксиса.
+- **Документация способа сборки** в [`README.md`](README.md): раздел «Публикация автономного приложения» дополнен командой `.\build-windows-single-file.ps1` с указанием результата — один исполняемый файл `dist\win-x64\ConfigurationManagement.exe`, не требующий установки .NET Runtime.
+
+## [0.3.5.27] — 2026-08-29
+
+Удалены окна `GroupSettingsWindow` и `TagInputWindow`, которые собирались в сборку, но были недостижимы из интерфейса. **Авторство правок — [ksv47](https://github.com/ksv47)** (PR #110, ветка `ksv47/fix-issue-79`).
+
+### Удалено
+
+- **Окно `GroupSettingsWindow`** (обе платформы): не имело ни одной ссылки в коде — управление группами уже доступно через контекстные меню и окно настроек. Удалены `Configuration Management/Views/GroupSettingsWindow.xaml/.xaml.cs` и `Configuration Management/Views/GroupSettingsWindow.Avalonia.cs`.
+- **Окно `TagInputWindow` и его реализации** (обе платформы): осталось от прежнего способа добавления тега и было недостижимо. Удалены `Configuration Management/Views/TagInputWindow.xaml/.xaml.cs`, `TagInputWindow.axaml` и `TagInputWindow.Avalonia.cs`.
+
+### Изменено
+
+- **Пример использования в doc-комментарии [`LocExtension.Avalonia.cs`](Configuration Management/Localization/LocExtension.Avalonia.cs)** — ссылка `{loc:Loc TagInput.Title}` заменена на актуальную `{loc:Loc Settings.Title}`.
+
+## [0.3.5.26] — 2026-08-29
+
+Поле «Версия» в окне «Создание информационной базы» теперь корректно обновляется при переключении типа базы между файловой и клиент-серверной (issue #91): для двух типов хранятся разные последние успешно использованные версии платформы. **Авторство правок — [ksv47](https://github.com/ksv47)** (PR #109, ветка `ksv47/fix-issue-91`).
+
+### Исправлено
+
+- **При смене типа базы read-only поле «Версия» пересчитывается** (обе платформы). Окно всегда открывается с файловым типом, поэтому без пересчёта при переключении на клиент-серверную базу в поле оставалась версия, сохранённая для файловой. Теперь `RefreshPlatformList(replaceSelection: true)` вызывается при переключении типа и подставляет последнюю успешно использованную версию для выбранного типа базы ([`CreateInfobaseWindow.xaml.cs`](Configuration Management/Views/CreateInfobaseWindow.xaml.cs), [`CreateInfobaseWindow.Avalonia.cs`](Configuration Management/Views/CreateInfobaseWindow.Avalonia.cs)).
+
+## [0.3.5.25] — 2026-08-29
+
+Команда `CREATEINFOBASE`: пароль СУБД (`DBPwd`) больше не попадает в диагностические сообщения при ошибке создания базы, а галочка «Блокировка фоновых заданий» снова использует документированный параметр `SchJobDn="Y"` (issues #90/#94). **Авторство правок — [ksv47](https://github.com/ksv47)** (PR #108, ветка `ksv47/fix-issues-90-94`).
+
+### Добавлено
+
+- **Маскирование пароля СУБД в сообщениях об ошибке `CREATEINFOBASE`** (обе платформы). Новый [`SensitiveDataMasker.cs`](Configuration Management/Services/SensitiveDataMasker.cs) скрывает значение `DBPwd` (заменяется на `********`) и в показанной команде создания, и в диагностике платформы, если она повторила строку подключения. Применяется в [`OneCLauncher.Arguments.cs`](Configuration Management/Services/OneCLauncher.Arguments.cs) (Windows/WPF) и [`OneCLauncher.Linux.cs`](Configuration Management/Services/OneCLauncher.Linux.cs) (Linux/Avalonia).
+
+### Исправлено
+
+- **Восстановлен документированный параметр `SchJobDn="Y"`** (обе платформы). Если включена галочка «Блокировка фоновых заданий», в строку подключения `CREATEINFOBASE` добавляется `SchJobDn="Y"` рядом с `CrSQLDB="Y"`. Параметр действует только при создании базы и не попадает в обычную строку подключения ([`OneCLauncher.Arguments.cs`](Configuration Management/Services/OneCLauncher.Arguments.cs), [`OneCLauncher.Linux.cs`](Configuration Management/Services/OneCLauncher.Linux.cs)).
+
 ## [0.3.5.24] — 2026-08-29
 
 Три WPF-точки вызова окна выбора группы `GroupPickerWindow` в Windows/WPF теперь передают вид выбираемого объекта, чтобы заголовок/подзаголовок/справка называли именно тот объект, для которого выбирается группа (issue #83, часть 3).

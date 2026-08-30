@@ -34,11 +34,11 @@ namespace Configuration_Management
             string defaultGroupPath = "",
             IEnumerable<Group>? groups = null)
         {
-            InitializeComponent();
             _fromTemplate = fromTemplate;
             _platformVersions = platformVersions?.ToList() ?? new List<string>();
             _groups = groups?.ToList() ?? new List<Group>();
             _selectedGroupPath = defaultGroupPath ?? string.Empty;
+            InitializeComponent();
 
             Title = fromTemplate
                 ? LocalizationManager.T("CreateInfobase.TitleFromTemplate")
@@ -54,12 +54,16 @@ namespace Configuration_Management
                 : LocalizationManager.T("CreateInfobase.HintEmpty");
 
             RefreshPlatformList();
+            RememberPlatformSelection(true, PlatformBox.Text);
 
             if (fromTemplate)
                 LoadInstalledTemplates();
         }
 
         private List<string> _platforms = new();
+        private bool _platformSelectionIsFile = true;
+        private string? _filePlatformSelection;
+        private string? _clientServerPlatformSelection;
 
         
         private void OnPickGroup_Click(object sender, RoutedEventArgs e)
@@ -84,7 +88,7 @@ namespace Configuration_Management
             }
         }
 
-        private void RefreshPlatformList(bool replaceSelection = false)
+        private void RefreshPlatformList(bool replaceSelection = false, string? preferredSelection = null)
         {
             var extras = PlatformVersionService.GetAdditionalSearchPaths();
             _platforms = PlatformVersionService.FindInstalledVersions(extras);
@@ -92,28 +96,58 @@ namespace Configuration_Management
                 _platforms = _platformVersions.ToList();
 
             if (_platforms.Count == 0)
+            {
+                if (replaceSelection)
+                    PlatformBox.Text = string.Empty;
                 return;
+            }
+
+            if (string.IsNullOrWhiteSpace(preferredSelection))
+                preferredSelection = GetPlatformSelection(TypeBox.SelectedIndex != 1);
 
             // По умолчанию подставляем последнюю успешно использованную версию для текущего
             // типа базы (файловая/клиент-серверная), если она всё ещё установлена. Иначе — самую новую.
             string selected = _platforms[0];
-            var saved = GetSavedPlatformVersion();
-            if (!string.IsNullOrWhiteSpace(saved))
+            var preferred = _platforms.FirstOrDefault(p =>
+                string.Equals(p, preferredSelection, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(preferred))
             {
-                foreach (var p in _platforms)
+                selected = preferred;
+            }
+            else
+            {
+                var saved = GetSavedPlatformVersion();
+                if (!string.IsNullOrWhiteSpace(saved))
                 {
-                    PlatformVersionService.ParseVariant(p, out var clean, out _);
-                    var candidate = string.IsNullOrWhiteSpace(clean) ? p : clean;
-                    if (string.Equals(candidate, saved, StringComparison.OrdinalIgnoreCase))
+                    foreach (var p in _platforms)
                     {
-                        selected = p;
-                        break;
+                        PlatformVersionService.ParseVariant(p, out var clean, out _);
+                        var candidate = string.IsNullOrWhiteSpace(clean) ? p : clean;
+                        if (string.Equals(candidate, saved, StringComparison.OrdinalIgnoreCase))
+                        {
+                            selected = p;
+                            break;
+                        }
                     }
                 }
             }
 
             if (replaceSelection || string.IsNullOrWhiteSpace(PlatformBox.Text))
                 PlatformBox.Text = selected;
+        }
+
+        private string? GetPlatformSelection(bool isFile) =>
+            isFile ? _filePlatformSelection : _clientServerPlatformSelection;
+
+        private void RememberPlatformSelection(bool isFile, string? platform)
+        {
+            if (string.IsNullOrWhiteSpace(platform))
+                return;
+
+            if (isFile)
+                _filePlatformSelection = platform;
+            else
+                _clientServerPlatformSelection = platform;
         }
 
         /// <summary>
@@ -214,11 +248,17 @@ namespace Configuration_Management
                 FilePanel.Visibility = isFile ? Visibility.Visible : Visibility.Collapsed;
             if (ServerPanel != null)
                 ServerPanel.Visibility = isFile ? Visibility.Collapsed : Visibility.Visible;
-            // Для двух типов базы хранятся разные последние успешные версии. Окно всегда
-            // открывается с файловым типом, поэтому без пересчёта здесь серверная версия
-            // никогда не попадала в read-only поле при переключении на клиент-серверную базу.
+            // В пределах открытого окна ручной выбор хранится отдельно для каждого типа.
+            // При первом переходе используется последняя успешная версия из настроек.
             if (PlatformBox != null)
-                RefreshPlatformList(replaceSelection: true);
+            {
+                RememberPlatformSelection(_platformSelectionIsFile, PlatformBox.Text);
+                _platformSelectionIsFile = isFile;
+                RefreshPlatformList(
+                    replaceSelection: true,
+                    preferredSelection: GetPlatformSelection(isFile));
+                RememberPlatformSelection(isFile, PlatformBox.Text);
+            }
         }
 
         private void OnPickPlatform_Click(object sender, RoutedEventArgs e)
@@ -229,7 +269,10 @@ namespace Configuration_Management
                 Owner = this
             };
             if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.Result))
+            {
                 PlatformBox.Text = dlg.Result;
+                RememberPlatformSelection(TypeBox.SelectedIndex != 1, dlg.Result);
+            }
         }
 
         private void OnEditPlatformPaths_Click(object sender, RoutedEventArgs e)

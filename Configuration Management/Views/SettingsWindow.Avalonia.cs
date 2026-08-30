@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Avalonia.Controls.Presenters;
@@ -15,6 +16,7 @@ using Avalonia.Layout;
 using Avalonia.Styling;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
@@ -2799,6 +2801,25 @@ namespace Configuration_Management
             panel.Children.Add(LinkBlock(LocalizationManager.T("Settings.About.GitHub"),
                 "https://github.com/sivatorov/ConfigurationManagement"));
 
+            // Спонсорская картинка во вкладке «О программе», встроенная в ресурсы
+            // сборки (см. donat.png в csproj), как в разметке WPF. По клику
+            // открывается в полном размере.
+            if (TryLoadDonatImage() is { } donat)
+            {
+                var donatImage = new Image
+                {
+                    Source = donat,
+                    MaxWidth = 420,
+                    MaxHeight = 560,
+                    Stretch = Stretch.Uniform,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Margin = new Thickness(0, 4, 0, 0),
+                    Cursor = new Cursor(StandardCursorType.Hand)
+                };
+                donatImage.Tapped += async (_, _) => await ShowDonatImageFullAsync(this);
+                panel.Children.Add(donatImage);
+            }
+
             panel.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("Settings.About.AvaloniaText"),
@@ -2877,6 +2898,54 @@ namespace Configuration_Management
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
             };
             _ = win.ShowDialog(this);
+        }
+
+        /// <summary>
+        /// Загружает спонсорскую картинку «О программе» (donat.png) из встроенных
+        /// ресурсов сборки, либо null, если ресурс отсутствует или не декодируется.
+        /// </summary>
+        private static Bitmap? TryLoadDonatImage()
+        {
+            try
+            {
+                using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("donat.png");
+                if (stream is not null)
+                    return new Bitmap(stream);
+            }
+            catch
+            {
+                // Ресурс отсутствует или не декодируется — изображение просто не показывается.
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Открывает спонсорскую картинку «О программе» (donat.png) в полном размере
+        /// в отдельном окне с прокруткой, если картинка больше окна.
+        /// </summary>
+        private async Task ShowDonatImageFullAsync(Window owner)
+        {
+            if (TryLoadDonatImage() is not { } bmp) return;
+
+            var scroll = new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = new Image { Source = bmp, Stretch = Stretch.None }
+            };
+
+            var win = new Window
+            {
+                Title = "donat.png",
+                Background = Brushes.Black,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Content = scroll,
+                // Окно ограничено ~1000 px; при большем размере картинки появляется прокрутка.
+                Width = Math.Min(bmp.PixelSize.Width, 1000),
+                Height = Math.Min(bmp.PixelSize.Height, 1000)
+            };
+
+            await win.ShowDialog(owner);
         }
 
         /// <summary>

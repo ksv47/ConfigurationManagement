@@ -45,10 +45,10 @@
          поэтому AssemblyVersion/FileVersion/Version ограничены 4 частями, а точная
          пользовательская версия «0.3.1.1» задаётся через InformationalVersion
          и выводится в заголовок окна. -->
-    <Version>0.3.5.24</Version>
-    <AssemblyVersion>0.3.5.24</AssemblyVersion>
-    <FileVersion>0.3.5.24</FileVersion>
-    <InformationalVersion>0.3.5.24</InformationalVersion>
+    <Version>0.3.5.28</Version>
+    <AssemblyVersion>0.3.5.28</AssemblyVersion>
+    <FileVersion>0.3.5.28</FileVersion>
+    <InformationalVersion>0.3.5.28</InformationalVersion>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>
@@ -80,6 +80,8 @@
     <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
     <Resource Include="tray.ico" />
     <EmbeddedResource Include="tray.ico" LogicalName="tray.ico" />
+    <!-- Изображение во вкладке «О программе» (WPF: pack URI pack://application:,,,/donat.png) -->
+    <Resource Include="donat.png" />
   </ItemGroup>
 
   <!-- App.xaml как Page, а не ApplicationDefinition: тогда генератор даёт
@@ -145,6 +147,8 @@
   <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
     <EmbeddedResource Include="tray_icon_preview.png" LogicalName="tray_icon_preview.png" />
     <EmbeddedResource Include="app_icon_preview.png" LogicalName="app_icon_preview.png" />
+    <!-- Изображение во вкладке «О программе» (Avalonia/Linux): загрузка из ресурса -->
+    <EmbeddedResource Include="donat.png" LogicalName="donat.png" />
   </ItemGroup>
 
   <!-- Не импортировать WinForms/Drawing глобально на Windows — иначе конфликт с типами WPF -->

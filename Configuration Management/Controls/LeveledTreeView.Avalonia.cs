@@ -58,20 +58,37 @@ namespace Configuration_Management.Controls
         }
 
         /// <summary>
-        /// Переход в начало, в конец и на страницу. Обработчик стоит на
+        /// Навигация по видимым строкам: ↑/↓ — соседняя строка, Home/End —
+        /// начало/конец, PageUp/PageDown — на страницу. Обработчик стоит на
         /// туннелировании: внутренняя прокрутка дерева лежит в маршруте ближе
         /// к строке и разбирает PageUp с PageDown сама, помечая их
         /// обработанными, так что до самого дерева они не доходят.
         /// Распределение взято у версии для Windows: голые клавиши переносят
         /// выделение, а с Ctrl прокручивают, не трогая его.
+        ///
+        /// ↑/↓ обрабатываются явно, а не отдаются штатной логике TreeView:
+        /// стандартная навигация держится на фокусе, а в строках базы сидят
+        /// фокусируемые кнопки (избранное, закрепление, действия, теги).
+        /// Из-за этого при движении вниз выделение «перепрыгивало» на избранное,
+        /// а дальше листалось от него. Здесь шаг считается по порядку видимых
+        /// строк, а фокус ставится на контейнер, как делает версия для Windows.
         /// </summary>
         private void OnNavigationKeyDown(object? sender, KeyEventArgs e)
         {
-            if (e.Handled || e.Key is not (Key.Home or Key.End or Key.PageUp or Key.PageDown))
+            if (e.Handled || e.Key is not (Key.Home or Key.End or Key.PageUp or Key.PageDown or Key.Up or Key.Down))
+                return;
+
+            // Стрелки вверх/вниз не перехватываем, если фокус в поле ввода
+            // (поиск, инлайн-теги): там они двигают курсор, а не выделение.
+            if (e.Key is Key.Up or Key.Down && FocusedElementIsTextBox)
                 return;
 
             if (e.KeyModifiers == KeyModifiers.Control)
             {
+                // Прокрутка с Ctrl работает только для перечисленных клавиш;
+                // Ctrl+↑/↓ не назначена, оставляем их остальному маршруту.
+                if (e.Key is Key.Up or Key.Down)
+                    return;
                 ScrollBy(e.Key);
                 e.Handled = true;
                 return;
@@ -93,27 +110,81 @@ namespace Configuration_Management.Controls
             if (rows.Count == 0)
                 return;
 
-            var current = rows.FindIndex(row => ReferenceEquals(row.DataContext, SelectedItem));
-            var target = e.Key switch
+            var current = CurrentRowIndex(rows);
+            int target;
+            if (e.Key is Key.Up or Key.Down)
             {
-                Key.Home => 0,
-                Key.End => rows.Count - 1,
-                Key.PageUp => PageStep(rows, current, back: true),
-                Key.PageDown => PageStep(rows, current, back: false),
-                _ => -1
-            };
-            if (target < 0)
-                return;
+                if (current < 0)
+                {
+                    target = e.Key == Key.Down ? 0 : rows.Count - 1;
+                }
+                else
+                {
+                    var last = rows.Count - 1;
+                    target = e.Key == Key.Down
+                        ? (current >= last ? last : current + 1)
+                        : (current <= 0 ? 0 : current - 1);
+                }
+                if (target == current)
+                    return;
+            }
+            else
+            {
+                target = e.Key switch
+                {
+                    Key.Home => 0,
+                    Key.End => rows.Count - 1,
+                    Key.PageUp => PageStep(rows, current, back: true),
+                    _ => PageStep(rows, current, back: false)
+                };
+                if (target < 0)
+                    return;
+            }
 
             e.Handled = true;
-            if (target == current)
-                return;
 
-            // Выделение ведётся через SelectedItem дерева: правая панель и модель
-            // слушают именно его, а IsSelected у контейнера их не трогает.
-            SelectedItem = rows[target].DataContext;
+            // Выделение ставится напрямую на конкретный контейнер строки, а не
+            // через SelectedItem: закреплённая база присутствует в дереве дважды
+            // (узел «Закреплённые» и собственная группа), и SelectedItem всегда
+            // резолвился бы в первое вхождение вверху, «перепрыгивая» подсветку
+            // на закреплённую базу в начало списка. Карточка строки следит за
+            // IsSelected собственного контейнера, поэтому фокус остаётся на нужной
+            // копии; SelectedItem дерева поднимается из контейнера сам (штатный
+            // путь выбора, как по клику), а с ним — правая панель и модель.
+            rows[target].IsSelected = true;
             rows[target].BringIntoView();
             rows[target].Focus();
+        }
+
+        /// <summary>Фокус клавиатуры сейчас в текстовом поле (поиск, инлайн-теги).</summary>
+        private bool FocusedElementIsTextBox =>
+            TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox;
+
+        /// <summary>
+        /// Индекс текущей строки навигации. Определяется по контейнеру под
+        /// фокусом либо под выделением, а не по SelectedItem: закреплённая база
+        /// присутствует в дереве дважды (узел «Закреплённые» и собственная группа),
+        /// и поиск по ссылке данных вернул бы первое вхождение, «перепрыгивая»
+        /// выделение в начало списка.
+        /// </summary>
+        private int CurrentRowIndex(List<TreeViewItem> rows)
+        {
+            var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Visual;
+            for (var node = focused; node is not null; node = node.GetVisualParent())
+            {
+                if (node is not TreeViewItem tvi)
+                    continue;
+                var idx = rows.IndexOf(tvi);
+                if (idx >= 0)
+                    return idx;
+                break;
+            }
+
+            for (var i = 0; i < rows.Count; i++)
+                if (rows[i].IsSelected)
+                    return i;
+
+            return rows.FindIndex(row => ReferenceEquals(row.DataContext, SelectedItem));
         }
 
         /// <summary>Прокрутка без переноса выделения, вариант с Ctrl.</summary>

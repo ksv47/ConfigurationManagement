@@ -309,6 +309,12 @@ namespace Configuration_Management
             if (HeaderGrid is null || MainTree is null)
                 return;
 
+            // Жёсткий минимум области списка = сумма ширин всех колонок (как в Linux).
+            // Благодаря точной границе горизонтальная полоса появляется только когда
+            // колонки реально не помещаются, а не «на волосок» раньше (issue про последнюю
+            // пустую колонку). Пересчитывается при каждой синхронизации ширины заголовка.
+            UpdateTreeMinWidth();
+
             var treeScroll = GetTreeScrollViewer();
             double extent = MainTree.ActualWidth;
             double viewport = MainTree.ActualWidth;
@@ -371,6 +377,44 @@ namespace Configuration_Management
         {
             // Колонка «Название» — гибкая (*), фиксированную ширину не задаём.
             // Остальные колонки применяют сохранённые ширины автоматически через binding.
+        }
+
+        /// <summary>
+        /// Минимальная ширина гибкой колонки «Название» (*): на неё нельзя схлопываться,
+        /// чтобы сумма колонок оставалась осмысленной при расчёте минимальной ширины списка.
+        /// </summary>
+        private const double NameColumnMinWidth = 220;
+
+        /// <summary>
+        /// Задаёт списку точную минимальную ширину, равную сумме ширин всех колонок
+        /// заголовка (гибкое «Название» — по своему минимуму) вместе с ведущими отступами
+        /// (колонки кнопок групп, компенсатор сдвига дерева, избранное, закрепление).
+        /// Аналог <c>UpdateListMinWidth</c> из Linux/Avalonia: благодаря жёсткой границе
+        /// горизонтальная прокрутка появляется ровно тогда, когда колонки реально не
+        /// помещаются по ширине, а не «на волосок» раньше из-за округления последней
+        /// (пустой) колонки «Конфигурация».
+        /// </summary>
+        private void UpdateTreeMinWidth()
+        {
+            if (MainTree is null || HeaderGrid is null)
+                return;
+
+            var defs = HeaderGrid.ColumnDefinitions;
+            if (defs.Count <= HeaderFirstDataColumn)
+                return;
+
+            double total = 0;
+            foreach (var d in defs)
+            {
+                if (ReferenceEquals(d, NameColumn))
+                    total += d.Width.IsAbsolute ? d.Width.Value : NameColumnMinWidth;
+                else if (d.Width.IsAbsolute)
+                    total += d.Width.Value;
+                else
+                    total += d.MinWidth;
+            }
+
+            MainTree.MinWidth = total;
         }
 
         /// <summary>

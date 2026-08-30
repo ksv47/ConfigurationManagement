@@ -71,6 +71,9 @@ namespace Configuration_Management
         private int _templateLoadGeneration;
         private bool _closed;
         private List<OneCTemplateService.TemplateInfo> _flatTemplates = new();
+        private bool _platformSelectionIsFile = true;
+        private string? _filePlatformSelection;
+        private string? _clientServerPlatformSelection;
 
         /// <summary>Доступные значения СУБД для клиент-серверного создания.</summary>
         private static readonly string[] DbmsValues =
@@ -120,6 +123,7 @@ namespace Configuration_Management
 
             Content = BuildRoot();
             RefreshPlatformList();
+            RememberPlatformSelection(true, _platformBox.Text);
             if (_fromTemplate)
                 LoadInstalledTemplates();
         }
@@ -421,10 +425,14 @@ namespace Configuration_Management
             var isFile = _typeBox.SelectedIndex != 1;
             _filePanel.IsVisible = isFile;
             _serverPanel.IsVisible = !isFile;
-            // Для двух типов базы хранятся разные последние успешные версии. Окно всегда
-            // открывается с файловым типом, поэтому при смене типа нужно заменить значение
-            // read-only поля, а не оставлять выбранную для файловой базы версию.
-            RefreshPlatformList(replaceSelection: true);
+            // В пределах открытого окна ручной выбор хранится отдельно для каждого типа.
+            // При первом переходе используется последняя успешная версия из настроек.
+            RememberPlatformSelection(_platformSelectionIsFile, _platformBox.Text);
+            _platformSelectionIsFile = isFile;
+            RefreshPlatformList(
+                replaceSelection: true,
+                preferredSelection: GetPlatformSelection(isFile));
+            RememberPlatformSelection(isFile, _platformBox.Text);
         }
 
         private static Control BuildTemplateRow(object? item)
@@ -626,7 +634,7 @@ namespace Configuration_Management
             }
         }
 
-        private void RefreshPlatformList(bool replaceSelection = false)
+        private void RefreshPlatformList(bool replaceSelection = false, string? preferredSelection = null)
         {
             var extras = PlatformVersionService.GetAdditionalSearchPaths();
             var platforms = PlatformVersionService.FindInstalledVersions(extras);
@@ -634,28 +642,58 @@ namespace Configuration_Management
                 platforms = _platformVersions.ToList();
 
             if (platforms.Count == 0)
+            {
+                if (replaceSelection)
+                    _platformBox.Text = string.Empty;
                 return;
+            }
+
+            if (string.IsNullOrWhiteSpace(preferredSelection))
+                preferredSelection = GetPlatformSelection(_typeBox.SelectedIndex != 1);
 
             // По умолчанию подставляем последнюю успешно использованную версию для текущего
             // типа базы (файловая/клиент-серверная), если она всё ещё установлена. Иначе — самую новую.
             string selected = platforms[0];
-            var saved = GetSavedPlatformVersion();
-            if (!string.IsNullOrWhiteSpace(saved))
+            var preferred = platforms.FirstOrDefault(p =>
+                string.Equals(p, preferredSelection, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(preferred))
             {
-                foreach (var p in platforms)
+                selected = preferred;
+            }
+            else
+            {
+                var saved = GetSavedPlatformVersion();
+                if (!string.IsNullOrWhiteSpace(saved))
                 {
-                    PlatformVersionService.ParseVariant(p, out var clean, out _);
-                    var candidate = string.IsNullOrWhiteSpace(clean) ? p : clean;
-                    if (string.Equals(candidate, saved, StringComparison.OrdinalIgnoreCase))
+                    foreach (var p in platforms)
                     {
-                        selected = p;
-                        break;
+                        PlatformVersionService.ParseVariant(p, out var clean, out _);
+                        var candidate = string.IsNullOrWhiteSpace(clean) ? p : clean;
+                        if (string.Equals(candidate, saved, StringComparison.OrdinalIgnoreCase))
+                        {
+                            selected = p;
+                            break;
+                        }
                     }
                 }
             }
 
             if (replaceSelection || string.IsNullOrWhiteSpace(_platformBox.Text))
                 _platformBox.Text = selected;
+        }
+
+        private string? GetPlatformSelection(bool isFile) =>
+            isFile ? _filePlatformSelection : _clientServerPlatformSelection;
+
+        private void RememberPlatformSelection(bool isFile, string? platform)
+        {
+            if (string.IsNullOrWhiteSpace(platform))
+                return;
+
+            if (isFile)
+                _filePlatformSelection = platform;
+            else
+                _clientServerPlatformSelection = platform;
         }
 
         /// <summary>
@@ -757,7 +795,10 @@ namespace Configuration_Management
 
             var dlg = new PlatformVersionPickerWindow(platforms, _platformBox.Text ?? "");
             if (dlg.ShowDialogSync(this) && !string.IsNullOrWhiteSpace(dlg.Result))
+            {
                 _platformBox.Text = dlg.Result;
+                RememberPlatformSelection(_typeBox.SelectedIndex != 1, dlg.Result);
+            }
         }
 
         private void OnBrowseFolder_Click()

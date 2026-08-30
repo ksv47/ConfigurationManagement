@@ -236,53 +236,72 @@ namespace Configuration_Management
             if (MainTree is null || _viewModel.GroupNodes.Count == 0)
                 return false;
 
-            // ↑/↓ — перемещение выделения по видимым узлам дерева.
+            // ↑/↓ — перемещение выделения по видимым строкам дерева. Навигация идёт
+            // по контейнерам строк, а не по объектам данных: закреплённая база
+            // присутствует в дереве дважды (узел «Закреплённые» и собственная
+            // группа), и работа с данными всякий раз находила бы первое (верхнее)
+            // вхождение, «перепрыгивая» выделение в начало списка.
             if (key is Key.Up or Key.Down)
             {
-                var visible = GetVisibleTreeNodes();
-                if (visible.Count == 0)
+                var rows = GetVisibleTreeViewItems();
+                if (rows.Count == 0)
                     return false;
 
-                var current = FindCurrentTreeNode(visible);
-                var index = current is null ? -1 : visible.IndexOf(current);
+                var currentIndex = FindCurrentRowIndex(rows);
                 int targetIndex;
 
-                if (current is null)
+                if (currentIndex < 0)
                 {
-                    targetIndex = key == Key.Down ? 0 : visible.Count - 1;
+                    targetIndex = key == Key.Down ? 0 : rows.Count - 1;
                 }
                 else
                 {
-                    var last = visible.Count - 1;
+                    var last = rows.Count - 1;
                     targetIndex = key == Key.Down
-                        ? (index >= last ? last : index + 1)
-                        : (index <= 0 ? 0 : index - 1);
+                        ? (currentIndex >= last ? last : currentIndex + 1)
+                        : (currentIndex <= 0 ? 0 : currentIndex - 1);
                 }
 
-                if (targetIndex == index && current is not null)
+                if (targetIndex == currentIndex && currentIndex >= 0)
                     return false;
 
-                SelectTreeNode(visible[targetIndex]);
+                SelectRowItem(rows[targetIndex]);
                 return true;
             }
 
-            // ←/→ — раскрытие/сворачивание выбранной группы.
+            // → — раскрытие выбранной группы (или группы, где лежит база).
             var selectedGroup = _viewModel.SelectedGroupNode ?? (_viewModel.SelectedInfobase is null
                 ? null
                 : FindGroupNodeByInfobase(_viewModel.SelectedInfobase));
 
-            if (selectedGroup is not null)
+            if (key == Key.Right)
             {
-                if (key == Key.Right && !selectedGroup.IsExpanded && selectedGroup.Items.Count > 0)
+                if (selectedGroup is not null && !selectedGroup.IsExpanded && selectedGroup.Items.Count > 0)
                 {
                     _viewModel.ToggleGroupExpandedCommand.Execute(selectedGroup);
                     return true;
                 }
-                if (key == Key.Left && selectedGroup.IsExpanded)
+                return false;
+            }
+
+            // ← — сворачивание выбранной группы; если курсор стоит на базе —
+            // переводим выделение на группу, в которой она находится, не сворачивая группу.
+            if (key == Key.Left)
+            {
+                if (_viewModel.SelectedGroupNode is { IsExpanded: true } grp)
                 {
-                    _viewModel.ToggleGroupExpandedCommand.Execute(selectedGroup);
+                    _viewModel.ToggleGroupExpandedCommand.Execute(grp);
                     return true;
                 }
+
+                if (_viewModel.SelectedInfobase is { } infobase &&
+                    FindGroupNodeByInfobase(infobase) is { } container)
+                {
+                    SelectTreeNode(container);
+                    return true;
+                }
+
+                return false;
             }
 
             return false;
