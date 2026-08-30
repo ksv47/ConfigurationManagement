@@ -86,18 +86,23 @@ namespace Configuration_Management
                 var profileService = AppServices.GetRequiredService<IProfileService>();
                 profileService.EnsureInitialized();
 
+                // Любое окно, закрытое до создания главного, гасит приложение: режим
+                // завершения по умолчанию OnLastWindowClose считает его последним,
+                // и запуск падает с «Dispatcher shut down». Поэтому до показа
+                // главного окна завершение только явное, а прежний режим
+                // возвращается после. Условие здесь не на число профилей: на этом
+                // отрезке модальным может оказаться и другое окно.
+                var shutdownModeBeforeStartup = ShutdownMode.OnLastWindowClose;
+                if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime startupLifetime)
+                {
+                    shutdownModeBeforeStartup = startupLifetime.ShutdownMode;
+                    startupLifetime.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                }
+
                 // Если в приложении несколько учётных записей — показываем окно авторизации
                 // по аналогии со списком пользователей 1С. При одной записи входим без запроса.
                 if (profileService.Profiles.Count > 1)
                 {
-                    // Окно входа закрывается до создания главного окна. При режиме
-                    // завершения по умолчанию (OnLastWindowClose) его закрытие гасит
-                    // приложение, и запуск падает с «Dispatcher shut down». Поэтому на
-                    // время старта завершение только явное; штатный режим возвращается
-                    // после показа главного окна.
-                    if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime startupLifetime)
-                        startupLifetime.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-
                     // Локализацию поднимаем до показа окна: настройки выбранного профиля
                     // читаются ниже, а без словаря окно входа показывает ключи
                     // (Auth.Title, Auth.Login) вместо подписей. Язык берётся из профиля,
@@ -159,9 +164,9 @@ namespace Configuration_Management
                 {
                     LocalizationManager.Instance.Initialize(settings.Language, DataDirectory);
                     // Если словарь уже поднят ради окна входа, Initialize выходит сразу,
-                    // поэтому язык выбранного профиля применяется отдельно.
-                    if (!string.IsNullOrWhiteSpace(settings.Language))
-                        LocalizationManager.Instance.SetLanguage(settings.Language);
+                    // поэтому язык выбранного профиля применяется отдельно и по тем же
+                    // правилам: пустое значение означает язык системы.
+                    LocalizationManager.Instance.ApplyPreferredLanguage(settings.Language);
                 }
                 catch
                 {
@@ -231,9 +236,10 @@ namespace Configuration_Management
                     desktop.MainWindow = mainWindow;
                     mainWindow.Show();
 
-                    // Штатный режим завершения возвращается: на время окна входа он
-                    // переключался на явный, иначе закрытие того окна гасило приложение.
-                    desktop.ShutdownMode = ShutdownMode.OnLastWindowClose;
+                    // Прежний режим завершения возвращается: на время старта он
+                    // переключался на явный, иначе закрытие окна входа гасило
+                    // приложение до появления главного.
+                    desktop.ShutdownMode = shutdownModeBeforeStartup;
                 }
             }
             catch (Exception ex)
