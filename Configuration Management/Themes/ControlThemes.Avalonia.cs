@@ -62,6 +62,15 @@ namespace Configuration_Management.Themes
         /// <summary>Элемент дерева окна выбора группы: раскрыватель «+»/«-» и подсветка выбранной строки.</summary>
         public const string GroupPickerTreeItem = "GroupPickerTreeItem";
 
+        /// <summary>Переключатель разрядности окна выбора версии платформы.</summary>
+        public const string ArchRadio = "ArchRadio";
+
+        /// <summary>Кнопка сортировки окна выбора версии платформы.</summary>
+        public const string VersionSortToggle = "VersionSortToggle";
+
+        /// <summary>Элемент дерева окон: раскрыватель «+»/«-», подсветка наведения и выбора.</summary>
+        public const string ModernTreeItem = "ModernTreeItem";
+
         /// <summary>Плитка выбора значка группы: тёмная в обеих темах, как у автора.</summary>
         public const string IconPickButton = "IconPickButton";
 
