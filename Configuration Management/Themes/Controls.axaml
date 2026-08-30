@@ -452,7 +452,7 @@
         <Setter Property="MinHeight" Value="36"/>
         <Setter Property="MinWidth" Value="120"/>
         <Setter Property="MaxDropDownHeight" Value="280"/>
-        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         <Setter Property="ItemContainerTheme" Value="{StaticResource ModernComboBoxItem}"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
 
