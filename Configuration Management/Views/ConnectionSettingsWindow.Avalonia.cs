@@ -109,11 +109,11 @@ namespace Configuration_Management
 
         private static TextBox Tb(string path, bool readOnly = false)
         {
+            // Размеры и отступы выравниваем с ModernComboBox: высоту, внутренний отступ
+            // и кегль берём из темы ModernTextBox (10,6 / 36 / 13), чтобы текстовые поля
+            // выглядели единообразно с комбобоксами (ср. ConnectionSettingsWindow.xaml:29).
             var tb = new TextBox
             {
-                Padding = new Thickness(6, 4),
-                MinHeight = 28,
-                FontSize = 12,
                 Margin = new Thickness(0, 3),
                 VerticalContentAlignment = VerticalAlignment.Center,
                 IsReadOnly = readOnly

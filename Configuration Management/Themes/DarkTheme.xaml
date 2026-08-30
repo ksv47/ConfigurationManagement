@@ -218,9 +218,12 @@
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="BorderThickness" Value="1.5"/>
+        <Setter Property="Padding" Value="10,6"/>
         <Setter Property="FontSize" Value="13"/>
+        <!-- Высота выровнена с ModernComboBox (:283); минимальную ширину не
+             задаём, чтобы узкие числовые поля (интервал, время) не растягивались. -->
+        <Setter Property="MinHeight" Value="36"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
@@ -228,7 +231,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="6">
+                            CornerRadius="8">
                         <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -312,6 +315,41 @@
                                     <ColumnDefinition Width="32"/>
                                 </Grid.ColumnDefinitions>
 
+                                <!-- Hit-цель: кнопка занимает всю площадь комбобокса
+                                     (Grid.ColumnSpan=2), поэтому нередактируемый список открывается
+                                     кликом в любом месте. Стрелка живёт ВНУТРИ шаблона кнопки, а не
+                                     отдельным элементом поверх, поэтому клик по стрелке всегда
+                                     попадает в DropDownToggle и надёжно переключает IsDropDownOpen.
+                                     У редактируемых списков поверх кнопки лежит PART_EditableTextBox
+                                     (перехватывает клик для ввода текста), а стрелка справа остаётся
+                                     частью кнопки и по-прежнему открывает список. -->
+                                <ToggleButton x:Name="DropDownToggle"
+                                              Style="{x:Null}"
+                                              Grid.ColumnSpan="2"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch"
+                                              Focusable="False"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              ClickMode="Press"
+                                              Background="Transparent"
+                                              BorderThickness="0">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Grid Background="Transparent" Cursor="Hand">
+                                                <Path x:Name="ArrowGlyph"
+                                                      Data="M0,0 L4,4 L8,0"
+                                                      Stroke="{DynamicResource TextSecondaryBrush}"
+                                                      StrokeThickness="1.5"
+                                                      HorizontalAlignment="Right"
+                                                      VerticalAlignment="Center"
+                                                      Width="10" Height="5"
+                                                      Margin="0,0,11,0"
+                                                      Stretch="Uniform"/>
+                                            </Grid>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+
                                 <!-- Режим выбора (как горячие клавиши) -->
                                 <ContentPresenter x:Name="ContentSite"
                                                   Grid.Column="0"
@@ -331,13 +369,20 @@
                                     </ContentPresenter.ContentStringFormat>
                                 </ContentPresenter>
 
-                                <!-- Редактируемый режим (сервер / порт) -->
+                                <!-- Редактируемый режим (сервер / порт): отступ задаём полем
+                                     (Margin = Padding), чтобы текст начинался на той же позиции,
+                                     что и у обычного поля ввода / нередактируемого списка, без
+                                     двойного отступа. Клик по полю ставит курсор и позволяет ввод;
+                                     область вне поля (и стрелка) уходит кнопке DropDownToggle
+                                     и открывает список. -->
                                 <TextBox x:Name="PART_EditableTextBox"
                                          Grid.Column="0"
-                                         Margin="6,0,0,0"
-                                         Padding="{TemplateBinding Padding}"
+                                         Margin="{TemplateBinding Padding}"
+                                         Padding="0"
                                          VerticalContentAlignment="Center"
                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                         HorizontalScrollBarVisibility="Auto"
+                                         TextWrapping="NoWrap"
                                          Background="Transparent"
                                          BorderThickness="0"
                                          Foreground="{TemplateBinding Foreground}"
@@ -346,27 +391,6 @@
                                          Focusable="True"
                                          Visibility="Collapsed"/>
 
-                                <ToggleButton x:Name="DropDownToggle"
-                                              Grid.Column="1"
-                                              Focusable="False"
-                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                              ClickMode="Release"
-                                              Background="Transparent"
-                                              BorderThickness="0">
-                                    <ToggleButton.Template>
-                                        <ControlTemplate TargetType="ToggleButton">
-                                            <Border Background="Transparent" Cursor="Hand">
-                                                <Path Data="M0,0 L4,4 L8,0"
-                                                      Stroke="{DynamicResource TextSecondaryBrush}"
-                                                      StrokeThickness="1.5"
-                                                      HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center"
-                                                      Width="10" Height="5"
-                                                      Stretch="Uniform"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </ToggleButton.Template>
-                                </ToggleButton>
                             </Grid>
                         </Border>
 

@@ -743,25 +743,27 @@ namespace Configuration_Management
             orderCardBody.Children.Add(new Separator { Margin = new Thickness(0, 2, 0, 4) });
             orderCardBody.Children.Add(orderList);
             orderCard.Child = orderCardBody;
-            displayColumns.Children.Add(orderCard);
 
-            var orderButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
-            var moveUp = new Button
-            {
-                Content = LocalizationManager.T("Settings.Columns.OrderUp"),
-                Padding = new Thickness(12, 7),
-                Margin = new Thickness(0, 0, 8, 0),
-                IsEnabled = false
-            };
-            moveUp.Styled(ControlThemes.SecondaryButton);
-            var moveDown = new Button
-            {
-                Content = LocalizationManager.T("Settings.Columns.OrderDown"),
-                Padding = new Thickness(12, 7),
-                IsEnabled = false
-            };
-            moveDown.Styled(ControlThemes.SecondaryButton);
+            // Список колонок и кнопки перестановки справа — та же сетка, что
+            // во вкладке «Клавиши» для избранного: список по ширине, справа
+            // узкая колонка с вертикально расположенными кнопками «Вверх»/«Вниз».
+            var orderGrid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            orderGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            orderGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Grid.SetColumn(orderCard, 0);
+            orderGrid.Children.Add(orderCard);
 
+            var orderButtons = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Spacing = 6,
+                Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            var moveUp = new Button { Content = "\u2191", IsEnabled = false };
+            ToolTip.SetTip(moveUp, LocalizationManager.T("Settings.Columns.MoveUpTooltip"));
+            var moveDown = new Button { Content = "\u2193", IsEnabled = false };
+            ToolTip.SetTip(moveDown, LocalizationManager.T("Settings.Columns.MoveDownTooltip"));
             void UpdateOrderButtons()
             {
                 var idx = orderList.SelectedIndex;
@@ -806,7 +808,9 @@ namespace Configuration_Management
             };
             orderButtons.Children.Add(moveUp);
             orderButtons.Children.Add(moveDown);
-            displayColumns.Children.Add(orderButtons);
+            Grid.SetColumn(orderButtons, 1);
+            orderGrid.Children.Add(orderButtons);
+            displayColumns.Children.Add(orderGrid);
 
             displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description"), bottom: 10));
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails, "IconPageLayoutSidebarRight", "#14B8A6");
@@ -1515,7 +1519,7 @@ namespace Configuration_Management
 
             var timestampBox = new AutoCompleteBox
             {
-                MinWidth = 200,
+                MinWidth = 280,
                 ItemsSource = TimestampFormats,
                 FilterMode = AutoCompleteFilterMode.Contains,
                 Text = string.IsNullOrWhiteSpace(_viewModel.ExportTimestampFormat)
@@ -1580,11 +1584,15 @@ namespace Configuration_Management
             bases.Children.Add(listButtons);
             bases.Children.Add(timestampCheck);
 
-            var timestampRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
+            // Как в Windows-разметке (SettingsWindow.xaml:1419): подпись сверху, поле —
+            // на всю ширину, предпросмотр снизу. В горизонтальной панели рядом с подписью
+            // и предпросмотром AutoCompleteBox не получал всю ширину, и строка формата
+            // (yyyyMMdd_HHmmss) обрезалась.
+            var timestampRow = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
             timestampRow.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("Settings.Bases.TimestampFormat"),
-                VerticalAlignment = VerticalAlignment.Center
+                Margin = new Thickness(0, 0, 0, 4)
             });
             timestampRow.Children.Add(timestampBox);
             timestampRow.Children.Add(timestampPreview);
@@ -3018,19 +3026,12 @@ namespace Configuration_Management
             // (SettingsWindow.xaml:1487-1519), а не общим зазором панели.
             var panel = new StackPanel();
 
-            var asm = Assembly.GetExecutingAssembly();
-            var infoVersion = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-                              ?? asm.GetName().Version?.ToString() ?? "";
-            // SDK дописывает к информационной версии хеш коммита через плюс,
-            // и строка «Версия: v0.3.5.24+c825d452…» срезается по ширине.
-            var plus = infoVersion.IndexOf('+');
-            if (plus > 0)
-                infoVersion = infoVersion[..plus];
+            // Номер версии без суффикса «+<sha>» из InformationalVersion.
+            var infoVersion = VersionInfo.Display();
             // Название берётся из ключа локализации, как в разметке
             // (SettingsWindow.xaml:1489): из атрибута сборки оно не переводится
             // и при английском языке осталось бы русским.
             var title = LocalizationManager.T("App.Title");
-
             // Название и справка по приложению в одной строке, как в разметке WPF
             // (SettingsWindow.xaml:1488-1494).
             var titleRow = new StackPanel

@@ -414,7 +414,25 @@ namespace Configuration_Management
                     total += d.MinWidth;
             }
 
-            MainTree.MinWidth = total;
+            // Минимум задаём КОНТЕНТУ прокрутки (внутреннему ScrollContentPresenter дерева),
+            // а не самому MainTree: у дерева собственный внутренний ScrollViewer, и MinWidth
+            // на контроле лишь растянул бы область просмотра, а не заставил бы контент
+            // переполняться. Задание минимума контенту даёт жёсткую границу (как в Linux):
+            // горизонтальная полоса появляется ровно тогда, когда сумма колонок превышает
+            // доступную ширину, а не «на волосок» раньше из-за округления последней
+            // (пустой) колонки «Конфигурация».
+            var presenter = GetTreeScrollContentPresenter();
+            if (presenter is not null)
+                presenter.MinWidth = total;
+        }
+
+        /// <summary>
+        /// Внутренний ScrollContentPresenter шаблона TreeView — контент его ScrollViewer.
+        /// </summary>
+        private ScrollContentPresenter? GetTreeScrollContentPresenter()
+        {
+            var treeScroll = GetTreeScrollViewer();
+            return treeScroll is null ? null : FindVisualChild<ScrollContentPresenter>(treeScroll);
         }
 
         /// <summary>

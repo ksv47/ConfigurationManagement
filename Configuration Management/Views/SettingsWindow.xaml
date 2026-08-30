@@ -546,67 +546,74 @@
                                 <TextBlock Text="{loc:Loc Settings.Columns.OrderHint}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,10"/>
-                                <Border Background="{DynamicResource CardBackgroundBrush}"
-                                        BorderBrush="{DynamicResource BorderBrushColor}"
-                                        BorderThickness="1" CornerRadius="8" Padding="8,6">
-                                    <StackPanel>
-                                        <!-- Колонка «Название» закреплена и всегда первая (тумблер неактивен). -->
-                                        <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowNameColumnCheck" IsChecked="True" IsEnabled="False">
-                                            <StackPanel Orientation="Horizontal">
-                                                <materialDesign:PackIcon Kind="FormatTitle" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                                <TextBlock Text="{loc:Loc Column.Name}" VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                        </ToggleButton>
-                                        <Separator Margin="0,2,0,4"/>
-                                        <ListBox x:Name="ColumnOrderList" MinHeight="180" MaxHeight="240"
-                                                 BorderThickness="0" Background="Transparent"
-                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                                 SelectionChanged="OnColumnOrderList_SelectionChanged">
-                                            <ListBox.ItemContainerStyle>
-                                                <Style TargetType="ListBoxItem">
-                                                    <Setter Property="Padding" Value="4,2"/>
-                                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                                </Style>
-                                            </ListBox.ItemContainerStyle>
-                                            <ListBox.ItemTemplate>
-                                                <DataTemplate>
-                                                    <!-- Название выбирает строку, тумблер справа — только видимость. -->
-                                                    <Grid Margin="4,3">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                                                    VerticalAlignment="Center">
-                                                            <materialDesign:PackIcon Kind="{Binding IconKind}" Width="16" Height="16"
-                                                                                     Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                                     Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                                            <TextBlock Text="{Binding Display}"
-                                                                       VerticalAlignment="Center"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                                                       ToolTip="{loc:Loc Settings.Columns.RowSelectHint}"/>
-                                                        </StackPanel>
-                                                        <ToggleButton Grid.Column="1"
-                                                                      Style="{StaticResource ColumnVisibilitySwitch}"
-                                                                      IsChecked="{Binding Visible, Mode=TwoWay}"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ListBox.ItemTemplate>
-                                        </ListBox>
+                                <!-- Список колонок и кнопки «Вверх»/«Вниз» справа, как во вкладке «Клавиши». -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="{DynamicResource CardBackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderBrushColor}"
+                                            BorderThickness="1" CornerRadius="8" Padding="8,6">
+                                        <StackPanel>
+                                            <!-- Колонка «Название» закреплена и всегда первая (тумблер неактивен). -->
+                                            <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowNameColumnCheck" IsChecked="True" IsEnabled="False">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="FormatTitle" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Column.Name}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </ToggleButton>
+                                            <Separator Margin="0,2,0,4"/>
+                                            <ListBox x:Name="ColumnOrderList" MinHeight="180" MaxHeight="240"
+                                                     BorderThickness="0" Background="Transparent"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                     SelectionChanged="OnColumnOrderList_SelectionChanged">
+                                                <ListBox.ItemContainerStyle>
+                                                    <Style TargetType="ListBoxItem">
+                                                        <Setter Property="Padding" Value="4,2"/>
+                                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                    </Style>
+                                                </ListBox.ItemContainerStyle>
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <!-- Название выбирает строку, тумблер справа — только видимость. -->
+                                                        <Grid Margin="4,3">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                                        VerticalAlignment="Center">
+                                                                <materialDesign:PackIcon Kind="{Binding IconKind}" Width="16" Height="16"
+                                                                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                                         Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="{Binding Display}"
+                                                                           VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                           ToolTip="{loc:Loc Settings.Columns.RowSelectHint}"/>
+                                                            </StackPanel>
+                                                            <ToggleButton Grid.Column="1"
+                                                                          Style="{StaticResource ColumnVisibilitySwitch}"
+                                                                          IsChecked="{Binding Visible, Mode=TwoWay}"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </StackPanel>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
+                                        <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,0,6" IsEnabled="False"
+                                                x:Name="ColumnOrderUpButton"
+                                                Click="OnColumnOrderUp_Click" ToolTip="{loc:Loc Settings.Columns.MoveUpTooltip}">
+                                            <materialDesign:PackIcon Kind="ArrowUp" Width="18" Height="18"/>
+                                        </Button>
+                                        <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" IsEnabled="False"
+                                                x:Name="ColumnOrderDownButton"
+                                                Click="OnColumnOrderDown_Click" ToolTip="{loc:Loc Settings.Columns.MoveDownTooltip}">
+                                            <materialDesign:PackIcon Kind="ArrowDown" Width="18" Height="18"/>
+                                        </Button>
                                     </StackPanel>
-                                </Border>
-                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                    <Button x:Name="ColumnOrderUpButton"
-                                            Content="{loc:Loc Settings.Columns.OrderUp}"
-                                            IsEnabled="False" Margin="0,0,8,0"
-                                            Padding="12,7"
-                                            Click="OnColumnOrderUp_Click"/>
-                                    <Button x:Name="ColumnOrderDownButton"
-                                            Content="{loc:Loc Settings.Columns.OrderDown}"
-                                            IsEnabled="False"
-                                            Padding="12,7"
-                                            Click="OnColumnOrderDown_Click"/>
-                                </StackPanel>
+                                </Grid>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>
@@ -1209,8 +1216,9 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="{loc:Loc Settings.Ibases.File}" VerticalAlignment="Center"
                                                Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <TextBox x:Name="SyncFilePathTextBox" Grid.Column="1" Margin="10,0,0,0"
-                                             VerticalAlignment="Center" HorizontalAlignment="Stretch"/>
+                                    <TextBox x:Name="SyncFilePathTextBox" Grid.Column="1" Height="40" Margin="10,0,0,0" FontSize="14"
+                                             VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                             Style="{StaticResource ModernTextBox}"/>
                                     <Button x:Name="BrowseSyncFileButton" Grid.Column="2" Content="{loc:Loc Common.Browse}" Margin="6,0,0,0"
                                             Padding="10,3" VerticalAlignment="Center"
                                             Style="{DynamicResource SecondaryButton}"
@@ -1412,7 +1420,7 @@
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            Margin="0,12,0,4"/>
                                 <ComboBox x:Name="ExportTimestampFormatComboBox"
-                                          Height="34" FontSize="13"
+                                          Height="34" FontSize="13" MinWidth="280"
                                           Style="{StaticResource ModernComboBox}"
                                           IsEditable="True"
                                           IsTextSearchEnabled="True"

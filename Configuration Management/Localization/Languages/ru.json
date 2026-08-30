@@ -314,6 +314,8 @@
     "Settings.Columns.OrderHint": "Задайте порядок колонок списка баз слева направо (колонка «Название» всегда первая и не перемещается).",
     "Settings.Columns.OrderUp": "Вверх",
     "Settings.Columns.OrderDown": "Вниз",
+    "Settings.Columns.MoveUpTooltip": "Переместить колонку выше",
+    "Settings.Columns.MoveDownTooltip": "Переместить колонку ниже",
     "Settings.Columns.RowSelectHint": "Клик по названию выделяет колонку, тумблер справа включает/выключает её.",
 
     "Settings.Panels.Description": "Правая панель действий и связанные опции.",
