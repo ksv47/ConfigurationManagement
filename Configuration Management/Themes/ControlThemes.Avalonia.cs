@@ -45,6 +45,21 @@ namespace Configuration_Management.Themes
         /// <summary>Переключатель настроек: дорожка 40 на 22 с кружком 16.</summary>
         public const string SettingsToggle = "SettingsToggle";
 
+        /// <summary>Всплывающее меню: карточный фон, контур, минимальная ширина 280.</summary>
+        public const string ModernContextMenu = "ModernContextMenu";
+
+        /// <summary>Пункт меню: отступ 12 на 6, скругление 4, подсветка выделенного.</summary>
+        public const string ModernMenuItem = "ModernMenuItem";
+
+        /// <summary>Значковая кнопка: прозрачный фон, скругление 8, подсветка при наведении.</summary>
+        public const string IconButton = "IconButton";
+
+        /// <summary>Значковая кнопка заголовка: скругление 6, своё нажатие и гашение.</summary>
+        public const string HeaderIconButton = "HeaderIconButton";
+
+        /// <summary>Значковая кнопка строки состояния: отступ 6 на 4, подсветка боковой панели.</summary>
+        public const string StatusBarIconButton = "StatusBarIconButton";
+
         /// <summary>Плитка выбора значка группы: тёмная в обеих темах, как у автора.</summary>
         public const string IconPickButton = "IconPickButton";
 

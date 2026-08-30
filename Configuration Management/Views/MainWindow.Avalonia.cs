@@ -326,17 +326,14 @@ namespace Configuration_Management
 
             // Проверить доступность всех баз 1С: ручная команда вместо автопроверки при запуске.
             // Иконка — зелёный гидролокатор (сонар), как экран на подводных лодках.
-            var checkAvailBtn = new PanelButton(
-                "",
-                "ItemHoverBrush",
-                "SecondaryButtonPressedBrush",
-                "")
+            var checkAvailBtn = new Button
             {
                 Content = IconHelper.MakeIcon("IconSonar", UiMetrics.Scaled(18),
                     new SolidColorBrush(Color.Parse("#14B8A6"))),
-                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
+                Padding = new Thickness(UiMetrics.Scaled(8)),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
+            checkAvailBtn.Styled(Themes.ControlThemes.IconButton);
             ToolTip.SetTip(checkAvailBtn, LocalizationManager.T("Main.CheckAvailabilityTooltip"));
             checkAvailBtn.Bind(Button.CommandProperty, new Binding("CheckAvailabilityCommand"));
             // Проверка доступности стоит между синхронизацией и темой, как у автора.
@@ -592,7 +589,7 @@ namespace Configuration_Management
         /// Явный цвет значка, как в разметке WPF: там часть команд верхней панели
         /// покрашена вручную, а часть берёт цвет из темы. Без него берётся тема.
         /// </param>
-        private static PanelButton TopBarIconButton(string iconKey, string tooltip, string? colorHex = null,
+        private static Button TopBarIconButton(string iconKey, string tooltip, string? colorHex = null,
             string themeBrushKey = "ButtonTextBrush")
         {
             Control icon;
@@ -606,21 +603,19 @@ namespace Configuration_Management
                     new SolidColorBrush(Color.Parse(colorHex)));
             }
 
-            // Плоская кнопка: у автора значковые команды верхней панели без
-            // подложки и рамки, подсветка появляется только при наведении.
-            // Подсветка наведения из ItemHover, а не из кремовой кисти вторичной
-            // кнопки: в тёмной теме та светлая, и значок на ней пропадал.
-            var button = new PanelButton(
-                "",
-                "ItemHoverBrush",
-                "SecondaryButtonPressedBrush",
-                "",
-                new CornerRadius(8))
+            // Оформление берёт тема IconButton разметки (LightTheme.xaml:561
+            // и DarkTheme.xaml:1105): прозрачный фон, скругление 8, отступ 8,
+            // подсветка только при наведении. Своя реализация красила наведение
+            // кистью ItemHover в обеих темах, тогда как в светлой у автора это
+            // серый #F1F5F9, и гасила недоступную кнопку прозрачностью, которой
+            // у этого стиля нет вовсе.
+            var button = new Button
             {
                 Content = icon,
                 Padding = new Thickness(UiMetrics.Scaled(8)),
                 HorizontalContentAlignment = HorizontalAlignment.Center
             };
+            button.Styled(Themes.ControlThemes.IconButton);
             ToolTip.SetTip(button, tooltip);
             return button;
         }
@@ -1176,17 +1171,14 @@ namespace Configuration_Management
                 Content = colorHex is not null
                     ? IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), new SolidColorBrush(Color.Parse(colorHex)))
                     : IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), brushKey ?? "TextSecondaryBrush"),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(4),
                 Margin = new Thickness(1, 0),
                 MinWidth = 0,
                 MinHeight = 0,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Cursor = new Cursor(StandardCursorType.Hand),
                 CommandParameter = group
             };
+            button.Styled(Themes.ControlThemes.IconButton);
             ToolTip.SetTip(button, tooltip);
             // Команда живёт во вьюмодели, а контекстом строки служит узел группы.
             button.Bind(Button.CommandProperty, new Binding(commandPath) { Source = _vm });
@@ -1802,22 +1794,22 @@ namespace Configuration_Management
                     new SolidColorBrush(Color.Parse(colorHex)));
             }
 
-            // Не штатный Button: тема Fluent красит не саму кнопку, а её внутренний
-            // ContentPresenter через :pointerover, и локальный прозрачный Background
-            // этот фон не перебивает. Подсветка наведения оставалась висеть, когда
-            // строка пересобиралась под курсором, и фон то появлялся, то пропадал.
-            var button = new PanelButton("", "ItemHoverBrush", "SecondaryButtonPressedBrush", "",
-                new CornerRadius(UiMetrics.RadiusSm))
+            // Оформление берёт тема IconButton разметки: у автора все пять команд
+            // строки идут этим стилем с полем 1,0 (MainWindow.xaml:1282).
+            // Своя кнопка была нужна, пока темы не было: штатная тема Fluent красит
+            // не саму кнопку, а её внутренний ContentPresenter, и локальный
+            // прозрачный фон её не перебивал.
+            var button = new Button
             {
                 Content = glyph,
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(4),
+                Margin = new Thickness(1, 0),
                 MinWidth = 0,
                 MinHeight = 0,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 CommandParameter = ib
             };
+            button.Styled(Themes.ControlThemes.IconButton);
             ToolTip.SetTip(button, tooltip);
             // Команда живёт во вьюмодели, а контекстом строки служит сама база.
             button.Bind(Button.CommandProperty, new Binding(commandPath) { Source = _vm });
@@ -2656,7 +2648,7 @@ namespace Configuration_Management
             ToolTip.SetTip(main, tooltip);
             main.Bind(Button.CommandProperty, new Binding(commandPath));
 
-            var menu = new ContextMenu();
+            var menu = new ContextMenu().Styled(Themes.ControlThemes.ModernContextMenu);
             foreach (var (header, command, itemIcon, itemColor) in menuItems)
             {
                 if (header.Length == 0)
@@ -2669,6 +2661,7 @@ namespace Configuration_Management
                 // (MainWindow.xaml:1954 и 1962): настройка параметров голубая,
                 // запуск с авторизацией фиолетовый.
                 var item = new MenuItem { Header = header };
+                item.Styled(Themes.ControlThemes.ModernMenuItem);
                 if (itemIcon is not null)
                     item.Icon = IconHelper.MakeIcon(itemIcon, 18,
                         itemColor is not null ? new SolidColorBrush(Color.Parse(itemColor)) : Brushes.Gray);
@@ -3552,20 +3545,17 @@ namespace Configuration_Management
         /// <summary>Компактная иконко-кнопка панели инструментов над списком.</summary>
         private Button HeaderIconButton(string iconKey, string tooltip, string commandPath)
         {
+            // Оформление берёт тема IconButton разметки (LightTheme.xaml:561):
+            // прозрачный фон, скругление 8, подсветка при наведении, отступ 8.
             var button = new Button
             {
-                // Отступ 8 и значок 15, как у IconButton в разметке
-                // (MainWindow.xaml:494, LightTheme.xaml:561): своя ширина 24
-                // делала кнопки заметно теснее.
                 Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush"),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
                 Padding = new Thickness(UiMetrics.Scaled(8)),
                 MinWidth = 0,
                 MinHeight = 0,
-                VerticalAlignment = VerticalAlignment.Center,
-                Cursor = new Cursor(StandardCursorType.Hand)
+                VerticalAlignment = VerticalAlignment.Center
             };
+            button.Styled(Themes.ControlThemes.IconButton);
             ToolTip.SetTip(button, tooltip);
             button.Bind(Button.CommandProperty, new Binding(commandPath));
             return button;
@@ -4083,11 +4073,14 @@ namespace Configuration_Management
                 Content = ThemedIconAndText("IconClose", LocalizationManager.T("Common.Clear"),
                     "ButtonTextBrush", UiMetrics.Scaled(12), centered: false, fontSize: UiMetrics.ScaledFont(11)),
                 Padding = new Thickness(4, 2),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            // Оформление и состояния берёт тема HeaderIconButton разметки
+            // (LightTheme.xaml:586): наведение, нажатие и гашение у автора
+            // заданы, а здесь кнопка была плоской без единого состояния.
+            _tagClearButton.Styled(Themes.ControlThemes.HeaderIconButton);
+            ToolTip.SetTip(_tagClearButton, LocalizationManager.T("Main.ClearTagFilters"));
             _tagClearButton.Bind(Button.CommandProperty, new Binding("ClearTagFiltersCommand"));
 
             // Подсказка остаётся на месте и когда тегов нет: панель не прячется,
@@ -4234,7 +4227,7 @@ namespace Configuration_Management
             _statusInfo.Bind(ToolTip.TipProperty, new Binding("StatusBarInfo"));
             if (_vm is not null)
             {
-                var statusMenu = new ContextMenu();
+                var statusMenu = new ContextMenu().Styled(Themes.ControlThemes.ModernContextMenu);
                 statusMenu.Items.Add(MenuAction("Main.CopyPath", _vm.CopyConnectionStringCommand, iconKey: "IconCopy"));
                 _statusInfo.ContextMenu = statusMenu;
             }
@@ -4271,22 +4264,22 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Кнопка строки состояния: плоская, со своим наведением по SidebarHover,
-        /// значок 18 контрастной кистью (стиль StatusBarIconButton, LightTheme.xaml:616).
+        /// Кнопка строки состояния: оформление берёт тема StatusBarIconButton
+        /// разметки (LightTheme.xaml:616). Нажатие у автора различается темами:
+        /// в светлой это тёмная заливка, в тёмной прозрачность 0.85, и тема
+        /// повторяет обе.
         /// </summary>
         private static Button StatusBarIconButton(string iconKey)
         {
-            var button = new PanelButton("", "SidebarHoverBrush", "SidebarHoverBrush", "",
-                new CornerRadius(6))
+            var button = new Button
             {
                 Content = IconHelper.MakeIcon(iconKey, 18, "TextOnAccentBrush"),
-                Padding = new Thickness(6, 4),
                 Margin = new Thickness(4, 0, 0, 0),
                 MinWidth = 0,
                 MinHeight = 0,
-                VerticalAlignment = VerticalAlignment.Center,
-                Cursor = new Cursor(StandardCursorType.Hand)
+                VerticalAlignment = VerticalAlignment.Center
             };
+            button.Styled(Themes.ControlThemes.StatusBarIconButton);
             return button;
         }
 
@@ -4552,7 +4545,7 @@ namespace Configuration_Management
         /// </summary>
         private ContextMenu BuildRowContextMenu()
         {
-            var menu = new ContextMenu();
+            var menu = new ContextMenu().Styled(Themes.ControlThemes.ModernContextMenu);
             if (_vm is null)
                 return menu;
 
@@ -4561,6 +4554,7 @@ namespace Configuration_Management
                 Header = LocalizationManager.T("Main.ClearCache"),
                 Icon = MenuIcon("IconBroom", "#14B8A6")
             };
+            cacheMenu.Styled(Themes.ControlThemes.ModernMenuItem);
             cacheMenu.Items.Add(MenuAction("Main.ClearProgramCache", _vm.ClearProgramCacheCommand));
             cacheMenu.Items.Add(MenuAction("Main.ClearUserCache", _vm.ClearUserCacheCommand));
             cacheMenu.Items.Add(new Separator());
@@ -4607,6 +4601,7 @@ namespace Configuration_Management
                 Header = LocalizationManager.T(textKey),
                 Command = command
             };
+            item.Styled(Themes.ControlThemes.ModernMenuItem);
             if (iconKey is not null && iconColor is not null)
                 item.Icon = MenuIcon(iconKey, iconColor);
             if (Controls.HotkeyBox.TryParse(gesture, out var parsed) && parsed is not null)
@@ -4806,41 +4801,38 @@ namespace Configuration_Management
         {
             menu.Items.Clear();
 
-            var showItem = new NativeMenuItem(LocalizationManager.T("Main.ShowWindow"));
+            // Состав и порядок как в Windows-версии (MainWindow.Tray.cs:209):
+            // открыть, недавние базы (или выбранная, если недавних нет),
+            // синхронизация, настройки, выход. У каждой базы своё подменю
+            // «Предприятие / Конфигуратор»: раньше пункт запускал только
+            // Предприятие, а выбора не было.
+            var showItem = new NativeMenuItem(LocalizationManager.T("Main.TrayOpen"));
             showItem.Click += (_, _) => ShowAndActivate();
             menu.Add(showItem);
-            menu.Add(new NativeMenuItemSeparator());
 
-            // Недавние базы (быстрый запуск прямо из трея).
             var recent = _vm?.RecentInfobases;
             if (recent is { Count: > 0 })
             {
-                var recentMenu = new NativeMenu();
+                menu.Add(new NativeMenuItemSeparator());
+                menu.Add(TrayHeader(LocalizationManager.T("Main.RecentBases")));
                 foreach (var ib in recent)
-                {
-                    var item = new NativeMenuItem($"{ib.Name}  ({ib.ServerDatabaseDisplay})");
-                    var baseRef = ib;
-                    item.Click += (_, _) => LaunchInfobase(baseRef);
-                    recentMenu.Add(item);
-                }
-                menu.Add(new NativeMenuItem(LocalizationManager.T("Main.RecentBases")) { Menu = recentMenu });
-                menu.Add(new NativeMenuItemSeparator());
+                    menu.Add(TrayInfobaseItem(ib, TrayItemName(ib.Name, "Main.NoName")));
             }
-
-            // Запуск выбранной базы: Предприятие / Конфигуратор.
-            if (_vm?.SelectedInfobase is { } sel)
+            else if (_vm?.SelectedInfobase is { } sel)
             {
-                var ent = new NativeMenuItem($"{LocalizationManager.T("Main.LaunchEnterprise")}: {sel.Name}");
-                ent.Click += (_, _) => _vm.LaunchEnterpriseCommand.Execute(null);
-                menu.Add(ent);
-
-                var cfg = new NativeMenuItem($"{LocalizationManager.T("Main.LaunchConfigurator")}: {sel.Name}");
-                cfg.Click += (_, _) => _vm.LaunchConfiguratorCommand.Execute(null);
-                menu.Add(cfg);
                 menu.Add(new NativeMenuItemSeparator());
+                menu.Add(TrayHeader(LocalizationManager.T("Main.SelectedBase")));
+                // У выбранной базы сам пункт ничего не запускает, только раскрывает
+                // подменю, и её имя не обрезается: так у автора
+                // (MainWindow.Tray.cs:240).
+                var selName = string.IsNullOrWhiteSpace(sel.Name)
+                    ? LocalizationManager.T("Main.SelectedBaseNoName")
+                    : sel.Name;
+                menu.Add(TrayInfobaseItem(sel, selName, launchOnClick: false));
             }
 
-            // Синхронизация и настройки.
+            menu.Add(new NativeMenuItemSeparator());
+
             var sync = new NativeMenuItem(LocalizationManager.T("Main.SyncWithIbases"));
             sync.Click += (_, _) => _vm?.SynchronizeWithIbasesCommand.Execute(null);
             menu.Add(sync);
@@ -4858,6 +4850,50 @@ namespace Configuration_Management
                 _vm?.ExitCommand.Execute(null);
             };
             menu.Add(exitItem);
+        }
+
+        /// <summary>
+        /// Заголовок раздела в меню трея. В Windows это отдельный нерабочий
+        /// пункт (MainWindow.Tray.cs:216), здесь он же, но недоступный:
+        /// собственного вида у заголовка в системном меню нет.
+        /// </summary>
+        private static NativeMenuItem TrayHeader(string text) => new(text) { IsEnabled = false };
+
+        /// <summary>
+        /// Подпись базы в меню трея: пустое имя заменяется на подпись автора,
+        /// длинное обрезается до 48 знаков, как в Windows-версии
+        /// (MainWindow.Tray.cs:224).
+        /// </summary>
+        private static string TrayItemName(string? name, string emptyKey)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return LocalizationManager.T(emptyKey);
+            return name.Length > 48 ? name.Substring(0, 45) + "…" : name;
+        }
+
+        /// <summary>
+        /// Пункт базы с подменю выбора режима запуска: сам пункт запускает
+        /// Предприятие, подменю даёт Предприятие и Конфигуратор
+        /// (MainWindow.Tray.cs:271).
+        /// </summary>
+        private NativeMenuItem TrayInfobaseItem(Infobase ib, string title, bool launchOnClick = true)
+        {
+            var baseRef = ib;
+            var item = new NativeMenuItem(title);
+            if (launchOnClick)
+                item.Click += (_, _) => LaunchInfobase(baseRef, configurator: false);
+
+            var submenu = new NativeMenu();
+            var enterprise = new NativeMenuItem(LocalizationManager.T("Main.Enterprise"));
+            enterprise.Click += (_, _) => LaunchInfobase(baseRef, configurator: false);
+            submenu.Add(enterprise);
+
+            var configurator = new NativeMenuItem(LocalizationManager.T("Main.SectionConfigurator"));
+            configurator.Click += (_, _) => LaunchInfobase(baseRef, configurator: true);
+            submenu.Add(configurator);
+
+            item.Menu = submenu;
+            return item;
         }
 
         private void SetupTray()
@@ -4900,7 +4936,7 @@ namespace Configuration_Management
         }
 
         /// <summary>Запускает базу из меню трея (Предприятие).</summary>
-        private void LaunchInfobase(Infobase ib)
+        private void LaunchInfobase(Infobase ib, bool configurator = false)
         {
             if (_vm is null)
                 return;
@@ -4911,8 +4947,7 @@ namespace Configuration_Management
                 QueueTrayMenuRefresh();
                 return;
             }
-            _vm.SelectedInfobase = ib;
-            _vm.LaunchEnterpriseCommand.Execute(null);
+            _vm.LaunchFromTray(ib, configurator);
         }
 
         /// <summary>

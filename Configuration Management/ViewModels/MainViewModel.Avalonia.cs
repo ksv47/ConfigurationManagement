@@ -1719,6 +1719,36 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Запуск базы из меню трея: прямо по ссылке, не трогая выделение в списке.
+    /// В Windows-версии это делает LaunchInfobaseById (MainViewModel.Commands.cs:544),
+    /// и она тоже не меняет SelectedInfobase: иначе запуск из трея переставлял бы
+    /// выделение, правую панель и строку состояния. Источник записи в истории
+    /// тот же, что у автора.
+    /// </summary>
+    public void LaunchFromTray(Infobase ib, bool configurator)
+    {
+        if (!_allInfobases.Contains(ib))
+            return;
+
+        var ok = configurator
+            ? _launcher.Launch(ib, Services.OneCLaunchMode.Configurator)
+            : _launcher.Launch(ib, Services.OneCLaunchMode.Enterprise);
+
+        if (ok)
+        {
+            ib.AddLaunchHistory(configurator ? "Configurator" : "Enterprise", "tray");
+            SaveSilently();
+            OnPropertyChanged(nameof(RecentInfobases));
+            _logger.Info($"[tray] Запущена «{ib.Name}» ({(configurator ? "Конфигуратор" : "Предприятие")})");
+            NotifyAfterLaunch();
+        }
+        else
+        {
+            _logger.Warn($"[tray] Не удалось запустить «{ib.Name}»");
+        }
+    }
+
     private void OnLaunched()
     {
         if (SelectedInfobase is not null)
@@ -3763,12 +3793,15 @@ public class MainViewModel : ViewModelBase
 
     // ======================= Этап 6: папки / ярлыки / стартер =======================
 
-    /// <summary>Недавно запускавшиеся базы (для меню трея). До 8 по дате запуска.</summary>
+    /// <summary>
+    /// Недавно запускавшиеся базы (для меню трея). До семи по дате запуска,
+    /// как в Windows-версии (MainWindow.Tray.cs:216 запрашивает семь).
+    /// </summary>
     public List<Infobase> RecentInfobases =>
         _allInfobases
             .Where(ib => ib.LastLaunchDate.HasValue)
             .OrderByDescending(ib => ib.LastLaunchDate)
-            .Take(8)
+            .Take(7)
             .ToList();
 
     /// <summary>Все информационные базы (для диалога выбора при очистке кеша).</summary>
