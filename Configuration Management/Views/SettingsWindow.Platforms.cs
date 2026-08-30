@@ -342,6 +342,48 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Открывает спонсорскую картинку «О программе» (donat.png) в полном размере
+        /// в отдельном окне с прокруткой, если картинка больше окна.
+        /// </summary>
+        private void OnDonatImage_Click(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                var bmp = new BitmapImage(new Uri("pack://application:,,,/donat.png"));
+                var scroll = new ScrollViewer
+                {
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    Background = Brushes.Black,
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    Content = new Image { Source = bmp, Stretch = Stretch.None, SnapsToDevicePixels = true }
+                };
+
+                var wa = SystemParameters.WorkArea;
+                var win = new Window
+                {
+                    Title = "donat.png",
+                    Background = Brushes.Black,
+                    ShowInTaskbar = false,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                    Owner = this,
+                    Content = scroll
+                };
+                // Окно ограничено рабочей областью; при большем размере картинки появляется прокрутка.
+                win.Width = Math.Min(bmp.Width, wa.Width * 0.9);
+                win.Height = Math.Min(bmp.Height, wa.Height * 0.9);
+                if (win.Width < 300) win.Width = 300;
+                if (win.Height < 200) win.Height = 200;
+                win.ShowDialog();
+            }
+            catch
+            {
+                // Изображение не загрузилось — просто ничего не показываем.
+            }
+        }
+
+        /// <summary>
         /// Копирует обезличенную техническую информацию о системе и приложении в буфер обмена
         /// (для диагностики проблемы разработчику). Работает в Windows и Linux.
         /// </summary>

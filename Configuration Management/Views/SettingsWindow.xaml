@@ -1508,6 +1508,11 @@
                                    Text="https://github.com/sivatorov/ConfigurationManagement"
                                    MouseLeftButtonUp="OnAboutLink_Click"
                                    Tag="https://github.com/sivatorov/ConfigurationManagement"/>
+                        <Image Source="pack://application:,,,/donat.png" Margin="0,16,0,0"
+                               HorizontalAlignment="Left" Stretch="Uniform"
+                               MaxWidth="420" MaxHeight="560" RenderOptions.BitmapScalingMode="HighQuality"
+                               Cursor="Hand" MouseLeftButtonUp="OnDonatImage_Click"
+                               ToolTip="{loc:Loc Settings.About.DonatTooltip}"/>
                         <Button Margin="0,24,0,0" Padding="14,8" HorizontalAlignment="Left"
                                 Style="{DynamicResource SecondaryButton}" Cursor="Hand"
                                 Click="OnCopyTechInfo_Click">
