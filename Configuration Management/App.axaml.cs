@@ -86,10 +86,37 @@ namespace Configuration_Management
                 var profileService = AppServices.GetRequiredService<IProfileService>();
                 profileService.EnsureInitialized();
 
+                // Любое окно, закрытое до создания главного, гасит приложение: режим
+                // завершения по умолчанию OnLastWindowClose считает его последним,
+                // и запуск падает с «Dispatcher shut down». Поэтому до показа
+                // главного окна завершение только явное, а прежний режим
+                // возвращается после. Условие здесь не на число профилей: на этом
+                // отрезке модальным может оказаться и другое окно.
+                var shutdownModeBeforeStartup = ShutdownMode.OnLastWindowClose;
+                if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime startupLifetime)
+                {
+                    shutdownModeBeforeStartup = startupLifetime.ShutdownMode;
+                    startupLifetime.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                }
+
                 // Если в приложении несколько учётных записей — показываем окно авторизации
                 // по аналогии со списком пользователей 1С. При одной записи входим без запроса.
                 if (profileService.Profiles.Count > 1)
                 {
+                    // Локализацию поднимаем до показа окна: настройки выбранного профиля
+                    // читаются ниже, а без словаря окно входа показывает ключи
+                    // (Auth.Title, Auth.Login) вместо подписей. Язык берётся из профиля,
+                    // активного с прошлого запуска, и уточняется после выбора.
+                    try
+                    {
+                        var startupSettings = AppServices.GetRequiredService<IInfobaseRepository>().LoadSettings();
+                        LocalizationManager.Instance.Initialize(startupSettings.Language, DataDirectory);
+                    }
+                    catch
+                    {
+                        LocalizationManager.Instance.Initialize(null, DataDirectory);
+                    }
+
                     var selectedId = LoginWindow.ShowLogin(profileService);
                     if (selectedId == null)
                     {
@@ -136,6 +163,10 @@ namespace Configuration_Management
                 try
                 {
                     LocalizationManager.Instance.Initialize(settings.Language, DataDirectory);
+                    // Если словарь уже поднят ради окна входа, Initialize выходит сразу,
+                    // поэтому язык выбранного профиля применяется отдельно и по тем же
+                    // правилам: пустое значение означает язык системы.
+                    LocalizationManager.Instance.ApplyPreferredLanguage(settings.Language);
                 }
                 catch
                 {
@@ -204,6 +235,11 @@ namespace Configuration_Management
 
                     desktop.MainWindow = mainWindow;
                     mainWindow.Show();
+
+                    // Прежний режим завершения возвращается: на время старта он
+                    // переключался на явный, иначе закрытие окна входа гасило
+                    // приложение до появления главного.
+                    desktop.ShutdownMode = shutdownModeBeforeStartup;
                 }
             }
             catch (Exception ex)
