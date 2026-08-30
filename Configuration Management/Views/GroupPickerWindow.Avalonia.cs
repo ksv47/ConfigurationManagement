@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -20,6 +21,18 @@ using Configuration_Management.ViewModels;
 
 namespace Configuration_Management
 {
+    /// <summary>
+    /// Вид объекта, для которого выбирается группа: от него зависят заголовок,
+    /// подзаголовок и текст справки (GroupPickerWindow.xaml.cs:11).
+    /// В Windows-версии это перечисление объявлено в code-behind, который
+    /// в Linux-сборку не входит, поэтому здесь свой такой же.
+    /// </summary>
+    public enum GroupPickerObjectKind
+    {
+        Group,
+        Infobase
+    }
+
     /// <summary>
     /// Диалог выбора группы в виде дерева (или «Без группы» / корень) в стиле Material Design:
     /// шапка с иконкой и подзаголовком, поле поиска, переключатель сортировки, карточка-дерево
@@ -51,18 +64,37 @@ namespace Configuration_Management
         /// <param name="excludeGroupId">Группа, которую нельзя выбрать (сама редактируемая + потомки отфильтруются).</param>
         /// <param name="allowNone">Разрешить выбор «Без группы» / корень.</param>
         /// <param name="noneLabel">Подпись корневого пункта.</param>
+        /// <summary>Вид объекта, для которого выбирают группу: от него зависят формулировки.</summary>
+        private readonly GroupPickerObjectKind _objectKind;
+
+        private string TitleKey => _objectKind == GroupPickerObjectKind.Infobase
+            ? "GroupPicker.TitleBase"
+            : "GroupPicker.TitleGroup";
+
+        private string SubtitleKey => _objectKind == GroupPickerObjectKind.Infobase
+            ? "GroupPicker.SubtitleBase"
+            : "GroupPicker.SubtitleGroup";
+
+        private string HelpKey => _objectKind == GroupPickerObjectKind.Infobase
+            ? "GroupPicker.HelpBase"
+            : "GroupPicker.HelpGroup";
+
         public GroupPickerWindow(
             IEnumerable<Group> groups,
             string? currentGroupId = null,
             string? excludeGroupId = null,
             bool allowNone = true,
-            string noneLabel = "")
+            string noneLabel = "",
+            GroupPickerObjectKind kind = GroupPickerObjectKind.Group)
         {
-            Title = LocalizationManager.T("GroupPicker.Title");
-            Width = 520;
-            Height = 600;
-            MinWidth = 440;
-            MinHeight = 460;
+            // Формулировки зависят от того, для чего выбирают группу: для базы
+            // или для другой группы (GroupPickerWindow.xaml.cs:70).
+            _objectKind = kind;
+            Title = LocalizationManager.T(TitleKey);
+            Width = 560;
+            Height = 620;
+            MinWidth = 460;
+            MinHeight = 480;
 
             _groups = groups.ToList();
             _currentGroupId = currentGroupId ?? string.Empty;
@@ -154,16 +186,16 @@ namespace Configuration_Management
             // занимает остаток, и после titleStack кружок «?» встал бы не к краю.
             var help = new HelpLink
             {
-                HelpText = LocalizationManager.T("GroupPicker.Help"),
+                HelpText = LocalizationManager.T(HelpKey),
                 VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(12, 4, 0, 0)
+                Margin = new Thickness(8, 0, 0, 0)
             };
             DockPanel.SetDock(help, Dock.Right);
             header.Children.Add(help);
 
             var titleStack = new StackPanel { Spacing = 2 };
-            titleStack.Children.Add(ThemedText(LocalizationManager.T("GroupPicker.Title"), 17, secondary: false, FontWeight.SemiBold));
-            var subtitle = ThemedText(LocalizationManager.T("GroupPicker.Subtitle"), 12.5, secondary: true, FontWeight.Normal);
+            titleStack.Children.Add(ThemedText(LocalizationManager.T(TitleKey), 17, secondary: false, FontWeight.SemiBold));
+            var subtitle = ThemedText(LocalizationManager.T(SubtitleKey), 12.5, secondary: true, FontWeight.Normal);
             subtitle.TextWrapping = TextWrapping.Wrap;
             titleStack.Children.Add(subtitle);
             header.Children.Add(titleStack);
@@ -173,13 +205,15 @@ namespace Configuration_Management
 
         private Control BuildToolbar()
         {
-            var toolbar = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+            var toolbar = new Grid { Margin = new Thickness(0, 0, 0, 8) };
             toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             toolbar.Children.Add(BuildSearchField());
 
-            var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(10, 0, 0, 0) };
+            // Кнопки сортировки: ширина 34 и поле 2,0 из разметки
+            // (GroupPickerWindow.xaml:86), зазор задаётся полем кнопок.
+            var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 0, 0, 0) };
             _sortAsc = BuildSortToggle("IconSortAscending", LocalizationManager.T("Main.SortGroupsAscending"), isAscending: true);
             _sortDesc = BuildSortToggle("IconSortDescending", LocalizationManager.T("Main.SortGroupsDescending"), isAscending: false);
             sortPanel.Children.Add(_sortAsc);
@@ -200,6 +234,7 @@ namespace Configuration_Management
                 Padding = new Thickness(10, 2)
             };
             ThemeBrushes.Bind(field, Border.BorderBrushProperty, "BorderColorBrush");
+            ThemeBrushes.Bind(field, Border.BackgroundProperty, "CardBackgroundColorBrush");
 
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -262,31 +297,36 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundColorBrush");
             ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
-            UiMetrics.AddSoftShadow(card);
 
             var root = new Grid();
-            root.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
-            root.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
                 (item, _) => BuildTreeRow(item),
                 item => item is GroupNodeViewModel g && g.HasChildren ? g.Children : null);
+            if (Application.Current?.TryFindResource(ControlThemes.GroupPickerTreeItem, out var treeItemTheme) == true
+                && treeItemTheme is ControlTheme itemTheme)
+            {
+                _tree.ItemContainerTheme = itemTheme;
+            }
             _tree.SelectionChanged += (_, _) =>
             {
                 _selectedNode = _tree.SelectedItem as GroupNodeViewModel;
                 UpdateSelection();
             };
-            _tree.DoubleTapped += (_, _) =>
+            // Двойной щелчок доходит до дерева только с handledEventsToo: у элемента
+            // с детьми Avalonia помечает событие обработанным (раскрытие узла), а
+            // разметка WPF подтверждает выбор при щелчке по любому узлу.
+            _tree.AddHandler(InputElement.DoubleTappedEvent, (object? _, TappedEventArgs _) =>
             {
                 if (_selectedNode is not null)
                     OnSelect_Click();
-            };
+            }, RoutingStrategies.Bubble, handledEventsToo: true);
 
             var treeHost = new ScrollViewer
             {
                 Content = _tree,
-                Padding = new Thickness(8, 6),
+                Padding = new Thickness(6),
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
@@ -312,16 +352,17 @@ namespace Configuration_Management
             var row = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Spacing = 8,
-                Margin = new Thickness(4, 3)
+                Margin = new Thickness(0, 1)
             };
 
-            // Крупный цветной «чип» с иконкой группы — выразительнее и лучше читается.
+            // Цветной чип со значком группы: размер задаётся отступом, как
+            // в разметке (GroupPickerWindow.xaml:271), а не фиксированной
+            // шириной с высотой.
             var chip = new Border
             {
-                Width = 36,
-                Height = 28,
-                CornerRadius = new CornerRadius(UiMetrics.RadiusSm),
+                Padding = new Thickness(6, 3),
+                Margin = new Thickness(0, 0, 8, 0),
+                CornerRadius = new CornerRadius(6),
                 VerticalAlignment = VerticalAlignment.Center,
                 Background = node.HeaderBrush,
                 Child = new Avalonia.Controls.Shapes.Path
@@ -376,12 +417,12 @@ namespace Configuration_Management
             _selectButton = BuildActionButton(
                 "AccentBrush", "AccentHoverBrush", "AccentPressedBrush", "AccentBrush",
                 ActionContent("IconCheck", LocalizationManager.T("Common.Select"), "TextOnAccentBrush"),
-                minWidth: 132, isCancel: false, isDefault: true, onClick: OnSelect_Click);
+                minWidth: 116, isCancel: false, isDefault: true, onClick: OnSelect_Click);
             buttons.Children.Add(_selectButton);
 
             buttons.Children.Add(BuildActionButton(
-                "SecondaryButtonBackgroundBrush", "SecondaryButtonHoverBrush", "SecondaryButtonPressedBrush", "BorderColorBrush",
-                ActionContent("IconClose", LocalizationManager.T("Common.Cancel"), "ButtonTextBrush"),
+                "", "SecondaryButtonHoverBrush", "SecondaryButtonPressedBrush", "SecondaryButtonBackgroundBrush",
+                ActionContent("IconClose", LocalizationManager.T("Common.Cancel"), "ButtonTextBrush", iconSize: 15),
                 minWidth: 116, isCancel: true, isDefault: false, onClick: () => Close()));
             Grid.SetColumn(buttons, 1);
             footer.Children.Add(buttons);
@@ -398,14 +439,17 @@ namespace Configuration_Management
             string baseKey, string hoverKey, string pressedKey, string borderKey,
             Control content, double minWidth, bool isCancel, bool isDefault, Action onClick)
         {
+            // Высота 38, отступ 14 на 6 и контур 1.5 из стилей разметки
+            // (GroupPickerWindow.xaml:117): у акцентной кнопки контура нет.
             var btn = new Button
             {
                 Content = content,
                 MinWidth = minWidth,
-                Padding = new Thickness(UiMetrics.ButtonPadH, UiMetrics.ButtonPadV),
+                Height = 38,
+                Padding = new Thickness(14, 6),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center,
-                BorderThickness = new Thickness(1),
+                BorderThickness = new Thickness(isDefault ? 0 : 1.5),
                 Cursor = new Cursor(StandardCursorType.Hand),
                 IsCancel = isCancel,
                 IsDefault = isDefault
@@ -438,18 +482,19 @@ namespace Configuration_Management
             return btn;
         }
 
-        /// <summary>Переключатель сортировки (А→Я / Я→А): активное состояние — акцентная заливка.</summary>
+        /// <summary>Переключатель сортировки (А→Я / Я→А): активный заливается акцентом, значок белеет.</summary>
         private ToggleButton BuildSortToggle(string iconKey, string tooltip, bool isAscending)
         {
             var toggle = new ToggleButton
             {
-                Width = 36,
+                Width = 34,
                 Height = 32,
-                Padding = new Thickness(0),
+                Margin = new Thickness(2, 0),
+                Padding = new Thickness(2),
                 BorderThickness = new Thickness(1),
                 Cursor = new Cursor(StandardCursorType.Hand),
                 IsChecked = isAscending == _sortAscending,
-                Content = IconHelper.MakeIcon(iconKey, 16, "ButtonTextBrush")
+                Content = IconHelper.MakeIcon(iconKey, 16, out var iconPath)
             };
             ToolTip.SetTip(toggle, tooltip);
 
@@ -475,9 +520,10 @@ namespace Configuration_Management
                 }
             };
 
-            var state = new ToggleState();
-            ThemeBrushes.Observe(toggle, "SecondaryButtonBackgroundBrush", b => { state.Base = b; state.Apply(toggle); });
-            ThemeBrushes.Observe(toggle, "SecondaryButtonHoverBrush", b => { state.Hover = b; state.Apply(toggle); });
+            var state = new ToggleState { Icon = iconPath };
+            ThemeBrushes.Observe(toggle, "ItemHoverBrush", b => { state.Hover = b; state.Apply(toggle); });
+            ThemeBrushes.Observe(toggle, "ButtonTextBrush", b => { state.IconBase = b; state.Apply(toggle); });
+            ThemeBrushes.Observe(toggle, "TextOnAccentBrush", b => { state.IconOnAccent = b; state.Apply(toggle); });
             ThemeBrushes.Observe(toggle, "SecondaryButtonPressedBrush", b => { state.Pressed = b; state.Apply(toggle); });
             ThemeBrushes.Observe(toggle, "BorderColorBrush", b => { state.Border = b; state.Apply(toggle); });
             ThemeBrushes.Observe(toggle, "AccentBrush", b => { state.Accent = b; state.Apply(toggle); });
@@ -516,7 +562,8 @@ namespace Configuration_Management
             string baseKey, string hoverKey, string pressedKey, string borderKey, bool? isActive)
         {
             var state = new ToggleState();
-            ThemeBrushes.Observe(btn, baseKey, b => { state.Base = b; state.Apply(btn); });
+            if (baseKey.Length > 0)
+                ThemeBrushes.Observe(btn, baseKey, b => { state.Base = b; state.Apply(btn); });
             ThemeBrushes.Observe(btn, hoverKey, b => { state.Hover = b; state.Apply(btn); });
             ThemeBrushes.Observe(btn, pressedKey, b => { state.Pressed = b; state.Apply(btn); });
             ThemeBrushes.Observe(btn, borderKey, b => { state.Border = b; state.Apply(btn); });
@@ -547,12 +594,12 @@ namespace Configuration_Management
         }
 
         /// <summary>Содержимое кнопки: иконка + подпись цветом из темы.</summary>
-        private static Control ActionContent(string iconKey, string text, string brushKey)
+        private static Control ActionContent(string iconKey, string text, string brushKey, double iconSize = 16)
         {
             var tb = new TextBlock
             {
                 Text = text,
-                FontSize = 13.5,
+                FontSize = 13,
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -563,7 +610,7 @@ namespace Configuration_Management
                 Spacing = 6,
                 Children =
                 {
-                    IconHelper.MakeIcon(iconKey, 16, brushKey),
+                    IconHelper.MakeIcon(iconKey, iconSize, brushKey),
                     tb
                 }
             };
@@ -720,27 +767,30 @@ namespace Configuration_Management
             public IBrush Pressed = Brushes.Transparent;
             public IBrush Border = Brushes.Transparent;
             public IBrush Accent = Brushes.Transparent;
+            public IBrush IconBase = Brushes.Transparent;
+            public IBrush IconOnAccent = Brushes.Transparent;
+            public Avalonia.Controls.Shapes.Path? Icon;
             public bool Hovered;
             public bool IsPressed;
 
             public void Apply(Button btn)
             {
                 var isActive = btn is ToggleButton t && t.IsChecked == true;
+                var fill = isActive ? Accent : (IsPressed ? Pressed : (Hovered ? Hover : Base));
+                if (Icon is not null)
+                    Icon.Fill = isActive ? IconOnAccent : IconBase;
+
                 if (!btn.IsEnabled)
                 {
                     btn.Opacity = 0.5;
-                    btn.Background = Base;
-                    btn.BorderBrush = isActive ? Accent : Border;
-                    btn.BorderThickness = new Thickness(isActive ? 2 : 1);
+                    btn.Background = fill;
+                    btn.BorderBrush = Border;
                     return;
                 }
 
                 btn.Opacity = 1.0;
-                btn.Background = IsPressed ? Pressed : (Hovered ? Hover : Base);
-                btn.BorderBrush = isActive ? Accent : Border;
-                // Активный сегмент сортировки подсвечивается акцентной рамкой (как сегментный
-                // переключатель Material): контраст иконки сохраняется в обеих темах.
-                btn.BorderThickness = new Thickness(isActive ? 2 : 1);
+                btn.Background = fill;
+                btn.BorderBrush = Border;
             }
         }
 
