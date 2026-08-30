@@ -1125,4 +1125,93 @@
             <Setter Property="Background" Value="{DynamicResource TreeSelectedBrush}"/>
         </Style>
     </ControlTheme>
+    <!-- Флажок окна очистки кеша (CacheCleanWindow.xaml:23): у автора это
+         местный вариант общего флажка, крупнее и с зелёной заливкой выбранного,
+         поэтому он отдельной темой, а не правкой ModernMaterialCheckBox. -->
+    <ControlTheme x:Key="CacheCleanCheckBox" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="CheckBox">
+                <StackPanel Orientation="Horizontal" Background="{TemplateBinding Background}">
+                    <Border Name="PART_Box" Width="20" Height="20" CornerRadius="4"
+                            BorderThickness="1.5" VerticalAlignment="Center"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrushColor}">
+                        <Panel>
+                            <Viewbox Name="PART_Check" Width="13" Height="13" IsVisible="False"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="White" Data="{StaticResource IconCheck}"/>
+                                </Canvas>
+                            </Viewbox>
+                            <Viewbox Name="PART_Dash" Width="13" Height="13" IsVisible="False"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="White" Data="{StaticResource IconMinus}"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Panel>
+                    </Border>
+                    <ContentPresenter Name="PART_ContentPresenter" Margin="10,0,0,0"
+                                      VerticalAlignment="Center"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"/>
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#PART_Box">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="^:checked /template/ Border#PART_Box">
+            <Setter Property="Background" Value="#16A34A"/>
+            <Setter Property="BorderBrush" Value="#16A34A"/>
+        </Style>
+        <Style Selector="^:checked /template/ Viewbox#PART_Check">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="^:indeterminate /template/ Border#PART_Box">
+            <Setter Property="Background" Value="#16A34A"/>
+            <Setter Property="BorderBrush" Value="#16A34A"/>
+        </Style>
+        <Style Selector="^:indeterminate /template/ Viewbox#PART_Dash">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- Кнопки «Выбрать все» и «Снять все» окна очистки кеша
+         (CacheCleanWindow.xaml:71): без рамки, скругление 6, отступ 8,5,
+         подсветка при наведении и гашение при нажатии. -->
+    <ControlTheme x:Key="SelectAllButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="8,5"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <ControlTemplate TargetType="Button">
+                <Border Name="PART_Border"
+                        Background="{TemplateBinding Background}"
+                        Padding="{TemplateBinding Padding}"
+                        CornerRadius="6">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+        </Style>
+        <Style Selector="^:pressed /template/ Border#PART_Border">
+            <Setter Property="Opacity" Value="0.7"/>
+        </Style>
+    </ControlTheme>
 </ResourceDictionary>

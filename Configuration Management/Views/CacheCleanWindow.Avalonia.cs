@@ -35,7 +35,8 @@ namespace Configuration_Management
         private readonly CheckBox _userCacheCheck = new();
         private readonly CheckBox _orphanCacheCheck = new();
         private readonly TextBox _searchBox = new() { Padding = new Thickness(10, 7), Watermark = LocalizationManager.T("CacheClean.SearchBase") };
-        private readonly StackPanel _basesPanel = new();
+        // Отступ панели строк как в разметке (CacheCleanWindow.xaml:183).
+        private readonly StackPanel _basesPanel = new() { Margin = new Thickness(4, 2) };
         private readonly TextBlock _basesCountText = new();
         private readonly Button _cleanButton = new() { IsDefault = true };
 
@@ -68,17 +69,23 @@ namespace Configuration_Management
             Width = 580;
             Height = 540;
             MinWidth = 480;
-            MinHeight = 500;
+            MinHeight = 440;
+            // Кегль окна из разметки (CacheCleanWindow.xaml:13): подписи флажков
+            // и кнопок выбора берут его по наследству.
+            FontSize = 13;
             CanResize = true;
 
             _infobases = infobases.ToList();
 
-            _programCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.ProgramCache"), _programCacheSizeText, wrap: false);
-            _userCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.UserCache"), _userCacheSizeText, wrap: false);
-            // Длинная надпись «Очистить кеш удалённых групп» должна переноситься,
-            // поэтому чекбоксу включаем перенос текста.
-            _orphanCacheCheck.Content = BuildCacheTypeContent(LocalizationManager.T("CacheClean.OrphanCache"), _orphanCacheSizeText, wrap: true);
-            _orphanCacheCheck.HorizontalAlignment = HorizontalAlignment.Stretch;
+            // Подпись флажка это просто текст, размер кеша стоит рядом отдельной
+            // подписью (CacheCleanWindow.xaml:119-124), а не внутри флажка.
+            _programCacheCheck.Content = LocalizationManager.T("CacheClean.ProgramCache");
+            _userCacheCheck.Content = LocalizationManager.T("CacheClean.UserCache");
+            _orphanCacheCheck.Content = LocalizationManager.T("CacheClean.OrphanCache");
+            foreach (var check in new[] { _programCacheCheck, _userCacheCheck, _orphanCacheCheck })
+                check.Styled(ControlThemes.CacheCleanCheckBox);
+            foreach (var size in new[] { _programCacheSizeText, _userCacheSizeText, _orphanCacheSizeText })
+                PrepareSizeText(size);
             ToolTip.SetTip(_orphanCacheCheck, LocalizationManager.T("CacheClean.OrphanCacheTooltip"));
 
             _programCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.Program);
@@ -94,15 +101,11 @@ namespace Configuration_Management
             UpdateCount();
             UpdateCleanEnabled();
 
-            // Внешний ScrollViewer гарантирует доступность всех элементов при любой высоте
-            // окна: если суммарная высота контента превышает высоту окна, появляется
-            // вертикальная прокрутка всего содержимого, а не обрезка нижней панели.
-            Content = new ScrollViewer
-            {
-                Content = BuildRoot(),
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            };
+            // Внешней прокрутки нет, как и в разметке: список занимает всё
+            // свободное место звёздной строкой и тянется вместе с окном, а нижняя
+            // панель прижата к низу. Минимальная высота окна 440 не даёт ей
+            // обрезаться (CacheCleanWindow.xaml:9 и 105).
+            Content = BuildRoot();
 
             Opened += (_, _) => RefreshCacheSizes();
             Closing += (_, _) => SaveColumnWidths();
@@ -161,33 +164,36 @@ namespace Configuration_Management
         public bool ShowSync(Window? owner = null) => ShowDialogSync(owner);
 
         /// <summary>
-        /// Формирует содержимое чекбокса типа кеша: название и поле текущего размера.
+        /// Подпись размера кеша рядом с флажком: кегль 12 и вторичный цвет темы,
+        /// как в разметке (CacheCleanWindow.xaml:123).
         /// </summary>
-        private static Control BuildCacheTypeContent(string name, TextBlock sizeText, bool wrap = false)
+        private static void PrepareSizeText(TextBlock sizeText)
         {
             sizeText.VerticalAlignment = VerticalAlignment.Center;
             sizeText.FontSize = 12;
-            sizeText.Foreground = Brushes.Gray;
             sizeText.Text = "…";
+            Themes.ThemeBrushes.Bind(sizeText, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+        }
 
-            var panel = new StackPanel
+        /// <summary>
+        /// Содержимое кнопки выбора: цветной значок 16 и подпись с отступом 6
+        /// (CacheCleanWindow.xaml:159).
+        /// </summary>
+        private static Control SelectAllContent(string iconKey, string colorHex, string text)
+        {
+            var icon = IconHelper.MakeIcon(iconKey, 16, new SolidColorBrush(Color.Parse(colorHex)));
+            icon.VerticalAlignment = VerticalAlignment.Center;
+            var caption = new TextBlock
+            {
+                Text = text,
+                Margin = new Thickness(6, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            return new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Spacing = 6,
-                Children =
-                {
-                    new TextBlock
-                    {
-                        Text = name,
-                        VerticalAlignment = VerticalAlignment.Center,
-                        // TextWrapping: длинная надпись (например, «Очистить кеш удалённых групп»)
-                        // переносится на несколько строк и не обрезается при узкой ширине окна.
-                        TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap
-                    },
-                    sizeText
-                }
+                Children = { icon, caption }
             };
-            return panel;
         }
 
         /// <summary>
@@ -246,7 +252,8 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            // Список растягивается на всё свободное место (CacheCleanWindow.xaml:105).
+            grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
             var title = new TextBlock
@@ -265,6 +272,7 @@ namespace Configuration_Management
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 6, 0, 0)
             };
+            Themes.ThemeBrushes.Bind(description, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             Grid.SetRow(description, 1);
             grid.Children.Add(description);
 
@@ -277,11 +285,28 @@ namespace Configuration_Management
             Grid.SetRow(typeLabel, 2);
             grid.Children.Add(typeLabel);
 
-            var typePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+            // Размеры кеша стоят отдельными подписями рядом с флажками, а между
+            // парами вертикальный разделитель (CacheCleanWindow.xaml:118-131).
+            var typePanel = new StackPanel { Orientation = Orientation.Horizontal };
             ToolTip.SetTip(_programCacheCheck, "%LOCALAPPDATA%\\1C\\1cv8…");
             ToolTip.SetTip(_userCacheCheck, "%APPDATA%\\1C\\1cv8…");
+            _programCacheCheck.Margin = new Thickness(0, 0, 8, 0);
+            _programCacheSizeText.Margin = new Thickness(2, 0, 18, 0);
+            _userCacheSizeText.Margin = new Thickness(2, 0, 0, 0);
             typePanel.Children.Add(_programCacheCheck);
+            typePanel.Children.Add(_programCacheSizeText);
+
+            var typeSeparator = new Border
+            {
+                Width = 1,
+                Margin = new Thickness(4, 0, 20, 0),
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+            Themes.ThemeBrushes.Bind(typeSeparator, Border.BackgroundProperty, "BorderColorBrush");
+            typePanel.Children.Add(typeSeparator);
+
             typePanel.Children.Add(_userCacheCheck);
+            typePanel.Children.Add(_userCacheSizeText);
             Grid.SetRow(typePanel, 3);
             grid.Children.Add(typePanel);
 
@@ -290,30 +315,47 @@ namespace Configuration_Management
             {
                 Margin = new Thickness(0, 12, 0, 0),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
-                // Фиксированная высота вместо Star-строки: внутри внешнего ScrollViewer
-                // звёздные строки схлопываются в 0, поэтому блоку списка задаём постоянную
-                // высоту с MinHeight. Внутренний ScrollViewer базы остаётся рабочим, а при
-                // малой высоте окна весь контент прокручивается внешним ScrollViewer —
-                // нижняя панель (чекбокс остатков и кнопки) никогда не обрезается.
-                Height = 260,
-                MinHeight = 220
+                CornerRadius = new CornerRadius(6)
             };
+            // Фон и рамка карточки: в разметке это CardBackgroundBrush
+            // и BorderBrushColor (CacheCleanWindow.xaml:136-137). Без привязки
+            // карточка сливалась с фоном окна, а рамка была невидимой, и серого
+            // блока от поля поиска до списка не получалось.
+            Themes.ThemeBrushes.Bind(basesBorder, Border.BackgroundProperty, "CardBackgroundColorBrush");
+            Themes.ThemeBrushes.Bind(basesBorder, Border.BorderBrushProperty, "BorderColorBrush");
 
             var dock = new DockPanel { LastChildFill = true };
 
+            // Вид поля Windows-сторона сняла с живого окна (задание 15): своего
+            // стиля в разметке нет, применяется неявный MaterialDesignTextBox,
+            // а он даёт прозрачную подложку и одну черту снизу цветом #7F000000.
+            // Фон под полем это фон самой карточки списка, отдельной заливки нет.
+            _searchBox.Background = Brushes.Transparent;
+            _searchBox.BorderThickness = new Thickness(0, 0, 0, 1);
+            _searchBox.BorderBrush = new SolidColorBrush(Color.Parse("#7F000000"));
+            _searchBox.FontSize = 13;
+            _searchBox.VerticalContentAlignment = VerticalAlignment.Center;
             _searchBox.Margin = new Thickness(8, 8, 8, 2);
             DockPanel.SetDock(_searchBox, Dock.Top);
             dock.Children.Add(_searchBox);
 
-            var toolbar = new Grid { Margin = new Thickness(8, 2, 8, 4) };
+            var toolbar = new Grid();
             toolbar.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             toolbar.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            var toolbarButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-            var selectAll = new Button { Content = IconHelper.IconAndText("IconCheck", LocalizationManager.T("CacheClean.SelectAll")), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+            var toolbarButtons = new StackPanel { Orientation = Orientation.Horizontal };
+            var selectAll = new Button
+            {
+                Content = SelectAllContent("IconCheckboxMultipleMarked", "#16A34A", LocalizationManager.T("CacheClean.SelectAll"))
+            };
+            selectAll.Styled(ControlThemes.SelectAllButton);
             ToolTip.SetTip(selectAll, LocalizationManager.T("CacheClean.SelectAllTooltip"));
             selectAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = true; UpdateCount(); UpdateCleanEnabled(); };
-            var clearAll = new Button { Content = IconHelper.IconAndText("IconUncheck", LocalizationManager.T("CacheClean.ClearAll")), Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+            var clearAll = new Button
+            {
+                Content = SelectAllContent("IconCheckboxMultipleBlankOutline", "#EF4444", LocalizationManager.T("CacheClean.ClearAll")),
+                Margin = new Thickness(16, 0, 0, 0)
+            };
+            clearAll.Styled(ControlThemes.SelectAllButton);
             ToolTip.SetTip(clearAll, LocalizationManager.T("CacheClean.ClearAllTooltip"));
             clearAll.Click += (_, _) => { foreach (var check in _baseChecks.Keys) check.IsChecked = false; UpdateCount(); UpdateCleanEnabled(); };
             toolbarButtons.Children.Add(selectAll);
@@ -331,8 +373,18 @@ namespace Configuration_Management
             Themes.ThemeBrushes.Bind(_basesCountText, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             Grid.SetColumn(_basesCountText, 1);
             toolbar.Children.Add(_basesCountText);
-            DockPanel.SetDock(toolbar, Dock.Top);
-            dock.Children.Add(toolbar);
+            // Панель отделена от списка чертой снизу и имеет отступ 8,4
+            // (CacheCleanWindow.xaml:149).
+            var toolbarBorder = new Border
+            {
+                Padding = new Thickness(8, 4),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Background = Brushes.Transparent,
+                Child = toolbar
+            };
+            Themes.ThemeBrushes.Bind(toolbarBorder, Border.BorderBrushProperty, "BorderColorBrush");
+            DockPanel.SetDock(toolbarBorder, Dock.Top);
+            dock.Children.Add(toolbarBorder);
 
             // Закреплённая шапка списка (остаётся вверху при прокрутке).
             _headerGrid = BuildHeaderGrid();
@@ -344,7 +396,7 @@ namespace Configuration_Management
                 Content = _basesPanel,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Padding = new Thickness(8, 2)
+                Padding = new Thickness(4)
             };
             dock.Children.Add(basesScroll);
 
@@ -353,17 +405,18 @@ namespace Configuration_Management
             grid.Children.Add(basesBorder);
 
             // Нижняя панель: счётчик + кнопки
-            var bottom = new Grid { Margin = new Thickness(0, 12, 0, 0) };
+            var bottom = new Grid { Margin = new Thickness(0, 14, 0, 0) };
             bottom.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             bottom.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
 
             var leftPanel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Spacing = 16,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            _orphanCacheSizeText.Margin = new Thickness(4, 0, 0, 0);
             leftPanel.Children.Add(_orphanCacheCheck);
+            leftPanel.Children.Add(_orphanCacheSizeText);
             Grid.SetColumn(leftPanel, 0);
             bottom.Children.Add(leftPanel);
 
@@ -425,7 +478,7 @@ namespace Configuration_Management
         /// <summary>Строит закреплённую шапку списка с зонами захвата для изменения ширины колонок.</summary>
         private Grid BuildHeaderGrid()
         {
-            var grid = new Grid { Margin = new Thickness(8, 0, 8, 4) };
+            var grid = new Grid { Margin = new Thickness(8, 0, 8, 2) };
             ApplyColumns(grid);
 
             grid.Children.Add(BuildHeaderText(LocalizationManager.T("CacheClean.ColumnBase"), HorizontalAlignment.Left, 0));
@@ -531,7 +584,7 @@ namespace Configuration_Management
 
             foreach (var ib in _infobases)
             {
-                var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+                var row = new Grid { Margin = new Thickness(4, 2, 4, 2) };
                 ApplyColumns(row);
 
                 var check = new CheckBox
@@ -540,6 +593,9 @@ namespace Configuration_Management
                     IsChecked = ReferenceEquals(ib, defaultSelected),
                     VerticalContentAlignment = VerticalAlignment.Center
                 };
+                // Тот же местный флажок, что и у типов кеша: в версии для Windows
+                // стиль назначается строкам списка кодом (CacheCleanWindow.xaml.cs:232).
+                check.Styled(ControlThemes.CacheCleanCheckBox);
                 ToolTip.SetTip(check, string.IsNullOrWhiteSpace(ib.ConnectionPathDisplay) ? ib.Name : ib.ConnectionPathDisplay);
                 check.IsCheckedChanged += (_, _) => OnBaseChecked();
                 Grid.SetColumn(check, 0);
@@ -570,12 +626,14 @@ namespace Configuration_Management
                 Text = text,
                 FontSize = 12,
                 FontWeight = FontWeight.SemiBold,
-                Foreground = Brushes.Gray,
                 HorizontalAlignment = align,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(8, 0, 8, 0),
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
+            // Цвет из темы, а не постоянный серый: в тёмной схеме вторичный
+            // текст светлее фона (CacheCleanWindow.xaml.cs:134).
+            Themes.ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             Grid.SetColumn(block, column);
             return block;
         }
@@ -583,16 +641,17 @@ namespace Configuration_Management
         /// <summary>Формирует поле отображения размера кеша базы.</summary>
         private static TextBlock BuildSizeText()
         {
-            return new TextBlock
+            var size = new TextBlock
             {
                 Text = "…",
                 FontSize = 12,
-                Foreground = Brushes.Gray,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(8, 0, 8, 0),
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
+            Themes.ThemeBrushes.Bind(size, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            return size;
         }
 
         private void OnSearchTextChanged()
