@@ -45,10 +45,12 @@ namespace Configuration_Management
             Title = LocalizationManager.T("Settings.Title");
             // Семь вкладок с длинными подписями в одну строку не помещаются
             // ни в какую разумную ширину, поэтому полоса вкладок слева.
-            Width = 940;
-            Height = 620;
-            MinWidth = 860;
-            MinHeight = 520;
+            // Размеры и кегль окна из разметки (SettingsWindow.xaml:14-21).
+            Width = 880;
+            Height = 680;
+            MinWidth = 760;
+            MinHeight = 560;
+            FontSize = 13;
 
             _viewModel = viewModel;
             // Без контекста привязки переключателей клиента и разрядности
@@ -106,10 +108,17 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
+            // Вид колонки вкладок задаёт тема из словаря; TabStripPlacement её
+            // шаблон не читает, но свойство ставится, чтобы состояние контрола
+            // отвечало фактическому расположению полосы, как в разметке.
             var tabs = new TabControl { TabStripPlacement = Dock.Left };
+            tabs.Styled(ControlThemes.SettingsTabControl);
 
             // ===== Настройки =====
-            var settings = new StackPanel { Spacing = 14 };
+            // Общего зазора у панели нет: в Avalonia он складывается с полями
+            // соседей, а поля взяты из разметки поштучно (SettingsWindow.xaml:1106
+            // и далее), поэтому иначе каждый промежуток вырос бы на 6.
+            var settings = new StackPanel();
 
             // Тема оформления. Редактируемая схема и колбэк обновления редактора объявляются
             // здесь, чтобы радиокнопки «Светлая/Тёмная» переключали базовую тему именно той
@@ -130,21 +139,22 @@ namespace Configuration_Management
             themePanel.Children.Add(darkTheme);
             settings.Children.Add(themePanel);
 
-            // Язык интерфейса. Как в разметке WPF (SettingsWindow.xaml:1088):
-            // заголовок раздела и подпись самой строки это разные ключи.
-            settings.Children.Add(new TextBlock
-            {
-                Text = LocalizationManager.T("Settings.Language"),
-                FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 8, 0, 4)
-            });
-            var langRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+            // Язык интерфейса лежит в рамке с заголовком, отступом 8 и полем
+            // снизу 12 (SettingsWindow.xaml:1088). Список 280 на 34, подпись
+            // с полем 10 до него, пояснение с верхним отступом 8.
+            var langRow = new StackPanel { Orientation = Orientation.Horizontal };
             langRow.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("Settings.LanguageLabel"),
                 VerticalAlignment = VerticalAlignment.Center
             });
-            var langBox = new ComboBox { MinWidth = 220, HorizontalAlignment = HorizontalAlignment.Left };
+            var langBox = new ComboBox
+            {
+                Width = 280,
+                Height = 34,
+                Margin = new Thickness(10, 0, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
             langBox.ItemsSource = LocalizationManager.Instance.AvailableLanguages;
             langBox.DisplayMemberBinding = new Avalonia.Data.Binding("Name");
             langBox.SelectedItem = LocalizationManager.Instance.AvailableLanguages
@@ -160,14 +170,23 @@ namespace Configuration_Management
                 }
             };
             langRow.Children.Add(langBox);
-            settings.Children.Add(langRow);
-            settings.Children.Add(new TextBlock
+
+            var langContent = new StackPanel();
+            langContent.Children.Add(langRow);
+            var langHint = new TextBlock
             {
                 Text = LocalizationManager.T("Settings.Language.AppliedHint"),
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
-                Opacity = 0.7
-            });
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            ThemeBrushes.Bind(langHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            langContent.Children.Add(langHint);
+
+            settings.Children.Add(Controls.GroupBoxPanel.Build(
+                "Settings.Language", langContent,
+                margin: new Thickness(0, 0, 0, 12),
+                padding: new Thickness(8)));
 
             // Раздел поведения приложения: в разметке WPF (SettingsWindow.xaml:1104)
             // он начинается своим заголовком, а первым в нём идёт разрешение
@@ -176,55 +195,29 @@ namespace Configuration_Management
             {
                 Text = LocalizationManager.T("Settings.General.Behavior"),
                 FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 8, 0, 0)
+                Margin = new Thickness(0, 0, 0, 8)
             });
 
             // Несколько экземпляров: настройка лежит в общем с версией для
             // Windows файле и уже учитывается при запуске (App.axaml.cs),
             // но в Linux-сборке её нечем было изменить.
-            var multipleInstancesCheck = new CheckBox
-            {
-                Content = LocalizationManager.T("Settings.General.AllowMultipleInstances"),
-                IsChecked = _viewModel.AllowMultipleInstances
-            };
+            var multipleInstancesCheck = SettingsSwitch("Settings.General.AllowMultipleInstances", _viewModel.AllowMultipleInstances, "IconApplicationOutline", "#3B82F6");
+            multipleInstancesCheck.Margin = new Thickness(0, 0, 0, 6);
             settings.Children.Add(multipleInstancesCheck);
 
             // Поведение значка в области уведомлений. До этого три настройки
             // жили только в файле и в версии для Windows: в Linux-сборке ни
             // флажков, ни учёта не было.
-            var trayIconCheck = new CheckBox
-            {
-                Content = LocalizationManager.T("Settings.General.ShowTrayIcon"),
-                IsChecked = _viewModel.ShowTrayIcon
-            };
-            var closeToTrayCheck = new CheckBox
-            {
-                Content = LocalizationManager.T("Settings.General.CloseToTray"),
-                IsChecked = _viewModel.CloseToTray
-            };
-            var escapeToTrayCheck = new CheckBox
-            {
-                Content = LocalizationManager.T("Settings.General.EscapeToTray"),
-                IsChecked = _viewModel.EscapeToTray
-            };
+            var trayIconCheck = SettingsSwitch("Settings.General.ShowTrayIcon", _viewModel.ShowTrayIcon, "IconTrayFull", "#14B8A6");
+            var closeToTrayCheck = SettingsSwitch("Settings.General.CloseToTray", _viewModel.CloseToTray, "IconWindowMinimize", "#F59E0B");
+            var escapeToTrayCheck = SettingsSwitch("Settings.General.EscapeToTray", _viewModel.EscapeToTray, "IconKeyboard", "#8B5CF6");
+            trayIconCheck.Margin = new Thickness(0, 0, 0, 6);
+            closeToTrayCheck.Margin = new Thickness(0, 0, 0, 6);
+            escapeToTrayCheck.Margin = new Thickness(0, 0, 0, 6);
             settings.Children.Add(trayIconCheck);
             settings.Children.Add(closeToTrayCheck);
             settings.Children.Add(escapeToTrayCheck);
 
-            // Компактный режим интерфейса.
-            var compactToggle = new CheckBox
-            {
-                Content = LocalizationManager.T("Settings.CompactMode"),
-                IsChecked = _viewModel.CompactMode,
-                Margin = new Thickness(0, 8, 0, 4)
-            };
-            compactToggle.IsCheckedChanged += (_, _) =>
-            {
-                var value = compactToggle.IsChecked == true;
-                _viewModel.CompactMode = value;
-                _viewModel.ApplyCompactMode(value);
-            };
-            settings.Children.Add(compactToggle);
 
             // Параметры текущей сессии
             settings.Children.Add(new TextBlock { Text = LocalizationManager.T("Settings.DefaultClientLabel"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
@@ -244,14 +237,24 @@ namespace Configuration_Management
             archPanel.Children.Add(Radio("SessionArch", "IsSessionArch64", "64"));
             settings.Children.Add(archPanel);
 
-            // Действие после запуска базы или конфигуратора.
-            settings.Children.Add(new TextBlock
+            // Действие после запуска идёт одной строкой: значок, подпись
+            // с полем 10 и список 230 на 30 (SettingsWindow.xaml:1131-1136).
+            var afterLaunchRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 6, 0, 6)
+            };
+            var afterLaunchIcon = IconHelper.MakeIcon("IconRocketLaunch", 16, new SolidColorBrush(Color.Parse("#22C55E")));
+            afterLaunchIcon.Margin = new Thickness(0, 0, 8, 0);
+            afterLaunchIcon.VerticalAlignment = VerticalAlignment.Center;
+            afterLaunchRow.Children.Add(afterLaunchIcon);
+            afterLaunchRow.Children.Add(new TextBlock
             {
                 Text = LocalizationManager.T("Settings.General.AfterLaunchAction"),
-                FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 8, 0, 0)
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0)
             });
-            var afterLaunchBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            var afterLaunchBox = new ComboBox { Width = 230, Height = 30 };
             afterLaunchBox.ItemsSource = new[]
             {
                 LocalizationManager.T("Settings.General.AfterLaunchAction.None"),
@@ -259,25 +262,57 @@ namespace Configuration_Management
                 LocalizationManager.T("Settings.General.AfterLaunchAction.Close")
             };
             afterLaunchBox.SelectedIndex = (int)Models.AfterLaunchActionHelper.Parse(_viewModel.AfterLaunchAction);
-            settings.Children.Add(afterLaunchBox);
+            afterLaunchRow.Children.Add(afterLaunchBox);
+            settings.Children.Add(afterLaunchRow);
 
             // Запоминание геометрии окна. Значения лежали в общем файле настроек,
             // но Linux-сборка их не читала и не писала вовсе.
-            var rememberLayoutCheck = new CheckBox
-            {
-                Content = LocalizationManager.T("Settings.General.RememberWindowLayout"),
-                IsChecked = _viewModel.RememberWindowLayout,
-                Margin = new Thickness(0, 8, 0, 0)
-            };
+            var rememberLayoutCheck = SettingsSwitch("Settings.General.RememberWindowLayout", _viewModel.RememberWindowLayout, "IconMonitor", "#EC4899");
+            // У автора у этой строки своего отступа нет (SettingsWindow.xaml:1139).
+            rememberLayoutCheck.Margin = new Thickness(0);
             settings.Children.Add(rememberLayoutCheck);
 
+            // Компактный режим интерфейса.
+            var compactToggle = SettingsSwitch("Settings.CompactMode", _viewModel.CompactMode, "IconCompress", "#22C55E");
+            // Отступ сверху из разметки (SettingsWindow.xaml:1144).
+            compactToggle.Margin = new Thickness(0, 12, 0, 0);
+            compactToggle.IsCheckedChanged += (_, _) =>
+            {
+                var value = compactToggle.IsChecked == true;
+                _viewModel.CompactMode = value;
+                _viewModel.ApplyCompactMode(value);
+            };
+            settings.Children.Add(compactToggle);
+
             // Управление учётными записями (профилями).
+            // Кнопка учётных записей: значок и тема из разметки
+            // (SettingsWindow.xaml:1151-1157).
+            var profilesIcon = IconHelper.MakeIcon("IconAccountMultiple", 16, new SolidColorBrush(Color.Parse("#3B82F6")));
+            profilesIcon.Margin = new Thickness(0, 0, 8, 0);
+            profilesIcon.VerticalAlignment = VerticalAlignment.Center;
             var manageProfilesButton = new Button
             {
-                Content = LocalizationManager.T("Settings.General.ManageProfiles"),
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Children =
+                    {
+                        profilesIcon,
+                        new TextBlock
+                        {
+                            Text = LocalizationManager.T("Settings.General.ManageProfiles"),
+                            VerticalAlignment = VerticalAlignment.Center
+                        }
+                    }
+                },
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 12, 0, 0)
+                // Числа из разметки (SettingsWindow.xaml:1151).
+                Width = 250,
+                Height = 36,
+                Margin = new Thickness(0, 18, 0, 0)
             };
+            manageProfilesButton.Styled(ControlThemes.ModernButton);
             manageProfilesButton.Click += (_, _) =>
             {
                 var profiles = AppServices.GetRequiredService<IProfileService>();
@@ -285,7 +320,15 @@ namespace Configuration_Management
             };
             settings.Children.Add(manageProfilesButton);
 
-            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabGeneral"), Content = new ScrollViewer { Content = settings, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            var tabGeneral = MainTab("IconApplicationCog", "Settings.TabGeneral",
+                new ScrollViewer
+                {
+                    Content = settings,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    // Отступы прокрутки из разметки (SettingsWindow.xaml:1085).
+                    Margin = new Thickness(4, 12, 4, 0),
+                    Padding = new Thickness(0, 0, 4, 0)
+                });
 
             // ===== Платформы =====
             var platforms = new StackPanel { Spacing = 6 };
@@ -396,33 +439,38 @@ namespace Configuration_Management
             archBox.SelectedItem = string.Equals(_viewModel.DefaultArchitecture, "X86", StringComparison.OrdinalIgnoreCase) ? "X86" : "X64";
             platforms.Children.Add(archBox);
 
-            tabs.Items.Add(new TabItem
-            {
-                Header = LocalizationManager.T("Settings.TabPlatforms"),
-                Content = new ScrollViewer { Content = platforms, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
-            });
+            var tabPlatforms = MainTab("IconServer", "Settings.TabPlatforms",
+                new ScrollViewer { Content = platforms, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
 
             // ===== Отображение =====
-            var displayIcons = new StackPanel { Spacing = 6 };
-            var displayColumns = new StackPanel { Spacing = 6 };
-            var displayPanels = new StackPanel { Spacing = 6 };
-            var displayStatus = new StackPanel { Spacing = 6 };
-            var displayFont = new StackPanel { Spacing = 6 };
+            // Общего зазора у панелей нет: он складывается с полями детей,
+            // а поля взяты из разметки поштучно (SettingsWindow.xaml:495 и далее).
+            var displayIcons = new StackPanel();
+            var displayColumns = new StackPanel();
+            var displayPanels = new StackPanel();
+            var displayStatus = new StackPanel();
+            var displayFont = new StackPanel();
 
-            displayIcons.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description")));
-            var favoritesCheck = DisplayCheck("Settings.Icons.FavoritesButton", _viewModel.ShowFavoritesButton);
-            var pinnedCheck = DisplayCheck("Settings.Icons.PinButton", _viewModel.ShowPinnedButton);
-            var tagsCheck = DisplayCheck("Settings.Icons.Tags", _viewModel.ShowTags);
-            var tagPanelCheck = DisplayCheck("Settings.Icons.TagFilterPanel", _viewModel.ShowTagFilterPanel);
+            displayIcons.Children.Add(Hint(LocalizationManager.T("Settings.Icons.Description"), bottom: 10));
+            // Значки и их цвета из разметки (SettingsWindow.xaml:498-517).
+            var favoritesCheck = DisplayCheck("Settings.Icons.FavoritesButton", _viewModel.ShowFavoritesButton, "IconStar", "#FBBF24");
+            var pinnedCheck = DisplayCheck("Settings.Icons.PinButton", _viewModel.ShowPinnedButton, "IconPin", "#F59E0B");
+            var tagsCheck = DisplayCheck("Settings.Icons.Tags", _viewModel.ShowTags, "IconTag", "#EC4899");
+            var tagPanelCheck = DisplayCheck("Settings.Icons.TagFilterPanel", _viewModel.ShowTagFilterPanel, "IconFilter", "#EC4899");
             foreach (var check in new[] { favoritesCheck, pinnedCheck, tagsCheck, tagPanelCheck })
                 displayIcons.Children.Add(check);
 
             // Видимость и порядок колонок редактируются в одном списке: у каждой
             // строки есть флажок видимости, а порядок задаётся кнопками «Вверх»/«Вниз»
             // по выбранной строке. Так не нужно держать две раздельные группы настроек.
-            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description")));
-            displayColumns.Children.Add(GroupTitle(LocalizationManager.T("Settings.Columns.OrderTitle")));
-            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint")));
+            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.Description"), bottom: 10));
+            // Заголовок порядка колонок и его пояснение по числам разметки
+            // (SettingsWindow.xaml:544-548).
+            var orderTitle = GroupTitle(LocalizationManager.T("Settings.Columns.OrderTitle"));
+            orderTitle.FontSize = 14;
+            orderTitle.Margin = new Thickness(0, 12, 0, 4);
+            displayColumns.Children.Add(orderTitle);
+            displayColumns.Children.Add(Hint(LocalizationManager.T("Settings.Columns.OrderHint"), bottom: 10));
 
             static string ColumnOrderLabel(string key) => LocalizationManager.T(key switch
             {
@@ -452,6 +500,8 @@ namespace Configuration_Management
             var orderList = new ListBox
             {
                 ItemsSource = orderItems,
+                BorderThickness = new Thickness(0),
+                Background = Brushes.Transparent,
                 MinHeight = UiMetrics.Scaled(180),
                 MaxHeight = UiMetrics.Scaled(240),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -469,10 +519,11 @@ namespace Configuration_Management
                     var content = new StackPanel
                     {
                         Orientation = Orientation.Horizontal,
-                        Spacing = 6,
+                        Spacing = 8,
                         VerticalAlignment = VerticalAlignment.Center
                     };
-                    content.Children.Add(IconHelper.MakeIcon(item.IconKey, 14, "TextSecondaryBrush"));
+                    // Размер значка из разметки (SettingsWindow.xaml:577).
+                    content.Children.Add(IconHelper.MakeIcon(item.IconKey, 16, "TextSecondaryBrush"));
                     var label = new TextBlock
                     {
                         Text = item.Display,
@@ -483,14 +534,10 @@ namespace Configuration_Management
                     content.Children.Add(label);
                     ToolTip.SetTip(content, LocalizationManager.T("Settings.Columns.RowSelectHint"));
 
-                    // Тумблер-пилюля, как ColumnVisibilitySwitch в разметке WPF:
-                    // подписей у положений нет, отметка только цветом и позицией.
-                    var check = new ToggleSwitch
-                    {
-                        VerticalAlignment = VerticalAlignment.Center,
-                        OnContent = null,
-                        OffContent = null
-                    };
+                    // Пилюля-переключатель стиля ColumnVisibilitySwitch разметки
+                    // (SettingsWindow.xaml:31): дорожка без подписи.
+                    var check = new ToggleButton();
+                    check.Styled(ControlThemes.ColumnVisibilitySwitch);
                     check.Bind(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,
                         new Avalonia.Data.Binding(nameof(ColumnOrderItem.Visible))
                         { Mode = Avalonia.Data.BindingMode.TwoWay });
@@ -511,10 +558,13 @@ namespace Configuration_Management
             var nameRowContent = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Spacing = 6,
+                Spacing = 8,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            nameRowContent.Children.Add(IconHelper.MakeIcon(IconHelper.ColumnIconKey("Name"), 14, "AccentBrush"));
+            // Значок закреплённой строки «Название» акцентно-синий, как в разметке
+            // (SettingsWindow.xaml:556), и того же размера 16.
+            nameRowContent.Children.Add(IconHelper.MakeIcon(IconHelper.ColumnIconKey("Name"), 16,
+                new SolidColorBrush(Color.Parse("#3B82F6"))));
             var nameRowLabel = new TextBlock
             {
                 Text = LocalizationManager.T("Column.Name"),
@@ -526,14 +576,14 @@ namespace Configuration_Management
             var nameRow = new Grid { Margin = new Thickness(4, 3) };
             nameRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             nameRow.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var nameRowSwitch = new ToggleSwitch
+            // Строка «Название» закреплена: переключатель показан отмеченным
+            // и недоступен, стиль тот же (SettingsWindow.xaml:554).
+            var nameRowSwitch = new ToggleButton
             {
-                VerticalAlignment = VerticalAlignment.Center,
-                OnContent = null,
-                OffContent = null,
                 IsChecked = true,
                 IsEnabled = false
             };
+            nameRowSwitch.Styled(ControlThemes.ColumnVisibilitySwitch);
             Grid.SetColumn(nameRowContent, 0);
             Grid.SetColumn(nameRowSwitch, 1);
             nameRow.Children.Add(nameRowContent);
@@ -573,13 +623,23 @@ namespace Configuration_Management
             ToolTip.SetTip(moveUp, LocalizationManager.T("Settings.Columns.MoveUpTooltip"));
             var moveDown = new Button { Content = "\u2193", IsEnabled = false };
             ToolTip.SetTip(moveDown, LocalizationManager.T("Settings.Columns.MoveDownTooltip"));
-
             void UpdateOrderButtons()
             {
                 var idx = orderList.SelectedIndex;
                 moveUp.IsEnabled = idx > 0;
                 moveDown.IsEnabled = idx >= 0 && idx < orderItems.Count - 1;
             }
+            // Отступы контейнера строки из разметки (SettingsWindow.xaml:566-570):
+            // у штатной темы Avalonia они заметно больше, и карточка растёт.
+            orderList.Styles.Add(new Style(x => x.OfType<ListBoxItem>())
+            {
+                Setters =
+                {
+                    new Setter(ListBoxItem.PaddingProperty, new Thickness(4, 2)),
+                    new Setter(ListBoxItem.MinHeightProperty, 0d),
+                    new Setter(ListBoxItem.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch)
+                }
+            });
             orderList.SelectionChanged += (_, _) => UpdateOrderButtons();
 
             moveUp.Click += (_, _) =>
@@ -604,39 +664,50 @@ namespace Configuration_Management
             orderGrid.Children.Add(orderButtons);
             displayColumns.Children.Add(orderGrid);
 
-
-            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description")));
-            var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails);
-            var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel);
-            var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup);
+            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.Description"), bottom: 10));
+            var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails, "IconPageLayoutSidebarRight", "#14B8A6");
+            var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel, "IconMonitor", "#8B5CF6");
+            var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup, "IconFolderMultiple", "#3B82F6");
             // Режим списка «только избранные» тот же, что переключается кнопкой
             // в главном окне: флажок и кнопка меняют одно значение.
-            var favoritesOnlyCheck = DisplayCheck("Settings.Panels.ShowFavoritesOnly", _viewModel.IsListModeFavorites);
-            var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups);
+            var favoritesOnlyCheck = DisplayCheck("Settings.Panels.ShowFavoritesOnly", _viewModel.IsListModeFavorites, "IconStarCircle", "#FBBF24");
+            var emptyGroupsCheck = DisplayCheck("Settings.Panels.ShowEmptyGroups", _viewModel.ShowEmptyGroups, "IconFolderOutline", "#0EA5E9");
 
             // Пояснения под переключателями стоят там же, где в разметке WPF
             // (SettingsWindow.xaml:628): у правой панели, у блока сессии
             // и у пустых групп. Ключи для них были в локализации, но не
             // использовались нигде.
             displayPanels.Children.Add(rightPanelCheck);
-            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.RightPanelDetailsHint")));
+            var hintRightPanelDetailsHint = Hint(LocalizationManager.T("Settings.Panels.RightPanelDetailsHint"), bottom: 12);
+            // Пояснение под переключателем сдвинуто на ширину переключателя
+            // (SettingsWindow.xaml:636).
+            hintRightPanelDetailsHint.Margin = new Thickness(24, 0, 0, 12);
+            displayPanels.Children.Add(hintRightPanelDetailsHint);
             displayPanels.Children.Add(sessionPanelCheck);
-            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.SessionLaunchPanelHint")));
+            var hintSessionLaunchPanelHint = Hint(LocalizationManager.T("Settings.Panels.SessionLaunchPanelHint"), bottom: 12);
+            // Пояснение под переключателем сдвинуто на ширину переключателя
+            // (SettingsWindow.xaml:636).
+            hintSessionLaunchPanelHint.Margin = new Thickness(24, 0, 0, 12);
+            displayPanels.Children.Add(hintSessionLaunchPanelHint);
             displayPanels.Children.Add(groupByGroupCheck);
             displayPanels.Children.Add(favoritesOnlyCheck);
             displayPanels.Children.Add(emptyGroupsCheck);
-            displayPanels.Children.Add(Hint(LocalizationManager.T("Settings.Panels.ShowEmptyGroupsHint")));
+            var hintShowEmptyGroupsHint = Hint(LocalizationManager.T("Settings.Panels.ShowEmptyGroupsHint"), bottom: 12);
+            // Пояснение под переключателем сдвинуто на ширину переключателя
+            // (SettingsWindow.xaml:636).
+            hintShowEmptyGroupsHint.Margin = new Thickness(24, 0, 0, 12);
+            displayPanels.Children.Add(hintShowEmptyGroupsHint);
 
-            displayStatus.Children.Add(Hint(LocalizationManager.T("Settings.Status.Description")));
-            var statusPathCheck = DisplayCheck("Settings.Status.ConnectionPath", _viewModel.StatusShowConnectionPath);
-            var statusPortCheck = DisplayCheck("Settings.Status.Port", _viewModel.StatusShowPort);
-            var statusArchCheck = DisplayCheck("Settings.Status.Architecture", _viewModel.StatusShowArchitecture);
-            var statusVersionCheck = DisplayCheck("Column.Version", _viewModel.StatusShowPlatformVersion);
-            var statusLaunchModeCheck = DisplayCheck("Column.LaunchMode", _viewModel.StatusShowLaunchMode);
-            var statusClientTypeCheck = DisplayCheck("Settings.Status.ClientType", _viewModel.StatusShowClientType);
-            var statusConnectionTypeCheck = DisplayCheck("Settings.Status.ConnectionType", _viewModel.StatusShowConnectionType);
-            var statusUserCheck = DisplayCheck("Settings.Status.User", _viewModel.StatusShowUser);
-            var statusIdCheck = DisplayCheck("Settings.Status.Id", _viewModel.StatusShowId);
+            displayStatus.Children.Add(Hint(LocalizationManager.T("Settings.Status.Description"), bottom: 10));
+            var statusPathCheck = DisplayCheck("Settings.Status.ConnectionPath", _viewModel.StatusShowConnectionPath, "IconFolderOutline", "#3B82F6");
+            var statusPortCheck = DisplayCheck("Settings.Status.Port", _viewModel.StatusShowPort, "IconLan", "#6366F1");
+            var statusArchCheck = DisplayCheck("Settings.Status.Architecture", _viewModel.StatusShowArchitecture, "IconChip", "#8B5CF6");
+            var statusVersionCheck = DisplayCheck("Column.Version", _viewModel.StatusShowPlatformVersion, "IconCubeOutline", "#A855F7");
+            var statusLaunchModeCheck = DisplayCheck("Column.LaunchMode", _viewModel.StatusShowLaunchMode, "IconPlayCircleOutline", "#22C55E");
+            var statusClientTypeCheck = DisplayCheck("Settings.Status.ClientType", _viewModel.StatusShowClientType, "IconMonitor", "#EC4899");
+            var statusConnectionTypeCheck = DisplayCheck("Settings.Status.ConnectionType", _viewModel.StatusShowConnectionType, "IconDatabase", "#6366F1");
+            var statusUserCheck = DisplayCheck("Settings.Status.User", _viewModel.StatusShowUser, "IconAccount", "#94A3B8");
+            var statusIdCheck = DisplayCheck("Settings.Status.Id", _viewModel.StatusShowId, "IconIdentifier", "#0EA5E9");
             foreach (var check in new[]
             {
                 statusPathCheck, statusPortCheck, statusArchCheck, statusVersionCheck, statusLaunchModeCheck,
@@ -658,26 +729,35 @@ namespace Configuration_Management
                     FontStyle = _viewModel.FontStyle
                 };
 
-            displayFont.Children.Add(Hint(LocalizationManager.T("Settings.Font.Description")));
-            displayFont.Children.Add(new TextBlock
+            displayFont.Children.Add(Hint(LocalizationManager.T("Settings.Font.Description"), bottom: 12));
+            var fontElementLabel = new TextBlock
             {
                 Text = LocalizationManager.T("Settings.Font.Element"),
                 Margin = new Thickness(0, 0, 0, 6)
-            });
+            };
+            Themes.ThemeBrushes.Bind(fontElementLabel, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            displayFont.Children.Add(fontElementLabel);
 
-            var fontScopeBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            // Числа из разметки (SettingsWindow.xaml:717): список области шрифта
+            // высотой 34 с нижним отступом 12.
+            var fontScopeBox = new ComboBox
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Height = 34,
+                Margin = new Thickness(0, 0, 0, 12)
+            };
             foreach (var key in ThemeManager.AllFontScopes)
                 fontScopeBox.Items.Add(new FontScopeItem(key));
             fontScopeBox.SelectedIndex = 0;
             displayFont.Children.Add(fontScopeBox);
 
-            var fontGrid = new Grid { Margin = new Thickness(0, 8, 0, 8) };
+            var fontGrid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
             fontGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(160)));
             fontGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             for (var i = 0; i < 3; i++)
                 fontGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-            var fontFamilyBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 8) };
+            var fontFamilyBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, Height = 34, Margin = new Thickness(0, 0, 0, 8) };
             // Первыми идут те же десять имён, что и у автора
             // (Views/SettingsWindow.Fonts.cs:53-60): настройка, сделанная
             // на Windows, должна открываться на Linux своим же значением.
@@ -700,6 +780,7 @@ namespace Configuration_Management
             var fontSizeBox = new ComboBox
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
+                Height = 34,
                 Margin = new Thickness(0, 0, 0, 8),
                 IsEditable = true
             };
@@ -710,7 +791,7 @@ namespace Configuration_Management
             })
                 fontSizeBox.Items.Add(size);
 
-            var fontFaceBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            var fontFaceBox = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, Height = 34 };
             foreach (var face in FontFaces)
                 fontFaceBox.Items.Add(face);
 
@@ -754,7 +835,7 @@ namespace Configuration_Management
             displayFont.Children.Add(fontPreviewCard);
 
             var fontApplyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            fontApplyContent.Children.Add(IconHelper.MakeIcon("IconTheme", UiMetrics.Scaled(16), "ButtonTextBrush"));
+            fontApplyContent.Children.Add(IconHelper.MakeIcon("IconFormatFont", UiMetrics.Scaled(16), "ButtonTextBrush"));
             var fontApplyLabel = new TextBlock
             {
                 Text = LocalizationManager.T("Common.Apply"),
@@ -768,12 +849,9 @@ namespace Configuration_Management
                 Padding = new Thickness(12, 6),
                 HorizontalAlignment = HorizontalAlignment.Left
             };
-            // Кнопка акцентная, как ModernButton в разметке WPF. Состояния берутся
-            // из темы динамически, чтобы переживать смену цветовой схемы.
-            Themes.ThemeBrushes.Bind(fontApply, Button.BackgroundProperty, "AccentBrush");
-            PaintButtonStates(fontApply, fontApply.Background ?? Brushes.Transparent,
-                new DynamicResourceExtension("AccentHoverBrush"),
-                new DynamicResourceExtension("AccentPressedBrush"));
+            // Тема кнопки целиком, а не только цвета: у автора здесь ModernButton
+            // с его минимальной высотой и скруглением (SettingsWindow.xaml:800).
+            fontApply.Styled(ControlThemes.ModernButton);
             ToolTip.SetTip(fontApply, LocalizationManager.T("Settings.Font.ApplyTooltip"));
             displayFont.Children.Add(fontApply);
 
@@ -888,29 +966,32 @@ namespace Configuration_Management
             // Раздел «Отображение» разложен по вложенным вкладкам, как в разметке WPF:
             // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт».
             var displayTabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
-            displayTabs.Items.Add(SubTab("Settings.Subtab.Icons", "Settings.Subtab.IconsTooltip", "IconStar", displayIcons));
-            displayTabs.Items.Add(SubTab("Settings.Subtab.Columns", "Settings.Subtab.ColumnsTooltip", "IconList", displayColumns));
-            displayTabs.Items.Add(SubTab("Settings.Subtab.Panels", "Settings.Subtab.PanelsTooltip", "IconPanel", displayPanels));
-            displayTabs.Items.Add(SubTab("Settings.Subtab.Status", "Settings.Subtab.StatusTooltip", "IconMonitor", displayStatus));
-            displayTabs.Items.Add(SubTab("Settings.Subtab.Font", "Settings.Subtab.FontTooltip", "IconEdit", displayFont));
+            displayTabs.Styled(ControlThemes.SettingsSubTabControl);
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Icons", "Settings.Subtab.IconsTooltip", "IconStarOutline", displayIcons));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Columns", "Settings.Subtab.ColumnsTooltip", "IconViewColumn", displayColumns));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Panels", "Settings.Subtab.PanelsTooltip", "IconPageLayoutSidebarRight", displayPanels));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Status", "Settings.Subtab.StatusTooltip", "IconDockBottom", displayStatus));
+            displayTabs.Items.Add(SubTab("Settings.Subtab.Font", "Settings.Subtab.FontTooltip", "IconFormatFont", displayFont));
 
-            tabs.Items.Add(new TabItem
-            {
-                Header = LocalizationManager.T("Settings.TabDisplay"),
-                Content = displayTabs
-            });
+            var tabDisplay = MainTab("IconEye", "Settings.TabDisplay", displayTabs);
 
             // ===== Оформление =====
-            var appearance = new StackPanel { Spacing = 6 };
+            var appearance = new StackPanel();
             // Заголовок группы из разметки WPF (SettingsWindow.xaml:824).
             appearance.Children.Add(GroupTitle(LocalizationManager.T("Settings.Theme")));
-            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Theme.Description")));
 
             // Правки идут по копии сохранённой схемы, а не применённой предпросмотром:
             // закрытие окна крестиком не должно оставлять редактор на непринятых цветах.
             editedScheme = _viewModel.ActiveColorScheme.Clone();
 
-            var schemeBox = new ComboBox { MinWidth = 320, HorizontalAlignment = HorizontalAlignment.Left };
+            // Список схем 280 на 34 с левым полем 10 (SettingsWindow.xaml:829).
+            var schemeBox = new ComboBox
+            {
+                Width = 280,
+                Height = 34,
+                Margin = new Thickness(10, 0, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
             var colorsPanel = new StackPanel { Spacing = 2 };
             var schemeNames = new List<string>();
             var suppressSchemeEvent = false;
@@ -998,12 +1079,21 @@ namespace Configuration_Management
             RefreshColors();
             refreshEditedScheme = () => { ReloadSchemes(editedScheme.Name); RefreshColors(); };
             appearance.Children.Add(schemeBox);
+            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Theme.Description"), bottom: 10));
 
             var schemeButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
 
             Button SchemeButton(string textKey, string tooltipKey, Action action)
             {
-                var button = new Button { Content = LocalizationManager.T(textKey), Margin = new Thickness(0, 0, 6, 4) };
+                // Числа из разметки (SettingsWindow.xaml:843): отступ 10 на 6,
+                // поля справа 8 и снизу 4, вторичная тема.
+                var button = new Button
+                {
+                    Content = LocalizationManager.T(textKey),
+                    Padding = new Thickness(10, 6),
+                    Margin = new Thickness(0, 0, 8, 4)
+                };
+                button.Styled(ControlThemes.SecondaryButton);
                 ToolTip.SetTip(button, LocalizationManager.T(tooltipKey));
                 button.Click += (_, _) => action();
                 schemeButtons.Children.Add(button);
@@ -1191,14 +1281,11 @@ namespace Configuration_Management
 
             appearance.Children.Add(schemeButtons);
             appearance.Children.Add(GroupTitle(LocalizationManager.T("Settings.Colors")));
-            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Colors.Description")));
+            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Colors.Description"), bottom: 8));
             appearance.Children.Add(colorsPanel);
 
-            tabs.Items.Add(new TabItem
-            {
-                Header = LocalizationManager.T("Settings.TabAppearance"),
-                Content = new ScrollViewer { Content = appearance, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
-            });
+            var tabAppearance = MainTab("IconPalette", "Settings.TabAppearance",
+                new ScrollViewer { Content = appearance, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
 
             // ===== Базы =====
             var bases = new StackPanel { Spacing = 6 };
@@ -1561,10 +1648,8 @@ namespace Configuration_Management
             restoreButton.Click += (_, _) => _viewModel.RestoreIbasesBackup(fileBox.Text);
             bases.Children.Add(restoreButton);
 
-            tabs.Items.Add(new TabItem
-            {
-                Header = LocalizationManager.T("Settings.TabBases"),
-                Content = new ScrollViewer
+            var tabBases = MainTab("IconDatabase", "Settings.TabBases",
+                new ScrollViewer
                 {
                     Content = bases,
                     // Горизонтальная прокрутка отключена, чтобы элементы растягивались
@@ -1572,27 +1657,48 @@ namespace Configuration_Management
                     // сжимаются вслед за ним; строки уже адаптивны (Grid со Star-колонкой).
                     HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                     VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-                }
-            });
+                });
 
             // ===== Резервное копирование профиля =====
-            var profile = new StackPanel { Spacing = 6 };
+            // Отступы поштучно, как в коде за разметкой (SettingsWindow.Profile.cs:61-130),
+            // а не общим зазором панели.
+            var profile = new StackPanel { Margin = new Thickness(4, 12, 4, 0) };
 
-            profile.Children.Add(GroupTitle(LocalizationManager.T("Settings.TabProfile")));
-            profile.Children.Add(Hint(LocalizationManager.T("Settings.Profile.Description")));
-            profile.Children.Add(Hint(LocalizationManager.T("Settings.Profile.Includes")));
+            var profileDescription = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Profile.Description"),
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            ThemeBrushes.Bind(profileDescription, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            profile.Children.Add(profileDescription);
+            var profileIncludes = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Profile.Includes"),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            ThemeBrushes.Bind(profileIncludes, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            profile.Children.Add(profileIncludes);
 
-            profile.Children.Add(GroupTitle(LocalizationManager.T("Settings.Profile.Directory")));
             var profileDirGrid = new Grid();
             profileDirGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             profileDirGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             var profileDirBox = new TextBox
             {
                 Text = _viewModel.ProfileBackupDirectory,
+                Height = 28,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
             profileDirBox.Styled(ControlThemes.ModernTextBox);
-            var profileBrowse = new Button { Content = LocalizationManager.T("Settings.Profile.Browse"), Margin = new Thickness(8, 0, 0, 0) };
+            var profileBrowse = new Button
+            {
+                Content = LocalizationManager.T("Settings.Profile.Browse"),
+                Padding = new Thickness(10, 4),
+                Margin = new Thickness(8, 0, 0, 0)
+            };
             ToolTip.SetTip(profileBrowse, LocalizationManager.T("Settings.Profile.BrowseTooltip"));
             profileBrowse.Click += (_, _) =>
             {
@@ -1604,19 +1710,36 @@ namespace Configuration_Management
             Grid.SetColumn(profileBrowse, 1);
             profileDirGrid.Children.Add(profileDirBox);
             profileDirGrid.Children.Add(profileBrowse);
-            profile.Children.Add(profileDirGrid);
+
+            // Каталог лежит в рамке с заголовком, отступом 8 и полем снизу 10.
+            profile.Children.Add(Controls.GroupBoxPanel.Build(
+                "Settings.Profile.Directory", profileDirGrid,
+                margin: new Thickness(0, 0, 0, 10),
+                padding: new Thickness(8)));
 
             var profileRestoreCheck = new CheckBox
             {
                 Content = LocalizationManager.T("Settings.Profile.RestoreOnStartup"),
                 IsChecked = _viewModel.ProfileRestoreOnStartup,
-                Margin = new Thickness(0, 8, 0, 0)
+                Margin = new Thickness(0, 0, 0, 4)
             };
             profile.Children.Add(profileRestoreCheck);
-            profile.Children.Add(Hint(LocalizationManager.T("Settings.Profile.RestoreOnStartupHint")));
+            var profileRestoreHint = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Profile.RestoreOnStartupHint"),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(24, 0, 0, 12)
+            };
+            ThemeBrushes.Bind(profileRestoreHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            profile.Children.Add(profileRestoreHint);
 
-            var profileButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
-            var backupNow = new Button { Content = LocalizationManager.T("Settings.Profile.BackupNow") };
+            var profileButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
+            var backupNow = new Button
+            {
+                Content = LocalizationManager.T("Settings.Profile.BackupNow"),
+                Padding = new Thickness(12, 6)
+            };
             ToolTip.SetTip(backupNow, LocalizationManager.T("Settings.Profile.BackupNowTooltip"));
             backupNow.Click += (_, _) =>
             {
@@ -1624,7 +1747,11 @@ namespace Configuration_Management
                 _viewModel.ApplyProfileBackupSettings(profileDirBox.Text, profileRestoreCheck.IsChecked == true);
                 _viewModel.BackupProfile();
             };
-            var restoreNow = new Button { Content = LocalizationManager.T("Settings.Profile.RestoreNow") };
+            var restoreNow = new Button
+            {
+                Content = LocalizationManager.T("Settings.Profile.RestoreNow"),
+                Padding = new Thickness(12, 6)
+            };
             ToolTip.SetTip(restoreNow, LocalizationManager.T("Settings.Profile.RestoreNowTooltip"));
             restoreNow.Click += (_, _) =>
             {
@@ -1642,28 +1769,11 @@ namespace Configuration_Management
             profileButtons.Children.Add(restoreNow);
             profile.Children.Add(profileButtons);
 
-            // Заголовок вкладки со значком слева от названия.
-            var profileHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            profileHeader.Children.Add(new Avalonia.Controls.Shapes.Path
-            {
-                Data = StreamGeometry.Parse("M2,2 L22,2 L22,22 L2,22 Z M5,6 L19,6 M5,10 L19,10 M5,14 L19,14 M5,18 L13,18"),
-                Width = 16,
-                Height = 16,
-                Stroke = Brushes.Gray,
-                StrokeThickness = 1.5,
-                VerticalAlignment = VerticalAlignment.Center
-            });
-            profileHeader.Children.Add(new TextBlock
-            {
-                Text = LocalizationManager.T("Settings.TabProfile"),
-                VerticalAlignment = VerticalAlignment.Center
-            });
-
-            tabs.Items.Add(new TabItem
-            {
-                Header = profileHeader,
-                Content = new ScrollViewer { Content = profile, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
-            });
+            // Значок вкладки из словаря автора, как в коде Windows-версии
+            // (SettingsWindow.Profile.cs:37 берёт BackupRestore); прежде здесь
+            // был самодельный контур.
+            var tabProfile = MainTab("IconBackupRestore", "Settings.TabProfile",
+                new ScrollViewer { Content = profile, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
 
             // ===== Клавиши =====
             // Spacing не задаётся: в Avalonia он складывается с полями соседей,
@@ -1672,7 +1782,9 @@ namespace Configuration_Management
             var hotkeysTitle = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 0, 0, 2)
+                // Нижний отступ строки заголовка из разметки
+                // (SettingsWindow.xaml:945).
+                Margin = new Thickness(0, 0, 0, 4)
             };
             hotkeysTitle.Children.Add(new TextBlock
             {
@@ -1704,6 +1816,12 @@ namespace Configuration_Management
             var hotkeyShowAll = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowAll"), _viewModel.HotkeyShowAll);
             var hotkeyShowFavorites = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowFavorites"), _viewModel.HotkeyShowFavorites);
             var hotkeyShowRecent = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowRecent"), _viewModel.HotkeyShowRecent);
+            // У автора последняя строка идёт без нижнего поля, а весь блок строк
+            // несёт низ 12 (SettingsWindow.xaml:957 и 1039). У нас строки лежат
+            // в общей панели, поэтому поле снимается у последней и добирается
+            // отступом следующего заголовка.
+            if (hotkeys.Children.Count > 0 && hotkeys.Children[^1] is Control lastHotkeyRow)
+                lastHotkeyRow.Margin = new Thickness(0, 0, 0, 12);
 
             // Порядок слотов Alt+1…Alt+9, как в разметке WPF (SettingsWindow.xaml:1030):
             // заголовок, пояснение, список слотов и кнопки перестановки справа.
@@ -1715,6 +1833,8 @@ namespace Configuration_Management
             });
             var favoritesHint = Hint(LocalizationManager.T("Settings.Hotkeys.FavoritesOrderHint"));
             favoritesHint.Margin = new Thickness(0, 0, 0, 8);
+            favoritesHint.Opacity = 1;
+            ThemeBrushes.Bind(favoritesHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             hotkeys.Children.Add(favoritesHint);
 
             var favoriteSlots = new ObservableCollection<FavoriteSlotItem>(
@@ -1737,13 +1857,36 @@ namespace Configuration_Management
                 ItemsSource = favoriteSlots,
                 SelectionMode = SelectionMode.Single,
                 MinHeight = 140,
-                MaxHeight = 220
+                MaxHeight = 220,
+                BorderThickness = new Thickness(1)
             };
+            // Фон и рамка карточки, как в разметке (SettingsWindow.xaml:1052).
+            ThemeBrushes.Bind(favoritesList, ListBox.BackgroundProperty, "CardBackgroundColorBrush");
+            ThemeBrushes.Bind(favoritesList, ListBox.BorderBrushProperty, "BorderColorBrush");
             favoritesList.ItemTemplate = new FuncDataTemplate<FavoriteSlotItem>((item, _) =>
             {
-                var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-                var badge = new TextBlock { FontWeight = FontWeight.Bold, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
-                badge.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(nameof(FavoriteSlotItem.Caption)));
+                // Номер слота стоит в карточке цветом избранного, со скруглением 4
+                // и отступом 6 на 2, а до имени 10 (SettingsWindow.xaml:1050).
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 2) };
+                var badgeText = new TextBlock
+                {
+                    FontWeight = FontWeight.Bold,
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    // Цвет из разметки: на жёлтой плашке текст всегда тёмный,
+                    // иначе в тёмной теме он сливается (SettingsWindow.xaml:1061).
+                    Foreground = new SolidColorBrush(Color.Parse("#1C1917"))
+                };
+                badgeText.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(nameof(FavoriteSlotItem.Caption)));
+                var badge = new Border
+                {
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 2),
+                    Margin = new Thickness(0, 0, 10, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Child = badgeText
+                };
+                ThemeBrushes.Bind(badge, Border.BackgroundProperty, "FavoriteBrush");
                 row.Children.Add(badge);
                 var name = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
                 name.Bind(TextBlock.TextProperty, new Avalonia.Data.Binding(nameof(FavoriteSlotItem.Name)));
@@ -1759,7 +1902,12 @@ namespace Configuration_Management
                 Margin = new Thickness(8, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Top
             };
-            var slotUp = new Button { Content = "\u2191" };
+            var slotUp = new Button
+            {
+                Content = IconHelper.MakeIcon("IconArrowUp", 18),
+                Padding = new Thickness(10, 6)
+            };
+            slotUp.Styled(ControlThemes.SecondaryButton);
             ToolTip.SetTip(slotUp, LocalizationManager.T("Settings.Hotkeys.MoveUpTooltip"));
             slotUp.Click += (_, _) =>
             {
@@ -1770,7 +1918,12 @@ namespace Configuration_Management
                 RenumberSlots();
                 favoritesList.SelectedIndex = idx - 1;
             };
-            var slotDown = new Button { Content = "\u2193" };
+            var slotDown = new Button
+            {
+                Content = IconHelper.MakeIcon("IconArrowDown", 18),
+                Padding = new Thickness(10, 6)
+            };
+            slotDown.Styled(ControlThemes.SecondaryButton);
             ToolTip.SetTip(slotDown, LocalizationManager.T("Settings.Hotkeys.MoveDownTooltip"));
             slotDown.Click += (_, _) =>
             {
@@ -1787,20 +1940,52 @@ namespace Configuration_Management
             favoritesGrid.Children.Add(favoriteButtons);
             hotkeys.Children.Add(favoritesGrid);
 
-            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabHotkeys"), Content = new ScrollViewer { Content = hotkeys, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            var tabHotkeys = MainTab("IconKeyboardOutline", "Settings.TabHotkeys",
+                new ScrollViewer
+                {
+                    Content = hotkeys,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    // Отступы прокрутки из разметки (SettingsWindow.xaml:943).
+                    Margin = new Thickness(4, 12, 4, 0),
+                    Padding = new Thickness(0, 0, 4, 0)
+                });
 
             // ===== О программе =====
             var about = BuildAboutTab();
-            tabs.Items.Add(new TabItem { Header = LocalizationManager.T("Settings.TabAbout"), Content = new ScrollViewer { Content = about, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
+            var tabAbout = MainTab("IconInformationOutline", "Settings.TabAbout",
+                new ScrollViewer
+                {
+                    Content = about,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    // Отступ прокрутки из разметки (SettingsWindow.xaml:1486).
+                    Margin = new Thickness(4, 12, 4, 0)
+                });
+
+            // Порядок вкладок по разметке (SettingsWindow.xaml:293 и далее):
+            // платформы, отображение, оформление, клавиши, настройки, базы,
+            // резервное копирование профиля, о программе. Девятой вкладки
+            // «ibases.v8i» (xaml:1164) здесь нет: её содержимое лежит разделом
+            // внутри «Баз», это расхождение старше правки и не закрыто.
+            tabs.Items.Add(tabPlatforms);
+            tabs.Items.Add(tabDisplay);
+            tabs.Items.Add(tabAppearance);
+            tabs.Items.Add(tabHotkeys);
+            tabs.Items.Add(tabGeneral);
+            tabs.Items.Add(tabBases);
+            tabs.Items.Add(tabProfile);
+            tabs.Items.Add(tabAbout);
 
             Grid.SetRow(tabs, 0);
             grid.Children.Add(tabs);
 
+            // Подвал: верхний отступ 12 и зазор между кнопками 10
+            // (SettingsWindow.xaml:1526-1527).
             var buttons = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                Spacing = 8
+                Margin = new Thickness(0, 12, 0, 0),
+                Spacing = 10
             };
             // Подвал как в разметке WPF: зелёная «Сохранить» со значком дискеты
             // и красная контурная «Отмена» со значком крестика.
@@ -1828,7 +2013,10 @@ namespace Configuration_Management
             var ok = new Button
             {
                 Content = okContent,
-                MinWidth = UiMetrics.Scaled(140),
+                // Числа из разметки (SettingsWindow.xaml:1527): у автора ширина
+                // и высота жёсткие, а не минимум по содержимому.
+                Width = 140,
+                Height = 36,
                 CornerRadius = new CornerRadius(8),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 BorderThickness = new Thickness(0),
@@ -1995,15 +2183,18 @@ namespace Configuration_Management
             var cancel = new Button
             {
                 Content = cancelContent,
-                MinWidth = UiMetrics.Scaled(140),
+                Width = 140,
+                Height = 36,
                 CornerRadius = new CornerRadius(8),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 BorderThickness = new Thickness(1.5),
                 IsCancel = true
             };
+            // У автора у отмены только наведение, нажатого состояния нет
+            // (SettingsWindow.xaml:1560), поэтому цвет нажатия равен наведению.
             PaintButtonStates(cancel, Brushes.Transparent,
                 new SolidColorBrush(Color.Parse("#FEF2F2")),
-                new SolidColorBrush(Color.Parse("#FEE2E2")));
+                new SolidColorBrush(Color.Parse("#FEF2F2")));
             cancel.BorderBrush = dangerBrush;
             // Отмена закрывает окно так же, как крестик: DialogResult остаётся
             // ложным, и вызывающая сторона ничего не применяет.
@@ -2023,9 +2214,11 @@ namespace Configuration_Management
         /// </summary>
         private Control ColorRow(ColorScheme scheme, string key, string label, string value)
         {
+            // Числа из разметки (SettingsWindow.xaml:912): образец 28 на 20
+            // в колонке шириной 36.
             var swatch = new Border
             {
-                Width = 44,
+                Width = 28,
                 Height = 20,
                 CornerRadius = new CornerRadius(4),
                 BorderThickness = new Thickness(1),
@@ -2075,16 +2268,18 @@ namespace Configuration_Management
             var choose = new Button
             {
                 Content = LocalizationManager.T("Settings.ChooseColor"),
+                Padding = new Thickness(10, 3),
                 Margin = new Thickness(12, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
+            choose.Styled(ControlThemes.SecondaryButton);
             choose.Click += (_, _) => PickColor();
 
             // Ширины колонок как в разметке WPF (SettingsWindow.xaml:906): подпись
             // по содержимому, тянется колонка со значением, а не подпись.
-            var grid = new Grid { Margin = new Thickness(0, 1) };
+            var grid = new Grid { Margin = new Thickness(0, 3) };
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(36)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
@@ -2196,23 +2391,10 @@ namespace Configuration_Management
         /// </summary>
         private static TabItem SubTab(string titleKey, string tooltipKey, string iconKey, Control content)
         {
-            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-            header.Children.Add(IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), "TextSecondaryBrush"));
-            header.Children.Add(new TextBlock
+            // Кегль и насыщенность подписи задаёт тема SettingsSubTabItem,
+            // как стиль разметки (SettingsWindow.xaml:227).
+            var tab = new TabItem
             {
-                Text = LocalizationManager.T(titleKey),
-                // Размер и насыщенность из стиля SettingsSubTabItem разметки WPF
-                // (SettingsWindow.xaml:228). С наследуемым от окна размером строка
-                // из пяти вкладок не влезает по ширине и переносится на второй ряд.
-                FontSize = UiMetrics.ScaledFont(12),
-                FontWeight = FontWeight.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center
-            });
-            ToolTip.SetTip(header, LocalizationManager.T(tooltipKey));
-
-            return new TabItem
-            {
-                Header = header,
                 Content = new ScrollViewer
                 {
                     Content = content,
@@ -2220,6 +2402,33 @@ namespace Configuration_Management
                     VerticalScrollBarVisibility = ScrollBarVisibility.Auto
                 }
             };
+            tab.Styled(ControlThemes.SettingsSubTabItem);
+            // Кегль подписи масштабируется компактным режимом: с полным кеглем
+            // пять вкладок не влезают в ряд, а перенос строки у UniformGrid
+            // невозможен. Местное значение старше темы, поэтому ставится здесь.
+            tab.FontSize = UiMetrics.ScaledFont(12);
+
+            var icon = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(14), out var path);
+            path.Bind(Avalonia.Controls.Shapes.Shape.FillProperty,
+                new Avalonia.Data.Binding(nameof(TabItem.Foreground)) { Source = tab });
+
+            var header = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4,
+                Children =
+                {
+                    icon,
+                    new TextBlock
+                    {
+                        Text = LocalizationManager.T(titleKey),
+                        VerticalAlignment = VerticalAlignment.Center
+                    }
+                }
+            };
+            ToolTip.SetTip(header, LocalizationManager.T(tooltipKey));
+            tab.Header = header;
+            return tab;
         }
 
         /// <summary>Заголовок группы настроек на вкладке.</summary>
@@ -2272,15 +2481,17 @@ namespace Configuration_Management
         /// в версии для Windows это делает OnAboutLink_Click, которого
         /// в Linux-сборке нет.
         /// </summary>
-        private Control LinkBlock(string caption, string url)
+        private StackPanel LinkBlock(string caption, string url)
         {
-            var block = new StackPanel { Spacing = 2 };
-            block.Children.Add(new TextBlock
+            var block = new StackPanel();
+            var captionBlock = new TextBlock
             {
                 Text = caption,
                 FontWeight = FontWeight.SemiBold,
-                Opacity = 0.7
-            });
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            ThemeBrushes.Bind(captionBlock, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            block.Children.Add(captionBlock);
 
             var link = new TextBlock
             {
@@ -2314,22 +2525,102 @@ namespace Configuration_Management
             return block;
         }
 
-        /// <summary>Пояснение под заголовком группы настроек.</summary>
-        private static TextBlock Hint(string text) => new()
+        /// <summary>
+        /// Пояснение под заголовком: кегль 12 и вторичный цвет темы, как
+        /// в разметке (SettingsWindow.xaml:495 и далее). Нижний отступ там
+        /// разный по местам, поэтому задаётся вызывающим кодом.
+        /// </summary>
+        private static TextBlock Hint(string text, double bottom = 4)
         {
-            Text = text,
-            FontSize = 12,
-            TextWrapping = TextWrapping.Wrap,
-            Opacity = 0.7,
-            Margin = new Thickness(0, 0, 0, 4)
-        };
+            var block = new TextBlock
+            {
+                Text = text,
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, bottom)
+            };
+            Themes.ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            return block;
+        }
 
-        /// <summary>Переключатель настройки отображения.</summary>
-        private static CheckBox DisplayCheck(string textKey, bool value) => new()
+        /// <summary>
+        /// Вкладка окна: значок 18 и подпись, содержимое как есть.
+        /// Значок красится подписью, как в разметке (SettingsWindow.xaml:296).
+        /// </summary>
+        private static TabItem MainTab(string iconKey, string titleKey, Control content)
         {
-            Content = LocalizationManager.T(textKey),
-            IsChecked = value
-        };
+            var tab = new TabItem { Content = content };
+            tab.Styled(ControlThemes.SettingsTabItem);
+            // Ширина, кегль и значок вкладки уменьшаются в компактном режиме.
+            tab.Width = UiMetrics.Scaled(235);
+            tab.FontSize = UiMetrics.ScaledFont(13);
+
+            var icon = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(18), out var path);
+            path.Bind(Avalonia.Controls.Shapes.Shape.FillProperty,
+                new Avalonia.Data.Binding(nameof(TabItem.Foreground)) { Source = tab });
+            icon.Margin = new Thickness(0, 0, 8, 0);
+
+            tab.Header = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Children =
+                {
+                    icon,
+                    new TextBlock { Text = LocalizationManager.T(titleKey), VerticalAlignment = VerticalAlignment.Center }
+                }
+            };
+            return tab;
+        }
+
+        /// <summary>
+        /// Переключатель настройки: подпись слева, дорожка справа. В разметке
+        /// это ToggleButton со стилем SettingsToggle, а не флажок.
+        /// </summary>
+        private static ToggleButton SettingsSwitch(string textKey, bool value,
+            string? iconKey = null, string? iconColor = null)
+        {
+            var caption = new TextBlock
+            {
+                Text = LocalizationManager.T(textKey),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            // Значок слева от подписи и его цвет заданы в разметке числом
+            // у каждого переключателя (SettingsWindow.xaml:500 и далее).
+            Control content = iconKey is null
+                ? caption
+                : new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Children =
+                    {
+                        IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(16),
+                            new SolidColorBrush(Color.Parse(iconColor ?? "#94A3B8"))),
+                        caption
+                    }
+                };
+            if (content is StackPanel panel)
+                ((Control)panel.Children[0]).Margin = new Thickness(0, 0, 8, 0);
+
+            var toggle = new ToggleButton
+            {
+                Content = content,
+                IsChecked = value
+            };
+            toggle.Styled(ControlThemes.SettingsToggle);
+            return toggle;
+        }
+
+        private static ToggleButton DisplayCheck(string textKey, bool value,
+            string? iconKey = null, string? iconColor = null)
+        {
+            var toggle = SettingsSwitch(textKey, value, iconKey, iconColor);
+            // Нижнее поле у всех переключателей раздела одинаковое
+            // (SettingsWindow.xaml:498 и далее).
+            toggle.Margin = new Thickness(0, 0, 0, 6);
+            return toggle;
+        }
 
         private static void ThemeChanged(
             RadioButton light, RadioButton dark, MainViewModel viewModel,
@@ -2447,23 +2738,34 @@ namespace Configuration_Management
 
         private Control BuildAboutTab()
         {
-            var panel = new StackPanel { Spacing = 12 };
+            // Отступы между элементами заданы поштучно, как в разметке
+            // (SettingsWindow.xaml:1487-1519), а не общим зазором панели.
+            var panel = new StackPanel();
 
-            var asm = Assembly.GetExecutingAssembly();
-            // Только номер версии без суффикса «+<sha>» из InformationalVersion.
+            // Номер версии без суффикса «+<sha>» из InformationalVersion.
             var infoVersion = VersionInfo.Display();
-            var title = asm.GetCustomAttribute<AssemblyTitleAttribute>()?.Title ?? LocalizationManager.T("App.Title");
+            // Название берётся из ключа локализации, как в разметке
+            // (SettingsWindow.xaml:1489): из атрибута сборки оно не переводится
+            // и при английском языке осталось бы русским.
+            var title = LocalizationManager.T("App.Title");
 
             // Название и справка по приложению в одной строке, как в разметке WPF
             // (SettingsWindow.xaml:1488-1494).
-            var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            titleRow.Children.Add(new TextBlock
+            var titleRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            var titleBlock = new TextBlock
             {
                 Text = title,
-                FontSize = 20,
-                FontWeight = FontWeight.Bold,
+                FontSize = 18,
+                FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
-            });
+            };
+            ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            titleRow.Children.Add(titleBlock);
             titleRow.Children.Add(new Controls.HelpLink
             {
                 // Свой текст без строки про версию: в общем ключе она вписана
@@ -2478,20 +2780,26 @@ namespace Configuration_Management
             panel.Children.Add(new TextBlock
             {
                 Text = string.Format(LocalizationManager.T("Settings.About.Version"), infoVersion),
-                FontSize = 14
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 4)
             });
 
-            panel.Children.Add(new TextBlock
+            var authorBlock = new TextBlock
             {
                 Text = LocalizationManager.T("Settings.About.Author"),
-                FontSize = 14
-            });
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 16)
+            };
+            ThemeBrushes.Bind(authorBlock, TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            panel.Children.Add(authorBlock);
 
             // Подписи и ссылки на публикацию и репозиторий, как в разметке WPF
             // (SettingsWindow.xaml:1497-1510). В версии для Windows их открывает
             // обработчик под #if WINDOWS, здесь используется системный xdg-open.
-            panel.Children.Add(LinkBlock(LocalizationManager.T("Settings.About.Infostart"),
-                "https://infostart.ru/1c/tools/2764888/"));
+            var infostart = LinkBlock(LocalizationManager.T("Settings.About.Infostart"),
+                "https://infostart.ru/1c/tools/2764888/");
+            infostart.Margin = new Thickness(0, 0, 0, 12);
+            panel.Children.Add(infostart);
             panel.Children.Add(LinkBlock(LocalizationManager.T("Settings.About.GitHub"),
                 "https://github.com/sivatorov/ConfigurationManagement"));
 
@@ -2518,25 +2826,50 @@ namespace Configuration_Management
             {
                 Text = LocalizationManager.T("Settings.About.AvaloniaText"),
                 TextWrapping = TextWrapping.Wrap,
-                FontSize = 13
+                FontSize = 13,
+                Margin = new Thickness(0, 16, 0, 0)
             });
 
             panel.Children.Add(new TextBlock
             {
-                Text = string.Format(LocalizationManager.T("Settings.About.RuntimeInfo"), Environment.OSVersion, Environment.Is64BitOperatingSystem) + "\n" +
-                       string.Format(LocalizationManager.T("Settings.About.DataDir"), Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)),
+                // Разрядность печатается как x64 или x86: булево значение
+                // выводилось словом True и не переводилось. Каталог данных
+                // берётся у той же службы, что и остальное приложение, иначе
+                // на нестандартном XDG_CONFIG_HOME он расходится с настоящим.
+                Text = string.Format(LocalizationManager.T("Settings.About.RuntimeInfo"),
+                           Environment.OSVersion,
+                           Environment.Is64BitOperatingSystem ? "x64" : "x86") + "\n" +
+                       string.Format(LocalizationManager.T("Settings.About.DataDir"),
+                           Services.PlatformPaths.AppDataDirectory),
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 12,
-                Opacity = 0.7
+                Opacity = 0.7,
+                Margin = new Thickness(0, 8, 0, 0)
             });
 
+            // Кнопка копирования по разметке (SettingsWindow.xaml:1511-1518):
+            // вторичная кнопка, отступ сверху 24, значок копирования 16 синим
+            // с зазором 6 до подписи.
+            var copyCaption = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.About.CopyTechInfo"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var copyIcon = IconHelper.MakeIcon("IconCopy", 16, new SolidColorBrush(Color.Parse("#3B82F6")));
+            copyIcon.VerticalAlignment = VerticalAlignment.Center;
+            copyIcon.Margin = new Thickness(0, 0, 6, 0);
             var copyButton = new Button
             {
-                Content = LocalizationManager.T("Settings.About.CopyTechInfo"),
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Children = { copyIcon, copyCaption }
+                },
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 8, 0, 0),
+                Margin = new Thickness(0, 24, 0, 0),
                 Padding = new Thickness(14, 8)
             };
+            copyButton.Styled(ControlThemes.SecondaryButton);
             copyButton.Click += async (_, _) =>
             {
                 try
@@ -2546,14 +2879,27 @@ namespace Configuration_Management
                         await cb.SetTextAsync(text);
                     ShowAboutMessage(LocalizationManager.T("Settings.About.TechInfoCopied"));
                 }
-                catch
+                catch (Exception ex)
                 {
-                    ShowAboutMessage(LocalizationManager.T("Settings.About.TechInfoCopyFailed"));
+                    // У автора это окно ошибки с текстом исключения
+                    // (SettingsWindow.Platforms.cs:361), а не сообщение.
+                    ShowAboutError(LocalizationManager.T("Settings.About.TechInfoCopyFailed")
+                        + "\n" + ex.Message);
                 }
             };
             panel.Children.Add(copyButton);
 
             return panel;
+        }
+
+        /// <summary>Окно ошибки вкладки «О программе» с текстом исключения.</summary>
+        private void ShowAboutError(string message)
+        {
+            var win = new MaterialMessageWindowAvalonia(message, LocalizationManager.T("Common.Error"), MaterialMessageKind.Error)
+            {
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            _ = win.ShowDialog(this);
         }
 
         /// <summary>
