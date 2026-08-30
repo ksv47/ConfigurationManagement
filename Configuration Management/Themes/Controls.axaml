@@ -437,13 +437,10 @@
         </Style>
     </ControlTheme>
 
-    <!-- Шаблон комбобокса задан явно (как в WPF, LightTheme.xaml:298): штатная тема Fluent
-         на части дистрибутивов рисует стрелку не у правого края и не открывает список.
-         Полупрозрачная кнопка занимает всю площадь (Grid.ColumnSpan=2) и двухсторонне
-         связана с IsDropDownOpen, поэтому список надёжно открывается кликом в любом месте;
-         стрелка живёт ВНУТРИ шаблона кнопки и всегда прижата к правому краю. У редактируемых
-         списков поверх кнопки лежит PART_EditableText: в колонке контента он ловит клик для
-         ввода текста, а правая часть (стрелка) остаётся кнопке и открывает список. -->
+    <!-- Шаблон комбобокса НЕ переопределяем: штатная тема Fluent открывает список
+         кликом в любом месте (ComboBox.OnPointerReleased переключает IsDropDownOpen),
+         а у редактируемых списков клик по PART_EditableTextBox ставит курсор для ввода.
+         Это тот же вывод, что записан в CHANGELOG для 0.3.5.32-0.3.5.34. -->
     <ControlTheme x:Key="ModernComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
         <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -455,100 +452,9 @@
         <Setter Property="MinHeight" Value="36"/>
         <Setter Property="MinWidth" Value="120"/>
         <Setter Property="MaxDropDownHeight" Value="280"/>
-        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         <Setter Property="ItemContainerTheme" Value="{StaticResource ModernComboBoxItem}"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
-
-        <Setter Property="Template">
-            <ControlTemplate TargetType="ComboBox">
-                <Grid x:Name="Root">
-                    <Border x:Name="Background"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="32"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Hit-цель: кнопка на всю площадь, стрелка внутри неё справа.
-                                 Клик по любой точке нередактируемого списка и по правому краю
-                                 редактируемого переключает IsDropDownOpen. -->
-                            <ToggleButton Grid.ColumnSpan="2"
-                                          Focusable="False"
-                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                          Background="Transparent"
-                                          BorderThickness="0">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="ToggleButton">
-                                        <Grid Background="Transparent" Cursor="Hand">
-                                            <Path Data="M0,0 L4,4 L8,0"
-                                                  Stroke="{DynamicResource TextSecondaryBrush}"
-                                                  StrokeThickness="1.5"
-                                                  HorizontalAlignment="Right"
-                                                  VerticalAlignment="Center"
-                                                  Width="10" Height="5"
-                                                  Margin="0,0,11,0"
-                                                  Stretch="Uniform"/>
-                                        </Grid>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                            </ToggleButton>
-
-                            <!-- Режим выбора (нередактируемый) -->
-                            <ContentPresenter x:Name="PART_ContentPresenter"
-                                              Grid.Column="0"
-                                              Margin="{TemplateBinding Padding}"
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="Center"
-                                              IsHitTestVisible="False"
-                                              Content="{TemplateBinding SelectionBoxItem}"
-                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
-
-                            <!-- Редактируемый режим (сервер / порт / размер шрифта):
-                                 отступ задаём полем (Margin = Padding), чтобы текст начинался
-                                 там же, где у обычного списка. Видимость переключает сам контрол
-                                 по IsEditable. -->
-                            <TextBox x:Name="PART_EditableText"
-                                     Grid.Column="0"
-                                     Margin="{TemplateBinding Padding}"
-                                     Padding="0"
-                                     VerticalContentAlignment="Center"
-                                     HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     Foreground="{TemplateBinding Foreground}"
-                                     FontSize="{TemplateBinding FontSize}"
-                                     CaretBrush="{DynamicResource TextPrimaryBrush}"
-                                     IsVisible="False"/>
-                        </Grid>
-                    </Border>
-
-                    <Popup x:Name="PART_Popup"
-                           Placement="Bottom"
-                           PlacementTarget="{Binding #Root}"
-                           AllowsTransparency="True"
-                           Focusable="False"
-                           StaysOpen="False"
-                           IsOpen="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                        <Border Background="{DynamicResource ComboBoxDropDownBackground}"
-                                BorderBrush="{DynamicResource ComboBoxDropDownBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="{DynamicResource ComboBoxDropdownBorderPadding}"
-                                MinWidth="{Binding Bounds.Width, RelativeSource={RelativeSource TemplatedParent}}"
-                                MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                          VerticalScrollBarVisibility="Auto">
-                                <ItemsPresenter/>
-                            </ScrollViewer>
-                        </Border>
-                    </Popup>
-                </Grid>
-            </ControlTemplate>
-        </Setter>
 
         <Style Selector="^ /template/ Border#Background">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
