@@ -789,7 +789,7 @@ public class MainViewModel : ViewModelBase
     /// конце). Используется, пока пользователь не задал собственный порядок.
     /// </summary>
     private static readonly string[] DefaultColumnOrder =
-        { "Version", "LaunchMode", "ServerBase", "LastLaunch", "Size", "Configuration" };
+        { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
 
     /// <summary>
     /// Порядок колонок списка баз слева направо (кроме фиксированных колонок
