@@ -15,9 +15,9 @@
     <!-- Список: у автора стиль ListBox неявный (DarkTheme.xaml:853), он же
          задаёт фон, рамку, обе прокрутки и строку ModernListBoxItem. -->
     <Style Selector="ListBox">
-        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundColorBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderColorBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="ItemContainerTheme" Value="{DynamicResource ModernListBoxItem}"/>
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>

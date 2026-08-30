@@ -88,6 +88,12 @@ namespace Configuration_Management
             grid.Children.Add(inputBox);
 
             var list = new ListBox();
+            // В WPF это ListView, до которого неявный стиль ListBox не доходит,
+            // и горизонтальная прокрутка на нём выключена явно
+            // (LaunchParametersWindow.xaml:62). Общий стиль порта ставит её Auto
+            // всем спискам, поэтому здесь она возвращается в Disabled: ширину
+            // и без того держит внешний ScrollViewer.
+            ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Disabled);
             list.ItemsSource = BuildReferenceCatalog();
             list.ItemTemplate = new FuncDataTemplate<ParamRef>((item, _) =>
             {

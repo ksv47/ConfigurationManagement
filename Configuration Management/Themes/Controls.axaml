@@ -460,9 +460,6 @@
         <Style Selector="^:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource ItemSelectedBrush}"/>
         </Style>
-        <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        </Style>
     </ControlTheme>
 
     <ControlTheme x:Key="ModernComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
