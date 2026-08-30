@@ -27,10 +27,10 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}">
-            <Setter Property="Padding" Value="6,4"/>
+            <!-- Размеры и отступы выровнены с ModernComboBox (см. строку ниже):
+                 высоту, внутренний отступ и кегль берём из темы (10,6 / 36 / 13),
+                 чтобы текстовые поля выглядели единообразно с комбобоксами. -->
             <Setter Property="Margin" Value="0,3"/>
-            <Setter Property="MinHeight" Value="28"/>
-            <Setter Property="FontSize" Value="12"/>
         </Style>
         <Style TargetType="ComboBox" BasedOn="{StaticResource ModernComboBox}"/>
         <Style TargetType="CheckBox" BasedOn="{StaticResource ModernMaterialCheckBox}">
@@ -191,6 +191,7 @@
                         <TextBlock Text="{loc:Loc Connection.Tab.Base}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
@@ -228,6 +229,7 @@
                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"/>
                     </Grid>
                 </GroupBox>
+                </ScrollViewer>
             </TabItem>
 
             <!-- Подключение -->
@@ -238,6 +240,7 @@
                         <TextBlock Text="{loc:Loc Connection.Tab.Connection}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
                 <StackPanel>
                     <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
@@ -332,7 +335,7 @@
                                   ToolTip="{loc:Loc Connection.ServerTooltip}"
                                   Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.DatabaseNameLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
-                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DatabaseName, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DatabaseName, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Connection.PortLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsClientServer, Converter={StaticResource BoolToVis}}"/>
                         <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,3"
                                   Style="{StaticResource ModernComboBox}"
@@ -349,7 +352,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"/>
+                            <TextBox Grid.Column="0" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,3"/>
                             <Button Grid.Column="1" Margin="6,3,0,3" Padding="10,4"
                                     Style="{DynamicResource SecondaryButton}"
                                     Click="OnBrowseFilePath_Click"
@@ -361,7 +364,7 @@
                             </Button>
                         </Grid>
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.WebUrlLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"/>
-                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WebUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WebUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Visibility="{Binding IsWebServer, Converter={StaticResource BoolToVis}}"/>
                     </Grid>
                     </GroupBox>
 
@@ -379,6 +382,7 @@
                         <controls:HelpLink HelpText="{loc:Loc Connection.PasteStringHelp}"/>
                     </StackPanel>
                 </StackPanel>
+                </ScrollViewer>
             </TabItem>
 
             <!-- Хранилище конфигурации -->
@@ -389,6 +393,7 @@
                         <TextBlock Text="{loc:Loc Connection.Tab.Repository}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
@@ -427,6 +432,7 @@
                                    FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                     </StackPanel>
                 </GroupBox>
+                </ScrollViewer>
             </TabItem>
 
             <!-- Авторизация -->
@@ -437,6 +443,7 @@
                         <TextBlock Text="{loc:Loc Connection.Tab.Auth}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
                 <StackPanel>
                     <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                         <GroupBox.Header>
@@ -618,6 +625,7 @@
                         </Grid>
                     </GroupBox>
                 </StackPanel>
+                </ScrollViewer>
             </TabItem>
 
             <!-- Запуск -->
@@ -628,6 +636,7 @@
                         <TextBlock Text="{loc:Loc Connection.Tab.Launch}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
@@ -759,6 +768,7 @@
                     <TextBlock Text="{Binding LaunchModeHint}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="2,6,0,0"/>
                     </StackPanel>
                 </GroupBox>
+                </ScrollViewer>
             </TabItem>
 
             <!-- Разрядность -->
@@ -769,6 +779,7 @@
                         <TextBlock Text="{loc:Loc Connection.Tab.Bitness}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
@@ -889,6 +900,7 @@
                     </TextBlock>
                     </StackPanel>
                 </GroupBox>
+                </ScrollViewer>
             </TabItem>
 
             <!-- Платформа -->
@@ -899,6 +911,7 @@
                         <TextBlock Text="{loc:Loc Connection.Tab.Platform}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
                 <GroupBox Margin="4,6,4,4" VerticalAlignment="Top">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
@@ -969,6 +982,7 @@
                         </Grid>
                     </Grid>
                 </GroupBox>
+                </ScrollViewer>
             </TabItem>
 
             <!-- Идентификатор -->
@@ -979,6 +993,7 @@
                         <TextBlock Text="{loc:Loc Connection.Tab.Id}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
                 <StackPanel Margin="8,12,8,8" VerticalAlignment="Top">
                     <TextBlock Text="{loc:Loc Connection.IdDescription}"
                                FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
@@ -1007,6 +1022,7 @@
                         </Button>
                     </StackPanel>
                 </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
 

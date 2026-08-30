@@ -52,8 +52,8 @@ namespace Configuration_Management
 
             // Выводим версию программы в заголовок окна (информационная версия,
             // чтобы показать точное значение «0.3.3.41»).
-            _infoVersion = System.Reflection.Assembly.GetExecutingAssembly()
-                .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            // Из InformationalVersion отбрасываем возможный суффикс «+<sha>».
+            _infoVersion = VersionInfo.Display();
             Title = $"{Title} v{_infoVersion}";
 
             // Смена языка интерфейса: заголовок окна, подсказки и меню трея, которые

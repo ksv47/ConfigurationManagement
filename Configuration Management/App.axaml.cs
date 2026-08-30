@@ -187,8 +187,8 @@ namespace Configuration_Management
                     var mainWindow = AppServices.GetRequiredService<MainWindow>();
 
                     // Версия в заголовке (информационная версия, напр. «0.3.1.1»).
-                    var infoVersion = Assembly.GetExecutingAssembly()
-                        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+                    // Из InformationalVersion отбрасываем возможный суффикс «+<sha>».
+                    var infoVersion = VersionInfo.Display();
                     var versionText = string.IsNullOrWhiteSpace(infoVersion) ? "" : $" v{infoVersion}";
                     mainWindow.Title = $"{LocalizationManager.T("App.Title")}{versionText}";
 

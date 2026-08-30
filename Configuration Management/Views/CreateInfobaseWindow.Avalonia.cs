@@ -37,16 +37,16 @@ namespace Configuration_Management
         private readonly ComboBox _typeBox = new();
         private readonly TextBox _nameBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly TextBlock _groupPathBox = new() { VerticalAlignment = VerticalAlignment.Center };
-        private readonly TextBox _platformBox = new TextBox { Padding = new Thickness(6, 4), IsReadOnly = true }.Styled(ControlThemes.ModernTextBox);
-        private readonly TextBox _filePathBox = new TextBox { Padding = new Thickness(6, 4) }.Styled(ControlThemes.ModernTextBox);
-        private readonly TextBox _templateBox = new TextBox { Padding = new Thickness(6, 4) }.Styled(ControlThemes.ModernTextBox);
+        private readonly TextBox _platformBox = new TextBox { IsReadOnly = true }.Styled(ControlThemes.ModernTextBox);
+        private readonly TextBox _filePathBox = new TextBox().Styled(ControlThemes.ModernTextBox);
+        private readonly TextBox _templateBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly StackPanel _filePanel = new() { Spacing = 8 };
 
         // Поля клиент-серверного варианта.
         private readonly StackPanel _serverPanel = new() { Spacing = 8 };
         private readonly TextBox _serverBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly TextBox _refBox = new TextBox().Styled(ControlThemes.ModernTextBox);
-        private readonly ComboBox _dbmsBox = new() { Padding = new Thickness(6, 2), IsEditable = true };
+        private readonly ComboBox _dbmsBox = new() { IsEditable = true };
         private readonly TextBox _dbServerBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly TextBox _dbNameBox = new TextBox().Styled(ControlThemes.ModernTextBox);
         private readonly TextBox _dbUserBox = new TextBox().Styled(ControlThemes.ModernTextBox);

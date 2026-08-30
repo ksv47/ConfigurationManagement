@@ -50,9 +50,8 @@ public static class TechnicalInfoService
 
     private static string AppVersion()
     {
-        var asm = Assembly.GetExecutingAssembly();
-        return asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-               ?? asm.GetName().Version?.ToString() ?? "";
+        // Только номер версии без суффикса «+<sha>» из InformationalVersion.
+        return VersionInfo.Display();
     }
 
     private static string UiFlavor()

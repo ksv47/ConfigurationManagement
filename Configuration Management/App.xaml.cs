@@ -169,8 +169,8 @@ namespace Configuration_Management
 
                 // Версия в заголовке (используем информационную версию, чтобы показать
                 // точное значение «0.2.7.15», которое не помещается в 4-частный AssemblyVersion).
-                var infoVersion = Assembly.GetExecutingAssembly()
-                    .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+                // Из InformationalVersion отбрасываем возможный суффикс «+<sha>».
+                var infoVersion = VersionInfo.Display();
                 var versionText = string.IsNullOrWhiteSpace(infoVersion) ? "" : $" v{infoVersion}";
                 mainWindow.Title = $"{LocalizationManager.T("App.Title")}{versionText}";
 

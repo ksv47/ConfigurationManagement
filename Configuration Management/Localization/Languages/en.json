@@ -314,6 +314,8 @@
     "Settings.Columns.OrderHint": "Set the left-to-right order of columns in the infobase list (the Name column is always first and cannot be moved).",
     "Settings.Columns.OrderUp": "Up",
     "Settings.Columns.OrderDown": "Down",
+    "Settings.Columns.MoveUpTooltip": "Move the column up",
+    "Settings.Columns.MoveDownTooltip": "Move the column down",
     "Settings.Columns.RowSelectHint": "Click the name to select the column; the switch on the right shows/hides it.",
 
     "Settings.Panels.Description": "Right action panel and related options.",

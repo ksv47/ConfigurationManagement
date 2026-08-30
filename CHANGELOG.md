@@ -9,6 +9,67 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.5.34] — 2026-08-30
+
+Исправлены регрессии правок `0.3.5.31`–`0.3.5.33`: у всех комбобоксов вновь надёжно открывается выпадающий список по клику (в том числе по стрелке у редактируемых), а контент окон настройки и создания инфобазы больше не обрезается при увеличенных полях. Изменения внесены для обеих платформ (Windows/WPF и Linux/Avalonia).
+
+### Исправлено
+
+- **Починено открытие выпадающего списка и стрелка у всех комбобоксов** (Windows/WPF). В шаблоне `ModernComboBox` тем [`LightTheme.xaml`](Configuration Management/Themes/LightTheme.xaml) и [`DarkTheme.xaml`](Configuration Management/Themes/DarkTheme.xaml) стрелка возвращена внутрь шаблона кнопки-переключателя `DropDownToggle` (а не вынесена отдельным элементом `ArrowGlyph`, как в `0.3.5.33`): клик по стрелке теперь гарантированно попадает в кнопку и переключает `IsDropDownOpen`. `ClickMode` переведён на `Press` для мгновенного срабатывания. Кнопка по-прежнему растянута на всю площадь (`Grid.ColumnSpan="2"`), поэтому нередактируемые комбобоксы открывают список кликом в любом месте, а у редактируемых («Сервер», «Порт» в [`ConnectionSettingsWindow.xaml`](Configuration Management/Views/ConnectionSettingsWindow.xaml), `DbmsBox` в [`CreateInfobaseWindow.xaml`](Configuration Management/Views/CreateInfobaseWindow.xaml)) клик по полю ставит курсор для ввода, а по стрелке/области вне поля — открывает список. События `SelectionChanged`, ввод и привязки не изменены.
+- **Avalonia подтверждено**: штатная тема Fluent (см. комментарий в [`Controls.axaml`](Configuration Management/Themes/Controls.axaml)) уже открывает список кликом в любом месте, а клик по `PART_EditableTextBox` редактируемых комбобоксов ставит курсор для ввода — отдельного переопределения шаблона не требуется.
+- **Устранено обрезание контента в окне настройки подключения ИБ** (Windows/WPF). Контент каждой вкладки в [`ConnectionSettingsWindow.xaml`](Configuration Management/Views/ConnectionSettingsWindow.xaml) обёрнут в `ScrollViewer VerticalScrollBarVisibility="Auto"` (как в [`SettingsWindow.xaml`](Configuration Management/Views/SettingsWindow.xaml)), чтобы после увеличения высоты полей (`MinHeight=36`, `FontSize=13`) содержимое прокручивалось, а не обрезалось. Колонки полей оставлены растягиваемыми (`Width="*"`), длинные значения переносятся/обрезком не теряются.
+- **Avalonia подтверждено**: контент вкладок окна подключения уже обёрнут в `ScrollViewer` (метод `Tab(...)` в [`ConnectionSettingsWindow.Avalonia.cs`](Configuration Management/Views/ConnectionSettingsWindow.Avalonia.cs)), а содержимое окна создания инфобазы — в `ScrollViewer fieldsHost` ([`CreateInfobaseWindow.Avalonia.cs`](Configuration Management/Views/CreateInfobaseWindow.Avalonia.cs)). Окно создания инфобазы на WPF (`CreateInfobaseWindow.xaml`) уже имело `ScrollViewer` вокруг содержимого.
+- **Версия поднята до `0.3.5.34`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.33] — 2026-08-30
+
+Исправлена регрессия правок `0.3.5.31`–`0.3.5.32` в окне настройки информационной базы: текстовые поля и комбобоксы снова выглядят единообразно, а стрелка и открытие выпадающего списка редактируемых комбобоксов «Сервер»/«Порт» починены. Изменения внесены для обеих платформ (Windows/WPF и Linux/Avalonia).
+
+### Исправлено
+
+- **Выровнены размеры и отступы `TextBox` и `ComboBox` в окне настройки ИБ** (Windows/WPF). Локальный неявный стиль `TextBox` в [`ConnectionSettingsWindow.xaml`](Configuration Management/Views/ConnectionSettingsWindow.xaml) больше не переопределяет тему (`Padding="6,4"`, `MinHeight="28"`, `FontSize="12"`) — высота, внутренний отступ и кегль берутся из `ModernTextBox` (`10,6 / 36 / 13`), как у соседних комбобоксов; у полей «Сервер БД», «Путь к файлу» и «URL» убраны локальные `Padding`.
+- **Выровнены текстовые поля и комбобокс в окне создания ИБ** (Windows/WPF). В [`CreateInfobaseWindow.xaml`](Configuration Management/Views/CreateInfobaseWindow.xaml) у `NameBox`, `FilePathBox`, `ServerBox`, `RefBox`, `DbServerBox`, `DbNameBox`, `DbUserBox`, `TemplateBox`, `PlatformBox`, `GroupPathBox` и у редактируемого `DbmsBox` убраны локальные переопределения `Padding`, чтобы текст начинался на той же позиции, что и у нередактируемых комбобоксов.
+- **То же самое на Avalonia** (Linux). В [`ConnectionSettingsWindow.Avalonia.cs`](Configuration Management/Views/ConnectionSettingsWindow.Avalonia.cs) вспомогательный построитель полей `Tb(...)` больше не задаёт локально `Padding`/`MinHeight`/`FontSize` — параметры берутся из темы `ModernTextBox`. В [`CreateInfobaseWindow.Avalonia.cs`](Configuration Management/Views/CreateInfobaseWindow.Avalonia.cs) убраны локальные `Padding` у `_platformBox`, `_filePathBox`, `_templateBox` и у редактируемого `_dbmsBox`.
+- **Починена стрелка и открытие списка редактируемых комбобоксов** (Windows/WPF). В шаблоне `ModernComboBox` тем [`LightTheme.xaml`](Configuration Management/Themes/LightTheme.xaml) и [`DarkTheme.xaml`](Configuration Management/Themes/DarkTheme.xaml) стрелка вынесена из кнопки-переключателя в отдельный элемент `ArrowGlyph`, закреплённый в правой колонке (ширина `32`, `IsHitTestVisible=False`, чтобы клик по ней открывал список). У редактируемых комбобоксов отступ текста теперь задаётся через `Margin="{TemplateBinding Padding}"` вместо двойного `Margin + Padding`, что выравнивает текст с обычными полями и нередактируемыми списками. Нередактируемые комбобоксы открывают список кликом в любом месте; у редактируемых клик по полю позволяет ввод, а по остальной области/стрелке — открывает список. Логика выбора и события `SelectionChanged` не изменены.
+- **Avalonia подтверждено**: штатная тема Fluent (см. `ModernComboBox` в [`Controls.axaml`](Configuration Management/Themes/Controls.axaml)) открывает список кликом по любой области, а клик по `PART_EditableTextBox` редактируемых комбобоксов ставит курсор для ввода — отдельного переопределения шаблона не требуется.
+- **Версия поднята до `0.3.5.33`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.32] — 2026-08-30
+
+Выпадающее меню `ComboBox` теперь открывается кликом по любому месту комбобокса, а не только по стрелке справа. Изменение внесено для обеих платформ (Windows/WPF и Linux/Avalonia).
+
+### Исправлено
+
+- **Открытие выпадающего списка по клику в любой области комбобокса** (Windows/WPF). В шаблоне стиля `ModernComboBox` в [`LightTheme.xaml`](Configuration Management/Themes/LightTheme.xaml) и [`DarkTheme.xaml`](Configuration Management/Themes/DarkTheme.xaml) кнопка-переключатель `DropDownToggle` больше не ограничена колонкой стрелки (`Grid.Column="1"`), а растянута на всю площадь комбобокса (`Grid.ColumnSpan="2"`) и вынесена нижним слоем шаблона; стрелка закреплена у правого края. Основная часть комбобокса была некликабельной из-за `IsHitTestVisible="False"` у контента — теперь клик по ней переключает `IsDropDownOpen`. У редактируемых комбобоксов (`IsEditable="True"`, например `FontSizeComboBox`) поверх кнопки лежит `PART_EditableTextBox`, который перехватывает клик для установки курсора и ввода текста, а список открывается по стрелке — логика выбора и события `SelectionChanged` не изменены.
+- **Поведение Avalonia подтверждено и задокументировано** (Linux/Avalonia). В [`Controls.axaml`](Configuration Management/Themes/Controls.axaml) шаблон не переопределяется: штатная тема Fluent уже открывает список кликом в любом месте (`ComboBox.OnPointerReleased` переключает `IsDropDownOpen`), а клик по `PART_EditableTextBox` редактируемых комбобоксов ставит курсор и не открывает список. Добавлен поясняющий комментарий, чтобы исключить опасное переопределение шаблона в будущем.
+- **Версия поднята до `0.3.5.32`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.31] — 2026-08-30
+
+Текстовые поля (`TextBox`) приведены к единому визуальному стилю комбобоксов (`ComboBox`) в окне настроек и связанных окнах: выровнены высота, шрифт, внутренние отступы (padding), скругление углов и толщина рамки. Изменение внесено для обеих платформ (Windows/WPF и Linux/Avalonia).
+
+### Изменено
+
+- **Стиль `ModernTextBox` приведён к `ModernComboBox`** (обе платформы). В [`LightTheme.xaml`](Configuration Management/Themes/LightTheme.xaml) и [`DarkTheme.xaml`](Configuration Management/Themes/DarkTheme.xaml) (Windows/WPF) у `ModernTextBox` теперь те же параметры, что у `ModernComboBox`: толщина рамки `1.5`, внутренний отступ `10,6`, скругление углов `8`, минимальная высота `36`. Аналогично обновлён `ModernTextBox` в [`Controls.axaml`](Configuration Management/Themes/Controls.axaml) (Linux/Avalonia); комментарий у `ModernPasswordBox` приведён в соответствие — внешние параметры совпадают с полем ввода.
+- **Индивидуальное текстовое поле `SyncFilePathTextBox` выровнено по соседним комбобоксам** (Windows/WPF). В [`SettingsWindow.xaml`](Configuration Management/Views/SettingsWindow.xaml) полю заданы `Height="40"`, `FontSize="14"` и явно применён стиль `ModernTextBox` — как у соседних `SyncModeComboBox`/`SyncTriggerComboBox` в блоке ibases.v8i. Avalonia-реализация [`SettingsWindow.Avalonia.cs`](Configuration Management/Views/SettingsWindow.Avalonia.cs) согласуется через обновлённую тему (высота из `MinHeight`).
+- **Версия поднята до `0.3.5.31`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.30] — 2026-08-30
+
+Кнопки «Вверх»/«Вниз» для изменения порядка колонок перенесены из-под списка «Порядок колонок» в правую колонку справа от списка — так же, как расположены кнопки порядка избранного во вкладке «Клавиши». Изменение внесено для обеих платформ (Windows/WPF и Linux/Avalonia).
+
+### Изменено
+
+- **Расположение кнопок порядка колонок** (обе платформы). В подвкладке «Колонки» вкладки «Отображение» кнопки «Вверх»/«Вниз» (`ColumnOrderUpButton`/`ColumnOrderDownButton`) перенесены из горизонтальной панели под списком в вертикальный столбец **справа от списка** (`ColumnOrderList`). Использована та же сетка, что во вкладке «Клавиши» для избранного: список по ширине `*`, справа колонка `Auto` с вертикально расположенными кнопками. Обработчики `OnColumnOrderUp_Click`/`OnColumnOrderDown_Click`, имена кнопок и всплывающие подсказки `Settings.Columns.MoveUpTooltip`/`MoveDownTooltip` сохранены. Изменены [`SettingsWindow.xaml`](Configuration Management/Views/SettingsWindow.xaml) (Windows/WPF) и [`SettingsWindow.Avalonia.cs`](Configuration Management/Views/SettingsWindow.Avalonia.cs) (Linux/Avalonia).
+
+## [0.3.5.29] — 2026-08-30
+
+Во вкладке «Отображение» окна настроек порядок колонок списка баз теперь перемещается стрелками — так же, как порядок избранного во вкладке «Клавиши» (Windows/WPF).
+
+### Изменено
+
+- **Кнопки порядка колонок во вкладке «Отображение» заменены на стрелки** (Windows/WPF). Вместо текстовых кнопок «Вверх»/«Вниз» (`Settings.Columns.OrderUp`/`OrderDown`) под списком «Порядок колонок» теперь находятся кнопки со стрелками ↑/↓ в стиле `SecondaryButton`, аналогичные кнопкам порядка избранного во вкладке «Клавиши». Добавлены всплывающие подсказки «Переместить колонку выше/ниже» ([`SettingsWindow.xaml`](Configuration Management/Views/SettingsWindow.xaml)). Добавлены ключи локализации `Settings.Columns.MoveUpTooltip` и `Settings.Columns.MoveDownTooltip` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
 ## [0.3.5.28] — 2026-08-30
 
 Для Windows теперь собирается **один автономный (self-contained) single-file исполняемый файл**: скрипт [`build-windows-single-file.ps1`](Configuration Management/build-windows-single-file.ps1) публикует WPF-приложение (`net10.0-windows`, RID `win-x64`) и очищает выходную папку, оставляя в ней только `ConfigurationManagement.exe` — без `.dll`, `.pdb` и сопутствующих папок.
