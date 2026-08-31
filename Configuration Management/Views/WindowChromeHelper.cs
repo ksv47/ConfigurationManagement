@@ -26,6 +26,14 @@ namespace Configuration_Management
         /// <summary>Альфа полупрозрачной подложки «стекла» — 0xE8 (~91% непрозрачности).</summary>
         private const byte GlassBackgroundAlpha = 0xE8;
 
+        /// <summary>
+        /// Радиус скругления верхних углов полосы заголовка (в DIP), совпадает с радиусом
+        /// скругления углов окна, который DWM применяет через DwmWindowCornerPreference
+        /// на Windows 11. Если не совпадать с ним, прямоугольная акцентная полоса выходит
+        /// за скруглённый клип окна, и в углах шапки просвечивает стеклянная подложка.
+        /// </summary>
+        private const double DwmCornerRadius = 8;
+
         // DWMWA_SYSTEMBACKDROP_TYPE (38): 2 = Mica, 3 = Acrylic.
         private const int DwmSystemBackdropType = 38;
         private const int DwmBackdropAcrylic = 3;
@@ -242,7 +250,11 @@ namespace Configuration_Management
                 Height = 34,
                 // Полоса заголовка диалога заливается акцентным цветом темы на всю ширину.
                 // DynamicResource через SetResourceReference: при смене темы/схемы цвет обновляется сам.
-                VerticalAlignment = VerticalAlignment.Top
+                VerticalAlignment = VerticalAlignment.Top,
+                // Скругляем два верхних угла с тем же радиусом, что и окно (DWM, Windows 11).
+                // Иначе прямоугольная полоса не доходит до скруглённых углов окна и в углах
+                // шапки просвечивает стеклянная подложка/рабочий стол — «недозалитые» углы.
+                CornerRadius = new CornerRadius(DwmCornerRadius, DwmCornerRadius, 0, 0)
             };
             bar.SetResourceReference(Border.BackgroundProperty, "AccentBrush");
             bar.MouseLeftButtonDown += (_, _) =>
