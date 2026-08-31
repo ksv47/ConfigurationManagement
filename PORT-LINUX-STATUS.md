@@ -563,6 +563,11 @@ gh api -X PATCH repos/ksv47/ConfigurationManagement/git/refs/tags/pr<N>-build \
 После правок сборка Release чистая, приложение запускается, список баз,
 правая панель и теги на месте (прогон на `_port/harness/testdata`).
 
+Починка сборки ушла автору PR 134 (ветка `linux-fixes-42` от чистого
+`origin/main`, коммит `f130d52`). Пакеты 0.3.5.70 собраны из `linux-port`
+и выложены релизом `pr134-build` в `ksv47/ConfigurationManagement`, локальная
+копия в `~/.local/bin/ConfigurationManagement.AppImage` обновлена.
+
 **Что это значит для плана.** Планка интерфейса сдвинулась целиком: сравнивать
 Linux-сторону теперь надо не с прежним `MainWindow.xaml`, а с новой раскладкой
 (панель команд + строка-заголовок). Куски плана про меню, кнопки строки и
