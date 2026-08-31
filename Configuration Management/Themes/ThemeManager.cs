@@ -386,9 +386,22 @@ namespace Configuration_Management.Themes
                 {
                     if (dict.Contains(kvp.Key))
                         dict[kvp.Key] = color;
+
+                    // Одноимённая кисть цвета: TextPrimaryColor -> TextPrimaryBrush.
                     var brushKey = kvp.Key + "Brush";
                     if (dict.Contains(brushKey))
                         dict[brushKey] = new SolidColorBrush(color);
+
+                    // Акцентная кисть темы называется AccentBrush (без фрагмента «Color»),
+                    // поэтому generic-правило «ключ + "Brush"» выше её не находит (искало бы
+                    // AccentColorBrush). Задаём её напрямую конкретной кистью: иначе активная
+                    // шапка главного окна, ссылающаяся на AccentBrush через DynamicResource,
+                    // теряет акцентную заливку и остаётся бесцветной на стеклянном фоне DWM.
+                    if (string.Equals(kvp.Key, "AccentColor", StringComparison.OrdinalIgnoreCase)
+                        && dict.Contains("AccentBrush"))
+                    {
+                        dict["AccentBrush"] = new SolidColorBrush(color);
+                    }
                 }
             }
         }

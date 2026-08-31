@@ -37,6 +37,14 @@ namespace Configuration_Management
         private Forms.NotifyIcon? _trayIcon;
         private bool _forceClose;
 
+        /// <summary>
+        /// Текущее состояние активности окна, по которому окрашивается шапка
+        /// (акцент при активном, цвет карточки при неактивном). Хранится отдельным
+        /// флагом, чтобы не зависеть от временного значения <see cref="Window.IsActive"/>
+        /// в момент перекраски (запуск, восстановление из трея, смена темы).
+        /// </summary>
+        private bool _isActive;
+
         /// <summary>Информационная версия сборки для заголовка окна (например «0.3.3.41»).</summary>
         private readonly string? _infoVersion;
 
@@ -53,8 +61,8 @@ namespace Configuration_Management
 
             // Шапка главного окна реагирует на активность: при активном окне заливается
             // акцентным цветом темы, при неактивном — цветом карточки (см. UpdateTitleBarAppearance).
-            Activated += (_, _) => UpdateTitleBarAppearance(active: true);
-            Deactivated += (_, _) => UpdateTitleBarAppearance(active: false);
+            Activated += (_, _) => { _isActive = true; UpdateTitleBarAppearance(true); };
+            Deactivated += (_, _) => { _isActive = false; UpdateTitleBarAppearance(false); };
 
             // «Стеклянный» полупрозрачный фон окна: подложка берётся из текущего цвета
             // темы (светлая/тёмная и любые схемы) и пересчитывается при смене темы.
@@ -71,7 +79,7 @@ namespace Configuration_Management
                             {
                                 ApplyGlassBackground();
                                 // Акцентная шапка/цвет карточки зависят от темы — перекрашиваем.
-                                UpdateTitleBarAppearance(IsActive);
+                                UpdateTitleBarAppearance(_isActive);
                             }));
                         }
                         catch { /* не блокируем смену темы */ }
@@ -144,7 +152,7 @@ namespace Configuration_Management
                 try
                 {
                     // Шапка сразу окрашивается по текущему состоянию активности окна.
-                    UpdateTitleBarAppearance(IsActive);
+                    UpdateTitleBarAppearance(_isActive);
                     InitializeTrayIcon();
                     RegisterLaunchHotkeys();
                     RegisterFavoriteHotkeys();
