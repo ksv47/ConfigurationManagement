@@ -22,20 +22,44 @@ public class LevelToThicknessConverter : IMultiValueConverter
     /// <summary>Ширина кнопки разворота группы (px), см. Expander Width в MainWindow.xaml.</summary>
     public const double ExpanderWidth = 26.0;
 
+    /// <summary>Небольшой зазор слева до начала подсветки выбранной базы (px), чтобы фон
+    /// выделения начинался немного раньше значка «избранное» (см. параметр "base-hl").</summary>
+    public const double HighlightGap = 8.0;
+
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
         var level = values.Length > 0 && values[0] is int i ? i : 0;
-        var forBase = parameter is string s &&
-                      s.Equals("base", StringComparison.OrdinalIgnoreCase);
+        var param = parameter as string;
 
         double offset;
-        if (forBase)
+        if (string.Equals(param, "base", StringComparison.OrdinalIgnoreCase))
         {
             // База на уровне L — внутри группы уровня L-1.
             // Expander группы: margin (L-1)*step, ширина ExpanderWidth → иконка папки начинается
             // на (L-1)*step + ExpanderWidth. Тот же отступ у блока ★/📌/название.
             var parentLevel = level > 0 ? level - 1 : 0;
             offset = parentLevel * IndentStep + ExpanderWidth;
+        }
+        else if (string.Equals(param, "base-hl", StringComparison.OrdinalIgnoreCase))
+        {
+            // Подсветка выбранной базы: тот же сдвиг, что у блока ★/📌/названия, но с небольшим
+            // зазором HighlightGap, чтобы выделение начиналось немного раньше значка «избранное»
+            // и не уходило влево на всю длину строки.
+            var parentLevel = level > 0 ? level - 1 : 0;
+            offset = parentLevel * IndentStep + ExpanderWidth - HighlightGap;
+        }
+        else if (string.Equals(param, "group-hl", StringComparison.OrdinalIgnoreCase))
+        {
+            // Подсветка/фон заголовка группы: тот же сдвиг, что у названия ("group"), но с зазором
+            // HighlightGap, чтобы карточка группы начиналась сразу после кнопки свернуть/развернуть
+            // (оформление 0.3.5.1) и не заходила под кнопку и левее неё.
+            offset = level * IndentStep + ExpanderWidth - HighlightGap;
+        }
+        else if (string.Equals(param, "group", StringComparison.OrdinalIgnoreCase))
+        {
+            // Заголовок группы: сдвиг названия по уровню + ширина расширителя,
+            // чтобы название начиналось сразу после кнопки разворота.
+            offset = level * IndentStep + ExpanderWidth;
         }
         else
         {

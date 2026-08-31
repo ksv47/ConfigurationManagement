@@ -222,7 +222,9 @@ public class InfobaseRepository : IInfobaseRepository
     {
         if (!File.Exists(SettingsPath))
         {
+#if DEBUG
             Console.Error.WriteLine("[l10n-debug] LoadSettings: file missing (" + SettingsPath + ")");
+#endif
             return new AppSettings();
         }
         try
@@ -244,7 +246,9 @@ public class InfobaseRepository : IInfobaseRepository
                 return new AppSettings();
             }
 
+#if DEBUG
             Console.Error.WriteLine("[l10n-debug] LoadSettings: Language=" + loaded.Language + ", file=" + SettingsPath);
+#endif
             return loaded;
         }
         catch (Exception ex)
@@ -262,7 +266,9 @@ public class InfobaseRepository : IInfobaseRepository
     /// </summary>
     public void SaveSettings(AppSettings settings)
     {
+#if DEBUG
         Console.Error.WriteLine("[l10n-debug] SaveSettings: Language=" + settings.Language + ", file=" + SettingsPath);
+#endif
         settings.SchemaVersion = ConfigSchemaVersion;
         WriteAtomic(SettingsPath, JsonSerializer.Serialize(settings, JsonOptions));
     }

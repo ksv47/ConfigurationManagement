@@ -111,6 +111,7 @@ namespace Configuration_Management
         /// <summary>Диагностика переключения/применения темы (пишет во временный файл).</summary>
         private static void ThemeDebug(string message)
         {
+#if DEBUG
             try
             {
                 System.IO.File.AppendAllText(
@@ -118,6 +119,7 @@ namespace Configuration_Management
                     "[settings] " + message + System.Environment.NewLine);
             }
             catch { /* не критично */ }
+#endif
         }
 
         /// <summary>Применяет выбранную тему и цвета сразу (предпросмотр, без сохранения настроек).</summary>

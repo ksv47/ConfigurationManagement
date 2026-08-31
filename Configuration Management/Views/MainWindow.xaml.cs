@@ -69,7 +69,9 @@ namespace Configuration_Management
             // чтобы показать точное значение «0.3.3.41»).
             // Из InformationalVersion отбрасываем возможный суффикс «+<sha>».
             _infoVersion = VersionInfo.Display();
-            Title = $"{Title} v{_infoVersion}";
+            // Заголовок собираем через общий метод: это защищает от повторного
+            // добавления суффикса версии при повторном применении XAML-привязки.
+            UpdateWindowTitle();
 
             // Смена языка интерфейса: заголовок окна, подсказки и меню трея, которые
             // задаются в code-behind, обновляются вручную (LocExtension-привязки XAML

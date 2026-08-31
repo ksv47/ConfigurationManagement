@@ -1012,9 +1012,14 @@ namespace Configuration_Management
             listWithBar.Children.Add(listArea);
             listWithBar.Children.Add(_listVerticalBar);
 
-            // Левая колонка: свой фон и правая граница, внутреннее поле 12,12,8,12
-            // (MainWindow.xaml:347-350). Сверху панель фильтра тегов.
-            var leftContent = new Grid { Margin = new Thickness(12, 12, 8, 12) };
+            // Левая колонка: свой фон и правая граница, внутреннее поле 12,12,0,12.
+            // В WPF (MainWindow.xaml:347-350) отступ справа 8 был нужен полосе дерева,
+            // которая жила внутри области прокрутки. Здесь вертикальная полоса вынесена
+            // отдельным столбцом (listWithBar), и правый отступ оставлял бы между ней и
+            // границей панели пустоту ~8px. Убираем его, чтобы полоса была прижата к
+            // правому краю панели. Панель тегов сверху имеет собственные отступы
+            // (4,0,4,8 и поле 8), поэтому её вид не меняется.
+            var leftContent = new Grid { Margin = new Thickness(12, 12, 0, 12) };
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             var tagPanel = BuildTagFilterPanel();
@@ -4947,6 +4952,15 @@ namespace Configuration_Management
                 return;
             if (ReferenceEquals(_boundTreeScroll, scroll) && ReferenceEquals(_boundScrollBar, bar))
                 return;
+
+            // Собственные полосы дерева скрываем не только присоединённым свойством
+            // на самом дереве (оно может не дойти до внутреннего ScrollViewer шаблона),
+            // но и напрямую на найденной прокрутке. Иначе её вертикальная полоса
+            // рисуется у правого края содержимого дерева, а когда колонки шире окна
+            // и включается горизонтальная прокрутка, оказывается поверх строк списка,
+            // а не у правого края области. Полоса прячется, прокрутка остаётся.
+            ScrollViewer.SetVerticalScrollBarVisibility(scroll, ScrollBarVisibility.Hidden);
+            ScrollViewer.SetHorizontalScrollBarVisibility(scroll, ScrollBarVisibility.Disabled);
 
             foreach (var link in _scrollBarLinks)
                 link.Dispose();

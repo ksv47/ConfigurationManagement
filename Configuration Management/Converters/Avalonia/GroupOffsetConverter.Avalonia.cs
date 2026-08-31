@@ -22,7 +22,11 @@ namespace Configuration_Management.Converters
         {
             var level = values is { Count: > 0 } && values[0] is int i ? i : 0;
             var hasItems = values is { Count: > 1 } && values[1] is bool b && b;
-            var offset = hasItems ? 0d : level * IndentStep + ExpanderWidth;
+            // Заголовок группы выравнивается в начало строки (отступ уровня даёт имя через
+            // LevelToThickness "group"), чтобы колонка «Действия» не сдвигалась с вложенностью.
+            // Группа с дочерними: расширитель дерева занимает col0 (ExpanderWidth + level*IndentStep),
+            // компенсируем его отрицательным отступом. Пустая (листовая): расширителя нет, отступ 0.
+            var offset = hasItems ? -(level * IndentStep + ExpanderWidth) : 0d;
             return new Thickness(offset, 1, 0, 1);
         }
 

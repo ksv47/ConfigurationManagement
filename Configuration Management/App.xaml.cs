@@ -159,6 +159,7 @@ namespace Configuration_Management
                 ThemeManager.ApplyScheme(scheme ?? (isDark
                     ? Configuration_Management.Models.ColorScheme.CreateDark()
                     : Configuration_Management.Models.ColorScheme.CreateLight()));
+#if DEBUG
                 try
                 {
                     System.IO.File.AppendAllText(
@@ -168,6 +169,7 @@ namespace Configuration_Management
                         $"active='{settings.ActiveColorScheme?.Name}'{System.Environment.NewLine}");
                 }
                 catch { /* не критично */ }
+#endif
 
                 var mainWindow = AppServices.GetRequiredService<MainWindow>();
                 MainWindow = mainWindow;

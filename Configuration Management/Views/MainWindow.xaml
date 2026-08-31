@@ -1,4 +1,4 @@
-﻿<Window x:Class="Configuration_Management.MainWindow"
+<Window x:Class="Configuration_Management.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -13,7 +13,7 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="{loc:Loc App.Title}"
-        Icon="{StaticResource AppIcon}"
+        Icon="pack://application:,,,/app.ico"
         Height="760" Width="1200"
         MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
@@ -175,201 +175,41 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- ===================== Верхняя панель: кнопки групп | поиск | вкладки | действия ===== -->
-        <Border x:Name="TopBarBorder" Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
-                BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" Padding="12,10"
-                MouseLeftButtonDown="OnTopBar_MouseLeftButtonDown">
+        <!-- ===================== Заголовок-титул приложения ===================== -->
+        <!-- Отдельная верхняя строка окна: слева иконка и заголовок программы, справа —
+             кнопки управления окном (свернуть/развернуть/закрыть), встроенные в полосу.
+             Перетаскивание окна за эту полосу — OnTopBar_MouseLeftButtonDown -> DragMove. -->
+        <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1"
+                Padding="12,6" MouseLeftButtonDown="OnTopBar_MouseLeftButtonDown">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*" MinWidth="200"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Группы / теги / развернуть-свернуть — слева от поиска -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
-                    <!-- Показывать группы: только иконка, акцент когда включено -->
-                    <ToggleButton IsChecked="{Binding GroupByGroup}"
-                                  Click="OnGroupByToggle_Click"
-                                  Style="{DynamicResource ToolbarToggleButton}"
-                                  Margin="0,0,2,0"
-                                  ToolTip="{loc:Loc Main.ToggleGroups}">
-                        <Path Width="18" Height="18" Stretch="Uniform"
-                              Data="{StaticResource IconFolder}"
-                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
-                    </ToggleButton>
-                    <ToggleButton IsChecked="{Binding ShowEmptyGroups}"
-                                  Style="{DynamicResource ToolbarToggleButton}"
-                                  Margin="0,0,2,0"
-                                  ToolTip="{loc:Loc Settings.Panels.ShowEmptyGroups}"
-                                  Visibility="{Binding GroupByGroup, Converter={StaticResource BoolToVis}}">
-                        <materialDesign:PackIcon Kind="FolderOutline" Width="18" Height="18"
-                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
-                    </ToggleButton>
-                    <!-- Показывать теги: включает теги и вверху (панель отбора), и в списке -->
-                    <ToggleButton IsChecked="{Binding ShowTagFilterPanel, Mode=TwoWay}"
-                                  Click="OnTopTagsToggle_Click"
-                                  Style="{DynamicResource ToolbarToggleButton}"
-                                  Margin="0,0,2,0"
-                                  ToolTip="{loc:Loc Main.ToggleTagsFull}">
-                        <Path Width="18" Height="18" Stretch="Uniform"
-                              Data="{StaticResource IconTag}"
-                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
-                    </ToggleButton>
-                    <!-- Кнопки «развернуть/свернуть все группы» перенесены в заголовки колонок слева -->
+                <!-- Иконка и заголовок программы -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Width="18" Height="18" Margin="0,0,8,0">
+                        <Image.Source>
+                            <BitmapImage UriSource="pack://application:,,,/app.ico" DecodePixelWidth="18"/>
+                        </Image.Source>
+                    </Image>
+                    <TextBlock x:Name="AppTitleBlock" Text="{loc:Loc App.Title}" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- Поиск (без тегов) -->
-                <Border Grid.Column="1" Margin="0,0,12,0"
-                        Background="{DynamicResource CardBackgroundBrush}"
-                        BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
-                        CornerRadius="10" Padding="8,4" VerticalAlignment="Center">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🔍" FontSize="13" Margin="2,0,6,0"
-                                   VerticalAlignment="Center" Opacity="0.7" IsHitTestVisible="False"/>
-                        <TextBox x:Name="SearchTextBox" Grid.Column="1" Background="Transparent" BorderThickness="0"
-                                 Padding="2,6" FontSize="13" VerticalContentAlignment="Center"
-                                 Foreground="{DynamicResource TextPrimaryBrush}"
-                                 CaretBrush="{DynamicResource TextPrimaryBrush}"
-                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="{loc:Loc Main.SearchPlaceholder}"/>
-                        <Button Grid.Column="2" Command="{Binding ClearSearchCommand}"
-                                Background="Transparent" BorderThickness="0" Padding="6,0" Cursor="Hand"
-                                ToolTip="{loc:Loc Main.ClearSearch}" VerticalAlignment="Center">
-                            <materialDesign:PackIcon Kind="Close" Width="12" Height="12"
-                                                     Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        </Button>
-                    </Grid>
-                </Border>
-
-                <!-- Вкладки Все / Избранное / Недавние -->
-                <Border Grid.Column="2" Background="{DynamicResource ContentBackgroundBrush}"
-                        CornerRadius="12" Padding="4" Margin="0,0,12,0" VerticalAlignment="Center"
-                        BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
-                    <StackPanel x:Name="TabsPanel" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
-                    <RadioButton GroupName="ListMode"
-                                 IsChecked="{Binding IsListModeAll, Mode=TwoWay}"
-                                 Style="{DynamicResource SegmentRadioButton}" Margin="0,0,4,0"
-                                 ToolTip="{loc:Loc Main.AllBasesTooltip}">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"
-                                  Data="{StaticResource IconDatabase}"
-                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                            <TextBlock Text="{loc:Loc Main.AllBases}" VerticalAlignment="Center"
-                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                        </StackPanel>
-                    </RadioButton>
-                    <RadioButton GroupName="ListMode"
-                                 IsChecked="{Binding IsListModeFavorites, Mode=TwoWay}"
-                                 Style="{DynamicResource SegmentRadioButton}" Margin="0,0,4,0"
-                                 ToolTip="{loc:Loc Main.FavoritesTooltip}">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"
-                                  Data="{StaticResource IconStar}"
-                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                            <TextBlock Text="{loc:Loc Main.Favorites}" VerticalAlignment="Center"
-                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                        </StackPanel>
-                    </RadioButton>
-                    <RadioButton GroupName="ListMode"
-                                 IsChecked="{Binding IsListModeRecent, Mode=TwoWay}"
-                                 Style="{DynamicResource SegmentRadioButton}"
-                                 ToolTip="{loc:Loc Main.RecentTooltip}">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"
-                                  Data="{StaticResource IconHistory}"
-                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                            <TextBlock Text="{loc:Loc Main.Recent}" VerticalAlignment="Center"
-                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
-                        </StackPanel>
-                    </RadioButton>
-                </StackPanel>
-        </Border>
-
-        <!-- Синхронизация + тема + настройки (добавление — в правой панели и контекстном меню) -->
-                <Border Grid.Column="3" Background="{DynamicResource ContentBackgroundBrush}"
-                        CornerRadius="12" Padding="4" Margin="0,0,12,0" VerticalAlignment="Center"
-                        BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- Добавить базу: перенесено из правой панели в верхнюю панель команд -->
-                    <Button Command="{Binding AddInfobaseCommand}"
-                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                            ToolTip="{loc:Loc Main.AddBase}">
-                        <materialDesign:PackIcon Kind="Plus" Width="18" Height="18" Foreground="#22C55E"/>
-                    </Button>
-                    <!-- Очистить кеш выбранной базы: доступно при выбранной базе (SelectedInfobase) -->
-                    <Button Command="{Binding ClearCacheCommand}"
-                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                            ToolTip="{loc:Loc Main.ClearCacheTooltip}">
-                        <materialDesign:PackIcon Kind="Broom" Width="18" Height="18" Foreground="#F59E0B"/>
-                    </Button>
-                    <!-- Индикатор выгрузки .dt/.cf: появляется при запуске пакетной операции,
-                         анимируется (стрелка вверх подпрыгивает) и скрывается по её завершении.
-                         При наведении показывает сводку о текущей выгрузке. -->
-                    <Button x:Name="ExportIndicatorButton"
-                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                            Visibility="{Binding IsExporting, Converter={StaticResource BoolToVis}}"
-                            ToolTip="{Binding ExportIndicatorTooltip}"
-                            Focusable="False" Cursor="Hand">
-                        <materialDesign:PackIcon Kind="Upload" Width="18" Height="18"
-                                                 Foreground="#F59E0B">
-                            <materialDesign:PackIcon.RenderTransform>
-                                <TranslateTransform x:Name="ExportIndicatorBounce" Y="0"/>
-                            </materialDesign:PackIcon.RenderTransform>
-                        </materialDesign:PackIcon>
-                    </Button>
-                    <Button Command="{Binding SynchronizeWithIbasesCommand}"
-                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                            ToolTip="{loc:Loc Main.SyncDetailedTooltip}">
-                        <materialDesign:PackIcon Kind="Sync" Width="18" Height="18" Foreground="#14B8A6"/>
-                    </Button>
-                    <Button Command="{Binding CheckAvailabilityCommand}"
-                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                            ToolTip="{loc:Loc Main.CheckAvailabilityTooltip}">
-                        <Path Width="18" Height="18" Stretch="Uniform"
-                              Data="{StaticResource IconSonar}" Fill="#14B8A6"/>
-                    </Button>
-                    <Button x:Name="ThemeToggleButton" Click="OnToggleTheme_Click"
-                            Style="{DynamicResource IconButton}" Margin="0,0,2,0" ToolTip="{loc:Loc Main.Theme}">
-                        <Path x:Name="ThemeToggleIcon" Width="18" Height="18" Stretch="Uniform"
-                              Data="{StaticResource IconMoon}" Fill="#8B5CF6"/>
-                    </Button>
-                    <!-- Компактный режим: быстрый переключатель плотности интерфейса -->
-                    <ToggleButton x:Name="CompactModeButton" Click="OnCompactMode_Toggled"
-                            Style="{DynamicResource ToolbarToggleButton}" Margin="0,0,2,0"
-                            ToolTip="{loc:Loc Main.CompactModeTooltip}">
-                        <materialDesign:PackIcon Kind="Compress" Width="18" Height="18"
-                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
-                    </ToggleButton>
-                    <Button Command="{Binding OpenSettingsCommand}" Style="{DynamicResource IconButton}"
-                            ToolTip="{loc:Loc Main.SettingsTooltip}">
-                        <materialDesign:PackIcon Kind="Cog" Width="18" Height="18" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    </Button>
-                    <!-- Подсказка «?»: справа, после всех команд верхней панели -->
-                    <controls:HelpLink Margin="4,0,0,0"
-                                       HelpText="{loc:Loc Main.BaseListHelp}"/>
-                </StackPanel>
-                </Border>
-
-                <!-- Собственные кнопки управления окном: свернуть / развернуть / закрыть
-                     (вместо системных; окно без рамки, см. WindowChrome в корне окна). -->
-                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,0,0">
+                <!-- Кнопки управления окном: свернуть / развернуть / закрыть -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="MinimizeButton" Click="OnMinimizeButton_Click"
-                            Style="{StaticResource WindowControlButton}"
+                            Style="{DynamicResource WindowControlButton}"
                             ToolTip="{loc:Loc Window.Minimize}">
                         <Path Width="11" Height="11" Stretch="Uniform"
                               Data="M0,5.5 L11,5.5 L11,6.5 L0,6.5 Z"
                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                     </Button>
                     <Button x:Name="MaximizeButton" Click="OnMaximizeButton_Click"
-                            Style="{StaticResource WindowControlButton}"
+                            Style="{DynamicResource WindowControlButton}"
                             ToolTip="{loc:Loc Window.Maximize}">
                         <Grid Width="13" Height="13">
                             <Path x:Name="MaximizeGlyphPath" Stretch="Uniform"
@@ -384,7 +224,7 @@
                         </Grid>
                     </Button>
                     <Button x:Name="CloseButton" Click="OnCloseButton_Click"
-                            Style="{StaticResource WindowControlCloseButton}"
+                            Style="{DynamicResource WindowControlCloseButton}"
                             ToolTip="{loc:Loc Common.Close}">
                         <Path Width="13" Height="13" Stretch="Uniform"
                               Data="M1,1 L12,12 M12,1 L1,12"
@@ -407,23 +247,139 @@
                     BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,1,0">
                 <Grid Margin="12,12,8,12" Grid.IsSharedSizeScope="True">
                     <Grid.RowDefinitions>
-                        <!-- 0: заголовок, 1: фильтры, 2: поиск, 3: теги, 4: список (*) — обязателен *,
-                             иначе TreeView меряется по полной высоте контента, ScrollableHeight=0
-                             и полосы/колесо не появляются (в т.ч. при сжатии окна). -->
-                        <RowDefinition Height="Auto"/>
+                        <!-- 0: панель команд (перенесена из верхней строки окна), 1: теги,
+                             2: панель команд списка (кнопки-команды над заголовками колонок),
+                             3: список (*) — обязателен *, иначе TreeView меряется по полной высоте
+                             контента, ScrollableHeight=0 и полосы/колесо не появляются
+                             (в т.ч. при сжатии окна). -->
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Кнопки групп перенесены в верхнюю панель -->
-                    <Border Grid.Row="0" Height="0"/>
-                    <Border Grid.Row="1" Height="0"/>
-                    <Border Grid.Row="2" Height="0"/>
+                    <!-- Верхняя панель команд: перенесена из верхней строки окна внутрь левой колонки,
+                         над заголовком таблицы списка. Занимает всю ширину левой колонки и не
+                         накладывается на правую панель RightPanelBorder. -->
+                    <Border x:Name="TopBarBorder" Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1" Padding="0,8"
+                            MouseLeftButtonDown="OnTopBar_MouseLeftButtonDown">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*" MinWidth="120"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Группы / теги — слева от поиска -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                                <!-- Показывать группы: только иконка, акцент когда включено -->
+                                <ToggleButton IsChecked="{Binding GroupByGroup}"
+                                              Click="OnGroupByToggle_Click"
+                                              Style="{DynamicResource ToolbarToggleButton}"
+                                              Margin="0,0,2,0"
+                                              ToolTip="{loc:Loc Main.ToggleGroups}">
+                                    <Path Width="18" Height="18" Stretch="Uniform"
+                                          Data="{StaticResource IconFolder}"
+                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                                </ToggleButton>
+                                <ToggleButton IsChecked="{Binding ShowEmptyGroups}"
+                                              Style="{DynamicResource ToolbarToggleButton}"
+                                              Margin="0,0,2,0"
+                                              ToolTip="{loc:Loc Settings.Panels.ShowEmptyGroups}"
+                                              Visibility="{Binding GroupByGroup, Converter={StaticResource BoolToVis}}">
+                                    <materialDesign:PackIcon Kind="FolderOutline" Width="18" Height="18"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                                </ToggleButton>
+                                <!-- Показывать теги: включает теги и вверху (панель отбора), и в списке -->
+                                <ToggleButton IsChecked="{Binding ShowTagFilterPanel, Mode=TwoWay}"
+                                              Click="OnTopTagsToggle_Click"
+                                              Style="{DynamicResource ToolbarToggleButton}"
+                                              Margin="0,0,2,0"
+                                              ToolTip="{loc:Loc Main.ToggleTagsFull}">
+                                    <Path Width="18" Height="18" Stretch="Uniform"
+                                          Data="{StaticResource IconTag}"
+                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                                </ToggleButton>
+                            </StackPanel>
+
+                            <!-- Поиск (без тегов) -->
+                            <Border Grid.Column="1" Margin="0,0,8,0"
+                                    Background="{DynamicResource CardBackgroundBrush}"
+                                    BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                                    CornerRadius="10" Padding="8,4" VerticalAlignment="Center">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="🔍" FontSize="13" Margin="2,0,6,0"
+                                               VerticalAlignment="Center" Opacity="0.7" IsHitTestVisible="False"/>
+                                    <TextBox x:Name="SearchTextBox" Grid.Column="1" Background="Transparent" BorderThickness="0"
+                                             Padding="2,6" FontSize="13" VerticalContentAlignment="Center"
+                                             Foreground="{DynamicResource TextPrimaryBrush}"
+                                             CaretBrush="{DynamicResource TextPrimaryBrush}"
+                                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="{loc:Loc Main.SearchPlaceholder}"/>
+                                    <Button Grid.Column="2" Command="{Binding ClearSearchCommand}"
+                                            Background="Transparent" BorderThickness="0" Padding="6,0" Cursor="Hand"
+                                            ToolTip="{loc:Loc Main.ClearSearch}" VerticalAlignment="Center">
+                                        <materialDesign:PackIcon Kind="Close" Width="12" Height="12"
+                                                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <!-- Вкладки Все / Избранное / Недавние + действия -->
+                            <Border Grid.Column="2" Background="{DynamicResource ContentBackgroundBrush}"
+                                    CornerRadius="12" Padding="4" Margin="0,0,8,0" VerticalAlignment="Center"
+                                    BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1">
+                                <StackPanel x:Name="TabsPanel" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <RadioButton GroupName="ListMode"
+                                                 IsChecked="{Binding IsListModeAll, Mode=TwoWay}"
+                                                 Style="{DynamicResource SegmentRadioButton}" Margin="0,0,4,0"
+                                                 ToolTip="{loc:Loc Main.AllBasesTooltip}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"
+                                                  Data="{StaticResource IconDatabase}"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                            <TextBlock Text="{loc:Loc Main.AllBases}" VerticalAlignment="Center"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton GroupName="ListMode"
+                                                 IsChecked="{Binding IsListModeFavorites, Mode=TwoWay}"
+                                                 Style="{DynamicResource SegmentRadioButton}" Margin="0,0,4,0"
+                                                 ToolTip="{loc:Loc Main.FavoritesTooltip}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"
+                                                  Data="{StaticResource IconStar}"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                            <TextBlock Text="{loc:Loc Main.Favorites}" VerticalAlignment="Center"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton GroupName="ListMode"
+                                                 IsChecked="{Binding IsListModeRecent, Mode=TwoWay}"
+                                                 Style="{DynamicResource SegmentRadioButton}"
+                                                 ToolTip="{loc:Loc Main.RecentTooltip}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center"
+                                                  Data="{StaticResource IconHistory}"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                            <TextBlock Text="{loc:Loc Main.Recent}" VerticalAlignment="Center"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                </StackPanel>
+                            </Border>
+
+                        </Grid>
+                    </Border>
 
                     <!-- Панель быстрого отбора по тегам -->
-                    <Border Grid.Row="3" Margin="4,0,4,8" Padding="8,6"
+                    <Border Grid.Row="1" Margin="4,0,4,8" Padding="8,6"
                             Background="{DynamicResource CardBackgroundBrush}"
                             BorderBrush="{DynamicResource BorderBrushColor}"
                             BorderThickness="1" CornerRadius="8"
@@ -524,6 +480,134 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Панель команд списка: контейнер кнопок-команд (звезда/пин, добавить/правка/
+                         удалить и пр.), располагается непосредственно над заголовками колонок.
+                         Сейчас пустой каркас — в него в последующие задачи переносятся команды.
+                         Занимает всю ширину левой колонки. -->
+                    <Border x:Name="CommandPanelBorder" Grid.Row="2" Margin="4,0,4,0" Padding="8,6"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrushColor}"
+                            BorderThickness="0,0,0,1">
+                        <StackPanel x:Name="CommandPanelStack" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Управление группами: развернуть/свернуть все, сортировка, отображение тегов.
+                                 Видно при группировке списка (ShowExpandCollapseButtons). -->
+                            <Button Command="{Binding ExpandAllGroupsCommand}"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    ToolTip="{loc:Loc Main.ExpandAllGroups}"
+                                    Visibility="{Binding ShowExpandCollapseButtons, Converter={StaticResource BoolToVis}}">
+                                <materialDesign:PackIcon Kind="ExpandAll" Width="18" Height="18"
+                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <Button Command="{Binding CollapseAllGroupsCommand}"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    ToolTip="{loc:Loc Main.CollapseAllGroups}"
+                                    Visibility="{Binding ShowExpandCollapseButtons, Converter={StaticResource BoolToVis}}">
+                                <materialDesign:PackIcon Kind="CollapseAll" Width="18" Height="18"
+                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <Button Command="{Binding SortGroupsAscendingCommand}"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    ToolTip="{loc:Loc Main.SortGroupsAscending}"
+                                    Visibility="{Binding ShowExpandCollapseButtons, Converter={StaticResource BoolToVis}}">
+                                <materialDesign:PackIcon Kind="SortAscending" Width="18" Height="18"
+                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <Button Command="{Binding SortGroupsDescendingCommand}"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    ToolTip="{loc:Loc Main.SortGroupsDescending}"
+                                    Visibility="{Binding ShowExpandCollapseButtons, Converter={StaticResource BoolToVis}}">
+                                <materialDesign:PackIcon Kind="SortDescending" Width="18" Height="18"
+                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <!-- Переключатель видимости тегов в списке -->
+                            <ToggleButton IsChecked="{Binding ShowTags, Mode=TwoWay}"
+                                          Style="{DynamicResource ToolbarToggleButton}"
+                                          VerticalAlignment="Center" Margin="2,0,0,0"
+                                          ToolTip="{loc:Loc Main.ToggleListTags}">
+                                <Path Width="14" Height="14" Stretch="Uniform"
+                                      Data="{StaticResource IconTag}"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                            </ToggleButton>
+                            <!-- Вертикальный разделитель: отделяет «Управление группами» от остальных команд -->
+                            <Border Width="1" Margin="4,5" VerticalAlignment="Stretch"
+                                    Background="{DynamicResource BorderBrushColor}" Opacity="0.55"/>
+                            <!-- «Правка»: добавить / правка / удалить выбранной базы -->
+                            <Button Command="{Binding AddInfobaseCommand}"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    ToolTip="{loc:Loc Main.AddBase}">
+                                <materialDesign:PackIcon Kind="Plus" Width="18" Height="18" Foreground="#22C55E"/>
+                            </Button>
+                            <Button Command="{Binding EditInfobaseCommand}"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    ToolTip="{loc:Loc Main.EditBaseTooltip}">
+                                <materialDesign:PackIcon Kind="Pencil" Width="18" Height="18" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <Button Command="{Binding DeleteInfobaseCommand}"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    ToolTip="{loc:Loc Main.DeleteTooltip}">
+                                <materialDesign:PackIcon Kind="Delete" Width="18" Height="18" Foreground="#DC2626"/>
+                            </Button>
+                            <!-- Вертикальный разделитель: отделяет группу «Правка» от «Управление списком» -->
+                            <Border Width="1" Margin="4,5" VerticalAlignment="Stretch"
+                                    Background="{DynamicResource BorderBrushColor}" Opacity="0.55"/>
+                            <!-- «Управление списком»: очистить кеш, выгрузка, синхронизация, проверка -->
+                            <Button Command="{Binding ClearCacheCommand}"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    ToolTip="{loc:Loc Main.ClearCacheTooltip}">
+                                <materialDesign:PackIcon Kind="Broom" Width="18" Height="18" Foreground="#F59E0B"/>
+                            </Button>
+                            <!-- Индикатор выгрузки .dt/.cf: появляется при запуске пакетной операции,
+                                 анимируется (стрелка вверх подпрыгивает) и скрывается по её завершении.
+                                 При наведении показывает сводку о текущей выгрузке. -->
+                            <Button x:Name="ExportIndicatorButton"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    Visibility="{Binding IsExporting, Converter={StaticResource BoolToVis}}"
+                                    ToolTip="{Binding ExportIndicatorTooltip}"
+                                    Focusable="False" Cursor="Hand">
+                                <materialDesign:PackIcon Kind="Upload" Width="18" Height="18"
+                                                         Foreground="#F59E0B">
+                                    <materialDesign:PackIcon.RenderTransform>
+                                        <TranslateTransform x:Name="ExportIndicatorBounce" Y="0"/>
+                                    </materialDesign:PackIcon.RenderTransform>
+                                </materialDesign:PackIcon>
+                            </Button>
+                            <Button Command="{Binding SynchronizeWithIbasesCommand}"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    ToolTip="{loc:Loc Main.SyncDetailedTooltip}">
+                                <materialDesign:PackIcon Kind="Sync" Width="18" Height="18" Foreground="#14B8A6"/>
+                            </Button>
+                            <Button Command="{Binding CheckAvailabilityCommand}"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0"
+                                    ToolTip="{loc:Loc Main.CheckAvailabilityTooltip}">
+                                <Path Width="18" Height="18" Stretch="Uniform"
+                                      Data="{StaticResource IconSonar}" Fill="#14B8A6"/>
+                            </Button>
+                            <!-- Вертикальный разделитель: отделяет группу «Управление списком» от «Настройки» -->
+                            <Border Width="1" Margin="4,5" VerticalAlignment="Stretch"
+                                    Background="{DynamicResource BorderBrushColor}" Opacity="0.55"/>
+                            <!-- «Настройки»: тема, компактный режим, настройки, справка -->
+                            <Button x:Name="ThemeToggleButton" Click="OnToggleTheme_Click"
+                                    Style="{DynamicResource IconButton}" Margin="0,0,2,0" ToolTip="{loc:Loc Main.Theme}">
+                                <Path x:Name="ThemeToggleIcon" Width="18" Height="18" Stretch="Uniform"
+                                      Data="{StaticResource IconMoon}" Fill="#8B5CF6"/>
+                            </Button>
+                            <!-- Компактный режим: быстрый переключатель плотности интерфейса -->
+                            <ToggleButton x:Name="CompactModeButton" Click="OnCompactMode_Toggled"
+                                          Style="{DynamicResource ToolbarToggleButton}" Margin="0,0,2,0"
+                                          ToolTip="{loc:Loc Main.CompactModeTooltip}">
+                                <materialDesign:PackIcon Kind="Compress" Width="18" Height="18"
+                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                            </ToggleButton>
+                            <Button Command="{Binding OpenSettingsCommand}" Style="{DynamicResource IconButton}"
+                                    ToolTip="{loc:Loc Main.SettingsTooltip}">
+                                <materialDesign:PackIcon Kind="Cog" Width="18" Height="18" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Button>
+                            <!-- Подсказка «?»: после всех команд панели -->
+                            <controls:HelpLink Margin="4,0,0,0"
+                                               HelpText="{loc:Loc Main.BaseListHelp}"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Область списка: общий горизонтальный ScrollViewer, чтобы заголовки колонок
                          прокручивались синхронно с содержимым дерева -->
                     <!-- Внешний ScrollViewer управляет прокруткой по обеим осям. Прокрутка дерева
@@ -531,7 +615,12 @@
                          циклической привязки высоты, из-за которой полоса прокрутки пропадала при
                          сжатии окна. Контент (заголовки + дерево) прокручивается синхронно
                          по горизонтали и вертикали. -->
-                    <Grid Grid.Row="4" Margin="4,0,4,0">
+                    <!-- Правый отступ -10 компенсирует правый отступ 8 внешней сетки (Margin="12,12,8,12")
+                         плюс оставшиеся ~2px у рамки панели: без этого между вертикальной полосой
+                         прокрутки дерева и правой границей панели оставалась пустота ~13px (8 внешних
+                         + 4 здесь + ~1px рамки). Отрицательный отступ выводит полосу вплотную к краю.
+                         Верхняя панель и теги при этом сохраняют свой отступ. -->
+                    <Grid Grid.Row="3" Margin="4,0,-10,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
@@ -546,18 +635,24 @@
                             <!-- Правый отступ компенсирует ширину вертикальной полосы прокрутки списка,
                                  чтобы правый край колонки (*) заголовка совпадал с данными. -->
                             <Border BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1"
-                                    Padding="0,2,0,2" Opacity="0.95">
+                                    Padding="0,2,0,2" MinHeight="36" Opacity="0.95">
                             <Grid x:Name="HeaderGrid" MinWidth="{Binding ActualWidth, ElementName=MainTree}">
+                                <!-- Единственная star-строка: растягивается на высоту Border (MinHeight=36),
+                                     чтобы заголовки колонок (VerticalAlignment="Center") были отцентрированы
+                                     по вертикали строки после удаления кнопок управления группами. -->
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
-                                    <!-- Кнопки «развернуть/свернуть» и «сортировка» групп слева (видно только при группировке) -->
-                                    <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=144}"/>
+                                    <!-- Былые кнопки «развернуть/свернуть» и «сортировка» групп перенесены в панель команд;
+                                         колонка оставлена небольшим отступом для выравнивания заголовка с данными.
+                                         Ширина синхронизирована с шаблонами групп и баз (GroupRowGrid/InfobaseRowGrid). -->
+                                    <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=24}"/>
                                     <!-- Компенсация сдвига дерева (отступ вложенности групп) — ширина уточняется в AlignHeaderToData -->
                                     <ColumnDefinition x:Name="HeaderOffsetColumn" Width="0"/>
-                                    <!-- Колонка переключателя тегов: всегда резервирует место под переключатель
-                                         (даже когда кнопка «Избранное» скрыта), иначе при включённой группировке
-                                         всегда видимый переключатель тегов срезается границей колонки «Название»
-                                         (issue #84). -->
-                                    <ColumnDefinition MinWidth="30" Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
+                                    <!-- Резерв под переключатель тегов (перенесён в панель команд). MinWidth убран:
+                                         колонка пустая и не должна создавать лишний отступ слева от «Названия». -->
+                                    <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
                                     <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
                                     <!-- Имя: растягивается на оставшееся место, пока не задана фиксированная
                                          ширина перетаскиванием разделителя (NameColumnWidth). -->
@@ -585,7 +680,7 @@
                                     </ColumnDefinition>
                                     <!-- Колонка «Действия»: встаёт сразу после «Режим запуска»,
                                          ширина настраивается перетаскиванием разделителя. -->
-                                    <ColumnDefinition x:Name="ActionsColumn">
+                                    <ColumnDefinition x:Name="ActionsColumn" MinWidth="120">
                                         <!-- Колонка «Действия» всегда видима: ширина из ActionsColumnWidth,
                                              по умолчанию 170. Не используем ColumnVis с Source=True, т.к. литерал True
                                              ненадёжно приводится к bool и схлопывал ширину до 0 (0.3.5.1). -->
@@ -628,71 +723,26 @@
                                     </ColumnDefinition>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Кнопки групп, переключатель тегов и пометка закрепления в заголовке слева.
-                                     Блок занимает все ведущие колонки (кнопки групп + компенсатор отступа
-                                     дерева + колонки избранного и закрепления), поэтому «теги» стоят сразу
-                                     после «сортировки по убыванию», а значок «закрепить» — сразу после тегов.
-                                     Расширяющийся при группировке компенсатор не создаёт пустых зазоров между
-                                     ними. Кнопки групп видимы только при группировке, теги и пометка — всегда. -->
-                                <StackPanel Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal"
-                                            VerticalAlignment="Center" HorizontalAlignment="Left"
-                                            Margin="0,0,0,4">
-                                    <Button Command="{Binding DataContext.ExpandAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                                            ToolTip="{loc:Loc Main.ExpandAllGroups}"
-                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                                        <materialDesign:PackIcon Kind="ExpandAll" Width="15" Height="15"
-                                                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    </Button>
-                                    <Button Command="{Binding DataContext.CollapseAllGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            Style="{DynamicResource IconButton}" Margin="0,0,4,0"
-                                            ToolTip="{loc:Loc Main.CollapseAllGroups}"
-                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                                        <materialDesign:PackIcon Kind="CollapseAll" Width="15" Height="15"
-                                                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    </Button>
-                                    <Button Command="{Binding DataContext.SortGroupsAscendingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            Style="{DynamicResource IconButton}" Margin="0,0,2,0"
-                                            ToolTip="{loc:Loc Main.SortGroupsAscending}"
-                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                                        <materialDesign:PackIcon Kind="SortAscending" Width="15" Height="15"
-                                                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    </Button>
-                                    <Button Command="{Binding DataContext.SortGroupsDescendingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            Style="{DynamicResource IconButton}"
-                                            ToolTip="{loc:Loc Main.SortGroupsDescending}"
-                                            Visibility="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                                        <materialDesign:PackIcon Kind="SortDescending" Width="15" Height="15"
-                                                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    </Button>
-                                    <!-- Переключатель видимости тегов в списке (заменяет неактивный значок «Избранное») -->
-                                    <ToggleButton IsChecked="{Binding DataContext.ShowTags, Mode=TwoWay, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                  Style="{DynamicResource ToolbarToggleButton}"
-                                                  VerticalAlignment="Center"
-                                                  Margin="2,0,0,0"
-                                                  ToolTip="{loc:Loc Main.ToggleListTags}">
-                                        <Path Width="14" Height="14" Stretch="Uniform"
-                                              Data="{StaticResource IconTag}"
-                                              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
-                                    </ToggleButton>
-                                    <!-- Пометка закрепления — сразу после кнопки тегов, без зазора -->
-                                    <materialDesign:PackIcon Kind="Pin" Width="14" Height="14"
-                                                             VerticalAlignment="Center"
-                                                             Margin="4,0,0,0"
-                                                             Foreground="{DynamicResource TextSecondaryBrush}"
-                                                             ToolTip="{loc:Loc Main.Pinned}"
-                                                             Visibility="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
-                                </StackPanel>
+                                <!-- Ведущие колонки (0-3) больше не содержат элементов управления:
+                                     кнопки групп, переключатель тегов и индикатор закрепления перенесены
+                                     в панель команд. Колонки оставлены для выравнивания заголовка с данными,
+                                     чтобы колонка «Название» (Grid.Column="4") начиналась на том же месте,
+                                     что и строки данных, а прокрутка DbHeaderScroll оставалась синхронной. -->
 
-                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
-                                            HorizontalAlignment="Stretch" Margin="0,0,8,4"
+                                <!-- Заголовок «Название»: колонка звёздная (растягивается на свободное место),
+                                     поэтому панель явно прижата к левому краю (HorizontalAlignment="Left"),
+                                     а иконка и текст дополнительно зафиксированы слева, чтобы ни один
+                                     неявный стиль/триггер не мог отцентрировать содержимое колонки. -->
+                                    <StackPanel Grid.Column="0" Grid.ColumnSpan="5" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Left" Margin="0,0,8,4"
                                             Cursor="Hand" Tag="Name" ToolTip="{loc:Loc Main.ColumnNameSortTooltip}"
                                             MouseLeftButtonUp="OnColumnHeader_Click">
                                     <materialDesign:PackIcon Kind="FormatTitle" Width="13" Height="13"
                                                              Foreground="{DynamicResource TextSecondaryBrush}"
-                                                             VerticalAlignment="Center"/>
+                                                             HorizontalAlignment="Left" VerticalAlignment="Center"/>
                                     <TextBlock Text="{loc:Loc Column.Name}" FontWeight="SemiBold" FontSize="12"
-                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center"
@@ -923,36 +973,57 @@
                                         </MultiBinding>
                                     </Border.Margin>
                                     <Border.Style>
-                                        <!-- Стиль заголовка группы: фон/граница/выделение и компактные отступы.
-                                             Padding задаётся здесь (а не атрибутом), чтобы триггер компактного
-                                             режима мог его уменьшить и убрать лишнее пустое место вокруг названия. -->
+                                        <!-- Внешний контейнер отвечает только за раскладку (Padding и выравнивание
+                                             колонок через GroupOffset) — сам фон прозрачный. Фон и выделение группы
+                                             рисует внутренний слой GroupHighlight, который начинается сразу после
+                                             кнопки свернуть/развернуть (оформление 0.3.5.1). -->
                                         <Style TargetType="Border">
-                                            <!-- Готовая кисть с узла — без поиска группы и GetFullPath при каждой отрисовке -->
                                             <Setter Property="Padding" Value="8,3"/>
-                                            <Setter Property="Background" Value="{Binding HeaderBrush}"/>
-                                            <Setter Property="BorderBrush" Value="Transparent"/>
-                                            <Setter Property="BorderThickness" Value="2"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding DataContext.CompactMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                     <Setter Property="Padding" Value="6,1"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
-                                    <Grid x:Name="GroupRowGrid" Loaded="OnGroupRowGrid_Loaded">
+                                    <!-- Сетка-слой: фон/выделение группы тянется на всю ширину строки (не
+                                         ограничено колонками GroupRowGrid), начинается сразу после кнопки
+                                         разворота и рисуется позади содержимого. -->
+                                    <Grid>
+                                        <!-- Слой фона/выделения группы: HeaderBrush и акцентная рамка при выборе -->
+                                        <Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                                CornerRadius="6">
+                                            <Border.Margin>
+                                                <MultiBinding Converter="{StaticResource LevelToThickness}" ConverterParameter="group-hl">
+                                                    <Binding Path="(controls:LeveledTreeView.Level)"
+                                                             RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                                </MultiBinding>
+                                            </Border.Margin>
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <!-- Готовая кисть с узла — без поиска группы и GetFullPath при каждой отрисовке -->
+                                                    <Setter Property="Background" Value="{Binding HeaderBrush}"/>
+                                                    <Setter Property="BorderBrush" Value="Transparent"/>
+                                                    <Setter Property="BorderThickness" Value="2"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                        <Grid x:Name="GroupRowGrid" Loaded="OnGroupRowGrid_Loaded">
                                         <Grid.ColumnDefinitions>
                                             <!-- Сетка повторяет набор ведущих колонок строки базы и заголовка
                                                  (кнопки групп + компенсатор + избранное + закрепление + название),
                                                  чтобы команды группы оказывались в той же колонке «Действия»,
                                                  что и кнопки строк баз, а имя/счётчик группы — в области названия. -->
-                                            <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=144}"/>
+                                            <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=24}"/>
                                             <ColumnDefinition Width="0"/>
-                                            <!-- MinWidth совпадает с шапкой: колонка переключателя тегов всегда
-                                                 резервирует место, чтобы заголовки и строки не разъезжались (issue #84). -->
-                                            <ColumnDefinition MinWidth="30" Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
+                                            <!-- MinWidth (резерв под переключатель тегов) убран: кнопки перенесены
+                                                 в панель команд, колонка пустая. Структура синхронизирована с шапкой. -->
+                                            <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
                                             <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
                                             <ColumnDefinition>
                                                 <ColumnDefinition.Width>
@@ -977,7 +1048,7 @@
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
                                             <!-- Колонка «Действия»: команды группы на уровне кнопок строк баз -->
-                                            <ColumnDefinition>
+                                            <ColumnDefinition MinWidth="120">
                                                 <ColumnDefinition.Width>
                                                     <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}" Converter="{StaticResource DoubleToGridLength}" ConverterParameter="170"/>
                                                 </ColumnDefinition.Width>
@@ -1020,6 +1091,14 @@
                                         <StackPanel Grid.Column="0" Grid.ColumnSpan="7"
                                                     Orientation="Horizontal" VerticalAlignment="Center"
                                                     HorizontalAlignment="Left">
+                                            <!-- Отступ названия группы по уровню вложенности (сдвиг перенесён сюда
+                                                 с самого заголовка, чтобы колонка «Действия» не уезжала вправо). -->
+                                            <StackPanel.Margin>
+                                                <MultiBinding Converter="{StaticResource LevelToThickness}" ConverterParameter="group">
+                                                    <Binding Path="(controls:LeveledTreeView.Level)"
+                                                             RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                                </MultiBinding>
+                                            </StackPanel.Margin>
                                             <Path Stretch="Uniform" Margin="0,0,8,0"
                                                   VerticalAlignment="Center"
                                                   Fill="{Binding IconBrush}"
@@ -1102,6 +1181,7 @@
                                             </Button>
                                         </StackPanel>
                                     </Grid>
+                                    </Grid>
                                 </Border>
                             </HierarchicalDataTemplate>
 
@@ -1116,27 +1196,45 @@
                                                 <Trigger Property="IsMouseOver" Value="True">
                                                     <Setter Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
                                                 </Trigger>
-                                                <!-- Подсветка выбранной базы: синхронизируется со свойством
-                                                     IsSelected элемента дерева, которое устанавливается в code-behind
-                                                     при клике левой кнопкой мыши. -->
-                                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="True">
-                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-                                                </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
-                                    <Grid x:Name="InfobaseRowGrid" Loaded="OnInfobaseRowGrid_Loaded">
+                                    <!-- Сетка-слой: подсветка выбранной базы тянется на всю ширину строки до правого
+                                         края (как оформление группы), начинается немного раньше значка «избранное»
+                                         и рисуется позади содержимого. -->
+                                    <Grid>
+                                        <!-- Слой подсветки выбранной базы -->
+                                        <Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                                CornerRadius="4">
+                                            <Border.Margin>
+                                                <MultiBinding Converter="{StaticResource LevelToThickness}" ConverterParameter="base-hl">
+                                                    <Binding Path="(controls:LeveledTreeView.Level)"
+                                                             RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
+                                                </MultiBinding>
+                                            </Border.Margin>
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                        <Grid x:Name="InfobaseRowGrid" Loaded="OnInfobaseRowGrid_Loaded">
                                         <Grid.ColumnDefinitions>
                                             <!-- Ведущие колонки повторяют набор заголовка: кнопки групп + компенсатор +
                                                  избранное + закрепление + название. Одинаковая структура ведущих колонок
                                                  гарантирует, что колонки данных строк точно совпадают по горизонтали
                                                  с заголовками. Компенсатор в строке всегда нулевой (сдвиг вложенности
                                                  даёт отступ названия LevelToThickness). -->
-                                            <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=144}"/>
+                                            <ColumnDefinition Width="{Binding DataContext.ShowExpandCollapseButtons, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=24}"/>
                                             <ColumnDefinition Width="0"/>
-                                            <!-- MinWidth совпадает с шапкой: колонка переключателя тегов всегда
-                                                 резервирует место, чтобы заголовки и строки не разъезжались (issue #84). -->
-                                            <ColumnDefinition MinWidth="30" Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
+                                            <!-- MinWidth (резерв под переключатель тегов) убран: кнопки перенесены
+                                                 в панель команд, колонка пустая. Структура синхронизирована с шапкой. -->
+                                            <ColumnDefinition Width="{Binding DataContext.ShowFavoritesButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=28}"/>
                                             <ColumnDefinition Width="{Binding DataContext.ShowPinnedButton, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToGridLen}, ConverterParameter=26}"/>
                                             <ColumnDefinition>
                                                 <ColumnDefinition.Width>
@@ -1161,7 +1259,7 @@
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
                                             <!-- Колонка «Действия»: встаёт сразу после «Режим запуска», совпадает с заголовком -->
-                                            <ColumnDefinition>
+                                            <ColumnDefinition MinWidth="120">
                                                 <ColumnDefinition.Width>
                                                     <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}" Converter="{StaticResource DoubleToGridLength}" ConverterParameter="170"/>
                                                 </ColumnDefinition.Width>
@@ -1205,7 +1303,7 @@
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
 
-                                        <!-- ★ + 📌 + название: старт с колонки 0 (под иконкой группы),
+                                        <!-- Иконка статуса + название: старт с колонки 0 (под иконкой группы),
                                              без лишних пробелов; сдвиг только по уровню родителя (base). -->
                                         <StackPanel Grid.Column="0" Grid.ColumnSpan="5"
                                                     Orientation="Horizontal" VerticalAlignment="Center">
@@ -1215,6 +1313,8 @@
                                                              RelativeSource="{RelativeSource AncestorType=TreeViewItem}"/>
                                                 </MultiBinding>
                                             </StackPanel.Margin>
+                                            <!-- Избранное (звезда): действует на конкретную базу этой строки.
+                                                 Бейдж справа показывает номер горячей клавиши (если назначен). -->
                                             <Button Command="{Binding DataContext.ToggleFavoriteForCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"
                                                     Background="Transparent" BorderThickness="0"
@@ -1265,6 +1365,7 @@
                                                     </Border>
                                                 </StackPanel>
                                             </Button>
+                                            <!-- Закрепление (пин): действует на конкретную базу этой строки. -->
                                             <Button Command="{Binding DataContext.TogglePinForCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"
                                                     Background="Transparent" BorderThickness="0"
@@ -1349,26 +1450,12 @@
                                                 <materialDesign:PackIcon Kind="Wrench" Width="15" Height="15"
                                                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </Button>
-                                            <Button Command="{Binding DataContext.EditInfobaseCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Style="{DynamicResource IconButton}" Margin="1,0"
-                                                    ToolTip="{loc:Loc Main.EditBaseTooltip}">
-                                                <materialDesign:PackIcon Kind="Pencil" Width="15" Height="15"
-                                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                            </Button>
                                             <Button Command="{Binding DataContext.ClearCacheCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"
                                                     Style="{DynamicResource IconButton}" Margin="1,0"
                                                     ToolTip="{loc:Loc Main.ClearCacheTooltip}">
                                                 <materialDesign:PackIcon Kind="Broom" Width="15" Height="15"
                                                                          Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                            </Button>
-                                            <Button Command="{Binding DataContext.DeleteInfobaseCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Style="{DynamicResource IconButton}" Margin="1,0"
-                                                    ToolTip="{loc:Loc Main.DeleteTooltip}">
-                                                <materialDesign:PackIcon Kind="Delete" Width="15" Height="15"
-                                                                         Foreground="#DC2626"/>
                                             </Button>
                                         </StackPanel>
 
@@ -1458,6 +1545,7 @@
                                                      ToolTip="{loc:Loc Main.EnterTagHint}"/>
                                         </StackPanel>
                                     </Grid>
+                                    </Grid>
                                 </Border>
                             </DataTemplate>
                         </controls:LeveledTreeView.Resources>
@@ -1497,6 +1585,13 @@
                                                         <ColumnDefinition Width="Auto" MinWidth="0"/>
                                                         <ColumnDefinition Width="*"/>
                                                     </Grid.ColumnDefinitions>
+                                                    <!-- Контент заголовка размещаем ДО расширителя, чтобы кнопка разворота
+                                                         рисовалась поверх: заголовок группы выравнивается в начало строки
+                                                         (отрицательный отступ GroupOffset), иначе фон заголовка перекрывал
+                                                         бы кнопку «+/-». -->
+                                                    <Border x:Name="row" Grid.Column="1" Background="Transparent">
+                                                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+                                                    </Border>
                                                     <!-- Кнопка свернуть/развернуть: «+» = группа свёрнута, «−» = развёрнута.
                                                          Видна только у узлов с дочерними элементами (группы). -->
                                                     <Button x:Name="Expander" Grid.Column="0"
@@ -1573,9 +1668,6 @@
                                                             </ControlTemplate>
                                                         </Button.Template>
                                                     </Button>
-                                                    <Border x:Name="row" Grid.Column="1" Background="Transparent">
-                                                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
-                                                    </Border>
                                                 </Grid>
                                                 <!-- Отступ вложенности НЕ применяется к ItemsPresenter: иначе все колонки данных
                                                      вложенных баз сдвигаются относительно заголовков. Иерархия показывается
@@ -1726,11 +1818,17 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <ScrollViewer.Style>
                         <Style TargetType="ScrollViewer">
-                            <Setter Property="Padding" Value="12,10"/>
+                            <!-- Верхняя составляющая Padding (56) выравнивает верхний край блока
+                                 действий запуска («1С Предприятие»/«Конфигуратор») с верхним краем
+                                 панели команд CommandPanelBorder над списком баз. Значение ≈ высоте
+                                 строки TopBarBorder (поиск/вкладки) вместе с верхним отступом левой
+                                 колонки; окно теперь имеет отдельную строку-заголовок, поэтому
+                                 кнопки окна больше не накладываются на основную область. -->
+                            <Setter Property="Padding" Value="12,56"/>
                             <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                    <Setter Property="Padding" Value="2,6,4,6"/>
+                                    <Setter Property="Padding" Value="2,56,4,6"/>
                                     <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
                                 </DataTrigger>
                             </Style.Triggers>
@@ -2423,5 +2521,6 @@
                 </StackPanel>
             </Border>
         </Grid>
+
     </Grid>
 </Window>

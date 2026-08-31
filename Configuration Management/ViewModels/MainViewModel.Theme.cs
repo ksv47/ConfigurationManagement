@@ -130,6 +130,7 @@ public partial class MainViewModel : ViewModelBase
     private void LogTheme(string message)
     {
         try { _logger.Info("[theme-debug] " + message); } catch { /* не критично */ }
+#if DEBUG
         try
         {
             System.IO.File.AppendAllText(
@@ -137,6 +138,7 @@ public partial class MainViewModel : ViewModelBase
                 "[theme-debug] " + message + Environment.NewLine);
         }
         catch { /* не критично */ }
+#endif
     }
 
     /// <summary>

@@ -75,7 +75,7 @@ namespace Configuration_Management
         {
             // XAML-привязка Title="{loc:Loc App.Title}" была перекрыта в конструкторе
             // локальным значением с версией, поэтому заголовок собираем заново.
-            Title = $"{LocalizationManager.T("App.Title")} v{_infoVersion}";
+            UpdateWindowTitle();
 
             // Подсказка кнопки смены темы («Переключить на светлую/тёмную») зависит от языка.
             UpdateThemeButton();
@@ -92,6 +92,33 @@ namespace Configuration_Management
             // дерева окна. Это чинит элементы, которые не реагируют на PropertyChanged("Item[]")
             // (например MultiBinding-подсказки кнопок запуска с Path="Source" + конвертер).
             RefreshAllBindingsOnVisualTree();
+        }
+
+        /// <summary>
+        /// Собирает заголовок программы из базового локализованного имени приложения
+        /// и суффикса версии «v<версия>». Метод устойчив к повторному вызову: если
+        /// базовый заголовок уже содержит суффикс версии, он не добавляется повторно
+        /// (защита от дублирования вида «v0.3.5.68 v0.3.5.68»).
+        /// Обновляет и системный заголовок окна (Title), и видимую кастомную шапку
+        /// (иконка + название, <see cref="AppTitleBlock"/>): система Windows использует
+        /// WindowChrome с CaptionHeight="0", поэтому пользователь видит именно шапку,
+        /// а не системную строку заголовка.
+        /// </summary>
+        private void UpdateWindowTitle()
+        {
+            var baseTitle = LocalizationManager.T("App.Title");
+            var suffix = $" v{_infoVersion}";
+            var fullTitle = baseTitle.EndsWith(suffix, StringComparison.Ordinal)
+                ? baseTitle
+                : baseTitle + suffix;
+
+            // Системный заголовок окна (важен для панели задач и перечисления окон).
+            Title = fullTitle;
+
+            // Видимая шапка окна (иконка + название программы) — её и видит пользователь,
+            // т.к. системная строка заголовка скрыта WindowChrome.
+            if (AppTitleBlock is not null)
+                AppTitleBlock.Text = fullTitle;
         }
 
         /// <summary>

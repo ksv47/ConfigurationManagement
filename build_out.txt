@@ -1,0 +1,9 @@
+  Определение проектов для восстановления...
+  Все проекты обновлены для восстановления.
+  Configuration Management -> f:\ya\Yandex.Disk\h\Configuration_Management_linux\Configuration Management\bin\Debug\net10.0-windows\ConfigurationManagement.dll
+
+Сборка успешно завершена.
+    Предупреждений: 0
+    Ошибок: 0
+
+Прошло времени 00:00:00.94

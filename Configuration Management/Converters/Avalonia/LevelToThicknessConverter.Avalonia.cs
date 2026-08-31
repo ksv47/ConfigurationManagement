@@ -21,14 +21,19 @@ namespace Configuration_Management.Converters
         public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
         {
             var level = values is { Count: > 0 } && values[0] is int i ? i : 0;
-            var forBase = parameter is string s &&
-                          s.Equals("base", StringComparison.OrdinalIgnoreCase);
+            var param = parameter as string;
 
             double offset;
-            if (forBase)
+            if (string.Equals(param, "base", StringComparison.OrdinalIgnoreCase))
             {
                 var parentLevel = level > 0 ? level - 1 : 0;
                 offset = parentLevel * IndentStep + ExpanderWidth;
+            }
+            else if (string.Equals(param, "group", StringComparison.OrdinalIgnoreCase))
+            {
+                // Заголовок группы: сдвиг названия по уровню + ширина расширителя,
+                // чтобы название начиналось сразу после кнопки разворота.
+                offset = level * IndentStep + ExpanderWidth;
             }
             else
             {
