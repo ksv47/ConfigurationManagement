@@ -81,6 +81,13 @@ namespace Configuration_Management
         /// </summary>
         public List<string> Result => _installedPlatformVersions;
 
+        /// <summary>
+        /// Живая строка версии для вкладки «О программе»: номер из InformationalVersion
+        /// без суффикса «+<sha>», как в Avalonia-версии (SettingsWindow.Avalonia.cs).
+        /// </summary>
+        public string AboutVersion =>
+            string.Format(LocalizationManager.T("Settings.About.Version"), VersionInfo.Display());
+
         private void OnSave_Click(object sender, RoutedEventArgs e)
         {
             // Сохраняем версии платформы и дополнительные пути поиска.

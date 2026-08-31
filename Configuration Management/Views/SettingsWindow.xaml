@@ -1492,6 +1492,8 @@
                             <controls:HelpLink Margin="8,0,0,0" VerticalAlignment="Center"
                                                HelpText="{loc:Loc Settings.About.HelpText}"/>
                         </StackPanel>
+                        <TextBlock Text="{Binding AboutVersion, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   FontSize="14" Margin="0,0,0,4"/>
                         <TextBlock Text="{loc:Loc Settings.About.Author}" FontSize="14"
                                    Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,16"/>
                         <TextBlock Text="{loc:Loc Settings.About.Infostart}" FontWeight="SemiBold"

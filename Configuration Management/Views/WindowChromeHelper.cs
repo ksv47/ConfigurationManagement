@@ -53,6 +53,29 @@ namespace Configuration_Management
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmEnableBlurBehindWindow(IntPtr hwnd, ref DwmBlurBehind pBlurBehind);
 
+        // GWL_STYLE и флаги стилей окна для удаления системных кнопок заголовка.
+        private const int GwlStyle = -16;
+        private const int WsSysMenu = 0x00080000;
+        private const int WsMinimizeBox = 0x00020000;
+        private const int WsMaximizeBox = 0x00010000;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        // Флаги SetWindowPos для принудительной перерисовки рамки после смены стиля.
+        private const uint SwpNoSize = 0x0001;
+        private const uint SwpNoMove = 0x0002;
+        private const uint SwpNoZOrder = 0x0004;
+        private const uint SwpNoActivate = 0x0010;
+        private const uint SwpFrameChanged = 0x0020;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+            int X, int Y, int cx, int cy, uint uFlags);
+
         [StructLayout(LayoutKind.Sequential)]
         private struct DwmBlurBehind
         {
@@ -119,6 +142,10 @@ namespace Configuration_Management
             // Оборачиваем содержимое в полосу заголовка с кнопками «свернуть/закрыть».
             if (window.Content is UIElement inner)
             {
+                // Сначала отсоединяем текущее содержимое окна, иначе WPF бросает
+                // InvalidOperationException «элемент уже является логическим дочерним для
+                // другого элемента» при добавлении inner в новую сетку BuildChrome.
+                window.Content = null;
                 window.Content = BuildChrome(window, inner);
             }
 
@@ -140,6 +167,9 @@ namespace Configuration_Management
             ApplyGlassBackground(window);
             ApplySystemBackdrop(window);
             ApplyCornerPreference(window);
+            // Убираем системные кнопки заголовка (свернуть/развернуть/закрыть), которые DWM
+            // может рисовать «призрачными» поверх расширенной стеклянной рамки.
+            RemoveSystemCaptionButtons(window);
 
             // В развёрнутом виде скругление убираем и сбрасываем толщину стеклянной рамки.
             window.StateChanged += (_, _) =>
@@ -151,6 +181,35 @@ namespace Configuration_Management
                 }
                 catch { /* некритично */ }
             };
+        }
+
+        /// <summary>
+        /// Снимает флаги стиля окна WS_SYSMENU / WS_MINIMIZEBOX / WS_MAXIMIZEBOX, чтобы
+        /// системные кнопки заголовка (свернуть/развернуть/закрыть) не рисовались DWM
+        /// «призрачными» поверх расширенной стеклянной рамки (GlassFrameThickness=-1).
+        /// WindowChrome с UseAeroCaptionButtons=false сам их скрывает, но на части систем
+        /// фон остаётся, поэтому продублируем на уровне Win32.
+        /// </summary>
+        private static void RemoveSystemCaptionButtons(Window window)
+        {
+            try
+            {
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+                if (hwnd == IntPtr.Zero)
+                    return;
+
+                int style = GetWindowLong(hwnd, GwlStyle);
+                style &= ~(WsSysMenu | WsMinimizeBox | WsMaximizeBox);
+                SetWindowLong(hwnd, GwlStyle, style);
+
+                // Принудительно перерисовываем рамку, чтобы изменения стиля применились сразу.
+                SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                    SwpNoSize | SwpNoMove | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+            }
+            catch
+            {
+                // Не критично: останется штатное поведение WindowChrome.
+            }
         }
 
         /// <summary>
@@ -211,8 +270,10 @@ namespace Configuration_Management
                 Orientation = Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            buttons.Children.Add(BuildButton(window, WindowControlKind.Minimize));
-            buttons.Children.Add(BuildButton(window, WindowControlKind.Close));
+            // В диалоговых окнах показываем только кнопку «закрыть» (без «свернуть»
+            // и «развернуть») — это стандартная схема диалогов. Свои кнопки
+            // «свернуть/развернуть/закрыть» есть только у главного окна.
+            buttons.Children.Add(BuildButton(window));
 
             Grid.SetColumn(title, 0);
             Grid.SetColumn(buttons, 1);
@@ -223,96 +284,33 @@ namespace Configuration_Management
             return bar;
         }
 
-        private enum WindowControlKind { Minimize, MaximizeRestore, Close }
-
         /// <summary>
-        /// Кнопка управления окном. Стили WindowControlButton / WindowControlCloseButton
-        /// (красное закрытие) лежат в общих ресурсах приложения (App.xaml). Кнопка
-        /// «развернуть/восстановить» переключает значок и подсказку по состоянию окна.
+        /// Кнопка «закрыть» окна. Стиль WindowControlCloseButton (красное выделение)
+        /// лежит в общих ресурсах приложения (App.xaml). В диалоговых окнах показывается
+        /// только эта кнопка — без «свернуть» и «развернуть».
         /// </summary>
-        private static Button BuildButton(Window window, WindowControlKind kind)
+        private static Button BuildButton(Window window)
         {
-            bool isClose = kind == WindowControlKind.Close;
-            bool isMaxRestore = kind == WindowControlKind.MaximizeRestore;
+            var style = (Style?)window.TryFindResource("WindowControlCloseButton");
 
-            var style = (Style?)window.TryFindResource(isClose ? "WindowControlCloseButton" : "WindowControlButton");
-
-            var path = BuildGlyph(kind);
-            var button = new Button { Style = style, Content = path };
-
-            if (isClose)
+            var path = new Path
             {
-                button.ToolTip = LocalizationManager.T("Common.Close");
-                // Значок следует за цветом Foreground кнопки (тема + состояние hover/pressed).
-                path.SetBinding(Shape.StrokeProperty, new Binding(nameof(Button.Foreground)) { Source = button });
-                button.Click += (_, _) => window.Close();
-            }
-            else if (isMaxRestore)
+                Width = 13,
+                Height = 13,
+                Stretch = Stretch.Uniform,
+                StrokeThickness = 1.2,
+                Data = Geometry.Parse("M1,1 L12,12 M12,1 L1,12")
+            };
+            var button = new Button
             {
-                path.SetBinding(Shape.StrokeProperty, new Binding(nameof(Button.Foreground)) { Source = button });
-                UpdateMaximizeRestoreGlyph(window, path, button);
-                window.StateChanged += (_, _) => UpdateMaximizeRestoreGlyph(window, path, button);
-                button.Click += (_, _) =>
-                    window.WindowState = window.WindowState == WindowState.Maximized
-                        ? WindowState.Normal
-                        : WindowState.Maximized;
-            }
-            else
-            {
-                button.ToolTip = LocalizationManager.T("Window.Minimize");
-                path.SetBinding(Shape.FillProperty, new Binding(nameof(Button.Foreground)) { Source = button });
-                button.Click += (_, _) => window.WindowState = WindowState.Minimized;
-            }
+                Style = style,
+                Content = path,
+                ToolTip = LocalizationManager.T("Common.Close")
+            };
+            // Значок следует за цветом Foreground кнопки (тема + состояние hover/pressed).
+            path.SetBinding(Shape.StrokeProperty, new Binding(nameof(Button.Foreground)) { Source = button });
+            button.Click += (_, _) => window.Close();
             return button;
-        }
-
-        /// <summary>Значок кнопки: минус для «свернуть», крест для «закрыть», контур квадрата для «развернуть».</summary>
-        private static Path BuildGlyph(WindowControlKind kind)
-        {
-            switch (kind)
-            {
-                case WindowControlKind.Close:
-                    return new Path
-                    {
-                        Width = 13,
-                        Height = 13,
-                        Stretch = Stretch.Uniform,
-                        StrokeThickness = 1.2,
-                        Data = Geometry.Parse("M1,1 L12,12 M12,1 L1,12")
-                    };
-                case WindowControlKind.MaximizeRestore:
-                    return new Path
-                    {
-                        Width = 12,
-                        Height = 12,
-                        Stretch = Stretch.Uniform,
-                        StrokeThickness = 1.2,
-                        Data = Geometry.Parse("M1,1 L12,1 L12,12 L1,12 Z")
-                    };
-                default: // Minimize
-                    return new Path
-                    {
-                        Width = 11,
-                        Height = 11,
-                        Stretch = Stretch.Uniform,
-                        Data = Geometry.Parse("M0,5.5 L11,5.5 L11,6.5 L0,6.5 Z")
-                    };
-            }
-        }
-
-        /// <summary>
-        /// Обновляет значок и подсказку кнопки «развернуть/восстановить»: в развёрнутом
-        /// состоянии показываются два наложенных прямоугольника и подсказка «Восстановить».
-        /// </summary>
-        private static void UpdateMaximizeRestoreGlyph(Window window, Path path, Button button)
-        {
-            bool maximized = window.WindowState == WindowState.Maximized;
-            path.Data = Geometry.Parse(maximized
-                ? "M4,1 L12,1 L12,9 L4,9 Z M1,4 L9,4 L9,12 L1,12 Z"
-                : "M1,1 L12,1 L12,12 L1,12 Z");
-            button.ToolTip = maximized
-                ? LocalizationManager.T("Window.Restore")
-                : LocalizationManager.T("Window.Maximize");
         }
 
         /// <summary>

@@ -9,6 +9,45 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.5.45] — 2026-08-31
+
+Устранены «призрачные» (неактивные) системные кнопки заголовка «свернуть / развернуть / закрыть», которые DWM рисовал поверх фона диалоговых окон (в том числе окна настроек) из-за расширенной стеклянной рамки (`GlassFrameThickness=-1`). Теперь флаги стиля окна `WS_SYSMENU` / `WS_MINIMIZEBOX` / `WS_MAXIMIZEBOX` снимаются на уровне Win32, поэтому на фоне остаётся только собственная кнопка «закрыть» в заголовке. Изменение внесено только для Windows/WPF.
+
+### Исправлено
+
+- **Системные кнопки не рисуются «призрачными»** (Windows/WPF). В [`WindowChromeHelper.cs`](Configuration Management/Views/WindowChromeHelper.cs) добавлен метод `RemoveSystemCaptionButtons`: через `GetWindowLong`/`SetWindowLong` снимаются флаги `WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX`, а `SetWindowPos(SWP_FRAMECHANGED)` принудительно перерисовывает рамку. Вызывается в `Apply` для каждого диалога после установки `WindowChrome`; `WindowChrome.UseAeroCaptionButtons=false` уже скрывал кнопки, но теперь их исчезновение гарантировано и на уровне Win32.
+- **Версия поднята до `0.3.5.45`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.44] — 2026-08-31
+
+В заголовке диалоговых окон (в том числе окна настроек) оставлена **только кнопка «закрыть»**: кнопки «свернуть» и «развернуть/восстановить», добавленные в `0.3.5.42`, убраны, а код хелпера упрощён до единственной кнопки закрытия. Это стандартная схема диалогов: полный набор кнопок «свернуть / развернуть / закрыть» остаётся только у главного окна. Изменение внесено только для Windows/WPF.
+
+### Изменено
+
+- **Только кнопка «закрыть» в заголовке диалогов** (Windows/WPF). В [`WindowChromeHelper.BuildTitleBar`](Configuration Management/Views/WindowChromeHelper.cs) в полосу заголовка добавляется только кнопка закрытия (стиль `WindowControlCloseButton`, красное выделение); `BuildButton` и значок креста построены напрямую, а неиспользуемые ветки «свернуть»/«развернуть» удалены.
+- **Версия поднята до `0.3.5.44`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.43] — 2026-08-31
+
+Исправлена первопричина отсутствия кнопок управления окном в диалоговых окнах (в том числе в окне настроек): [`WindowChromeHelper.BuildChrome`](Configuration Management/Views/WindowChromeHelper.cs) переносил текущее содержимое окна в новую сетку заголовка, **не отсоединив** его, из-за чего WPF бросал `InvalidOperationException` («элемент уже является логическим дочерним для другого элемента»). Глобальный обработчик на `Loaded` молча перехватывал это исключение — системные кнопки уже были скрыты (`WindowChrome`), а собственный заголовок с кнопками так и не добавлялся, поэтому окно оставалось без кнопки закрытия. Теперь содержимое сначала отсоединяется (`window.Content = null`), затем оборачивается в сетку с полосой заголовка — собственные кнопки «свернуть / развернуть/восстановить / закрыть» корректно появляются у всех диалогов. Изменение внесено только для Windows/WPF.
+
+### Исправлено
+
+- **Собственные кнопки управления окном у диалогов** (Windows/WPF). В [`WindowChromeHelper.Apply`](Configuration Management/Views/WindowChromeHelper.cs) перед вызовом `BuildChrome` текущий `Content` окна отсоединяется (`window.Content = null`), чтобы добавить его в новую сетку с полосой заголовка без `InvalidOperationException`. Исправление восстанавливает появление кнопок «свернуть», «развернуть/восстановить» и «закрыть» у всех диалоговых окон, включая окно настроек (оформление применяется глобальным обработчиком на `Loaded` после создания HWND, поэтому системный фон acrylic/mica и скругление углов тоже работают).
+- **Версия поднята до `0.3.5.43`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.42] — 2026-08-30
+
+В собственном заголовке диалоговых окон (который оформляется централизованно через [`WindowChromeHelper.cs`](Configuration Management/Views/WindowChromeHelper.cs)) появилась недостающая кнопка **«развернуть/восстановить»** — теперь у изменяемых окон (например, у окна настроек) в полосе заголовка есть полный набор кнопок управления, как у главного окна: **«свернуть», «развернуть/восстановить», «закрыть»** (с красным выделением). Изменение внесено только для Windows/WPF.
+
+### Добавлено
+
+- **Кнопка «развернуть/восстановить» в заголовке диалогов** (Windows/WPF). В [`WindowChromeHelper.cs`](Configuration Management/Views/WindowChromeHelper.cs) добавлен тип кнопки `MaximizeRestore`: значок переключается между контуром одного прямоугольника («развернуть») и двумя наложенными прямоугольниками («восстановить») по состоянию окна (`StateChanged`), клик разворачивает/восстанавливает окно. Кнопка добавляется только у изменяемых окон (`ResizeMode=CanResize` / `CanResizeWithGrip`), поэтому окно настроек получило полный набор кнопок «свернуть / развернуть / закрыть». Подсказки используют ключи `Window.Maximize` / новый `Window.Restore` ([`ru.json`](Configuration Management/Localization/Languages/ru.json) — «Восстановить», [`en.json`](Configuration Management/Localization/Languages/en.json) — «Restore»).
+
+### Изменено
+
+- **Версия поднята до `0.3.5.42`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
 ## [0.3.5.41] — 2026-08-30
 
 Управление учётными записями (профилями) в Windows-версии перенесено из отдельного окна во вкладку **«Учётные записи»** окна настроек: весь редактор профилей теперь живёт прямо в настройках, а прежняя кнопка «Управление учётными записями…» и отдельное окно в Windows-версии упразднены. Изменение внесено только для Windows/WPF; Linux/Avalonia-версия не затрагивалась.
