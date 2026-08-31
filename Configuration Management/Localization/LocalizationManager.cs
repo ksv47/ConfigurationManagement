@@ -125,12 +125,14 @@ public sealed class LocalizationManager
         string selected = ResolveLanguage(preferredLanguage);
         SetLanguage(selected);
 
+#if DEBUG
         // [DEBUG] Диагностика локализации: какие языки загружены и какой выбран.
         Console.Error.WriteLine(
             "[l10n-debug] Initialize: preferred=" + (preferredLanguage ?? "null") +
             ", dataDir=" + (dataDirectory ?? "null") +
             ", selected=" + selected +
             ", loaded=[" + string.Join(",", _languages.Keys) + "]");
+#endif
 
         _initialized = true;
     }
@@ -150,7 +152,9 @@ public sealed class LocalizationManager
     /// <summary>Устанавливает активный язык и уведомляет подписчиков.</summary>
     public void SetLanguage(string? code)
     {
+#if DEBUG
         Console.Error.WriteLine("[l10n-debug] SetLanguage(requested=" + (code ?? "null") + ", current=" + CurrentLanguage + ")");
+#endif
 
         if (code is null || !_languages.TryGetValue(code, out var lang))
             lang = _languages.TryGetValue(BuiltInRussian, out var ru) ? ru : _languages.Values.FirstOrDefault();

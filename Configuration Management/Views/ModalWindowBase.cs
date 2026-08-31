@@ -3,9 +3,19 @@ using System;
 using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
+using Avalonia.Controls.Templates;
+using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Configuration_Management.Controls;
 using Configuration_Management.Localization;
 using Configuration_Management.Themes;
 
@@ -21,16 +31,31 @@ namespace Configuration_Management
     public abstract class ModalWindowBase : Window
     {
         /// <summary>
-        /// Задаёт окну фон темы. В разметке WPF его ставит каждое окно
-        /// (<c>Background="{DynamicResource ContentBackgroundBrush}"</c>),
-        /// здесь это одно место на все диалоги. Окну, которому нужен свой фон,
-        /// присвоения мало: привязка держит то же местное значение и вернёт своё
-        /// при следующей смене темы или схемы, поэтому её надо снимать
-        /// (<c>ClearValue(BackgroundProperty)</c>) до присвоения.
+        /// Задаёт диалогу «стеклянный» стиль главного окна одним местом на все окна:
+        /// собственная рамка без системных кнопок, прозрачный фон под acrylic/размытие
+        /// и полупрозрачная подложка нужного цвета темы вокруг содержимого. Окну,
+        /// которому нужен свой фон, присвоения мало: обёртка держит подложку.
         /// </summary>
         protected ModalWindowBase()
         {
-            Themes.ThemeBrushes.Bind(this, BackgroundProperty, "ContentBackgroundBrush");
+            // Отказываемся от системной рамки и кнопок: диалоги, как и главное окно,
+            // получают собственные кнопки управления (свернуть/закрыть, у закрытия
+            // красное выделение) и «стеклянный» полупрозрачный фон. Это единое место
+            // для всех диалогов, а не повторение в каждом.
+            SystemDecorations = SystemDecorations.None;
+            ExtendClientAreaToDecorationsHint = true;
+
+            // Прозрачное окно под эффект «стекла»: просим у оконного менеджера
+            // AcrylicBlur, при недоступности откатываемся на Blur, затем Transparent.
+            // Полупрозрачную подложку нужного цвета темы рисует стеклянный контейнер.
+            TransparencyLevelHint = new[]
+            {
+                WindowTransparencyLevel.AcrylicBlur,
+                WindowTransparencyLevel.Blur,
+                WindowTransparencyLevel.Transparent
+            };
+            Background = Brushes.Transparent;
+
             // Диалоги не показываются в панели задач: в разметке WPF
             // ShowInTaskbar="False" стоит у всех шестнадцати окон, поэтому здесь
             // это общее свойство базового окна, а не повторение в каждом.
@@ -52,6 +77,13 @@ namespace Configuration_Management
         private string? _lastOkKey;
         private bool _languageSubscribed;
 
+        // Поля «стеклянной» обёртки содержимого.
+        private Border? _glassRoot;
+        private bool _wrappingContent;
+        private bool _resizeZonesAdded;
+        private IDisposable? _glassStateSub;
+        private IDisposable? _titleSub;
+
         /// <summary>Результат диалога: true — подтверждён (ОК), false — отменён.</summary>
         public bool DialogResult { get; protected set; }
 
@@ -65,6 +97,12 @@ namespace Configuration_Management
                 LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
                 _languageSubscribed = false;
             }
+
+            // Подписки обёртки «стекла» на состояние окна и заголовок.
+            _glassStateSub?.Dispose();
+            _glassStateSub = null;
+            _titleSub?.Dispose();
+            _titleSub = null;
 
             base.OnClosed(e);
         }
@@ -100,6 +138,242 @@ namespace Configuration_Management
         /// Показывает окно модально (синхронно) без владельца.
         /// </summary>
         public bool ShowDialogSync() => ShowDialogSync(null);
+
+        // ======================= «Стеклянная» обёртка содержимого =======================
+
+        /// <summary>
+        /// Каждый диалог строит своё содержимое, не задумываясь о рамке окна. Чтобы
+        /// добавить «стеклянную» подложку, собственные кнопки окна и перетаскивание
+        /// без правки восемнадцати окон, содержимое оборачивается здесь, в базе:
+        /// первый установленный Control становится телом «стеклянного» контейнера
+        /// с полосой заголовка (перетаскивание + свернуть/закрыть) поверх.
+        /// </summary>
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+            if (change.Property != ContentProperty || _wrappingContent)
+            {
+                return;
+            }
+            if (change.GetNewValue<object?>() is Control inner)
+            {
+                _wrappingContent = true;
+                Content = BuildChrome(inner);
+                _wrappingContent = false;
+            }
+        }
+
+        /// <summary>
+        /// Собирает «стеклянный» контейнер: скруглённый полупрозрачный корень, внутри —
+        /// полоса заголовка с кнопками окна и тело диалога.
+        /// </summary>
+        private Control BuildChrome(Control inner)
+        {
+            var glass = new Border
+            {
+                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
+                ClipToBounds = true
+            };
+            ApplyGlassBackground(glass);
+            _glassRoot = glass;
+
+            var grid = new Grid();
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            // Для окон с SizeToContent по высоте строка содержимого тоже Auto: звёздная
+            // строка в окне, меряющемся по содержимому, могла бы схлопнуться или уехать.
+            grid.RowDefinitions.Add(new RowDefinition
+            {
+                Height = SizeToContent == SizeToContent.Height || SizeToContent == SizeToContent.WidthAndHeight
+                    ? GridLength.Auto
+                    : GridLength.Star
+            });
+
+            var strip = BuildTitleStrip();
+            Grid.SetRow(strip, 0);
+            Grid.SetRow(inner, 1);
+
+            grid.Children.Add(strip);
+            grid.Children.Add(inner);
+
+            glass.Child = grid;
+
+            // В развёрнутом виде скругление убираем: в углах окна не должно
+            // просвечивать содержимое рабочего стола под рамкой соседних окон.
+            _glassStateSub = this.GetObservable(WindowStateProperty)
+                .Subscribe(new WindowStateObserver(() =>
+                    glass.CornerRadius = WindowState == WindowState.Maximized
+                        ? new CornerRadius(0)
+                        : new CornerRadius(UiMetrics.RadiusLg)));
+
+            return glass;
+        }
+
+        /// <summary>
+        /// Альфа полупрозрачной «стеклянной» подложки: ~91% непрозрачности сохраняет
+        /// контраст текста, но при этом сквозь неё проступает acrylic/размытие фона.
+        /// </summary>
+        private const byte GlassBackgroundAlpha = 0xE8;
+
+        /// <summary>
+        /// Подписка стеклянного контейнера на цвет фона темы: берём текущий
+        /// <c>ContentBackgroundColorBrush</c> и делаем из него полупрозрачную версию,
+        /// чтобы обе темы и все цветовые схемы выглядели как «стекло» своего цвета.
+        /// </summary>
+        private void ApplyGlassBackground(Border glass)
+            => ThemeBrushes.Observe(glass, "ContentBackgroundColorBrush",
+                brush => glass.Background = ThemeBrushes.WithAlpha(brush, GlassBackgroundAlpha));
+
+        /// <summary>
+        /// Полоса заголовка диалога: слева заголовок окна, справа собственные кнопки
+        /// управления (свернуть, закрыть с красным выделением). Пустое место полосы
+        /// таскает окно за собой (<see cref="BeginMoveDrag"/>).
+        /// </summary>
+        private Control BuildTitleStrip()
+        {
+            var strip = new Border();
+            strip.PointerPressed += OnTitleStripPointerPressed;
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Star });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var title = new TextBlock
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(UiMetrics.Scaled(14), 0, 0, 0),
+                FontWeight = FontWeight.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Height = UiMetrics.Scaled(30)
+            };
+            ThemeBrushes.Bind(title, TextBlock.ForegroundProperty, "TextPrimaryColorBrush");
+            // Заголовок следует за свойством окна (в т.ч. за привязкой {loc:Loc ...}).
+            _titleSub = title.Bind(TextBlock.TextProperty, this.GetObservable(TitleProperty));
+
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 2,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var minimize = new DialogWindowControlButton(DialogWindowControlKind.Minimize);
+            ToolTip.SetTip(minimize, LocalizationManager.T("Window.Minimize"));
+            minimize.Click += (_, _) => WindowState = WindowState.Minimized;
+            buttons.Children.Add(minimize);
+
+            var close = new DialogWindowControlButton(DialogWindowControlKind.Close);
+            ToolTip.SetTip(close, LocalizationManager.T("Common.Close"));
+            close.Click += (_, _) => Close();
+            buttons.Children.Add(close);
+
+            Grid.SetColumn(title, 0);
+            Grid.SetColumn(buttons, 1);
+            grid.Children.Add(title);
+            grid.Children.Add(buttons);
+
+            strip.Child = grid;
+            return strip;
+        }
+
+        /// <summary>
+        /// Перетаскивание окна за полосу заголовка. Кнопки, поля и прочие
+        /// интерактивные элементы движение не начинают — только пустое место полосы.
+        /// </summary>
+        private void OnTitleStripPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                return;
+            if (WindowState == WindowState.Maximized)
+                return;
+            if (IsInteractiveSource(e.Source))
+                return;
+            BeginMoveDrag(e);
+        }
+
+        /// <summary>true, если источник нажатия — интерактивный элемент полосы заголовка.</summary>
+        private static bool IsInteractiveSource(object? source)
+        {
+            var node = source as Visual;
+            while (node is not null)
+            {
+                if (node is Button or ToggleButton or TextBox or HelpLink)
+                    return true;
+                node = node.GetVisualParent();
+            }
+            return false;
+        }
+
+        protected override void OnOpened(EventArgs e)
+        {
+            base.OnOpened(e);
+            // Без системной рамки изменение размера рисуем сами — невидимые зоны по
+            // краям и углам. Только для изменяемых окон: у фиксированных ресайза нет.
+            if (CanResize && !_resizeZonesAdded && _glassRoot?.Child is Grid grid)
+            {
+                AddResizeZones(grid);
+                _resizeZonesAdded = true;
+            }
+        }
+
+        /// <summary>
+        /// Невидимые зоны изменения размера по краям и углам окна (системной рамки
+        /// больше нет): нажатие в такой зоне вызывает BeginResizeDrag нужного края.
+        /// </summary>
+        private void AddResizeZones(Grid root)
+        {
+            const double edgeThickness = 6;
+            const double cornerSize = 12;
+
+            var overlay = new Grid();
+            Grid.SetRowSpan(overlay, root.RowDefinitions.Count);
+            overlay.ZIndex = 2000;
+
+            AddResizeZone(overlay, WindowEdge.NorthWest, HorizontalAlignment.Left, VerticalAlignment.Top,
+                cornerSize, cornerSize, StandardCursorType.TopLeftCorner);
+            AddResizeZone(overlay, WindowEdge.NorthEast, HorizontalAlignment.Right, VerticalAlignment.Top,
+                cornerSize, cornerSize, StandardCursorType.TopRightCorner);
+            AddResizeZone(overlay, WindowEdge.SouthWest, HorizontalAlignment.Left, VerticalAlignment.Bottom,
+                cornerSize, cornerSize, StandardCursorType.BottomLeftCorner);
+            AddResizeZone(overlay, WindowEdge.SouthEast, HorizontalAlignment.Right, VerticalAlignment.Bottom,
+                cornerSize, cornerSize, StandardCursorType.BottomRightCorner);
+            AddResizeZone(overlay, WindowEdge.North, HorizontalAlignment.Stretch, VerticalAlignment.Top,
+                0, edgeThickness, StandardCursorType.SizeNorthSouth);
+            AddResizeZone(overlay, WindowEdge.South, HorizontalAlignment.Stretch, VerticalAlignment.Bottom,
+                0, edgeThickness, StandardCursorType.SizeNorthSouth);
+            AddResizeZone(overlay, WindowEdge.West, HorizontalAlignment.Left, VerticalAlignment.Stretch,
+                edgeThickness, 0, StandardCursorType.SizeWestEast);
+            AddResizeZone(overlay, WindowEdge.East, HorizontalAlignment.Right, VerticalAlignment.Stretch,
+                edgeThickness, 0, StandardCursorType.SizeWestEast);
+
+            root.Children.Add(overlay);
+        }
+
+        private void AddResizeZone(Grid host, WindowEdge edge, HorizontalAlignment ha, VerticalAlignment va,
+            double width, double height, StandardCursorType cursor)
+        {
+            var zone = new Border
+            {
+                HorizontalAlignment = ha,
+                VerticalAlignment = va,
+                Width = width > 0 ? width : double.NaN,
+                Height = height > 0 ? height : double.NaN,
+                // Прозрачная, но не null кисть: по ней всё равно идёт hit-test.
+                Background = Brushes.Transparent,
+                Cursor = new Cursor(cursor)
+            };
+            zone.PointerPressed += (_, e) =>
+            {
+                if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                    BeginResizeDrag(edge, e);
+            };
+            Grid.SetRow(zone, 0);
+            Grid.SetColumn(zone, 0);
+            Grid.SetRowSpan(zone, host.RowDefinitions.Count);
+            Grid.SetColumnSpan(zone, host.ColumnDefinitions.Count);
+            host.Children.Add(zone);
+        }
+
+        // ======================= Панель кнопок «Отмена»/«ОК» =======================
 
         /// <summary>
         /// Строит стандартный ряд кнопок «Отмена»/«ОК» с иконками и обработчиками.
@@ -394,6 +668,143 @@ namespace Configuration_Management
                 _lastOkText.Text = _lastOkKey is { Length: > 0 } key
                     ? LocalizationManager.T(key)
                     : ResolveOkText(_lastOkRaw);
+        }
+
+        /// <summary>Простой наблюдатель bool (для IsEnabled кнопки управления окном).</summary>
+        private sealed class BoolObserver : IObserver<bool>
+        {
+            private readonly Action<bool> _action;
+            public BoolObserver(Action<bool> action) => _action = action;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(bool value) => _action(value);
+        }
+
+        /// <summary>Простой наблюдатель WindowState (для скругления при развороте).</summary>
+        private sealed class WindowStateObserver : IObserver<WindowState>
+        {
+            private readonly Action _action;
+            public WindowStateObserver(Action action) => _action = action;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(WindowState value) => _action();
+        }
+
+        /// <summary>Вид кнопки управления окном диалога: свернуть или закрыть.</summary>
+        private enum DialogWindowControlKind { Minimize, Close }
+
+        /// <summary>
+        /// Собственная кнопка управления окном диалога (свернуть/закрыть). Значок
+        /// строится из StreamGeometry; цвет значка и hover-подложка следуют теме через
+        /// ThemeBrushes. У кнопки «закрыть» красная подложка при наведении/нажатии
+        /// и белый значок, как у главного окна.
+        /// </summary>
+        private sealed class DialogWindowControlButton : Button
+        {
+            // Контуры в координатном поле 24 на 24 (как ресурсы Icons.axaml).
+            private const string MinimizeData = "M6,11.5H18V13H6Z";
+            private const string CloseData =
+                "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z";
+
+            private readonly DialogWindowControlKind _kind;
+            private readonly Avalonia.Controls.Shapes.Path _glyph;
+
+            private IBrush _hoverBg = Brushes.Transparent;
+            private IBrush _pressedBg = Brushes.Transparent;
+            private IBrush _baseGlyphBrush = Brushes.Transparent;
+            private bool _hovered;
+            private bool _pressed;
+
+            // Красная подложка кнопки «закрыть» (классический алый), не зависит от темы:
+            // наведение — алый, нажатие — чуть темнее. Значок на ней всегда белый.
+            private static readonly IBrush CloseHoverBrush = new SolidColorBrush(Color.Parse("#E81123"));
+            private static readonly IBrush ClosePressedBrush = new SolidColorBrush(Color.Parse("#C50F1F"));
+
+            public DialogWindowControlButton(DialogWindowControlKind kind)
+            {
+                _kind = kind;
+
+                Width = UiMetrics.Scaled(40);
+                Height = UiMetrics.Scaled(30);
+                Padding = new Thickness(0);
+                HorizontalContentAlignment = HorizontalAlignment.Center;
+                VerticalContentAlignment = VerticalAlignment.Center;
+                Cursor = new Cursor(StandardCursorType.Hand);
+
+                // Кастомный шаблон: скруглённый Border + ContentPresenter (без Fluent-хрома).
+                Theme = new ControlTheme(typeof(Button))
+                {
+                    Setters =
+                    {
+                        new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<DialogWindowControlButton>((_, _) =>
+                        {
+                            var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusSm) };
+                            border[!Border.BackgroundProperty] = new TemplateBinding(TemplatedControl.BackgroundProperty);
+                            border[!Border.BorderBrushProperty] = new TemplateBinding(TemplatedControl.BorderBrushProperty);
+                            var presenter = new ContentPresenter();
+                            presenter[!ContentPresenter.ContentProperty] = new TemplateBinding(ContentControl.ContentProperty);
+                            presenter[!ContentPresenter.HorizontalContentAlignmentProperty] = new TemplateBinding(ContentControl.HorizontalContentAlignmentProperty);
+                            presenter[!ContentPresenter.VerticalContentAlignmentProperty] = new TemplateBinding(ContentControl.VerticalContentAlignmentProperty);
+                            border.Child = presenter;
+                            return border;
+                        }))
+                    }
+                };
+
+                _glyph = new Avalonia.Controls.Shapes.Path
+                {
+                    Width = UiMetrics.Scaled(16),
+                    Height = UiMetrics.Scaled(16),
+                    Stretch = Stretch.Uniform,
+                    Data = StreamGeometry.Parse(_kind == DialogWindowControlKind.Close ? CloseData : MinimizeData)
+                };
+                Content = _glyph;
+
+                // Цвет значка и hover-подложка следуют теме. У кнопки «закрыть» цвет значка
+                // храним отдельно: при красной подложке он перекрашивается в белый, а при
+                // выходе курсора возвращается к теме (см. ApplyState).
+                if (_kind == DialogWindowControlKind.Close)
+                    ThemeBrushes.Observe(this, "TextPrimaryColorBrush", b => { _baseGlyphBrush = b; ApplyState(); });
+                else
+                    ThemeBrushes.Bind(_glyph, Avalonia.Controls.Shapes.Path.FillProperty, "TextPrimaryColorBrush");
+                ThemeBrushes.Observe(this, "ItemHoverBrush", b => { _hoverBg = b; ApplyState(); });
+                ThemeBrushes.Observe(this, "AccentPressedBrush", b => { _pressedBg = b; ApplyState(); });
+
+                PointerEntered += (_, _) => { _hovered = true; ApplyState(); };
+                PointerExited += (_, _) => { _hovered = false; _pressed = false; ApplyState(); };
+                PointerPressed += (_, _) => { _pressed = true; ApplyState(); };
+                PointerReleased += (_, _) => { _pressed = false; ApplyState(); };
+                PointerCaptureLost += (_, _) => { _pressed = false; ApplyState(); };
+                this.GetObservable(IsEnabledProperty).Subscribe(new BoolObserver(_ => ApplyState()));
+
+                ApplyState();
+            }
+
+            private void ApplyState()
+            {
+                if (!IsEnabled)
+                {
+                    Opacity = 0.55;
+                    Background = Brushes.Transparent;
+                    BorderBrush = Brushes.Transparent;
+                    return;
+                }
+
+                Opacity = 1.0;
+                BorderBrush = Brushes.Transparent;
+
+                if (_kind == DialogWindowControlKind.Close)
+                {
+                    // Кнопка «закрыть»: красная подложка при наведении/нажатии, значок — белый.
+                    var redActive = _pressed || _hovered;
+                    Background = _pressed ? ClosePressedBrush : (_hovered ? CloseHoverBrush : Brushes.Transparent);
+                    _glyph.Fill = redActive ? Brushes.White : _baseGlyphBrush;
+                }
+                else
+                {
+                    Background = _pressed ? _pressedBg : (_hovered ? _hoverBg : Brushes.Transparent);
+                }
+            }
         }
     }
 }

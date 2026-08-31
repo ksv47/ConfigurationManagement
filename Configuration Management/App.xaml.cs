@@ -22,6 +22,11 @@ namespace Configuration_Management
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Единое «стеклянное» оформление всех диалоговых окон: общий хелпер применяет
+            // WindowChrome, собственные кнопки окна и полупрозрачную подложку к каждому
+            // окну приложения (главное, оформленное самостоятельно, пропускается).
+            WindowChromeHelper.RegisterGlobalWindowStyling();
+
             // Режим COM-агента перехватывается раньше, в Program.Main: агенту не нужны
             // ни WPF, ни ресурсные словари тем. См. ComReadHost.
 
@@ -179,6 +184,7 @@ namespace Configuration_Management
                 ThemeManager.ApplyScheme(scheme ?? (isDark
                     ? Configuration_Management.Models.ColorScheme.CreateDark()
                     : Configuration_Management.Models.ColorScheme.CreateLight()));
+#if DEBUG
                 try
                 {
                     System.IO.File.AppendAllText(
@@ -188,6 +194,7 @@ namespace Configuration_Management
                         $"active='{settings.ActiveColorScheme?.Name}'{System.Environment.NewLine}");
                 }
                 catch { /* не критично */ }
+#endif
 
                 var mainWindow = AppServices.GetRequiredService<MainWindow>();
                 MainWindow = mainWindow;

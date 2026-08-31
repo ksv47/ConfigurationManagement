@@ -262,7 +262,14 @@ namespace Configuration_Management
                 // «не сворачивалась» бы. Скрытый элемент просто останется не выделенным.
                 foreach (var group in stack)
                 {
-                    if (!group.IsExpanded)
+                    // Группы, которые пользователь свернул, принудительно не раскрываем.
+                    // Опора только на group.IsExpanded недостаточна: к моменту пересборки
+                    // IsExpanded у свёрнутой группы может быть true (авторазворачивание при
+                    // поиске/фильтре либо значение ещё не применено), а ключ свёрнутой
+                    // группы уже сохранён в _collapsedGroups. Иначе свёрнутый родитель,
+                    // внутри которого выбрана база во вложенной группе «домашнее», после
+                    // любой пересборки раскрывался бы обратно и «не сворачивался».
+                    if (!group.IsExpanded || _viewModel.IsGroupCollapsed(group.NodeKey))
                         continue;
                     if (FindTreeViewItemForData(group) is { } gItem)
                     {
@@ -317,17 +324,35 @@ namespace Configuration_Management
 
             try
             {
-                var point = item.TransformToAncestor(scrollViewer).Transform(new Point(0, 0));
-                var top = point.Y;
-                var bottom = top + item.ActualHeight;
+                // При прокрутке ВНИЗ ниже края вьюпорта из-за Recycling-виртуализации
+                // реализуются НОВЫЕ контейнеры строк, раскладка которых к этому моменту
+                // ещё не выполнена: позиция (TransformToAncestor) и ActualHeight окажутся
+                // неактуальными, и величина прокрутки получится больше одной строки.
+                // Принудительно доводим раскладку целевого контейнера до конца, чтобы
+                // замер был точным (симметрично тому, как работает прокрутка вверх,
+                // где строки над вьюпортом уже реализованы и разложены).
+                item.UpdateLayout();
 
-                if (top < scrollViewer.VerticalOffset)
+                // TransformToAncestor(scrollViewer) даёт позицию элемента ОТНОСИТЕЛЬНО
+                // вьюпорта (уже с учётом прокрутки): top/bottom лежат в диапазоне видимой
+                // области (0..ViewportHeight), отрицательные — выше верха вьюпорта.
+                // Их нельзя сравнивать с VerticalOffset — это смещение в координатах
+                // контента (растёт при прокрутке вниз). Смешивание систем координат
+                // давало «прыжки» списка к началу и «прятало» выбранную базу внизу.
+                var point = item.TransformToAncestor(scrollViewer).Transform(new Point(0, 0));
+                var top = point.Y;                        // относительно вьюпорта
+                var bottom = top + item.ActualHeight;     // относительно вьюпорта
+                var viewportBottom = scrollViewer.ViewportHeight;
+
+                if (top < 0)
                 {
-                    scrollViewer.ScrollToVerticalOffset(top);
+                    // Элемент выше верха вьюпорта: поднимаем на разницу top.
+                    scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset + top);
                 }
-                else if (bottom > scrollViewer.VerticalOffset + scrollViewer.ViewportHeight)
+                else if (bottom > viewportBottom)
                 {
-                    scrollViewer.ScrollToVerticalOffset(bottom - scrollViewer.ViewportHeight);
+                    // Элемент ниже низа вьюпорта: опускаем на величину выступа за нижний край.
+                    scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset + (bottom - viewportBottom));
                 }
             }
             catch

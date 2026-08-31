@@ -481,7 +481,6 @@
         <Setter Property="ItemContainerTheme" Value="{StaticResource ModernComboBoxItem}"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
 
-
         <Style Selector="^ /template/ Border#Background">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushColor}"/>

@@ -14,7 +14,7 @@
                        SizeToContent="Height"
                        FontSize="13"
                        CanResize="False"
-                       SystemDecorations="Full">
+                       SystemDecorations="None">
     <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
 
         <!-- Заголовок со значком предупреждения 28 и отступом 12

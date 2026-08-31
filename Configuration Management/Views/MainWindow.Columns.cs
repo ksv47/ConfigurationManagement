@@ -386,6 +386,13 @@ namespace Configuration_Management
         private const double NameColumnMinWidth = 220;
 
         /// <summary>
+        /// Минимальная ширина колонки «Действия»: совпадает с MinWidth=120, заданной трём
+        /// ColumnDefinition этой колонки (заголовок, группа, база) в MainWindow.xaml, чтобы
+        /// три кнопки-иконки (Запуск, Конфигуратор, Очистить кеш) оставались доступными.
+        /// </summary>
+        private const double ActionsColumnMinWidth = 120;
+
+        /// <summary>
         /// Задаёт списку точную минимальную ширину, равную сумме ширин всех колонок
         /// заголовка (гибкое «Название» — по своему минимуму) вместе с ведущими отступами
         /// (колонки кнопок групп, компенсатор сдвига дерева, избранное, закрепление).
@@ -495,7 +502,9 @@ namespace Configuration_Management
             var delta = current.X - _resizeStartMouse.X;
 
             var newWidth = _resizeStartWidth + delta;
-            if (newWidth < 40)
+            if (ReferenceEquals(_resizeColumn, ActionsColumn) && newWidth < ActionsColumnMinWidth)
+                newWidth = ActionsColumnMinWidth;
+            else if (newWidth < 40)
                 newWidth = 40;
 
             if (ReferenceEquals(_resizeColumn, SizeColumn))

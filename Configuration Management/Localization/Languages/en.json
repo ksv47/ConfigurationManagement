@@ -4,6 +4,10 @@
   "strings": {
     "App.Title": "1C Configuration Management",
 
+    "Window.Minimize": "Minimize",
+    "Window.Maximize": "Maximize",
+    "Window.Restore": "Restore",
+
     "Common.Ok": "OK",
     "Common.Cancel": "Cancel",
     "Common.Close": "Close",
@@ -241,6 +245,7 @@
     "Settings.TabBases": "Bases",
     "Settings.TabAbout": "About",
     "Settings.TabAppearance": "Color theme",
+    "Settings.TabAccounts": "Accounts",
     "Settings.TabLanguage": "Language",
     "Settings.Language": "Interface language",
     "Settings.LanguageHint": "The language is applied after restarting the application. Add a *.json file to the Languages folder to load another language.",
@@ -451,7 +456,7 @@
     "Settings.About.Infostart": "Publication on Infostart:",
     "Settings.About.GitHub": "GitHub repository:",
     "Settings.About.DonatTooltip": "Open in full size",
-    "Settings.About.HelpText": "Version: 0.3.5.1.\n\nThis is a desktop application for managing 1C:Enterprise 8.3 infobases — a replacement for the standard 1C base list.\n\n• In many windows there is a ? icon next to elements — click it to see a hint about how that element works.\n• A full description of features and architecture is in the README.md file of the repository.",
+    "Settings.About.HelpText": "This is a desktop application for managing 1C:Enterprise 8.3 infobases — a replacement for the standard 1C base list.\n\n• In many windows there is a ? icon next to elements — click it to see a hint about how that element works.\n• A full description of features and architecture is in the README.md file of the repository.",
 
     "Settings.About.HelpTextLinux": "This is a desktop application for managing 1C:Enterprise 8.3 infobases — a replacement for the standard 1C infobase list.\n\n• In many windows there is a «?» icon next to elements — click it to see a hint about how that element works.\n• A full description of features and architecture is in the README.md file of the repository.",
     "Settings.General.ManageProfiles": "Manage accounts…",

@@ -9,6 +9,364 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.5.70] — 2026-08-31
+
+Версия программы теперь отображается и в видимой шапке главного окна (иконка + название программы), а не только в скрытом системном заголовке.
+
+### Исправлено
+
+- **Версия выводится в шапку окна (иконка + название программы)** (Windows/WPF). Окно использует `WindowChrome` с `CaptionHeight="0"` и скрытыми системными кнопками, поэтому системная строка заголовка не показывается — пользователь видел в шапке только название программы без версии. Теперь `UpdateWindowTitle()` в [`MainWindow.Language.cs`](Configuration Management/Views/MainWindow.Language.cs) обновляет и `Title` окна, и видимый `TextBlock` шапки (`AppTitleBlock` в [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml)) — с тем же суффиксом версии и защитой от дублирования.
+- **Версия поднята до `0.3.5.69` → `0.3.5.70`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.69] — 2026-08-31
+
+Исправлено сворачивание родительской группы, внутри которой есть вложенная группа «домашнее»: свёрнутая группа больше не разворачивается обратно при пересборке дерева.
+
+### Исправлено
+
+- **Свёрнутая группа с вложенной «домашнее» больше не раскрывается обратно** (Windows/WPF). При восстановлении выделения после пересборки дерева [`RevealAndSelectAfterRebuild()`](Configuration Management/Views/MainWindow.Tree.cs) принудительно раскрывал группы-предков выбранной цели. Опора только на `group.IsExpanded` была недостаточной: к моменту пересборки `IsExpanded` у только что свёрнутой группы мог быть `true` (например, при авторазворачивании поиска/фильтра), и если внутри такой группы (во вложенной «домашнее») была выбрана база или группа, она попадала в цепочку раскрытия и родитель раскрывался обратно — «не сворачивался». Теперь раскрытие предков дополнительно проверяет ключ группы в `_collapsedGroups` через `IsGroupCollapsed(node.NodeKey)`: явно свёрнутые пользователем группы принудительно не раскрываются, сохраняя состояние сворачивания/разворачивания остальных групп и поиск.
+- **Версия поднята до `0.3.5.68` → `0.3.5.69`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.68] — 2026-08-31
+
+Версия программы теперь гарантированно отображается в заголовке главного окна и не теряется и не дублируется при смене языка интерфейса.
+
+### Добавлено
+
+- **Отображение версии в заголовке главного окна защищено от дублирования** (Windows/WPF). Версия читается через [`VersionInfo.Display()`](Configuration Management/VersionInfo.cs) (информационная версия без суффикса `+<sha>`) и выводится в заголовок как «v0.3.5.68». Сборка заголовка вынесена в общий метод `UpdateWindowTitle()` в [`MainWindow.Language.cs`](Configuration Management/Views/MainWindow.Language.cs), который вызывается и из конструктора [`MainWindow.xaml.cs`](Configuration Management/Views/MainWindow.xaml.cs), и при пересборке интерфейса после смены языка (`RebuildAfterLanguageChange`). Метод начинается с базового локализованного имени `App.Title` и добавляет суффикс версии только если его ещё нет — поэтому суффикс не дублируется (не появляется «v0.3.5.68 v0.3.5.68») и не теряется (не остаётся просто «App.Title») даже при повторном применении XAML-привязки `Title="{loc:Loc App.Title}"`.
+- **Версия поднята до `0.3.5.67` → `0.3.5.68`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.67] — 2026-08-31
+
+Навигация по списку баз клавишей «стрелка вниз» (↓) при достижении нижней границы видимой области снова сдвигает список ровно на одну строку, как и «стрелка вверх» (↑).
+
+### Исправлено
+
+- **Прокрутка вниз снова сдвигает список ровно на одну строку** (Windows/WPF). В [`ScrollSelectedIntoView`](Configuration Management/Views/MainWindow.Tree.cs) перед замером позиции целевого контейнера (`TransformToAncestor(scrollViewer)` + `item.ActualHeight`) вызывается принудительная раскладка `item.UpdateLayout()`. Раньше при прокрутке вниз ниже края вьюпорта из-за Recycling-виртуализации создавались новые контейнеры строк, которые к моменту замера ещё не были разложены, из-за чего позиция и высота оказывались неактуальными и величина прокрутки получалась больше одной строки («прыжок»). Прокрутка вверх работала корректно, поскольку строки над вьюпортом уже реализованы и разложены; теперь поведение ↓ симметрично ↑. Выравнивание заголовка колонок (синхронизация через [`MainWindow.Scroll.cs`](Configuration Management/Views/MainWindow.Scroll.cs)) не затронуто.
+- **Версия поднята до `0.3.5.66` → `0.3.5.67`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.66] — 2026-08-31
+
+Отладочный вывод `[l10n-debug]` скрыт за `#if DEBUG` — больше не пишется в stderr в Release-сборке.
+
+### Изменено
+
+- **Отладочный вывод `[l10n-debug]` скрыт за `#if DEBUG`** (Windows/WPF). Строки `Console.Error.WriteLine("[l10n-debug] ...")`, помеченные как `[DEBUG]`, но ранее выполнявшиеся всегда, теперь компилируются только в Debug-конфигурации и не пишутся в stderr в Release-сборке. Затронутые места: блок диагностики локализации в `Initialize` и запись в `SetLanguage` в [`LocalizationManager.cs`](Configuration Management/Localization/LocalizationManager.cs), а также записи `LoadSettings` (отсутствие файла и `Language=`) и `SaveSettings` (`Language=`) в [`InfobaseRepository.cs`](Configuration Management/Services/InfobaseRepository.cs) — каждая обёрнута в `#if DEBUG ... #endif`, логика методов и фигурные скобки не нарушены. Легитимное логирование ошибок в `catch`-блоках (например `MainWindow.Language.cs`, `LocalizationSource.cs`) не затрагивалось.
+- **Версия поднята до `0.3.5.65` → `0.3.5.66`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.65] — 2026-08-31
+
+Убрана незащищённая debug-запись `cm_theme_debug.log`, которая создавалась в каталоге `%TEMP%` при каждом запуске/переключении темы даже в Release-сборке.
+
+### Изменено
+
+- **Debug-запись `cm_theme_debug.log` скрыта за `#if DEBUG`** (Windows/WPF). Несанкционированная запись во временный файл `%TEMP%\cm_theme_debug.log`, остававшаяся от отладки темы и выполнявшаяся даже в Release-сборке, теперь компилируется только в Debug-конфигурации и не попадает в релизные сборки. Затронутые места: блок `try { System.IO.File.AppendAllText(...) } catch` при старте в [`App.xaml.cs`](Configuration Management/App.xaml.cs), запись `[theme-debug]` в [`MainViewModel.Theme.cs`](Configuration Management/ViewModels/MainViewModel.Theme.cs) и запись `[settings]` в [`SettingsWindow.Schemes.cs`](Configuration Management/Views/SettingsWindow.Schemes.cs) — каждая обёрнута в `#if DEBUG ... #endif`, логика сохранена, в Release не выполняется.
+- **Версия поднята до `0.3.5.64` → `0.3.5.65`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.64] — 2026-08-31
+
+Иконка и надпись в заголовке колонки «Название» выровнены по левому краю (Windows/WPF).
+
+### Исправлено
+
+- **Иконка и надпись в заголовке колонки «Название» выровнены по левому краю** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) заголовок колонки «Название» (`StackPanel Grid.Column="4"` внутри `HeaderGrid`) уже прижат к левому краю звёздной колонки через `HorizontalAlignment="Left"`; для надёжности у дочерних элементов (`materialDesign:PackIcon Kind="FormatTitle"` и `TextBlock` с подписью «Название») явно заданы `HorizontalAlignment="Left"` и `VerticalAlignment="Center"`, чтобы никакой неявный стиль/триггер не мог отцентрировать содержимое колонки. Начало иконки и текста теперь точно совпадает с началом данных в строках. Соседние заголовки (Версия, Режим запуска, Сервер и т.д.) не изменялись.
+- **Версия поднята до `0.3.5.64`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.63] — 2026-08-31
+
+Иконка главного окна теперь берётся из файла app.ico (Windows/WPF).
+
+### Изменено
+
+- **Иконка главного окна теперь берётся из файла `app.ico`** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) атрибут `Window.Icon` заменён с `{StaticResource AppIcon}` на pack URI `pack://application:,,,/app.ico`, поэтому иконка окна в панели задач и в заголовке теперь извлекается из `app.ico`. Иконка в верхней строке-заголовке слева тоже переключена на `app.ico`: источник `<Image>` заменён с `{StaticResource AppIcon}` на `BitmapImage` с `UriSource="pack://application:,,,/app.ico"` и `DecodePixelWidth="18"` (размер ~18×18), чтобы `.ico` отображался аккуратно, без слишком крупного кадра. Ресурс `AppIcon` из `App.xaml` не удалялся — он продолжает использоваться в других местах (трей, окно «О программе», Linux/Avalonia).
+- **Версия поднята до `0.3.5.63`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.62] — 2026-08-31
+
+Колонка «Действия» больше не может быть сжата до размера, при котором кнопки-иконки недоступны (добавлена минимальная ширина и ограничение при перетаскивании) (Windows/WPF).
+
+### Изменено
+
+- **Колонка «Действия» больше не сжимается ниже минимальной ширины** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) всем трём `ColumnDefinition`, привязанным к `ActionsColumnWidth` (в заголовке — `ActionsColumn`, в шаблоне группы и в шаблоне строки базы), задан `MinWidth="120"`, чтобы три кнопки-иконки («Запуск», «Конфигуратор», «Очистить кеш») вместе с отступами оставались полностью доступными. В [`MainWindow.Columns.cs`](Configuration Management/Views/MainWindow.Columns.cs) в `OnColumnResize_MouseMove` для колонки «Действия» добавлен отдельный нижний предел (`ActionsColumnMinWidth = 120`), совпадающий с `MinWidth` из XAML; общий кламп `40` для остальных колонок сохранён. `UpdateTreeMinWidth` уже учитывает `d.MinWidth` для не-absolute колонок, а `SaveColumnWidths`/`UpdateColumnWidths` сохраняют итоговую ширину через `ActualWidth`/`newWidth` (уже ограниченную минимумом), поэтому синхронизация заголовка с данными и сохранение ширины корректны.
+- **Версия поднята до `0.3.5.62`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.61] — 2026-08-31
+
+Убран лишний пустой отступ слева в заголовке колонки «Название» (Windows/WPF).
+
+### Изменено
+
+- **Убран лишний пустой отступ слева в заголовке колонки «Название»** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) уменьшены ведущие колонки `ColumnDefinitions` 0–3 заголовка (`HeaderGrid`, внутри `DbHeaderScroll`), которые резервировали место под уже перенесённые в панель команд кнопки управления группами, переключатель тегов и индикатор закрепления: ширина первой колонки (`ShowExpandCollapseButtons`) уменьшена с `144` до `24` px, а у колонки резерва под переключатель тегов убран `MinWidth="30"`. Тот же набор изменений синхронно применён к ведущим колонкам шаблонов строк — заголовка группы (`GroupRowGrid`) и строки базы (`InfobaseRowGrid`), чтобы колонки данных по-прежнему точно совпадали по горизонтали с заголовками. Иерархический отступ вложенности групп и место под звёздочку/статус в строках сохраняются: они обеспечиваются сдвигом названия по уровню (`LevelToThickness`/`GroupOffset`), а не шириной этих колонок. Компенсатор `HeaderOffsetColumn` (заполняется в `AlignHeaderToData`) и синхронизация ширины заголовка с данными (`SyncHeaderWidthWithList`/`DbHeaderScroll`) не изменялись — заголовок «Название» теперь начинается существенно левее, ближе к данным строк верхнего уровня.
+- **Версия поднята до `0.3.5.61`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.60] — 2026-08-31
+
+Заголовок колонки «Название» выровнен по левому краю (Windows/WPF).
+
+### Изменено
+
+- **Заголовок колонки «Название» выровнен по левому краю** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) у StackPanel-заголовка колонки «Название» (`Grid.Column="4"`, внутри `DbHeaderScroll`; содержит `materialDesign:PackIcon Kind="FormatTitle"` и `TextBlock` с текстом `Column.Name`) значение `HorizontalAlignment` изменено с `Stretch` на `Left`. При `Stretch` содержимое StackPanel (иконка + текст) могло сдвигаться к центру/вправо относительно данных строк при нестандартной ширине колонки; `Left` прижимает контент к левому краю колонки, чтобы заголовок совпадал с началом данных в строках. Разделители колонок, `ColumnDefinitions` и остальные заголовки (колонки 5, 6, 8–11 остались на `Stretch`, колонка 7 «Действия» — на `Left`) не изменялись.
+- **Версия поднята до `0.3.5.60`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.59] — 2026-08-31
+
+Убран индикатор «закрепить» из области заголовка колонок таблицы списка (Windows/WPF).
+
+### Изменено
+
+- **Убран индикатор «закрепить» из области заголовка колонок таблицы** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) из левого `StackPanel` заголовка (`Grid.Column="0" Grid.ColumnSpan="4"`, внутри `DbHeaderScroll`) удалён значок-пометка закрепления базы `materialDesign:PackIcon Kind="Pin"`. Сам `StackPanel` к этому моменту уже не содержал других элементов (кнопки управления группами и переключатель тегов были перенесены в панель команд), поэтому он полностью удалён вместе со ставшими неактуальными комментариями. Ведущие колонки заголовка (`ColumnDefinitions` 0–3: кнопки групп, компенсатор отступа дерева, колонки избранного и закрепления) оставлены без изменений — они нужны для выравнивания заголовков с данными: колонка «Название» по-прежнему начинается на `Grid.Column="4"` там же, где строки данных, а горизонтальная синхронная прокрутка заголовка (`DbHeaderScroll`) не затрагивается. Свойство `ShowPinnedButton` сохранено: оно по-прежнему используется в `ColumnDefinitions` заголовка и строк данных для выравнивания колонок.
+- **Версия поднята до `0.3.5.59`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.58] — 2026-08-31
+
+Кнопки запуска «1С Предприятие»/«Конфигуратор» правой панели выровнены по уровню панели команд над списком баз (Windows/WPF).
+
+### Изменено
+
+- **Кнопки запуска «1С Предприятие»/«Конфигуратор» правой панели выровнены по уровню панели команд над списком баз** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) верхняя составляющая `Padding` у `ScrollViewer` правой панели (`x:Name="RightPanelBorder"`) увеличена, чтобы верхний край блока действий запуска совпадал с верхним краем панели команд `CommandPanelBorder` левой колонки, а не уходил в самый верх основной области: обычный режим `"12,44"` → `"12,56"`, компактный (`ShowRightPanelDetails=False`) `"2,40,4,6"` → `"2,56,4,6"`. Значение 56 примерно равно высоте строки `TopBarBorder` (поиск/вкладки/переключатели групп) вместе с верхним отступом левой колонки; поскольку окно теперь имеет отдельную строку-заголовок, кнопки окна больше не накладываются на основную область, и прежний увеличенный зазор (44/40) был избыточен. Расположение кнопок окна в строке-заголовке не изменялось.
+- **Версия поднята до `0.3.5.58`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.57] — 2026-08-31
+
+Восстановлена высота заголовков колонок таблицы списка (Windows/WPF).
+
+### Изменено
+
+- **Восстановлена высота заголовков колонок таблицы списка** (Windows/WPF). После переноса кнопок управления группами (развернуть/свернуть все, сортировка, теги) из левой части заголовка таблицы в панель команд строка заголовка стала ниже — равной высоте только текста заголовков колонок. В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) у `Border`-контейнера строки заголовка (`DbHeaderScroll`, область списка) задан `MinHeight="36"`, чтобы вернуть прежнюю комфортную высоту (~34–38 px). В `HeaderGrid` добавлена явная star-строка (`RowDefinition Height="*"`), которая растягивается на высоту контейнера, благодаря чему StackPanel-заголовки всех колонок (у них уже стоит `VerticalAlignment="Center"`) остаются отцентрированы по вертикали строки. Горизонтальное выравнивание, разделители колонок и синхронная прокрутка заголовка с данными (`DbHeaderScroll`) не изменялись; данные списка не смещаются.
+- **Версия поднята до `0.3.5.57`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.56] — 2026-08-31
+
+Иконка и заголовок программы вынесены в отдельную верхнюю строку окна (заголовок-титул); кнопки управления окном встроены в неё (Windows/WPF).
+
+### Изменено
+
+- **Иконка и заголовок программы вынесены в отдельную верхнюю строку окна** (Windows/WPF). В корневой `Grid` окна [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) добавлена новая первая строка (`RowDefinition Height="Auto"`) — полоса-«заголовок-титул» приложения по образцу заголовка обычного окна. Слева размещены иконка (`Image` с `{StaticResource AppIcon}`, 18×18, `Margin` справа) и текст заголовка (`{loc:Loc App.Title}`, `FontWeight="SemiBold"`, размер 13, цвет `{DynamicResource TextPrimaryBrush}`), выровненные по вертикали по центру; справа — кнопки управления окном, вертикально отцентрированные в полосе. Фон полосы — `{DynamicResource CardBackgroundBrush}`, нижняя граница — `{DynamicResource BorderBrushColor}` (`BorderThickness="0,0,0,1"`), `Height="Auto"`, горизонтальный `Padding` 12, вертикальный 6. Перетаскивание окна за полосу реализовано через существующий обработчик `OnTopBar_MouseLeftButtonDown` (`MouseLeftButtonDown`), который вызывает `DragMove` и двойной клик для разворота.
+- **Кнопки управления окном встроены в строку-заголовок, старый оверлей удалён** (Windows/WPF). Кнопки «свернуть/развернуть/закрыть» (`MinimizeButton`, `MaximizeButton`, `CloseButton`) перенесены из прежнего оверлейного `StackPanel` (прямой дочерний элемент корневого `Grid`, правый верхний угол поверх контента, `Panel.ZIndex=10`) в правую часть новой строки-заголовка. Сохранены `x:Name`, обработчики `OnMinimizeButton_Click`/`OnMaximizeButton_Click`/`OnCloseButton_Click`, стили `WindowControlButton`/`WindowControlCloseButton`, `ToolTip` (`Window.Minimize`/`Window.Maximize`/`Common.Close`) и глифы `MaximizeGlyphPath`/`RestoreGlyphPath`. Старый оверлейный `StackPanel` полностью удалён — дублирования кнопок нет. Прежняя основная область окна смещена на `Grid.Row="1"`, строка состояния — на `Grid.Row="2"`, поэтому левая колонка и правая панель `RightPanelBorder` не залезают под новую полосу.
+- **Версия поднята до `0.3.5.56`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.55] — 2026-08-31
+
+Исправлено наложение правых команд запуска («1С Предприятие»/«Конфигуратор») на кнопки управления окном — контент правой панели опущен ниже (Windows/WPF).
+
+### Исправлено
+
+- **Наложение правых команд запуска на кнопки управления окном устранено** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) верхняя составляющая `Padding` у `ScrollViewer` правой панели (`x:Name="RightPanelBorder"`) увеличена так, чтобы верхний ряд кнопок правой панели (split-кнопки «1С Предприятие» `LaunchEnterpriseCommand` / «Конфигуратор» `LaunchConfiguratorCommand` и детали базы) гарантированно начинались ниже полосы кнопок окна («свернуть/развернуть/закрыть»): обычный режим `"12,10"` → `"12,44"`, компактный (`ShowRightPanelDetails=False`) `"2,6,4,6"` → `"2,40,4,6"`. Кнопки окна не перемещались и остались в правом верхнем углу с высоким `Panel.ZIndex`.
+- **Версия поднята до `0.3.5.55`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.54] — 2026-08-31
+
+Кнопки «Избранное» и «Закрепление» возвращены в строку информационной базы (колонку названия) (Windows/WPF).
+
+### Изменено
+
+- **Кнопки «Избранное» и «Закрепление» возвращены в колонку названия строки информационной базы** (Windows/WPF). Из панели команд `StackPanel x:Name="CommandPanelStack"` ([`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml)) удалены глобальные кнопки «Избранное» (`ToggleFavoriteCommand`, `PackIcon Star`) и «Закрепление» (`TogglePinCommand`, `PackIcon Pin`), действовавшие на выбранную базу; разделители панели сохранены и она осталась аккуратной. В шаблон строки (`DataTemplate DataType=Infobase`) в `StackPanel` области названия перед иконкой статуса возвращены две per-row кнопки, действующие на конкретную строку: «Избранное» (звезда, `Command="{Binding DataContext.ToggleFavoriteForCommand, RelativeSource={RelativeSource AncestorType=Window}}"`, `CommandParameter="{Binding}"`, `PackIcon Star` 14×14, прозрачная, `Cursor="Hand"`, цвет по умолчанию `TextSecondaryBrush`, при `IsFavorite=True` — `FavoriteBrush`) с круглым бейджем номера горячей клавиши (`Border` на `FavoriteHotkeyDisplay`, цвет `FavoriteBrush`, видим при `IsFavorite=True` и `FavoriteHotkeyNumber != 0`) и «Закрепление» (пин, `TogglePinForCommand`, `PackIcon Pin` 14×14, цвет по умолчанию `TextSecondaryBrush`, при `IsPinned=True` — `AccentBrush`). Сохранены локализованные `ToolTip` (`Main.ToggleFavoriteTooltip`, `Main.TogglePinTooltip`); структура `Grid.ColumnDefinitions` строки не менялась.
+- **Версия поднята до `0.3.5.54`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.53] — 2026-08-31
+
+Команды управления группами (развернуть/свернуть все, сортировка, отображение тегов) перенесены в панель команд над заголовками колонок (Windows/WPF).
+
+### Изменено
+
+- **Команды управления группами перенесены из заголовка таблицы в панель команд** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) в начало `StackPanel x:Name="CommandPanelStack"` панели `CommandPanelBorder` (`Grid.Row="2"`) добавлена отдельная группа «Управление группами» из пяти элементов: «Развернуть все группы» (`ExpandAllGroupsCommand`, `PackIcon ExpandAll`), «Свернуть все группы» (`CollapseAllGroupsCommand`, `PackIcon CollapseAll`), «Сортировка по возрастанию» (`SortGroupsAscendingCommand`, `PackIcon SortAscending`), «Сортировка по убыванию» (`SortGroupsDescendingCommand`, `PackIcon SortDescending`) и переключатель «Отображение тегов» (`ToggleButton`, `IsChecked="{Binding ShowTags, Mode=TwoWay}"`, `Path IconTag`). Сохранены команды, стили (`IconButton`/`ToolbarToggleButton`), локализованные `ToolTip`, `Visibility`-привязки (`ShowExpandCollapseButtons` для кнопок групп), размеры иконок приведены к 18×18 под остальные кнопки панели. После группы добавлен вертикальный разделитель (`Border Width=1`, `Background={DynamicResource BorderBrushColor}`, `Opacity=0.55`, `Margin="4,5"`), отделяющий её от кнопок «Избранное»/«Закрепление». Из `StackPanel Grid.Column="0" Grid.ColumnSpan="4"` заголовка (`HeaderGrid` внутри `DbHeaderScroll`) эти пять элементов удалены; там оставлен пустой контейнер со значком-индикатором «закрепить» (`PackIcon Pin`, `ShowPinnedButton`). `ColumnDefinitions` заголовка не менялись — выравнивание заголовков и строк, а также прокрутка `DbHeaderScroll` сохранены.
+- **Версия поднята до `0.3.5.53`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.52] — 2026-08-31
+
+Все кнопки-команды (добавить, правка, удалить, очистить кеш, синхронизация, настройки и др.) перенесены в отдельную панель команд над заголовками колонок (Windows/WPF).
+
+### Изменено
+
+- **Все кнопки-команды перенесены из верхней панели поиска/вкладок в отдельную панель команд** (Windows/WPF). Из `TopBarBorder` (`Grid.Row="0"` левой колонки) [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) удалён блок «Действия» (`Border Grid.Column="3"`) вместе с кнопками «Добавить базу» (`AddInfobaseCommand`, `PackIcon Plus`), «Правка» (`EditInfobaseCommand`, `PackIcon Pencil`), «Удаление» (`DeleteInfobaseCommand`, `PackIcon Delete`), «Очистить кеш» (`ClearCacheCommand`, `PackIcon Broom`), индикатором выгрузки (`ExportIndicatorButton` с анимацией `ExportIndicatorBounce`, `PackIcon Upload`), «Синхронизация» (`SynchronizeWithIbasesCommand`, `PackIcon Sync`), «Проверка доступности» (`CheckAvailabilityCommand`, `Path IconSonar`), «Тема» (`ThemeToggleButton`/`ThemeToggleIcon`, `Click="OnToggleTheme_Click"`), «Компактный режим» (`CompactModeButton`, `Click="OnCompactMode_Toggled"`), «Настройки» (`OpenSettingsCommand`, `PackIcon Cog`) и справкой (`controls:HelpLink`). Также удалена ставшая неиспользуемой четвёртая колонка внутреннего `Grid` панели поиска/вкладок. В `TopBarBorder` остаются только переключатели групп/тегов (колонка 0), поиск (колонка 1) и вкладки (колонка 2); перетаскивание окна через `OnTopBar_MouseLeftButtonDown` работает на оставшейся области. Все перечисленные элементы перенесены в `StackPanel x:Name="CommandPanelStack"` панели `CommandPanelBorder` (`Grid.Row="2"`) после кнопок «Избранное» и «Закрепление» с сохранением порядка, `x:Name`, команд, `Click`-обработчиков, стилей, `ToolTip`, `Visibility`-привязок и обоих вертикальных разделителей. Группировка сохранена: «Правка» (добавить/правка/удалить), разделитель, «Управление списком» (очистить кеш/выгрузка/синхронизация/проверка), разделитель, «Настройки» (тема/компактный/настройки/справка).
+- **Версия поднята до `0.3.5.52`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.51] — 2026-08-31
+
+Кнопки «Избранное» и «Закрепление» перенесены из колонки названия строк в новую панель команд над заголовками колонок (Windows/WPF).
+
+### Изменено
+
+- **Кнопки «Избранное» и «Закрепление» перенесены из колонки названия строк в новую панель команд** (Windows/WPF). В шаблоне строки информационной базы (`DataTemplate DataType=Infobase`) из области названия [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) удалены кнопка «Избранное» (звезда, вместе с бейджем `FavoriteHotkeyDisplay`) и кнопка «Закрепление» (пин). В колонке названия теперь остаются только иконка статуса (`Path` по ключу `StatusIconKey`) и текст названия (`TextBlock Name`); структура `Grid.ColumnDefinitions` шаблона строки не менялась. Вместо этого в контейнер `StackPanel x:Name="CommandPanelStack"` панели команд `CommandPanelBorder` (над заголовками колонок) добавлены две кнопки, действующие на выбранную базу: «Избранное» (`Command="{Binding ToggleFavoriteCommand}"`) и «Закрепление» (`Command="{Binding TogglePinCommand}"`), обе со стилем `{DynamicResource IconButton}` и единым `Margin="0,0,2,0"`. Иконка звезды (`PackIcon Kind="Star"`, 18×18) окрашена по умолчанию в `TextSecondaryBrush`, а при `SelectedInfobase.IsFavorite=True` — в `FavoriteBrush`; иконка пина (`PackIcon Kind="Pin"`, 18×18) по умолчанию `TextSecondaryBrush`, при `SelectedInfobase.IsPinned=True` — `AccentBrush` (через `DataTrigger`). Кнопки автоматически недоступны при отсутствии выбранной базы благодаря `CanExecute` (`SelectedInfobase != null`) команд `ToggleFavoriteCommand`/`TogglePinCommand`. Сохранены локализованные `ToolTip`: `Main.ToggleFavoriteTooltip` и `Main.TogglePinTooltip`.
+- **Версия поднята до `0.3.5.51`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.50] — 2026-08-31
+
+Добавлена отдельная панель команд над заголовками колонок списка (Windows/WPF).
+
+### Добавлено
+
+- **Добавлен каркас отдельной панели команд над заголовками колонок списка** (Windows/WPF). Во внутреннем `Grid` левой колонки [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) перед строкой списка добавлена новая строка `RowDefinition Height="Auto"` (Grid.Row=`2`), а область списка смещена на `Grid.Row="3"`. В новой строке размещён контейнер `Border x:Name="CommandPanelBorder"` (занимает всю ширину левой колонки, `Margin="4,0,4,0"`, `Padding="8,6"`, фон `CardBackgroundBrush`, нижняя граница `BorderBrushColor` `BorderThickness="0,0,0,1"`) с пустым горизонтальным `StackPanel x:Name="CommandPanelStack"` (`VerticalAlignment="Center"`). Панель расположена непосредственно над заголовками колонок (между панелью быстрого отбора по тегам и `HeaderGrid`/`DbHeaderScroll`). Строка списка осталась единственной со значением `*`, поэтому прокрутка `TreeView` не ломается. Существующие кнопки, привязки и обработчики не переносились — в каркас позже будут добавлены команды (звезда/пин из колонки названия, добавить/правка/удалить и др.).
+- **Версия поднята до `0.3.5.50`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.49] — 2026-08-31
+
+Кнопки управления окном «свернуть/развернуть/закрыть» перенесены в правый верхний угол окна (Windows/WPF).
+
+### Изменено
+
+- **Кнопки управления окном перенесены в правый верхний угол** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) из панели команд (`TopBarBorder`) удалён блок кнопок «свернуть/развернуть/закрыть» (элементы `MinimizeButton`, `MaximizeButton`, `CloseButton`), а вместе с ним — пятая колонка внутреннего `Grid` панели команд (остались колонки 0–3: группы/теги, поиск, вкладки, действия). Эти же три кнопки размещены в правом верхнем углу окна поверх содержимого (над правой панелью, как у обычного заголовка): горизонтальный `StackPanel` с выравниванием `HorizontalAlignment="Right"` / `VerticalAlignment="Top"`, добавленный последним дочерним элементом корневого `Grid` (`Grid.Row="0"`, `Panel.ZIndex="10"`). Сохранены `x:Name`, обработчики `OnMinimizeButton_Click`/`OnMaximizeButton_Click`/`OnCloseButton_Click`, стили `WindowControlButton`/`WindowControlCloseButton`, локализованные `ToolTip` (`Window.Minimize`/`Window.Maximize`/`Common.Close`) и глифы `MaximizeGlyphPath`/`RestoreGlyphPath`, которые по-прежнему переключаются через `OnWindowStateChanged`. Кнопки больше не входят в область перетаскивания окна за панель (`OnTopBar_MouseLeftButtonDown`), так как лежат вне `TopBarBorder`.
+- **Версия поднята до `0.3.5.49`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.48] — 2026-08-31
+
+На панели команд добавлены разделители между группами «Правка», «Управление списком» и «Настройки» (Windows/WPF).
+
+### Изменено
+
+- **Добавлены вертикальные разделители на панель команд** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) в блок «Действия» (`Border Grid.Column="3"`) горизонтального `StackPanel` панели команд добавлены два тонких вертикальных разделителя (элементы `Border Width="1"` на основе `BorderBrushColor`). Первый размещён сразу после кнопки «Удаление» и отделяет группу «Правка» (Добавить, Правка, Удаление) от группы «Управление списком» (Очистить кеш, индикатор выгрузки, Синхронизация, Проверка доступности); второй — сразу после кнопки «Проверка доступности» и отделяет «Управление списком» от группы «Настройки» (Тема, Компактный режим, Настройки, Справка).
+- **Версия поднята до `0.3.5.48`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.47] — 2026-08-31
+
+Кнопки «Правка» и «Удаление» перенесены из колонки «Действия» строк списка на панель команд, в группу с добавлением (Windows/WPF). В колонке «Действия» строки информационной базы теперь остаются только «Запуск», «Конфигуратор» и «Очистить кеш», а команды правки и удаления выполняются по выбранной базе через `ResolveActionTarget` и автоматически становятся недоступными, когда ничего не выбрано.
+
+### Изменено
+
+- **Кнопки «Правка» и «Удаление» перенесены из колонки «Действия» строк на панель команд** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) из шаблона строки информационной базы (`StackPanel Grid.Column="7"`) удалены кнопки «Правка» (`Kind="Pencil"`) и «Удаление» (`Kind="Delete"`); в колонке «Действия» остались кнопки «Запуск» (`Play`), «Конфигуратор» (`Wrench`) и «Очистить кеш» (`Broom`). В блок «Действия» панели команд сразу после кнопки «Добавить базу» добавлены кнопки «Правка» (`EditInfobaseCommand`, `Kind="Pencil"`, цвет `TextSecondaryBrush`) и «Удаление» (`DeleteInfobaseCommand`, `Kind="Delete"`, красный `#DC2626`) без `CommandParameter` — команды работают по выбранной базе через `ResolveActionTarget` и автоматически отключаются, когда ничего не выбрано (обеспечивает `CanExecute` у `RelayCommand`).
+- **Версия поднята до `0.3.5.47`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.46] — 2026-08-31
+
+Панель команд перенесена внутрь левой колонки над заголовком списка (Windows/WPF): верхняя панель команд больше не занимает отдельную строку во всю ширину окна, а размещена непосредственно над заголовком таблицы списка внутри левой колонки. Панель занимает всю ширину левой колонки, не накладываясь на правую панель сведений; перетаскивание окна за панель (DragMove), все кнопки и переключатели сохранили работу. Изменение внесено только для Windows/WPF-разметки `MainWindow.xaml`.
+
+### Изменено
+
+- **Панель команд перенесена внутрь левой колонки** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) верхняя панель команд перенесена из отдельной строки внешнего грида в левую панель, размещена над заголовком таблицы списка и занимает всю ширину левой колонки, не пересекая правую панель `RightPanelBorder`. Сохранены все элементы и обработчики: переключатели групп/тегов, поиск, вкладки «Все/Избранное/Недавние», кнопки действий (добавить, очистить кеш, индикатор выгрузки, синхронизация, проверка доступности, тема, компактный режим, настройки, справка), кнопки управления окном (свернуть/развернуть/закрыть) и обработчик `OnTopBar_MouseLeftButtonDown` для перетаскивания окна.
+- **Версия поднята до `0.3.5.46`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.45] — 2026-08-31
+
+Устранены «призрачные» (неактивные) системные кнопки заголовка «свернуть / развернуть / закрыть», которые DWM рисовал поверх фона диалоговых окон (в том числе окна настроек) из-за расширенной стеклянной рамки (`GlassFrameThickness=-1`). Теперь флаги стиля окна `WS_SYSMENU` / `WS_MINIMIZEBOX` / `WS_MAXIMIZEBOX` снимаются на уровне Win32, поэтому на фоне остаётся только собственная кнопка «закрыть» в заголовке. Изменение внесено только для Windows/WPF.
+
+### Исправлено
+
+- **Системные кнопки не рисуются «призрачными»** (Windows/WPF). В [`WindowChromeHelper.cs`](Configuration Management/Views/WindowChromeHelper.cs) добавлен метод `RemoveSystemCaptionButtons`: через `GetWindowLong`/`SetWindowLong` снимаются флаги `WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX`, а `SetWindowPos(SWP_FRAMECHANGED)` принудительно перерисовывает рамку. Вызывается в `Apply` для каждого диалога после установки `WindowChrome`; `WindowChrome.UseAeroCaptionButtons=false` уже скрывал кнопки, но теперь их исчезновение гарантировано и на уровне Win32.
+- **Версия поднята до `0.3.5.45`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.44] — 2026-08-31
+
+В заголовке диалоговых окон (в том числе окна настроек) оставлена **только кнопка «закрыть»**: кнопки «свернуть» и «развернуть/восстановить», добавленные в `0.3.5.42`, убраны, а код хелпера упрощён до единственной кнопки закрытия. Это стандартная схема диалогов: полный набор кнопок «свернуть / развернуть / закрыть» остаётся только у главного окна. Изменение внесено только для Windows/WPF.
+
+### Изменено
+
+- **Только кнопка «закрыть» в заголовке диалогов** (Windows/WPF). В [`WindowChromeHelper.BuildTitleBar`](Configuration Management/Views/WindowChromeHelper.cs) в полосу заголовка добавляется только кнопка закрытия (стиль `WindowControlCloseButton`, красное выделение); `BuildButton` и значок креста построены напрямую, а неиспользуемые ветки «свернуть»/«развернуть» удалены.
+- **Версия поднята до `0.3.5.44`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.43] — 2026-08-31
+
+Исправлена первопричина отсутствия кнопок управления окном в диалоговых окнах (в том числе в окне настроек): [`WindowChromeHelper.BuildChrome`](Configuration Management/Views/WindowChromeHelper.cs) переносил текущее содержимое окна в новую сетку заголовка, **не отсоединив** его, из-за чего WPF бросал `InvalidOperationException` («элемент уже является логическим дочерним для другого элемента»). Глобальный обработчик на `Loaded` молча перехватывал это исключение — системные кнопки уже были скрыты (`WindowChrome`), а собственный заголовок с кнопками так и не добавлялся, поэтому окно оставалось без кнопки закрытия. Теперь содержимое сначала отсоединяется (`window.Content = null`), затем оборачивается в сетку с полосой заголовка — собственные кнопки «свернуть / развернуть/восстановить / закрыть» корректно появляются у всех диалогов. Изменение внесено только для Windows/WPF.
+
+### Исправлено
+
+- **Собственные кнопки управления окном у диалогов** (Windows/WPF). В [`WindowChromeHelper.Apply`](Configuration Management/Views/WindowChromeHelper.cs) перед вызовом `BuildChrome` текущий `Content` окна отсоединяется (`window.Content = null`), чтобы добавить его в новую сетку с полосой заголовка без `InvalidOperationException`. Исправление восстанавливает появление кнопок «свернуть», «развернуть/восстановить» и «закрыть» у всех диалоговых окон, включая окно настроек (оформление применяется глобальным обработчиком на `Loaded` после создания HWND, поэтому системный фон acrylic/mica и скругление углов тоже работают).
+- **Версия поднята до `0.3.5.43`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.42] — 2026-08-30
+
+В собственном заголовке диалоговых окон (который оформляется централизованно через [`WindowChromeHelper.cs`](Configuration Management/Views/WindowChromeHelper.cs)) появилась недостающая кнопка **«развернуть/восстановить»** — теперь у изменяемых окон (например, у окна настроек) в полосе заголовка есть полный набор кнопок управления, как у главного окна: **«свернуть», «развернуть/восстановить», «закрыть»** (с красным выделением). Изменение внесено только для Windows/WPF.
+
+### Добавлено
+
+- **Кнопка «развернуть/восстановить» в заголовке диалогов** (Windows/WPF). В [`WindowChromeHelper.cs`](Configuration Management/Views/WindowChromeHelper.cs) добавлен тип кнопки `MaximizeRestore`: значок переключается между контуром одного прямоугольника («развернуть») и двумя наложенными прямоугольниками («восстановить») по состоянию окна (`StateChanged`), клик разворачивает/восстанавливает окно. Кнопка добавляется только у изменяемых окон (`ResizeMode=CanResize` / `CanResizeWithGrip`), поэтому окно настроек получило полный набор кнопок «свернуть / развернуть / закрыть». Подсказки используют ключи `Window.Maximize` / новый `Window.Restore` ([`ru.json`](Configuration Management/Localization/Languages/ru.json) — «Восстановить», [`en.json`](Configuration Management/Localization/Languages/en.json) — «Restore»).
+
+### Изменено
+
+- **Версия поднята до `0.3.5.42`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.41] — 2026-08-30
+
+Управление учётными записями (профилями) в Windows-версии перенесено из отдельного окна во вкладку **«Учётные записи»** окна настроек: весь редактор профилей теперь живёт прямо в настройках, а прежняя кнопка «Управление учётными записями…» и отдельное окно в Windows-версии упразднены. Изменение внесено только для Windows/WPF; Linux/Avalonia-версия не затрагивалась.
+
+### Добавлено
+
+- **Вкладка «Учётные записи» в окне настроек** (Windows/WPF). В окне настроек [`SettingsWindow`](Configuration Management/Views/SettingsWindow.xaml) появилась отдельная вкладка, встраивающая панель управления профилями — новый `UserControl` [`ProfilesPanel.xaml`](Configuration Management/Views/ProfilesPanel.xaml), размещённый рядом с прежним окном. Панель полностью повторяет интерфейс отдельного окна: выпадающее меню активной учётной записи, список «список + редактор» (имя, пароль, флажок «Защитить паролем»), сообщение об ошибке и кнопки «Создать / Сохранить / Удалить / Сделать активной». Бизнес-логика (CRUD, валидация, подтверждение удаления) переиспользует прежнюю [`ProfilesViewModel`](Configuration Management/ViewModels/ProfilesViewModel.cs); пароль по-прежнему передаётся из `PasswordBox` в code-behind ([`ProfilesPanel.xaml.cs`](Configuration Management/Views/ProfilesPanel.xaml.cs)). Вкладка строится в [`SettingsWindow.Accounts.cs`](Configuration Management/Views/SettingsWindow.Accounts.cs) и вставляется перед вкладкой «О программе», как и «Резервное копирование». Заголовок вкладки локализован ключом `Settings.TabAccounts` в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json).
+
+### Изменено
+
+- **Отказано от отдельного окна управления учётными записями** (Windows/WPF). Кнопка «Управление учётными записями…» во вкладке «Настройки» удалена, обработчик `OnManageProfiles_Click` убран; отдельное окно [`ProfilesWindow`](Configuration Management/Views/ProfilesWindow.xaml) в Windows-версии больше не открывается — управление доступно только во вкладке «Учётные записи».
+- **Версия поднята до `0.3.5.41`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.40] — 2026-08-30
+
+Все диалоговые окна приложения переведены на новый «стеклянный» стиль главного окна на обеих платформах: собственные кнопки управления окном (свернуть/закрыть, у закрытия красное выделение), полупрозрачный стеклянный фон и скруглённые углы (при максимизации обнуляются). Логика диалогов (DialogResult, кнопки ОК/Отмена, ShowDialogSync) не менялась.
+
+### Изменено
+
+- **Все диалоговые окна** (Windows/WPF). Добавлен общий класс [`WindowChromeHelper.cs`](Configuration Management/Views/WindowChromeHelper.cs): он применяет `WindowChrome` без системных кнопок, полупрозрачную подложку цвета темы (~0xE8), системный acrylic/mica (Windows 11, при недоступности — blur-behind) и скруглённые углы DWM, а также добавляет полосу заголовка с собственными кнопками «свернуть»/«закрыть» (у закрытия — красная подложка `#E81123`, при нажатии `#C50F1F`). Стили `WindowControlButton` / `WindowControlCloseButton` вынесены из [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) в общие ресурсы приложения [`App.xaml`](Configuration Management/App.xaml); глобальное оформление регистрируется в [`App.xaml.cs`](Configuration Management/App.xaml.cs). Оформляются все диалоги: `AddEditWindow`, `CacheCleanWindow`, `ColorPickerWindow`, `ConnectionSettingsWindow`, `ConnectionStringInputWindow`, `CreateInfobaseWindow`, `DeleteInfobaseWindow`, `GroupEditWindow`, `GroupPickerWindow`, `GroupSettingsWindow`, `LaunchParametersWindow`, `LinkInputWindow`, `LoginWindow`, `NameInputWindow`, `PlatformVersionPickerWindow`, `ProfilesWindow`, `SettingsWindow`, `TagInputWindow`, а также окно сообщений `MaterialMessageWindow`.
+- **Все диалоговые окна** (Linux/Avalonia). Базовый класс [`ModalWindowBase.cs`](Configuration Management/Views/ModalWindowBase.cs) задаёт `SystemDecorations=None`, `ExtendClientAreaToDecorationsHint=true`, `TransparencyLevelHint={AcrylicBlur, Blur, Transparent}`, прозрачный фон и автоматически оборачивает содержимое каждого диалога в «стеклянный» контейнер (скруглённые углы + полупрозрачная подложка цвета темы через `ThemeBrushes.WithAlpha`) с полосой заголовка, перетаскиванием (`BeginMoveDrag`) и невидимыми зонами ресайза для изменяемых окон. Собственные кнопки «свернуть»/«закрыть» с красным закрытием добавляются единообразно без правки восемнадцати окон. XAML-диалоги `NameInputWindow`, `LinkInputWindow`, `DeleteInfobaseWindow`, `TagInputWindow` переведены на `SystemDecorations="None"`.
+- **Версия поднята до `0.3.5.40`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.39] — 2026-08-30
+
+Кнопка «закрыть» в собственных кнопках управления окном получила классическое красное выделение при наведении/нажатии на обеих платформах: красная подложка (алый `#E81123` при наведении, темнее `#C50F1F` при нажатии) и белый значок креста поверх неё. У обычных кнопок «свернуть»/«развернуть» поведение и цвета темы не изменились.
+
+### Добавлено
+
+- **Красное выделение кнопки «закрыть»** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) добавлен отдельный стиль `WindowControlCloseButton` (`BasedOn="WindowControlButton"`): при наведении фон становится алым `#E81123`, при нажатии — `#C50F1F`, значок перекрашивается в белый. Стиль применён к `CloseButton`, кнопки «свернуть»/«развернуть» продолжают использовать прежний `WindowControlButton`.
+- **Красное выделение кнопки «закрыть»** (Linux/Avalonia). В [`MainWindow.Avalonia.cs`](Configuration Management/Views/MainWindow.Avalonia.cs) класс `WindowControlButton` для типа `WindowControlKind.Close` при наведении/нажатии красит фон в алый (`CloseHoverBrush` `#E81123` / `ClosePressedBrush` `#C50F1F`) и перекрашивает значок в белый; при выходе курсора значок возвращается к цвету темы (`TextPrimaryColorBrush`) через `ApplyState`. Кнопки «свернуть»/«развернуть» используют прежние hover/pressed-кисти темы.
+
+### Изменено
+
+- **Версия поднята до `0.3.5.39`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.38] — 2026-08-30
+
+В WPF-версии (Windows) главное окно оформлено в стиле «прозрачного стекла»: расширенная системная стеклянная рамка DWM + полупрозрачная подложка из цвета темы (~0xE8) вместо сплошного фона рабочей области, системный acrylic/mica backdrop (Windows 11, при недоступности — классический blur-behind) и скруглённые углы окна, которые при максимизации обнуляются. Собственные кнопки управления окном и верхняя панель из `0.3.5.37` остались нетронутыми и теперь выглядят согласованно с полупрозрачным фоном. Если системный акрил недоступен (старый Windows / аппаратное ограничение), окно остаётся рабочим и красивым за счёт полупрозрачного фона без размытия. Изменение внесено только для Windows/WPF.
+
+### Добавлено
+
+- **Стеклянный/полупрозрачный фон окна** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) `WindowChrome.GlassFrameThickness` расширен до `-1`, чтобы системная стеклянная рамка DWM покрывала всю клиентскую область; в [`MainWindow.xaml.cs`](Configuration Management/Views/MainWindow.xaml.cs) добавлен P/Invoke-помощник (`DwmSetWindowAttribute`/`DwmEnableBlurBehindWindow`): на Windows 11 включается системный acrylic backdrop (`DWMWA_SYSTEMBACKDROP_TYPE`, значение `DWMSBT_TRANSIENTWINDOW`), при недоступности — mica (`DWMSBT_MAINWINDOW`), на старых Windows — классический blur-behind. Если эффект недоступен, применяется откат на полупрозрачный фон без размытия, окно остаётся рабочим.
+- **Полупрозрачная подложка из цвета темы** (Windows/WPF). Вместо сплошного фона рабочей области фон окна задаётся пересчитанным из текущего `ContentBackgroundBrush` с альфой `0xE8` (~91% непрозрачности) — адаптивно для обеих тем (светлая/тёмная) и всех цветовых схем. Подложка пересчитывается при смене темы/схемы: слушатель коллекции `Application.Current.Resources.MergedDictionaries` (тема меняется через `ThemeManager.ApplyScheme`) вызывает `ApplyGlassBackground()`.
+- **Скруглённые углы окна в стиле glass** (Windows/WPF). На Windows 11 углы окна скругляются на уровне DWM через `DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_ROUND`; при развёрнутом состоянии углы обнуляются (`DWMWCP_DONOTROUND`), а толщина стеклянной рамки возвращается к `0`, чтобы окно корректно прилегало к краям экрана и панели задач.
+
+### Изменено
+
+- **Версия поднята до `0.3.5.38`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.37] — 2026-08-30
+
+В WPF-версии (Windows) главное окно отказалось от системных кнопок управления окном (закрыть/свернуть/развернуть) и системной рамки в пользу собственных кнопок, нарисованных средствами WPF. Окно оформлено через `WindowChrome` (без стеклянной рамки и системных кнопок), перетаскивание за верхнюю панель реализовано вручную через `DragMove`, а изменение размера — невидимой рамкой ресайза `WindowChrome`. Изменение внесено только для Windows/WPF.
+
+### Добавлено
+
+- **Собственные кнопки управления окном** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) добавлен стиль `WindowControlButton` и правый блок из трёх кнопок: «свернуть» (минус), «развернуть/восстановить» (квадрат / два квадрата — переключается по состоянию окна) и «закрыть» (крест); значки построены геометрией `Path`. Цвет значка и hover-подложка берутся из активной темы через `DynamicResource` (`TextSecondaryBrush`, `ItemHoverBrush`, `AccentPressedBrush`), поэтому корректно работают в светлой и тёмной темах. Закрытие идёт через штатный `Close()` и потому уважает настройку «свернуть в трей» (`CloseToTray`) в `OnClosing`. Подсказки используют существующие ключи локализации `Window.Minimize`, `Window.Maximize`, `Common.Close`.
+- **Отключение системной рамки и системных кнопок** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml) задан `WindowChrome` с `GlassFrameThickness=0`, `UseAeroCaptionButtons=False`, `CaptionHeight=0`, `CornerRadius=0` и `ResizeBorderThickness=6`.
+- **Перетаскивание без системной рамки** (Windows/WPF). В [`MainWindow.xaml`](Configuration Management/Views/MainWindow.xaml.cs) добавлен обработчик `OnTopBar_MouseLeftButtonDown`: перетаскивание окна за фон верхней панели через `DragMove()` и разворот/восстановление по двойному клику (`ToggleMaximize`); интерактивные элементы (кнопки/поля) перехватывают нажатия сами, поэтому случайного перетаскивания при кликах нет.
+- **Изменение размера без системной рамки** (Windows/WPF). Рамка ресайза задана свойством `WindowChrome.ResizeBorderThickness`, поэтому окно растягивается за любую границу и углы.
+
+### Изменено
+
+- **Версия поднята до `0.3.5.37`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.36] — 2026-08-30
+
+В Avalonia-версии (Linux) главное окно оформлено в стиле «прозрачного стекла»: прозрачное окно с запрошенным уровнем прозрачности AcrylicBlur (с откатом на Blur, затем Transparent), полупрозрачная подложка цвета темы вместо сплошного фона рабочей области и скруглённые углы корня окна в стиле glass. Собственные кнопки управления окном и верхняя панель из `0.3.5.35` остались нетронутыми и теперь выглядят согласованно с полупрозрачным фоном. Если оконный менеджер не поддерживает размытие (вернулся Transparent), окно остаётся рабочим и красивым за счёт полупрозрачного фона без размытия. Изменение внесено только для Linux/Avalonia.
+
+### Добавлено
+
+- **Прозрачность окна** (Linux/Avalonia). В конструкторе [`MainWindow.Avalonia.cs`](Configuration Management/Views/MainWindow.Avalonia.cs) заданы `TransparencyLevelHint = { AcrylicBlur, Blur, Transparent }` (запасные варианты по убыванию желаемого) и `Background = Brushes.Transparent`, без чего эффект acrylic/размытия не активируется.
+- **Полупрозрачный «стеклянный» фон рабочей области** (Linux/Avalonia). Сплошная привязка `ContentBackgroundColorBrush` в корне окна (`BuildRoot`) заменена на полупрозрачную подложку: новая `ThemeBrushes.WithAlpha(brush, alpha)` берёт текущий цвет темы и пересчитывает его с альфой `0xE8` (~91% непрозрачности) — адаптивно для обеих тем (светлая/тёмная) и всех цветовых схем. Такой же полупрозрачный фон задан области списка баз, чтобы размытие проступало равномерно, а не пятнами.
+- **Скруглённые углы окна в стиле glass** (Linux/Avalonia). Корень окна обёрнут в `Border` с `CornerRadius = UiMetrics.RadiusLg` и `ClipToBounds`, при развёрнутом состоянии углы обнуляются, чтобы в углах окна не просвечивал рабочий стол.
+
+### Изменено
+
+- **Версия поднята до `0.3.5.36`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
+## [0.3.5.35] — 2026-08-30
+
+В Avalonia-версии (Linux) главное окно отказалось от системной рамки и системных кнопок управления окном в пользу собственных кнопок «свернуть / развернуть / закрыть», нарисованных в коде. Перетаскивание окна за верхнюю панель и изменение размера за края/углы реализованы вручную, поэтому окно полноценно работает без системных декораций. Изменение внесено только для Linux/Avalonia.
+
+### Добавлено
+
+- **Собственные кнопки управления окном** (Linux/Avalonia). В [`MainWindow.Avalonia.cs`](Configuration Management/Views/MainWindow.Avalonia.cs) добавлен класс `WindowControlButton`: значки «свернуть» (минус), «развернуть/восстановить» (квадрат / два квадрата — переключается по состоянию окна) и «закрыть» (крест) построены из `StreamGeometry`; цвет значка и hover-подложка берутся из темы через `ThemeBrushes.Bind`/`Observe` (`TextPrimaryColorBrush`, `ItemHoverBrush`, `AccentPressedBrush`). Кнопки размещены справа в верхней панели (`BuildTopBar`); закрытие идёт через штатный `Close()` и потому уважает настройку «сворачивать в трей» (`CloseToTray`) в `OnClosing`. Строки подсказок добавлены в [`ru.json`](Configuration Management/Localization/Languages/ru.json) и [`en.json`](Configuration Management/Localization/Languages/en.json) (`Window.Minimize`, `Window.Maximize`).
+- **Перетаскивание без системной рамки** (Linux/Avalonia). В конструкторе [`MainWindow.Avalonia.cs`](Configuration Management/Views/MainWindow.Avalonia.cs) установлены `SystemDecorations = SystemDecorations.None` и `ExtendClientAreaToDecorationsHint = true`. Перемещение окна реализовано за фон верхней панели (`BeginMoveDrag` по `PointerPressed`, обработчик `OnTopBarPointerPressed`), интерактивные элементы исключаются проверкой источника.
+- **Изменение размера без системной рамки** (Linux/Avalonia). В [`MainWindow.Avalonia.cs`](Configuration Management/Views/MainWindow.Avalonia.cs) добавлены невидимые зоны ресайза по краям и углам окна (`AddResizeZones`/`AddResizeZone` с `BeginResizeDrag`), чтобы окно можно было растягивать за любую границу и углы.
+
+### Изменено
+
+- **Версия поднята до `0.3.5.35`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration Management/Configuration%20Management.csproj).
+
 ## [0.3.5.34] — 2026-08-30
 
 Исправлены регрессии правок `0.3.5.31`–`0.3.5.33`: у всех комбобоксов вновь надёжно открывается выпадающий список по клику (в том числе по стрелке у редактируемых), а контент окон настройки и создания инфобазы больше не обрезается при увеличенных полях. Изменения внесены для обеих платформ (Windows/WPF и Linux/Avalonia).
