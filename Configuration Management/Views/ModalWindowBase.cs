@@ -3,9 +3,11 @@ using System;
 using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Controls.Templates;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -146,16 +148,19 @@ namespace Configuration_Management
         /// первый установленный Control становится телом «стеклянного» контейнера
         /// с полосой заголовка (перетаскивание + свернуть/закрыть) поверх.
         /// </summary>
-        protected override void OnContentChanged(object? oldValue, object? newValue)
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {
-            if (!_wrappingContent && newValue is Control inner)
+            base.OnPropertyChanged(change);
+            if (change.Property != ContentProperty || _wrappingContent)
+            {
+                return;
+            }
+            if (change.GetNewValue<object?>() is Control inner)
             {
                 _wrappingContent = true;
                 Content = BuildChrome(inner);
                 _wrappingContent = false;
-                return;
             }
-            base.OnContentChanged(oldValue, newValue);
         }
 
         /// <summary>
