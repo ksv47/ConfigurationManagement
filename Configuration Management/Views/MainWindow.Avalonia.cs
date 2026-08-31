@@ -103,6 +103,29 @@ namespace Configuration_Management
             Height = 760;
             MinWidth = 900;
             MinHeight = 600;
+
+            // Linux: отказываемся от системных кнопок и рамки управления окном
+            // в пользу собственных (свернуть/развернуть/закрыть), рисуемых в коде.
+            // Перетаскивание реализовано за фон верхней панели (BeginMoveDrag),
+            // изменение размера — угловыми и краевыми зонами (BeginResizeDrag).
+            SystemDecorations = SystemDecorations.None;
+            ExtendClientAreaToDecorationsHint = true;
+
+            // Прозрачное окно под эффект «стекла»: просим у оконного менеджера
+            // AcrylicBlur, при недоступности откатываемся на Blur, затем Transparent.
+            // Список упорядочен по убыванию желаемого — Avalonia берёт первый
+            // поддерживаемый уровень (порядок в массиве не гарантируется WM,
+            // поэтому корректный фолбэк обеспечивает и полупрозрачная подложка ниже).
+            TransparencyLevelHint = new[]
+            {
+                WindowTransparencyLevel.AcrylicBlur,
+                WindowTransparencyLevel.Blur,
+                WindowTransparencyLevel.Transparent
+            };
+            // Без прозрачного фона самого окна acrylic/размытие не активируются:
+            // содержимое рисуется поверх, а «стекло» даёт полупрозрачный фон корня.
+            Background = Brushes.Transparent;
+
             ApplySavedWindowLayout();
 
             DataContext = viewModel;
@@ -225,10 +248,49 @@ namespace Configuration_Management
             overlay.ZIndex = 1000;
             grid.Children.Add(overlay);
 
-            // Фон рабочей области окна следует теме (перекрашивается при смене схемы).
-            ThemeBrushes.Bind(grid, Panel.BackgroundProperty, "ContentBackgroundColorBrush");
-            return grid;
+            // Без системной рамки изменение размера рисуем сами: невидимые зоны
+            // по краям и углам окна перехватывают нажатие и вызывают BeginResizeDrag.
+            AddResizeZones(grid);
+
+            // «Стеклянный» контейнер: скруглённые углы в стиле glass и полупрозрачный
+            // фон, адаптивно получаемый из цвета темы (светлая/тёмная и любые схемы).
+            // Если WM не дал Acrylic/Blur (вернулся Transparent) — остаётся просто
+            // полупрозрачный фон без размытия, окно остаётся рабочим и красивым.
+            var glass = new Border
+            {
+                CornerRadius = new CornerRadius(UiMetrics.RadiusLg),
+                ClipToBounds = true
+            };
+            ApplyGlassBackground(glass);
+            grid.ClipToBounds = true;
+            glass.Child = grid;
+
+            // В развёрнутом виде скругление убираем: в углах окна не должно
+            // просвечивать содержимое рабочего стола под рамкой соседних окон.
+            // WindowStateObserver берёт Action без параметра и читает состояние сам.
+            this.GetObservable(WindowStateProperty)
+                .Subscribe(new WindowStateObserver(() =>
+                    glass.CornerRadius = WindowState == WindowState.Maximized
+                        ? new CornerRadius(0)
+                        : new CornerRadius(UiMetrics.RadiusLg)));
+
+            return glass;
         }
+
+        /// <summary>
+        /// Альфа полупрозрачной «стеклянной» подложки: ~91% непрозрачности сохраняет
+        /// контраст текста, но при этом сквозь неё проступает acrylic/размытие фона.
+        /// </summary>
+        private const byte GlassBackgroundAlpha = 0xE8;
+
+        /// <summary>
+        /// Подписка стеклянного контейнера на цвет фона темы: берём текущий
+        /// <c>ContentBackgroundColorBrush</c> и делаем из него полупрозрачную версию,
+        /// чтобы обе темы и все цветовые схемы выглядели как «стекло» своего цвета.
+        /// </summary>
+        private void ApplyGlassBackground(Border glass)
+            => ThemeBrushes.Observe(glass, "ContentBackgroundColorBrush",
+                brush => glass.Background = ThemeBrushes.WithAlpha(brush, GlassBackgroundAlpha));
 
         private Control BuildTopBar()
         {
@@ -238,6 +300,8 @@ namespace Configuration_Management
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 200 });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            // Свои кнопки управления окном вместо системных — в самом правом углу.
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             // Слева: сегментные переключатели групп и тегов (с иконками и состояниями).
@@ -391,6 +455,12 @@ namespace Configuration_Management
             grid.Children.Add(actionsGroup);
             Grid.SetColumn(actionsGroup, 3);
 
+            // Собственные кнопки окна (свернуть/развернуть/закрыть) — правее команд,
+            // прижаты к правому краю, как системные в верхней строке.
+            var winCtrls = BuildWindowControls();
+            grid.Children.Add(winCtrls);
+            Grid.SetColumn(winCtrls, 4);
+
             var topBarBorder = new Border
             {
                 Child = grid,
@@ -402,7 +472,139 @@ namespace Configuration_Management
             // Заливка полосы, как в разметке WPF: без неё фон групп команд
             // и фильтров совпадает с фоном под ними и рамки выглядят пустыми.
             ThemeBrushes.Bind(topBarBorder, Border.BackgroundProperty, "CardBackgroundBrush");
+
+            // Перетаскивание окна за фон верхней панели (системной рамки больше нет).
+            // Интерактивные элементы (кнопки, поля) движение не начинают; пустое
+            // место полосы тянет окно за собой.
+            topBarBorder.PointerPressed += OnTopBarPointerPressed;
+
             return topBarBorder;
+        }
+
+        /// <summary>
+        /// Собственные кнопки управления окном вместо системных: свернуть (минус),
+        /// развернуть/восстановить (квадрат / два квадрата) и закрыть (крест).
+        /// Панель прижата к правому краю верхней панели.
+        /// </summary>
+        private Control BuildWindowControls()
+        {
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Spacing = 2
+            };
+
+            var minimize = new WindowControlButton(this, WindowControlKind.Minimize);
+            ToolTip.SetTip(minimize, LocalizationManager.T("Window.Minimize"));
+            minimize.Click += (_, _) => WindowState = WindowState.Minimized;
+            panel.Children.Add(minimize);
+
+            var maximize = new WindowControlButton(this, WindowControlKind.Maximize);
+            maximize.Click += (_, _) =>
+            {
+                WindowState = WindowState == WindowState.Maximized
+                    ? WindowState.Normal
+                    : WindowState.Maximized;
+            };
+            panel.Children.Add(maximize);
+
+            // Закрытие уходит через штатный Close(): OnClosing сам решает,
+            // прятать ли окно в трей (CloseToTray) или завершать приложение.
+            var close = new WindowControlButton(this, WindowControlKind.Close);
+            ToolTip.SetTip(close, LocalizationManager.T("Common.Close"));
+            close.Click += (_, _) => Close();
+            panel.Children.Add(close);
+
+            return panel;
+        }
+
+        /// <summary>
+        /// Перетаскивание окна за фон верхней панели. Кнопки, поля и прочие
+        /// интерактивные элементы движение не начинают — только пустое место полосы.
+        /// </summary>
+        private void OnTopBarPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                return;
+            // Развёрнутое окно не таскаем: возврат к «плавающему» виду делается
+            // кнопкой разворота, а BeginMoveDrag по развёрнутому окну на части
+            // оконных менеджеров ведёт себя непредсказуемо.
+            if (WindowState == WindowState.Maximized)
+                return;
+            if (IsInteractiveSource(e.Source))
+                return;
+            BeginMoveDrag(e);
+        }
+
+        /// <summary>true, если источник нажатия — интерактивный элемент внутри верхней панели.</summary>
+        private static bool IsInteractiveSource(object? source)
+        {
+            var node = source as Visual;
+            while (node is not null)
+            {
+                if (node is Button or ToggleButton or TextBox or HelpLink)
+                    return true;
+                node = node.GetVisualParent();
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Невидимые зоны изменения размера по краям и углам окна (системной рамки
+        /// больше нет): нажатие в такой зоне вызывает BeginResizeDrag нужного края.
+        /// </summary>
+        private void AddResizeZones(Grid root)
+        {
+            const double edgeThickness = 6;
+            const double cornerSize = 12;
+
+            var overlay = new Grid();
+            Grid.SetRowSpan(overlay, root.RowDefinitions.Count);
+            overlay.ZIndex = 2000;
+
+            // Углы — поверх рёбер, чтобы нажимались первыми.
+            AddResizeZone(overlay, WindowEdge.NorthWest, HorizontalAlignment.Left, VerticalAlignment.Top,
+                cornerSize, cornerSize, StandardCursorType.TopLeftCorner);
+            AddResizeZone(overlay, WindowEdge.NorthEast, HorizontalAlignment.Right, VerticalAlignment.Top,
+                cornerSize, cornerSize, StandardCursorType.TopRightCorner);
+            AddResizeZone(overlay, WindowEdge.SouthWest, HorizontalAlignment.Left, VerticalAlignment.Bottom,
+                cornerSize, cornerSize, StandardCursorType.BottomLeftCorner);
+            AddResizeZone(overlay, WindowEdge.SouthEast, HorizontalAlignment.Right, VerticalAlignment.Bottom,
+                cornerSize, cornerSize, StandardCursorType.BottomRightCorner);
+            // Рёбра.
+            AddResizeZone(overlay, WindowEdge.North, HorizontalAlignment.Stretch, VerticalAlignment.Top,
+                0, edgeThickness, StandardCursorType.SizeNorthSouth);
+            AddResizeZone(overlay, WindowEdge.South, HorizontalAlignment.Stretch, VerticalAlignment.Bottom,
+                0, edgeThickness, StandardCursorType.SizeNorthSouth);
+            AddResizeZone(overlay, WindowEdge.West, HorizontalAlignment.Left, VerticalAlignment.Stretch,
+                edgeThickness, 0, StandardCursorType.SizeWestEast);
+            AddResizeZone(overlay, WindowEdge.East, HorizontalAlignment.Right, VerticalAlignment.Stretch,
+                edgeThickness, 0, StandardCursorType.SizeWestEast);
+
+            root.Children.Add(overlay);
+        }
+
+        private void AddResizeZone(Grid host, WindowEdge edge, HorizontalAlignment ha, VerticalAlignment va,
+            double width, double height, StandardCursorType cursor)
+        {
+            var zone = new Border
+            {
+                HorizontalAlignment = ha,
+                VerticalAlignment = va,
+                Width = width > 0 ? width : double.NaN,
+                Height = height > 0 ? height : double.NaN,
+                // Прозрачная, но не null кисть: по ней всё равно идёт hit-test.
+                Background = Brushes.Transparent,
+                Cursor = new Cursor(cursor),
+                IsHitTestVisible = true
+            };
+            zone.PointerPressed += (_, e) =>
+            {
+                if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                    BeginResizeDrag(edge, e);
+            };
+            host.Children.Add(zone);
         }
 
         private ScrollViewer? _rightPanelHost;
@@ -630,8 +832,11 @@ namespace Configuration_Management
             {
                 BorderThickness = new Thickness(0)
             };
-            // Фон списка баз — фон рабочей области из темы.
-            ThemeBrushes.Bind(_tree, TemplatedControl.BackgroundProperty, "ContentBackgroundColorBrush");
+            // Фон списка баз — «стеклянная» версия фона рабочей области из темы:
+            // полупрозрачный, чтобы acrylic/размытие проступали и в области списка,
+            // а не только за верхней панелью (иначе стекло выглядело бы пятнами).
+            ThemeBrushes.Observe(_tree, "ContentBackgroundColorBrush",
+                brush => _tree.Background = ThemeBrushes.WithAlpha(brush, GlassBackgroundAlpha));
             // Горизонтальная прокрутка отключена: иначе строка растягивается
             // по сумме ширин колонок и уезжает за правый край, а заголовки,
             // живущие вне области прокрутки, перестают совпадать со значениями.
@@ -807,9 +1012,14 @@ namespace Configuration_Management
             listWithBar.Children.Add(listArea);
             listWithBar.Children.Add(_listVerticalBar);
 
-            // Левая колонка: свой фон и правая граница, внутреннее поле 12,12,8,12
-            // (MainWindow.xaml:347-350). Сверху панель фильтра тегов.
-            var leftContent = new Grid { Margin = new Thickness(12, 12, 8, 12) };
+            // Левая колонка: свой фон и правая граница, внутреннее поле 12,12,0,12.
+            // В WPF (MainWindow.xaml:347-350) отступ справа 8 был нужен полосе дерева,
+            // которая жила внутри области прокрутки. Здесь вертикальная полоса вынесена
+            // отдельным столбцом (listWithBar), и правый отступ оставлял бы между ней и
+            // границей панели пустоту ~8px. Убираем его, чтобы полоса была прижата к
+            // правому краю панели. Панель тегов сверху имеет собственные отступы
+            // (4,0,4,8 и поле 8), поэтому её вид не меняется.
+            var leftContent = new Grid { Margin = new Thickness(12, 12, 0, 12) };
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             var tagPanel = BuildTagFilterPanel();
@@ -3013,6 +3223,16 @@ namespace Configuration_Management
             public void OnNext(bool value) => _onNext(value);
         }
 
+        /// <summary>Простой наблюдатель WindowState (для значка разворота кнопки окна).</summary>
+        private sealed class WindowStateObserver : IObserver<WindowState>
+        {
+            private readonly Action _onNext;
+            public WindowStateObserver(Action onNext) => _onNext = onNext;
+            public void OnCompleted() { }
+            public void OnError(Exception error) { }
+            public void OnNext(WindowState value) => _onNext();
+        }
+
         /// <summary>
         /// Сегментная кнопка переключателя (для сегментированного контроля): у выбранного
         /// сегмента акцентная заливка, а иконка/текст — цветом «на акценте»; у невыбранных —
@@ -3210,6 +3430,161 @@ namespace Configuration_Management
                     : (_hovered && _hoverBorder is not null
                         ? _hoverBorder
                         : (IsChecked == true && _restingBorder is not null ? _accent : _restingBorder ?? Brushes.Transparent));
+            }
+        }
+
+        /// <summary>Тип собственной кнопки управления окном.</summary>
+        private enum WindowControlKind
+        {
+            Minimize,
+            Maximize,
+            Close
+        }
+
+        /// <summary>
+        /// Собственная кнопка управления окном (свернуть/развернуть/закрыть).
+        /// Значок строится из StreamGeometry; цвет значка и hover-подложка следуют
+        /// теме через ThemeBrushes (как у PanelButton/SegmentButton). Иконка разворота
+        /// переключается между «квадрат» и «два квадрата» по состоянию окна.
+        /// </summary>
+        private sealed class WindowControlButton : Button
+        {
+            // Контуры в координатном поле 24 на 24 (как ресурсы Icons.axaml).
+            private const string MinimizeData = "M6,11.5H18V13H6Z";
+            private const string MaximizeData = "F1 M5,5H19V19H5Z M8,8H16V16H8Z";
+            private const string RestoreData = "F1 M5,5H15V15H5Z M8,8H12V12H8Z M9,9H19V19H9Z M12,12H16V16H12Z";
+            private const string CloseData =
+                "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z";
+
+            private readonly MainWindow _window;
+            private readonly WindowControlKind _kind;
+            private readonly Avalonia.Controls.Shapes.Path _glyph;
+            private readonly IDisposable? _stateSub;
+
+            private IBrush _hoverBg = Brushes.Transparent;
+            private IBrush _pressedBg = Brushes.Transparent;
+            private IBrush _baseGlyphBrush = Brushes.Transparent;
+            private bool _hovered;
+            private bool _pressed;
+
+            // Красная подложка кнопки «закрыть» (классический алый), не зависит от темы:
+            // наведение — алый, нажатие — чуть темнее. Значок на ней всегда белый.
+            private static readonly IBrush CloseHoverBrush = new SolidColorBrush(Color.Parse("#E81123"));
+            private static readonly IBrush ClosePressedBrush = new SolidColorBrush(Color.Parse("#C50F1F"));
+
+            public WindowControlButton(MainWindow window, WindowControlKind kind)
+            {
+                _window = window;
+                _kind = kind;
+
+                Width = UiMetrics.Scaled(40);
+                Height = UiMetrics.Scaled(32);
+                Padding = new Thickness(0);
+                HorizontalContentAlignment = HorizontalAlignment.Center;
+                VerticalContentAlignment = VerticalAlignment.Center;
+                Cursor = new Cursor(StandardCursorType.Hand);
+
+                // Кастомный шаблон: скруглённый Border + ContentPresenter (без Fluent-хрома).
+                Theme = new ControlTheme(typeof(Button))
+                {
+                    Setters =
+                    {
+                        new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<WindowControlButton>((_, _) =>
+                        {
+                            var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusSm) };
+                            border[!Border.BackgroundProperty] = new TemplateBinding(TemplatedControl.BackgroundProperty);
+                            border[!Border.BorderBrushProperty] = new TemplateBinding(TemplatedControl.BorderBrushProperty);
+                            border[!Border.PaddingProperty] = new TemplateBinding(TemplatedControl.PaddingProperty);
+                            var presenter = new ContentPresenter();
+                            presenter[!ContentPresenter.ContentProperty] = new TemplateBinding(ContentControl.ContentProperty);
+                            presenter[!ContentPresenter.HorizontalContentAlignmentProperty] = new TemplateBinding(ContentControl.HorizontalContentAlignmentProperty);
+                            presenter[!ContentPresenter.VerticalContentAlignmentProperty] = new TemplateBinding(ContentControl.VerticalContentAlignmentProperty);
+                            border.Child = presenter;
+                            return border;
+                        }))
+                    }
+                };
+
+                _glyph = new Avalonia.Controls.Shapes.Path
+                {
+                    Width = UiMetrics.Scaled(16),
+                    Height = UiMetrics.Scaled(16),
+                    Stretch = Stretch.Uniform,
+                    Data = BuildGeometry()
+                };
+                Content = _glyph;
+
+                // Цвет значка и hover-подложка следуют теме. У кнопки «закрыть» цвет значка
+                // храним отдельно: при красной подложке он перекрашивается в белый, а при
+                // выходе курсора возвращается к теме (см. ApplyState).
+                if (_kind == WindowControlKind.Close)
+                    ThemeBrushes.Observe(this, "TextPrimaryColorBrush", b => { _baseGlyphBrush = b; ApplyState(); });
+                else
+                    ThemeBrushes.Bind(_glyph, Avalonia.Controls.Shapes.Path.FillProperty, "TextPrimaryColorBrush");
+                ThemeBrushes.Observe(this, "ItemHoverBrush", b => { _hoverBg = b; ApplyState(); });
+                ThemeBrushes.Observe(this, "AccentPressedBrush", b => { _pressedBg = b; ApplyState(); });
+
+                PointerEntered += (_, _) => { _hovered = true; ApplyState(); };
+                PointerExited += (_, _) => { _hovered = false; _pressed = false; ApplyState(); };
+                PointerPressed += (_, _) => { _pressed = true; ApplyState(); };
+                PointerReleased += (_, _) => { _pressed = false; ApplyState(); };
+                PointerCaptureLost += (_, _) => { _pressed = false; ApplyState(); };
+                this.GetObservable(IsEnabledProperty).Subscribe(new BoolObserver(_ => ApplyState()));
+
+                // Иконка разворота зависит от состояния окна: квадрат / два квадрата.
+                if (_kind == WindowControlKind.Maximize)
+                    _stateSub = window.GetObservable(Window.WindowStateProperty).Subscribe(new WindowStateObserver(UpdateGlyph));
+
+                ApplyState();
+            }
+
+            private Geometry BuildGeometry()
+            {
+                var data = _kind switch
+                {
+                    WindowControlKind.Minimize => MinimizeData,
+                    WindowControlKind.Close => CloseData,
+                    WindowControlKind.Maximize => _window.WindowState == WindowState.Maximized
+                        ? RestoreData
+                        : MaximizeData,
+                    _ => MaximizeData
+                };
+                return StreamGeometry.Parse(data);
+            }
+
+            private void UpdateGlyph() => _glyph.Data = BuildGeometry();
+
+            private void ApplyState()
+            {
+                if (!IsEnabled)
+                {
+                    Opacity = 0.55;
+                    Background = Brushes.Transparent;
+                    BorderBrush = Brushes.Transparent;
+                    return;
+                }
+
+                Opacity = 1.0;
+                BorderBrush = Brushes.Transparent;
+
+                if (_kind == WindowControlKind.Close)
+                {
+                    // Кнопка «закрыть»: красная подложка при наведении/нажатии, значок — белый.
+                    var redActive = _pressed || _hovered;
+                    Background = _pressed ? ClosePressedBrush : (_hovered ? CloseHoverBrush : Brushes.Transparent);
+                    _glyph.Fill = redActive ? Brushes.White : _baseGlyphBrush;
+                }
+                else
+                {
+                    Background = _pressed ? _pressedBg : (_hovered ? _hoverBg : Brushes.Transparent);
+                }
+            }
+
+            /// <summary>Подписка на состояние окна живёт, пока кнопка в дереве.</summary>
+            protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+            {
+                base.OnDetachedFromVisualTree(e);
+                _stateSub?.Dispose();
             }
         }
 
@@ -4577,6 +4952,15 @@ namespace Configuration_Management
                 return;
             if (ReferenceEquals(_boundTreeScroll, scroll) && ReferenceEquals(_boundScrollBar, bar))
                 return;
+
+            // Собственные полосы дерева скрываем не только присоединённым свойством
+            // на самом дереве (оно может не дойти до внутреннего ScrollViewer шаблона),
+            // но и напрямую на найденной прокрутке. Иначе её вертикальная полоса
+            // рисуется у правого края содержимого дерева, а когда колонки шире окна
+            // и включается горизонтальная прокрутка, оказывается поверх строк списка,
+            // а не у правого края области. Полоса прячется, прокрутка остаётся.
+            ScrollViewer.SetVerticalScrollBarVisibility(scroll, ScrollBarVisibility.Hidden);
+            ScrollViewer.SetHorizontalScrollBarVisibility(scroll, ScrollBarVisibility.Disabled);
 
             foreach (var link in _scrollBarLinks)
                 link.Dispose();

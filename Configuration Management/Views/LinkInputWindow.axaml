@@ -12,7 +12,7 @@
                        Height="210"
                        FontSize="13"
                        CanResize="False"
-                       SystemDecorations="Full">
+                       SystemDecorations="None">
     <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,Auto">
 
         <!-- Порядок по разметке (LinkInputWindow.xaml:35): подпись, примеры

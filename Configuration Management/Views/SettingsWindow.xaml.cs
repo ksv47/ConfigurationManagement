@@ -65,6 +65,7 @@ namespace Configuration_Management
             InitializeColorSchemes();
             InitializeLanguage();
             InitializeProfileBackupTab();
+            InitializeAccountsTab();
         }
 
         /// <summary>Переключатель компактного режима: применяет изменение сразу и сохраняет.</summary>
@@ -79,6 +80,13 @@ namespace Configuration_Management
         /// Список установленных версий платформы 1С.
         /// </summary>
         public List<string> Result => _installedPlatformVersions;
+
+        /// <summary>
+        /// Живая строка версии для вкладки «О программе»: номер из InformationalVersion
+        /// без суффикса «+<sha>», как в Avalonia-версии (SettingsWindow.Avalonia.cs).
+        /// </summary>
+        public string AboutVersion =>
+            string.Format(LocalizationManager.T("Settings.About.Version"), VersionInfo.Display());
 
         private void OnSave_Click(object sender, RoutedEventArgs e)
         {
@@ -119,7 +127,8 @@ namespace Configuration_Management
                 VisibleOf("Size"),
                 VisibleOf("Configuration"),
                 ShowEmptyGroupsCheck?.IsChecked ?? false,
-                _columnOrderItems.Select(i => i.Key).ToList());
+                _columnOrderItems.Select(i => i.Key).ToList(),
+                VisibleOf("Actions"));
 
             _viewModel.ShowRightPanelDetails = ShowRightPanelDetailsCheck?.IsChecked ?? true;
             _viewModel.ShowSessionLaunchPanel = ShowSessionLaunchPanelCheck?.IsChecked ?? true;
@@ -176,6 +185,8 @@ namespace Configuration_Management
 
             _viewModel.ApplyAppBehaviorSettings(
                 AllowMultipleInstancesCheck.IsChecked ?? false,
+                CheckForUpdatesOnStartupCheck?.IsChecked ?? true,
+                AutoUpdateEnabledCheck?.IsChecked ?? true,
                 ShowTagFilterPanelCheck.IsChecked ?? true,
                 CloseToTrayCheck.IsChecked ?? false,
                 ShowTrayIconCheck.IsChecked ?? true,

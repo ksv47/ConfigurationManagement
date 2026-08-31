@@ -318,13 +318,6 @@ namespace Configuration_Management
                 TemplatePathsList.Items.Insert(0, def);
         }
 
-        /// <summary>Открывает окно управления учётными записями (профилями).</summary>
-        private void OnManageProfiles_Click(object sender, RoutedEventArgs e)
-        {
-            var viewModel = AppServices.GetRequiredService<ProfilesViewModel>();
-            new ProfilesWindow(viewModel) { Owner = this }.ShowDialog();
-        }
-
         private void OnAboutLink_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement { Tag: string url } && !string.IsNullOrWhiteSpace(url))
@@ -405,6 +398,23 @@ namespace Configuration_Management
                     LocalizationManager.T("Common.Error"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// Ручная проверка обновлений из вкладки «О программе». Сообщает явный результат
+        /// (актуальная версия / ошибка / доступно обновление) через UpdateService.
+        /// </summary>
+        private async void OnCheckForUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var updateService = AppServices.GetRequiredService<UpdateService>();
+                await updateService.CheckForUpdatesManualAsync();
+            }
+            catch
+            {
+                // Внутренние ошибки уже показаны в UpdateService; здесь только страхуемся.
             }
         }
     }

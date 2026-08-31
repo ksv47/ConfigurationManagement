@@ -22,6 +22,11 @@ namespace Configuration_Management
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Единое «стеклянное» оформление всех диалоговых окон: общий хелпер применяет
+            // WindowChrome, собственные кнопки окна и полупрозрачную подложку к каждому
+            // окну приложения (главное, оформленное самостоятельно, пропускается).
+            WindowChromeHelper.RegisterGlobalWindowStyling();
+
             // Режим COM-агента перехватывается раньше, в Program.Main: агенту не нужны
             // ни WPF, ни ресурсные словари тем. См. ComReadHost.
 
@@ -56,27 +61,6 @@ namespace Configuration_Management
                 // читает/пишет файлы данных в каталог активного профиля.
                 var profileService = AppServices.GetRequiredService<IProfileService>();
                 profileService.EnsureInitialized();
-
-                // Любое окно, закрытое до создания главного, гасит приложение: режим
-                // завершения по умолчанию OnLastWindowClose считает его последним,
-                // и главное окно уже не открывается. Поэтому до показа главного
-                // окна завершение только явное, прежний режим возвращается после.
-                var shutdownModeBeforeStartup = ShutdownMode;
-                ShutdownMode = ShutdownMode.OnExplicitShutdown;
-
-                // Локализацию поднимаем до окна входа и ранних окон ошибок: настройки
-                // выбранного профиля читаются ниже, а без словаря окно показывает
-                // ключи (Auth.Title, Auth.Login) вместо подписей. Язык берётся из
-                // профиля, активного с прошлого запуска, и уточняется после входа.
-                try
-                {
-                    var startupSettings = AppServices.GetRequiredService<IInfobaseRepository>().LoadSettings();
-                    LocalizationManager.Instance.Initialize(startupSettings.Language);
-                }
-                catch
-                {
-                    LocalizationManager.Instance.Initialize();
-                }
 
                 // Если в приложении несколько учётных записей — показываем окно авторизации
                 // по аналогии со списком пользователей 1С. При одной записи входим без запроса.
@@ -133,10 +117,6 @@ namespace Configuration_Management
                 try
                 {
                     LocalizationManager.Instance.Initialize(settings.Language);
-                    // Если словарь уже поднят ради окна входа, Initialize выходит сразу,
-                    // поэтому язык выбранного профиля применяется отдельно и по тем же
-                    // правилам: пустое значение означает язык системы.
-                    LocalizationManager.Instance.ApplyPreferredLanguage(settings.Language);
                 }
                 catch
                 {
@@ -179,6 +159,7 @@ namespace Configuration_Management
                 ThemeManager.ApplyScheme(scheme ?? (isDark
                     ? Configuration_Management.Models.ColorScheme.CreateDark()
                     : Configuration_Management.Models.ColorScheme.CreateLight()));
+#if DEBUG
                 try
                 {
                     System.IO.File.AppendAllText(
@@ -188,6 +169,7 @@ namespace Configuration_Management
                         $"active='{settings.ActiveColorScheme?.Name}'{System.Environment.NewLine}");
                 }
                 catch { /* не критично */ }
+#endif
 
                 var mainWindow = AppServices.GetRequiredService<MainWindow>();
                 MainWindow = mainWindow;
@@ -216,16 +198,41 @@ namespace Configuration_Management
 
                 mainWindow.Show();
 
-                // Прежний режим завершения возвращается: на время старта он
-                // переключался на явный, иначе закрытие окна входа гасило
-                // приложение до появления главного.
-                ShutdownMode = shutdownModeBeforeStartup;
+                // Фоновая проверка обновлений (Windows/WPF): запускаем после показа
+                // главного окна, чтобы не задерживать старт. Если пользователь отключил
+                // проверку в настройках — пропускаем. Работа выполняется асинхронно,
+                // UI при этом не блокируется.
+                if (settings.CheckForUpdatesOnStartup)
+                {
+                    var updateService = AppServices.GetRequiredService<UpdateService>();
+                    // Передаём флаг автоматического self-update из настроек: при включённом
+                    // режиме фоновая проверка сама скачает, установит и перезапустит приложение.
+                    updateService.AutoUpdateEnabled = settings.AutoUpdateEnabled;
+                    CheckForUpdatesInBackground(updateService);
+                }
             }
             catch (Exception ex)
             {
                 LogFatal(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
                 ShowFatalError(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
                 Shutdown(1);
+            }
+        }
+
+        /// <summary>
+        /// Запускает фоновую проверку обновлений и не ждёт её завершения.
+        /// Внутренние ошибки ловятся в <see cref="UpdateService"/>, здесь лишь
+        /// дополнительно страхуемся, чтобы исключение не уронило поток.
+        /// </summary>
+        private static async void CheckForUpdatesInBackground(UpdateService updateService)
+        {
+            try
+            {
+                await updateService.CheckForUpdatesAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // Фоновая проверка не должна влиять на запуск и работу приложения.
             }
         }
 

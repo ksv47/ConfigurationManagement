@@ -10,7 +10,7 @@
                        Height="200"
                        FontSize="13"
                        CanResize="False"
-                       SystemDecorations="Full">
+                       SystemDecorations="None">
     <Grid Margin="16" RowDefinitions="Auto,Auto,Auto">
         <TextBlock Grid.Row="0" x:Name="Prompt" Margin="0,0,0,8"/>
         <TextBox Grid.Row="1" x:Name="NameBox" Theme="{DynamicResource ModernTextBox}"/>

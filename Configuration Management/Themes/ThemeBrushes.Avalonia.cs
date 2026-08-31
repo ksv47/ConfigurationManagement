@@ -31,6 +31,24 @@ namespace Configuration_Management.Themes
             => target.Bind(property, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(brushKey));
 
         /// <summary>
+        /// Возвращает полупрозрачную версию сплошной кисти темы: сохраняет цвет,
+        /// но ставит заданную альфу. Используется для «стеклянного» фона главного
+        /// окна, чтобы прозрачность/размытие проступали сквозь цвет темы. Если
+        /// кисть не сплошная (градиент и т.п.) — возвращается как есть.
+        /// </summary>
+        /// <param name="brush">Исходная кисть, обычно из ресурсов темы.</param>
+        /// <param name="alpha">Новая альфа (0–255): 0 полностью прозрачно, 255 непрозрачно.</param>
+        public static Avalonia.Media.IBrush WithAlpha(Avalonia.Media.IBrush brush, byte alpha)
+        {
+            if (brush is Avalonia.Media.ISolidColorBrush solid)
+            {
+                var c = solid.Color;
+                return new Avalonia.Media.SolidColorBrush(new Avalonia.Media.Color(alpha, c.R, c.G, c.B));
+            }
+            return brush;
+        }
+
+        /// <summary>
         /// Отдаёт кисть темы в код и обновляет её при смене темы или схемы.
         /// Нужно там, где кисть не ложится в свойство напрямую: цвет зависит
         /// от состояния элемента (наведение, фокус) и пересчитывается вручную.
