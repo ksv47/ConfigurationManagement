@@ -568,12 +568,21 @@ public static partial class OneCLauncher
             }
         }
 
-        // 2. Любая установленная версия нужной разрядности (новейшая по имени каталога).
+        // 2. Установленные версии нужной разрядности (новейшая по имени каталога).
         //    Гибкий поиск учитывает стандартные и дополнительные корни.
+        //    Если запрошена конкретная версия, запасной поиск ограничивается ТОЛЬКО ею
+        //    (в т.ч. другой разрядности на случай отсутствия в нужной) и не выбирает
+        //    произвольную новейшую — иначе запускалась бы совсем не та версия (issue #29).
         string? best = null;
         string bestDir = string.Empty;
         foreach (var (verName, binDir) in PlatformVersionService.FindPlatformVersionDirs(archKey))
         {
+            if (!string.IsNullOrWhiteSpace(cleanVersion) &&
+                !string.Equals(verName, cleanVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             string? chosen = null;
             foreach (var exeName in exeNames)
             {
