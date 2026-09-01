@@ -511,11 +511,16 @@ public static class PlatformVersionService
 
     /// <summary>
     /// Линия платформы — первые два числа версии: «8.3.27.1688 (64)» → «8.3».
+    /// Группировка по двум цифрам (issue #9): берём первые два числовых сегмента,
+    /// чтобы даже нестандартный вариант (с нечисловым сегментом) попадал в свою линию.
     /// </summary>
     public static string GetVersionLine(string variant)
     {
         ParseVariant(variant, out var version, out _);
         var parts = version.Split('.');
+        var numerics = parts.Where(p => int.TryParse(p, out _)).Take(2).ToList();
+        if (numerics.Count == 2)
+            return string.Join(".", numerics);
         return parts.Length >= 2
             ? string.Join(".", parts.Take(2))
             : (string.IsNullOrEmpty(version) ? "—" : version);
