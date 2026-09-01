@@ -608,6 +608,9 @@ namespace Configuration_Management
         }
 
         private ScrollViewer? _rightPanelHost;
+        private StackPanel? _rightPanelContent;
+        private Border? _sessionCard;
+        private TextBlock? _sessionTitleBlock;
 
         /// <summary>
         /// Ширина правой панели как в разметке WPF: при показанных подробностях
@@ -625,6 +628,31 @@ namespace Configuration_Management
             _rightPanelHost.HorizontalAlignment = details
                 ? HorizontalAlignment.Stretch
                 : HorizontalAlignment.Left;
+            if (_rightPanelContent is not null)
+            {
+                _rightPanelContent.Margin = details
+                    ? new Thickness(12, 56)
+                    : new Thickness(2, 56, 4, 6);
+                _rightPanelContent.HorizontalAlignment = details
+                    ? HorizontalAlignment.Stretch
+                    : HorizontalAlignment.Left;
+            }
+            if (_sessionCard is not null)
+            {
+                _sessionCard.Margin = details
+                    ? new Thickness(8, 0, 8, 10)
+                    : new Thickness(4, 0, 4, 6);
+                _sessionCard.Padding = details
+                    ? new Thickness(10, 8)
+                    : new Thickness(6);
+            }
+            if (_sessionTitleBlock is not null)
+            {
+                _sessionTitleBlock.FontSize = UiMetrics.ScaledFont(details ? 12 : 11);
+                _sessionTitleBlock.Margin = details
+                    ? new Thickness(0, 0, 0, 6)
+                    : new Thickness(0, 0, 0, 4);
+            }
         }
 
         /// <summary>Сегментный переключатель (например «группы»/«теги») с иконкой и состояниями.</summary>
@@ -2184,8 +2212,9 @@ namespace Configuration_Management
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Spacing = UiMetrics.ActionGridGap,
-                Margin = new Thickness(UiMetrics.Scaled(12), UiMetrics.Scaled(10))
+                Margin = new Thickness(12, 56)
             };
+            _rightPanelContent = panel;
 
             // Заголовок базы
             var nameBlock = new TextBlock
@@ -2632,7 +2661,7 @@ namespace Configuration_Management
                 Text = LocalizationManager.T("Main.SessionOnceHint"),
                 FontSize = UiMetrics.ScaledFont(11),
                 TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 0, 0, 6)
+                Margin = new Thickness(0, 0, 0, 8)
             };
             ThemeBrushes.Bind(hint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             ToolTip.SetTip(hint, LocalizationManager.T("Main.CurrentSessionHelp"));
@@ -2675,30 +2704,42 @@ namespace Configuration_Management
                     options.Children.Add(item);
             }
 
+            var clientOptions = new StackPanel
+            {
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            clientOptions.Children.Add(
+                SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionClient", "IsSessionClientAuto"));
+            clientOptions.Children.Add(
+                SessionOption(LocalizationManager.T("Main.SessionClientOrdinary"), "SessionClient", "IsSessionClientOrdinary"));
+            clientOptions.Children.Add(
+                SessionOption(LocalizationManager.T("Main.SessionClientThickManaged"), "SessionClient", "IsSessionClientThick",
+                    LocalizationManager.T("Main.SessionThickManagedTooltip")));
+            clientOptions.Children.Add(
+                SessionOption(LocalizationManager.T("Main.SessionClientThin"), "SessionClient", "IsSessionClientThin"));
+
+            var archOptions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Children =
+                {
+                    SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionArch", "IsSessionArchAuto",
+                        margin: new Thickness(0, 2, 10, 2)),
+                    SessionOption("32", "SessionArch", "IsSessionArch32",
+                        margin: new Thickness(0, 2, 10, 2)),
+                    SessionOption("64", "SessionArch", "IsSessionArch64")
+                }
+            };
+
+            AddOption(
+                SessionGroupLabel(LocalizationManager.T("Main.ClientMode")),
+                clientOptions,
+                SessionGroupLabel(LocalizationManager.T("Main.Bitness")),
+                archOptions);
+
             var card = SectionCard(LocalizationManager.T("Main.CurrentSession"), "Main.CurrentSessionHelp",
                 hint,
                 options);
-
-            AddOption(SessionGroupLabel(LocalizationManager.T("Main.ClientMode")));
-            AddOption(
-                SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionClient", "IsSessionClientAuto"),
-                SessionOption(LocalizationManager.T("Main.SessionClientOrdinary"), "SessionClient", "IsSessionClientOrdinary"),
-                SessionOption(LocalizationManager.T("Main.SessionClientThickManaged"), "SessionClient", "IsSessionClientThick",
-                    LocalizationManager.T("Main.SessionThickManagedTooltip")),
-                SessionOption(LocalizationManager.T("Main.SessionClientThin"), "SessionClient", "IsSessionClientThin"),
-                SessionGroupLabel(LocalizationManager.T("Main.Bitness")),
-                // Разрядность у автора идёт строкой, а не колонкой, как режим клиента.
-                new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 12,
-                    Children =
-                    {
-                        SessionOption(LocalizationManager.T("Main.SessionClientAuto"), "SessionArch", "IsSessionArchAuto"),
-                        SessionOption("32", "SessionArch", "IsSessionArch32"),
-                        SessionOption("64", "SessionArch", "IsSessionArch64")
-                    }
-                });
 
             card.Bind(Control.IsVisibleProperty, new Binding("ShowSessionLaunchPanel"));
             return card;
@@ -2712,7 +2753,7 @@ namespace Configuration_Management
                 Text = text,
                 FontSize = UiMetrics.ScaledFont(11),
                 FontWeight = FontWeight.SemiBold,
-                Margin = new Thickness(0, 6, 0, 2)
+                Margin = new Thickness(0, 0, 0, 4)
             };
             ThemeBrushes.Bind(block, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             block.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelDetails"));
@@ -2720,7 +2761,8 @@ namespace Configuration_Management
         }
 
         /// <summary>Переключатель в блоке текущей сессии: одна из взаимоисключающих опций.</summary>
-        private static Control SessionOption(string text, string group, string propertyPath, string? tooltip = null)
+        private static Control SessionOption(string text, string group, string propertyPath, string? tooltip = null,
+            Thickness? margin = null)
         {
             var option = new RadioButton
             {
@@ -2731,7 +2773,7 @@ namespace Configuration_Management
                 // против версии для Windows: там строки идут вплотную.
                 MinHeight = UiMetrics.Scaled(22),
                 Padding = new Thickness(6, 0, 0, 0),
-                Margin = new Thickness(0, 2)
+                Margin = margin ?? new Thickness(0, 2)
             };
             // Класс нужен не для оформления, а чтобы поднять приоритет сеттеров:
             // Fluent задаёт размеры частей шаблона приоритетом Template, который
@@ -2830,29 +2872,29 @@ namespace Configuration_Management
         /// Карточка-секция с заголовком и значком внутри рамки. Осталась только
         /// у карточки текущей сессии: у остальных секций подпись вынесена наружу.
         /// </summary>
-        private static Control SectionCard(string title, string helpKey, params Control[] children)
+        private Control SectionCard(string title, string helpKey, params Control[] children)
         {
             // Числа из разметки (MainWindow.xaml:2101-2113): скругление 8, фон
             // ItemHover, отступ 10 на 8 и 6 на 6 в узкой панели, поле 8,0,8,10.
-            // Рамки у карточки нет.
             var card = new Border
             {
                 CornerRadius = new CornerRadius(8),
-                BorderThickness = new Thickness(0),
+                BorderThickness = new Thickness(1),
                 Padding = new Thickness(10, 8),
-                Margin = new Thickness(0, 0, 0, 10),
+                Margin = new Thickness(8, 0, 8, 10),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
+            _sessionCard = card;
             ThemeBrushes.Bind(card, Border.BackgroundProperty, "ItemHoverBrush");
+            ThemeBrushes.Bind(card, Border.BorderBrushProperty, "BorderColorBrush");
             UiMetrics.AddBrushTransition(card);
 
-            var content = new StackPanel { Spacing = UiMetrics.Gap };
+            var content = new StackPanel { Spacing = 0 };
 
             var header = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Spacing = 6,
-                Margin = new Thickness(0, 0, 0, 2)
+                Spacing = 6
             };
             // Значка у заголовка в разметке нет, зато есть кнопка справки
             // рядом с подписью (MainWindow.xaml:2118-2136). Подпись основным
@@ -2865,6 +2907,7 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 0, 0, 6),
                 VerticalAlignment = VerticalAlignment.Center
             };
+            _sessionTitleBlock = titleBlock;
             ThemeBrushes.Bind(titleBlock, TextBlock.ForegroundProperty, "TextPrimaryColorBrush");
             header.Children.Add(titleBlock);
             if (!string.IsNullOrEmpty(helpKey))
