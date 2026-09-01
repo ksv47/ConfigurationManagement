@@ -128,8 +128,8 @@ namespace Configuration_Management
             var themeLabel = new TextBlock { Text = LocalizationManager.T("Settings.ThemeLabel"), FontWeight = FontWeight.SemiBold };
             settings.Children.Add(themeLabel);
             var themePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            var lightTheme = new RadioButton { Content = LocalizationManager.T("Main.LightTheme"), GroupName = "Theme", IsChecked = !ThemeManager.CurrentScheme.IsDark };
-            var darkTheme = new RadioButton { Content = LocalizationManager.T("Main.DarkTheme"), GroupName = "Theme", IsChecked = ThemeManager.CurrentScheme.IsDark };
+            var lightTheme = new RadioButton { Content = LocalizationManager.T("Main.LightTheme"), GroupName = "Theme", IsChecked = ThemeManager.CurrentTheme != ThemeManager.DarkThemeName };
+            var darkTheme = new RadioButton { Content = LocalizationManager.T("Main.DarkTheme"), GroupName = "Theme", IsChecked = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName };
             ThemeChanged(lightTheme, darkTheme, _viewModel, theme =>
             {
                 editedScheme = _viewModel.GetSchemeForTheme(theme);
@@ -1131,6 +1131,8 @@ namespace Configuration_Management
             // Правки идут по копии сохранённой схемы, а не применённой предпросмотром:
             // закрытие окна крестиком не должно оставлять редактор на непринятых цветах.
             editedScheme = _viewModel.ActiveColorScheme.Clone();
+            // Какая палитра сейчас редактируется/показывается (светлая или тёмная).
+            var previewDark = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName;
 
             // Список схем 280 на 34 с левым полем 10 (SettingsWindow.xaml:829).
             var schemeBox = new ComboBox
@@ -1190,8 +1192,8 @@ namespace Configuration_Management
                 colorsPanel.Children.Clear();
                 foreach (var (key, label) in Models.ColorScheme.Definitions)
                 {
-                    var current = editedScheme.Colors.TryGetValue(key, out var value) ? value : "#FFFFFF";
-                    colorsPanel.Children.Add(ColorRow(editedScheme, key, label, current));
+                    var current = editedScheme.PaletteValue(previewDark, key);
+                    colorsPanel.Children.Add(ColorRow(editedScheme, previewDark, key, label, current));
                 }
             }
 
@@ -1347,14 +1349,15 @@ namespace Configuration_Management
                 }
 
                 if (string.Equals(editedScheme.Name, current, StringComparison.OrdinalIgnoreCase))
-                    editedScheme = editedScheme.IsDark ? ColorScheme.CreateDark() : ColorScheme.CreateLight();
+                    editedScheme = ColorScheme.CreateLight();
                 ReloadSchemes(editedScheme.Name);
                 RefreshColors();
             });
 
             SchemeButton("Settings.ResetColors", "Settings.ResetColorsTooltip", () =>
             {
-                editedScheme = ColorScheme.Create(editedScheme.Name, editedScheme.IsDark);
+                // Сброс обеих палитр на значения по умолчанию.
+                editedScheme = ColorScheme.Create(editedScheme.Name, false);
                 RefreshColors();
             });
 
@@ -1390,7 +1393,9 @@ namespace Configuration_Management
                     imported = null;
                 }
 
-                if (imported is null || imported.Colors is not { Count: > 0 } || string.IsNullOrWhiteSpace(imported.Name))
+                if (imported is null
+                    || (imported.LightColors.Count == 0 && imported.DarkColors.Count == 0)
+                    || string.IsNullOrWhiteSpace(imported.Name))
                 {
                     _viewModel.ShowError(LocalizationManager.T("Settings.ImportFailed"));
                     return;
@@ -1430,6 +1435,24 @@ namespace Configuration_Management
             appearance.Children.Add(schemeButtons);
             appearance.Children.Add(GroupTitle(LocalizationManager.T("Settings.Colors")));
             appearance.Children.Add(Hint(LocalizationManager.T("Settings.Colors.Description"), bottom: 8));
+
+            // Переключатель палитры: какая сейчас редактируется и показывается (светлая/тёмная).
+            var lightPalette = new RadioButton { Content = LocalizationManager.T("Theme.Light"), GroupName = "Palette", IsChecked = !previewDark };
+            var darkPalette = new RadioButton { Content = LocalizationManager.T("Theme.Dark"), GroupName = "Palette", IsChecked = previewDark };
+            void SelectPalette(bool dark)
+            {
+                if (previewDark == dark)
+                    return;
+                previewDark = dark;
+                RefreshColors();
+            }
+            lightPalette.Checked += (_, _) => SelectPalette(false);
+            darkPalette.Checked += (_, _) => SelectPalette(true);
+            var paletteSwitch = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 4, 0, 0) };
+            paletteSwitch.Children.Add(lightPalette);
+            paletteSwitch.Children.Add(darkPalette);
+            appearance.Children.Add(paletteSwitch);
+
             appearance.Children.Add(colorsPanel);
 
             var tabAppearance = MainTab("IconPalette", "Settings.TabAppearance",
@@ -2360,7 +2383,7 @@ namespace Configuration_Management
         /// Строка цвета схемы: подпись и образец. Щелчок открывает выбор цвета
         /// и сразу применяет результат, чтобы правку было видно на приложении.
         /// </summary>
-        private Control ColorRow(ColorScheme scheme, string key, string label, string value)
+        private Control ColorRow(ColorScheme scheme, bool dark, string key, string label, string value)
         {
             // Числа из разметки (SettingsWindow.xaml:912): образец 28 на 20
             // в колонке шириной 36.
@@ -2393,7 +2416,7 @@ namespace Configuration_Management
                     return;
 
                 value = picker.Result;
-                scheme.Colors[key] = value;
+                scheme.Palette(dark)[key] = value;
                 swatch.Background = ParseBrush(value);
                 hexText?.Invoke(value);
             }

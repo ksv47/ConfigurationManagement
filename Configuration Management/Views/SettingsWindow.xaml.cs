@@ -223,7 +223,7 @@ namespace Configuration_Management
             // хранит собственные настройки независимо (встроенные — в своём слоте базовой
             // темы, пользовательские — в своём JSON-файле).
             _settings.PersistEditedSchemes();
-            ThemeDebug($"Settings OK: applying '{_settings.CurrentColorScheme.Name}' (isDark={_settings.CurrentColorScheme.IsDark}, colors={_settings.CurrentColorScheme.Colors.Count})");
+            ThemeDebug($"Settings OK: applying '{_settings.CurrentColorScheme.Name}' (colors light={_settings.CurrentColorScheme.LightColors.Count}, dark={_settings.CurrentColorScheme.DarkColors.Count})");
             _viewModel.ApplyColorScheme(_settings.CurrentColorScheme);
 
             // Сохраняем настройки шрифта интерфейса (общий и отдельных областей).

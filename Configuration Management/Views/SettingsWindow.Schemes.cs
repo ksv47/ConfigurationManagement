@@ -1,6 +1,7 @@
 #if WINDOWS
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -22,16 +23,41 @@ namespace Configuration_Management
     {
         // ===================== Цветовое оформление =====================
 
+        /// <summary>Подавление событий переключателя палитры при программной установке.</summary>
+        private bool _suppressPaletteEvent;
+
         /// <summary>
         /// Инициализирует вкладку «Цветовое оформление»: активная схема загружается
         /// моделью представления (<see cref="SettingsViewModel"/>), здесь заполняется
-        /// список тем и редактор цветов.
+        /// список тем и редактор цветов, а также режим редактируемой палитры.
         /// </summary>
         private void InitializeColorSchemes()
         {
             ColorItemsControl.ItemsSource = _colorItems;
             RefreshSchemeComboBox();
             RefreshColorItems();
+
+            // Начальный режим палитры — по текущему варианту темы.
+            _suppressPaletteEvent = true;
+            var dark = Themes.ThemeManager.CurrentTheme == Themes.ThemeManager.DarkThemeName;
+            if (DarkPaletteRadio != null) DarkPaletteRadio.IsChecked = dark;
+            if (LightPaletteRadio != null) LightPaletteRadio.IsChecked = !dark;
+            _settings.SetPaletteMode(dark);
+            _suppressPaletteEvent = false;
+            RefreshSchemePreview();
+        }
+
+        /// <summary>Обработчик переключателя «светлая/тёмная» палитры: меняет режим редактора и обновляет список цветов.</summary>
+        private void OnPaletteSwitch(object sender, RoutedEventArgs e)
+        {
+            // Переключатель может сработать при разборе XAML (IsChecked="True")
+            // раньше инициализации _settings — тогда просто игнорируем.
+            if (_suppressPaletteEvent || _settings is null)
+                return;
+            var dark = DarkPaletteRadio?.IsChecked == true;
+            _settings.SetPaletteMode(dark);
+            RefreshColorItems();
+            RefreshSchemePreview();
         }
 
         /// <summary>Строит список доступных тем (встроенные + пользовательские) и выбирает текущую.</summary>
@@ -72,14 +98,26 @@ namespace Configuration_Management
             return items;
         }
 
-        /// <summary>Обновляет список редактируемых цветов из текущей схемы.</summary>
+        /// <summary>Обновляет список редактируемых цветов из текущей схемы и подписывается на их live-изменение.</summary>
         private void RefreshColorItems()
         {
             _colorItems.Clear();
             foreach (var (key, label, hex) in _settings.GetEditableColors())
             {
-                _colorItems.Add(new ColorItem { Key = key, Label = label, Hex = hex });
+                var item = new ColorItem { Key = key, Label = label, Hex = hex };
+                item.PropertyChanged += OnColorItemPropertyChanged;
+                _colorItems.Add(item);
             }
+        }
+
+        /// <summary>
+        /// Подписка на изменение любого редактируемого цвета: при изменении <see cref="ColorItem.Hex"/>
+        /// предпросмотр темы перерисовывается актуальными цветами (live-обновление без сохранения).
+        /// </summary>
+        private void OnColorItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ColorItem.Hex))
+                RefreshSchemePreview();
         }
 
         /// <summary>Обновляет доступность кнопок «Переименовать»/«Удалить» для встроенных тем.</summary>
@@ -102,9 +140,10 @@ namespace Configuration_Management
                 // Встроенные «Светлая»/«Тёмная» используют слот своей базовой темы,
                 // пользовательские — свой JSON-файл. Логика загрузки — в модели представления.
                 _settings.SetCurrentScheme(item.Name);
-                ThemeDebug($"SchemeCombo select '{item.Name}' -> '{_settings.CurrentColorScheme.Name}' (isDark={_settings.CurrentColorScheme.IsDark}, colors={_settings.CurrentColorScheme.Colors.Count})");
+                ThemeDebug($"SchemeCombo select '{item.Name}' -> '{_settings.CurrentColorScheme.Name}' (colors light={_settings.CurrentColorScheme.LightColors.Count}, dark={_settings.CurrentColorScheme.DarkColors.Count})");
                 RefreshColorItems();
                 UpdateSchemeButtons();
+                RefreshSchemePreview();
             }
         }
 
@@ -140,9 +179,128 @@ namespace Configuration_Management
             var picker = new ColorPickerWindow(item.Hex) { Owner = this };
             if (picker.ShowDialog() == true)
             {
-                item.Hex = picker.Result;
+                // Сначала обновляем схему, затем элемент (сеттер Hex поднимает PropertyChanged,
+                // по которому предпросмотр перечитывает актуальное значение из схемы).
                 _settings.SetColor(item.Key, picker.Result);
+                item.Hex = picker.Result;
+                RefreshSchemePreview();
             }
+        }
+
+        /// <summary>
+        /// Перерисовывает миниатюрный предпросмотр темы цветами редактируемой схемы
+        /// и выбранной палитры (светлой/тёмной). Читает значения прямо из схемы через
+        /// <see cref="ColorScheme.PaletteValue"/>, поэтому отражает незаконченные правки
+        /// редактора до сохранения.
+        /// </summary>
+        private void RefreshSchemePreview()
+        {
+            if (PreviewShell is null || _settings is null)
+                return;
+
+            var scheme = _settings.CurrentColorScheme;
+            var dark = _settings.EditingDarkPalette;
+            string V(string key) => scheme.PaletteValue(dark, key);
+
+            // Окно: подложка-карточка с рамкой и акцентная шапка.
+            PaintBorder(PreviewShell, V("CardBackgroundColor"), V("BorderColor"));
+            Paint(PreviewTitleBar, V("AccentColor"));
+            PaintText(PreviewTitleText, V("TextOnAccentColor"));
+
+            // Боковая панель: тёмный фон, контрастный текст, акцентная/фоновая подсветка пунктов.
+            var sidebar = ParseColor(V("SidebarColor"));
+            var sidebarText = Contrast(sidebar);
+            Paint(PreviewSidebar, V("SidebarColor"));
+            Paint(PreviewNavSelected, V("SidebarSelectedColor"));
+            Paint(PreviewNavItem1, V("SidebarHoverColor"));
+            Paint(PreviewNavItem2, V("SidebarHoverColor"));
+            PaintText(PreviewNavSelectedText, sidebarText);
+            PaintText(PreviewNavItem1Text, sidebarText);
+            PaintText(PreviewNavItem2Text, sidebarText);
+
+            // Контент.
+            Paint(PreviewMain, V("ContentBackgroundColor"));
+            PaintText(PreviewContentTitle, V("TextPrimaryColor"));
+            PaintText(PreviewContentSubtitle, V("TextSecondaryColor"));
+
+            // Карточка.
+            PaintBorder(PreviewCard, V("CardBackgroundColor"), V("BorderColor"));
+            PaintText(PreviewCardTitle, V("TextPrimaryColor"));
+            PaintText(PreviewCardText, V("TextSecondaryColor"));
+
+            // Поле ввода.
+            PaintTextBox(PreviewTextField, V("CardBackgroundColor"), V("BorderColor"), V("TextPrimaryColor"));
+
+            // Кнопки: акцентная и вторичная.
+            Paint(PreviewPrimaryButton, V("AccentColor"));
+            PaintText(PreviewPrimaryButtonText, V("ButtonTextColor"));
+            Paint(PreviewSecondaryButton, V("SecondaryButtonBackgroundColor"));
+            PaintText(PreviewSecondaryButtonText, V("ButtonTextColor"));
+
+            // Список.
+            PaintBorder(PreviewListBox, V("CardBackgroundColor"), V("BorderColor"));
+            Paint(PreviewListSelected, V("ItemSelectedColor"));
+            Paint(PreviewListItem1, V("ItemHoverColor"));
+            Paint(PreviewListItem2, V("ItemHoverColor"));
+            PaintText(PreviewListSelectedText, V("TextPrimaryColor"));
+            PaintText(PreviewListItem1Text, V("TextPrimaryColor"));
+            PaintText(PreviewListItem2Text, V("TextPrimaryColor"));
+        }
+
+        // ---- Вспомогательные методы для миниатюрного предпросмотра ----
+
+        private static SolidColorBrush Parse(string hex)
+        {
+            try { return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); }
+            catch { return Brushes.Transparent; }
+        }
+
+        private static Color ParseColor(string hex)
+        {
+            try { return (Color)ColorConverter.ConvertFromString(hex); }
+            catch { return Colors.Transparent; }
+        }
+
+        /// <summary>Кисть с максимальным контрастом к заданному цвету (чёрный/белый).</summary>
+        private static SolidColorBrush Contrast(Color c)
+        {
+            var lum = (0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B) / 255.0;
+            return new SolidColorBrush(lum > 0.5 ? Colors.Black : Colors.White);
+        }
+
+        private static void Paint(Border? b, string hex)
+        {
+            if (b is not null) b.Background = Parse(hex);
+        }
+
+        private static void PaintBorder(Border? b, string bgHex, string borderHex)
+        {
+            if (b is null) return;
+            b.Background = Parse(bgHex);
+            b.BorderBrush = Parse(borderHex);
+        }
+
+        private static void PaintText(TextBlock? t, string hex)
+        {
+            if (t is not null) t.Foreground = Parse(hex);
+        }
+
+        private static void PaintText(TextBlock? t, SolidColorBrush? brush)
+        {
+            if (t is not null && brush is not null) t.Foreground = brush;
+        }
+
+        private static void PaintText(Control? c, string hex)
+        {
+            if (c is not null) c.Foreground = Parse(hex);
+        }
+
+        private static void PaintTextBox(TextBox? t, string bgHex, string borderHex, string fgHex)
+        {
+            if (t is null) return;
+            t.Background = Parse(bgHex);
+            t.BorderBrush = Parse(borderHex);
+            t.Foreground = Parse(fgHex);
         }
 
         /// <summary>Создаёт собственную тему на основе текущих цветов.</summary>
@@ -162,6 +320,7 @@ namespace Configuration_Management
             _settings.CreateCustomScheme(name);
             RefreshSchemeComboBox();
             RefreshColorItems();
+            RefreshSchemePreview();
         }
 
         /// <summary>Переименовывает выбранную пользовательскую тему.</summary>
@@ -188,6 +347,7 @@ namespace Configuration_Management
             _settings.RenameCustomScheme(item.Name, name);
             RefreshSchemeComboBox();
             RefreshColorItems();
+            RefreshSchemePreview();
         }
 
         /// <summary>Удаляет выбранную пользовательскую тему.</summary>
@@ -208,6 +368,7 @@ namespace Configuration_Management
             _settings.DeleteCustomScheme(item.Name);
             RefreshSchemeComboBox();
             RefreshColorItems();
+            RefreshSchemePreview();
         }
 
         /// <summary>Сбрасывает цвета выбранной темы на значения по умолчанию.</summary>
@@ -215,6 +376,7 @@ namespace Configuration_Management
         {
             _settings.ResetCurrentSchemeColors();
             RefreshColorItems();
+            RefreshSchemePreview();
         }
 
         /// <summary>Выгружает текущую тему в JSON-файл.</summary>
@@ -258,7 +420,7 @@ namespace Configuration_Management
                 return;
 
             var scheme = _viewModel.ImportColorScheme(dialog.FileName);
-            if (scheme is null || scheme.Colors.Count == 0)
+            if (scheme is null || (scheme.LightColors.Count == 0 && scheme.DarkColors.Count == 0))
             {
                 MessageBox.Show(LocalizationManager.T("Settings.ImportFailed"),
                     LocalizationManager.T("Settings.ImportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
@@ -268,6 +430,7 @@ namespace Configuration_Management
             _settings.AdoptImportedScheme(scheme);
             RefreshSchemeComboBox();
             RefreshColorItems();
+            RefreshSchemePreview();
             MessageBox.Show(string.Format(LocalizationManager.T("Settings.ImportedOk"), scheme.Name),
                 LocalizationManager.T("Settings.ImportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
         }

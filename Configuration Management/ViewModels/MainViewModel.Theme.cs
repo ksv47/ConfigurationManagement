@@ -47,90 +47,67 @@ public partial class MainViewModel : ViewModelBase
     /// </summary>
     public void ToggleTheme()
     {
-        var targetDark = !Themes.ThemeManager.CurrentScheme.IsDark;
+        // Схема одна (несёт обе палитры): переключение темы лишь выбирает палитру.
+        var targetDark = Themes.ThemeManager.CurrentTheme != Themes.ThemeManager.DarkThemeName;
         ApplySchemeForTheme(targetDark);
         SaveSettings();
-        LogTheme($"ToggleTheme -> dark={targetDark}, scheme='{_activeColorScheme?.Name}' (isDark={_activeColorScheme?.IsDark}), darkSlot='{_darkColorScheme?.Name}', lightSlot='{_lightColorScheme?.Name}'");
+        LogTheme($"ToggleTheme -> dark={targetDark}, scheme='{_activeColorScheme?.Name}' (colors light={_activeColorScheme?.LightColors.Count}, dark={_activeColorScheme?.DarkColors.Count})");
     }
 
     /// <summary>
-    /// Применяет схему для указанной базовой темы, обновляя активную схему и сохранённую тему.
-    /// Каждая базовая тема (светлая/тёмная) имеет собственную схему, поэтому правки одной
-    /// темы не влияют на другую.
+    /// Задаёт вариант темы (светлый/тёмный) и применяет активную схему с палитрой этого
+    /// варианта. Схема одна и несёт обе палитры, поэтому вариант её не меняет.
     /// </summary>
     private void ApplySchemeForTheme(bool dark)
     {
-        _activeColorScheme = SchemeForTheme(dark);
-        _savedTheme = _activeColorScheme.BaseThemeName;
-        Themes.ThemeManager.ApplyScheme(_activeColorScheme);
-        LogTheme($"ApplySchemeForTheme(dark={dark}) -> active='{_activeColorScheme.Name}' (isDark={_activeColorScheme.IsDark})");
+        _savedTheme = dark ? Themes.ThemeManager.DarkThemeName : Themes.ThemeManager.LightThemeName;
+        // Убеждаемся, что активная схема применена, затем задаём вариант темы.
+        Themes.ThemeManager.ApplyScheme(_activeColorScheme ?? Models.ColorScheme.CreateLight());
+        Themes.ThemeManager.ApplyTheme(dark);
+        LogTheme($"ApplySchemeForTheme(dark={dark}) -> active='{_activeColorScheme?.Name}'");
     }
 
     /// <summary>
-    /// Возвращает схему для базовой темы: сохранённую пользовательскую (если есть), иначе встроенную.
-    /// </summary>
-    private Models.ColorScheme SchemeForTheme(bool dark)
-    {
-        var slot = dark ? _darkColorScheme : _lightColorScheme;
-        if (slot is { Colors.Count: > 0 })
-            return slot;
-        return dark ? Models.ColorScheme.CreateDark() : Models.ColorScheme.CreateLight();
-    }
-
-    /// <summary>
-    /// Возвращает схему для базовой темы («Light»/«Dark»): сохранённую пользовательскую
-    /// (если есть) или встроенную по умолчанию. Не изменяет настройки.
+    /// Возвращает активную схему (с двумя палитрами). Вариант темы определяет,
+    /// какая палитра показывается; сама схема от него не зависит.
     /// </summary>
     public Models.ColorScheme GetSchemeForTheme(string theme)
-        => SchemeForTheme(IsDarkTheme(theme));
+        => (_activeColorScheme ?? Models.ColorScheme.CreateLight()).Clone();
 
     private static bool IsDarkTheme(string? theme)
         => string.Equals(theme, Themes.ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Применяет цветовую схему, сохраняет её как активную и записывает настройки.
-    /// Кастомизация записывается в слот соответствующей базовой темы (светлой/тёмной),
-    /// поэтому переключение тем не сбрасывает настроенное оформление.
+    /// Схема едина и несёт обе палитры; вариант темы она не меняет.
     /// </summary>
     public void ApplyColorScheme(ColorScheme scheme)
     {
         if (scheme is null)
             return;
-        _activeColorScheme = scheme.Clone();
-        _savedTheme = _activeColorScheme.BaseThemeName;
-        // В слот базовой темы (светлой/тёмной) пишем только встроенные темы
-        // («Светлая»/«Тёмная»). Применение пользовательской темы не должно затирать
-        // кастомизацию встроенной: иначе после сохранения своей темы выбор «Светлой»
-        // возвращал бы её цвета, а не базовую светлую тему.
-        if (SettingsViewModel.IsBuiltInName(_activeColorScheme.Name))
-        {
-            if (_activeColorScheme.IsDark)
-                _darkColorScheme = _activeColorScheme;
-            else
-                _lightColorScheme = _activeColorScheme;
-        }
-        Themes.ThemeManager.ApplyScheme(_activeColorScheme);
+        var clone = scheme.Clone();
+        clone.Normalize();
+        _activeColorScheme = clone;
+        // Схема применяется по текущему варианту темы (палитра выбирается им).
+        Themes.ThemeManager.ApplyScheme(clone);
         SaveSettings();
-        LogTheme($"ApplyColorScheme('{scheme.Name}', isDark={scheme.IsDark}, colors={scheme.Colors.Count}) -> active='{_activeColorScheme.Name}', darkSlot='{_darkColorScheme?.Name}', lightSlot='{_lightColorScheme?.Name}'");
+        LogTheme($"ApplyColorScheme('{clone.Name}', colors light={clone.LightColors.Count}, dark={clone.DarkColors.Count}) -> active='{_activeColorScheme.Name}'");
     }
 
     /// <summary>
-    /// Сохраняет правки схемы в слот соответствующей базовой темы (светлой/тёмной),
+    /// Сохраняет правки схемы как активную (единая схема с двумя палитрами),
     /// не меняя активную тему и не трогая интерфейс. Используется редактором цветов
-    /// во вкладке «Цветовое оформление», чтобы каждая тема хранила собственные настройки
-    /// независимо от остальных.
+    /// во вкладке «Цветовое оформление».
     /// </summary>
     public void SaveColorSchemeSlot(ColorScheme scheme)
     {
         if (scheme is null)
             return;
         var clone = scheme.Clone();
-        if (clone.IsDark)
-            _darkColorScheme = clone;
-        else
-            _lightColorScheme = clone;
+        clone.Normalize();
+        _activeColorScheme = clone;
         SaveSettings();
-        LogTheme($"SaveColorSchemeSlot('{scheme.Name}', isDark={scheme.IsDark}, colors={scheme.Colors.Count}) -> darkSlot='{_darkColorScheme?.Name}', lightSlot='{_lightColorScheme?.Name}'");
+        LogTheme($"SaveColorSchemeSlot('{clone.Name}') -> active='{_activeColorScheme?.Name}'");
     }
 
     /// <summary>Диагностика переключения/применения темы (пишет в лог и во временный файл).</summary>

@@ -40,10 +40,6 @@ public partial class MainViewModel : ViewModelBase
     private string _pinnedIcon = string.Empty;
     private string _savedTheme = string.Empty;
     private ColorScheme? _activeColorScheme;
-    /// <summary>Пользовательская схема светлой темы (кастомизация хранится независимо от тёмной).</summary>
-    private ColorScheme? _lightColorScheme;
-    /// <summary>Пользовательская схема тёмной темы (кастомизация хранится независимо от светлой).</summary>
-    private ColorScheme? _darkColorScheme;
     /// <summary>Флаг подписки на событие смены языка (предотвращает дублирование подписки).</summary>
     private bool _languageChangedSubscribed;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
@@ -211,31 +207,12 @@ public partial class MainViewModel : ViewModelBase
         _elementFonts = settings.ElementFonts is null
             ? new Dictionary<string, Models.ElementFontSettings>()
             : new Dictionary<string, Models.ElementFontSettings>(settings.ElementFonts);
-        // Раздельные пользовательские схемы для светлой и тёмной темы: кастомизация
-        // каждой базовой темы хранится независимо, поэтому переключение тем не затирает
-        // настроенное оформление.
-        // Слот базовой темы принимаем только от встроенной схемы («Светлая»/«Тёмная»).
-        // Если в слоте оказалась пользовательская тема (протёкшая из старых версий из-за
-        // бага, когда применение своей темы затирало слот базовой), игнорируем её — иначе
-        // выбор «Светлой» возвращал бы цвета этой темы, а не базовую светлую схему.
-        _lightColorScheme = SettingsViewModel.IsBuiltInName(settings.LightColorScheme?.Name ?? "")
-            ? settings.LightColorScheme : null;
-        _darkColorScheme = SettingsViewModel.IsBuiltInName(settings.DarkColorScheme?.Name ?? "")
-            ? settings.DarkColorScheme : null;
-        // Миграция: если задан только старый одиночный ActiveColorScheme, переносим его
-        // в слот соответствующей базовой темы (только для встроенных схем).
-        if (settings.ActiveColorScheme is { Colors.Count: > 0 }
-            && SettingsViewModel.IsBuiltInName(settings.ActiveColorScheme.Name))
-        {
-            if (settings.ActiveColorScheme.IsDark && _darkColorScheme is not { Colors.Count: > 0 })
-                _darkColorScheme = settings.ActiveColorScheme;
-            else if (!settings.ActiveColorScheme.IsDark && _lightColorScheme is not { Colors.Count: > 0 })
-                _lightColorScheme = settings.ActiveColorScheme;
-        }
-        var baseTheme = string.IsNullOrWhiteSpace(_savedTheme)
-            ? ((_darkColorScheme is { Colors.Count: > 0 }) ? Themes.ThemeManager.DarkThemeName : Themes.ThemeManager.LightThemeName)
-            : _savedTheme;
-        _activeColorScheme = SchemeForTheme(IsDarkTheme(baseTheme));
+        // Единая активная схема с двумя палитрами; старые раздельные схемы (активная +
+        // слоты светлой/тёмной темы) объединяются при миграции.
+        _activeColorScheme = Models.ColorScheme.FromLegacy(
+            settings.ActiveColorScheme, settings.LightColorScheme, settings.DarkColorScheme);
+        if (string.IsNullOrWhiteSpace(_savedTheme))
+            _savedTheme = Themes.ThemeManager.LightThemeName;
         _additionalPlatformSearchPaths = new List<string>(settings.AdditionalPlatformSearchPaths ?? new List<string>());
         PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformSearchPaths);
         // Актуальный список версий платформы с диска (Program Files + доп. пути) собирается

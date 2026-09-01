@@ -270,6 +270,7 @@
     "Settings.DefaultArch": "Default bitness",
     "Settings.Theme": "Color theme",
     "Settings.Colors": "Colors",
+    "Settings.Preview": "Preview",
     "Settings.ChooseColor": "Choose…",
     "Settings.SyncSettings": "Synchronization settings",
     "Settings.TemplateDirs": "Configuration template directories",

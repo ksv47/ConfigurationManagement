@@ -405,8 +405,9 @@ public partial class MainViewModel : ViewModelBase
             ShowEmptyGroups = _showEmptyGroups,
             Theme = _savedTheme,
             ActiveColorScheme = _activeColorScheme,
-            LightColorScheme = _lightColorScheme,
-            DarkColorScheme = _darkColorScheme,
+            // Устаревшие раздельные слоты больше не ведутся.
+            LightColorScheme = null,
+            DarkColorScheme = null,
             CollapsedGroups = _collapsedGroups.ToList(),
             InstalledPlatformVersions = _installedPlatformVersions,
             AdditionalPlatformSearchPaths = _additionalPlatformSearchPaths,

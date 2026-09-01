@@ -270,6 +270,7 @@
     "Settings.DefaultArch": "Разрядность по умолчанию",
     "Settings.Theme": "Тема оформления",
     "Settings.Colors": "Цвета",
+    "Settings.Preview": "Предпросмотр",
     "Settings.ChooseColor": "Выбрать…",
     "Settings.SyncSettings": "Настройки синхронизации",
     "Settings.TemplateDirs": "Каталоги шаблонов конфигураций",

@@ -40,19 +40,21 @@ namespace Configuration_Management.Themes
         /// Применяет цветовую схему: загружает базовую тему (Light/Dark) и накладывает
         /// цвета схемы на ресурсы приложения.
         /// </summary>
-        public static void ApplyScheme(ColorScheme scheme)
+        public static void ApplyScheme(ColorScheme? scheme)
         {
             var app = Application.Current;
             if (app is null)
                 return;
 
             scheme ??= ColorScheme.CreateLight();
+            scheme.Normalize();
             CurrentScheme = scheme;
-            CurrentTheme = scheme.IsDark ? DarkThemeName : LightThemeName;
 
-            var uri = scheme.IsDark ? DarkUri : LightUri;
+            // Загружаем базовую тему по текущему варианту и накладываем его палитру.
+            var dark = CurrentTheme == DarkThemeName;
+            var uri = dark ? DarkUri : LightUri;
             var dictionary = new ResourceDictionary { Source = uri };
-            ApplyColors(dictionary, scheme);
+            ApplyColors(dictionary, scheme, dark);
 
             // Ищем существующий словарь темы (Light/Dark), не трогаем MaterialDesign.
             var merged = app.Resources.MergedDictionaries;
@@ -75,19 +77,24 @@ namespace Configuration_Management.Themes
         }
 
         /// <summary>
-        /// Применяет встроенную тему по имени («Light» / «Dark»).
+        /// Задаёт базовый вариант темы (светлый/тёмный) и применяет активную схему
+        /// с палитрой этого варианта.
         /// </summary>
-        public static void ApplyTheme(string themeName)
+        public static void ApplyTheme(bool dark)
         {
-            var isDark = themeName == DarkThemeName;
-            ApplyScheme(isDark ? ColorScheme.CreateDark() : ColorScheme.CreateLight());
+            CurrentTheme = dark ? DarkThemeName : LightThemeName;
+            ApplyScheme(CurrentScheme);
         }
 
-        /// <summary>Переключает между светлой и тёмной встроенной темой, возвращает новое имя темы.</summary>
+        /// <summary>Применяет вариант темы по имени («Light» / «Dark»).</summary>
+        public static void ApplyTheme(string themeName)
+            => ApplyTheme(themeName == DarkThemeName);
+
+        /// <summary>Переключает между светлой и тёмной темой, возвращает новое имя темы.</summary>
         public static string ToggleTheme()
         {
             var next = CurrentTheme == DarkThemeName ? LightThemeName : DarkThemeName;
-            ApplyTheme(next);
+            ApplyTheme(next == DarkThemeName);
             return next;
         }
 
@@ -368,9 +375,9 @@ namespace Configuration_Management.Themes
         /// обновляется ресурс Color и (если есть) одноимённый SolidColorBrush; для
         /// ключей, оканчивающихся на «Brush», обновляется непосредственно кисть.
         /// </summary>
-        private static void ApplyColors(ResourceDictionary dict, ColorScheme scheme)
+        private static void ApplyColors(ResourceDictionary dict, ColorScheme scheme, bool dark)
         {
-            foreach (var kvp in scheme.Colors)
+            foreach (var kvp in scheme.Palette(dark))
             {
                 if (string.IsNullOrWhiteSpace(kvp.Key) || string.IsNullOrWhiteSpace(kvp.Value))
                     continue;
