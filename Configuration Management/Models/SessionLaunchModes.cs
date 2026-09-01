@@ -10,14 +10,14 @@ public enum SessionClientMode
     /// <summary>Брать из настроек базы.</summary>
     Auto,
 
-    /// <summary>Обычное приложение (/RunModeOrdinaryApplication).</summary>
+    /// <summary>
+    /// Обычный режим (толстый клиент, обычные формы, /RunModeOrdinaryApplication).
+    /// Объединяет прежние «Обычный режим» и «Толстый (обычные формы)» (issue #144).
+    /// </summary>
     Ordinary,
 
     /// <summary>Толстый клиент (управляемые формы) (/RunModeManagedApplication).</summary>
     Thick,
-
-    /// <summary>Толстый клиент (обычные формы) (/RunModeOrdinaryApplication).</summary>
-    ThickOrdinary,
 
     /// <summary>Тонкий клиент (/RunModeManagedApplication).</summary>
     Thin

@@ -825,115 +825,348 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              Margin="4,12,4,0" Padding="0,0,4,0">
-                    <StackPanel>
-                        <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8" Margin="0,0,0,12">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <TextBlock Text="{loc:Loc Settings.ThemeLabel}" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <ComboBox x:Name="SchemeComboBox" Width="280" Height="34" Margin="10,0,0,0"
-                                              VerticalAlignment="Center"
-                                              Style="{StaticResource ModernComboBox}"
-                                              SelectionChanged="OnSchemeCombo_SelectionChanged"/>
-                                    <Button x:Name="ApplySchemeButton" Content="{loc:Loc Common.Apply}" Margin="10,0,0,0"
-                                            Padding="12,5" VerticalAlignment="Center"
-                                            Style="{DynamicResource ModernButton}"
-                                            Click="OnApplyColorScheme_Click"
-                                            ToolTip="{loc:Loc Settings.Theme.ApplyTooltip}"/>
-                                </StackPanel>
-                                <TextBlock Text="{loc:Loc Settings.Theme.Description}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
-                                           TextWrapping="Wrap" Margin="0,0,0,10"/>
-                                <WrapPanel Orientation="Horizontal">
-                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
-                                            Click="OnCreateScheme_Click"
-                                            ToolTip="{loc:Loc Settings.CreateThemeTooltip}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Settings.CreateTheme}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button x:Name="RenameSchemeButton" Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
-                                            Click="OnRenameScheme_Click"
-                                            ToolTip="{loc:Loc Settings.RenameTooltip}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Settings.Rename}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button x:Name="DeleteSchemeButton" Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
-                                            Click="OnDeleteScheme_Click"
-                                            ToolTip="{loc:Loc Settings.DeleteThemeTooltip}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
-                                            Click="OnResetSchemeColors_Click"
-                                            ToolTip="{loc:Loc Settings.ResetColorsTooltip}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="Restore" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Settings.ResetColors}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
-                                            Click="OnExportScheme_Click"
-                                            ToolTip="{loc:Loc Settings.ExportThemeTooltip}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="Export" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Settings.ExportTheme}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,0,4"
-                                            Click="OnImportScheme_Click"
-                                            ToolTip="{loc:Loc Settings.ImportThemeTooltip}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="Import" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Settings.ImportTheme}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                </WrapPanel>
-                            </StackPanel>
-                        </GroupBox>
+                <!-- Вкладка построена как единый Grid с двумя колонками: слева прокручиваемые
+                     настройки (тема + редактор цветов), справа закреплённый живой предпросмотр,
+                     который НЕ скроллится вместе со списком цветов. -->
+                <Grid Margin="4,12,4,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                        <GroupBox Header="{loc:Loc Settings.Colors}" Padding="8" Margin="0,0,0,8">
+                    <!-- Левая колонка: настройки темы и редактор цветов (прокручиваются) -->
+                    <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  Padding="0,0,12,0">
+                        <StackPanel>
+                            <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock Text="{loc:Loc Settings.ThemeLabel}" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <ComboBox x:Name="SchemeComboBox" Width="280" Height="34" Margin="10,0,0,0"
+                                                  VerticalAlignment="Center"
+                                                  Style="{StaticResource ModernComboBox}"
+                                                  SelectionChanged="OnSchemeCombo_SelectionChanged"/>
+                                        <Button x:Name="ApplySchemeButton" Content="{loc:Loc Common.Apply}" Margin="10,0,0,0"
+                                                Padding="12,5" VerticalAlignment="Center"
+                                                Style="{DynamicResource ModernButton}"
+                                                Click="OnApplyColorScheme_Click"
+                                                ToolTip="{loc:Loc Settings.Theme.ApplyTooltip}"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{loc:Loc Settings.Theme.Description}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                               TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                    <WrapPanel Orientation="Horizontal">
+                                        <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                                Click="OnCreateScheme_Click"
+                                                ToolTip="{loc:Loc Settings.CreateThemeTooltip}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{loc:Loc Settings.CreateTheme}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="RenameSchemeButton" Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                                Click="OnRenameScheme_Click"
+                                                ToolTip="{loc:Loc Settings.RenameTooltip}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{loc:Loc Settings.Rename}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="DeleteSchemeButton" Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                                Click="OnDeleteScheme_Click"
+                                                ToolTip="{loc:Loc Settings.DeleteThemeTooltip}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                                Click="OnResetSchemeColors_Click"
+                                                ToolTip="{loc:Loc Settings.ResetColorsTooltip}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Restore" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{loc:Loc Settings.ResetColors}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                                Click="OnExportScheme_Click"
+                                                ToolTip="{loc:Loc Settings.ExportThemeTooltip}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Export" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{loc:Loc Settings.ExportTheme}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,0,4"
+                                                Click="OnImportScheme_Click"
+                                                ToolTip="{loc:Loc Settings.ImportThemeTooltip}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Import" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{loc:Loc Settings.ImportTheme}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <!-- Редактор цветов выбранной палитры -->
+                            <GroupBox Header="{loc:Loc Settings.Colors}" Padding="8" Margin="0,0,0,8">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Loc Settings.Colors.Description}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                               TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <!-- Переключатель палитры «светлая/тёмная»: одна кнопка-переключатель,
+                                         как в главном окне (в тёмной палитре — солнце, в светлой — луна). -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <Button x:Name="PaletteToggleButton" Click="OnPaletteSwitch_Click"
+                                                Style="{DynamicResource IconButton}"
+                                                ToolTip="{loc:Loc Theme.Dark}">
+                                            <Path x:Name="PaletteToggleIcon" Width="18" Height="18" Stretch="Uniform"
+                                                  Data="{StaticResource IconMoon}" Fill="#8B5CF6"/>
+                                        </Button>
+                                        <TextBlock x:Name="PaletteStateText" Text="{loc:Loc Theme.Light}"
+                                                   VerticalAlignment="Center" Margin="8,0,0,0"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    </StackPanel>
+                                    <ItemsControl x:Name="ColorItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,3">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="36"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Label}" VerticalAlignment="Center"
+                                                               Margin="0,0,12,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                    <Border Grid.Column="1" Width="28" Height="20" CornerRadius="4"
+                                                            BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                                                            Background="{Binding ColorBrush}"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Hex}" VerticalAlignment="Center"
+                                                               Margin="12,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <Button Grid.Column="3" Content="{loc:Loc Settings.ChooseColor}" Padding="10,3"
+                                                            Margin="12,0,0,0" VerticalAlignment="Center"
+                                                            Style="{DynamicResource SecondaryButton}"
+                                                            Tag="{Binding Key}"
+                                                            Click="OnColorPick_Click"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </GroupBox>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Правая колонка: закреплённый живой предпросмотр темы.
+                         Показывает сразу ОБЕ палитры — светлую (сверху) и тёмную (снизу),
+                         поэтому кнопка-переключатель палитры не нужна. Каждое превью уже
+                         прежнего (220→175), чтобы освободить место левой колонке.
+                         Не прокручивается вместе с настройками; при малой высоте окна
+                         ограничен по высоте и получает собственную вертикальную прокрутку. -->
+                    <GroupBox Grid.Column="1" Header="{loc:Loc Settings.Preview}" Padding="8"
+                              VerticalAlignment="Top">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      MaxHeight="520">
                             <StackPanel>
-                                <TextBlock Text="{loc:Loc Settings.Colors.Description}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
-                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                <ItemsControl x:Name="ColorItemsControl">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,3">
+                                <!-- Светлая палитра -->
+                                <TextBlock Text="{loc:Loc Theme.Light}" FontWeight="SemiBold" FontSize="12"
+                                           Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <Border x:Name="PreviewShellLight" Width="175" CornerRadius="8" BorderThickness="1"
+                                        ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Шапка (акцент) -->
+                                        <Border x:Name="PreviewTitleBarLight" Height="34" Padding="10,0">
+                                            <Grid>
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="36"/>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding Label}" VerticalAlignment="Center"
-                                                           Margin="0,0,12,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                <Border Grid.Column="1" Width="28" Height="20" CornerRadius="4"
-                                                        BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
-                                                        Background="{Binding ColorBrush}"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding Hex}" VerticalAlignment="Center"
-                                                           Margin="12,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <Button Grid.Column="3" Content="{loc:Loc Settings.ChooseColor}" Padding="10,3"
-                                                        Margin="12,0,0,0" VerticalAlignment="Center"
-                                                        Style="{DynamicResource SecondaryButton}"
-                                                        Tag="{Binding Key}"
-                                                        Click="OnColorPick_Click"/>
+                                                <TextBlock x:Name="PreviewTitleTextLight" Text="Управление конфигурациями"
+                                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12"/>
+                                                <Border Grid.Column="1" Width="12" Height="12" CornerRadius="6"
+                                                        Background="#22C55E" VerticalAlignment="Center"/>
                                             </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                        </Border>
+
+                                        <Grid Grid.Row="1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="64"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Боковая панель -->
+                                            <Border x:Name="PreviewSidebarLight" Padding="6">
+                                                <StackPanel>
+                                                    <Border x:Name="PreviewNavSelectedLight" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
+                                                        <TextBlock x:Name="PreviewNavSelectedTextLight" Text="Базы" FontSize="11"/>
+                                                    </Border>
+                                                    <Border x:Name="PreviewNavItem1Light" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
+                                                        <TextBlock x:Name="PreviewNavItem1TextLight" Text="Избранное" FontSize="11"/>
+                                                    </Border>
+                                                    <Border x:Name="PreviewNavItem2Light" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
+                                                        <TextBlock x:Name="PreviewNavItem2TextLight" Text="История" FontSize="11"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Контент -->
+                                            <Border x:Name="PreviewMainLight" Grid.Column="1" Padding="10">
+                                                <StackPanel>
+                                                    <TextBlock x:Name="PreviewContentTitleLight" Text="Документы"
+                                                               FontWeight="SemiBold" FontSize="13"/>
+                                                    <TextBlock x:Name="PreviewContentSubtitleLight" Text="Последние изменения"
+                                                               FontSize="11" Margin="0,2,0,8"/>
+
+                                                    <Border x:Name="PreviewCardLight" CornerRadius="6" BorderThickness="1"
+                                                            Padding="8" Margin="0,0,0,8">
+                                                        <StackPanel>
+                                                            <TextBlock x:Name="PreviewCardTitleLight" Text="Карточка базы"
+                                                                       FontWeight="SemiBold" FontSize="11"/>
+                                                            <TextBlock x:Name="PreviewCardTextLight" Text="Краткое описание объекта"
+                                                                       FontSize="10" Margin="0,2,0,0"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <TextBox x:Name="PreviewTextFieldLight" Height="26" FontSize="11"
+                                                             Padding="6,2" BorderThickness="1"/>
+
+                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                        <Border x:Name="PreviewPrimaryButtonLight" CornerRadius="4" Padding="12,5" Margin="0,0,6,0">
+                                                            <TextBlock x:Name="PreviewPrimaryButtonTextLight" Text="Готово"
+                                                                       FontSize="11" FontWeight="SemiBold"/>
+                                                        </Border>
+                                                        <Border x:Name="PreviewSecondaryButtonLight" CornerRadius="4" Padding="12,5">
+                                                            <TextBlock x:Name="PreviewSecondaryButtonTextLight" Text="Отмена" FontSize="11"/>
+                                                        </Border>
+                                                    </StackPanel>
+
+                                                    <!-- Список -->
+                                                    <Border x:Name="PreviewListBoxLight" CornerRadius="6" BorderThickness="1" Margin="0,10,0,0">
+                                                        <StackPanel>
+                                                            <Border x:Name="PreviewListSelectedLight" Padding="8,5">
+                                                                <TextBlock x:Name="PreviewListSelectedTextLight" Text="Бухгалтерия предприятия" FontSize="11"/>
+                                                            </Border>
+                                                            <Border x:Name="PreviewListItem1Light" Padding="8,5" BorderThickness="0,1,0,0">
+                                                                <TextBlock x:Name="PreviewListItem1TextLight" Text="Зарплата и кадры" FontSize="11"/>
+                                                            </Border>
+                                                            <Border x:Name="PreviewListItem2Light" Padding="8,5" BorderThickness="0,1,0,0">
+                                                                <TextBlock x:Name="PreviewListItem2TextLight" Text="Управление торговлей" FontSize="11"/>
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Тёмная палитра -->
+                                <TextBlock Text="{loc:Loc Theme.Dark}" FontWeight="SemiBold" FontSize="12"
+                                           Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <Border x:Name="PreviewShellDark" Width="175" CornerRadius="8" BorderThickness="1"
+                                        ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Шапка (акцент) -->
+                                        <Border x:Name="PreviewTitleBarDark" Height="34" Padding="10,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock x:Name="PreviewTitleTextDark" Text="Управление конфигурациями"
+                                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12"/>
+                                                <Border Grid.Column="1" Width="12" Height="12" CornerRadius="6"
+                                                        Background="#22C55E" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <Grid Grid.Row="1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="64"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Боковая панель -->
+                                            <Border x:Name="PreviewSidebarDark" Padding="6">
+                                                <StackPanel>
+                                                    <Border x:Name="PreviewNavSelectedDark" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
+                                                        <TextBlock x:Name="PreviewNavSelectedTextDark" Text="Базы" FontSize="11"/>
+                                                    </Border>
+                                                    <Border x:Name="PreviewNavItem1Dark" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
+                                                        <TextBlock x:Name="PreviewNavItem1TextDark" Text="Избранное" FontSize="11"/>
+                                                    </Border>
+                                                    <Border x:Name="PreviewNavItem2Dark" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
+                                                        <TextBlock x:Name="PreviewNavItem2TextDark" Text="История" FontSize="11"/>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Контент -->
+                                            <Border x:Name="PreviewMainDark" Grid.Column="1" Padding="10">
+                                                <StackPanel>
+                                                    <TextBlock x:Name="PreviewContentTitleDark" Text="Документы"
+                                                               FontWeight="SemiBold" FontSize="13"/>
+                                                    <TextBlock x:Name="PreviewContentSubtitleDark" Text="Последние изменения"
+                                                               FontSize="11" Margin="0,2,0,8"/>
+
+                                                    <Border x:Name="PreviewCardDark" CornerRadius="6" BorderThickness="1"
+                                                            Padding="8" Margin="0,0,0,8">
+                                                        <StackPanel>
+                                                            <TextBlock x:Name="PreviewCardTitleDark" Text="Карточка базы"
+                                                                       FontWeight="SemiBold" FontSize="11"/>
+                                                            <TextBlock x:Name="PreviewCardTextDark" Text="Краткое описание объекта"
+                                                                       FontSize="10" Margin="0,2,0,0"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <TextBox x:Name="PreviewTextFieldDark" Height="26" FontSize="11"
+                                                             Padding="6,2" BorderThickness="1"/>
+
+                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                        <Border x:Name="PreviewPrimaryButtonDark" CornerRadius="4" Padding="12,5" Margin="0,0,6,0">
+                                                            <TextBlock x:Name="PreviewPrimaryButtonTextDark" Text="Готово"
+                                                                       FontSize="11" FontWeight="SemiBold"/>
+                                                        </Border>
+                                                        <Border x:Name="PreviewSecondaryButtonDark" CornerRadius="4" Padding="12,5">
+                                                            <TextBlock x:Name="PreviewSecondaryButtonTextDark" Text="Отмена" FontSize="11"/>
+                                                        </Border>
+                                                    </StackPanel>
+
+                                                    <!-- Список -->
+                                                    <Border x:Name="PreviewListBoxDark" CornerRadius="6" BorderThickness="1" Margin="0,10,0,0">
+                                                        <StackPanel>
+                                                            <Border x:Name="PreviewListSelectedDark" Padding="8,5">
+                                                                <TextBlock x:Name="PreviewListSelectedTextDark" Text="Бухгалтерия предприятия" FontSize="11"/>
+                                                            </Border>
+                                                            <Border x:Name="PreviewListItem1Dark" Padding="8,5" BorderThickness="0,1,0,0">
+                                                                <TextBlock x:Name="PreviewListItem1TextDark" Text="Зарплата и кадры" FontSize="11"/>
+                                                            </Border>
+                                                            <Border x:Name="PreviewListItem2Dark" Padding="8,5" BorderThickness="0,1,0,0">
+                                                                <TextBlock x:Name="PreviewListItem2TextDark" Text="Управление торговлей" FontSize="11"/>
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
                             </StackPanel>
-                        </GroupBox>
-                    </StackPanel>
-                </ScrollViewer>
+                        </ScrollViewer>
+                    </GroupBox>
+                </Grid>
             </TabItem>
 
             <!-- ============ Вкладка «Клавиши» ============ -->
@@ -1115,6 +1348,20 @@
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="ApplicationOutline" Width="16" Height="16" Foreground="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="{loc:Loc Settings.General.AllowMultipleInstances}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </ToggleButton>
+                        <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="CheckForUpdatesOnStartupCheck" Margin="0,0,0,6">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Update" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.General.CheckForUpdatesOnStartup}" VerticalAlignment="Center"
+                                           ToolTip="{loc:Loc Settings.General.CheckForUpdatesOnStartupTooltip}"/>
+                            </StackPanel>
+                        </ToggleButton>
+                        <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="AutoUpdateEnabledCheck" Margin="0,0,0,6">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Update" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc Settings.General.AutoUpdate}" VerticalAlignment="Center"
+                                           ToolTip="{loc:Loc Settings.General.AutoUpdateTooltip}"/>
                             </StackPanel>
                         </ToggleButton>
                         <ToggleButton Style="{DynamicResource SettingsToggle}" x:Name="ShowTrayIconCheck" Margin="0,0,0,6">
@@ -1515,15 +1762,26 @@
                                MaxWidth="420" MaxHeight="560" RenderOptions.BitmapScalingMode="HighQuality"
                                Cursor="Hand" MouseLeftButtonUp="OnDonatImage_Click"
                                ToolTip="{loc:Loc Settings.About.DonatTooltip}"/>
-                        <Button Margin="0,24,0,0" Padding="14,8" HorizontalAlignment="Left"
-                                Style="{DynamicResource SecondaryButton}" Cursor="Hand"
-                                Click="OnCopyTechInfo_Click">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16"
-                                                         Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="{loc:Loc Settings.About.CopyTechInfo}" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
+                        <StackPanel Margin="0,24,0,0" Orientation="Horizontal">
+                            <Button Margin="0,0,10,0" Padding="14,8" HorizontalAlignment="Left"
+                                    Style="{DynamicResource SecondaryButton}" Cursor="Hand"
+                                    Click="OnCheckForUpdates_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Update" Width="16" Height="16"
+                                                             Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Settings.About.CheckForUpdates}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Padding="14,8" HorizontalAlignment="Left"
+                                    Style="{DynamicResource SecondaryButton}" Cursor="Hand"
+                                    Click="OnCopyTechInfo_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16"
+                                                             Foreground="#3B82F6" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Settings.About.CopyTechInfo}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

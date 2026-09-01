@@ -26,6 +26,14 @@ namespace Configuration_Management
         /// <summary>Альфа полупрозрачной подложки «стекла» — 0xE8 (~91% непрозрачности).</summary>
         private const byte GlassBackgroundAlpha = 0xE8;
 
+        /// <summary>
+        /// Радиус скругления верхних углов полосы заголовка (в DIP), совпадает с радиусом
+        /// скругления углов окна, который DWM применяет через DwmWindowCornerPreference
+        /// на Windows 11. Если не совпадать с ним, прямоугольная акцентная полоса выходит
+        /// за скруглённый клип окна, и в углах шапки просвечивает стеклянная подложка.
+        /// </summary>
+        private const double DwmCornerRadius = 8;
+
         // DWMWA_SYSTEMBACKDROP_TYPE (38): 2 = Mica, 3 = Acrylic.
         private const int DwmSystemBackdropType = 38;
         private const int DwmBackdropAcrylic = 3;
@@ -240,9 +248,18 @@ namespace Configuration_Management
             var bar = new Border
             {
                 Height = 34,
-                Background = Brushes.Transparent,
-                VerticalAlignment = VerticalAlignment.Top
+                // Полоса заголовка диалога заливается акцентным цветом темы на всю ширину.
+                // HorizontalAlignment=Stretch и нулевые Margin гарантируют, что полоса занимает
+                // всю ширину окна и не оставляет незалитых участков по краям (issue #135).
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0),
+                // Скругляем два верхних угла с тем же радиусом, что и окно (DWM, Windows 11).
+                // Иначе прямоугольная полоса не доходит до скруглённых углов окна и в углах
+                // шапки просвечивает стеклянная подложка/рабочий стол — «недозалитые» углы.
+                CornerRadius = new CornerRadius(DwmCornerRadius, DwmCornerRadius, 0, 0)
             };
+            bar.SetResourceReference(Border.BackgroundProperty, "AccentBrush");
             bar.MouseLeftButtonDown += (_, _) =>
             {
                 if (window.WindowState != WindowState.Maximized)
@@ -263,7 +280,8 @@ namespace Configuration_Management
                 Margin = new Thickness(14, 0, 0, 0),
                 FontWeight = FontWeights.SemiBold
             };
-            title.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimaryBrush");
+            // Текст заголовка читаемым цветом «на акценте» (ButtonTextBrush) поверх акцентной полосы.
+            title.SetResourceReference(TextBlock.ForegroundProperty, "ButtonTextBrush");
 
             var buttons = new StackPanel
             {
@@ -291,7 +309,13 @@ namespace Configuration_Management
         /// </summary>
         private static Button BuildButton(Window window)
         {
-            var style = (Style?)window.TryFindResource("WindowControlCloseButton");
+            // Стиль «на акценте»: базовый значок ButtonTextBrush (читается на акцентной
+            // полосе заголовка), красное hover-выделение и белый значок наследуются из
+            // базового шаблона. Задаём цвет сеттером стиля, а не локальным значением —
+            // иначе локальное значение (приоритет выше шаблонного триггера) «ломало» бы
+            // белое выделение значка при наведении.
+            var style = (Style?)window.TryFindResource("WindowControlCloseButtonOnAccent")
+                        ?? (Style?)window.TryFindResource("WindowControlCloseButton");
 
             var path = new Path
             {

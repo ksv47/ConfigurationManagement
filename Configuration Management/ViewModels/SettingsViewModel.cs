@@ -53,6 +53,15 @@ public sealed class SettingsViewModel
     /// <summary>Текущая редактируемая цветовая схема вкладки «Цветовое оформление».</summary>
     public ColorScheme CurrentColorScheme { get; private set; }
 
+    /// <summary>Режим редактора: true — редактируется тёмная палитра, false — светлая.</summary>
+    public bool EditingDarkPalette { get; private set; }
+
+    /// <summary>Задаёт, какую палитру (светлую/тёмную) сейчас редактирует редактор цветов.</summary>
+    public void SetPaletteMode(bool dark)
+    {
+        EditingDarkPalette = dark;
+    }
+
     /// <summary>Список доступных схем: встроенные (Светлая/Тёмная) и пользовательские.</summary>
     public IReadOnlyList<ColorScheme> AvailableColorSchemes() => _viewModel.AvailableColorSchemes();
 
@@ -154,14 +163,14 @@ public sealed class SettingsViewModel
     {
         var result = new List<(string Key, string Label, string Hex)>();
         foreach (var (key, label) in ColorScheme.Definitions)
-            result.Add((key, label, CurrentColorScheme.Get(key)));
+            result.Add((key, label, CurrentColorScheme.PaletteValue(EditingDarkPalette, key)));
         return result;
     }
 
-    /// <summary>Устанавливает значение цвета текущей схемы и фиксирует её как изменённую.</summary>
+    /// <summary>Устанавливает значение цвета активной палитры текущей схемы и фиксирует её как изменённую.</summary>
     public void SetColor(string key, string hex)
     {
-        CurrentColorScheme.Colors[key] = hex;
+        CurrentColorScheme.Palette(EditingDarkPalette)[key] = hex;
         MarkCurrentDirty();
     }
 
@@ -233,22 +242,21 @@ public sealed class SettingsViewModel
         _editingSchemes.Remove(name);
         _dirtySchemes.Remove(name);
 
-        // Если удалили активную — переключаемся на базовую встроенную тему.
+        // Если удалили активную — переключаемся на базовую встроенную светлую схему.
         if (string.Equals(CurrentColorScheme.Name, name, StringComparison.OrdinalIgnoreCase))
         {
-            CurrentColorScheme = CurrentColorScheme.IsDark ? ColorScheme.CreateDark() : ColorScheme.CreateLight();
+            CurrentColorScheme = ColorScheme.CreateLight();
             _editingSchemes[CurrentColorScheme.Name] = CurrentColorScheme;
         }
 
         return true;
     }
 
-    /// <summary>Сбрасывает цвета ТОЛЬКО выбранной темы на значения по умолчанию (остальные не затрагиваются).</summary>
+    /// <summary>Сбрасывает обе палитры ТОЛЬКО выбранной темы на значения по умолчанию (остальные не затрагиваются).</summary>
     public void ResetCurrentSchemeColors()
     {
-        var wasDark = CurrentColorScheme.IsDark;
         var name = CurrentColorScheme.Name;
-        CurrentColorScheme = ColorScheme.Create(name, wasDark);
+        CurrentColorScheme = ColorScheme.Create(name, false);
         _editingSchemes[name] = CurrentColorScheme;
         _dirtySchemes.Add(name);
     }

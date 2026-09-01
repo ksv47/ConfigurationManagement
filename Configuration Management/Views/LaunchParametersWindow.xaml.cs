@@ -12,15 +12,30 @@ namespace Configuration_Management
     /// </summary>
     public partial class LaunchParametersWindow : Window
     {
+        /// <summary>Пользовательские параметры, добавленные в справочник (issue #141).</summary>
+        private readonly List<string> _customParams;
+
+        /// <summary>Обратный вызов для сохранения списка пользовательских параметров при изменении.</summary>
+        private readonly Action<IReadOnlyList<string>>? _onCustomParametersChanged;
+
         /// <summary>
         /// Создаёт диалог конфигуратора параметров запуска.
         /// </summary>
         /// <param name="currentParameters">Текущая строка параметров для предзаполнения.</param>
-        public LaunchParametersWindow(string currentParameters)
+        /// <param name="customParameters">Пользовательские параметры, дополняющие справочник (необязательно).</param>
+        /// <param name="onCustomParametersChanged">Обратный вызов сохранения изменённого списка пользовательских параметров (необязательно).</param>
+        public LaunchParametersWindow(
+            string currentParameters,
+            IReadOnlyList<string>? customParameters = null,
+            Action<IReadOnlyList<string>>? onCustomParametersChanged = null)
         {
             InitializeComponent();
+            _onCustomParametersChanged = onCustomParametersChanged;
+            _customParams = new List<string>();
+            if (customParameters != null)
+                _customParams.AddRange(customParameters.Where(p => !string.IsNullOrWhiteSpace(p)));
             TxtCustom.Text = currentParameters ?? string.Empty;
-            LstReference.ItemsSource = BuildReferenceCatalog();
+            RefreshReference();
         }
 
         /// <summary>
@@ -28,11 +43,23 @@ namespace Configuration_Management
         /// </summary>
         public string Result { get; private set; } = string.Empty;
 
+        /// <summary>Возвращает обновлённый список пользовательских параметров справочника (issue #141).</summary>
+        public IReadOnlyList<string> CustomParameters => _customParams;
+
+        /// <summary>
+        /// Перестраивает список справочника с учётом пользовательских параметров.
+        /// </summary>
+        private void RefreshReference()
+        {
+            LstReference.ItemsSource = null;
+            LstReference.ItemsSource = BuildReferenceCatalog();
+        }
+
         /// <summary>
         /// Строит каталог всех ключей командной строки 1С с описаниями
         /// для справочника в нижней части окна.
         /// </summary>
-        private static List<ParamRef> BuildReferenceCatalog()
+        private List<ParamRef> BuildReferenceCatalog()
         {
             var list = new List<ParamRef>();
 
@@ -99,6 +126,24 @@ namespace Configuration_Management
             Add("/UnregisterExternalDataSource");
             Add("/SqlDump");
 
+            // Пользовательские параметры (issue #141): добавляются в конец списка,
+            // помечаются, чтобы их можно было отличить от встроенных и удалить.
+            // Формат элемента: «ключ» либо «ключ<TAB>комментарий» (комментарий из поля
+            // TxtNewComment) — ключ и описание разделяются табуляцией, поэтому ключ
+            // командной строки подставляется в поле «Параметры» без комментария.
+            foreach (var custom in _customParams)
+            {
+                var parts = (custom ?? string.Empty).Split('\t');
+                var key = parts[0].Trim();
+                if (string.IsNullOrWhiteSpace(key))
+                    continue;
+                var comment = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+                var description = string.IsNullOrWhiteSpace(comment)
+                    ? LocalizationManager.T("LaunchParams.CustomMarker")
+                    : comment;
+                list.Add(new ParamRef(key, description, isCustom: true));
+            }
+
             return list;
         }
 
@@ -135,19 +180,83 @@ namespace Configuration_Management
             DialogResult = true;
         }
 
+        // ============ Пользовательские параметры (issue #141) ============
+
+        /// <summary>Добавляет введённый в поле текст как пользовательский параметр справочника.</summary>
+        private void AddCustomParameter()
+        {
+            var key = (TxtNewParam.Text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+            var comment = (TxtNewComment.Text ?? string.Empty).Trim();
+            var entry = string.IsNullOrWhiteSpace(comment) ? key : key + "\t" + comment;
+
+            // Проверяем совпадение именно по ключу (до табуляции), а не по всей записи.
+            if (_customParams.Any(p =>
+                string.Equals((p ?? string.Empty).Split('\t')[0].Trim(), key, StringComparison.OrdinalIgnoreCase)))
+                return;
+            _customParams.Add(entry);
+            TxtNewParam.Clear();
+            TxtNewComment.Clear();
+            PersistCustomParameters();
+            RefreshReference();
+            TxtNewParam.Focus();
+        }
+
+        /// <summary>Удаляет выбранный пользовательский параметр из справочника.</summary>
+        private void RemoveSelectedCustomParameter()
+        {
+            if (LstReference.SelectedItem is not ParamRef { IsCustom: true } item)
+                return;
+            _customParams.RemoveAll(p =>
+                string.Equals((p ?? string.Empty).Split('\t')[0].Trim(), item.Key, StringComparison.OrdinalIgnoreCase));
+            PersistCustomParameters();
+            RefreshReference();
+        }
+
+        /// <summary>Сохраняет список пользовательских параметров через обратный вызов.</summary>
+        private void PersistCustomParameters()
+        {
+            _onCustomParametersChanged?.Invoke(_customParams);
+        }
+
+        private void OnAddParam_Click(object sender, RoutedEventArgs e) => AddCustomParameter();
+
+        private void OnRemoveParam_Click(object sender, RoutedEventArgs e) => RemoveSelectedCustomParameter();
+
+        private void OnNewParamKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                AddCustomParameter();
+                e.Handled = true;
+            }
+        }
+
+        private void OnReferenceKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Delete)
+            {
+                RemoveSelectedCustomParameter();
+                e.Handled = true;
+            }
+        }
+
         /// <summary>
         /// Запись справочника параметров командной строки 1С.
         /// </summary>
         private sealed class ParamRef
         {
-            public ParamRef(string key, string description)
+            public ParamRef(string key, string description, bool isCustom = false)
             {
                 Key = key;
                 Description = description;
+                IsCustom = isCustom;
             }
 
             public string Key { get; }
             public string Description { get; }
+            public bool IsCustom { get; }
         }
     }
 }

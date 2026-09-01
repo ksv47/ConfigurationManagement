@@ -273,6 +273,62 @@ public class ConnectionSettingsViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Список доступных серверов хранилища конфигурации (из настроек хранилища других баз)
+    /// для выпадающего списка поля «Сервер хранилища» (issue #140).
+    /// </summary>
+    public ObservableCollection<string> AvailableRepositoryServers { get; } = new();
+
+    /// <summary>
+    /// Устанавливает список доступных серверов хранилища конфигурации.
+    /// Сортируем по алфавиту и исключаем пустые значения.
+    /// </summary>
+    public void SetAvailableRepositoryServers(IEnumerable<string>? servers)
+    {
+        AvailableRepositoryServers.Clear();
+        if (servers is null)
+            return;
+
+        foreach (var server in servers
+                     .Where(s => !string.IsNullOrWhiteSpace(s))
+                     .Select(s => s.Trim())
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
+        {
+            AvailableRepositoryServers.Add(server);
+        }
+    }
+
+    /// <summary>
+    /// Разделяет единое поле подключения к хранилищу, скопированное из 1С
+    /// (например «tcp://server:1542/ИмяХранилища»), на адрес сервера и имя хранилища (issue #140).
+    /// </summary>
+    public void SplitRepositoryConnectionString(string value)
+    {
+        var text = (value ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        // Убираем возможный префикс схемы «tcp://», «file://» и т.п. до «://».
+        var body = text;
+        var schemeIdx = text.IndexOf("://", StringComparison.Ordinal);
+        if (schemeIdx >= 0)
+            body = text[(schemeIdx + 3)..];
+
+        // Разделяем на «сервер/имя» по первому слэшу.
+        var slashIdx = body.IndexOf('/');
+        if (slashIdx < 0)
+        {
+            RepositoryServer = body.Trim();
+            RepositoryName = string.Empty;
+        }
+        else
+        {
+            RepositoryServer = body[..slashIdx].Trim();
+            RepositoryName = body[(slashIdx + 1)..].Trim();
+        }
+    }
+
+    /// <summary>
     /// Список доступных портов серверов 1С (из клиент-серверных баз в списке) для выпадающего списка.
     /// </summary>
     public ObservableCollection<string> AvailablePorts { get; } = new();

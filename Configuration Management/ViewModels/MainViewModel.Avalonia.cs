@@ -997,7 +997,7 @@ public class MainViewModel : ViewModelBase
         {
             if (!SetPropertyWithRelated(ref _sessionClient, value, nameof(SessionClient),
                     nameof(IsSessionClientAuto), nameof(IsSessionClientOrdinary), nameof(IsSessionClientThick),
-                    nameof(IsSessionClientThickOrdinary), nameof(IsSessionClientThin)))
+                    nameof(IsSessionClientThin)))
                 return;
 
             _settings.SessionClientMode = SessionClientMode().ToString();
@@ -1007,7 +1007,6 @@ public class MainViewModel : ViewModelBase
     public bool IsSessionClientAuto { get => SessionClient == "Авто"; set { if (value) SessionClient = "Авто"; } }
     public bool IsSessionClientOrdinary { get => SessionClient == "Обычный"; set { if (value) SessionClient = "Обычный"; } }
     public bool IsSessionClientThick { get => SessionClient == "Толстый"; set { if (value) SessionClient = "Толстый"; } }
-    public bool IsSessionClientThickOrdinary { get => SessionClient == "ТолстыйОбычные"; set { if (value) SessionClient = "ТолстыйОбычные"; } }
     public bool IsSessionClientThin { get => SessionClient == "Тонкий"; set { if (value) SessionClient = "Тонкий"; } }
 
     public string SessionArch
@@ -1028,7 +1027,6 @@ public class MainViewModel : ViewModelBase
     {
         "Обычный" => Models.SessionClientMode.Ordinary,
         "Толстый" => Models.SessionClientMode.Thick,
-        "ТолстыйОбычные" => Models.SessionClientMode.ThickOrdinary,
         "Тонкий" => Models.SessionClientMode.Thin,
         _ => Models.SessionClientMode.Auto
     };
@@ -1047,7 +1045,6 @@ public class MainViewModel : ViewModelBase
             {
                 Models.SessionClientMode.Ordinary => "Обычный",
                 Models.SessionClientMode.Thick => "Толстый",
-                Models.SessionClientMode.ThickOrdinary => "ТолстыйОбычные",
                 Models.SessionClientMode.Thin => "Тонкий",
                 _ => "Авто"
             }
@@ -1079,7 +1076,7 @@ public class MainViewModel : ViewModelBase
         {
             Models.SessionClientMode.Thin => OneCClientType.Thin,
             Models.SessionClientMode.Thick => OneCClientType.Thick,
-            Models.SessionClientMode.ThickOrdinary => OneCClientType.Thick,
+            // «Обычный режим» и «Толстый (обычные формы)» объединены (issue #144).
             Models.SessionClientMode.Ordinary => OneCClientType.Thick,
             _ => ClientFromInfobase(infobase)
         };
@@ -1094,7 +1091,8 @@ public class MainViewModel : ViewModelBase
         OneCRunMode? runMode = client switch
         {
             Models.SessionClientMode.Thick => OneCRunMode.Managed,
-            Models.SessionClientMode.ThickOrdinary => OneCRunMode.Ordinary,
+            // «Обычный режим» соответствует бывшему «Толстый (обычные формы)» (issue #144).
+            Models.SessionClientMode.Ordinary => OneCRunMode.Ordinary,
             Models.SessionClientMode.Auto => OneCLauncher.GetRunModeFromLaunchMode(infobase.LaunchMode),
             _ => null
         };
@@ -1178,12 +1176,20 @@ public class MainViewModel : ViewModelBase
                 SynchronizeSilently();
             RestartAutoSync();
 
-            // Применяем сохранённую схему активной базовой темы (раздельные схемы
-            // для светлой/тёмной темы), иначе — встроенные цвета.
-            var activeTheme = string.IsNullOrWhiteSpace(_themeName)
-                ? (_settings.ActiveColorScheme?.IsDark == true ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName)
-                : _themeName;
-            ThemeManager.ApplyScheme(SchemeForTheme(IsDarkTheme(activeTheme)));
+            // Миграция старой модели схем (активная + раздельные слоты) в единую схему
+            // с двумя палитрами; устаревшие поля обнуляем, чтобы сохранялся новый формат.
+            _settings.ActiveColorScheme = Models.ColorScheme.FromLegacy(
+                _settings.ActiveColorScheme, _settings.LightColorScheme, _settings.DarkColorScheme);
+            _settings.LightColorScheme = null;
+            _settings.DarkColorScheme = null;
+
+            if (string.IsNullOrWhiteSpace(_themeName))
+                _themeName = ThemeManager.LightThemeName;
+            _settings.Theme = _themeName;
+
+            // Применяем схему и вариант темы: палитра выбирается по варианту.
+            ThemeManager.ApplyScheme(_settings.ActiveColorScheme);
+            ThemeManager.ApplyTheme(_themeName == ThemeManager.DarkThemeName);
         }
         catch (Exception ex)
         {
@@ -2032,23 +2038,37 @@ public class MainViewModel : ViewModelBase
         if (scheme is null)
             return;
         var clone = scheme.Clone();
-        ThemeManager.ApplyScheme(clone);
+        clone.Normalize();
         _settings.ActiveColorScheme = clone;
-        if (clone.IsDark)
-            _settings.DarkColorScheme = clone;
-        else
-            _settings.LightColorScheme = clone;
-        _settings.Theme = clone.BaseThemeName;
-        _themeName = _settings.Theme;
+        // Устаревшие раздельные слоты больше не ведутся: схема едина и несёт обе палитры.
+        _settings.LightColorScheme = null;
+        _settings.DarkColorScheme = null;
+        // Применяем палитру по текущему варианту темы; сам вариант не меняем.
+        ThemeManager.ApplyScheme(clone);
         SaveSettingsSilently();
         OnPropertyChanged(nameof(ThemeName));
     }
 
-    /// <summary>Сохранённая цветовая схема: окно настроек открывает редактор с неё,
-    /// а не с той, что применена предпросмотром.</summary>
-    public Models.ColorScheme ActiveColorScheme => _settings.ActiveColorScheme is { Colors.Count: > 0 }
-        ? _settings.ActiveColorScheme
-        : ThemeManager.GetBuiltInScheme(_settings.Theme) ?? Models.ColorScheme.CreateLight();
+    /// <summary>true, если имя соответствует встроенной теме («Светлая»/«Тёмная»).</summary>
+    private static bool IsBuiltInSchemeName(string? name)
+        => string.Equals(name, "Светлая", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(name, "Тёмная", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Сохранённая цветовая схема (две палитры): окно настроек открывает редактор
+    /// с неё, а не с той, что применена предпросмотром.</summary>
+    public Models.ColorScheme ActiveColorScheme
+    {
+        get
+        {
+            var saved = _settings.ActiveColorScheme;
+            if (saved is not null && (saved.LightColors.Count > 0 || saved.DarkColors.Count > 0))
+            {
+                saved.Normalize();
+                return saved;
+            }
+            return ThemeManager.GetBuiltInScheme(_settings.Theme) ?? Models.ColorScheme.CreateLight();
+        }
+    }
 
     /// <summary>Предупреждение из окна настроек: диалоги живут в сервисе вьюмодели.</summary>
     public void ShowWarning(string message) => _dialog.ShowWarning(message);
@@ -4077,51 +4097,34 @@ public class MainViewModel : ViewModelBase
 
     private void ToggleTheme()
     {
-        var targetDark = !ThemeManager.CurrentScheme.IsDark;
-        ApplySchemeForTheme(targetDark);
+        // Схема одна (несёт обе палитры): переключение темы лишь выбирает палитру.
+        ApplySchemeForTheme(ThemeManager.CurrentTheme != ThemeManager.DarkThemeName);
     }
 
-    /// <summary>Применяет выбранную базовую тему (светлую/тёмную), сохраняя раздельные схемы.</summary>
+    /// <summary>Применяет выбранный вариант темы (светлую/тёмную), не меняя схему.</summary>
     public void ApplyTheme(string theme)
     {
-        ApplySchemeForTheme(IsDarkTheme(theme));
+        ApplySchemeForTheme(theme == ThemeManager.DarkThemeName);
     }
 
     /// <summary>
-    /// Возвращает схему для базовой темы («Light»/«Dark»): сохранённую пользовательскую
-    /// (если есть) или встроенную по умолчанию. Не изменяет настройки.
+    /// Возвращает активную схему (с двумя палитрами). Вариант темы определяет,
+    /// какая палитра показывается; сама схема от него не зависит.
     /// </summary>
     public Models.ColorScheme GetSchemeForTheme(string theme)
-        => SchemeForTheme(IsDarkTheme(theme));
+        => ActiveColorScheme.Clone();
 
     /// <summary>
-    /// Применяет схему указанной базовой темы, обновляя активную схему и настройки.
-    /// Каждая базовая тема (светлая/тёмная) имеет собственную схему, поэтому правки
-    /// одной темы не влияют на другую.
+    /// Задаёт вариант темы (светлую/тёмную) и применяет активную схему с палитрой
+    /// этого варианта.
     /// </summary>
     private void ApplySchemeForTheme(bool dark)
     {
-        var scheme = SchemeForTheme(dark);
-        ThemeManager.ApplyScheme(scheme);
-        _settings.ActiveColorScheme = scheme;
-        _settings.Theme = scheme.BaseThemeName;
+        ThemeManager.ApplyTheme(dark);
+        _settings.Theme = dark ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName;
         _themeName = _settings.Theme;
         SaveSettingsSilently();
         OnPropertyChanged(nameof(ThemeName));
-    }
-
-    /// <summary>
-    /// Возвращает схему для базовой темы: сохранённую пользовательскую (если есть),
-    /// иначе — встроенную по умолчанию (миграция со старого одиночного ActiveColorScheme).
-    /// </summary>
-    private Models.ColorScheme SchemeForTheme(bool dark)
-    {
-        var slot = dark ? _settings.DarkColorScheme : _settings.LightColorScheme;
-        if (slot is { Colors.Count: > 0 })
-            return slot;
-        if (_settings.ActiveColorScheme is { Colors.Count: > 0 } && _settings.ActiveColorScheme.IsDark == dark)
-            return _settings.ActiveColorScheme;
-        return dark ? Models.ColorScheme.CreateDark() : Models.ColorScheme.CreateLight();
     }
 
     private static bool IsDarkTheme(string? theme)
@@ -4300,7 +4303,6 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsSessionClientAuto));
         OnPropertyChanged(nameof(IsSessionClientOrdinary));
         OnPropertyChanged(nameof(IsSessionClientThick));
-        OnPropertyChanged(nameof(IsSessionClientThickOrdinary));
         OnPropertyChanged(nameof(IsSessionClientThin));
         OnPropertyChanged(nameof(IsSessionArchAuto));
         OnPropertyChanged(nameof(IsSessionArch32));

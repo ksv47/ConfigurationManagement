@@ -9,6 +9,573 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.21] — 2026-09-01
+
+В окне выбора версии платформы 1С теперь доступен выбор не только полных 4-компонентных версий (например, `8.3.27.2295`), но и **частичных префиксов** — линии (`8.3`) и группы сборок (`8.3.27`) — с сохранением указания разрядности «(32)/(64)`. Если выбрана частичная версия, при запуске подставляется **максимальная из установленных сборок**, соответствующая префиксу и нужной разрядности; поиск ведётся по **всем каталогам платформ** из настроек, включая дополнительные диски. В Linux/Avalonia-порте эта возможность теперь работает так же, как в Windows/WPF. Кроме того, из списка режимов клиента блока «Текущая сессия» удалён дублирующий пункт «Толстый (обычные формы)» — осталось 4 режима: Авто, Толстый клиент, Тонкий клиент, Обычный режим.
+
+### Добавлено/Изменено
+
+- **Выбор частичной версии платформы в Linux/Avalonia-порте (issue #142)** ([`Views/PlatformVersionPickerWindow.Avalonia.cs`](Configuration%20Management/Views/PlatformVersionPickerWindow.Avalonia.cs), [`Services/PlatformVersionService.Linux.cs`](Configuration%20Management/Services/PlatformVersionService.Linux.cs), [`Services/OneCLauncher.Linux.cs`](Configuration%20Management/Services/OneCLauncher.Linux.cs)): в окне выбора платформы разрешён выбор не только полных 4-компонентных версий (например, `8.3.27.2295`), но и **частичных префиксов** — линии (`8.3`) и группы сборок (`8.3.27`) — с сохранением указания разрядности. Если выбран префикс `8.3.27`, при запуске подставляется максимальная из установленных сборок `8.3.27.*`; если `8.3.27 [х64]` — максимальная из 27-х с отбором по х64; аналогично для 2-компонентного `8.5`. Поиск ведётся по **всем каталогам платформ** из настроек (включая дополнительные диски). На Windows/WPF функция уже была реализована — теперь она работает и в Linux/Avalonia-порте.
+
+### Изменено
+
+- **Список режимов клиента в блоке «Текущая сессия» (issue #144)** ([`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml), [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), [`ViewModels/MainViewModel.Display.cs`](Configuration%20Management/ViewModels/MainViewModel.Display.cs), [`ViewModels/MainViewModel.Launch.cs`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs), [`Models/SessionLaunchModes.cs`](Configuration%20Management/Models/SessionLaunchModes.cs), [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json), [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json)): удалён дублирующий пункт «Толстый (обычные формы)»/`ThickOrdinary` из блока «Текущая сессия». Осталось **4 пункта**: Авто, Толстый клиент, Тонкий клиент, Обычный режим. Пункт «Обычный режим» теперь задаёт толстый клиент в обычных формах (сохраняет поведение удалённого дубля). Значение `ThickOrdinary` удалено из enum `SessionLaunchModes`, ключи `Main.SessionClientThickOrdinary` и `Main.SessionThickOrdinaryTooltip` удалены из `ru.json`/`en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.20` → `0.3.6.21`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.20] — 2026-09-01
+
+Исправлено поведение автообновления: раньше при включённой настройке **«Автоматически обновлять приложение»** программа при обнаружении новой версии молча скачивала и устанавливала её **без окна с вопросом**. Теперь в Windows-версии при обнаружении новой версии **всегда** показывается единый диалог `UpdateAvailableWindow` с вопросом «Перезапустить сейчас / Обновить после закрытия» и прогрессом скачивания — независимо от состояния автообновления.
+
+### Исправлено
+
+- **Пропадающее окно с вопросом при автообновлении** ([`UpdateService.cs`](Configuration%20Management/Services/UpdateService.cs) — `CheckForUpdatesAsync`): удалено ветвление по `AutoUpdateEnabled`, при котором при включённом автообновлении новая версия устанавливалась без диалога. Теперь при обнаружении новой версии **всегда** вызывается `ShowUpdateDialog` — показывается единый диалог `UpdateAvailableWindow` с вопросом «Перезапустить сейчас / Обновить после закрытия» и прогрессом скачивания.
+- **Комментарий в точке входа** ([`App.xaml.cs`](Configuration%20Management/App.xaml.cs)): комментарий приведён в соответствие с новым поведением (диалог обновления показывается всегда).
+- **Локализация тултипа автообновления** ([`ru.json`](Configuration%20Management/Localization/Languages/ru.json), [`en.json`](Configuration%20Management/Localization/Languages/en.json)): переформулирован тултип `Settings.General.AutoUpdateTooltip` — больше не подразумевает молчаливую установку обновления без запроса.
+
+### Версия
+
+- **Версия поднята до `0.3.6.19` → `0.3.6.20`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.19] — 2026-09-01
+
+Переработан живой предпросмотр цветовой схемы в окне настроек (вкладка «Цветовое оформление», issue #137): вместо одного превью с переключателем «светлая/тёмная» теперь показываются **сразу обе палитры вертикально** — сверху светлая, снизу тёмная — без необходимости переключения. Редактор цветов слева по-прежнему редактирует одну выбранную палитру. Само превью стало **уже** (ширина уменьшена с 220 до ~175 пкс), чтобы кнопка «Выбрать цвет» в списке цветов слева полностью помещалась.
+
+### Изменено
+
+- **Предпросмотр цветовой схемы в настройках (issue #137)** ([`SettingsWindow.Schemes.cs`](Configuration%20Management/Views/SettingsWindow.Schemes.cs)): вкладка «Цветовое оформление» окна «Настройки» теперь показывает **сразу обе палитры** — светлую сверху и тёмную снизу — вместо одного превью с переключателем «светлая/тёмная». Редактор цветов слева продолжает редактировать одну выбранную палитру (вариант темы выбирается как раньше).
+- **Ширина предпросмотра уменьшена** (issue #137): ширина миниатюры палитры снижена с 220 до ~175 пкс, чтобы кнопка «Выбрать цвет» в списке цветов слева больше не обрезалась и полностью помещалась.
+
+### Версия
+
+- **Версия поднята до `0.3.6.18` → `0.3.6.19`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.18] — 2026-09-01
+
+Доработаны выбор и запуск версии платформы 1С, а также объединён процесс обновления приложения. Теперь можно выбирать **неполную версию платформы** (например, `8.5`, `8.3.27`) с сохранением указания разрядности «(32)/(64)» — при выборе неполной версии программа подбирает **новейшую установленную версию**, соответствующую префиксу и нужной разрядности (полные версии из четырёх частей работают как раньше). При явном выборе тонкого/толстого клиента поиск исполняемого файла (`1cv8.exe` / `1cv8c.exe` / `1cv8x64.exe`) теперь корректно подбирает новейшую установленную версию по указанному префиксу и разрядности и больше не подставляет произвольную старшую версию другой линейки. Два диалога обновления (системный `MessageBox` и красивое окно) объединены в **один красивый диалог**: весь процесс — предложение → скачивание → вопрос «Перезапустить сейчас / Обновить после закрытия» → применение — происходит в одном окне, системный `MessageBox` убран.
+
+### Добавлено
+
+- **Выбор неполной версии платформы 1С (issue #142)** ([`PlatformVersionService.cs`](Configuration%20Management/Services/PlatformVersionService.cs), [`OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs), [`PlatformVersionPickerWindow.xaml.cs`](Configuration%20Management/Views/PlatformVersionPickerWindow.xaml.cs)): в окне выбора версии платформы можно указать неполную версию (например, `8.5`, `8.3.27`) с сохранением указания разрядности «(32)/(64)». При выборе неполной версии программа автоматически подбирает **новейшую установленную версию**, соответствующую префиксу и нужной разрядности; полные версии (из четырёх частей) работают как раньше.
+
+### Исправлено
+
+- **«Не тот клиент» при явном выборе тонкого/толстого клиента (issue #28)** ([`OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs)): поиск исполняемого файла (`1cv8.exe` / `1cv8c.exe` / `1cv8x64.exe`) теперь корректно подбирает новейшую установленную версию, соответствующую указанному префиксу версии и разрядности, и не подставляет произвольную старшую версию другой линейки (связано с #142).
+- **Единый диалог обновления (issue #143)** ([`UpdateService.cs`](Configuration%20Management/Services/UpdateService.cs), [`UpdateAvailableWindow.xaml.cs`](Configuration%20Management/Views/UpdateAvailableWindow.xaml.cs)): два диалога обновления (некрасивый системный `MessageBox` и красивое окно) объединены в **один красивый диалог**. Весь процесс — предложение → скачивание → вопрос «Перезапустить сейчас / Обновить после закрытия» с ясными формулировками → применение — происходит в одном окне; системный `MessageBox` убран.
+
+### Локализация
+
+- Обновлены строки диалога обновления в [`ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`en.json`](Configuration%20Management/Localization/Languages/en.json) под объединённый процесс обновления.
+
+### Версия
+
+- **Версия поднята до `0.3.6.17` → `0.3.6.18`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.17] — 2026-09-01
+
+Доработана кнопка удаления пользовательского параметра запуска (issue #141): теперь она содержит **иконку и текст «Удалить»**, а не только иконку, и полностью помещается в окне «Параметры запуска».
+
+### Изменено
+
+- **Кнопка «Удалить» пользовательского параметра** ([`LaunchParametersWindow.xaml`](Configuration%20Management/Views/LaunchParametersWindow.xaml)): кнопка `BtnRemoveParam` расширена до 104 пкс и теперь показывает иконку `Delete` (красную) рядом с текстом «Удалить» (`Common.Delete`) — содержимое кнопки больше не обрезается и понятно обозначает действие.
+
+### Версия
+
+- **Версия поднята до `0.3.6.16` → `0.3.6.17`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.16] — 2026-09-01
+
+Исправления по итогам обсуждений в issues #141, #139, #137 и #119: у пользовательских параметров запуска появился необязательный комментарий и исправлена вёрстка кнопок; окно выбора иконки группы перестроено (иконки сверху, цвет ниже); предпросмотр темы в настройках сделан уже, чтобы не теснить кнопки выбора цвета; выравнивание колонок списка баз теперь пересчитывается при раскрытии/сворачивании групп.
+
+### Исправлено
+
+- **Пользовательские параметры запуска (issue #141)** ([`LaunchParametersWindow.xaml`](Configuration%20Management/Views/LaunchParametersWindow.xaml), [`LaunchParametersWindow.xaml.cs`](Configuration%20Management/Views/LaunchParametersWindow.xaml.cs)): добавлено поле «Комментарий» рядом с полем ввода ключа — введённый текст отображается в справочнике вместо общей пометки «Пользовательский параметр» (комментарий хранится в `settings.json` через разделитель табуляции, ключ командной строки подставляется в поле «Параметры» без комментария). Кнопка «Добавить» расширена до 120 пкс, а кнопка «Удалить» — до 36 пкс, чтобы содержимое полностью помещалось.
+- **Окно выбора иконки группы (issue #139)** ([`GroupEditWindow.xaml`](Configuration%20Management/Views/GroupEditWindow.xaml)): на вкладке «Иконка» сетка иконок поднята выше пикера цвета иконки, как просил автор (цвет — ниже).
+- **Предпросмотр темы в настройках (issue #137)** ([`SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml)): ширина миниатюры предпросмотра уменьшена с 264 до 220 пкс, чтобы не теснить кнопки «Выбрать» у списка цветов в левой колонке.
+- **Выравнивание колонок при раскрытии групп (issue #119)** ([`MainWindow.xaml.cs`](Configuration%20Management/Views/MainWindow.xaml.cs), [`MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs)): раскрытие/сворачивание узла дерева больше не сбивает компенсатор сдвига заголовка — после изменения состояния группы выравнивание заголовка с данными пересчитывается (`OnMainTree_GroupExpansionChanged`), поэтому колонки больше не «уезжают» отдельно от содержимого.
+
+### Локализация
+
+- Добавлены строки `LaunchParams.CustomCommentTooltip` (ru/en) для подсказки поля комментария пользовательского параметра.
+
+### Версия
+
+- **Версия поднята до `0.3.6.15` → `0.3.6.16`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.15] — 2026-09-01
+
+Исправлена регрессия из issue #140 (выбор доступных серверов хранилища): при открытии окна **«Настройки подключения»** происходил сбой `XamlParseException` («ClipboardPaste is not a valid value for PackIconKind»), из-за чего редактирование базы приводило к ошибке интерфейса. Причина — кнопка «Вставить» на вкладке «Хранилище» использовала несуществующее значение `PackIconKind="ClipboardPaste"`.
+
+### Исправлено
+
+- **Кнопка «Вставить» на вкладке «Хранилище»** ([`ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml:430)): несуществующее значение иконки `ClipboardPaste` заменено на валидное `ContentPaste` (как в соседних кнопках вставки). Все значения `PackIconKind`, используемые в XAML проекта, дополнительно проверены отражением против перечисления `MaterialDesignThemes.Wpf.PackIconKind` — других невалидных значений нет.
+
+### Версия
+
+- **Версия поднята до `0.3.6.14` → `0.3.6.15`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.14] — 2026-09-01
+
+Исправлено оформление заголовков окон (issue #135): акцентная полоса заголовка диалогов теперь **заливается на всю ширину окна** без незаполненных участков по краям, а у главного окна **цвет акцента при активном состоянии не теряется после смены схемы/темы** — при перекраске берётся фактическое состояние активности окна, а не устаревший кэш.
+
+### Исправлено
+
+- **Полоса заголовка диалогов** ([`WindowChromeHelper.cs`](Configuration%20Management/Views/WindowChromeHelper.cs) — `BuildTitleBar`): у акцентной полосы явно заданы `HorizontalAlignment=Stretch` и нулевые `Margin`, чтобы она занимала всю ширину окна.
+- **Акцент активного главного окна** ([`MainWindow.xaml.cs`](Configuration%20Management/Views/MainWindow.xaml.cs)): при смене темы/схемы перекраска шапки использует фактическое `IsActive` окна (`_isActive = IsActive`) вместо возможно устаревшего кэша — акцентная заливка активного окна больше не пропадает.
+
+### Версия
+
+- **Версия поднята до `0.3.6.13` → `0.3.6.14`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.13] — 2026-09-01
+
+Дополнена защита от «зависания» при запуске поверх легаси/повреждённых конфигурационных файлов (issue #64): загрузка `ibases.json` и `groups.json` теперь отбрасывает **пустые элементы списка**, которые могли прийти из старых файлов, — раньше обращение к свойствам такого `null`-элемента могло уронить загрузку (`NullReferenceException`) и оставить процесс без главного окна.
+
+### Улучшено
+
+- **Защита загрузки баз** ([`InfobaseRepository.cs`](Configuration%20Management/Services/InfobaseRepository.cs) — `Load`): из десериализованного списка удаляются `null`-элементы.
+- **Защита загрузки групп** ([`InfobaseRepository.cs`](Configuration%20Management/Services/InfobaseRepository.cs) — `LoadGroups`): `null`-элементы отфильтровываются до проверок идентификаторов, чтобы `g.Id` не обращался к пустой ссылке. Ранее уже реализованные `NormalizeForLoad`, карантин повреждённых файлов и восстановление схемы версии сохраняются.
+
+### Версия
+
+- **Версия поднята до `0.3.6.12` → `0.3.6.13`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.12] — 2026-09-01
+
+Дерево выбора версии платформы надёжнее группируется **по линии — первым двум цифрам** (8.2, 8.3, 8.5), как в стартере 1С (issue #9): даже для нестандартного варианта версии с нечисловым сегментом версия попадает в свою линию по двум ведущим числам.
+
+### Изменено
+
+- **Группировка линий версий** ([`PlatformVersionService.cs`](Configuration%20Management/Services/PlatformVersionService.cs) — `GetVersionLine`): при определении линии берутся первые два числовых сегмента версии (например `8.3.27.1688 (64)` → `8.3`), что гарантирует корректное дерево «линия → группа сборок (8.3.27) → сборка» даже при нестандартных строках варианта.
+
+### Версия
+
+- **Версия поднята до `0.3.6.11` → `0.3.6.12`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.11] — 2026-09-01
+
+Исправлен запуск не того клиента (issue #28): при явном выборе толстого/тонкого клиента, когда подходящий исполняемый файл платформы не находился, запасной откат на общий лаунчер `1CEStart.exe` открывал стартер со списком баз («обычное приложение») вместо подключения к выбранной базе в нужном режиме. Теперь для явного типа клиента такой откат запрещён и выводится понятное предупреждение «платформа не найдена».
+
+### Исправлено
+
+- **Запуск явного типа клиента** ([`OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs) — `FindExecutable`): откат на `1CEStart.exe` допускается только при автоматическом выборе клиента (`clientType == null`) в режиме «Предприятие». Для явного тонкого/толстого клиента (в т.ч. через контекстное меню «Толстый клиент») возвращается `null` с предупреждением, чтобы не запускалось постороннее приложение.
+
+### Версия
+
+- **Версия поднята до `0.3.6.10` → `0.3.6.11`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.10] — 2026-09-01
+
+Исправлен запуск не той версии платформы (issue #29): если у базы выбрана конкретная версия платформы, но её каталог не находился в нужной разрядности, запасной поиск подставлял **произвольную новейшую** установленную версию — и запускалась совсем не та платформа. Теперь запасной поиск ограничивается **той же выбранной версией** и не выбирает чужую.
+
+### Исправлено
+
+- **Выбор исполняемого файла платформы по конкретной версии** ([`OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs) — `FindExecutable`): во втором проходе (запасной поиск по установленным версиям) при заданном `cleanVersion` теперь отбрасываются каталоги других версий. Если выбранная версия есть в другой разрядности — берётся она; если нет вовсе — показывается предупреждение «платформа не найдена» вместо запуска произвольной версии.
+
+### Версия
+
+- **Версия поднята до `0.3.6.9` → `0.3.6.10`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.9] — 2026-09-01
+
+Исправлен баг смены темы после пользовательской (issue #136): если выбрать свою тему, сохранить, а затем снова в настройках выбрать «Светлая» — цвета не менялись (работала только комбинация «Светлая + сброс цветов»). Причина: метод `GetSchemeForTheme` всегда возвращал активную пользовательскую схему, поэтому выбор встроенной светлой темы подставлял её цвета из пользовательского набора.
+
+### Исправлено
+
+- **Применение встроенной базовой темы после пользовательской** ([`MainViewModel.Theme.cs`](Configuration%20Management/ViewModels/MainViewModel.Theme.cs) — `GetSchemeForTheme`): теперь для встроенной темы «Светлая»/«Тёмная» возвращаются её собственные цвета по умолчанию, если активной является пользовательская или чужая встроенная схема. Если же активная схема — та же встроенная базовая тема, возвращаются сохранённые правки пользователя этой темы. Выбор «Светлой» в редакторе оформления снова меняет цвета без ручного «сброса цветов».
+
+### Версия
+
+- **Версия поднята до `0.3.6.8` → `0.3.6.9`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.8] — 2026-09-01
+
+Список шаблонов при создании базы из шаблона стал удобнее (issue #138): добавлены **кнопки «Свернуть»/«Развернуть»** всех групп, **поиск** по названию/поставщику/версии/папке и флажок **«Подробности»**, который скрывает подпись с доп. информацией (поставщик, версия, путь), делая строки дерева заметно уже и позволяя видеть больше строк.
+
+### Добавлено
+
+- **Панель управления списком шаблонов** ([`CreateInfobaseWindow.xaml`](Configuration%20Management/Views/CreateInfobaseWindow.xaml)): над деревом шаблонов появились поле поиска `TplSearchBox`, кнопки `TplCollapseAll`/`TplExpandAll` и флажок `TplDetails`. Видимость подписи (версия/поставщик/папка) привязана к флажку через `BooleanToVisibilityConverter`.
+- **Поиск по шаблонам** ([`CreateInfobaseWindow.xaml.cs`](Configuration%20Management/Views/CreateInfobaseWindow.xaml.cs)): `ApplyTemplateFilter` / `FilterTemplateNodes` / `NodeMatchesQuery` — дерево фильтруется по запросу с сохранением ветвей к совпадающим листьям (по названию, подписи, поставщику, имени конфигурации).
+- **Свёртка/развёртка групп**: `OnTplCollapseAll_Click` / `OnTplExpandAll_Click` и `SetAllExpanded` / `WalkAndToggle` рекурсивно раскрывают/скрывают все группы дерева с учётом ленивой генерации контейнеров.
+- **Локализация**: ключи `CreateInfobase.TplSearchTooltip`, `TplCollapseAll`, `TplCollapseAllTooltip`, `TplExpandAll`, `TplExpandAllTooltip`, `TplDetails` в [`ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.6.7` → `0.3.6.8`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.7] — 2026-09-01
+
+Окно выбора иконки для группы/папки больше **не растягивается выше экрана**: раньше из-за автоподбора высоты (`SizeToContent="Height"`) окно могло вырасти до `MaxHeight=880`, и нижняя часть нужной вкладки уходила под панель задач. Теперь у окна фиксированная высота, а содержимое вкладок «Цвет» и «Иконка» прокручивается внутренними скроллбарами (issue #139).
+
+### Исправлено
+
+- **Окно редактирования группы** ([`GroupEditWindow.xaml`](Configuration%20Management/Views/GroupEditWindow.xaml)): убран автоподбор высоты `SizeToContent="Height"`, задана фиксированная высота окна `Height="640"`. Вкладки «Цвет» и «Иконка» уже разделены, а их содержимое (`ColorTabScroller` / `IconTabScroller`) имеет собственную вертикальную прокрутку, поэтому при большом количестве иконок или на маленьком экране окно остаётся в пределах рабочей области и не выходит за панель задач.
+
+### Версия
+
+- **Версия поднята до `0.3.6.6` → `0.3.6.7`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.6] — 2026-09-01
+
+Поле «Сервер хранилища» в окне настройки подключения к информационной базе теперь работает как поле сервера 1С: поддерживает **выбор из списка доступных серверов хранилища** других баз и **кнопку «Вставить» с разделением** — обычно пользователь копирует из 1С единое поле подключения (например `tcp://server:1542/ИмяХранилища`), и оно автоматически делится на адрес сервера и имя хранилища (issue #140).
+
+### Добавлено
+
+- **Выпадающий список серверов хранилища** ([`ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml)): поле «Адрес сервера» хранилища конфигурации заменено с `TextBox` на редактируемый `ComboBox`, привязанный к `AvailableRepositoryServers`; список собирается из настроек хранилища других баз ([`MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs) — `GetAvailableRepositoryServers`, [`ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs) — `AvailableRepositoryServers` / `SetAvailableRepositoryServers`).
+- **Кнопка «Вставить» с разделением** рядом с полем сервера хранилища ([`ConnectionSettingsWindow.xaml.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml.cs) — `OnPasteRepositorySplit_Click`): читает буфер обмена, убирает префикс схемы (`tcp://`, `file://` и т.п.) и делит строку по первому `/` на «адрес сервера» и «имя хранилища» (метод `SplitRepositoryConnectionString` в [`ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs)).
+- **Локализация**: ключи `Connection.RepositoryPaste`, `Connection.RepositoryPasteTooltip` в [`ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.6.5` → `0.3.6.6`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.5] — 2026-09-01
+
+В справочник параметров запуска теперь можно добавлять **свои (пользовательские) ключи командной строки** (issue #141): встроенный список ключей 1С в окне «Конфигуратор параметров запуска» больше не является единственным источником — пользователь может расширить его собственными параметрами, которые сохраняются между запусками и подставляются в строку запуска двойным кликом.
+
+### Добавлено
+
+- **Пользовательские параметры запуска** ([`LaunchParametersWindow.xaml`](Configuration%20Management/Views/LaunchParametersWindow.xaml) / [`LaunchParametersWindow.xaml.cs`](Configuration%20Management/Views/LaunchParametersWindow.xaml.cs)): в блоке «Справочник параметров» появилось поле ввода + кнопка **«Добавить»** для внесения собственного ключа. Пользовательские параметры помечаются в списке как «Пользовательский параметр», подставляются двойным кликом и удаляются кнопкой корзины или клавишей `Del`. Список пользовательских параметров сохраняется глобально и доступен как из диалога запуска с параметрами, так и из окна «Настройки подключения» базы.
+- **Хранение пользовательских параметров** ([`AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs)): новое поле `CustomLaunchParameters` (список строк) сохраняется в `settings.json`; загрузка/сохранение и обратный вызов для персиста реализованы в [`MainViewModel.cs`](Configuration%20Management/ViewModels/MainViewModel.cs) (`CustomLaunchParameters`, `SetCustomLaunchParameters`) и [`MainViewModel.Launch.cs`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs).
+- **Локализация**: ключи `LaunchParams.CustomMarker`, `LaunchParams.CustomInputTooltip`, `LaunchParams.CustomAdd`, `LaunchParams.CustomRemove` в [`ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.6.4` → `0.3.6.5`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.4] — 2026-09-01
+
+Процесс автоматического обновления стал нагляднее: во время скачивания новой версии в строке состояния главного окна отображается **индикатор прогресса загрузки**, а после успешного скачивания приложение предлагает выбрать — **«Перезапустить сейчас»** или **«Обновить после закрытия программы»**. Это убирает неожиданный мгновенный перезапуск и позволяет пользователю решить, когда установить обновление.
+
+### Добавлено
+
+- **Индикатор прогресса загрузки обновления в строке состояния** главного окна: в [`MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml) добавлена скрытая по умолчанию панель `UpdateProgressPanel` с текстом `UpdateProgressText` и `ProgressBar UpdateProgressBar`. В [`UpdateService.cs`](Configuration%20Management/Services/UpdateService.cs) добавлены события `DownloadProgressChanged` (double, проценты 0–100, или −1 при неизвестной длине) и `DownloadFinished`; `DownloadAsync` читает поток буфером и сообщает о прогрессе. Подписка на эти события и обновление индикатора в UI-потоке реализованы в [`MainWindow.xaml.cs`](Configuration%20Management/Views/MainWindow.xaml.cs) (обработчики `OnUpdateDownloadProgressChanged` / `OnUpdateDownloadFinished`).
+- **Локализация индикатора прогресса и диалога выбора**: ключи `Update.DownloadProgress`, `Update.DownloadProgressFormat`, `Update.RestartOrLater` в [`ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Изменено
+
+- **Выбор «Перезапустить сейчас» / «Обновить после закрытия программы»** ([`UpdateService.cs`](Configuration%20Management/Services/UpdateService.cs)): после успешного скачивания вместо немедленного перезапуска показывается диалог `MessageBox`. При выборе **«Да»** — помощник (`restart: true`) ждёт закрытия, заменяет exe и перезапускает приложение, затем `app.Shutdown`; при выборе **«Нет»** — помощник (`restart: false`) НЕ перезапускает приложение, обновление применяется при естественном завершении процесса. Управляется параметром `restart` у `CreateUpdaterScript`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.3` → `0.3.6.4`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.3] — 2026-09-01
+
+Окно предпросмотра темы вкладки «Цветовое оформление» теперь **всегда видимо и не прокручивается** вместе со списком цветов: живой предпросмотр закреплён справа от настроек, а прокручиваются только сами настройки (тема + редактор цветов). При малой высоте окна предпросмотр имеет собственную внутреннюю прокрутку, поэтому остаётся доступным целиком независимо от размера окна.
+
+### Изменено
+
+- **Вкладка «Цветовое оформление»** в [`SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml): внешний `ScrollViewer` заменён на `Grid` с двумя колонками — левая содержит `ScrollViewer` с настройками (тема + редактор цветов), правая — закреплённый `GroupBox` «Предпросмотр», который всегда виден и не прокручивается вместе с настройками. Сам предпросмотр обёрнут во внутренний `ScrollViewer` с `MaxHeight="520"`, обеспечивающий собственную прокрутку при малой высоте окна.
+- **Сохранены имена элементов**: `PreviewShell` и все `Preview*` не переименовывались, метод `RefreshSchemePreview()` в [`SettingsWindow.Schemes.cs`](Configuration%20Management/Views/SettingsWindow.Schemes.cs) не менялся.
+
+### Версия
+
+- **Версия поднята до `0.3.6.2` → `0.3.6.3`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.2] — 2026-09-01
+
+Два тумблера палитры (светлая/тёмная) в редакторе цветов вкладки «Оформление» заменены на **одну кнопку-переключатель** светлой/тёмной темы — по аналогии с кнопкой смены темы главного окна. Теперь выбор редактируемой палитры выполняется одной компактной кнопкой с иконкой и подписью, что упрощает переключение между палитрами одной схемы.
+
+### Изменено
+
+- **Единая кнопка-переключатель палитры** в [`SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml): два тумблера (`MaterialDesignSwitchToggleButton`) заменены на одну кнопку (`PaletteToggleButton`) в стиле `IconButton` с иконкой `PaletteToggleIcon` (`IconSun`/`IconMoon`, как у кнопки смены темы главного окна) и подписью текущей палитры `PaletteStateText`.
+- **Логика переключения** в [`SettingsWindow.Schemes.cs`](Configuration%20Management/Views/SettingsWindow.Schemes.cs): обработчик `OnPaletteSwitch_Click` переключает редактируемую палитру на противоположную; `UpdatePaletteButton` обновляет иконку (в тёмной палитре — солнце, в светлой — луна), подсказку и подпись, повторяя поведение кнопки смены темы в главном окне.
+
+### Версия
+
+- **Версия поднята до `0.3.6.1` → `0.3.6.2`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.1] — 2026-09-01
+
+Внедрена двухпалитровая модель цветовых схем: у каждой схемы (встроенные «Светлая»/«Тёмная» и пользовательские) теперь две независимые палитры — **LightColors** (для светлой темы) и **DarkColors** (для тёмной). Вариант темы (светлая/тёмная) выбирает активную палитру, поэтому один набор настроек оформления корректно описывает внешний вид в обеих темах без дублирования схем. Старые схемы и настройки мигрируются автоматически (`ColorScheme.Normalize` / `ColorScheme.FromLegacy`), данные не теряются.
+
+### Добавлено
+
+- **Двухпалитровая модель цветовых схем** в [`ColorScheme.cs`](Configuration%20Management/Models/ColorScheme.cs): каждая схема хранит отдельные палитры светлой и тёмной темы (`LightColors`/`DarkColors`); активная палитра выбирается текущим вариантом темы. Встроенные «Светлая»/«Тёмная» и пользовательские схемы теперь одинаково описывают внешний вид в обеих темах.
+- **Переключатель «светлая/тёмная» в редакторе «Оформление»** ([`SettingsWindow.Schemes.cs`](Configuration%20Management/Views/SettingsWindow.Schemes.cs)): над списком цветов выбирается редактируемая палитра, что позволяет настроить светлую и тёмную темы одной схемы отдельно. Тумблеры переключения палитры оформлены в стиле Material Design (`MaterialDesignSwitchToggleButton`).
+- **Визуальный предпросмотр темы в стиле Material Design**: миниатюрный макет интерфейса в окне настроек перерисовывается цветами текущей схемы и выбранной палитры в реальном времени — при правке любого цвета, смене палитры и смене схемы.
+- **Ключи локализации `Settings.Preview`** (ru/en) для подписей предпросмотра.
+
+### Исправлено
+
+- **`XamlParseException` при запуске** (Windows/WPF): прямой `{StaticResource WindowControlCloseButton}` в [`App.xaml`](Configuration%20Management/App.xaml) перенесён после объявления стиля — ресурс резолвится до первого использования.
+- **`NullReferenceException` в `OnPaletteSwitch`** ([`SettingsWindow.Schemes.cs`](Configuration%20Management/Views/SettingsWindow.Schemes.cs)): добавлена защита от `null` при переключении палитры.
+
+### Версия
+
+- **Версия поднята до `0.3.5.93` → `0.3.6.1`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.93] — 2026-09-01
+
+Исправлено переключение на встроенную тему после сохранения пользовательской (Windows/WPF и Linux/Avalonia): если выбрать свою тему и сохранить, а затем снова открыть настройки и выбрать «Светлая» — цвета не менялись. Причина — применяемая пользовательская тема записывалась в слот базовой темы (светлой/тёмной), из-за чего выбор «Светлой» возвращал её цвета, а не базовую светлую схему.
+
+### Исправлено
+
+- **Встроенные и пользовательские схемы больше не смешиваются** в [`MainViewModel.Theme.cs`](Configuration%20Management/ViewModels/MainViewModel.Theme.cs): `ApplyColorScheme` теперь пишет в слот базовой темы (светлой/тёмной) только встроенные темы («Светлая»/«Тёмная»). Пользовательская тема применяется как самостоятельная схема и не затирает кастомизацию встроенной. После сохранения своей темы выбор «Светлой» снова возвращает базовую светлую схему.
+- **Та же логика на Linux/Avalonia** в [`MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs): `ApplyColorScheme` пишет в слот базовой темы только для встроенных тем.
+- **Автоочистка уже повреждённых настроек** в [`MainViewModel.cs`](Configuration%20Management/ViewModels/MainViewModel.cs): при загрузке слот базовой темы принимается только от встроенной схемы («Светлая»/«Тёмная»). Если из старых версий в слоте осталась пользовательская тема — она игнорируется, и базовая тема снова получает свои цвета без ручного сброса.
+
+### Версия
+
+- **Версия поднята до `0.3.5.92` → `0.3.5.93`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.92] — 2026-08-31
+
+Заголовки диалоговых окон (Windows/WPF) теперь заливаются акцентным цветом полностью: раньше прямоугольная полоса заголовка не покрывала скруглённые DWM-углы окна (Windows 11, `GlassFrameThickness=-1` + `DwmWindowCornerPreference`), из-за чего в верхних углах шапки просвечивала стеклянная подложка/рабочий стол — «не всё заливало».
+
+### Исправлено
+
+- **Полное покрытие углов шапки диалогов** в [`WindowChromeHelper.cs`](Configuration%20Management/Views/WindowChromeHelper.cs): полосе заголовка (`BuildTitleBar`) задан `CornerRadius` с тем же радиусом скругления, что применяет DWM к углам окна (константа `DwmCornerRadius = 8`, только два верхних угла). Акцентная заливка теперь идёт по форме окна до самых краёв/углов, без просветов. Перетаскивание окна за шапку и кнопка «закрыть» не затронуты.
+- **Резолвинг акцентной кисти подтверждён**: `AccentBrush` для диалогов задаётся через `SetResourceReference` и обновляется явно в `ApplyColors` (фикс версии 0.3.5.91) — кисть резолвится в контексте диалога так же, как для главного окна, изменений не потребовалось.
+
+### Версия
+
+- **Версия поднята до `0.3.5.91` → `0.3.5.92`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.91] — 2026-08-31
+
+Исправлена «бесцветность» шапки активного главного окна (Windows/WPF): при активном окне полоса заголовка снова заливается акцентным цветом темы (`AccentBrush`), а не остаётся прозрачной на стеклянном фоне DWM. Причина — в `ApplyColors` кисть акцента искалась по правилу «ключ + "Brush"» (`AccentColorBrush`), которой нет в теме (там кисть называется `AccentBrush`), поэтому `AccentBrush` не обновлялась и активная шапка оставалась без заливки.
+
+### Исправлено
+
+- **Акцентная кисть обновляется явно** в [`ThemeManager.cs`](Configuration%20Management/Themes/ThemeManager.cs): `ApplyColors` теперь, помимо цвета `AccentColor`, напрямую задаёт кисть `AccentBrush` конкретной кистью из схемы. Раньше generic-правило искало `AccentColorBrush` (такой кисти в теме нет), из-за чего `AccentBrush`, на которую шапка ссылается через `DynamicResource`, могла резолвиться в прозрачную, и активное окно выглядело бесцветным.
+- **Надёжная перекраска по активности** в [`MainWindow.xaml.cs`](Configuration%20Management/Views/MainWindow.xaml.cs): состояние активности окна хранится флагом `_isActive` (обновляется в `Activated`/`Deactivated`) и используется при перекраске после смены темы и при `Loaded` вместо временного значения `IsActive` — шапка гарантированно получает акцент при активном окне и цвет карточки при неактивном, включая запуск и восстановление окна из трея.
+
+### Версия
+
+- **Версия поднята до `0.3.5.90` → `0.3.5.91`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.90] — 2026-08-31
+
+Шапка главного окна (Windows/WPF) снова реагирует на активность окна: при активном окне она заливается акцентным цветом темы, при неактивном — становится бледнее (цвет карточки). Это возвращает «цвет акцента» активного главного окна, который пропал и из-за которого окно выглядело бесцветным, как у UWP-приложений.
+
+### Изменено
+
+- **Акцентная шапка главного окна по активности** в [`MainWindow.xaml.cs`](Configuration%20Management/Views/MainWindow.xaml.cs): добавлен метод `UpdateTitleBarAppearance(bool active)` и подписки на события `Activated`/`Deactivated`. При активном окне фон полосы заголовка становится `AccentBrush`, при неактивном — `CardBackgroundBrush`; одновременно переключаются цвет заголовка (`ButtonTextBrush`/`TextPrimaryBrush`) и стили кнопок управления окном (`WindowControlButtonOnAccent`/`WindowControlButton`, `WindowControlCloseButtonOnAccent`/`WindowControlCloseButton`), чтобы значки оставались читаемыми на акцентной шапке.
+- **Имя полосы заголовка для перекраски** в [`MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml): полосе заголовка присвоено имя `TitleBarBorder` (фон задаётся через `SetResourceReference` в коде, а не жёстко в разметке).
+- **Варианты кнопок «на акценте»** в [`App.xaml`](Configuration%20Management/App.xaml): добавлены стили `WindowControlButtonOnAccent` и `WindowControlCloseButtonOnAccent` на основе существующих, с базовым цветом значка `ButtonTextBrush` (читается на акцентном фоне). Цвет задан сеттером стиля `BasedOn`, а не локальным значением — иначе локальное значение перекрывало бы шаблонные триггеры и «ломало» бы белое выделение кнопки «закрыть» при наведении.
+- **Перекраска шапки при смене темы и при старте**: обработчик смены словаря темы теперь вызывает и `UpdateTitleBarAppearance(IsActive)`, а при `Loaded` шапка сразу окрашивается по текущему состоянию активности окна.
+
+### Версия
+
+- **Версия поднята до `0.3.5.89` → `0.3.5.90`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.89] — 2026-08-31
+
+Шапки диалоговых окон (Windows/WPF) теперь заливаются акцентным цветом темы на всю ширину полосы заголовка, а не остаются прозрачными. Это исправляет «неполную» заливку заголовков окошек: раньше полоса заголовка строилась с прозрачным фоном и визуально сливалась с подложкой окна.
+
+### Изменено
+
+- **Акцентная заливка шапки диалоговых окон** в [`WindowChromeHelper.cs`](Configuration%20Management/Views/WindowChromeHelper.cs): фон полосы заголовка (`BuildTitleBar`) задан через `SetResourceReference(Border.BackgroundProperty, "AccentBrush")` вместо прозрачного `Brushes.Transparent` — полоса тянется на всю ширину окна и перекрашивается автоматически при смене темы или цветовой схемы.
+- **Читаемый текст заголовка и значка кнопки «закрыть»** поверх акцентной полосы: заголовок окна использует кисть `ButtonTextBrush` (вместо `TextPrimaryBrush`), а значок кнопки закрытия — `ButtonTextBrush` (вместо унаследованного серого `TextSecondaryBrush`); красное hover-выделение кнопки закрытия сохранено за счёт шаблонного триггера стиля.
+
+### Версия
+
+- **Версия поднята до `0.3.5.88` → `0.3.5.89`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.88] — 2026-08-31
+
+При переключении видимости колонки «Действия» главное окно теперь корректно пересчитывает выравнивание заголовка с данными: `nameof(MainViewModel.ShowActionsColumn)` добавлен в обработчик изменения свойств в [`MainWindow.xaml.cs`](Configuration%20Management/Views/MainWindow.xaml.cs), поэтому колонки не разъезжаются при включении/выключении «Действий» в окне настроек — так же, как для остальных `Show*Column`.
+
+### Изменено
+
+- **Пересчёт выравнивания при переключении видимости колонки «Действия»** в [`MainWindow.xaml.cs`](Configuration%20Management/Views/MainWindow.xaml.cs): в условие `e.PropertyName is ...` блока пересчёта выравнивания заголовка с данными (через `Dispatcher.BeginInvoke` → `AlignHeaderToData`) добавлена ветка `or nameof(MainViewModel.ShowActionsColumn)` (размещена после `ShowSizeColumn`). Теперь изменение `ShowActionsColumn` обрабатывается так же, как у остальных колонок.
+
+### Версия
+
+- **Версия поднята до `0.3.5.87` → `0.3.5.88`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.87] — 2026-08-31
+
+В окне настроек (Настройки → Отображение → Колонки) появился переключатель видимости колонки «Действия»: в [`SettingsWindow.Display.cs`](Configuration%20Management/Views/SettingsWindow.Display.cs) добавлена ветка `"Actions"` в метод `ColumnVisible`, возвращающая реальную настройку `ShowActionsColumn`, а при сохранении настроек в [`SettingsWindow.xaml.cs`](Configuration%20Management/Views/SettingsWindow.xaml.cs) значение `VisibleOf("Actions")` передаётся последним аргументом в `ApplyDisplaySettings`. Теперь пользователь может включать и выключать колонку «Действия» из окна настроек наравне с остальными колонками.
+
+### Изменено
+
+- **Переключатель видимости колонки «Действия» в окне настроек**: в [`SettingsWindow.Display.cs`](Configuration%20Management/Views/SettingsWindow.Display.cs) в метод `ColumnVisible` добавлена ветка `"Actions" => _viewModel.ShowActionsColumn` (размещена после `"Size"`, ветка `_ => true` по умолчанию сохранена в конце). В [`SettingsWindow.xaml.cs`](Configuration%20Management/Views/SettingsWindow.xaml.cs) при сохранении настроек отображения в вызов `ApplyDisplaySettings(...)` добавлен последний аргумент `VisibleOf("Actions")` (после порядка колонок), использующий уже существующую локальную функцию `VisibleOf`.
+
+### Версия
+
+- **Версия поднята до `0.3.5.86` → `0.3.5.87`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.86] — 2026-08-31
+
+Колонка «Действия» в списке баз теперь действительно может скрываться через переключатель видимости `ShowActionsColumn`. Ширина колонки во всех трёх сетках (заголовок, строка группы, строка базы) привязана через конвертер `ColumnVis` к `ShowActionsColumn`, убран жёсткий `MinWidth=120`, чтобы колонка могла схлопнуться в 0 при выключенной настройке.
+
+### Изменено
+
+- **Колонка «Действия» скрывается через `ShowActionsColumn`** в [`MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml): во всех трёх определениях колонки (заголовок `x:Name="ActionsColumn"`, строка группы, строка базы) привязка ширины `DoubleToGridLength` к `ActionsColumnWidth` заменена на `MultiBinding` конвертера `ColumnVis` с двумя значениями — первым `DataContext.ShowActionsColumn` (показывать колонку) и вторым `DataContext.ActionsColumnWidth` (сохранённая ширина). Атрибут `MinWidth="120"` убран, чтобы колонка могла схлопнуться в 0 при скрытии; минимальная ширина в 120 пикселей по-прежнему гарантируется обработчиком перетаскивания разделителя, пока колонка видима.
+
+### Версия
+
+- **Версия поднята до `0.3.5.85` → `0.3.5.86`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.85] — 2026-08-31
+
+Настройка `ShowActionsColumn` подключена к модели представления (Windows/WPF): добавлено поле, загрузка из настроек при запуске, публичное свойство, применение через `ApplyDisplaySettings` и сохранение. Настройка полностью задействована в логике приложения и готова к использованию разметкой и окном настроек в следующих сборках.
+
+### Изменено
+
+- **Настройка `ShowActionsColumn` подключена к Windows-версии `MainViewModel`**: в [`MainViewModel.cs`](Configuration%20Management/ViewModels/MainViewModel.cs) объявлено поле `_showActionsColumn` (по умолчанию `true`) и в конструкторе добавлена загрузка `_showActionsColumn = settings.ShowActionsColumn;`. В [`MainViewModel.Display.cs`](Configuration%20Management/ViewModels/MainViewModel.Display.cs) добавлено публичное свойство `ShowActionsColumn => _showActionsColumn`, а метод `ApplyDisplaySettings(...)` получил параметр `bool showActionsColumn = true` (в конце, с дефолтом), присваивает `_showActionsColumn` и уведомляет `OnPropertyChanged(nameof(ShowActionsColumn))`. В [`MainViewModel.Launch.cs`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs) при сохранении настроек добавляется `ShowActionsColumn = _showActionsColumn`.
+
+### Версия
+
+- **Версия поднята до `0.3.5.84` → `0.3.5.85`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.84] — 2026-08-31
+
+Добавлена новая настройка `ShowActionsColumn` (по умолчанию включена), которая позволит скрывать колонку «Действия» (кнопки запуска/конфигуратора/очистки кеша) в списке баз. Реализация видимости появится в последующих сборках.
+
+### Изменено
+
+- **Новая настройка `ShowActionsColumn`** в [`AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs): добавлено булево свойство (значение по умолчанию `true`), управляющее отображением колонки «Действия» в списке баз. На данном этапе настройка уже доступна в модели настроек, а применение видимости колонки в ViewModel/разметке будет реализовано в следующих сборках.
+
+### Версия
+
+- **Версия поднята до `0.3.5.83` → `0.3.5.84`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.83] — 2026-08-31
+
+Тестовая сборка для проверки автоматического обновления (Windows): выпущена следующая версия, чтобы убедиться, что программа обнаруживает и устанавливает новое обновление при включённой проверке обновлений.
+
+### Версия
+
+- **Версия поднята до `0.3.5.82` → `0.3.5.83`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.82] — 2026-08-31
+
+Программа больше не открывает окно/страницу GitHub при обновлении: теперь она всегда сама скачивает Windows-версию (single-file exe) по прямой ссылке. Удалён fallback-метод `OpenInBrowser`, который открывал страницу релиза в браузере при отсутствии прямой ссылки. Если прямой ссылки на exe нет — показывается только локализованная ошибка.
+
+### Исправлено
+
+- **Больше никакого окна GitHub при обновлении** (Windows/WPF). В [`UpdateService.DownloadAndInstallAsync`](Configuration%20Management/Services/UpdateService.cs) убран блок, который при пустом `DownloadUrl` открывал страницу релиза в браузере через [`OpenInBrowser`](Configuration%20Management/Services/UpdateService.cs). Теперь при отсутствии прямой ссылки на exe программа лишь показывает локализованную ошибку `Update.NoDownloadUrl` («скачивание недоступно») и завершает операцию, не открывая GitHub. Вместе с fallback на прошлом этапе (Atom-лента теперь отдаёт прямую ссылку) это гарантирует, что в нормальном сценарии обновление всегда скачивается самим приложением.
+
+### Версия
+
+- **Версия поднята до `0.3.5.81` → `0.3.5.82`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.81] — 2026-08-31
+
+Исправление резервного источника проверки обновлений (Atom-лента GitHub): теперь fallback отдаёт прямую ссылку на Windows-сборку, благодаря чему программа сможет сама скачать новый exe без открытия браузера GitHub, даже когда основной GitHub Releases API недоступен.
+
+### Исправлено
+
+- **Прямая ссылка на exe в Atom-fallback** (Windows/WPF). В [`GitHubReleaseService.GetLatestFromAtomAsync`](Configuration%20Management/Services/GitHubReleaseService.cs) после извлечения тега релиза из первого `<entry>` ленты теперь собирается прямая ссылка на Windows-сборку `ConfigurationManagement.exe` по шаблону `https://github.com/sivatorov/ConfigurationManagement/releases/download/{ТЕГ}/ConfigurationManagement.exe` и присваивается свойству `DownloadUrl` возвращаемого `ReleaseInfo`. Тег подставляется без нормализации (как в `<title>` ленты), небезопасные символы пути экранируются, итоговый URL проверяется через `Uri.TryCreate` (см. `BuildWindowsDownloadUrl`). Раньше `DownloadUrl` в fallback оставался `null`, и при недоступности GitHub Releases API программа открывала окно GitHub вместо самостоятельной загрузки. `HtmlUrl` (страница релиза) по-прежнему заполняется как запасной путь для ручной загрузки.
+
+### Версия
+
+- **Версия поднята до `0.3.5.80` → `0.3.5.81`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.80] — 2026-08-31
+
+Тестовая сборка для проверки полностью автоматического обновления (Windows): выпущена следующая версия, чтобы убедиться, что программа обнаруживает и молча устанавливает новое обновление при включённой настройке «Автоматически обновлять приложение».
+
+### Версия
+
+- **Версия поднята до `0.3.5.79` → `0.3.5.80`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.79] — 2026-08-31
+
+Итоговая сборка подсистемы полностью автоматического обновления (Windows): подтверждена компиляция Release-конфигурации, документация обновлена.
+
+### Исправлено / Прочее
+
+- Выполнена контрольная Release-сборка Windows-версии; подсистема автообновления компилируется без ошибок и предупреждений. `dotnet build -c Release` прошёл успешно (`bin\Release\net10.0-windows\win-x64\ConfigurationManagement.dll`, 0 ошибок / 0 предупреждений). Также выполнен self-contained single-file publish через [`build-windows-single-file.ps1`](Configuration%20Management/build-windows-single-file.ps1): собран одиночный исполняемый файл `ConfigurationManagement.exe` (~78.9 МБ) в `dist\win-x64`.
+
+### Версия
+
+- **Версия поднята до `0.3.5.78` → `0.3.5.79`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.78] — 2026-08-31
+
+Реализован полностью автоматический self-update: при включённой настройке «Автоматически обновлять приложение» программа сама скачивает, устанавливает и перезапускается при обнаружении новой версии, без диалога подтверждения и участия пользователя.
+
+### Добавлено
+
+- **Автоматическая установка обновлений без подтверждения** (Windows/WPF). В [`UpdateService`](Configuration%20Management/Services/UpdateService.cs) добавлено свойство `AutoUpdateEnabled`; фоновая проверка [`CheckForUpdatesAsync`](Configuration%20Management/Services/UpdateService.cs) при наличии новой версии и включённом флаге сразу вызывает [`DownloadAndInstallAsync`](Configuration%20Management/Services/UpdateService.cs) — скачивает self-contained exe, заменяет текущий исполняемый файл через временный PowerShell-помощник и перезапускает приложение, минуя диалог «Скачать/Отмена». Флаг устанавливается из настроек в [`App.OnStartup`](Configuration%20Management/App.xaml.cs) (`settings.AutoUpdateEnabled`). При выключенном флаге сохраняется прежнее поведение с диалогом подтверждения. Ручная проверка «Проверить обновления» по-прежнему показывает диалог/результат, не устанавливая молча: кнопка является явным действием пользователя, поэтому даже при включённом автообновлении она не запускает установку без запроса.
+
+### Версия
+
+- **Версия поднята до `0.3.5.77` → `0.3.5.78`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.77] — 2026-08-31
+
+Добавлена настройка «автоматически обновлять приложение» (флаг `AutoUpdateEnabled`) и её UI-переключатель в окне настроек — подготовка к полностью автоматическому self-update без подтверждения пользователя.
+
+### Добавлено
+
+- **Настройка «Автоматически обновлять приложение»** (Windows/WPF). Новый флаг [`AppSettings.AutoUpdateEnabled`](Configuration%20Management/Models/AppSettings.cs) (по умолчанию `true`) управляет автоматической установкой новых версий приложения без запроса подтверждения (используется в следующих пунктах). В окне настроек вкладки «Настройки» → «Поведение приложения» под переключателем `CheckForUpdatesOnStartupCheck` добавлен переключатель `AutoUpdateEnabledCheck` в [`SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml) с иконкой обновления и локализованной подписью. Загрузка текущего значения при открытии окна выполняется в [`SettingsWindow.Display.cs`](Configuration%20Management/Views/SettingsWindow.Display.cs), сохранение при «ОК» — через [`MainViewModel.ApplyAppBehaviorSettings`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs); значение персистится в `settings.json` через [`MainViewModel.BuildSettings`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs). Ключи локализации `Settings.General.AutoUpdate` и `Settings.General.AutoUpdateTooltip` согласованы в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.5.76` → `0.3.5.77`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.76] — 2026-08-31
+
+Тестовая сборка для проверки автоматического обновления.
+
+### Версия
+
+- **Версия поднята до `0.3.5.75` → `0.3.5.76`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.75] — 2026-08-31
+
+Исправлена ошибка «Не удалось проверить наличие обновлений» при проверке обновлений на Windows: добавлен резервный источник данных о релизах (Atom-лента GitHub), исправлено распознавание версий из тегов с префиксом `new-`, а при отсутствии прямой ссылки на установочный файл теперь открывается страница релиза в браузере.
+
+### Исправлено
+
+- **Fallback на Atom-ленту релизов** в [`GitHubReleaseService.GetLatestReleaseAsync`](Configuration%20Management/Services/GitHubReleaseService.cs). Раньше проверка обновлений использовала только GitHub Releases API (`api.github.com`); при его недоступности или таймауте (`ConnectTimeoutError`) показывалась ошибка `Update.CheckFailed`, хотя сам `github.com` работал. Теперь сначала пробуется API `releases/latest`, а если он не ответил/не распознан — берётся резервный источник — Atom-лента `https://github.com/sivatorov/ConfigurationManagement/releases.atom` (работает через обычный `github.com`). Из первого `<entry>` ленты заполняются `TagName`, `Name`, `Body` (текст `<content>` очищается от разметки и переносов), `PublishedAt` и `HtmlUrl` (атрибут `href` у `<link rel="alternate">`).
+- **Корректный парсинг версий из тегов `new-*`** в [`NormalizeTag`](Configuration%20Management/Services/GitHubReleaseService.cs). Раньше обрезался только ведущий `v`/`V`, поэтому теги вида `new-0.3.5.75` не распознавались (`Version.TryParse` возвращал `false`) и новая версия не находилась даже при успешном ответе. Теперь из тега извлекается подстрока с первой цифры до первого пробела/двоеточия/`+` (например `new-0.3.5.75` → `0.3.5.75`, `v0.3.5.74` → `0.3.5.74`, `new-0.3.5.16: Merge …` → `0.3.5.16`). Код устойчив и к 3-, и к 4-частным версиям; поведение для обычных тегов не изменилось.
+- **Открытие страницы релиза при отсутствии прямой ссылки на exe** в [`UpdateService.DownloadAndInstallAsync`](Configuration%20Management/Services/UpdateService.cs). В `ReleaseInfo` добавлено свойство `HtmlUrl` (страница релиза, `html_url` из API либо `href` из ленты). Если `DownloadUrl` пуст (например, при получении выпуска из Atom-ленты, где прямой ссылки на asset нет), при подтверждении «Скачать» теперь открывается страница релиза в браузере по умолчанию (`Process.Start` с `UseShellExecute = true`) вместо ошибки `Update.NoDownloadUrl`; ошибка показывается только если недоступен и `HtmlUrl`.
+
+### Версия
+
+- **Версия поднята до `0.3.5.74` → `0.3.5.75`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.74] — 2026-08-31
+
+Реализована реальная загрузка и установка Windows-версии приложения (self-update) вместо открытия браузера, а также кнопка «Проверить обновления» во вкладке «О программе» — завершающая часть подсистемы автоматического обновления из GitHub Releases.
+
+### Добавлено
+
+- **Кнопка «Проверить обновления»** (Windows/WPF). Во вкладке «О программе» окна настроек [`SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml) рядом с кнопкой «Скопировать техническую информацию» добавлена кнопка с иконкой `PackIcon Kind="Update"` и локализованной подписью (`Settings.About.CheckForUpdates`). Обработчик [`OnCheckForUpdates_Click`](Configuration%20Management/Views/SettingsWindow.Platforms.cs) получает [`UpdateService`](Configuration%20Management/Services/UpdateService.cs) через `AppServices.GetRequiredService<UpdateService>()` и вызывает ручную проверку.
+- **Ручная проверка обновлений**. В [`UpdateService`](Configuration%20Management/Services/UpdateService.cs) добавлен метод `CheckForUpdatesManualAsync()`, который в отличие от фоновой проверки явно сообщает результат: ошибку проверки (`Update.CheckFailed`), «вы используете актуальную версию» (`Update.UpToDate`) или показывает диалог о доступной новой версии. Фоновая `CheckForUpdatesAsync()` при запуске не изменена.
+- **Реальная загрузка и установка (self-update)**. Метод [`DownloadAndInstall`](Configuration%20Management/Services/UpdateService.cs) заменён на `DownloadAndInstallAsync(ReleaseInfo)`: скачивает self-contained single-file `ConfigurationManagement.exe` из `ReleaseInfo.DownloadUrl` через `HttpClient` во временный каталог `%TEMP%\ConfigurationManagement\update`, проверяет размер файла, затем создаёт и запускает временный PowerShell-помощник, который дожидается завершения основного процесса (по PID), заменяет текущий исполняемый файл скачанным (`Move-Item -Force`), перезапускает приложение и удаляет сам скрипт. После запуска помощника показывается сообщение о перезапуске (`Update.RestartPrompt`) и вызывается `Application.Current.Shutdown()`. При отсутствии прямой ссылки на asset (`Update.NoDownloadUrl`), сетевых ошибках (`Update.DownloadFailed`) или сбое установки (`Update.InstallFailed`) показывается локализованная ошибка через `IDialogService.ShowError`.
+- **Локализация**: новые ключи `Update.CheckFailed`, `Update.UpToDate`, `Update.Downloading`, `Update.RestartPrompt`, `Update.NoDownloadUrl`, `Update.DownloadFailed`, `Update.InstallFailed` и `Settings.About.CheckForUpdates` согласованы в `ru.json` и `en.json`.
+- **Версия поднята до `0.3.5.73` → `0.3.5.74`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.73] — 2026-08-31
+
+Реализована фоновая проверка обновлений при запуске и диалог «Доступна новая версия» с кнопками «Скачать»/«Отмена» — логическая завершающая часть подсистемы автоматического обновления из GitHub Releases (загрузка и установка exe будет добавлена следующей задачей).
+
+### Добавлено
+
+- **Фоновая проверка обновлений при запуске** (Windows/WPF). В [`App.OnStartup`](Configuration%20Management/App.xaml.cs) сразу после показа главного окна, если включён флаг `CheckForUpdatesOnStartup`, запускается асинхронная проверка через новый [`UpdateService`](Configuration%20Management/Services/UpdateService.cs). Проверка не блокирует UI: метод `CheckForUpdatesAsync` выполняется в фоне, использует [`GitHubReleaseService.GetLatestReleaseAsync`](Configuration%20Management/Services/GitHubReleaseService.cs) и сравнивает доступную версию с текущей (`VersionInfo.Display()`) через `GitHubReleaseService.IsNewerThan`. При сбоях сети/парсинга проверка молча пропускается и не влияет на работу приложения.
+- **Диалог «Доступна новая версия»** (Windows/WPF). Новый [`UpdateAvailableWindow`](Configuration%20Management/Services/UpdateAvailableWindow.xaml) показывает текущую и доступную версии и краткое описание выпуска (`ReleaseInfo.Body`), с кнопками **«Скачать»** (зелёная, по умолчанию) и **«Отмена»**. Кнопки «Скачать» и заголовки/подписи локализованы через ключи `Update.*`.
+- **Сервис обновления [`UpdateService`](Configuration%20Management/Services/UpdateService.cs)**: оркестрирует проверку, показ диалога и обработку выбора пользователя. Предусмотрена точка расширения `DownloadAndInstall(ReleaseInfo)` — в текущей задаче она открывает ссылку скачивания Windows-инсталлятора (или страницу релиза, если asset не найден) в браузере по умолчанию через `Process.Start` с `UseShellExecute = true`; в следующей задаче метод будет заменён на скачивание и установку exe. Сервис зарегистрирован `AddSingleton` в [`AppServices.Configure()`](Configuration%20Management/AppServices.cs) в блоке `#if WINDOWS`; новые Windows-only файлы исключены из сборки Linux в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- **Локализация** диалога обновления: ключи `Update.NewVersionAvailable`, `Update.CurrentVersion`, `Update.NewVersion`, `Update.WhatsNew`, `Update.NoDescription`, `Update.Download`, `Update.Cancel`, `Update.Failed` согласованы в `ru.json` и `en.json`.
+- **Версия поднята до `0.3.5.72` → `0.3.5.73`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.72] — 2026-08-31
+
+Добавлена пользовательская настройка «проверять обновления при запуске» и UI-переключатель в окне настроек — следующий шаг подсистемы автоматического обновления из GitHub Releases.
+
+### Добавлено
+
+- **Настройка «Проверять обновления при запуске»** (Windows/WPF). Новый флаг [`AppSettings.CheckForUpdatesOnStartup`](Configuration%20Management/Models/AppSettings.cs) (по умолчанию `true`) управляет проверкой новых версий приложения через GitHub Releases при каждом запуске. В окне настроек вкладки «Настройки» → «Поведение приложения» добавлен переключатель `CheckForUpdatesOnStartupCheck` в [`SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml) со значком обновления и локализованной подписью. Загрузка текущего значения при открытии окна выполняется в [`SettingsWindow.Display.cs`](Configuration%20Management/Views/SettingsWindow.Display.cs), сохранение при «ОК» — через [`MainViewModel.ApplyAppBehaviorSettings`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs); значение персистится в `settings.json` через [`MainViewModel.BuildSettings`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs). Ключи локализации `Settings.General.CheckForUpdatesOnStartup` и `Settings.General.CheckForUpdatesOnStartupTooltip` согласованы в `ru.json` и `en.json`.
+- **Версия поднята до `0.3.5.71` → `0.3.5.72`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.5.71] — 2026-08-31
+
+Реализован сервис проверки новых версий приложения через GitHub Releases (первый шаг подсистемы автоматического обновления).
+
+### Добавлено
+
+- **Сервис проверки обновлений из GitHub Releases** (Windows/WPF). Новый [`GitHubReleaseService`](Configuration%20Management/Services/GitHubReleaseService.cs) запрашивает последний выпуск через GitHub API (`/repos/sivatorov/ConfigurationManagement/releases/latest`), разбирает JSON и возвращает модель [`ReleaseInfo`](Configuration%20Management/Models/ReleaseInfo.cs): тег, название, описание, признак pre-release, дату публикации и прямую ссылку на Windows-инсталлятор (из `assets` выбирается `.exe` или asset с `win-x64` / `ConfigurationManagement.exe`). Ошибки сети/HTTP/парсинга обрабатываются внутри — метод возвращает `null`, не бросая исключений наружу. Статический помощник [`IsNewerThan`](Configuration%20Management/Services/GitHubReleaseService.cs) сравнивает тег выпуска (нормализуя ведущий `v`) с текущей версией приложения. Сервис зарегистрирован как `AddSingleton` в [`AppServices.Configure()`](Configuration%20Management/AppServices.cs) в блоке `#if WINDOWS`; на Linux он не компилируется и не нужен (автообновление Windows-only), модель `ReleaseInfo` остаётся общей.
+- **Версия поднята до `0.3.5.70` → `0.3.5.71`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.5.70] — 2026-08-31
 
 Версия программы теперь отображается и в видимой шапке главного окна (иконка + название программы), а не только в скрытом системном заголовке.

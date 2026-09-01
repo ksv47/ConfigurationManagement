@@ -127,7 +127,8 @@ namespace Configuration_Management
                 VisibleOf("Size"),
                 VisibleOf("Configuration"),
                 ShowEmptyGroupsCheck?.IsChecked ?? false,
-                _columnOrderItems.Select(i => i.Key).ToList());
+                _columnOrderItems.Select(i => i.Key).ToList(),
+                VisibleOf("Actions"));
 
             _viewModel.ShowRightPanelDetails = ShowRightPanelDetailsCheck?.IsChecked ?? true;
             _viewModel.ShowSessionLaunchPanel = ShowSessionLaunchPanelCheck?.IsChecked ?? true;
@@ -184,6 +185,8 @@ namespace Configuration_Management
 
             _viewModel.ApplyAppBehaviorSettings(
                 AllowMultipleInstancesCheck.IsChecked ?? false,
+                CheckForUpdatesOnStartupCheck?.IsChecked ?? true,
+                AutoUpdateEnabledCheck?.IsChecked ?? true,
                 ShowTagFilterPanelCheck.IsChecked ?? true,
                 CloseToTrayCheck.IsChecked ?? false,
                 ShowTrayIconCheck.IsChecked ?? true,
@@ -220,7 +223,7 @@ namespace Configuration_Management
             // хранит собственные настройки независимо (встроенные — в своём слоте базовой
             // темы, пользовательские — в своём JSON-файле).
             _settings.PersistEditedSchemes();
-            ThemeDebug($"Settings OK: applying '{_settings.CurrentColorScheme.Name}' (isDark={_settings.CurrentColorScheme.IsDark}, colors={_settings.CurrentColorScheme.Colors.Count})");
+            ThemeDebug($"Settings OK: applying '{_settings.CurrentColorScheme.Name}' (colors light={_settings.CurrentColorScheme.LightColors.Count}, dark={_settings.CurrentColorScheme.DarkColors.Count})");
             _viewModel.ApplyColorScheme(_settings.CurrentColorScheme);
 
             // Сохраняем настройки шрифта интерфейса (общий и отдельных областей).

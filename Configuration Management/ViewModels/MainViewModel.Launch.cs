@@ -71,7 +71,10 @@ public partial class MainViewModel : ViewModelBase
     private void LaunchEnterpriseWithParams(object? parameter)
     {
         if (SelectedInfobase is null) return;
-        var dlg = new Configuration_Management.LaunchParametersWindow(SelectedInfobase.LaunchParameters ?? "")
+        var dlg = new Configuration_Management.LaunchParametersWindow(
+            SelectedInfobase.LaunchParameters ?? "",
+            CustomLaunchParameters,
+            SetCustomLaunchParameters)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -96,7 +99,10 @@ public partial class MainViewModel : ViewModelBase
     private void LaunchConfiguratorWithParams(object? parameter)
     {
         if (SelectedInfobase is null) return;
-        var dlg = new Configuration_Management.LaunchParametersWindow(SelectedInfobase.LaunchParameters ?? "")
+        var dlg = new Configuration_Management.LaunchParametersWindow(
+            SelectedInfobase.LaunchParameters ?? "",
+            CustomLaunchParameters,
+            SetCustomLaunchParameters)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -217,7 +223,8 @@ public partial class MainViewModel : ViewModelBase
         {
             SessionClientMode.Thin => OneCClientType.Thin,
             SessionClientMode.Thick => OneCClientType.Thick,
-            SessionClientMode.ThickOrdinary => OneCClientType.Thick,
+            // «Обычный режим» и «Толстый (обычные формы)» объединены в один пункт
+            // (issue #144): толстый клиент в обычных формах.
             SessionClientMode.Ordinary => OneCClientType.Thick,
             _ => ResolveClientFromInfobase(ib)
         };
@@ -229,12 +236,13 @@ public partial class MainViewModel : ViewModelBase
             _ => OneCLauncher.ResolveArchitecture(ib.Architecture, ib.PlatformVersion)
         };
 
-        // Режим форм: «Толстый (управляемые формы)» и «Толстый (обычные формы)» задают
-        // его явно; в остальных случаях берём из настройки базы при автоматическом клиенте.
+        // Режим форм: «Толстый (управляемые формы)» и «Обычный режим» задают его явно;
+        // в остальных случаях берём из настройки базы при автоматическом клиенте.
+        // «Обычный режим» соответствует бывшему «Толстый (обычные формы)» (issue #144).
         OneCRunMode? runMode = _sessionClientMode switch
         {
             SessionClientMode.Thick => OneCRunMode.Managed,
-            SessionClientMode.ThickOrdinary => OneCRunMode.Ordinary,
+            SessionClientMode.Ordinary => OneCRunMode.Ordinary,
             SessionClientMode.Auto => OneCLauncher.GetRunModeFromLaunchMode(ib.LaunchMode),
             _ => null
         };
@@ -405,8 +413,9 @@ public partial class MainViewModel : ViewModelBase
             ShowEmptyGroups = _showEmptyGroups,
             Theme = _savedTheme,
             ActiveColorScheme = _activeColorScheme,
-            LightColorScheme = _lightColorScheme,
-            DarkColorScheme = _darkColorScheme,
+            // Устаревшие раздельные слоты больше не ведутся.
+            LightColorScheme = null,
+            DarkColorScheme = null,
             CollapsedGroups = _collapsedGroups.ToList(),
             InstalledPlatformVersions = _installedPlatformVersions,
             AdditionalPlatformSearchPaths = _additionalPlatformSearchPaths,
@@ -420,6 +429,8 @@ public partial class MainViewModel : ViewModelBase
             ShowTags = _showTags,
             ShowTagFilterPanel = _showTagFilterPanel,
             AllowMultipleInstances = _allowMultipleInstances,
+            CheckForUpdatesOnStartup = _checkForUpdatesOnStartup,
+            AutoUpdateEnabled = _autoUpdateEnabled,
             ShowVersionColumn = _showVersionColumn,
             ShowConfigurationColumn = _showConfigurationColumn,
             ConfigurationColumnWidth = _configurationColumnWidth,
@@ -442,6 +453,7 @@ public partial class MainViewModel : ViewModelBase
             ShowServerColumn = _showServerColumn,
             ShowLastLaunchColumn = _showLastLaunchColumn,
             ShowSizeColumn = _showSizeColumn,
+            ShowActionsColumn = _showActionsColumn,
             SizeColumnWidth = _sizeColumnWidth,
             ColumnOrder = _columnOrder.ToList(),
             WindowWidth = _windowWidth,
@@ -492,6 +504,7 @@ public partial class MainViewModel : ViewModelBase
             ElementFonts = _elementFonts,
             LastSelectedInfobaseId = _lastSelectedInfobaseId,
             LastSelectedGroupPath = _lastSelectedGroupPath,
+            CustomLaunchParameters = _customLaunchParameters.ToList(),
             ProfileBackupDirectory = _profileBackupDirectory,
             ProfileRestoreOnStartup = _profileRestoreOnStartup,
             FileSizeCache = new Dictionary<string, Models.FileSizeCacheEntry>(_fileSizeCache)

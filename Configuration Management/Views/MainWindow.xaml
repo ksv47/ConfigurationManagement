@@ -179,7 +179,7 @@
         <!-- Отдельная верхняя строка окна: слева иконка и заголовок программы, справа —
              кнопки управления окном (свернуть/развернуть/закрыть), встроенные в полосу.
              Перетаскивание окна за эту полосу — OnTopBar_MouseLeftButtonDown -> DragMove. -->
-        <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}"
+        <Border x:Name="TitleBarBorder" Grid.Row="0"
                 BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="0,0,0,1"
                 Padding="12,6" MouseLeftButtonDown="OnTopBar_MouseLeftButtonDown">
             <Grid>
@@ -678,14 +678,17 @@
                                             </MultiBinding>
                                         </ColumnDefinition.Width>
                                     </ColumnDefinition>
-                                    <!-- Колонка «Действия»: встаёт сразу после «Режим запуска»,
-                                         ширина настраивается перетаскиванием разделителя. -->
-                                    <ColumnDefinition x:Name="ActionsColumn" MinWidth="120">
-                                        <!-- Колонка «Действия» всегда видима: ширина из ActionsColumnWidth,
-                                             по умолчанию 170. Не используем ColumnVis с Source=True, т.к. литерал True
-                                             ненадёжно приводится к bool и схлопывал ширину до 0 (0.3.5.1). -->
+                                    <!-- Колонка «Действия»: встаёт сразу после «Режим запуска»;
+                                         видимость управляется переключателем ShowActionsColumn,
+                                         ширина настраивается перетаскиванием разделителя.
+                                         MinWidth не задан намеренно — при скрытии колонка схлопывается в 0;
+                                         минимум 120 гарантирует обработчик перетаскивания, пока колонка видима. -->
+                                    <ColumnDefinition x:Name="ActionsColumn">
                                         <ColumnDefinition.Width>
-                                            <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}" Converter="{StaticResource DoubleToGridLength}" ConverterParameter="170"/>
+                                            <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="170">
+                                                <Binding Path="DataContext.ShowActionsColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                            </MultiBinding>
                                         </ColumnDefinition.Width>
                                     </ColumnDefinition>
                                     <ColumnDefinition x:Name="ServerColumn">
@@ -1047,10 +1050,16 @@
                                                     </MultiBinding>
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
-                                            <!-- Колонка «Действия»: команды группы на уровне кнопок строк баз -->
-                                            <ColumnDefinition MinWidth="120">
+                                            <!-- Колонка «Действия»: команды группы на уровне кнопок строк баз.
+                                                 Видимость управляется переключателем ShowActionsColumn.
+                                                 MinWidth не задан намеренно — минимум 120 гарантирует
+                                                 обработчик перетаскивания, пока колонка видима. -->
+                                            <ColumnDefinition>
                                                 <ColumnDefinition.Width>
-                                                    <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}" Converter="{StaticResource DoubleToGridLength}" ConverterParameter="170"/>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="170">
+                                                        <Binding Path="DataContext.ShowActionsColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
                                             <ColumnDefinition>
@@ -1258,10 +1267,16 @@
                                                     </MultiBinding>
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
-                                            <!-- Колонка «Действия»: встаёт сразу после «Режим запуска», совпадает с заголовком -->
-                                            <ColumnDefinition MinWidth="120">
+                                            <!-- Колонка «Действия»: встаёт сразу после «Режим запуска», совпадает с заголовком.
+                                                 Видимость управляется переключателем ShowActionsColumn.
+                                                 MinWidth не задан намеренно — минимум 120 гарантирует
+                                                 обработчик перетаскивания, пока колонка видима. -->
+                                            <ColumnDefinition>
                                                 <ColumnDefinition.Width>
-                                                    <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}" Converter="{StaticResource DoubleToGridLength}" ConverterParameter="170"/>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="170">
+                                                        <Binding Path="DataContext.ShowActionsColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.ActionsColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
                                             <ColumnDefinition>
@@ -2312,11 +2327,6 @@
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
                                                  ToolTip="{loc:Loc Main.SessionThickManagedTooltip}"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <RadioButton Content="{loc:Loc Main.SessionClientThickOrdinary}" GroupName="SessionClient"
-                                                 IsChecked="{Binding IsSessionClientThickOrdinary, Mode=TwoWay}"
-                                                 Margin="0,2" Cursor="Hand" FontSize="12"
-                                                 ToolTip="{loc:Loc Main.SessionThickOrdinaryTooltip}"
-                                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <RadioButton Content="{loc:Loc Main.SessionClientThin}" GroupName="SessionClient"
                                                  IsChecked="{Binding IsSessionClientThin, Mode=TwoWay}"
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
@@ -2460,6 +2470,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding StatusBarInfo}"
                            Foreground="{DynamicResource TextOnAccentBrush}" FontSize="12"
@@ -2477,12 +2488,26 @@
                         </ContextMenu>
                     </TextBlock.ContextMenu>
                 </TextBlock>
-                <TextBlock Grid.Column="1" Text="{Binding SyncMessage}"
+                <!-- Индикатор прогресса скачивания обновления: скрыт по умолчанию, появляется
+                     при загрузке exe и обновляется из UpdateService (DownloadProgressChanged). -->
+                <StackPanel x:Name="UpdateProgressPanel" Grid.Column="1" Orientation="Horizontal"
+                            Visibility="Collapsed" VerticalAlignment="Center" Margin="16,0,8,0">
+                    <TextBlock x:Name="UpdateProgressText" Text="{loc:Loc Update.DownloadProgress}"
+                               Foreground="{DynamicResource TextOnAccentBrush}" FontSize="12"
+                               VerticalAlignment="Center" Margin="0,0,8,0"
+                               TextTrimming="CharacterEllipsis"/>
+                    <ProgressBar x:Name="UpdateProgressBar" Width="140" Height="6"
+                                 Minimum="0" Maximum="100" Value="0"
+                                 Foreground="{DynamicResource AccentBrush}"
+                                 Background="#22000000"
+                                 VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Grid.Column="2" Text="{Binding SyncMessage}"
                            Foreground="{DynamicResource TextOnAccentBrush}" FontSize="12"
                            VerticalAlignment="Center" Margin="16,0,8,0"
                            TextTrimming="CharacterEllipsis"
                            ToolTip="{loc:Loc Main.SyncResultTooltip}"/>
-                <Button Grid.Column="2" Command="{Binding ToggleSessionLaunchPanelCommand}"
+                <Button Grid.Column="3" Command="{Binding ToggleSessionLaunchPanelCommand}"
                         Style="{DynamicResource StatusBarIconButton}"
                         Margin="4,0,0,0"
                         ToolTip="{loc:Loc Main.CurrentSession}"
@@ -2490,7 +2515,7 @@
                     <materialDesign:PackIcon Kind="ClockOutline" Width="18" Height="18"
                                              Foreground="{DynamicResource TextOnAccentBrush}"/>
                 </Button>
-                <Button Grid.Column="3" Command="{Binding ToggleRightPanelDetailsCommand}"
+                <Button Grid.Column="4" Command="{Binding ToggleRightPanelDetailsCommand}"
                         Style="{DynamicResource StatusBarIconButton}"
                         Margin="4,0,0,0"
                         ToolTip="{Binding RightPanelToggleTooltip}"

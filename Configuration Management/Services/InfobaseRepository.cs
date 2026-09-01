@@ -63,7 +63,11 @@ public class InfobaseRepository : IInfobaseRepository
         try
         {
             var json = File.ReadAllText(InfobasesPath);
-            return JsonSerializer.Deserialize<List<Infobase>>(json, JsonOptions) ?? new List<Infobase>();
+            // Отбрасываем пустые элементы, которые могли прийти из легаси/повреждённого файла
+            // (иначе потребители спотыкались бы о null и старт «зависал») (issue #64).
+            return (JsonSerializer.Deserialize<List<Infobase>>(json, JsonOptions) ?? new List<Infobase>())
+                .Where(i => i is not null)
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -96,6 +100,9 @@ public class InfobaseRepository : IInfobaseRepository
         {
             var json = File.ReadAllText(GroupsPath);
             var groups = JsonSerializer.Deserialize<List<Group>>(json, JsonOptions) ?? new List<Group>();
+            // Отбрасываем пустые элементы из легаси/повреждённого файла до проверок
+            // идентификаторов, иначе обращение g.Id к null уронило бы загрузку (issue #64).
+            groups.RemoveAll(g => g is null);
             var hadInvalidIds = groups.Any(g => string.IsNullOrWhiteSpace(g.Id));
             var hadDuplicateIds = groups.GroupBy(g => g.Id, StringComparer.OrdinalIgnoreCase)
                 .Any(g => g.Count() > 1);

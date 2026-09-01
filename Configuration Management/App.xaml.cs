@@ -165,31 +165,22 @@ namespace Configuration_Management
 
                 base.OnStartup(e);
 
-                // Применяем сохранённую цветовую схему (тему оформления). Предпочитаем раздельную
-                // схему для активной базовой темы (Light/Dark), иначе — старый одиночный
-                // ActiveColorScheme (миграция) или встроенные цвета.
+                // Применяем сохранённую цветовую схему (две палитры) и вариант темы.
+                // Старые раздельные схемы (активная + слоты светлой/тёмной) мигрируются
+                // в единую схему.
+                var mergedScheme = Configuration_Management.Models.ColorScheme.FromLegacy(
+                    settings.ActiveColorScheme, settings.LightColorScheme, settings.DarkColorScheme);
                 var themeName = string.IsNullOrWhiteSpace(settings.Theme)
                     ? ThemeManager.LightThemeName
                     : settings.Theme;
-                var isDark = string.Equals(themeName, ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
-                Configuration_Management.Models.ColorScheme? scheme = isDark
-                    ? settings.DarkColorScheme
-                    : settings.LightColorScheme;
-                if (scheme is not { Colors.Count: > 0 }
-                    && settings.ActiveColorScheme is { Colors.Count: > 0 }
-                    && settings.ActiveColorScheme.IsDark == isDark)
-                {
-                    scheme = settings.ActiveColorScheme;
-                }
-                ThemeManager.ApplyScheme(scheme ?? (isDark
-                    ? Configuration_Management.Models.ColorScheme.CreateDark()
-                    : Configuration_Management.Models.ColorScheme.CreateLight()));
+                ThemeManager.ApplyScheme(mergedScheme);
+                ThemeManager.ApplyTheme(themeName == ThemeManager.DarkThemeName);
 #if DEBUG
                 try
                 {
                     System.IO.File.AppendAllText(
                         System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cm_theme_debug.log"),
-                        $"[startup] theme='{themeName}' dark={isDark} applied='{ThemeManager.CurrentScheme.Name}' " +
+                        $"[startup] theme='{themeName}' dark={themeName == ThemeManager.DarkThemeName} applied='{ThemeManager.CurrentScheme.Name}' " +
                         $"darkSlot='{settings.DarkColorScheme?.Name}' lightSlot='{settings.LightColorScheme?.Name}' " +
                         $"active='{settings.ActiveColorScheme?.Name}'{System.Environment.NewLine}");
                 }
@@ -227,12 +218,43 @@ namespace Configuration_Management
                 // переключался на явный, иначе закрытие окна входа гасило
                 // приложение до появления главного.
                 ShutdownMode = shutdownModeBeforeStartup;
+
+                // Фоновая проверка обновлений (Windows/WPF): запускаем после показа
+                // главного окна, чтобы не задерживать старт. Если пользователь отключил
+                // проверку в настройках — пропускаем. Работа выполняется асинхронно,
+                // UI при этом не блокируется.
+                if (settings.CheckForUpdatesOnStartup)
+                {
+                    var updateService = AppServices.GetRequiredService<UpdateService>();
+                    // Передаём флаг автообновления из настроек. При обнаружении новой версии
+                    // фоновая проверка ВСЕГДА покажет единый диалог с вопросом «Перезапустить
+                    // сейчас / Обновить после закрытия», независимо от этого флага.
+                    updateService.AutoUpdateEnabled = settings.AutoUpdateEnabled;
+                    CheckForUpdatesInBackground(updateService);
+                }
             }
             catch (Exception ex)
             {
                 LogFatal(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
                 ShowFatalError(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
                 Shutdown(1);
+            }
+        }
+
+        /// <summary>
+        /// Запускает фоновую проверку обновлений и не ждёт её завершения.
+        /// Внутренние ошибки ловятся в <see cref="UpdateService"/>, здесь лишь
+        /// дополнительно страхуемся, чтобы исключение не уронило поток.
+        /// </summary>
+        private static async void CheckForUpdatesInBackground(UpdateService updateService)
+        {
+            try
+            {
+                await updateService.CheckForUpdatesAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // Фоновая проверка не должна влиять на запуск и работу приложения.
             }
         }
 

@@ -39,8 +39,8 @@ namespace Configuration_Management.Themes
             "ColorSchemes");
 
         /// <summary>
-        /// Применяет цветовую схему: задаёт базовый вариант темы (Light/Dark) и накладывает
-        /// цвета схемы на ресурсы приложения.
+        /// Применяет цветовую схему, не меняя базовый вариант темы: накладывает палитру,
+        /// соответствующую текущему варианту (<see cref="CurrentTheme"/>), на ресурсы приложения.
         /// </summary>
         public static void ApplyScheme(ColorScheme? scheme)
         {
@@ -49,27 +49,32 @@ namespace Configuration_Management.Themes
                 return;
 
             scheme ??= ColorScheme.CreateLight();
+            scheme.Normalize();
             CurrentScheme = scheme;
-            CurrentTheme = scheme.IsDark ? DarkThemeName : LightThemeName;
-
-            app.RequestedThemeVariant = scheme.IsDark ? ThemeVariant.Dark : ThemeVariant.Light;
-            ApplyColors(app, scheme);
+            ApplyColors(app, scheme, CurrentTheme == DarkThemeName);
         }
 
         /// <summary>
-        /// Применяет встроенную тему по имени («Light» / «Dark»).
+        /// Задаёт базовый вариант темы (светлый/тёмный) и применяет активную схему
+        /// с палитрой этого варианта.
         /// </summary>
-        public static void ApplyTheme(string themeName)
+        public static void ApplyTheme(bool dark)
         {
-            var isDark = themeName == DarkThemeName;
-            ApplyScheme(isDark ? ColorScheme.CreateDark() : ColorScheme.CreateLight());
+            CurrentTheme = dark ? DarkThemeName : LightThemeName;
+            if (Application.Current is { } app)
+                app.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+            ApplyScheme(CurrentScheme);
         }
 
-        /// <summary>Переключает между светлой и тёмной встроенной темой, возвращает новое имя темы.</summary>
+        /// <summary>Применяет вариант темы по имени («Light» / «Dark»).</summary>
+        public static void ApplyTheme(string themeName)
+            => ApplyTheme(themeName == DarkThemeName);
+
+        /// <summary>Переключает между светлой и тёмной темой, возвращает новое имя темы.</summary>
         public static string ToggleTheme()
         {
             var next = CurrentTheme == DarkThemeName ? LightThemeName : DarkThemeName;
-            ApplyTheme(next);
+            ApplyTheme(next == DarkThemeName);
             return next;
         }
 
@@ -286,11 +291,12 @@ namespace Configuration_Management.Themes
         /// <summary>
         /// Накладывает цвета схемы на ресурсы приложения: для каждого цвета обновляется
         /// ресурс Color и (если есть) одноимённый SolidColorBrush; для ключей, оканчивающихся
-        /// на «Brush», обновляется непосредственно кисть.
+        /// на «Brush», обновляется непосредственно кисть. Берётся палитра, соответствующая
+        /// варианту темы (<paramref name="dark"/>).
         /// </summary>
-        private static void ApplyColors(Application app, ColorScheme scheme)
+        private static void ApplyColors(Application app, ColorScheme scheme, bool dark)
         {
-            foreach (var kvp in scheme.Colors)
+            foreach (var kvp in scheme.Palette(dark))
             {
                 if (string.IsNullOrWhiteSpace(kvp.Key) || !TryParseColor(kvp.Value, out var color))
                     continue;
@@ -306,7 +312,7 @@ namespace Configuration_Management.Themes
                 }
             }
 
-            ApplyFluentAccent(app, scheme);
+            ApplyFluentAccent(app, scheme, dark);
         }
 
         /// <summary>
@@ -316,9 +322,9 @@ namespace Configuration_Management.Themes
         /// оттенки Fluent использует для состояний, поэтому считаются, а не
         /// подменяются одним цветом.
         /// </summary>
-        private static void ApplyFluentAccent(Application app, ColorScheme scheme)
+        private static void ApplyFluentAccent(Application app, ColorScheme scheme, bool dark)
         {
-            var accent = ResolveAccent(scheme);
+            var accent = ResolveAccent(scheme, dark);
 
             app.Resources["SystemAccentColor"] = accent;
             app.Resources["SystemAccentColorLight1"] = Shade(accent, 0.10);
@@ -330,18 +336,14 @@ namespace Configuration_Management.Themes
         }
 
         /// <summary>
-        /// Акцент схемы, а если его в ней нет, то акцент встроенной светлой:
-        /// без запасного значения у стандартных контролов остался бы акцент
-        /// предыдущей схемы.
+        /// Акцент активной палитры схемы. Если в палитре его нет — акцент по умолчанию
+        /// для этого варианта; иначе без запасного значения у стандартных контролов
+        /// остался бы акцент предыдущей схемы.
         /// </summary>
-        private static Color ResolveAccent(ColorScheme scheme)
+        private static Color ResolveAccent(ColorScheme scheme, bool dark)
         {
-            if (scheme.Colors.TryGetValue("AccentColor", out var hex) && TryParseColor(hex, out var accent))
-                return accent;
-
-            return ColorScheme.CreateLight().Colors.TryGetValue("AccentColor", out var fallbackHex)
-                   && TryParseColor(fallbackHex, out var fallback)
-                ? fallback
+            return TryParseColor(scheme.PaletteValue(dark, "AccentColor"), out var accent)
+                ? accent
                 : Colors.DodgerBlue;
         }
 

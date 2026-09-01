@@ -107,6 +107,16 @@
                 </Setter>
             </Style>
 
+            <!-- Варианты кнопок для акцентной шапки (активное главное окно / заголовок
+                 диалогов): базовый цвет значка ButtonTextBrush (читается на акцентном фоне),
+                 а hover/pressed-состояния наследуются из базового шаблона. Задаём цвет именно
+                 сеттером стиля (BasedOn), а не локальным значением: локальное значение в WPF
+                 имеет приоритет над шаблонными триггерами и «ломало» бы белое выделение
+                 кнопки «закрыть» при наведении. -->
+            <Style x:Key="WindowControlButtonOnAccent" TargetType="Button" BasedOn="{StaticResource WindowControlButton}">
+                <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
+            </Style>
+
             <!-- Кнопка «закрыть» окна: как WindowControlButton, но с красной подложкой
                  при наведении/нажатии (классический алый) и белым значком на ней. -->
             <Style x:Key="WindowControlCloseButton" TargetType="Button" BasedOn="{StaticResource WindowControlButton}">
@@ -133,6 +143,13 @@
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
+            </Style>
+
+            <!-- Вариант кнопки «закрыть» для акцентной шапки: базовый цвет значка
+                 ButtonTextBrush (читается на акцентном фоне), hover/pressed-состояния
+                 наследуются из базового шаблона. -->
+            <Style x:Key="WindowControlCloseButtonOnAccent" TargetType="Button" BasedOn="{StaticResource WindowControlCloseButton}">
+                <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}"/>
             </Style>
         </ResourceDictionary>
     </Application.Resources>

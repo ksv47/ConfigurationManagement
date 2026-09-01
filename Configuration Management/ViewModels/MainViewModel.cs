@@ -40,10 +40,6 @@ public partial class MainViewModel : ViewModelBase
     private string _pinnedIcon = string.Empty;
     private string _savedTheme = string.Empty;
     private ColorScheme? _activeColorScheme;
-    /// <summary>Пользовательская схема светлой темы (кастомизация хранится независимо от тёмной).</summary>
-    private ColorScheme? _lightColorScheme;
-    /// <summary>Пользовательская схема тёмной темы (кастомизация хранится независимо от светлой).</summary>
-    private ColorScheme? _darkColorScheme;
     /// <summary>Флаг подписки на событие смены языка (предотвращает дублирование подписки).</summary>
     private bool _languageChangedSubscribed;
     private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
@@ -58,6 +54,8 @@ public partial class MainViewModel : ViewModelBase
     private bool _showPinnedButton = true;
     private bool _showTagFilterPanel;
     private bool _allowMultipleInstances;
+    private bool _checkForUpdatesOnStartup = true;
+    private bool _autoUpdateEnabled = true;
     private readonly ObservableCollection<string> _activeTagFilters = new();
     private ListViewMode _listViewMode = ListViewMode.All;
 
@@ -89,6 +87,7 @@ public partial class MainViewModel : ViewModelBase
     private bool _showServerColumn = true;
     private bool _showLastLaunchColumn = true;
     private bool _showSizeColumn = true;
+    private bool _showActionsColumn = true;
     private double _sizeColumnWidth;
     private List<string> _columnOrder = new();
     private double _windowWidth;
@@ -153,6 +152,8 @@ public partial class MainViewModel : ViewModelBase
     private readonly List<string> _favoriteHotkeyIds = new();
     private CancellationTokenSource? _searchDebounceCts;
     private HashSet<string> _activeTagFilterSet = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Пользовательские параметры запуска, добавленные в справочник параметров (issue #141).</summary>
+    private List<string> _customLaunchParameters = new();
 
     /// <summary>Идёт ли в данный момент выгрузка .dt/.cf (показывает индикатор в верхней панели).</summary>
     private bool _isExporting;
@@ -208,26 +209,16 @@ public partial class MainViewModel : ViewModelBase
         _elementFonts = settings.ElementFonts is null
             ? new Dictionary<string, Models.ElementFontSettings>()
             : new Dictionary<string, Models.ElementFontSettings>(settings.ElementFonts);
-        // Раздельные пользовательские схемы для светлой и тёмной темы: кастомизация
-        // каждой базовой темы хранится независимо, поэтому переключение тем не затирает
-        // настроенное оформление.
-        _lightColorScheme = settings.LightColorScheme;
-        _darkColorScheme = settings.DarkColorScheme;
-        // Миграция: если задан только старый одиночный ActiveColorScheme, переносим его
-        // в слот соответствующей базовой темы.
-        if (settings.ActiveColorScheme is { Colors.Count: > 0 })
-        {
-            if (settings.ActiveColorScheme.IsDark && _darkColorScheme is not { Colors.Count: > 0 })
-                _darkColorScheme = settings.ActiveColorScheme;
-            else if (!settings.ActiveColorScheme.IsDark && _lightColorScheme is not { Colors.Count: > 0 })
-                _lightColorScheme = settings.ActiveColorScheme;
-        }
-        var baseTheme = string.IsNullOrWhiteSpace(_savedTheme)
-            ? ((_darkColorScheme is { Colors.Count: > 0 }) ? Themes.ThemeManager.DarkThemeName : Themes.ThemeManager.LightThemeName)
-            : _savedTheme;
-        _activeColorScheme = SchemeForTheme(IsDarkTheme(baseTheme));
+        // Единая активная схема с двумя палитрами; старые раздельные схемы (активная +
+        // слоты светлой/тёмной темы) объединяются при миграции.
+        _activeColorScheme = Models.ColorScheme.FromLegacy(
+            settings.ActiveColorScheme, settings.LightColorScheme, settings.DarkColorScheme);
+        if (string.IsNullOrWhiteSpace(_savedTheme))
+            _savedTheme = Themes.ThemeManager.LightThemeName;
         _additionalPlatformSearchPaths = new List<string>(settings.AdditionalPlatformSearchPaths ?? new List<string>());
         PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformSearchPaths);
+        // Пользовательские параметры запуска (issue #141): дополняют справочник ключей.
+        _customLaunchParameters = new List<string>(settings.CustomLaunchParameters ?? new List<string>());
         // Актуальный список версий платформы с диска (Program Files + доп. пути) собирается
         // в фоне уже после показа окна: рекурсивное сканирование каталогов установки могло бы
         // заметно задержать появление главного окна. Сразу берём сохранённый список из настроек,
@@ -244,6 +235,8 @@ public partial class MainViewModel : ViewModelBase
         _showTags = settings.ShowTags;
         _showTagFilterPanel = settings.ShowTagFilterPanel;
         _allowMultipleInstances = settings.AllowMultipleInstances;
+        _checkForUpdatesOnStartup = settings.CheckForUpdatesOnStartup;
+        _autoUpdateEnabled = settings.AutoUpdateEnabled;
         _showVersionColumn = settings.ShowVersionColumn;
         _showConfigurationColumn = settings.ShowConfigurationColumn;
         _configurationColumnWidth = settings.ConfigurationColumnWidth;
@@ -271,6 +264,7 @@ public partial class MainViewModel : ViewModelBase
         _showServerColumn = settings.ShowServerColumn;
         _showLastLaunchColumn = settings.ShowLastLaunchColumn;
         _showSizeColumn = settings.ShowSizeColumn;
+        _showActionsColumn = settings.ShowActionsColumn;
         _sizeColumnWidth = settings.SizeColumnWidth;
         _columnOrder = settings.ColumnOrder is { Count: > 0 }
             ? new List<string>(settings.ColumnOrder)
@@ -828,6 +822,22 @@ public partial class MainViewModel : ViewModelBase
     public void SetInstalledPlatformVersions(IEnumerable<string> versions)
     {
         _installedPlatformVersions = new List<string>(versions);
+        SaveSettings();
+    }
+
+    /// <summary>Пользовательские параметры запуска, добавленные в справочник параметров (issue #141).</summary>
+    public IReadOnlyList<string> CustomLaunchParameters => _customLaunchParameters;
+
+    /// <summary>
+    /// Сохраняет список пользовательских параметров запуска (дополняет справочник ключей командной строки).
+    /// </summary>
+    public void SetCustomLaunchParameters(IEnumerable<string> values)
+    {
+        _customLaunchParameters = new List<string>(
+            (values ?? Enumerable.Empty<string>())
+            .Select(v => v.Trim())
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase));
         SaveSettings();
     }
 

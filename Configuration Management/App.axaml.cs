@@ -191,25 +191,16 @@ namespace Configuration_Management
                 {
                     _desktopLifetime = desktop;
 
-                    // Применяем сохранённую цветовую схему активной базовой темы. Предпочитаем
-                    // раздельную схему для светлой/тёмной темы, иначе — старый одиночный
-                    // ActiveColorScheme (миграция) или встроенные цвета.
+                    // Применяем сохранённую цветовую схему (две палитры) и вариант темы.
+                    // Старые раздельные схемы (активная + слоты светлой/тёмной) мигрируются
+                    // в единую схему.
+                    var mergedScheme = Configuration_Management.Models.ColorScheme.FromLegacy(
+                        settings.ActiveColorScheme, settings.LightColorScheme, settings.DarkColorScheme);
                     var activeTheme = string.IsNullOrWhiteSpace(settings.Theme)
-                        ? (settings.ActiveColorScheme?.IsDark == true ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName)
+                        ? ThemeManager.LightThemeName
                         : settings.Theme;
-                    var isDark = string.Equals(activeTheme, ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
-                    Configuration_Management.Models.ColorScheme? activeScheme = isDark
-                        ? settings.DarkColorScheme
-                        : settings.LightColorScheme;
-                    if (activeScheme is not { Colors.Count: > 0 }
-                        && settings.ActiveColorScheme is { Colors.Count: > 0 }
-                        && settings.ActiveColorScheme.IsDark == isDark)
-                    {
-                        activeScheme = settings.ActiveColorScheme;
-                    }
-                    ThemeManager.ApplyScheme(activeScheme ?? (isDark
-                        ? Configuration_Management.Models.ColorScheme.CreateDark()
-                        : Configuration_Management.Models.ColorScheme.CreateLight()));
+                    ThemeManager.ApplyScheme(mergedScheme);
+                    ThemeManager.ApplyTheme(activeTheme == ThemeManager.DarkThemeName);
 
                     // Компактный режим интерфейса (влияет на метрики отступов/иконок,
                     // должен быть установлен до построения главного окна).

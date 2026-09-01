@@ -2685,8 +2685,6 @@ namespace Configuration_Management
                 SessionOption(LocalizationManager.T("Main.SessionClientOrdinary"), "SessionClient", "IsSessionClientOrdinary"),
                 SessionOption(LocalizationManager.T("Main.SessionClientThickManaged"), "SessionClient", "IsSessionClientThick",
                     LocalizationManager.T("Main.SessionThickManagedTooltip")),
-                SessionOption(LocalizationManager.T("Main.SessionClientThickOrdinary"), "SessionClient", "IsSessionClientThickOrdinary",
-                    LocalizationManager.T("Main.SessionThickOrdinaryTooltip")),
                 SessionOption(LocalizationManager.T("Main.SessionClientThin"), "SessionClient", "IsSessionClientThin"),
                 SessionGroupLabel(LocalizationManager.T("Main.Bitness")),
                 // Разрядность у автора идёт строкой, а не колонкой, как режим клиента.

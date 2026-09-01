@@ -37,6 +37,14 @@ namespace Configuration_Management
         private Forms.NotifyIcon? _trayIcon;
         private bool _forceClose;
 
+        /// <summary>
+        /// Текущее состояние активности окна, по которому окрашивается шапка
+        /// (акцент при активном, цвет карточки при неактивном). Хранится отдельным
+        /// флагом, чтобы не зависеть от временного значения <see cref="Window.IsActive"/>
+        /// в момент перекраски (запуск, восстановление из трея, смена темы).
+        /// </summary>
+        private bool _isActive;
+
         /// <summary>Информационная версия сборки для заголовка окна (например «0.3.3.41»).</summary>
         private readonly string? _infoVersion;
 
@@ -51,6 +59,25 @@ namespace Configuration_Management
         {
             InitializeComponent();
 
+            // Подписываемся на прогресс скачивания обновления, чтобы отображать его
+            // в строке состояния. События приходят из фонового потока — обработчики
+            // переходят в UI-поток через Dispatcher.
+            try
+            {
+                var updater = AppServices.GetRequiredService<UpdateService>();
+                updater.DownloadProgressChanged += OnUpdateDownloadProgressChanged;
+                updater.DownloadFinished += OnUpdateDownloadFinished;
+            }
+            catch
+            {
+                // Если подсистема обновлений недоступна — просто не показываем прогресс.
+            }
+
+            // Шапка главного окна реагирует на активность: при активном окне заливается
+            // акцентным цветом темы, при неактивном — цветом карточки (см. UpdateTitleBarAppearance).
+            Activated += (_, _) => { _isActive = true; UpdateTitleBarAppearance(true); };
+            Deactivated += (_, _) => { _isActive = false; UpdateTitleBarAppearance(false); };
+
             // «Стеклянный» полупрозрачный фон окна: подложка берётся из текущего цвета
             // темы (светлая/тёмная и любые схемы) и пересчитывается при смене темы.
             // ThemeManager.ApplyScheme заменяет словарь темы в Application.Resources,
@@ -60,7 +87,19 @@ namespace Configuration_Management
                 ((System.Collections.Specialized.INotifyCollectionChanged)resources.MergedDictionaries)
                     .CollectionChanged += (_, _) =>
                     {
-                        try { Dispatcher.BeginInvoke(new Action(ApplyGlassBackground)); }
+                        try
+                        {
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                ApplyGlassBackground();
+                                // Акцентная шапка/цвет карточки зависят от темы — перекрашиваем.
+                                // Берём фактическое состояние активности окна, а не кэш _isActive:
+                                // после смены схемы/темы (возможно с открытым диалогом) кэш мог
+                                // устареть, и акцент активного окна терялся бы (issue #135).
+                                _isActive = IsActive;
+                                UpdateTitleBarAppearance(_isActive);
+                            }));
+                        }
                         catch { /* не блокируем смену темы */ }
                     };
             }
@@ -130,9 +169,21 @@ namespace Configuration_Management
             {
                 try
                 {
+                    // Шапка сразу окрашивается по текущему состоянию активности окна.
+                    UpdateTitleBarAppearance(_isActive);
                     InitializeTrayIcon();
                     RegisterLaunchHotkeys();
                     RegisterFavoriteHotkeys();
+                    // Раскрытие/сворачивание группы меняет глубину первой видимой базы,
+                    // из-за чего выравнивание заголовка с данными устаревает и колонки
+                    // «разъезжаются» отдельно от содержимого (issue #119). Пересчитываем
+                    // компенсатор сдвига заголовка при каждом изменении состояния узла.
+                    MainTree.AddHandler(
+                        TreeViewItem.ExpandedEvent,
+                        new RoutedEventHandler(OnMainTree_GroupExpansionChanged));
+                    MainTree.AddHandler(
+                        TreeViewItem.CollapsedEvent,
+                        new RoutedEventHandler(OnMainTree_GroupExpansionChanged));
                     RestoreLastSelection();
                 }
                 catch
@@ -168,6 +219,7 @@ namespace Configuration_Management
                     or nameof(MainViewModel.ShowServerColumn)
                     or nameof(MainViewModel.ShowLastLaunchColumn)
                     or nameof(MainViewModel.ShowSizeColumn)
+                    or nameof(MainViewModel.ShowActionsColumn)
                     or nameof(MainViewModel.ShowFavoritesButton)
                     or nameof(MainViewModel.ShowPinnedButton))
                 {
@@ -526,6 +578,48 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Шапка главного окна реагирует на активность окна: при активном окне заливается
+        /// акцентным цветом темы (<c>AccentBrush</c>), при неактивном — цветом карточки
+        /// (<c>CardBackgroundBrush</c>). Вместе с фоном переключается цвет заголовка и стили
+        /// кнопок управления окном, чтобы они оставались читаемыми на акцентной полосе.
+        /// Задаём цвета/стили через ресурсы темы (DynamicResource), поэтому они обновляются
+        /// и при смене темы/схемы, а не только при активации.
+        /// </summary>
+        private void UpdateTitleBarAppearance(bool active)
+        {
+            try
+            {
+                if (TitleBarBorder is null || AppTitleBlock is null)
+                    return;
+
+                TitleBarBorder.SetResourceReference(
+                    Border.BackgroundProperty,
+                    active ? "AccentBrush" : "CardBackgroundBrush");
+
+                AppTitleBlock.SetResourceReference(
+                    TextBlock.ForegroundProperty,
+                    active ? "ButtonTextBrush" : "TextPrimaryBrush");
+
+                // Кнопки управления окном: на акцентной шапке нужен вариант «на акценте»
+                // (значок ButtonTextBrush), на обычной — стандартный (значок TextSecondaryBrush).
+                if (MinimizeButton is not null && MaximizeButton is not null && CloseButton is not null)
+                {
+                    var minimizeStyle = (Style?)TryFindResource(active ? "WindowControlButtonOnAccent" : "WindowControlButton");
+                    var maximizeStyle = (Style?)TryFindResource(active ? "WindowControlButtonOnAccent" : "WindowControlButton");
+                    var closeStyle = (Style?)TryFindResource(active ? "WindowControlCloseButtonOnAccent" : "WindowControlCloseButton");
+
+                    MinimizeButton.Style = minimizeStyle;
+                    MaximizeButton.Style = maximizeStyle;
+                    CloseButton.Style = closeStyle;
+                }
+            }
+            catch
+            {
+                // Не ломаем окно из-за сбоя перекраски шапки.
+            }
+        }
+
+        /// <summary>
         /// Включает системный размытый фон: на Windows 11 — acrylic (DWMSBT_TRANSIENTWINDOW),
         /// при недоступности — mica (DWMSBT_MAINWINDOW); на старых Windows — blur-behind.
         /// Если ничего не удалось, откатываемся на полупрозрачный фон без размытия.
@@ -678,6 +772,62 @@ namespace Configuration_Management
             // чтобы окно корректно прилегало к краям экрана и панели задач.
             ApplyCornerPreference();
             UpdateGlassFrameForMaximize();
+        }
+
+        /// <summary>
+        /// Обновляет индикатор прогресса скачивания обновления в строке состояния.
+        /// Значение −1 означает «неопределённый прогресс» (сервер не сообщил длину файла) —
+        /// в этом случае индикатор переводится в режим IsIndeterminate.
+        /// </summary>
+        private void OnUpdateDownloadProgressChanged(double progress)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => OnUpdateDownloadProgressChanged(progress)));
+                return;
+            }
+
+            try
+            {
+                UpdateProgressPanel.Visibility = Visibility.Visible;
+                if (progress < 0)
+                {
+                    UpdateProgressBar.IsIndeterminate = true;
+                }
+                else
+                {
+                    UpdateProgressBar.IsIndeterminate = false;
+                    UpdateProgressBar.Value = Math.Max(0, Math.Min(100, progress));
+                }
+            }
+            catch
+            {
+                // Не даём сбою в UI уронить приложение во время обновления.
+            }
+        }
+
+        /// <summary>
+        /// Скрывает индикатор прогресса после завершения попытки скачивания обновления
+        /// (как при успехе, так и при ошибке).
+        /// </summary>
+        private void OnUpdateDownloadFinished()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(OnUpdateDownloadFinished));
+                return;
+            }
+
+            try
+            {
+                UpdateProgressPanel.Visibility = Visibility.Collapsed;
+                UpdateProgressBar.IsIndeterminate = false;
+                UpdateProgressBar.Value = 0;
+            }
+            catch
+            {
+                // Не критично — индикатор останется в текущем состоянии.
+            }
         }
     }
 }

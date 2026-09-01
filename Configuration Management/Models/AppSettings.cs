@@ -57,24 +57,23 @@ public class AppSettings
     public string Language { get; set; } = string.Empty;
 
     /// <summary>
-    /// Активная цветовая схема (тема оформления). Если задана — применяется при запуске.
-    /// Если отсутствует — используется встроенная светлая/тёмная схема по свойству
-    /// <see cref="Theme"/>. Поле сохраняется для обратной совместимости; новые версии
-    /// предпочитают раздельные схемы <see cref="LightColorScheme"/> / <see cref="DarkColorScheme"/>.
+    /// Активная цветовая схема (тема оформления): именованный набор из двух палитр —
+    /// для светлого и тёмного режима. Если задана — применяется при запуске (палитра по
+    /// свойству <see cref="Theme"/>). Если отсутствует — используется встроенная схема.
     /// </summary>
     public ColorScheme? ActiveColorScheme { get; set; }
 
     /// <summary>
-    /// Пользовательская цветовая схема для светлой базовой темы. Если задана (с непустым
-    /// набором цветов) — применяется при включении светлой темы, иначе используются встроенные
-    /// цвета. Кастомизация светлой темы сохраняется независимо от тёмной.
+    /// Устаревшее поле для обратной совместимости: пользовательская схема светлой базовой темы
+    /// из старых версий. Читается только для миграции в единую схему <see cref="ActiveColorScheme"/>
+    /// (в новые файлы не записывается).
     /// </summary>
     public ColorScheme? LightColorScheme { get; set; }
 
     /// <summary>
-    /// Пользовательская цветовая схема для тёмной базовой темы. Если задана (с непустым
-    /// набором цветов) — применяется при включении тёмной темы, иначе используются встроенные
-    /// цвета. Кастомизация тёмной темы сохраняется независимо от светлой.
+    /// Устаревшее поле для обратной совместимости: пользовательская схема тёмной базовой темы
+    /// из старых версий. Читается только для миграции в единую схему <see cref="ActiveColorScheme"/>
+    /// (в новые файлы не записывается).
     /// </summary>
     public ColorScheme? DarkColorScheme { get; set; }
 
@@ -83,6 +82,13 @@ public class AppSettings
 
     /// <summary>Список установленных версий платформы 1С.</summary>
     public List<string> InstalledPlatformVersions { get; set; } = new();
+
+    /// <summary>
+    /// Пользовательские параметры запуска, добавленные в справочник параметров
+    /// (issue #141). Дополняют встроенный список ключей командной строки 1С
+    /// в окне «Конфигуратор параметров запуска».
+    /// </summary>
+    public List<string> CustomLaunchParameters { get; set; } = new();
 
     /// <summary>
     /// Дополнительные пути к каталогам установки платформы 1С
@@ -162,6 +168,14 @@ public class AppSettings
     /// </summary>
     public bool AllowMultipleInstances { get; set; }
 
+    /// <summary>
+    /// Проверять наличие обновлений приложения при запуске (GitHub Releases).
+    /// </summary>
+    public bool CheckForUpdatesOnStartup { get; set; } = true;
+
+    /// <summary>Автоматически устанавливать новые версии без подтверждения (self-update при запуске).</summary>
+    public bool AutoUpdateEnabled { get; set; } = true;
+
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn { get; set; } = true;
 
@@ -170,6 +184,9 @@ public class AppSettings
 
     /// <summary>Ширина колонки «Конфигурация» (0 — по умолчанию).</summary>
     public double ConfigurationColumnWidth { get; set; }
+
+    /// <summary>Показывать колонку «Действия» (кнопки запуска/конфигуратора/очистки кеша) в списке баз.</summary>
+    public bool ShowActionsColumn { get; set; } = true;
 
     /// <summary>Ширина колонки «Действия» в списке баз (0 — по умолчанию).</summary>
     public double ActionsColumnWidth { get; set; }

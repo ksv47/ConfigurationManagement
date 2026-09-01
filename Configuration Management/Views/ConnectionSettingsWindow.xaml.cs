@@ -17,6 +17,10 @@ namespace Configuration_Management
     public partial class ConnectionSettingsWindow : Window
     {
         private readonly ConnectionSettingsViewModel _viewModel;
+        /// <summary>Пользовательские параметры запуска для справочника (issue #141).</summary>
+        private readonly IReadOnlyList<string> _customLaunchParameters;
+        /// <summary>Обратный вызов сохранения пользовательских параметров запуска (issue #141).</summary>
+        private readonly Action<IReadOnlyList<string>>? _onCustomLaunchParametersChanged;
 
         /// <summary>
         /// Создаёт диалог настройки подключения.
@@ -27,10 +31,18 @@ namespace Configuration_Management
         /// <param name="defaultGroupPath">Путь группы по умолчанию для новой базы.</param>
         /// <param name="availableServers">Список серверов 1С из других баз списка для выпадающего списка.</param>
         /// <param name="availablePorts">Список портов серверов 1С из других баз списка для выпадающего списка.</param>
+        /// <param name="customLaunchParameters">Пользовательские параметры запуска для справочника (необязательно).</param>
+        /// <param name="onCustomLaunchParametersChanged">Обратный вызов сохранения пользовательских параметров (необязательно).</param>
+        /// <param name="availableRepositoryServers">Список доступных серверов хранилища конфигурации (необязательно).</param>
         public ConnectionSettingsWindow(Infobase? infobase = null, IEnumerable<Group>? groups = null,
             IEnumerable<string>? installedPlatformVersions = null, string? defaultGroupPath = null,
-            IEnumerable<string>? availableServers = null, IEnumerable<int>? availablePorts = null)
+            IEnumerable<string>? availableServers = null, IEnumerable<int>? availablePorts = null,
+            IReadOnlyList<string>? customLaunchParameters = null,
+            Action<IReadOnlyList<string>>? onCustomLaunchParametersChanged = null,
+            IEnumerable<string>? availableRepositoryServers = null)
         {
+            _customLaunchParameters = customLaunchParameters ?? Array.Empty<string>();
+            _onCustomLaunchParametersChanged = onCustomLaunchParametersChanged;
             InitializeComponent();
             Loaded += (_, _) =>
             {
@@ -42,6 +54,7 @@ namespace Configuration_Management
             _viewModel.SetInstalledPlatformVersions(installedPlatformVersions ?? new List<string>());
             _viewModel.SetAvailableServers(availableServers);
             _viewModel.SetAvailablePorts(availablePorts);
+            _viewModel.SetAvailableRepositoryServers(availableRepositoryServers);
             if (infobase != null)
             {
                 _viewModel.LoadFrom(infobase);
@@ -212,9 +225,27 @@ namespace Configuration_Management
             DialogResult = true;
         }
 
+        /// <summary>
+        /// Вставляет скопированное из 1С единое поле подключения к хранилищу
+        /// (например «tcp://server:1542/ИмяХранилища») и разделяет его на
+        /// адрес сервера и имя хранилища (issue #140).
+        /// </summary>
+        private void OnPasteRepositorySplit_Click(object sender, RoutedEventArgs e)
+        {
+            var text = System.Windows.Clipboard.ContainsText()
+                ? System.Windows.Clipboard.GetText().Trim()
+                : string.Empty;
+            if (string.IsNullOrEmpty(text))
+                return;
+            _viewModel.SplitRepositoryConnectionString(text);
+        }
+
         private void OnLaunchParameters_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new LaunchParametersWindow(_viewModel.LaunchParameters)
+            var dialog = new LaunchParametersWindow(
+                _viewModel.LaunchParameters,
+                _customLaunchParameters,
+                _onCustomLaunchParametersChanged)
             {
                 Owner = this
             };
