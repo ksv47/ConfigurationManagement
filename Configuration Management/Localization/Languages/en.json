@@ -423,7 +423,7 @@
     "Settings.General.CheckForUpdatesOnStartup": "Check for updates on startup",
     "Settings.General.CheckForUpdatesOnStartupTooltip": "On startup, the program checks for new versions on GitHub Releases.",
     "Settings.General.AutoUpdate": "Automatically update the application",
-    "Settings.General.AutoUpdateTooltip": "Automatically download and install new versions at startup without asking for confirmation",
+    "Settings.General.AutoUpdateTooltip": "Automatically check for updates at startup. When a new version is found, a window always appears asking how to apply it (restart now or update after closing)",
     "Settings.General.ShowTrayIcon": "Icon in the notification area",
     "Settings.General.CloseToTray": "Minimize to tray on close",
     "Settings.General.EscapeToTray": "Minimize to tray on Esc",

@@ -196,8 +196,9 @@ namespace Configuration_Management
                 if (settings.CheckForUpdatesOnStartup)
                 {
                     var updateService = AppServices.GetRequiredService<UpdateService>();
-                    // Передаём флаг автоматического self-update из настроек: при включённом
-                    // режиме фоновая проверка сама скачает, установит и перезапустит приложение.
+                    // Передаём флаг автообновления из настроек. При обнаружении новой версии
+                    // фоновая проверка ВСЕГДА покажет единый диалог с вопросом «Перезапустить
+                    // сейчас / Обновить после закрытия», независимо от этого флага.
                     updateService.AutoUpdateEnabled = settings.AutoUpdateEnabled;
                     CheckForUpdatesInBackground(updateService);
                 }

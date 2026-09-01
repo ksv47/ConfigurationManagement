@@ -423,7 +423,7 @@
     "Settings.General.CheckForUpdatesOnStartup": "Проверять обновления при запуске",
     "Settings.General.CheckForUpdatesOnStartupTooltip": "При запуске программа проверяет наличие новых версий на GitHub Releases.",
     "Settings.General.AutoUpdate": "Автоматически обновлять приложение",
-    "Settings.General.AutoUpdateTooltip": "При запуске автоматически скачивать и устанавливать новые версии без запроса подтверждения",
+    "Settings.General.AutoUpdateTooltip": "Автоматически проверять наличие обновлений при запуске. При обнаружении новой версии всегда показывается окно с вопросом, как её применить (перезапустить сейчас или обновить после закрытия)",
     "Settings.General.ShowTrayIcon": "Значок в области уведомлений",
     "Settings.General.CloseToTray": "Сворачивать в трей при закрытии",
     "Settings.General.EscapeToTray": "По Esc сворачивать в трей",
