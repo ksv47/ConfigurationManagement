@@ -784,6 +784,10 @@
     "LaunchParams.InputTooltip": "Additional 1C command-line parameters",
     "LaunchParams.Reference": "Parameter reference",
     "LaunchParams.ReferenceHelp": "The full list of 1C command-line keys with a description of what each parameter does.\nDouble-click a row to insert the parameter into the «Parameters» window above.\nFor parameters with an argument, add the value after insertion.",
+    "LaunchParams.CustomMarker": "Custom parameter",
+    "LaunchParams.CustomInputTooltip": "Type your own command-line key and press «Add» — it will appear in the reference",
+    "LaunchParams.CustomAdd": "Add",
+    "LaunchParams.CustomRemove": "Remove the selected custom parameter (Del)",
 
     "LaunchParams.Ref.DisableStartupMessages": "Disable startup messages",
     "LaunchParams.Ref.DisableStartupDialogs": "Disable startup dialogs",

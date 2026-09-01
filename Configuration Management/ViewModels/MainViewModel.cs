@@ -152,6 +152,8 @@ public partial class MainViewModel : ViewModelBase
     private readonly List<string> _favoriteHotkeyIds = new();
     private CancellationTokenSource? _searchDebounceCts;
     private HashSet<string> _activeTagFilterSet = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Пользовательские параметры запуска, добавленные в справочник параметров (issue #141).</summary>
+    private List<string> _customLaunchParameters = new();
 
     /// <summary>Идёт ли в данный момент выгрузка .dt/.cf (показывает индикатор в верхней панели).</summary>
     private bool _isExporting;
@@ -215,6 +217,8 @@ public partial class MainViewModel : ViewModelBase
             _savedTheme = Themes.ThemeManager.LightThemeName;
         _additionalPlatformSearchPaths = new List<string>(settings.AdditionalPlatformSearchPaths ?? new List<string>());
         PlatformVersionService.SetAdditionalSearchPaths(_additionalPlatformSearchPaths);
+        // Пользовательские параметры запуска (issue #141): дополняют справочник ключей.
+        _customLaunchParameters = new List<string>(settings.CustomLaunchParameters ?? new List<string>());
         // Актуальный список версий платформы с диска (Program Files + доп. пути) собирается
         // в фоне уже после показа окна: рекурсивное сканирование каталогов установки могло бы
         // заметно задержать появление главного окна. Сразу берём сохранённый список из настроек,
@@ -818,6 +822,22 @@ public partial class MainViewModel : ViewModelBase
     public void SetInstalledPlatformVersions(IEnumerable<string> versions)
     {
         _installedPlatformVersions = new List<string>(versions);
+        SaveSettings();
+    }
+
+    /// <summary>Пользовательские параметры запуска, добавленные в справочник параметров (issue #141).</summary>
+    public IReadOnlyList<string> CustomLaunchParameters => _customLaunchParameters;
+
+    /// <summary>
+    /// Сохраняет список пользовательских параметров запуска (дополняет справочник ключей командной строки).
+    /// </summary>
+    public void SetCustomLaunchParameters(IEnumerable<string> values)
+    {
+        _customLaunchParameters = new List<string>(
+            (values ?? Enumerable.Empty<string>())
+            .Select(v => v.Trim())
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase));
         SaveSettings();
     }
 

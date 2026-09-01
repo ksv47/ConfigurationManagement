@@ -17,6 +17,10 @@ namespace Configuration_Management
     public partial class ConnectionSettingsWindow : Window
     {
         private readonly ConnectionSettingsViewModel _viewModel;
+        /// <summary>Пользовательские параметры запуска для справочника (issue #141).</summary>
+        private readonly IReadOnlyList<string> _customLaunchParameters;
+        /// <summary>Обратный вызов сохранения пользовательских параметров запуска (issue #141).</summary>
+        private readonly Action<IReadOnlyList<string>>? _onCustomLaunchParametersChanged;
 
         /// <summary>
         /// Создаёт диалог настройки подключения.
@@ -27,10 +31,16 @@ namespace Configuration_Management
         /// <param name="defaultGroupPath">Путь группы по умолчанию для новой базы.</param>
         /// <param name="availableServers">Список серверов 1С из других баз списка для выпадающего списка.</param>
         /// <param name="availablePorts">Список портов серверов 1С из других баз списка для выпадающего списка.</param>
+        /// <param name="customLaunchParameters">Пользовательские параметры запуска для справочника (необязательно).</param>
+        /// <param name="onCustomLaunchParametersChanged">Обратный вызов сохранения пользовательских параметров (необязательно).</param>
         public ConnectionSettingsWindow(Infobase? infobase = null, IEnumerable<Group>? groups = null,
             IEnumerable<string>? installedPlatformVersions = null, string? defaultGroupPath = null,
-            IEnumerable<string>? availableServers = null, IEnumerable<int>? availablePorts = null)
+            IEnumerable<string>? availableServers = null, IEnumerable<int>? availablePorts = null,
+            IReadOnlyList<string>? customLaunchParameters = null,
+            Action<IReadOnlyList<string>>? onCustomLaunchParametersChanged = null)
         {
+            _customLaunchParameters = customLaunchParameters ?? Array.Empty<string>();
+            _onCustomLaunchParametersChanged = onCustomLaunchParametersChanged;
             InitializeComponent();
             Loaded += (_, _) =>
             {
@@ -214,7 +224,10 @@ namespace Configuration_Management
 
         private void OnLaunchParameters_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new LaunchParametersWindow(_viewModel.LaunchParameters)
+            var dialog = new LaunchParametersWindow(
+                _viewModel.LaunchParameters,
+                _customLaunchParameters,
+                _onCustomLaunchParametersChanged)
             {
                 Owner = this
             };

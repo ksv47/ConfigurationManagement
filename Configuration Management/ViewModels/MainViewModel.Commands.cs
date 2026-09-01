@@ -95,7 +95,8 @@ public partial class MainViewModel : ViewModelBase
             {
                 // Существующая база — только регистрация в списке.
                 var dialog = new ConnectionSettingsWindow(null, Groups, _installedPlatformVersions, defaultGroupPath,
-                    availableServers: GetAvailableServers(), availablePorts: GetAvailablePorts())
+                    availableServers: GetAvailableServers(), availablePorts: GetAvailablePorts(),
+                    customLaunchParameters: CustomLaunchParameters, onCustomLaunchParametersChanged: SetCustomLaunchParameters)
                 {
                     Owner = Application.Current.MainWindow
                 };
@@ -212,7 +213,8 @@ public partial class MainViewModel : ViewModelBase
             return;
 
         var dialog = new ConnectionSettingsWindow(ib, Groups, _installedPlatformVersions,
-            availableServers: GetAvailableServers(), availablePorts: GetAvailablePorts())
+            availableServers: GetAvailableServers(), availablePorts: GetAvailablePorts(),
+            customLaunchParameters: CustomLaunchParameters, onCustomLaunchParametersChanged: SetCustomLaunchParameters)
         {
             Owner = Application.Current.MainWindow
         };

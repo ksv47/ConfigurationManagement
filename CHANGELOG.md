@@ -9,6 +9,20 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.5] — 2026-09-01
+
+В справочник параметров запуска теперь можно добавлять **свои (пользовательские) ключи командной строки** (issue #141): встроенный список ключей 1С в окне «Конфигуратор параметров запуска» больше не является единственным источником — пользователь может расширить его собственными параметрами, которые сохраняются между запусками и подставляются в строку запуска двойным кликом.
+
+### Добавлено
+
+- **Пользовательские параметры запуска** ([`LaunchParametersWindow.xaml`](Configuration%20Management/Views/LaunchParametersWindow.xaml) / [`LaunchParametersWindow.xaml.cs`](Configuration%20Management/Views/LaunchParametersWindow.xaml.cs)): в блоке «Справочник параметров» появилось поле ввода + кнопка **«Добавить»** для внесения собственного ключа. Пользовательские параметры помечаются в списке как «Пользовательский параметр», подставляются двойным кликом и удаляются кнопкой корзины или клавишей `Del`. Список пользовательских параметров сохраняется глобально и доступен как из диалога запуска с параметрами, так и из окна «Настройки подключения» базы.
+- **Хранение пользовательских параметров** ([`AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs)): новое поле `CustomLaunchParameters` (список строк) сохраняется в `settings.json`; загрузка/сохранение и обратный вызов для персиста реализованы в [`MainViewModel.cs`](Configuration%20Management/ViewModels/MainViewModel.cs) (`CustomLaunchParameters`, `SetCustomLaunchParameters`) и [`MainViewModel.Launch.cs`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs).
+- **Локализация**: ключи `LaunchParams.CustomMarker`, `LaunchParams.CustomInputTooltip`, `LaunchParams.CustomAdd`, `LaunchParams.CustomRemove` в [`ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.6.4` → `0.3.6.5`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.4] — 2026-09-01
 
 Процесс автоматического обновления стал нагляднее: во время скачивания новой версии в строке состояния главного окна отображается **индикатор прогресса загрузки**, а после успешного скачивания приложение предлагает выбрать — **«Перезапустить сейчас»** или **«Обновить после закрытия программы»**. Это убирает неожиданный мгновенный перезапуск и позволяет пользователю решить, когда установить обновление.

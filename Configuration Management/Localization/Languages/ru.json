@@ -784,6 +784,10 @@
     "LaunchParams.InputTooltip": "Дополнительные параметры командной строки 1С",
     "LaunchParams.Reference": "Справочник параметров",
     "LaunchParams.ReferenceHelp": "Полный список ключей командной строки 1С с описанием, что делает параметр.\nДвойной клик по строке подставляет параметр в окно «Параметры» вверху.\nДля параметров с аргументом после подстановки допишите значение.",
+    "LaunchParams.CustomMarker": "Пользовательский параметр",
+    "LaunchParams.CustomInputTooltip": "Введите свой ключ командной строки и нажмите «Добавить» — он появится в справочнике",
+    "LaunchParams.CustomAdd": "Добавить",
+    "LaunchParams.CustomRemove": "Удалить выбранный пользовательский параметр (Del)",
 
     "LaunchParams.Ref.DisableStartupMessages": "Отключить стартовые сообщения",
     "LaunchParams.Ref.DisableStartupDialogs": "Отключить стартовые диалоги",

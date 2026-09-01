@@ -71,7 +71,10 @@ public partial class MainViewModel : ViewModelBase
     private void LaunchEnterpriseWithParams(object? parameter)
     {
         if (SelectedInfobase is null) return;
-        var dlg = new Configuration_Management.LaunchParametersWindow(SelectedInfobase.LaunchParameters ?? "")
+        var dlg = new Configuration_Management.LaunchParametersWindow(
+            SelectedInfobase.LaunchParameters ?? "",
+            CustomLaunchParameters,
+            SetCustomLaunchParameters)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -96,7 +99,10 @@ public partial class MainViewModel : ViewModelBase
     private void LaunchConfiguratorWithParams(object? parameter)
     {
         if (SelectedInfobase is null) return;
-        var dlg = new Configuration_Management.LaunchParametersWindow(SelectedInfobase.LaunchParameters ?? "")
+        var dlg = new Configuration_Management.LaunchParametersWindow(
+            SelectedInfobase.LaunchParameters ?? "",
+            CustomLaunchParameters,
+            SetCustomLaunchParameters)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -496,6 +502,7 @@ public partial class MainViewModel : ViewModelBase
             ElementFonts = _elementFonts,
             LastSelectedInfobaseId = _lastSelectedInfobaseId,
             LastSelectedGroupPath = _lastSelectedGroupPath,
+            CustomLaunchParameters = _customLaunchParameters.ToList(),
             ProfileBackupDirectory = _profileBackupDirectory,
             ProfileRestoreOnStartup = _profileRestoreOnStartup,
             FileSizeCache = new Dictionary<string, Models.FileSizeCacheEntry>(_fileSizeCache)

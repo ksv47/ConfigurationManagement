@@ -84,6 +84,13 @@ public class AppSettings
     public List<string> InstalledPlatformVersions { get; set; } = new();
 
     /// <summary>
+    /// Пользовательские параметры запуска, добавленные в справочник параметров
+    /// (issue #141). Дополняют встроенный список ключей командной строки 1С
+    /// в окне «Конфигуратор параметров запуска».
+    /// </summary>
+    public List<string> CustomLaunchParameters { get; set; } = new();
+
+    /// <summary>
     /// Дополнительные пути к каталогам установки платформы 1С
     /// (помимо стандартных Program Files и Program Files (x86)).
     /// Пользователь может указать нестандартные/портативные установки.
