@@ -158,8 +158,15 @@ namespace Configuration_Management
             if (change.GetNewValue<object?>() is Control inner)
             {
                 _wrappingContent = true;
-                Content = BuildChrome(inner);
-                _wrappingContent = false;
+                try
+                {
+                    Content = null;
+                    Content = BuildChrome(inner);
+                }
+                finally
+                {
+                    _wrappingContent = false;
+                }
             }
         }
 
@@ -366,10 +373,6 @@ namespace Configuration_Management
                 if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
                     BeginResizeDrag(edge, e);
             };
-            Grid.SetRow(zone, 0);
-            Grid.SetColumn(zone, 0);
-            Grid.SetRowSpan(zone, host.RowDefinitions.Count);
-            Grid.SetColumnSpan(zone, host.ColumnDefinitions.Count);
             host.Children.Add(zone);
         }
 
