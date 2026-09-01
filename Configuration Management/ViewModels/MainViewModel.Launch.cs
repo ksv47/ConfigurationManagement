@@ -223,7 +223,8 @@ public partial class MainViewModel : ViewModelBase
         {
             SessionClientMode.Thin => OneCClientType.Thin,
             SessionClientMode.Thick => OneCClientType.Thick,
-            SessionClientMode.ThickOrdinary => OneCClientType.Thick,
+            // «Обычный режим» и «Толстый (обычные формы)» объединены в один пункт
+            // (issue #144): толстый клиент в обычных формах.
             SessionClientMode.Ordinary => OneCClientType.Thick,
             _ => ResolveClientFromInfobase(ib)
         };
@@ -235,12 +236,13 @@ public partial class MainViewModel : ViewModelBase
             _ => OneCLauncher.ResolveArchitecture(ib.Architecture, ib.PlatformVersion)
         };
 
-        // Режим форм: «Толстый (управляемые формы)» и «Толстый (обычные формы)» задают
-        // его явно; в остальных случаях берём из настройки базы при автоматическом клиенте.
+        // Режим форм: «Толстый (управляемые формы)» и «Обычный режим» задают его явно;
+        // в остальных случаях берём из настройки базы при автоматическом клиенте.
+        // «Обычный режим» соответствует бывшему «Толстый (обычные формы)» (issue #144).
         OneCRunMode? runMode = _sessionClientMode switch
         {
             SessionClientMode.Thick => OneCRunMode.Managed,
-            SessionClientMode.ThickOrdinary => OneCRunMode.Ordinary,
+            SessionClientMode.Ordinary => OneCRunMode.Ordinary,
             SessionClientMode.Auto => OneCLauncher.GetRunModeFromLaunchMode(ib.LaunchMode),
             _ => null
         };

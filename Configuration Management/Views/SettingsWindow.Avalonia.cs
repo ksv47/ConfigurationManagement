@@ -226,7 +226,6 @@ namespace Configuration_Management
             clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientAuto", LocalizationManager.T("Main.SessionClientAuto")));
             clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThin", LocalizationManager.T("Main.SessionClientThin")));
             clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThick", LocalizationManager.T("Main.SessionClientThickManaged")));
-            clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientThickOrdinary", LocalizationManager.T("Main.SessionClientThickOrdinary")));
             clientPanel.Children.Add(Radio("SessionClient", "IsSessionClientOrdinary", LocalizationManager.T("Main.SessionClientOrdinary")));
             settings.Children.Add(clientPanel);
 

@@ -152,32 +152,114 @@ namespace Configuration_Management.Services
             return results;
         }
 
-        /// <summary>Каталог bin для указанной версии и разрядности (если найден), иначе null.</summary>
+        /// <summary>
+        /// Каталог bin для указанной версии и разрядности (если найден), иначе null.
+        /// Полная версия (4 числовых сегмента, «8.3.27.1688») ищется точно.
+        /// Частичная версия («8.5», «8.3.27») трактуется как префикс (issue #142):
+        /// возвращается каталог новейшей установленной версии, соответствующей этому
+        /// префиксу и нужной разрядности. Поиск охватывает ВСЕ корни: стандартные и
+        /// дополнительные папки из настроек.
+        /// </summary>
         public static string? ResolveVersionBinDirectory(string version, string architecture)
         {
             ParseVariant(version ?? string.Empty, out var cleanVersion, out _);
             if (string.IsNullOrWhiteSpace(cleanVersion))
                 return null;
 
-            foreach (var root in GetInstallRoots(architecture))
+            var archKey = architecture == "64" ? "64" : "32";
+
+            // Полная версия — точное разрешение каталога (обратная совместимость).
+            if (CountVersionSegments(cleanVersion) >= 4)
             {
-                var bin = ResolveBinDirectory(Path.Combine(root, cleanVersion));
-                if (bin is not null)
-                    return bin;
+                foreach (var root in GetInstallRoots(archKey))
+                {
+                    var bin = ResolveBinDirectory(Path.Combine(root, cleanVersion));
+                    if (bin is not null)
+                        return bin;
+                }
+
+                // Ищем рекурсивно по дополнительным папкам (нестандартная вложенность).
+                lock (_extraRootsLock)
+                {
+                    foreach (var root in _additionalPaths)
+                    {
+                        var found = FindVersionBinRecursive(root, cleanVersion, depth: 0, maxDepth: 6);
+                        if (found != null)
+                            return found;
+                    }
+                }
+
+                return null;
             }
 
-            // Ищем рекурсивно по дополнительным папкам (нестандартная вложенность).
-            lock (_extraRootsLock)
+            // Частичная версия — префиксный подбор новейшей установленной версии (issue #142).
+            return MatchLatestVersionByPrefix(cleanVersion, archKey);
+        }
+
+        /// <summary>
+        /// Число числовых сегментов версии («8.3.27» → 3, «8.3.27.1688» → 4).
+        /// Версия с менее чем 4 сегментами считается частичной (префиксом, issue #142).
+        /// </summary>
+        public static int CountVersionSegments(string version)
+        {
+            var parts = (version ?? string.Empty).Split('.', StringSplitOptions.RemoveEmptyEntries);
+            var count = 0;
+            foreach (var part in parts)
             {
-                foreach (var root in _additionalPaths)
+                if (int.TryParse(part.Trim(), out _))
+                    count++;
+                else
+                    break;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// Подбирает каталог <c>bin</c> новейшей установленной версии, соответствующей
+        /// частичному префиксу (например «8.3.27» → максимальная из всех 8.3.27.*)
+        /// и нужной разрядности. Возвращает null, если ничего не найдено.
+        /// Поиск ведётся по всем корням (стандартным и дополнительным), т.к.
+        /// <see cref="FindPlatformVersionDirs"/> учитывает их все.
+        /// </summary>
+        private static string? MatchLatestVersionByPrefix(string prefix, string archKey)
+        {
+            string? bestDir = null;
+            string bestVersion = string.Empty;
+
+            foreach (var (verName, binDir) in FindPlatformVersionDirs(archKey))
+            {
+                if (!MatchesVersionPrefix(verName, prefix))
+                    continue;
+
+                // Берём «наибольшую» версию по числовому сравнению сегментов
+                // (8.3.10 > 8.3.9 — строковое сравнение давало бы неверный результат).
+                if (bestDir is null || CompareVersionStrings(verName, bestVersion) > 0)
                 {
-                    var found = FindVersionBinRecursive(root, cleanVersion, depth: 0, maxDepth: 6);
-                    if (found != null)
-                        return found;
+                    bestDir = binDir;
+                    bestVersion = verName;
                 }
             }
 
-            return null;
+            return bestDir;
+        }
+
+        /// <summary>
+        /// Проверяет, начинается ли фактическая версия с указанного префикса.
+        /// «8.3.27.1688» соответствует префиксу «8.3.27», но не «8.5» или «8.3.2».
+        /// </summary>
+        private static bool MatchesVersionPrefix(string version, string prefix)
+        {
+            var vParts = (version ?? string.Empty).Split('.');
+            var pParts = (prefix ?? string.Empty).Split('.', StringSplitOptions.RemoveEmptyEntries);
+            if (vParts.Length < pParts.Length)
+                return false;
+
+            for (var i = 0; i < pParts.Length; i++)
+            {
+                if (!string.Equals(vParts[i].Trim(), pParts[i].Trim(), StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+            return true;
         }
 
         private static string? FindVersionBinRecursive(string path, string version, int depth, int maxDepth)

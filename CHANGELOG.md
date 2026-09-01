@@ -9,6 +9,22 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.21] — 2026-09-01
+
+В окне выбора версии платформы 1С теперь доступен выбор не только полных 4-компонентных версий (например, `8.3.27.2295`), но и **частичных префиксов** — линии (`8.3`) и группы сборок (`8.3.27`) — с сохранением указания разрядности «(32)/(64)`. Если выбрана частичная версия, при запуске подставляется **максимальная из установленных сборок**, соответствующая префиксу и нужной разрядности; поиск ведётся по **всем каталогам платформ** из настроек, включая дополнительные диски. В Linux/Avalonia-порте эта возможность теперь работает так же, как в Windows/WPF. Кроме того, из списка режимов клиента блока «Текущая сессия» удалён дублирующий пункт «Толстый (обычные формы)» — осталось 4 режима: Авто, Толстый клиент, Тонкий клиент, Обычный режим.
+
+### Добавлено/Изменено
+
+- **Выбор частичной версии платформы в Linux/Avalonia-порте (issue #142)** ([`Views/PlatformVersionPickerWindow.Avalonia.cs`](Configuration%20Management/Views/PlatformVersionPickerWindow.Avalonia.cs), [`Services/PlatformVersionService.Linux.cs`](Configuration%20Management/Services/PlatformVersionService.Linux.cs), [`Services/OneCLauncher.Linux.cs`](Configuration%20Management/Services/OneCLauncher.Linux.cs)): в окне выбора платформы разрешён выбор не только полных 4-компонентных версий (например, `8.3.27.2295`), но и **частичных префиксов** — линии (`8.3`) и группы сборок (`8.3.27`) — с сохранением указания разрядности. Если выбран префикс `8.3.27`, при запуске подставляется максимальная из установленных сборок `8.3.27.*`; если `8.3.27 [х64]` — максимальная из 27-х с отбором по х64; аналогично для 2-компонентного `8.5`. Поиск ведётся по **всем каталогам платформ** из настроек (включая дополнительные диски). На Windows/WPF функция уже была реализована — теперь она работает и в Linux/Avalonia-порте.
+
+### Изменено
+
+- **Список режимов клиента в блоке «Текущая сессия» (issue #144)** ([`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml), [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), [`ViewModels/MainViewModel.Display.cs`](Configuration%20Management/ViewModels/MainViewModel.Display.cs), [`ViewModels/MainViewModel.Launch.cs`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs), [`Models/SessionLaunchModes.cs`](Configuration%20Management/Models/SessionLaunchModes.cs), [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json), [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json)): удалён дублирующий пункт «Толстый (обычные формы)»/`ThickOrdinary` из блока «Текущая сессия». Осталось **4 пункта**: Авто, Толстый клиент, Тонкий клиент, Обычный режим. Пункт «Обычный режим» теперь задаёт толстый клиент в обычных формах (сохраняет поведение удалённого дубля). Значение `ThickOrdinary` удалено из enum `SessionLaunchModes`, ключи `Main.SessionClientThickOrdinary` и `Main.SessionThickOrdinaryTooltip` удалены из `ru.json`/`en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.20` → `0.3.6.21`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.20] — 2026-09-01
 
 Исправлено поведение автообновления: раньше при включённой настройке **«Автоматически обновлять приложение»** программа при обнаружении новой версии молча скачивала и устанавливала её **без окна с вопросом**. Теперь в Windows-версии при обнаружении новой версии **всегда** показывается единый диалог `UpdateAvailableWindow` с вопросом «Перезапустить сейчас / Обновить после закрытия» и прогрессом скачивания — независимо от состояния автообновления.

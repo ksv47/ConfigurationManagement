@@ -378,7 +378,6 @@ public partial class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsSessionClientAuto));
                 OnPropertyChanged(nameof(IsSessionClientOrdinary));
                 OnPropertyChanged(nameof(IsSessionClientThick));
-                OnPropertyChanged(nameof(IsSessionClientThickOrdinary));
                 OnPropertyChanged(nameof(IsSessionClientThin));
                 ScheduleSaveSettings();
             }
@@ -441,12 +440,6 @@ public partial class MainViewModel : ViewModelBase
     {
         get => _sessionArchitecture == SessionArchitectureMode.X64;
         set { if (value) SessionArchitecture = SessionArchitectureMode.X64; }
-    }
-
-    public bool IsSessionClientThickOrdinary
-    {
-        get => _sessionClientMode == SessionClientMode.ThickOrdinary;
-        set { if (value) SessionClientMode = SessionClientMode.ThickOrdinary; }
     }
 
     /// <summary>Разрядность по умолчанию (X86 / X64), если у базы она не указана.</summary>

@@ -997,7 +997,7 @@ public class MainViewModel : ViewModelBase
         {
             if (!SetPropertyWithRelated(ref _sessionClient, value, nameof(SessionClient),
                     nameof(IsSessionClientAuto), nameof(IsSessionClientOrdinary), nameof(IsSessionClientThick),
-                    nameof(IsSessionClientThickOrdinary), nameof(IsSessionClientThin)))
+                    nameof(IsSessionClientThin)))
                 return;
 
             _settings.SessionClientMode = SessionClientMode().ToString();
@@ -1007,7 +1007,6 @@ public class MainViewModel : ViewModelBase
     public bool IsSessionClientAuto { get => SessionClient == "Авто"; set { if (value) SessionClient = "Авто"; } }
     public bool IsSessionClientOrdinary { get => SessionClient == "Обычный"; set { if (value) SessionClient = "Обычный"; } }
     public bool IsSessionClientThick { get => SessionClient == "Толстый"; set { if (value) SessionClient = "Толстый"; } }
-    public bool IsSessionClientThickOrdinary { get => SessionClient == "ТолстыйОбычные"; set { if (value) SessionClient = "ТолстыйОбычные"; } }
     public bool IsSessionClientThin { get => SessionClient == "Тонкий"; set { if (value) SessionClient = "Тонкий"; } }
 
     public string SessionArch
@@ -1028,7 +1027,6 @@ public class MainViewModel : ViewModelBase
     {
         "Обычный" => Models.SessionClientMode.Ordinary,
         "Толстый" => Models.SessionClientMode.Thick,
-        "ТолстыйОбычные" => Models.SessionClientMode.ThickOrdinary,
         "Тонкий" => Models.SessionClientMode.Thin,
         _ => Models.SessionClientMode.Auto
     };
@@ -1047,7 +1045,6 @@ public class MainViewModel : ViewModelBase
             {
                 Models.SessionClientMode.Ordinary => "Обычный",
                 Models.SessionClientMode.Thick => "Толстый",
-                Models.SessionClientMode.ThickOrdinary => "ТолстыйОбычные",
                 Models.SessionClientMode.Thin => "Тонкий",
                 _ => "Авто"
             }
@@ -1079,7 +1076,7 @@ public class MainViewModel : ViewModelBase
         {
             Models.SessionClientMode.Thin => OneCClientType.Thin,
             Models.SessionClientMode.Thick => OneCClientType.Thick,
-            Models.SessionClientMode.ThickOrdinary => OneCClientType.Thick,
+            // «Обычный режим» и «Толстый (обычные формы)» объединены (issue #144).
             Models.SessionClientMode.Ordinary => OneCClientType.Thick,
             _ => ClientFromInfobase(infobase)
         };
@@ -1094,7 +1091,8 @@ public class MainViewModel : ViewModelBase
         OneCRunMode? runMode = client switch
         {
             Models.SessionClientMode.Thick => OneCRunMode.Managed,
-            Models.SessionClientMode.ThickOrdinary => OneCRunMode.Ordinary,
+            // «Обычный режим» соответствует бывшему «Толстый (обычные формы)» (issue #144).
+            Models.SessionClientMode.Ordinary => OneCRunMode.Ordinary,
             Models.SessionClientMode.Auto => OneCLauncher.GetRunModeFromLaunchMode(infobase.LaunchMode),
             _ => null
         };
@@ -4305,7 +4303,6 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsSessionClientAuto));
         OnPropertyChanged(nameof(IsSessionClientOrdinary));
         OnPropertyChanged(nameof(IsSessionClientThick));
-        OnPropertyChanged(nameof(IsSessionClientThickOrdinary));
         OnPropertyChanged(nameof(IsSessionClientThin));
         OnPropertyChanged(nameof(IsSessionArchAuto));
         OnPropertyChanged(nameof(IsSessionArch32));

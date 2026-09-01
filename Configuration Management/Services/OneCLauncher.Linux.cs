@@ -210,13 +210,41 @@ namespace Configuration_Management.Services
             string? best = null;
             foreach (var (version, _) in entries)
             {
+                // Полная версия — только точные совпадения; частичная — по префиксу (issue #142).
                 if (!string.IsNullOrWhiteSpace(preferredVersion) &&
-                    string.Equals(version, preferredVersion, StringComparison.OrdinalIgnoreCase))
-                    return version;
+                    !VersionMatches(preferredVersion, version))
+                    continue;
                 if (best is null || PlatformVersionService.CompareVersionStrings(version, best) > 0)
                     best = version;
             }
             return best;
+        }
+
+        /// <summary>
+        /// Проверяет, соответствует ли фактическая версия запрошенной.
+        /// Полная версия (4 сегмента) — точное совпадение; частичная («8.5», «8.3.27») —
+        /// по числовому префиксу (issue #142).
+        /// </summary>
+        private static bool VersionMatches(string requested, string actual)
+        {
+            if (string.IsNullOrWhiteSpace(requested))
+                return true;
+
+            var reqParts = requested.Split('.');
+            // Полная версия — только точное совпадение (как раньше).
+            if (reqParts.Length >= 4)
+                return string.Equals(actual, requested, StringComparison.OrdinalIgnoreCase);
+
+            // Частичная версия — префиксное сопоставление сегментов.
+            var actParts = actual.Split('.');
+            if (actParts.Length < reqParts.Length)
+                return false;
+            for (var i = 0; i < reqParts.Length; i++)
+            {
+                if (!string.Equals(actParts[i].Trim(), reqParts[i].Trim(), StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+            return true;
         }
 
         /// <summary>
@@ -417,10 +445,20 @@ namespace Configuration_Management.Services
             }
 
             // 2. Любая установленная версия нужной разрядности (новейшая).
+            //    Если запрошена конкретная версия, запасной поиск ограничивается ТОЛЬКО
+            //    соответствующими ей вариантами (полная — точным совпадением, частичная —
+            //    префиксом с выбором новейшей) и не выбирает произвольную новейшую —
+            //    иначе запускалась бы совсем не та версия (issues #29, #142, #28).
             string? best = null;
             string bestDir = string.Empty;
             foreach (var (verName, binDir) in PlatformVersionService.FindPlatformVersionDirs(archKey))
             {
+                if (!string.IsNullOrWhiteSpace(cleanVersion) &&
+                    !VersionMatches(cleanVersion, verName))
+                {
+                    continue;
+                }
+
                 string? chosen = null;
                 foreach (var exeName in exeNames)
                 {

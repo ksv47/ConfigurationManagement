@@ -2327,11 +2327,6 @@
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
                                                  ToolTip="{loc:Loc Main.SessionThickManagedTooltip}"
                                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <RadioButton Content="{loc:Loc Main.SessionClientThickOrdinary}" GroupName="SessionClient"
-                                                 IsChecked="{Binding IsSessionClientThickOrdinary, Mode=TwoWay}"
-                                                 Margin="0,2" Cursor="Hand" FontSize="12"
-                                                 ToolTip="{loc:Loc Main.SessionThickOrdinaryTooltip}"
-                                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <RadioButton Content="{loc:Loc Main.SessionClientThin}" GroupName="SessionClient"
                                                  IsChecked="{Binding IsSessionClientThin, Mode=TwoWay}"
                                                  Margin="0,2" Cursor="Hand" FontSize="12"
