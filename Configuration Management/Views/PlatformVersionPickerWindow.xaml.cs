@@ -141,14 +141,74 @@ namespace Configuration_Management
 
         private void OnPlatformsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
-            if (e.NewValue is PlatformVersionGroup { IsLeaf: true, Variant: { } variant })
+            // Разрешаем выбор и листьев (полная версия), и узлов линии/группы сборок
+            // (частичная версия «8.3» / «8.3.27», issue #142). Разрядность подставляется
+            // по активному фильтру или из однотипных листьев узла.
+            if (e.NewValue is PlatformVersionGroup node)
             {
-                _selectedVersion = variant;
-                SelectButton.IsEnabled = true;
+                _selectedVersion = BuildResult(node);
+                SelectButton.IsEnabled = !string.IsNullOrWhiteSpace(_selectedVersion);
             }
             else
             {
+                _selectedVersion = string.Empty;
                 SelectButton.IsEnabled = false;
+            }
+        }
+
+        /// <summary>
+        /// Формирует строку выбора для узла дерева. Лист отдаёт полный вариант
+        /// («8.3.27.1688 (64)»), узел линии/группы сборок — частичную версию
+        /// с суффиксом разрядности, если он однозначен (issue #142).
+        /// </summary>
+        private string BuildResult(PlatformVersionGroup node)
+        {
+            if (node.IsLeaf && !string.IsNullOrEmpty(node.Variant))
+                return node.Variant!;
+
+            var name = node.Name ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(name))
+                return string.Empty;
+
+            var archSuffix = GetNodeArchSuffix(node, _archFilter);
+            return string.IsNullOrEmpty(archSuffix) ? name : $"{name} ({archSuffix})";
+        }
+
+        /// <summary>
+        /// Определяет суффикс разрядности для частичной версии: берётся из активного
+        /// фильтра (x32/x64) либо из однотипных листьев узла. При неоднозначности
+        /// возвращает null — тогда разрядность остаётся на усмотрение лаунчера/настроек.
+        /// </summary>
+        private static string? GetNodeArchSuffix(PlatformVersionGroup node, string archFilter)
+        {
+            if (archFilter == "x32") return "32";
+            if (archFilter == "x64") return "64";
+
+            // Фильтр «Все» — только если все листья узла одной разрядности.
+            string? uniform = null;
+            foreach (var arch in EnumerateLeafArch(node))
+            {
+                if (uniform is null)
+                    uniform = arch;
+                else if (!string.Equals(uniform, arch, StringComparison.OrdinalIgnoreCase))
+                    return null;
+            }
+            return uniform;
+        }
+
+        /// <summary>Перечисляет разрядность всех листьев поддерева.</summary>
+        private static IEnumerable<string> EnumerateLeafArch(PlatformVersionGroup node)
+        {
+            if (node.IsLeaf)
+            {
+                PlatformVersionService.ParseVariant(node.Variant ?? node.Name ?? string.Empty, out _, out var arch);
+                yield return arch;
+                yield break;
+            }
+            foreach (var c in node.Children)
+            {
+                foreach (var a in EnumerateLeafArch(c))
+                    yield return a;
             }
         }
 

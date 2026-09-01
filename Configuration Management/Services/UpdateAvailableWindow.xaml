@@ -23,18 +23,13 @@
 
     <Border Padding="0" CornerRadius="12" Background="{DynamicResource CardBackgroundBrush}">
         <Grid Margin="20">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Иконка обновления -->
-            <Border Grid.Row="0" Grid.Column="0" Grid.RowSpan="2"
-                    Width="44" Height="44" CornerRadius="22" Margin="0,0,16,0"
+            <!-- Иконка (общая для всех этапов диалога) -->
+            <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22" Margin="0,0,16,0"
                     VerticalAlignment="Top"
                     Background="{DynamicResource ItemHoverBrush}">
                 <materialDesign:PackIcon Kind="CloudDownloadOutline"
@@ -42,67 +37,166 @@
                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
 
-            <!-- Содержимое -->
-            <StackPanel Grid.Row="0" Grid.Column="1">
-                <TextBlock x:Name="HeadingText" FontSize="15" FontWeight="Bold" TextWrapping="Wrap"/>
-                <TextBlock x:Name="CurrentVersionText" Margin="0,10,0,0" TextWrapping="Wrap"/>
-                <TextBlock x:Name="NewVersionText" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                <TextBlock x:Name="WhatsNewLabel" Margin="0,14,0,4" FontWeight="SemiBold"/>
-                <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
-                    <TextBlock x:Name="BodyText" TextWrapping="Wrap" FontSize="12"
-                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                </ScrollViewer>
-            </StackPanel>
+            <StackPanel Grid.Column="1">
 
-            <!-- Кнопки: «Скачать» слева, «Отмена» справа -->
-            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal"
-                        HorizontalAlignment="Right" Margin="0,20,0,0">
-                <Button x:Name="DownloadButton" MinWidth="110" Height="34" IsDefault="True"
-                        Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White"
-                        Margin="0,0,10,0"
-                        Click="OnDownloadClick">
-                    <Button.Template>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="16,6">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="bd" Property="Background" Value="#15803D"/>
-                                </Trigger>
-                                <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="bd" Property="Background" Value="#166534"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Button.Template>
-                    <TextBlock x:Name="DownloadText" Text="{loc:Loc Update.Download}" VerticalAlignment="Center"
-                               Foreground="White" FontWeight="Bold" FontSize="13"
-                               TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"/>
-                </Button>
-                <Button x:Name="CancelButton" MinWidth="90" Height="34"
-                        Background="Transparent" BorderThickness="1.5"
-                        BorderBrush="{DynamicResource BorderBrushColor}"
-                        Cursor="Hand"
-                        Click="OnCancelClick">
-                    <Button.Template>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="bd" Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="8" Padding="14,6">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Button.Template>
-                    <TextBlock x:Name="CancelText" Text="{loc:Loc Update.Cancel}" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                </Button>
+                <!-- Этап 1: предложение скачать новую версию -->
+                <StackPanel x:Name="OfferPanel">
+                    <TextBlock x:Name="HeadingText" FontSize="15" FontWeight="Bold" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="CurrentVersionText" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="NewVersionText" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="WhatsNewLabel" Margin="0,14,0,4" FontWeight="SemiBold"/>
+                    <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock x:Name="BodyText" TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </ScrollViewer>
+
+                    <!-- Кнопки: «Скачать» слева, «Отмена» справа -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                        <Button x:Name="DownloadButton" MinWidth="110" Height="34" IsDefault="True"
+                                Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White"
+                                Margin="0,0,10,0"
+                                Click="OnDownloadClick">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="16,6">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="#15803D"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="#166534"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock x:Name="DownloadText" Text="{loc:Loc Update.Download}" VerticalAlignment="Center"
+                                       Foreground="White" FontWeight="Bold" FontSize="13"
+                                       TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"/>
+                        </Button>
+                        <Button x:Name="CancelButton" MinWidth="90" Height="34"
+                                Background="Transparent" BorderThickness="1.5"
+                                BorderBrush="{DynamicResource BorderBrushColor}"
+                                Cursor="Hand"
+                                Click="OnCancelClick">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="8" Padding="14,6">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock x:Name="CancelText" Text="{loc:Loc Update.Cancel}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Этап 2: скачивание -->
+                <StackPanel x:Name="ProgressPanel" Visibility="Collapsed">
+                    <TextBlock x:Name="ProgressHeadingText" FontSize="15" FontWeight="Bold"
+                               Text="{loc:Loc Update.Downloading}" TextWrapping="Wrap"/>
+                    <ProgressBar x:Name="ProgressBar" Height="6" Margin="0,16,0,0" Maximum="100"
+                                 Foreground="{DynamicResource AccentBrush}"/>
+                    <TextBlock x:Name="ProgressText" Margin="0,8,0,0" FontSize="12"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+
+                <!-- Этап 3: вопрос, как применить скачанное обновление -->
+                <StackPanel x:Name="RestartPanel" Visibility="Collapsed">
+                    <TextBlock x:Name="RestartHeadingText" FontSize="15" FontWeight="Bold" TextWrapping="Wrap"/>
+                    <TextBlock Margin="0,8,0,0" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" Text="{loc:Loc Update.RestartChoiceHint}"/>
+
+                    <!-- «Перезапустить сейчас» (основная кнопка) и «Обновить после закрытия» -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                        <Button x:Name="RestartNowButton" MinWidth="120" Height="34" IsDefault="True"
+                                Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White"
+                                Margin="0,0,10,0"
+                                Click="OnRestartNowClick">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="16,6">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="#15803D"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="#166534"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock x:Name="RestartNowText" Text="{loc:Loc Update.RestartNow}" VerticalAlignment="Center"
+                                       Foreground="White" FontWeight="Bold" FontSize="13"
+                                       TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"/>
+                        </Button>
+                        <Button x:Name="UpdateAfterCloseButton" MinWidth="140" Height="34"
+                                Background="Transparent" BorderThickness="1.5"
+                                BorderBrush="{DynamicResource BorderBrushColor}"
+                                Cursor="Hand"
+                                Click="OnUpdateAfterCloseClick">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="8" Padding="14,6">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock x:Name="UpdateAfterCloseText" Text="{loc:Loc Update.UpdateAfterClose}"
+                                       VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Этап 4: завершение (подтверждение применения) -->
+                <StackPanel x:Name="DonePanel" Visibility="Collapsed">
+                    <TextBlock x:Name="DoneText" FontSize="13" TextWrapping="Wrap"/>
+                    <Button x:Name="DoneCloseButton" MinWidth="90" Height="34" Margin="0,20,0,0"
+                            HorizontalAlignment="Right"
+                            Background="Transparent" BorderThickness="1.5"
+                            BorderBrush="{DynamicResource BorderBrushColor}"
+                            Cursor="Hand"
+                            Click="OnDoneCloseClick">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="8" Padding="14,6">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <TextBlock x:Name="DoneCloseText" Text="{loc:Loc Common.Close}"
+                                   VerticalAlignment="Center" FontWeight="SemiBold"/>
+                    </Button>
+                </StackPanel>
+
             </StackPanel>
         </Grid>
     </Border>

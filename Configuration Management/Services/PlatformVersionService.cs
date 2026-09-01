@@ -109,6 +109,10 @@ public static class PlatformVersionService
     /// Использует те же правила поиска, что и при составлении списка версий
     /// (стандартные Program Files + дополнительные папки с учётом нестандартной
     /// вложенности каталогов версий). Возвращает null, если версия не найдена.
+    /// Полная версия (4 числовых сегмента, «8.3.27.1688») ищется точно.
+    /// Частичная версия («8.5», «8.3.27») трактуется как префикс (issue #142):
+    /// возвращается каталог новейшей установленной версии, соответствующей этому
+    /// префиксу и нужной разрядности.
     /// </summary>
     public static string? ResolveVersionBinDirectory(string version, string architecture)
     {
@@ -118,20 +122,118 @@ public static class PlatformVersionService
 
         var archKey = architecture == "64" ? "64" : "32";
 
-        foreach (var root in GetSearchRoots(archKey))
+        // Полная версия — точное разрешение каталога (обратная совместимость).
+        if (CountVersionSegments(cleanVersion) >= 4)
         {
-            // Стандартный макет: <root>\1cv8\<ver>\bin
-            var standard = Path.Combine(root, "1cv8", cleanVersion, "bin");
-            if (IsVersionBin(standard, archKey))
-                return standard;
+            foreach (var root in GetSearchRoots(archKey))
+            {
+                // Стандартный макет: <root>\1cv8\<ver>\bin
+                var standard = Path.Combine(root, "1cv8", cleanVersion, "bin");
+                if (IsVersionBin(standard, archKey))
+                    return standard;
 
-            // Нестандартный макет (дополнительные папки): рекурсивный поиск каталога версии.
-            var flexible = FindVersionBinRecursive(root, cleanVersion, archKey, depth: 0, maxDepth: 6);
-            if (flexible != null)
-                return flexible;
+                // Нестандартный макет (дополнительные папки): рекурсивный поиск каталога версии.
+                var flexible = FindVersionBinRecursive(root, cleanVersion, archKey, depth: 0, maxDepth: 6);
+                if (flexible != null)
+                    return flexible;
+            }
+
+            return null;
         }
 
-        return null;
+        // Частичная версия — префиксный подбор новейшей установленной версии.
+        return MatchLatestVersionByPrefix(cleanVersion, archKey);
+    }
+
+    /// <summary>
+    /// Число числовых сегментов версии («8.3.27» → 3, «8.3.27.1688» → 4).
+    /// Версия с менее чем 4 сегментами считается частичной (префиксом, issue #142).
+    /// </summary>
+    public static int CountVersionSegments(string version)
+    {
+        var parts = (version ?? string.Empty).Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var count = 0;
+        foreach (var part in parts)
+        {
+            if (int.TryParse(part.Trim(), out _))
+                count++;
+            else
+                break;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Подбирает каталог <c>bin</c> новейшей установленной версии, соответствующей
+    /// частичному префиксу (например «8.3.27» → максимальная из всех 8.3.27.*)
+    /// и нужной разрядности. Возвращает null, если ничего не найдено.
+    /// </summary>
+    private static string? MatchLatestVersionByPrefix(string prefix, string archKey)
+    {
+        string? bestDir = null;
+        string bestVersion = string.Empty;
+
+        foreach (var (verName, binDir) in FindPlatformVersionDirs(archKey))
+        {
+            if (!MatchesVersionPrefix(verName, prefix))
+                continue;
+
+            // Берём «наибольшую» версию по числовому сравнению сегментов
+            // (8.3.10 > 8.3.9 — строковое сравнение давало бы неверный результат).
+            if (bestDir is null || CompareVersions(verName, bestVersion) > 0)
+            {
+                bestDir = binDir;
+                bestVersion = verName;
+            }
+        }
+
+        return bestDir;
+    }
+
+    /// <summary>
+    /// Проверяет, начинается ли фактическая версия с указанного префикса.
+    /// «8.3.27.1688» соответствует префиксу «8.3.27», но не «8.5» или «8.3.2».
+    /// </summary>
+    private static bool MatchesVersionPrefix(string version, string prefix)
+    {
+        var vParts = (version ?? string.Empty).Split('.');
+        var pParts = (prefix ?? string.Empty).Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (vParts.Length < pParts.Length)
+            return false;
+
+        for (var i = 0; i < pParts.Length; i++)
+        {
+            if (!string.Equals(vParts[i].Trim(), pParts[i].Trim(), StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Сравнение номеров версий 1С по числовым сегментам (8.3.24.1000). >0 если a новее b.
+    /// </summary>
+    private static int CompareVersions(string a, string b)
+    {
+        static int[] Parts(string v)
+        {
+            return (v ?? string.Empty)
+                .Split(new[] { '.', ' ', '(' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(p => int.TryParse(p, out _))
+                .Select(int.Parse)
+                .ToArray();
+        }
+
+        var pa = Parts(a);
+        var pb = Parts(b);
+        var len = Math.Max(pa.Length, pb.Length);
+        for (var i = 0; i < len; i++)
+        {
+            var va = i < pa.Length ? pa[i] : 0;
+            var vb = i < pb.Length ? pb[i] : 0;
+            if (va != vb)
+                return va.CompareTo(vb);
+        }
+        return 0;
     }
 
     /// <summary>

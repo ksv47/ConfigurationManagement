@@ -94,8 +94,8 @@ public sealed class UpdateService
             {
                 // Автоматический режим: не спрашиваем пользователя, а сразу скачиваем,
                 // устанавливаем и перезапускаем приложение. Выполняем в UI-потоке через
-                // Dispatcher; все ошибки обрабатываются внутри DownloadAndInstallAsync.
-                await app.Dispatcher.InvokeAsync(() => _ = DownloadAndInstallAsync(release));
+                // Dispatcher; все ошибки обрабатываются внутри DownloadAndInstallAutoAsync.
+                await app.Dispatcher.InvokeAsync(() => _ = DownloadAndInstallAutoAsync(release));
                 return;
             }
 
@@ -148,18 +148,17 @@ public sealed class UpdateService
     }
 
     /// <summary>
-    /// Показывает модальный диалог «Доступна новая версия» и при подтверждении
-    /// пользователем запускает скачивание и установку.
+    /// Показывает единый модальный диалог обновления. Окно само скачивает файл,
+    /// отображает прогресс и по завершении спрашивает, как применить обновление
+    /// («Перезапустить сейчас» или «Обновить после закрытия») — без системного
+    /// MessageBox. Все ошибки обрабатываются внутри окна/метода.
     /// </summary>
     private void ShowUpdateDialog(ReleaseInfo release)
     {
         try
         {
-            var window = new UpdateAvailableWindow(release);
+            var window = new UpdateAvailableWindow(release, this);
             window.ShowDialog();
-            if (window.DownloadRequested)
-                // Загрузка выполняется в фоне; все ошибки обрабатываются внутри.
-                _ = DownloadAndInstallAsync(release);
         }
         catch
         {
@@ -170,18 +169,16 @@ public sealed class UpdateService
     /// <summary>
     /// Скачивает Windows-версию (single-file exe) из GitHub releases во временный файл
     /// с отображением прогресса в строке состояния главного окна (событие
-    /// <see cref="DownloadProgressChanged"/>), а после успешной загрузки предлагает
-    /// пользователю выбрать «Перезапустить сейчас» или «Обновить после закрытия».
-    /// При выборе «Перезапустить сейчас» запускается PowerShell-помощник, который после
-    /// завершения основного процесса заменяет exe и перезапускает приложение, после чего
-    /// текущее приложение закрывается. При выборе «Обновить после закрытия» помощник
-    /// (в режиме без перезапуска) дожидается естественного завершения процесса и заменяет
-    /// exe без автоматического перезапуска и принудительного закрытия приложения.
+    /// <see cref="DownloadProgressChanged"/>) и сразу применяет обновление режимом
+    /// «Перезапустить сейчас», не задавая пользователю вопросов. Используется только
+    /// в автоматическом режиме (<see cref="AutoUpdateEnabled"/>). Запускается
+    /// PowerShell-помощник, который после завершения основного процесса заменяет exe
+    /// и перезапускает приложение, после чего текущее приложение закрывается.
     /// Программа всегда сама скачивает exe по прямой ссылке; окно/страница GitHub не
     /// открывается. Ошибки сети/парсинга и установки не роняют приложение — показывается
     /// локализованное сообщение.
     /// </summary>
-    public async Task DownloadAndInstallAsync(ReleaseInfo release)
+    public async Task DownloadAndInstallAutoAsync(ReleaseInfo release)
     {
         try
         {
@@ -189,81 +186,40 @@ public sealed class UpdateService
             {
                 // Прямой ссылки на exe нет. Браузер/GitHub не открываем — просто
                 // сообщаем пользователю, что загрузить обновление невозможно.
-                ShowOnUi(() => _dialogs.ShowError(
-                    LocalizationManager.T("Update.NoDownloadUrl"),
-                    LocalizationManager.T("Update.NewVersionAvailable")));
+                ShowErrorOnUi(LocalizationManager.T("Update.NoDownloadUrl"));
                 return;
             }
 
-            var targetExe = Environment.ProcessPath
-                            ?? Process.GetCurrentProcess().MainModule?.FileName;
-            if (string.IsNullOrWhiteSpace(targetExe))
+            var targetExe = ResolveTargetExe();
+            if (targetExe is null)
             {
-                ShowOnUi(() => _dialogs.ShowError(
-                    LocalizationManager.T("Update.InstallFailed"),
-                    LocalizationManager.T("Update.NewVersionAvailable")));
+                ShowErrorOnUi(LocalizationManager.T("Update.InstallFailed"));
                 return;
             }
 
             // Скачивание выполняется в фоне; прогресс передаётся в строку состояния
             // главного окна через событие DownloadProgressChanged.
-            var newExe = await DownloadAsync(release.DownloadUrl!);
-
-            // Сообщаем подписчикам (главному окну), что попытка скачивания завершена,
-            // чтобы скрыть индикатор прогресса в любом случае (успех или неудача).
-            RaiseDownloadFinished();
+            var newExe = await DownloadNewExeCoreAsync(release.DownloadUrl!);
 
             if (newExe is null)
             {
-                ShowOnUi(() => _dialogs.ShowError(
-                    LocalizationManager.T("Update.DownloadFailed"),
-                    LocalizationManager.T("Update.NewVersionAvailable")));
+                ShowErrorOnUi(LocalizationManager.T("Update.DownloadFailed"));
                 return;
             }
 
-            // После успешной загрузки спрашиваем, как применить обновление.
-            var restartNow = AskRestartChoice();
-
-            if (!restartNow)
+            // Автоматический режим всегда применяет обновление с перезапуском «сейчас».
+            if (!ApplyRestartNow(targetExe, newExe))
             {
-                // Режим «Обновить после закрытия»: помощник ждёт завершения процесса
-                // (без таймаута и без перезапуска) и заменяет exe при естественном
-                // закрытии приложения. Само приложение не закрываем и не перезапускаем.
-                var deferredUpdater = CreateUpdaterScript(
-                    targetExe, newExe, Environment.ProcessId, restart: false);
-                if (!LaunchUpdater(deferredUpdater))
-                {
-                    ShowOnUi(() => _dialogs.ShowError(
-                        LocalizationManager.T("Update.InstallFailed"),
-                        LocalizationManager.T("Update.NewVersionAvailable")));
-                }
+                ShowErrorOnUi(LocalizationManager.T("Update.InstallFailed"));
                 return;
             }
 
-            // Режим «Перезапустить сейчас»: помощник дожидается завершения процесса,
-            // заменяет exe, перезапускает приложение, после чего закрываем текущее.
-            var updaterScript = CreateUpdaterScript(
-                targetExe, newExe, Environment.ProcessId, restart: true);
-            if (!LaunchUpdater(updaterScript))
-            {
-                ShowOnUi(() => _dialogs.ShowError(
-                    LocalizationManager.T("Update.InstallFailed"),
-                    LocalizationManager.T("Update.NewVersionAvailable")));
-                return;
-            }
-
-            ShowOnUi(() => _dialogs.ShowInfo(
-                LocalizationManager.T("Update.RestartPrompt"),
-                LocalizationManager.T("Update.NewVersionAvailable")));
-
-            var app = Application.Current;
-            app?.Dispatcher.Invoke(app.Shutdown);
+            // Помощник запущен — закрываем приложение, чтобы exe освободился и был заменён.
+            ShutdownNow();
         }
         catch (Exception ex)
         {
-            ShowOnUi(() => _dialogs.ShowError(
-                LocalizationManager.T("Update.InstallFailed") + "\n" + ex.Message,
-                LocalizationManager.T("Update.NewVersionAvailable")));
+            ShowErrorOnUi(LocalizationManager.T("Update.InstallFailed") + "\n" + ex.Message);
         }
     }
 
@@ -338,23 +294,55 @@ public sealed class UpdateService
         }
     }
 
-    /// <summary>
-    /// Запрашивает у пользователя, как применить скачанное обновление: «Перезапустить сейчас»
-    /// (вернёт true) или «Обновить после закрытия» (вернёт false). Выполняется в UI-потоке.
-    /// </summary>
-    private bool AskRestartChoice()
+    /// <summary>Возвращает путь к текущему исполняемому файлу приложения или null.</summary>
+    internal string? ResolveTargetExe()
     {
-        var restartNow = true;
-        ShowOnUi(() =>
+        var targetExe = Environment.ProcessPath
+                        ?? Process.GetCurrentProcess().MainModule?.FileName;
+        return string.IsNullOrWhiteSpace(targetExe) ? null : targetExe;
+    }
+
+    /// <summary>
+    /// Скачивает exe по прямой ссылке и поднимает события прогресса/завершения для строки
+    /// состояния главного окна. Возвращает путь к файлу или null при неудаче.
+    /// </summary>
+    internal async Task<string?> DownloadNewExeCoreAsync(string downloadUrl)
+    {
+        try
         {
-            var result = System.Windows.MessageBox.Show(
-                LocalizationManager.T("Update.RestartOrLater"),
-                LocalizationManager.T("Update.NewVersionAvailable"),
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            restartNow = result == MessageBoxResult.Yes;
-        });
-        return restartNow;
+            return await DownloadAsync(downloadUrl);
+        }
+        finally
+        {
+            // Сообщаем подписчикам (главному окну), что попытка скачивания завершена,
+            // чтобы скрыть индикатор прогресса в любом случае (успех или неудача).
+            RaiseDownloadFinished();
+        }
+    }
+
+    /// <summary>Применяет обновление режимом «Перезапустить сейчас». Возвращает true при успехе.</summary>
+    internal bool ApplyRestartNow(string targetExe, string newExe)
+    {
+        var script = CreateUpdaterScript(targetExe, newExe, Environment.ProcessId, restart: true);
+        return LaunchUpdater(script);
+    }
+
+    /// <summary>Применяет обновление режимом «Обновить после закрытия». Возвращает true при успехе.</summary>
+    internal bool ApplyAfterClose(string targetExe, string newExe)
+    {
+        var script = CreateUpdaterScript(targetExe, newExe, Environment.ProcessId, restart: false);
+        return LaunchUpdater(script);
+    }
+
+    /// <summary>Показывает локализованную ошибку в UI-потоке.</summary>
+    internal void ShowErrorOnUi(string message) =>
+        ShowOnUi(() => _dialogs.ShowError(message, LocalizationManager.T("Update.NewVersionAvailable")));
+
+    /// <summary>Закрывает текущее приложение (вызывается после успешного запуска помощника).</summary>
+    internal void ShutdownNow()
+    {
+        var app = Application.Current;
+        app?.Dispatcher.Invoke(app.Shutdown);
     }
 
     /// <summary>

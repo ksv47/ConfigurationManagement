@@ -202,21 +202,27 @@ public static partial class OneCLauncher
     /// <summary>
     /// Лучший каталог версии для указанной разрядности (или null).
     /// Использует гибкий поиск, покрывающий и нестандартные корни из дополнительных папок.
+    /// Полная версия ограничивает поиск только ею, частичная (префикс) — новейшей
+    /// установленной версией с таким префиксом (issue #142).
     /// </summary>
     private static string? FindBestVersionDir(string archKey, string preferredVersion)
     {
         var entries = PlatformVersionService.FindPlatformVersionDirs(archKey);
         string? best = null;
+        string bestVersion = string.Empty;
 
         foreach (var (version, _) in entries)
         {
-            // Точное совпадение версии
+            // Полная версия — только точные совпадения; частичная — по префиксу (issue #142).
             if (!string.IsNullOrWhiteSpace(preferredVersion) &&
-                string.Equals(version, preferredVersion, StringComparison.OrdinalIgnoreCase))
-                return version;
+                !VersionMatches(preferredVersion, version))
+                continue;
 
-            if (best is null || CompareVersionDirs(version, best) > 0)
+            if (best is null || CompareVersionDirs(version, bestVersion) > 0)
+            {
                 best = version;
+                bestVersion = version;
+            }
         }
 
         return best;
@@ -250,6 +256,33 @@ public static partial class OneCLauncher
                 return va.CompareTo(vb);
         }
         return 0;
+    }
+
+    /// <summary>
+    /// Проверяет, соответствует ли фактическая версия запрошенной.
+    /// Полная версия (4 сегмента) — точное совпадение; частичная («8.5», «8.3.27») —
+    /// по числовому префиксу (issue #142).
+    /// </summary>
+    private static bool VersionMatches(string requested, string actual)
+    {
+        if (string.IsNullOrWhiteSpace(requested))
+            return true;
+
+        var reqParts = requested.Split('.');
+        // Полная версия — только точное совпадение (как раньше).
+        if (reqParts.Length >= 4)
+            return string.Equals(actual, requested, StringComparison.OrdinalIgnoreCase);
+
+        // Частичная версия — префиксное сопоставление сегментов.
+        var actParts = actual.Split('.');
+        if (actParts.Length < reqParts.Length)
+            return false;
+        for (var i = 0; i < reqParts.Length; i++)
+        {
+            if (!string.Equals(actParts[i].Trim(), reqParts[i].Trim(), StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+        return true;
     }
 
     /// <summary>
@@ -554,6 +587,8 @@ public static partial class OneCLauncher
 
         // 1. Конкретная версия в bin\. Используем гибкое разрешение каталога версии,
         //    покрывающее и нестандартные корни из дополнительных папок в настройках.
+        //    Для частичной версии (префикс, issue #142) ResolveVersionBinDirectory
+        //    возвращает каталог новейшей установленной версии с таким префиксом.
         if (!string.IsNullOrWhiteSpace(cleanVersion))
         {
             var versionBinDir = PlatformVersionService.ResolveVersionBinDirectory(cleanVersion, archKey);
@@ -570,15 +605,16 @@ public static partial class OneCLauncher
 
         // 2. Установленные версии нужной разрядности (новейшая по имени каталога).
         //    Гибкий поиск учитывает стандартные и дополнительные корни.
-        //    Если запрошена конкретная версия, запасной поиск ограничивается ТОЛЬКО ею
-        //    (в т.ч. другой разрядности на случай отсутствия в нужной) и не выбирает
-        //    произвольную новейшую — иначе запускалась бы совсем не та версия (issue #29).
+        //    Если запрошена конкретная версия, запасной поиск ограничивается ТОЛЬКО
+        //    соответствующими ей вариантами (полная — точным совпадением, частичная —
+        //    префиксом с выбором новейшей) и не выбирает произвольную новейшую —
+        //    иначе запускалась бы совсем не та версия (issues #29, #142, #28).
         string? best = null;
         string bestDir = string.Empty;
         foreach (var (verName, binDir) in PlatformVersionService.FindPlatformVersionDirs(archKey))
         {
             if (!string.IsNullOrWhiteSpace(cleanVersion) &&
-                !string.Equals(verName, cleanVersion, StringComparison.OrdinalIgnoreCase))
+                !VersionMatches(cleanVersion, verName))
             {
                 continue;
             }
