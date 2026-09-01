@@ -379,13 +379,15 @@ namespace Configuration_Management
             // в отдельное поле Architecture, а в PlatformVersion сохраняем чистую версию.
             PlatformVersionService.ParseVariant(selected, out var cleanVersion, out var arch);
             var newVersion = string.IsNullOrWhiteSpace(cleanVersion) ? selected : cleanVersion;
-            if (string.Equals(ib.PlatformVersion, newVersion, StringComparison.Ordinal))
-                return;
-
-            ib.PlatformVersion = newVersion;
+            var versionChanged = !string.Equals(ib.PlatformVersion, newVersion, StringComparison.Ordinal);
+            // Раньше здесь был ранний return при совпадении версии — из-за этого
+            // нельзя было сменить разрядность (х86 → х64) одной и той же версии (issue #146).
+            if (versionChanged)
+                ib.PlatformVersion = newVersion;
             if (arch == "32" || arch == "64")
                 ib.Architecture = arch;
-            _viewModel.PersistInfobasesAfterInlineEdit();
+            if (versionChanged || arch == "32" || arch == "64")
+                _viewModel.PersistInfobasesAfterInlineEdit();
         }
 
         /// <summary>
