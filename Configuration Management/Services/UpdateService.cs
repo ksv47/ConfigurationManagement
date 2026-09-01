@@ -2,7 +2,9 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -218,41 +220,131 @@ public sealed class UpdateService
     /// Скачивает exe по прямой ссылке во временный каталог. Возвращает путь к файлу
     /// или null при сетевой ошибке / пустом файле. Временный файл удаляется при неудаче.
     /// Во время записи отчитывается о прогрессе через <see cref="DownloadProgressChanged"/>.
+    /// Скачивание устойчиво к обрывам соединения: частично скачанный файл сохраняется,
+    /// а при повторе докачивается с места обрыва через HTTP Range. Это решает проблему,
+    /// когда на больших файлах (десятки МБ) провайдер/прокси сбрасывает соединение и
+    /// раньше скачивание каждый раз начиналось с нуля и, при повторном обрыве, падало
+    /// с ошибкой «не удалось скачать обновление».
     /// </summary>
     private async Task<string?> DownloadAsync(string url)
     {
-        var dest = Path.Combine(Path.GetTempPath(), UpdateTempDir, "ConfigurationManagement.new.exe");
-        try
+        var dir = Path.Combine(Path.GetTempPath(), UpdateTempDir);
+        Directory.CreateDirectory(dir);
+        var dest = Path.Combine(dir, "ConfigurationManagement.new.exe");
+
+        const int maxAttempts = 12;
+        long totalBytes = -1;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+            // Сколько уже скачано — с этого байта продолжим (докачка через Range).
+            var existing = TryGetFileLength(dest);
 
-            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-            response.EnsureSuccessStatusCode();
+            // Файл уже полный — принимаем его.
+            if (totalBytes > 0 && existing >= totalBytes)
+                return existing > 0 ? dest : null;
 
-            // Длина тела нужна для расчёта процентов. Если сервер не отдал Content-Length,
-            // прогресс передаём как −1 (индикатор переключается в «неопределённый» режим).
-            var totalBytes = response.Content.Headers.ContentLength ?? 0L;
-
-            await using var source = await response.Content.ReadAsStreamAsync();
-            await using (var target = new FileStream(dest, FileMode.Create, FileAccess.Write, FileShare.None))
+            try
             {
-                var buffer = new byte[81920];
-                long readBytes = 0;
-                int read;
-                while ((read = await source.ReadAsync(buffer)) > 0)
+                var result = await DownloadChunkAsync(url, dest, existing, totalBytes);
+                if (result.FullTotal > 0)
+                    totalBytes = result.FullTotal;
+                if (result.Completed)
                 {
-                    await target.WriteAsync(buffer.AsMemory(0, read));
-                    readBytes += read;
-                    ReportDownloadProgress(totalBytes, readBytes);
+                    var size = TryGetFileLength(dest);
+                    if (totalBytes <= 0 || size >= totalBytes)
+                        return size > 0 ? dest : null;
                 }
             }
+            catch
+            {
+                // Обрыв/ошибка соединения — частичный файл остаётся, повторяем с докачкой.
+            }
 
-            return new FileInfo(dest).Length > 0 ? dest : null;
+            if (attempt < maxAttempts)
+                await Task.Delay(TimeSpan.FromSeconds(Math.Min(attempt, 5)));
+        }
+
+        TryDelete(dest);
+        return null;
+    }
+
+    /// <summary>
+    /// Скачивает один фрагмент exe. Если <paramref name="start"/> > 0 — запрашивает
+    /// остаток через HTTP Range и дописывает его в конец существующего файла. Если сервер
+    /// не поддерживает Range (вернул 200 вместо 206) — файл перезаписывается с нуля.
+    /// Возвращает признак успешного чтения потока до конца и полный размер файла.
+    /// </summary>
+    private async Task<(bool Completed, long FullTotal)> DownloadChunkAsync(
+        string url, string dest, long start, long knownTotal)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        if (start > 0)
+            request.Headers.Range = new RangeHeaderValue(start, null);
+
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+
+        // Режим записи: докачка в конец частичного файла (206) либо перезапись с нуля (200).
+        var mode = FileMode.Create;
+        var offset = 0L;
+        if (response.StatusCode == HttpStatusCode.PartialContent)
+        {
+            mode = FileMode.Open;
+            offset = start;
+        }
+        else if (start > 0)
+        {
+            // Сервер проигнорировал Range — начинаем заново с нуля, файл перезаписываем.
+            mode = FileMode.Create;
+            offset = 0;
+        }
+
+        // Полный размер файла для процентов прогресса: при докачке берём уже известный,
+        // на первой попытке — из заголовка ответа (200: Content-Length, 206: Content-Range).
+        var fullTotal = knownTotal > 0
+            ? knownTotal
+            : response.StatusCode == HttpStatusCode.PartialContent
+                ? ParseContentRangeTotal(response.Content.Headers.ContentRange)
+                : (response.Content.Headers.ContentLength ?? -1);
+
+        await using var source = await response.Content.ReadAsStreamAsync();
+        await using (var target = new FileStream(dest, mode, FileAccess.Write, FileShare.None))
+        {
+            target.Position = offset;
+            var buffer = new byte[81920];
+            long readBytes = offset;
+            int read;
+            while ((read = await source.ReadAsync(buffer)) > 0)
+            {
+                await target.WriteAsync(buffer.AsMemory(0, read));
+                readBytes += read;
+                ReportDownloadProgress(fullTotal, readBytes);
+            }
+            await target.FlushAsync();
+        }
+
+        return (true, fullTotal);
+    }
+
+    /// <summary>Извлекает полный размер файла из заголовка Content-Range или −1.</summary>
+    private static long ParseContentRangeTotal(ContentRangeHeaderValue? range)
+    {
+        try { return range?.Length ?? -1; }
+        catch { return -1; }
+    }
+
+    /// <summary>Возвращает размер файла или 0, если файл отсутствует.</summary>
+    private static long TryGetFileLength(string path)
+    {
+        try
+        {
+            var fi = new FileInfo(path);
+            return fi.Exists ? fi.Length : 0;
         }
         catch
         {
-            TryDelete(dest);
-            return null;
+            return 0;
         }
     }
 
