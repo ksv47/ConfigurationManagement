@@ -9,6 +9,36 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.4] — 2026-09-01
+
+Процесс автоматического обновления стал нагляднее: во время скачивания новой версии в строке состояния главного окна отображается **индикатор прогресса загрузки**, а после успешного скачивания приложение предлагает выбрать — **«Перезапустить сейчас»** или **«Обновить после закрытия программы»**. Это убирает неожиданный мгновенный перезапуск и позволяет пользователю решить, когда установить обновление.
+
+### Добавлено
+
+- **Индикатор прогресса загрузки обновления в строке состояния** главного окна: в [`MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml) добавлена скрытая по умолчанию панель `UpdateProgressPanel` с текстом `UpdateProgressText` и `ProgressBar UpdateProgressBar`. В [`UpdateService.cs`](Configuration%20Management/Services/UpdateService.cs) добавлены события `DownloadProgressChanged` (double, проценты 0–100, или −1 при неизвестной длине) и `DownloadFinished`; `DownloadAsync` читает поток буфером и сообщает о прогрессе. Подписка на эти события и обновление индикатора в UI-потоке реализованы в [`MainWindow.xaml.cs`](Configuration%20Management/Views/MainWindow.xaml.cs) (обработчики `OnUpdateDownloadProgressChanged` / `OnUpdateDownloadFinished`).
+- **Локализация индикатора прогресса и диалога выбора**: ключи `Update.DownloadProgress`, `Update.DownloadProgressFormat`, `Update.RestartOrLater` в [`ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Изменено
+
+- **Выбор «Перезапустить сейчас» / «Обновить после закрытия программы»** ([`UpdateService.cs`](Configuration%20Management/Services/UpdateService.cs)): после успешного скачивания вместо немедленного перезапуска показывается диалог `MessageBox`. При выборе **«Да»** — помощник (`restart: true`) ждёт закрытия, заменяет exe и перезапускает приложение, затем `app.Shutdown`; при выборе **«Нет»** — помощник (`restart: false`) НЕ перезапускает приложение, обновление применяется при естественном завершении процесса. Управляется параметром `restart` у `CreateUpdaterScript`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.3` → `0.3.6.4`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.3] — 2026-09-01
+
+Окно предпросмотра темы вкладки «Цветовое оформление» теперь **всегда видимо и не прокручивается** вместе со списком цветов: живой предпросмотр закреплён справа от настроек, а прокручиваются только сами настройки (тема + редактор цветов). При малой высоте окна предпросмотр имеет собственную внутреннюю прокрутку, поэтому остаётся доступным целиком независимо от размера окна.
+
+### Изменено
+
+- **Вкладка «Цветовое оформление»** в [`SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml): внешний `ScrollViewer` заменён на `Grid` с двумя колонками — левая содержит `ScrollViewer` с настройками (тема + редактор цветов), правая — закреплённый `GroupBox` «Предпросмотр», который всегда виден и не прокручивается вместе с настройками. Сам предпросмотр обёрнут во внутренний `ScrollViewer` с `MaxHeight="520"`, обеспечивающий собственную прокрутку при малой высоте окна.
+- **Сохранены имена элементов**: `PreviewShell` и все `Preview*` не переименовывались, метод `RefreshSchemePreview()` в [`SettingsWindow.Schemes.cs`](Configuration%20Management/Views/SettingsWindow.Schemes.cs) не менялся.
+
+### Версия
+
+- **Версия поднята до `0.3.6.2` → `0.3.6.3`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.2] — 2026-09-01
 
 Два тумблера палитры (светлая/тёмная) в редакторе цветов вкладки «Оформление» заменены на **одну кнопку-переключатель** светлой/тёмной темы — по аналогии с кнопкой смены темы главного окна. Теперь выбор редактируемой палитры выполняется одной компактной кнопкой с иконкой и подписью, что упрощает переключение между палитрами одной схемы.

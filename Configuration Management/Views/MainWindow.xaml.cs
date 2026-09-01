@@ -59,6 +59,20 @@ namespace Configuration_Management
         {
             InitializeComponent();
 
+            // Подписываемся на прогресс скачивания обновления, чтобы отображать его
+            // в строке состояния. События приходят из фонового потока — обработчики
+            // переходят в UI-поток через Dispatcher.
+            try
+            {
+                var updater = AppServices.GetRequiredService<UpdateService>();
+                updater.DownloadProgressChanged += OnUpdateDownloadProgressChanged;
+                updater.DownloadFinished += OnUpdateDownloadFinished;
+            }
+            catch
+            {
+                // Если подсистема обновлений недоступна — просто не показываем прогресс.
+            }
+
             // Шапка главного окна реагирует на активность: при активном окне заливается
             // акцентным цветом темы, при неактивном — цветом карточки (см. UpdateTitleBarAppearance).
             Activated += (_, _) => { _isActive = true; UpdateTitleBarAppearance(true); };
@@ -744,6 +758,62 @@ namespace Configuration_Management
             // чтобы окно корректно прилегало к краям экрана и панели задач.
             ApplyCornerPreference();
             UpdateGlassFrameForMaximize();
+        }
+
+        /// <summary>
+        /// Обновляет индикатор прогресса скачивания обновления в строке состояния.
+        /// Значение −1 означает «неопределённый прогресс» (сервер не сообщил длину файла) —
+        /// в этом случае индикатор переводится в режим IsIndeterminate.
+        /// </summary>
+        private void OnUpdateDownloadProgressChanged(double progress)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => OnUpdateDownloadProgressChanged(progress)));
+                return;
+            }
+
+            try
+            {
+                UpdateProgressPanel.Visibility = Visibility.Visible;
+                if (progress < 0)
+                {
+                    UpdateProgressBar.IsIndeterminate = true;
+                }
+                else
+                {
+                    UpdateProgressBar.IsIndeterminate = false;
+                    UpdateProgressBar.Value = Math.Max(0, Math.Min(100, progress));
+                }
+            }
+            catch
+            {
+                // Не даём сбою в UI уронить приложение во время обновления.
+            }
+        }
+
+        /// <summary>
+        /// Скрывает индикатор прогресса после завершения попытки скачивания обновления
+        /// (как при успехе, так и при ошибке).
+        /// </summary>
+        private void OnUpdateDownloadFinished()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(OnUpdateDownloadFinished));
+                return;
+            }
+
+            try
+            {
+                UpdateProgressPanel.Visibility = Visibility.Collapsed;
+                UpdateProgressBar.IsIndeterminate = false;
+                UpdateProgressBar.Value = 0;
+            }
+            catch
+            {
+                // Не критично — индикатор останется в текущем состоянии.
+            }
         }
     }
 }

@@ -40,6 +40,20 @@ public sealed class UpdateService
     /// </summary>
     public bool AutoUpdateEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Событие прогресса скачивания exe. Значение — проценты 0–100. Если длина файла
+    /// заранее неизвестна (сервер не отдал Content-Length), передаётся −1, что означает
+    /// «неопределённый прогресс» (индикатор переводится в режим IsIndeterminate).
+    /// Вызывается из фонового потока, поэтому подписчик должен сам перейти в UI-поток.
+    /// </summary>
+    public event Action<double>? DownloadProgressChanged;
+
+    /// <summary>
+    /// Событие окончания попытки скачивания (успех или неудача). Нужно, чтобы скрыть
+    /// индикатор прогресса в строке состояния главного окна. Также вызывается из фона.
+    /// </summary>
+    public event Action? DownloadFinished;
+
     public UpdateService(GitHubReleaseService gitHub, IDialogService dialogs)
     {
         _gitHub = gitHub;
@@ -154,12 +168,18 @@ public sealed class UpdateService
     }
 
     /// <summary>
-    /// Скачивает Windows-версию (single-file exe) из GitHub releases во временный файл,
-    /// запускает временный PowerShell-помощник, который после завершения основного процесса
-    /// заменяет текущий исполняемый файл новым и перезапускает приложение, а затем закрывает
-    /// текущее приложение. Программа всегда сама скачивает exe по прямой ссылке; окно/страница
-    /// GitHub не открывается. Если прямой ссылки нет — показывается только локализованная ошибка.
-    /// При любой другой ошибке также показывает локализованное сообщение.
+    /// Скачивает Windows-версию (single-file exe) из GitHub releases во временный файл
+    /// с отображением прогресса в строке состояния главного окна (событие
+    /// <see cref="DownloadProgressChanged"/>), а после успешной загрузки предлагает
+    /// пользователю выбрать «Перезапустить сейчас» или «Обновить после закрытия».
+    /// При выборе «Перезапустить сейчас» запускается PowerShell-помощник, который после
+    /// завершения основного процесса заменяет exe и перезапускает приложение, после чего
+    /// текущее приложение закрывается. При выборе «Обновить после закрытия» помощник
+    /// (в режиме без перезапуска) дожидается естественного завершения процесса и заменяет
+    /// exe без автоматического перезапуска и принудительного закрытия приложения.
+    /// Программа всегда сама скачивает exe по прямой ссылке; окно/страница GitHub не
+    /// открывается. Ошибки сети/парсинга и установки не роняют приложение — показывается
+    /// локализованное сообщение.
     /// </summary>
     public async Task DownloadAndInstallAsync(ReleaseInfo release)
     {
@@ -175,10 +195,6 @@ public sealed class UpdateService
                 return;
             }
 
-            ShowOnUi(() => _dialogs.ShowInfo(
-                LocalizationManager.T("Update.Downloading"),
-                LocalizationManager.T("Update.NewVersionAvailable")));
-
             var targetExe = Environment.ProcessPath
                             ?? Process.GetCurrentProcess().MainModule?.FileName;
             if (string.IsNullOrWhiteSpace(targetExe))
@@ -189,7 +205,14 @@ public sealed class UpdateService
                 return;
             }
 
+            // Скачивание выполняется в фоне; прогресс передаётся в строку состояния
+            // главного окна через событие DownloadProgressChanged.
             var newExe = await DownloadAsync(release.DownloadUrl!);
+
+            // Сообщаем подписчикам (главному окну), что попытка скачивания завершена,
+            // чтобы скрыть индикатор прогресса в любом случае (успех или неудача).
+            RaiseDownloadFinished();
+
             if (newExe is null)
             {
                 ShowOnUi(() => _dialogs.ShowError(
@@ -198,7 +221,29 @@ public sealed class UpdateService
                 return;
             }
 
-            var updaterScript = CreateUpdaterScript(targetExe, newExe, Environment.ProcessId);
+            // После успешной загрузки спрашиваем, как применить обновление.
+            var restartNow = AskRestartChoice();
+
+            if (!restartNow)
+            {
+                // Режим «Обновить после закрытия»: помощник ждёт завершения процесса
+                // (без таймаута и без перезапуска) и заменяет exe при естественном
+                // закрытии приложения. Само приложение не закрываем и не перезапускаем.
+                var deferredUpdater = CreateUpdaterScript(
+                    targetExe, newExe, Environment.ProcessId, restart: false);
+                if (!LaunchUpdater(deferredUpdater))
+                {
+                    ShowOnUi(() => _dialogs.ShowError(
+                        LocalizationManager.T("Update.InstallFailed"),
+                        LocalizationManager.T("Update.NewVersionAvailable")));
+                }
+                return;
+            }
+
+            // Режим «Перезапустить сейчас»: помощник дожидается завершения процесса,
+            // заменяет exe, перезапускает приложение, после чего закрываем текущее.
+            var updaterScript = CreateUpdaterScript(
+                targetExe, newExe, Environment.ProcessId, restart: true);
             if (!LaunchUpdater(updaterScript))
             {
                 ShowOnUi(() => _dialogs.ShowError(
@@ -225,6 +270,7 @@ public sealed class UpdateService
     /// <summary>
     /// Скачивает exe по прямой ссылке во временный каталог. Возвращает путь к файлу
     /// или null при сетевой ошибке / пустом файле. Временный файл удаляется при неудаче.
+    /// Во время записи отчитывается о прогрессе через <see cref="DownloadProgressChanged"/>.
     /// </summary>
     private async Task<string?> DownloadAsync(string url)
     {
@@ -236,10 +282,22 @@ public sealed class UpdateService
             using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
 
+            // Длина тела нужна для расчёта процентов. Если сервер не отдал Content-Length,
+            // прогресс передаём как −1 (индикатор переключается в «неопределённый» режим).
+            var totalBytes = response.Content.Headers.ContentLength ?? 0L;
+
             await using var source = await response.Content.ReadAsStreamAsync();
             await using (var target = new FileStream(dest, FileMode.Create, FileAccess.Write, FileShare.None))
             {
-                await source.CopyToAsync(target);
+                var buffer = new byte[81920];
+                long readBytes = 0;
+                int read;
+                while ((read = await source.ReadAsync(buffer)) > 0)
+                {
+                    await target.WriteAsync(buffer.AsMemory(0, read));
+                    readBytes += read;
+                    ReportDownloadProgress(totalBytes, readBytes);
+                }
             }
 
             return new FileInfo(dest).Length > 0 ? dest : null;
@@ -252,14 +310,88 @@ public sealed class UpdateService
     }
 
     /// <summary>
-    /// Создаёт временный PowerShell-скрипт, который дожидается завершения основного процесса
-    /// (по PID), заменяет текущий исполняемый файл скачанным, перезапускает приложение
-    /// и удаляет сам скрипт. Возвращает путь к созданному скрипту.
+    /// Публикует прогресс скачивания. Если общий размер известен заранее — проценты 0–100,
+    /// иначе −1 (означает «неопределённый прогресс»).
     /// </summary>
-    private static string CreateUpdaterScript(string targetExe, string newExe, int currentPid)
+    private void ReportDownloadProgress(long totalBytes, long readBytes)
+    {
+        if (DownloadProgressChanged is null)
+            return;
+
+        var progress = totalBytes > 0
+            ? Math.Min(100, readBytes * 100.0 / totalBytes)
+            : -1;
+
+        DownloadProgressChanged(progress);
+    }
+
+    /// <summary>Уведомляет подписчиков о завершении попытки скачивания (успех или неудача).</summary>
+    private void RaiseDownloadFinished()
+    {
+        try
+        {
+            DownloadFinished?.Invoke();
+        }
+        catch
+        {
+            // Подписчик не должен ронять процесс скачивания.
+        }
+    }
+
+    /// <summary>
+    /// Запрашивает у пользователя, как применить скачанное обновление: «Перезапустить сейчас»
+    /// (вернёт true) или «Обновить после закрытия» (вернёт false). Выполняется в UI-потоке.
+    /// </summary>
+    private bool AskRestartChoice()
+    {
+        var restartNow = true;
+        ShowOnUi(() =>
+        {
+            var result = System.Windows.MessageBox.Show(
+                LocalizationManager.T("Update.RestartOrLater"),
+                LocalizationManager.T("Update.NewVersionAvailable"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            restartNow = result == MessageBoxResult.Yes;
+        });
+        return restartNow;
+    }
+
+    /// <summary>
+    /// Создаёт временный PowerShell-скрипт, который дожидается завершения основного процесса
+    /// (по PID), заменяет текущий исполняемый файл скачанным и удаляет сам скрипт. Если
+    /// параметр <paramref name="restart"/> равен true — после замены перезапускает приложение
+    /// (режим «Перезапустить сейчас») и ждёт процесс с защитным таймаутом; если false —
+    /// перезапуск не выполняется (режим «Обновить после закрытия») и ожидание длится до
+    /// естественного завершения приложения. Возвращает путь к созданному скрипту.
+    /// </summary>
+    private static string CreateUpdaterScript(string targetExe, string newExe, int currentPid, bool restart)
     {
         var scriptPath = Path.Combine(
             Path.GetTempPath(), UpdateTempDir, $"apply-update-{Guid.NewGuid():N}.ps1");
+
+        // Ожидание завершения основного процесса: с таймаутом для перезапуска «сейчас»,
+        // без ограничения — для режима «после закрытия».
+        var waitBlock = restart
+            ? @"
+$maxWait = 120
+$elapsed = 0
+while ($elapsed -lt $maxWait) {
+    if (-not (Get-Process -Id $pidTarget -ErrorAction SilentlyContinue)) { break }
+    Start-Sleep -Milliseconds 500
+    $elapsed++
+}
+Start-Sleep -Seconds 1"
+            : @"
+while (Get-Process -Id $pidTarget -ErrorAction SilentlyContinue) {
+    Start-Sleep -Seconds 1
+}
+Start-Sleep -Seconds 1";
+
+        // Перезапуск приложения выполняем только по явному запросу пользователя.
+        var relaunchBlock = restart
+            ? "Start-Process -FilePath $target"
+            : "# Перезапуск не требуется — обновление применится при следующем закрытии приложения.";
 
         var script = $@"
 $ErrorActionPreference = 'Stop'
@@ -267,19 +399,12 @@ $target = '{Pq(targetExe)}'
 $new = '{Pq(newExe)}'
 $pidTarget = {currentPid}
 
-# Ждём завершения основного процесса, чтобы exe не был заблокирован.
-$maxWait = 120
-$elapsed = 0
-while ($elapsed -lt $maxWait) {{
-    if (-not (Get-Process -Id $pidTarget -ErrorAction SilentlyContinue)) {{ break }}
-    Start-Sleep -Milliseconds 500
-    $elapsed++
-}}
-Start-Sleep -Seconds 1
+# Ожидание завершения основного процесса, чтобы exe не был заблокирован.
+{waitBlock}
 
-# Заменяем текущий exe новым и запускаем обновлённое приложение.
+# Заменяем текущий exe новым.
 Move-Item -Path $new -Destination $target -Force
-Start-Process -FilePath $target
+{relaunchBlock}
 
 # Убираем временный скрипт.
 Remove-Item -LiteralPath '{Pq(scriptPath)}' -Force -ErrorAction SilentlyContinue
