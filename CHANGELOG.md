@@ -9,6 +9,21 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.8] — 2026-09-01
+
+Список шаблонов при создании базы из шаблона стал удобнее (issue #138): добавлены **кнопки «Свернуть»/«Развернуть»** всех групп, **поиск** по названию/поставщику/версии/папке и флажок **«Подробности»**, который скрывает подпись с доп. информацией (поставщик, версия, путь), делая строки дерева заметно уже и позволяя видеть больше строк.
+
+### Добавлено
+
+- **Панель управления списком шаблонов** ([`CreateInfobaseWindow.xaml`](Configuration%20Management/Views/CreateInfobaseWindow.xaml)): над деревом шаблонов появились поле поиска `TplSearchBox`, кнопки `TplCollapseAll`/`TplExpandAll` и флажок `TplDetails`. Видимость подписи (версия/поставщик/папка) привязана к флажку через `BooleanToVisibilityConverter`.
+- **Поиск по шаблонам** ([`CreateInfobaseWindow.xaml.cs`](Configuration%20Management/Views/CreateInfobaseWindow.xaml.cs)): `ApplyTemplateFilter` / `FilterTemplateNodes` / `NodeMatchesQuery` — дерево фильтруется по запросу с сохранением ветвей к совпадающим листьям (по названию, подписи, поставщику, имени конфигурации).
+- **Свёртка/развёртка групп**: `OnTplCollapseAll_Click` / `OnTplExpandAll_Click` и `SetAllExpanded` / `WalkAndToggle` рекурсивно раскрывают/скрывают все группы дерева с учётом ленивой генерации контейнеров.
+- **Локализация**: ключи `CreateInfobase.TplSearchTooltip`, `TplCollapseAll`, `TplCollapseAllTooltip`, `TplExpandAll`, `TplExpandAllTooltip`, `TplDetails` в [`ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.6.7` → `0.3.6.8`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.7] — 2026-09-01
 
 Окно выбора иконки для группы/папки больше **не растягивается выше экрана**: раньше из-за автоподбора высоты (`SizeToContent="Height"`) окно могло вырасти до `MaxHeight=880`, и нижняя часть нужной вкладки уходила под панель задач. Теперь у окна фиксированная высота, а содержимое вкладок «Цвет» и «Иконка» прокручивается внутренними скроллбарами (issue #139).

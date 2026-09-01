@@ -14,6 +14,10 @@
         ShowInTaskbar="False"
         Background="{DynamicResource ContentBackgroundBrush}">
 
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -97,7 +101,30 @@
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                Text="{loc:Loc CreateInfobase.Loading}"/>
                 </StackPanel>
-                <TreeView x:Name="TemplateTree" Height="260" Margin="0,0,0,6"
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="TplSearchBox" Grid.Column="0" Style="{DynamicResource ModernTextBox}"
+                             VerticalContentAlignment="Center"
+                             TextChanged="OnTplSearch_TextChanged"
+                             ToolTip="{loc:Loc CreateInfobase.TplSearchTooltip}"/>
+                    <Button Grid.Column="1" Margin="6,0,0,0" Padding="8,4"
+                            Style="{DynamicResource SecondaryButton}" Click="OnTplCollapseAll_Click"
+                            Content="{loc:Loc CreateInfobase.TplCollapseAll}"
+                            ToolTip="{loc:Loc CreateInfobase.TplCollapseAllTooltip}"/>
+                    <Button Grid.Column="2" Margin="6,0,0,0" Padding="8,4"
+                            Style="{DynamicResource SecondaryButton}" Click="OnTplExpandAll_Click"
+                            Content="{loc:Loc CreateInfobase.TplExpandAll}"
+                            ToolTip="{loc:Loc CreateInfobase.TplExpandAllTooltip}"/>
+                    <CheckBox Grid.Column="3" x:Name="TplDetailsCheck" IsChecked="True"
+                              Content="{loc:Loc CreateInfobase.TplDetails}"
+                              VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </Grid>
+                <TreeView x:Name="TemplateTree" Height="240" Margin="0,0,0,6"
                           BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
                           Background="{DynamicResource CardBackgroundBrush}"
                           SelectedItemChanged="OnTemplateTree_SelectedItemChanged"
@@ -111,7 +138,8 @@
                                 <TextBlock Text="{Binding Subtitle}" FontSize="11"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
-                                           MaxHeight="36"/>
+                                           MaxHeight="36"
+                                           Visibility="{Binding IsChecked, ElementName=TplDetailsCheck, Converter={StaticResource BoolToVis}}"/>
                             </StackPanel>
                         </HierarchicalDataTemplate>
                     </TreeView.ItemTemplate>

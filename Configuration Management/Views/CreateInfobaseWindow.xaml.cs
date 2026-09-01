@@ -337,7 +337,8 @@ namespace Configuration_Management
 
                 var r = t.Result;
                 _flatTemplates = r.Templates;
-                TemplateTree.ItemsSource = r.Tree;
+                _templateTree = r.Tree;
+                ApplyTemplateFilter();
                 UpdateTemplateRootsHint(r.Primary, r.Roots, r.PrimaryExists);
 
                 if (r.Templates.Count == 0)
@@ -366,6 +367,121 @@ namespace Configuration_Management
                 TemplateTree.IsEnabled = !loading;
         }
 
+        // ============ Поиск, свёртка/развёртка и доп. информация по шаблонам (issue #138) ============
+
+        private void OnTplSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ApplyTemplateFilter();
+        }
+
+        private void OnTplCollapseAll_Click(object sender, RoutedEventArgs e)
+        {
+            SetAllExpanded(false);
+        }
+
+        private void OnTplExpandAll_Click(object sender, RoutedEventArgs e)
+        {
+            SetAllExpanded(true);
+        }
+
+        /// <summary>
+        /// Применяет фильтр поиска к дереву шаблонов. Пустой запрос показывает всё дерево.
+        /// </summary>
+        private void ApplyTemplateFilter()
+        {
+            if (TemplateTree is null)
+                return;
+            var query = (TplSearchBox?.Text ?? string.Empty).Trim();
+            TemplateTree.ItemsSource = string.IsNullOrEmpty(query)
+                ? _templateTree
+                : FilterTemplateNodes(_templateTree, query);
+        }
+
+        /// <summary>Рекурсивно оставляет только ветви, ведущие к узлам, совпадающим с запросом.</summary>
+        private static List<OneCTemplateService.TemplateTreeNode> FilterTemplateNodes(
+            IReadOnlyList<OneCTemplateService.TemplateTreeNode> nodes, string query)
+        {
+            var result = new List<OneCTemplateService.TemplateTreeNode>();
+            foreach (var n in nodes)
+            {
+                if (n.Children.Count > 0)
+                {
+                    var kids = FilterTemplateNodes(n.Children, query);
+                    if (kids.Count > 0)
+                    {
+                        var clone = new OneCTemplateService.TemplateTreeNode
+                        {
+                            Title = n.Title,
+                            Subtitle = n.Subtitle,
+                            Template = n.Template
+                        };
+                        foreach (var k in kids)
+                            clone.Children.Add(k);
+                        result.Add(clone);
+                    }
+                    else if (NodeMatchesQuery(n, query))
+                    {
+                        result.Add(n);
+                    }
+                }
+                else if (NodeMatchesQuery(n, query))
+                {
+                    result.Add(n);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>Проверяет, что узел (название, подпись или поля шаблона) содержит запрос.</summary>
+        private static bool NodeMatchesQuery(OneCTemplateService.TemplateTreeNode n, string query)
+        {
+            if (n.Title?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (n.Subtitle?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            var t = n.Template;
+            if (t is null)
+                return false;
+            if (t.DisplayName?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (t.Vendor?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            return t.ConfigurationName?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// Разворачивает или сворачивает все группы дерева шаблонов.
+        /// Повторяет проходы до стабилизации, чтобы учесть ленивую генерацию контейнеров TreeViewItem.
+        /// </summary>
+        private void SetAllExpanded(bool expanded)
+        {
+            for (var pass = 0; pass < 6; pass++)
+            {
+                var changed = WalkAndToggle(TemplateTree, expanded);
+                if (changed == 0)
+                    break;
+                TemplateTree.UpdateLayout();
+            }
+        }
+
+        private static int WalkAndToggle(ItemsControl parent, bool expanded)
+        {
+            var changed = 0;
+            foreach (var item in parent.Items)
+            {
+                if (parent.ItemContainerGenerator.ContainerFromItem(item) is not TreeViewItem tvi)
+                    continue;
+                if (tvi.IsExpanded != expanded)
+                {
+                    tvi.IsExpanded = expanded;
+                    changed++;
+                }
+                if (expanded && tvi.HasItems)
+                    changed += WalkAndToggle(tvi, expanded);
+            }
+            return changed;
+        }
+
         private sealed class TemplateLoadResult
         {
             public TemplateLoadResult(
@@ -390,6 +506,9 @@ namespace Configuration_Management
         }
 
         private List<OneCTemplateService.TemplateInfo> _flatTemplates = new();
+        /// <summary>Полное дерево шаблонов (до фильтрации по поиску), issue #138.</summary>
+        private IReadOnlyList<OneCTemplateService.TemplateTreeNode> _templateTree =
+            new List<OneCTemplateService.TemplateTreeNode>();
         private CancellationTokenSource? _templateLoadingCts;
 
         private static string SuggestNameFromTemplate(OneCTemplateService.TemplateInfo t)
