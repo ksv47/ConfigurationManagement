@@ -966,7 +966,7 @@
                               VerticalAlignment="Top">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                       MaxHeight="520">
-                            <Border x:Name="PreviewShell" Width="264" CornerRadius="8" BorderThickness="1"
+                            <Border x:Name="PreviewShell" Width="220" CornerRadius="8" BorderThickness="1"
                                     ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
                                 <Grid>
                                     <Grid.RowDefinitions>

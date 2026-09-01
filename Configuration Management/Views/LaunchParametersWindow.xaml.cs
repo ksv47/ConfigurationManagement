@@ -126,14 +126,22 @@ namespace Configuration_Management
             Add("/UnregisterExternalDataSource");
             Add("/SqlDump");
 
-            // Пользовательские параметры (issue #141): добавляются в конец списка
-            // и помечаются, чтобы их можно было отличить от встроенных и удалить.
+            // Пользовательские параметры (issue #141): добавляются в конец списка,
+            // помечаются, чтобы их можно было отличить от встроенных и удалить.
+            // Формат элемента: «ключ» либо «ключ<TAB>комментарий» (комментарий из поля
+            // TxtNewComment) — ключ и описание разделяются табуляцией, поэтому ключ
+            // командной строки подставляется в поле «Параметры» без комментария.
             foreach (var custom in _customParams)
             {
-                var key = custom.Trim();
+                var parts = (custom ?? string.Empty).Split('\t');
+                var key = parts[0].Trim();
                 if (string.IsNullOrWhiteSpace(key))
                     continue;
-                list.Add(new ParamRef(key, LocalizationManager.T("LaunchParams.CustomMarker"), isCustom: true));
+                var comment = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+                var description = string.IsNullOrWhiteSpace(comment)
+                    ? LocalizationManager.T("LaunchParams.CustomMarker")
+                    : comment;
+                list.Add(new ParamRef(key, description, isCustom: true));
             }
 
             return list;
@@ -180,10 +188,16 @@ namespace Configuration_Management
             var key = (TxtNewParam.Text ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(key))
                 return;
-            if (_customParams.Contains(key, StringComparer.OrdinalIgnoreCase))
+            var comment = (TxtNewComment.Text ?? string.Empty).Trim();
+            var entry = string.IsNullOrWhiteSpace(comment) ? key : key + "\t" + comment;
+
+            // Проверяем совпадение именно по ключу (до табуляции), а не по всей записи.
+            if (_customParams.Any(p =>
+                string.Equals((p ?? string.Empty).Split('\t')[0].Trim(), key, StringComparison.OrdinalIgnoreCase)))
                 return;
-            _customParams.Add(key);
+            _customParams.Add(entry);
             TxtNewParam.Clear();
+            TxtNewComment.Clear();
             PersistCustomParameters();
             RefreshReference();
             TxtNewParam.Focus();
@@ -194,7 +208,8 @@ namespace Configuration_Management
         {
             if (LstReference.SelectedItem is not ParamRef { IsCustom: true } item)
                 return;
-            _customParams.RemoveAll(p => string.Equals(p, item.Key, StringComparison.OrdinalIgnoreCase));
+            _customParams.RemoveAll(p =>
+                string.Equals((p ?? string.Empty).Split('\t')[0].Trim(), item.Key, StringComparison.OrdinalIgnoreCase));
             PersistCustomParameters();
             RefreshReference();
         }

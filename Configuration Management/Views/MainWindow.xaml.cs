@@ -174,6 +174,16 @@ namespace Configuration_Management
                     InitializeTrayIcon();
                     RegisterLaunchHotkeys();
                     RegisterFavoriteHotkeys();
+                    // Раскрытие/сворачивание группы меняет глубину первой видимой базы,
+                    // из-за чего выравнивание заголовка с данными устаревает и колонки
+                    // «разъезжаются» отдельно от содержимого (issue #119). Пересчитываем
+                    // компенсатор сдвига заголовка при каждом изменении состояния узла.
+                    MainTree.AddHandler(
+                        TreeViewItem.ExpandedEvent,
+                        new RoutedEventHandler(OnMainTree_GroupExpansionChanged));
+                    MainTree.AddHandler(
+                        TreeViewItem.CollapsedEvent,
+                        new RoutedEventHandler(OnMainTree_GroupExpansionChanged));
                     RestoreLastSelection();
                 }
                 catch

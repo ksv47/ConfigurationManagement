@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.15-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.16-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.15**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.16**
+>
+> ✨ **0.3.6.16:** у пользовательских параметров запуска появилось необязательное поле «Комментарий» (issue #141); окно выбора иконки группы перестроено — иконки выше пикера цвета (issue #139); предпросмотр темы в настройках стал уже (issue #137); выравнивание колонок списка баз пересчитывается при раскрытии/сворачивании групп, чтобы колонки не «уезжали» от содержимого (issue #119).
 >
 > ✨ **0.3.6.15:** исправлена регрессия issue #140 — при открытии окна «Настройки подключения» (вкладка «Хранилище») использовалась несуществующая иконка `PackIconKind="ClipboardPaste"`, из-за чего редактирование базы приводило к ошибке интерфейса; значение заменено на валидное `ContentPaste`.
 >

@@ -790,6 +790,7 @@
     "LaunchParams.CustomInputTooltip": "Введите свой ключ командной строки и нажмите «Добавить» — он появится в справочнике",
     "LaunchParams.CustomAdd": "Добавить",
     "LaunchParams.CustomRemove": "Удалить выбранный пользовательский параметр (Del)",
+    "LaunchParams.CustomCommentTooltip": "Необязательный комментарий к пользовательскому параметру — будет показан в справочнике вместо общей пометки",
 
     "LaunchParams.Ref.DisableStartupMessages": "Отключить стартовые сообщения",
     "LaunchParams.Ref.DisableStartupDialogs": "Отключить стартовые диалоги",

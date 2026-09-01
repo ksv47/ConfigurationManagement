@@ -256,6 +256,17 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Обработчик раскрытия/сворачивания узла дерева (issue #119). Раскрытие/сворачивание
+        /// группы меняет глубину первой видимой базы, поэтому компенсатор сдвига заголовка
+        /// (HeaderOffsetColumn) устаревает и колонки «уезжают» относительно содержимого.
+        /// Пересчитывает выравнивание заголовка с данными после завершения компоновки.
+        /// </summary>
+        private void OnMainTree_GroupExpansionChanged(object sender, RoutedEventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        /// <summary>
         /// Подстраивает ширину колонки-компенсатора заголовка (HeaderOffsetColumn) так,
         /// чтобы первая колонка данных заголовка точно совпадала по горизонтали с первой
         /// колонкой данных строки базы. Строка базы и заголовок имеют одинаковый набор

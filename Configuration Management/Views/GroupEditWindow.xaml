@@ -276,11 +276,11 @@
                             <TextBlock Text="{loc:Loc GroupEdit.IconColorHint}"
                                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"
                                        TextWrapping="Wrap"/>
-                            <!-- Встроенный полный пикер цвета иконки (как в окне выбора цвета) -->
-                            <controls:ColorPickerControl x:Name="IconColorPicker" Margin="0,0,0,12"/>
                             <TextBlock Text="{loc:Loc GroupEdit.IconLabel}"
                                        Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"/>
-                            <WrapPanel x:Name="IconPickerPanel"/>
+                            <WrapPanel x:Name="IconPickerPanel" Margin="0,0,0,12"/>
+                            <!-- Встроенный полный пикер цвета иконки (как в окне выбора цвета) -->
+                            <controls:ColorPickerControl x:Name="IconColorPicker"/>
                         </StackPanel>
                     </GroupBox>
                 </ScrollViewer>
