@@ -23,9 +23,6 @@ namespace Configuration_Management
     {
         // ===================== Цветовое оформление =====================
 
-        /// <summary>Подавление событий переключателя палитры при программной установке.</summary>
-        private bool _suppressPaletteEvent;
-
         /// <summary>
         /// Инициализирует вкладку «Цветовое оформление»: активная схема загружается
         /// моделью представления (<see cref="SettingsViewModel"/>), здесь заполняется
@@ -38,46 +35,55 @@ namespace Configuration_Management
             RefreshColorItems();
 
             // Начальный режим палитры — по текущему варианту темы.
-            _suppressPaletteEvent = true;
             var dark = Themes.ThemeManager.CurrentTheme == Themes.ThemeManager.DarkThemeName;
-            if (DarkPaletteToggle != null) DarkPaletteToggle.IsChecked = dark;
-            if (LightPaletteToggle != null) LightPaletteToggle.IsChecked = !dark;
             _settings.SetPaletteMode(dark);
-            _suppressPaletteEvent = false;
+            UpdatePaletteButton();
             RefreshSchemePreview();
         }
 
-        /// <summary>Обработчик тумблера «светлая/тёмная» палитры: меняет режим редактора и обновляет список цветов.</summary>
-        private void OnPaletteSwitch(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// Обработчик кнопки-переключателя палитры «светлая/тёмная»: переключает
+        /// редактируемую палитру на противоположную и обновляет список цветов,
+        /// живой предпросмотр темы и состояние самой кнопки.
+        /// </summary>
+        private void OnPaletteSwitch_Click(object sender, RoutedEventArgs e)
         {
-            // Тумблер может сработать при разборе XAML (IsChecked="True")
-            // раньше инициализации _settings — тогда просто игнорируем.
-            if (_suppressPaletteEvent || _settings is null)
+            if (_settings is null)
                 return;
 
-            // Определяем выбранную палитру и обеспечиваем взаимную исключительность двух тумблеров.
-            bool dark;
-            _suppressPaletteEvent = true;
-            try
-            {
-                if (ReferenceEquals(sender, DarkPaletteToggle))
-                    dark = DarkPaletteToggle?.IsChecked == true;
-                else if (ReferenceEquals(sender, LightPaletteToggle))
-                    dark = LightPaletteToggle?.IsChecked == false;
-                else
-                    dark = DarkPaletteToggle?.IsChecked == true;
-
-                if (DarkPaletteToggle != null) DarkPaletteToggle.IsChecked = dark;
-                if (LightPaletteToggle != null) LightPaletteToggle.IsChecked = !dark;
-            }
-            finally
-            {
-                _suppressPaletteEvent = false;
-            }
-
+            var dark = !_settings.EditingDarkPalette;
             _settings.SetPaletteMode(dark);
             RefreshColorItems();
             RefreshSchemePreview();
+            UpdatePaletteButton();
+        }
+
+        /// <summary>
+        /// Обновляет состояние кнопки-переключателя палитры: иконку (в тёмной палитре — солнце,
+        /// в светлой — луна, как у кнопки смены темы главного окна), подсказку и подпись.
+        /// </summary>
+        private void UpdatePaletteButton()
+        {
+            if (PaletteToggleButton is null)
+                return;
+
+            // В тёмной палитре кнопка предлагает перейти на светлую (иконка солнца), и наоборот.
+            var dark = _settings?.EditingDarkPalette == true;
+            PaletteToggleButton.ToolTip = dark
+                ? LocalizationManager.T("Theme.Light")
+                : LocalizationManager.T("Theme.Dark");
+
+            if (PaletteToggleIcon is not null)
+            {
+                PaletteToggleIcon.Data = dark
+                    ? (System.Windows.Media.Geometry)FindResource("IconSun")
+                    : (System.Windows.Media.Geometry)FindResource("IconMoon");
+            }
+
+            if (PaletteStateText is not null)
+                PaletteStateText.Text = dark
+                    ? LocalizationManager.T("Theme.Dark")
+                    : LocalizationManager.T("Theme.Light");
         }
 
         /// <summary>Строит список доступных тем (встроенные + пользовательские) и выбирает текущую.</summary>

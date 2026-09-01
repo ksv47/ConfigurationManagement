@@ -911,19 +911,18 @@
                                     <TextBlock Text="{loc:Loc Settings.Colors.Description}"
                                                Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                                TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                    <!-- Переключатель палитры: светлая/тёмная, какую сейчас редактируем.
-                                         Оформлен как material-тумблеры (MaterialDesignSwitchToggleButton). -->
+                                    <!-- Переключатель палитры «светлая/тёмная»: одна кнопка-переключатель,
+                                         как в главном окне (в тёмной палитре — солнце, в светлой — луна). -->
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                        <ToggleButton x:Name="LightPaletteToggle"
-                                                      Style="{DynamicResource MaterialDesignSwitchToggleButton}"
-                                                      Content="{loc:Loc Theme.Light}"
-                                                      IsChecked="True"
-                                                      Checked="OnPaletteSwitch" Unchecked="OnPaletteSwitch"/>
-                                        <ToggleButton x:Name="DarkPaletteToggle"
-                                                      Style="{DynamicResource MaterialDesignSwitchToggleButton}"
-                                                      Content="{loc:Loc Theme.Dark}"
-                                                      Margin="24,0,0,0"
-                                                      Checked="OnPaletteSwitch" Unchecked="OnPaletteSwitch"/>
+                                        <Button x:Name="PaletteToggleButton" Click="OnPaletteSwitch_Click"
+                                                Style="{DynamicResource IconButton}"
+                                                ToolTip="{loc:Loc Theme.Dark}">
+                                            <Path x:Name="PaletteToggleIcon" Width="18" Height="18" Stretch="Uniform"
+                                                  Data="{StaticResource IconMoon}" Fill="#8B5CF6"/>
+                                        </Button>
+                                        <TextBlock x:Name="PaletteStateText" Text="{loc:Loc Theme.Light}"
+                                                   VerticalAlignment="Center" Margin="8,0,0,0"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </StackPanel>
                                     <ItemsControl x:Name="ColorItemsControl">
                                         <ItemsControl.ItemTemplate>
