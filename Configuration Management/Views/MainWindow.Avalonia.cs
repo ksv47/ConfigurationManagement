@@ -1651,14 +1651,12 @@ namespace Configuration_Management
             }
 
             // Кнопки действий в колонке «Действия» (после колонки «Режим запуска»):
-            // запуск, конфигуратор, изменить настройки, очистить кеш, удалить.
+            // запуск, конфигуратор, очистить кеш.
             var actionsCol = NameRowColumn + 1 + actionsOffset;
             var actions = new ActionsPanel { Spacing = 1 };
             actions.Children.Add(RowActionButton(ib, "IconPlay", "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
             actions.Children.Add(RowActionButton(ib, "IconBroom", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#DC2626"));
             // Кнопки живут внутри панели, обрезанной по своей колонке: в узкой
             // колонке «Действия» лишние значки у автора пропадают, а у нас
             // рисовались поверх колонки «Сервер/База».
