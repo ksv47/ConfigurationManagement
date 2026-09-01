@@ -101,10 +101,14 @@
                             <TextBlock Text="{loc:Loc LaunchParams.CustomAdd}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="BtnRemoveParam" Grid.Column="3" Width="36" Height="32"
+                    <Button x:Name="BtnRemoveParam" Grid.Column="3" Width="104" Height="32"
                             Margin="6,0,0,0" Click="OnRemoveParam_Click" Cursor="Hand"
                             ToolTip="{loc:Loc LaunchParams.CustomRemove}">
-                        <materialDesign:PackIcon Kind="Delete" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Delete" Width="15" Height="15" Foreground="#EF4444"
+                                                     Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center"/>
+                        </StackPanel>
                     </Button>
                 </Grid>
             </Grid>
