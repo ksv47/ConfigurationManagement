@@ -609,12 +609,20 @@ public static partial class OneCLauncher
         if (best != null)
             return best;
 
-        // 3. Общий лаунчер 1CEStart.exe (разрядность выбирает сам, но лучше, чем ничего).
-        foreach (var root in new[] { programFiles, programFilesX86 }.Where(r => !string.IsNullOrEmpty(r)).Distinct())
+        // 3. Общий лаунчер 1CEStart.exe (разрядность и версию выбирает сам). Применяется
+        //    ТОЛЬКО при автоматическом выборе клиента (clientType == null): он открывает
+        //    стартер со списком баз, а не подключается к конкретной базе. Для явного
+        //    тонкого/толстого клиента такой откат запустил бы «обычное приложение»
+        //    вместо запрошенного режима (issue #28), поэтому возвращаем null и
+        //    показываем понятное предупреждение «платформа не найдена».
+        if (clientType is null && mode == OneCLaunchMode.Enterprise)
         {
-            var launcherPath = Path.Combine(root!, "1cv8", "common", "1CEStart.exe");
-            if (File.Exists(launcherPath))
-                return launcherPath;
+            foreach (var root in new[] { programFiles, programFilesX86 }.Where(r => !string.IsNullOrEmpty(r)).Distinct())
+            {
+                var launcherPath = Path.Combine(root!, "1cv8", "common", "1CEStart.exe");
+                if (File.Exists(launcherPath))
+                    return launcherPath;
+            }
         }
 
         return null;

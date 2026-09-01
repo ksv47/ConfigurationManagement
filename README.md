@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.10-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.11-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.10**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.11**
+>
+> ✨ **0.3.6.11:** исправлен запуск не того клиента — при явном толстом/тонком клиенте больше не открывается стартер `1CEStart.exe` («обычное приложение»), а показывается понятное предупреждение (issue #28).
 >
 > ✨ **0.3.6.10:** исправлен запуск не той версии платформы — запасной поиск теперь ограничивается выбранной версией, а не подставляет произвольную новейшую (issue #29).
 >
