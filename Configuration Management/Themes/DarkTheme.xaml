@@ -1,5 +1,6 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
                     xmlns:loc="clr-namespace:Configuration_Management.Localization">
 
     <!-- ===================== Цветовая палитра (тёмная тема) ===================== -->
@@ -528,10 +529,10 @@
                                           Padding="{TemplateBinding Padding}"
                                           VerticalAlignment="Center"/>
                         </Border>
-                        <TextBlock Text="🔍" FontSize="13"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   Margin="8,0,0,0" VerticalAlignment="Center"
-                                   IsHitTestVisible="False"/>
+                        <materialDesign:PackIcon Kind="Magnify" Width="15" Height="15"
+                                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                                 Margin="8,0,0,0" VerticalAlignment="Center"
+                                                 IsHitTestVisible="False"/>
                         <TextBlock x:Name="Watermark" Text="{loc:Loc Main.SearchPlaceholder}"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="36,0,28,0" VerticalAlignment="Center"

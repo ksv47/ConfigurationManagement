@@ -9,6 +9,18 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.25] — 2026-09-01
+
+Устаревшие эмодзи-иконки команд заменены на современные векторные иконки Material Design (`materialDesign:PackIcon`) в Windows/WPF-версии. Теперь иконки главного окна (поиск), окна добавления информационной базы, темы поиска, окон групп и профилей стали векторными: они перекрашиваются цветом темы/акцента и выглядят единообразно с остальным интерфейсом.
+
+### Изменено
+
+- **Замена эмодзи-иконок на векторные Material Design (`materialDesign:PackIcon`)** ([`Views/AddEditWindow.xaml`](Configuration%20Management/Views/AddEditWindow.xaml), [`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml), [`Themes/LightTheme.xaml`](Configuration%20Management/Themes/LightTheme.xaml), [`Themes/DarkTheme.xaml`](Configuration%20Management/Themes/DarkTheme.xaml), [`Views/GroupEditWindow.xaml`](Configuration%20Management/Views/GroupEditWindow.xaml), [`Views/GroupSettingsWindow.xaml`](Configuration%20Management/Views/GroupSettingsWindow.xaml), [`Views/ProfilesPanel.xaml`](Configuration%20Management/Views/ProfilesPanel.xaml), [`Views/ProfilesWindow.xaml`](Configuration%20Management/Views/ProfilesWindow.xaml)): эмодзи 📋💾📦📁🔍🗑 заменены на векторные `materialDesign:PackIcon`: в окне добавления базы — `ClipboardTextOutline`, `ContentSave`, `CubeOutline`, `FolderOutline` (22×22); в главном окне — `Magnify` (поиск); в шаблоне `SearchTextBox` тем — `Magnify`; в окнах групп — `FolderOutline`; в окнах профилей и настроек групп — `DeleteOutline`. Иконки стали векторными, перекрашиваются цветом темы/акцента и выглядят единообразно с остальным интерфейсом.
+
+### Версия
+
+- **Версия поднята до `0.3.6.24` → `0.3.6.25`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.24] — 2026-09-01
 
 Из списка режимов клиента блока «Текущая сессия» убрана подпись «(управляемые формы)» — пункт «Толстый клиент» теперь называется просто «Толстый». Обновлена справка блока: режимы перечислены как «Авто / Обычный (обычные формы, RunModeOrdinaryApplication) / Толстый (управляемые формы, /RunModeManagedApplication) / Тонкий» — с явным пояснением соответствия пунктов режимам форм 1С (issue #144, замечание в комментарии пользователя 7OH).
