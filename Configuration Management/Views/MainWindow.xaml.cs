@@ -93,6 +93,10 @@ namespace Configuration_Management
                             {
                                 ApplyGlassBackground();
                                 // Акцентная шапка/цвет карточки зависят от темы — перекрашиваем.
+                                // Берём фактическое состояние активности окна, а не кэш _isActive:
+                                // после смены схемы/темы (возможно с открытым диалогом) кэш мог
+                                // устареть, и акцент активного окна терялся бы (issue #135).
+                                _isActive = IsActive;
                                 UpdateTitleBarAppearance(_isActive);
                             }));
                         }

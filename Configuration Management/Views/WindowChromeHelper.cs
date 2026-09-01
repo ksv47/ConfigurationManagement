@@ -249,8 +249,11 @@ namespace Configuration_Management
             {
                 Height = 34,
                 // Полоса заголовка диалога заливается акцентным цветом темы на всю ширину.
-                // DynamicResource через SetResourceReference: при смене темы/схемы цвет обновляется сам.
+                // HorizontalAlignment=Stretch и нулевые Margin гарантируют, что полоса занимает
+                // всю ширину окна и не оставляет незалитых участков по краям (issue #135).
+                HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0),
                 // Скругляем два верхних угла с тем же радиусом, что и окно (DWM, Windows 11).
                 // Иначе прямоугольная полоса не доходит до скруглённых углов окна и в углах
                 // шапки просвечивает стеклянная подложка/рабочий стол — «недозалитые» углы.
