@@ -595,6 +595,8 @@
     "Connection.GroupRepository": "Configuration repository",
     "Connection.RepositoryServerLabel": "Server address:",
     "Connection.RepositoryServerTooltip": "Configuration repository server address, e.g. tcp://server or tcp://server:1542",
+    "Connection.RepositoryPaste": "Paste",
+    "Connection.RepositoryPasteTooltip": "Paste a single connection field copied from 1C (e.g. tcp://server:1542/RepoName) and split it into the server address and the repository name",
     "Connection.RepositoryNameLabel": "Repository name:",
     "Connection.RepositoryNameTooltip": "Configuration repository name on the server",
     "Connection.RepositoryLoginLabel": "Login:",

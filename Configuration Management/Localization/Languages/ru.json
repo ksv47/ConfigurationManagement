@@ -595,6 +595,8 @@
     "Connection.GroupRepository": "Хранилище конфигурации",
     "Connection.RepositoryServerLabel": "Адрес сервера:",
     "Connection.RepositoryServerTooltip": "Адрес сервера хранилища конфигурации, например tcp://server или tcp://server:1542",
+    "Connection.RepositoryPaste": "Вставить",
+    "Connection.RepositoryPasteTooltip": "Вставить скопированное из 1С единое поле подключения (например tcp://server:1542/ИмяХранилища) и разделить его на адрес сервера и имя хранилища",
     "Connection.RepositoryNameLabel": "Имя хранилища:",
     "Connection.RepositoryNameTooltip": "Имя хранилища конфигурации на сервере",
     "Connection.RepositoryLoginLabel": "Логин:",

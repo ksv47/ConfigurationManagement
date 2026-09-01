@@ -33,11 +33,13 @@ namespace Configuration_Management
         /// <param name="availablePorts">Список портов серверов 1С из других баз списка для выпадающего списка.</param>
         /// <param name="customLaunchParameters">Пользовательские параметры запуска для справочника (необязательно).</param>
         /// <param name="onCustomLaunchParametersChanged">Обратный вызов сохранения пользовательских параметров (необязательно).</param>
+        /// <param name="availableRepositoryServers">Список доступных серверов хранилища конфигурации (необязательно).</param>
         public ConnectionSettingsWindow(Infobase? infobase = null, IEnumerable<Group>? groups = null,
             IEnumerable<string>? installedPlatformVersions = null, string? defaultGroupPath = null,
             IEnumerable<string>? availableServers = null, IEnumerable<int>? availablePorts = null,
             IReadOnlyList<string>? customLaunchParameters = null,
-            Action<IReadOnlyList<string>>? onCustomLaunchParametersChanged = null)
+            Action<IReadOnlyList<string>>? onCustomLaunchParametersChanged = null,
+            IEnumerable<string>? availableRepositoryServers = null)
         {
             _customLaunchParameters = customLaunchParameters ?? Array.Empty<string>();
             _onCustomLaunchParametersChanged = onCustomLaunchParametersChanged;
@@ -52,6 +54,7 @@ namespace Configuration_Management
             _viewModel.SetInstalledPlatformVersions(installedPlatformVersions ?? new List<string>());
             _viewModel.SetAvailableServers(availableServers);
             _viewModel.SetAvailablePorts(availablePorts);
+            _viewModel.SetAvailableRepositoryServers(availableRepositoryServers);
             if (infobase != null)
             {
                 _viewModel.LoadFrom(infobase);
@@ -220,6 +223,21 @@ namespace Configuration_Management
             }
 
             DialogResult = true;
+        }
+
+        /// <summary>
+        /// Вставляет скопированное из 1С единое поле подключения к хранилищу
+        /// (например «tcp://server:1542/ИмяХранилища») и разделяет его на
+        /// адрес сервера и имя хранилища (issue #140).
+        /// </summary>
+        private void OnPasteRepositorySplit_Click(object sender, RoutedEventArgs e)
+        {
+            var text = System.Windows.Clipboard.ContainsText()
+                ? System.Windows.Clipboard.GetText().Trim()
+                : string.Empty;
+            if (string.IsNullOrEmpty(text))
+                return;
+            _viewModel.SplitRepositoryConnectionString(text);
         }
 
         private void OnLaunchParameters_Click(object sender, RoutedEventArgs e)

@@ -96,7 +96,8 @@ public partial class MainViewModel : ViewModelBase
                 // Существующая база — только регистрация в списке.
                 var dialog = new ConnectionSettingsWindow(null, Groups, _installedPlatformVersions, defaultGroupPath,
                     availableServers: GetAvailableServers(), availablePorts: GetAvailablePorts(),
-                    customLaunchParameters: CustomLaunchParameters, onCustomLaunchParametersChanged: SetCustomLaunchParameters)
+                    customLaunchParameters: CustomLaunchParameters, onCustomLaunchParametersChanged: SetCustomLaunchParameters,
+                    availableRepositoryServers: GetAvailableRepositoryServers())
                 {
                     Owner = Application.Current.MainWindow
                 };
@@ -165,6 +166,21 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Возвращает список серверов хранилища конфигурации из настроек других баз списка
+    /// (без дублей, по алфавиту). Используется для выпадающего списка «Сервер хранилища»
+    /// в окне настройки подключения (issue #140).
+    /// </summary>
+    private IEnumerable<string> GetAvailableRepositoryServers()
+    {
+        return Infobases
+            .Where(b => b?.Repository != null && !string.IsNullOrWhiteSpace(b.Repository.Server))
+            .Select(b => b!.Repository!.Server.Trim())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Возвращает информационную базу для команд действия строки: если команда вызвана с
     /// параметром-Infobase (кнопка в колонке «Действия»), используется она, иначе — выбранная база.
     /// </summary>
@@ -214,7 +230,8 @@ public partial class MainViewModel : ViewModelBase
 
         var dialog = new ConnectionSettingsWindow(ib, Groups, _installedPlatformVersions,
             availableServers: GetAvailableServers(), availablePorts: GetAvailablePorts(),
-            customLaunchParameters: CustomLaunchParameters, onCustomLaunchParametersChanged: SetCustomLaunchParameters)
+            customLaunchParameters: CustomLaunchParameters, onCustomLaunchParametersChanged: SetCustomLaunchParameters,
+            availableRepositoryServers: GetAvailableRepositoryServers())
         {
             Owner = Application.Current.MainWindow
         };

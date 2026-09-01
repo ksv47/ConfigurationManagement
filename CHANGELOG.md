@@ -9,6 +9,20 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.6] — 2026-09-01
+
+Поле «Сервер хранилища» в окне настройки подключения к информационной базе теперь работает как поле сервера 1С: поддерживает **выбор из списка доступных серверов хранилища** других баз и **кнопку «Вставить» с разделением** — обычно пользователь копирует из 1С единое поле подключения (например `tcp://server:1542/ИмяХранилища`), и оно автоматически делится на адрес сервера и имя хранилища (issue #140).
+
+### Добавлено
+
+- **Выпадающий список серверов хранилища** ([`ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml)): поле «Адрес сервера» хранилища конфигурации заменено с `TextBox` на редактируемый `ComboBox`, привязанный к `AvailableRepositoryServers`; список собирается из настроек хранилища других баз ([`MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs) — `GetAvailableRepositoryServers`, [`ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs) — `AvailableRepositoryServers` / `SetAvailableRepositoryServers`).
+- **Кнопка «Вставить» с разделением** рядом с полем сервера хранилища ([`ConnectionSettingsWindow.xaml.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml.cs) — `OnPasteRepositorySplit_Click`): читает буфер обмена, убирает префикс схемы (`tcp://`, `file://` и т.п.) и делит строку по первому `/` на «адрес сервера» и «имя хранилища» (метод `SplitRepositoryConnectionString` в [`ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs)).
+- **Локализация**: ключи `Connection.RepositoryPaste`, `Connection.RepositoryPasteTooltip` в [`ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.6.5` → `0.3.6.6`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.5] — 2026-09-01
 
 В справочник параметров запуска теперь можно добавлять **свои (пользовательские) ключи командной строки** (issue #141): встроенный список ключей 1С в окне «Конфигуратор параметров запуска» больше не является единственным источником — пользователь может расширить его собственными параметрами, которые сохраняются между запусками и подставляются в строку запуска двойным кликом.

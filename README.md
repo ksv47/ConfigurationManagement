@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.5-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.6-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.5**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.6**
+>
+> ✨ **0.3.6.6:** поле «Сервер хранилища» поддерживает **выбор из списка доступных серверов** и **кнопку «Вставить» с разделением** скопированного из 1С единого поля подключения на адрес сервера и имя хранилища (issue #140).
 >
 > ✨ **0.3.6.5:** в справочник параметров запуска можно добавлять **свои (пользовательские) ключи командной строки** (issue #141) — они сохраняются между запусками, подставляются двойным кликом и удаляются по `Del`.
 >
