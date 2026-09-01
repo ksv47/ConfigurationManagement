@@ -68,11 +68,33 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Возвращает активную схему (с двумя палитрами). Вариант темы определяет,
-    /// какая палитра показывается; сама схема от него не зависит.
+    /// Возвращает схему (с двумя палитрами) для указанной базовой темы. Вариант темы
+    /// определяет, какая палитра показывается; сама схема от него не зависит.
+    /// Если активной является встроенная схема той же базовой темы — возвращается она
+    /// (сохраняя правки пользователя базовой темы). Если же активна пользовательская или
+    /// чужая встроенная схема — для встроенной базовой темы возвращаются её цвета
+    /// по умолчанию (issue #136): раньше здесь всегда возвращался активный пользовательский
+    /// набор цветов, поэтому выбор «Светлой» после пользовательской темы не менял цвета.
     /// </summary>
     public Models.ColorScheme GetSchemeForTheme(string theme)
-        => (_activeColorScheme ?? Models.ColorScheme.CreateLight()).Clone();
+    {
+        var active = _activeColorScheme;
+        if (active is not null)
+        {
+            var isLight = !IsDarkTheme(theme);
+            var activeLight = string.Equals(active.Name,
+                LocalizationManager.T("Theme.Light"), StringComparison.OrdinalIgnoreCase);
+            var activeDark = string.Equals(active.Name,
+                LocalizationManager.T("Theme.Dark"), StringComparison.OrdinalIgnoreCase);
+            // Активная схема — та же встроенная базовая тема: возвращаем её правки.
+            if ((isLight && activeLight) || (!isLight && activeDark))
+                return active.Clone();
+        }
+
+        // Пользовательская/чужая активная схема: берём встроенные цвета по умолчанию.
+        var builtIn = Themes.ThemeManager.GetBuiltInScheme(theme) ?? Models.ColorScheme.CreateLight();
+        return builtIn.Clone();
+    }
 
     private static bool IsDarkTheme(string? theme)
         => string.Equals(theme, Themes.ThemeManager.DarkThemeName, StringComparison.OrdinalIgnoreCase);
