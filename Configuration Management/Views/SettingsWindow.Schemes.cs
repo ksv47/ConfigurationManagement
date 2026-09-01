@@ -40,21 +40,41 @@ namespace Configuration_Management
             // Начальный режим палитры — по текущему варианту темы.
             _suppressPaletteEvent = true;
             var dark = Themes.ThemeManager.CurrentTheme == Themes.ThemeManager.DarkThemeName;
-            if (DarkPaletteRadio != null) DarkPaletteRadio.IsChecked = dark;
-            if (LightPaletteRadio != null) LightPaletteRadio.IsChecked = !dark;
+            if (DarkPaletteToggle != null) DarkPaletteToggle.IsChecked = dark;
+            if (LightPaletteToggle != null) LightPaletteToggle.IsChecked = !dark;
             _settings.SetPaletteMode(dark);
             _suppressPaletteEvent = false;
             RefreshSchemePreview();
         }
 
-        /// <summary>Обработчик переключателя «светлая/тёмная» палитры: меняет режим редактора и обновляет список цветов.</summary>
+        /// <summary>Обработчик тумблера «светлая/тёмная» палитры: меняет режим редактора и обновляет список цветов.</summary>
         private void OnPaletteSwitch(object sender, RoutedEventArgs e)
         {
-            // Переключатель может сработать при разборе XAML (IsChecked="True")
+            // Тумблер может сработать при разборе XAML (IsChecked="True")
             // раньше инициализации _settings — тогда просто игнорируем.
             if (_suppressPaletteEvent || _settings is null)
                 return;
-            var dark = DarkPaletteRadio?.IsChecked == true;
+
+            // Определяем выбранную палитру и обеспечиваем взаимную исключительность двух тумблеров.
+            bool dark;
+            _suppressPaletteEvent = true;
+            try
+            {
+                if (ReferenceEquals(sender, DarkPaletteToggle))
+                    dark = DarkPaletteToggle?.IsChecked == true;
+                else if (ReferenceEquals(sender, LightPaletteToggle))
+                    dark = LightPaletteToggle?.IsChecked == false;
+                else
+                    dark = DarkPaletteToggle?.IsChecked == true;
+
+                if (DarkPaletteToggle != null) DarkPaletteToggle.IsChecked = dark;
+                if (LightPaletteToggle != null) LightPaletteToggle.IsChecked = !dark;
+            }
+            finally
+            {
+                _suppressPaletteEvent = false;
+            }
+
             _settings.SetPaletteMode(dark);
             RefreshColorItems();
             RefreshSchemePreview();

@@ -911,12 +911,19 @@
                                     <TextBlock Text="{loc:Loc Settings.Colors.Description}"
                                                Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                                TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                    <!-- Переключатель палитры: светлая/тёмная, какую сейчас редактируем. -->
+                                    <!-- Переключатель палитры: светлая/тёмная, какую сейчас редактируем.
+                                         Оформлен как material-тумблеры (MaterialDesignSwitchToggleButton). -->
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                        <RadioButton x:Name="LightPaletteRadio" Content="{loc:Loc Theme.Light}"
-                                                     GroupName="Palette" IsChecked="True" Checked="OnPaletteSwitch"/>
-                                        <RadioButton x:Name="DarkPaletteRadio" Content="{loc:Loc Theme.Dark}"
-                                                     GroupName="Palette" Margin="16,0,0,0" Checked="OnPaletteSwitch"/>
+                                        <ToggleButton x:Name="LightPaletteToggle"
+                                                      Style="{DynamicResource MaterialDesignSwitchToggleButton}"
+                                                      Content="{loc:Loc Theme.Light}"
+                                                      IsChecked="True"
+                                                      Checked="OnPaletteSwitch" Unchecked="OnPaletteSwitch"/>
+                                        <ToggleButton x:Name="DarkPaletteToggle"
+                                                      Style="{DynamicResource MaterialDesignSwitchToggleButton}"
+                                                      Content="{loc:Loc Theme.Dark}"
+                                                      Margin="24,0,0,0"
+                                                      Checked="OnPaletteSwitch" Unchecked="OnPaletteSwitch"/>
                                     </StackPanel>
                                     <ItemsControl x:Name="ColorItemsControl">
                                         <ItemsControl.ItemTemplate>
