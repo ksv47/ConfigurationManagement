@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.6-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.7-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.6**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.7**
+>
+> ✨ **0.3.6.7:** окно выбора иконки для папки больше **не выходит за пределы экрана** — убрано авторастягивание высоты, вкладки «Цвет» и «Иконка» прокручиваются внутри окна (issue #139).
 >
 > ✨ **0.3.6.6:** поле «Сервер хранилища» поддерживает **выбор из списка доступных серверов** и **кнопку «Вставить» с разделением** скопированного из 1С единого поля подключения на адрес сервера и имя хранилища (issue #140).
 >
