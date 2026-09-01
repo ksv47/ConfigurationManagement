@@ -214,11 +214,18 @@ public partial class MainViewModel : ViewModelBase
         // Раздельные пользовательские схемы для светлой и тёмной темы: кастомизация
         // каждой базовой темы хранится независимо, поэтому переключение тем не затирает
         // настроенное оформление.
-        _lightColorScheme = settings.LightColorScheme;
-        _darkColorScheme = settings.DarkColorScheme;
+        // Слот базовой темы принимаем только от встроенной схемы («Светлая»/«Тёмная»).
+        // Если в слоте оказалась пользовательская тема (протёкшая из старых версий из-за
+        // бага, когда применение своей темы затирало слот базовой), игнорируем её — иначе
+        // выбор «Светлой» возвращал бы цвета этой темы, а не базовую светлую схему.
+        _lightColorScheme = SettingsViewModel.IsBuiltInName(settings.LightColorScheme?.Name ?? "")
+            ? settings.LightColorScheme : null;
+        _darkColorScheme = SettingsViewModel.IsBuiltInName(settings.DarkColorScheme?.Name ?? "")
+            ? settings.DarkColorScheme : null;
         // Миграция: если задан только старый одиночный ActiveColorScheme, переносим его
-        // в слот соответствующей базовой темы.
-        if (settings.ActiveColorScheme is { Colors.Count: > 0 })
+        // в слот соответствующей базовой темы (только для встроенных схем).
+        if (settings.ActiveColorScheme is { Colors.Count: > 0 }
+            && SettingsViewModel.IsBuiltInName(settings.ActiveColorScheme.Name))
         {
             if (settings.ActiveColorScheme.IsDark && _darkColorScheme is not { Colors.Count: > 0 })
                 _darkColorScheme = settings.ActiveColorScheme;

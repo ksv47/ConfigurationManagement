@@ -2034,15 +2034,27 @@ public class MainViewModel : ViewModelBase
         var clone = scheme.Clone();
         ThemeManager.ApplyScheme(clone);
         _settings.ActiveColorScheme = clone;
-        if (clone.IsDark)
-            _settings.DarkColorScheme = clone;
-        else
-            _settings.LightColorScheme = clone;
+        // В слот базовой темы (светлой/тёмной) пишем только встроенные темы
+        // («Светлая»/«Тёмная»). Применение пользовательской темы не должно затирать
+        // кастомизацию встроенной: иначе после сохранения своей темы выбор «Светлой»
+        // возвращал бы её цвета, а не базовую светлую тему.
+        if (IsBuiltInSchemeName(clone.Name))
+        {
+            if (clone.IsDark)
+                _settings.DarkColorScheme = clone;
+            else
+                _settings.LightColorScheme = clone;
+        }
         _settings.Theme = clone.BaseThemeName;
         _themeName = _settings.Theme;
         SaveSettingsSilently();
         OnPropertyChanged(nameof(ThemeName));
     }
+
+    /// <summary>true, если имя соответствует встроенной теме («Светлая»/«Тёмная»).</summary>
+    private static bool IsBuiltInSchemeName(string? name)
+        => string.Equals(name, "Светлая", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(name, "Тёмная", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Сохранённая цветовая схема: окно настроек открывает редактор с неё,
     /// а не с той, что применена предпросмотром.</summary>

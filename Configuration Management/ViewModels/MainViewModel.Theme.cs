@@ -98,10 +98,17 @@ public partial class MainViewModel : ViewModelBase
             return;
         _activeColorScheme = scheme.Clone();
         _savedTheme = _activeColorScheme.BaseThemeName;
-        if (_activeColorScheme.IsDark)
-            _darkColorScheme = _activeColorScheme;
-        else
-            _lightColorScheme = _activeColorScheme;
+        // В слот базовой темы (светлой/тёмной) пишем только встроенные темы
+        // («Светлая»/«Тёмная»). Применение пользовательской темы не должно затирать
+        // кастомизацию встроенной: иначе после сохранения своей темы выбор «Светлой»
+        // возвращал бы её цвета, а не базовую светлую тему.
+        if (SettingsViewModel.IsBuiltInName(_activeColorScheme.Name))
+        {
+            if (_activeColorScheme.IsDark)
+                _darkColorScheme = _activeColorScheme;
+            else
+                _lightColorScheme = _activeColorScheme;
+        }
         Themes.ThemeManager.ApplyScheme(_activeColorScheme);
         SaveSettings();
         LogTheme($"ApplyColorScheme('{scheme.Name}', isDark={scheme.IsDark}, colors={scheme.Colors.Count}) -> active='{_activeColorScheme.Name}', darkSlot='{_darkColorScheme?.Name}', lightSlot='{_lightColorScheme?.Name}'");
