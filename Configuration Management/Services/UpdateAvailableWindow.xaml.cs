@@ -80,24 +80,21 @@ public partial class UpdateAvailableWindow : Window
         {
             if (string.IsNullOrWhiteSpace(_release.DownloadUrl))
             {
-                _service.ShowErrorOnUi(LocalizationManager.T("Update.NoDownloadUrl"));
-                Close();
+                ShowError(LocalizationManager.T("Update.NoDownloadUrl"));
                 return;
             }
 
             _targetExe = _service.ResolveTargetExe();
             if (_targetExe is null)
             {
-                _service.ShowErrorOnUi(LocalizationManager.T("Update.InstallFailed"));
-                Close();
+                ShowError(LocalizationManager.T("Update.InstallFailed"));
                 return;
             }
 
             _newExe = await _service.DownloadNewExeCoreAsync(_release.DownloadUrl!);
             if (_newExe is null)
             {
-                _service.ShowErrorOnUi(LocalizationManager.T("Update.DownloadFailed"));
-                Close();
+                ShowError(LocalizationManager.T("Update.DownloadFailed"));
                 return;
             }
 
@@ -147,8 +144,7 @@ public partial class UpdateAvailableWindow : Window
 
         if (!_service.ApplyRestartNow(_targetExe, _newExe))
         {
-            _service.ShowErrorOnUi(LocalizationManager.T("Update.InstallFailed"));
-            Close();
+            ShowError(LocalizationManager.T("Update.InstallFailed"));
             return;
         }
 
@@ -178,8 +174,7 @@ public partial class UpdateAvailableWindow : Window
 
         if (!_service.ApplyAfterClose(_targetExe, _newExe))
         {
-            _service.ShowErrorOnUi(LocalizationManager.T("Update.InstallFailed"));
-            Close();
+            ShowError(LocalizationManager.T("Update.InstallFailed"));
             return;
         }
 
@@ -199,6 +194,22 @@ public partial class UpdateAvailableWindow : Window
         DonePanel.Visibility = Visibility.Visible;
         DoneText.Text = text;
         DoneCloseButton.Focus();
+    }
+
+    /// <summary>
+    /// Показывает ошибку обновления прямо в этом окне (вместо закрытия окна и
+    /// открытия отдельного диалога ошибки), чтобы во время обновления не появлялось
+    /// несколько окон друг за другом.
+    /// </summary>
+    private void ShowError(string message)
+    {
+        OfferPanel.Visibility = Visibility.Collapsed;
+        ProgressPanel.Visibility = Visibility.Collapsed;
+        RestartPanel.Visibility = Visibility.Collapsed;
+        DonePanel.Visibility = Visibility.Collapsed;
+        ErrorPanel.Visibility = Visibility.Visible;
+        ErrorText.Text = message;
+        ErrorCloseButton.Focus();
     }
 
     private void OnCancelClick(object sender, RoutedEventArgs e) => Close();

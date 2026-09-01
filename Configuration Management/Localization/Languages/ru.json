@@ -56,6 +56,7 @@
     "Update.NoDownloadUrl": "Для этого выпуска не найден файл установки.",
     "Update.DownloadFailed": "Не удалось скачать обновление.",
     "Update.InstallFailed": "Не удалось установить обновление.",
+    "Update.ErrorTitle": "Ошибка обновления",
 
     "Main.GroupBy": "Группы",
     "Main.ToggleGroups": "Показывать / скрывать группы",

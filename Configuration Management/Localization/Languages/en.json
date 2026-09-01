@@ -56,6 +56,7 @@
     "Update.NoDownloadUrl": "No installer file was found for this release.",
     "Update.DownloadFailed": "Failed to download the update.",
     "Update.InstallFailed": "Failed to install the update.",
+    "Update.ErrorTitle": "Update error",
 
     "Main.GroupBy": "Groups",
     "Main.ToggleGroups": "Show / hide groups",
