@@ -245,9 +245,11 @@ public partial class UpdateAvailableWindow : Window
     }
 
     /// <summary>
-    /// Перехватывает WM_GETMINMAXINFO и принудительно фиксирует минимальный и
-    /// максимальный трекинг-размер равными фактическому размеру окна. Это надёжно
-    /// блокирует изменение размера мышью даже при активном кастомном Window-Chrome.
+    /// Перехватывает WM_GETMINMAXINFO и жёстко фиксирует ТОЛЬКО ширину окна (MinTrackSize.X
+    /// и MaxTrackSize.X равны фактической ширине), блокируя изменение ширины мышью даже при
+    /// активном кастомном Window-Chrome. Высоту не ограничиваем: её контролирует
+    /// SizeToContent="Height", который подстраивает окно под каждый этап и сам запрещает
+    /// ручное изменение высоты, поэтому пустого места внизу не остаётся.
     /// </summary>
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
@@ -255,21 +257,14 @@ public partial class UpdateAvailableWindow : Window
         {
             var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
 
-            // На момент первого сообщения RestoreBounds может быть ещё нулевым —
-            // тогда берём ширину/высоту из свойств окна.
-            double width = RestoreBounds.Width > 0 ? RestoreBounds.Width : ActualWidth;
-            double height = RestoreBounds.Height > 0 ? RestoreBounds.Height : ActualHeight;
-            if (width <= 0 && Width > 0)
-                width = Width;
-            if (height <= 0 && Height > 0)
-                height = Height;
-
-            int w = (int)Math.Round(width);
-            int h = (int)Math.Round(height);
+            // На момент первого сообщения ActualWidth может быть ещё нулевой —
+            // тогда берём ширину из свойства Width. Высоту не трогаем.
+            int w = (int)Math.Round(ActualWidth);
+            if (w <= 0) w = (int)Width;
             mmi.MinTrackSize.X = w;
-            mmi.MinTrackSize.Y = h;
             mmi.MaxTrackSize.X = w;
-            mmi.MaxTrackSize.Y = h;
+            // Высоту не трогаем: SizeToContent="Height" сам подстраивает окно под этап,
+            // поэтому пустого места внизу не будет, а ширину менять нельзя.
             Marshal.StructureToPtr(mmi, lParam, true);
             handled = true;
         }
