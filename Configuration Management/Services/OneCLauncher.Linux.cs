@@ -168,23 +168,39 @@ namespace Configuration_Management.Services
         private static OneCArchitecture GetArchitecture(Infobase infobase)
             => ResolveArchitecture(infobase.Architecture, infobase.PlatformVersion);
 
-        /// <summary>Выбор разрядности по правилам 1С:Предприятие.</summary>
+        /// <summary>
+        /// Выбор разрядности по правилам 1С:Предприятие.
+        /// Приоритет 32/64: если у «другой» разрядности более старшая версия — берётся она.
+        /// Порядок приоритетов (issue #146):
+        /// 1. Явная настройка разрядности базы («только 32» / «только 64»).
+        /// 2. Суффикс разрядности в выбранной версии платформы («8.3.27.1688 (64)»).
+        /// 3. Глобальная настройка «Разрядность по умолчанию», если в базе ничего не указано.
+        /// 4. Приоритетный режим (32-priority / 64-priority) по стилю 1С.
+        /// </summary>
         public static OneCArchitecture ResolveArchitecture(string? architectureSetting, string? platformVersion)
         {
             var mode = (architectureSetting ?? string.Empty).Trim().ToLowerInvariant();
 
-            PlatformVersionService.ParseVariant(platformVersion ?? string.Empty, out var cleanVersion, out var versionArch);
-            if (!string.IsNullOrWhiteSpace(cleanVersion) && (versionArch == "32" || versionArch == "64"))
-                return versionArch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86;
-
+            // 1. Явная настройка разрядности базы имеет наивысший приоритет
+            //    (кроме явного выбора в «текущей сессии», который обрабатывается выше).
             if (mode is "64" or "x64" or "x86-64" or "x86_64")
                 return OneCArchitecture.x64;
             if (mode is "32" or "x86")
                 return OneCArchitecture.x86;
 
+            // 2. Если в версии платформы явно указан суффикс разрядности («8.3.27.1688 (64)») —
+            //    пользователь выбрал конкретную сборку: он перебивает приоритетный режим
+            //    и глобальную настройку, но уступает явной настройке базы.
+            PlatformVersionService.ParseVariant(platformVersion ?? string.Empty, out var cleanVersion, out var versionArch);
+            if (!string.IsNullOrWhiteSpace(cleanVersion) && (versionArch == "32" || versionArch == "64"))
+                return versionArch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86;
+
+            // 3. Разрядность в базе не указана — используем глобальную настройку
+            //    по умолчанию (Настройки → Платформы → «Разрядность по умолчанию»).
             if (string.IsNullOrWhiteSpace(mode))
                 return DefaultArchitecture;
 
+            // Приоритетные режимы: сравниваем лучшие доступные версии 32 и 64.
             var prefer64 = mode is "64-priority" or "priority64" or "x86-64-priority";
             var v32 = FindBestVersionDir("32", cleanVersion);
             var v64 = FindBestVersionDir("64", cleanVersion);
