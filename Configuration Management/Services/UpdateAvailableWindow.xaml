@@ -113,8 +113,6 @@
                 <!-- Этап 3: вопрос, как применить скачанное обновление -->
                 <StackPanel x:Name="RestartPanel" Visibility="Collapsed">
                     <TextBlock x:Name="RestartHeadingText" FontSize="15" FontWeight="Bold" TextWrapping="Wrap"/>
-                    <TextBlock Margin="0,8,0,0" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" Text="{loc:Loc Update.RestartChoiceHint}"/>
 
                     <!-- «Перезапустить сейчас» (основная кнопка) и «Обновить после закрытия» -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">

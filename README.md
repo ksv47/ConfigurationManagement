@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.34-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.35-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.34**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.35**
+>
+> ✨ **0.3.6.35:** из окна обновления удалена вводящая в заблуждение подпись `Update.RestartChoiceHint` («Да — перезапустить программу сейчас, Нет — обновить после закрытия»), которая не соответствовала надписям на реальных кнопках «Перезапустить сейчас» / «Обновить после закрытия». Удалён TextBlock в [`Services/UpdateAvailableWindow.xaml`](Configuration%20Management/Services/UpdateAvailableWindow.xaml) и ключи `Update.RestartChoiceHint` из ru.json/en.json.
 >
 > ✨ **0.3.6.34:** исправлен выбор разрядности запуска в режиме «Авто» (issue #146) — шаг 2 приоритета (по суффиксу «(32)/(64)» в версии платформы) теперь срабатывает только если суффикс реально присутствует в `PlatformVersion`, поэтому при чистой версии без суффикса выбор корректно переходит к глобальной «Разрядность по умолчанию» и настройке базы (раньше платформа всегда запускалась x86 даже при глобальной настройке X64 и приоритете базы 64). Кнопки диалога обновления «Перезапустить сейчас» и «Скачать» больше не обрезаются слева в Windows-версии (issue #148) — удалены проблемные `TextOptions` (`Display`/`ClearType`) и увеличен `MinWidth`.
 >
