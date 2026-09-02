@@ -55,11 +55,10 @@ namespace Configuration_Management
         private SegmentButton? _emptyGroupsToggle;
         private SegmentButton? _groupByToggle;
         private SegmentButton? _compactToggle;
+        private Border? _commandPanel;
         private Border? _columnHeader;
         private Grid? _columnHeaderRow;
         private ColumnDefinition? _headerOffsetColumn;
-        private double _headerToolbarWidth;
-        private StackPanel? _groupToolbar;
         private Grid? _listContent;
         /// <summary>Шаг прокрутки колесом, как у штатного ScrollContentPresenter.</summary>
         private const double WheelScrollStep = 50;
@@ -188,7 +187,6 @@ namespace Configuration_Management
         private NativeMenu? _trayMenu;
         private string? _traySignature;
         private bool _trayRefreshQueued;
-        private IDisposable? _toolbarWidthLink;
         private NotifyCollectionChangedEventHandler? _groupNodesChanged;
         private NotifyCollectionChangedEventHandler? _flatItemsChanged;
         private EventHandler? _tagFiltersRebuilt;
@@ -336,7 +334,6 @@ namespace Configuration_Management
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 200 });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             // Слева: сегментные переключатели групп и тегов (с иконками и состояниями).
             var left = new StackPanel
@@ -391,103 +388,6 @@ namespace Configuration_Management
             grid.Children.Add(tabs);
             Grid.SetColumn(tabs, 2);
 
-            // Справа: добавить базу, синхронизация, тема, настройки — иконки + подписи, состояния.
-            var actions = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center,
-                Spacing = 2
-            };
-
-            // Все команды верхней панели значками без подписей, как в разметке WPF.
-            var addBtn = TopBarIconButton("IconAdd", LocalizationManager.T("Main.AddBase"), "#22C55E");
-            addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
-            actions.Children.Add(addBtn);
-
-            // Очистить кеш выбранной базы: перенесено в верхнюю панель команд,
-            // действует на SelectedInfobase (недоступна, если база не выбрана).
-            var clearCacheBtn = TopBarIconButton("IconBroom", LocalizationManager.T("Main.ClearCacheTooltip"), "#F59E0B");
-            clearCacheBtn.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
-            actions.Children.Add(clearCacheBtn);
-
-            // Индикатор выгрузки .dt и .cf: виден только во время пакетной
-            // операции, подсказка сводкой (MainWindow.xaml:293).
-            var exportBtn = TopBarIconButton("IconUpload", string.Empty, "#F59E0B");
-            exportBtn.Bind(ToolTip.TipProperty, new Binding("ExportIndicatorTooltip"));
-            exportBtn.Bind(Control.IsVisibleProperty, new Binding("IsExporting"));
-            exportBtn.Focusable = false;
-            actions.Children.Add(exportBtn);
-
-            var syncBtn = TopBarIconButton("IconSync", LocalizationManager.T("Main.SyncDetailedTooltip"), "#14B8A6");
-            syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
-            actions.Children.Add(syncBtn);
-
-            // Проверить доступность всех баз 1С: ручная команда вместо автопроверки при запуске.
-            // Иконка — зелёный гидролокатор (сонар), как экран на подводных лодках.
-            var checkAvailBtn = new Button
-            {
-                Content = IconHelper.MakeIcon("IconSonar", UiMetrics.Scaled(18),
-                    new SolidColorBrush(Color.Parse("#14B8A6"))),
-                Padding = new Thickness(UiMetrics.Scaled(8)),
-                HorizontalContentAlignment = HorizontalAlignment.Center
-            };
-            checkAvailBtn.Styled(Themes.ControlThemes.IconButton);
-            ToolTip.SetTip(checkAvailBtn, LocalizationManager.T("Main.CheckAvailabilityTooltip"));
-            checkAvailBtn.Bind(Button.CommandProperty, new Binding("CheckAvailabilityCommand"));
-            // Проверка доступности стоит между синхронизацией и темой, как у автора.
-            actions.Children.Add(checkAvailBtn);
-
-            // Значок меняется вместе со схемой, как в версии для Windows
-            // (MainWindow.Language.cs:41): в тёмной солнце, в светлой луна.
-            var themeIconKey = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName ? "IconSun" : "IconMoon";
-            var themeBtn = TopBarIconButton(themeIconKey, LocalizationManager.T("Main.Theme"), "#8B5CF6");
-            themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
-            actions.Children.Add(themeBtn);
-
-            // Быстрый переключатель плотности интерфейса, как в разметке WPF:
-            // тот же режим уже есть в настройках, здесь он под рукой.
-            // Это ToggleButton (MainWindow.xaml:322): включённый компактный режим
-            // виден акцентной заливкой, а не только по плотности списка.
-            _compactToggle = MakeSegmentToggle("IconCompress", LocalizationManager.T("Main.CompactModeTooltip"));
-            _compactToggle.IsChecked = _vm?.CompactMode ?? false;
-            _compactToggle.Click += (_, _) =>
-            {
-                if (_vm is null)
-                    return;
-                var next = _compactToggle.IsChecked == true;
-                _vm.CompactMode = next;
-                ApplyCompactMode(next);
-            };
-            actions.Children.Add(_compactToggle);
-
-            var settingsBtn = TopBarIconButton("IconSettings", LocalizationManager.T("Main.SettingsTooltip"), themeBrushKey: "TextSecondaryColorBrush");
-            settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
-            actions.Children.Add(settingsBtn);
-
-
-            // Подсказка «?»: справа, после всех команд верхней панели.
-            actions.Children.Add(new HelpLink
-            {
-                HelpText = LocalizationManager.T("Main.BaseListHelp"),
-                Margin = new Thickness(4, 0, 0, 0)
-            });
-
-            // Группа команд обведена рамкой с фоном, как в разметке WPF:
-            // Border с CornerRadius 12, Padding 4 и рамкой в одну точку.
-            var actionsGroup = new Border
-            {
-                CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(4),
-                Margin = new Thickness(0, 0, 12, 0),
-                BorderThickness = new Thickness(1),
-                VerticalAlignment = VerticalAlignment.Center,
-                Child = actions
-            };
-            ThemeBrushes.Bind(actionsGroup, Border.BackgroundProperty, "ContentBackgroundColorBrush");
-            ThemeBrushes.Bind(actionsGroup, Border.BorderBrushProperty, "BorderColorBrush");
-
-            grid.Children.Add(actionsGroup);
-            Grid.SetColumn(actionsGroup, 3);
 
             var topBarBorder = new Border
             {
@@ -507,6 +407,152 @@ namespace Configuration_Management
             topBarBorder.PointerPressed += OnTopBarPointerPressed;
 
             return topBarBorder;
+        }
+
+        /// <summary>
+        /// Панель команд над заголовками колонок (MainWindow.xaml:488-612).
+        /// Слева блок управления группами, дальше правка списка, обслуживание
+        /// баз и настройки, разделённые вертикальными чертами. В версии для
+        /// Windows все эти команды живут здесь, а не в верхней полосе окна.
+        /// </summary>
+        private Control BuildCommandPanel()
+        {
+            var border = new Border
+            {
+                Child = BuildCommandPanelContent(),
+                Margin = new Thickness(4, 0, 4, 0),
+                Padding = new Thickness(8, 6),
+                BorderThickness = new Thickness(0, 0, 0, 1)
+            };
+            ThemeBrushes.Bind(border, Border.BackgroundProperty, "CardBackgroundBrush");
+            ThemeBrushes.Bind(border, Border.BorderBrushProperty, "BorderColorBrush");
+            _commandPanel = border;
+            return border;
+        }
+
+        /// <summary>
+        /// Пересобирает содержимое панели команд: состав кнопок групп зависит
+        /// от настроек, а они меняются на живом окне из окна настроек.
+        /// </summary>
+        private void RefreshCommandPanel()
+        {
+            if (_commandPanel is not null)
+                _commandPanel.Child = BuildCommandPanelContent();
+        }
+
+        /// <summary>Кнопки панели команд одной строкой, слева направо.</summary>
+        private Control BuildCommandPanelContent()
+        {
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            // Развернуть и свернуть группы, сортировка групп, показ тегов в строках.
+            panel.Children.Add(BuildGroupToolbar());
+            panel.Children.Add(CommandPanelSeparator());
+
+            // «Правка»: добавить, изменить и удалить выбранную базу.
+            var addBtn = TopBarIconButton("IconAdd", LocalizationManager.T("Main.AddBase"), "#22C55E");
+            addBtn.Bind(Button.CommandProperty, new Binding("AddInfobaseCommand"));
+            panel.Children.Add(addBtn);
+
+            var editBtn = TopBarIconButton("IconEdit", LocalizationManager.T("Main.EditBaseTooltip"),
+                themeBrushKey: "TextSecondaryColorBrush");
+            editBtn.Bind(Button.CommandProperty, new Binding("EditInfobaseCommand"));
+            panel.Children.Add(editBtn);
+
+            var deleteBtn = TopBarIconButton("IconDelete", LocalizationManager.T("Main.DeleteTooltip"), "#DC2626");
+            deleteBtn.Bind(Button.CommandProperty, new Binding("DeleteInfobaseCommand"));
+            panel.Children.Add(deleteBtn);
+
+            panel.Children.Add(CommandPanelSeparator());
+
+            // «Управление списком»: очистка кеша, индикатор выгрузки, синхронизация
+            // с ibases.v8i и проверка доступности баз.
+            var clearCacheBtn = TopBarIconButton("IconBroom", LocalizationManager.T("Main.ClearCacheTooltip"), "#F59E0B");
+            clearCacheBtn.Bind(Button.CommandProperty, new Binding("ClearCacheCommand"));
+            panel.Children.Add(clearCacheBtn);
+
+            // Индикатор выгрузки .dt и .cf: виден только во время пакетной
+            // операции, подсказка сводкой (MainWindow.xaml:563).
+            var exportBtn = TopBarIconButton("IconUpload", string.Empty, "#F59E0B");
+            exportBtn.Bind(ToolTip.TipProperty, new Binding("ExportIndicatorTooltip"));
+            exportBtn.Bind(Control.IsVisibleProperty, new Binding("IsExporting"));
+            exportBtn.Focusable = false;
+            panel.Children.Add(exportBtn);
+
+            var syncBtn = TopBarIconButton("IconSync", LocalizationManager.T("Main.SyncDetailedTooltip"), "#14B8A6");
+            syncBtn.Bind(Button.CommandProperty, new Binding("SynchronizeWithIbasesCommand"));
+            panel.Children.Add(syncBtn);
+
+            // Проверить доступность всех баз 1С: ручная команда вместо автопроверки при запуске.
+            // Иконка — зелёный гидролокатор (сонар), как экран на подводных лодках.
+            var checkAvailBtn = new Button
+            {
+                Content = IconHelper.MakeIcon("IconSonar", UiMetrics.Scaled(18),
+                    new SolidColorBrush(Color.Parse("#14B8A6"))),
+                Padding = new Thickness(UiMetrics.Scaled(8)),
+                HorizontalContentAlignment = HorizontalAlignment.Center
+            };
+            checkAvailBtn.Styled(Themes.ControlThemes.IconButton);
+            ToolTip.SetTip(checkAvailBtn, LocalizationManager.T("Main.CheckAvailabilityTooltip"));
+            checkAvailBtn.Bind(Button.CommandProperty, new Binding("CheckAvailabilityCommand"));
+            panel.Children.Add(checkAvailBtn);
+
+            panel.Children.Add(CommandPanelSeparator());
+
+            // «Настройки»: тема, компактный режим, окно настроек и справка.
+            // Значок темы меняется вместе со схемой, как в версии для Windows
+            // (MainWindow.Language.cs:41): в тёмной солнце, в светлой луна.
+            var themeIconKey = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName ? "IconSun" : "IconMoon";
+            var themeBtn = TopBarIconButton(themeIconKey, LocalizationManager.T("Main.Theme"), "#8B5CF6");
+            themeBtn.Bind(Button.CommandProperty, new Binding("ToggleThemeCommand"));
+            panel.Children.Add(themeBtn);
+
+            // Это ToggleButton (MainWindow.xaml:596): включённый компактный режим
+            // виден акцентной заливкой, а не только по плотности списка.
+            _compactToggle = MakeSegmentToggle("IconCompress", LocalizationManager.T("Main.CompactModeTooltip"));
+            _compactToggle.IsChecked = _vm?.CompactMode ?? false;
+            _compactToggle.Click += (_, _) =>
+            {
+                if (_vm is null)
+                    return;
+                var next = _compactToggle.IsChecked == true;
+                _vm.CompactMode = next;
+                ApplyCompactMode(next);
+            };
+            panel.Children.Add(_compactToggle);
+
+            var settingsBtn = TopBarIconButton("IconSettings", LocalizationManager.T("Main.SettingsTooltip"),
+                themeBrushKey: "TextSecondaryColorBrush");
+            settingsBtn.Bind(Button.CommandProperty, new Binding("OpenSettingsCommand"));
+            panel.Children.Add(settingsBtn);
+
+            panel.Children.Add(new HelpLink
+            {
+                HelpText = LocalizationManager.T("Main.BaseListHelp"),
+                Margin = new Thickness(4, 0, 0, 0)
+            });
+
+            return panel;
+        }
+
+        /// <summary>
+        /// Вертикальная черта между группами команд панели: одна точка ширины
+        /// с прозрачностью 0.55 и полями 4,5 (MainWindow.xaml:533).
+        /// </summary>
+        private static Control CommandPanelSeparator()
+        {
+            var line = new Border
+            {
+                Width = 1,
+                Margin = new Thickness(4, 5),
+                Opacity = 0.55
+            };
+            ThemeBrushes.Bind(line, Border.BackgroundProperty, "BorderColorBrush");
+            return line;
         }
 
         /// <summary>
@@ -1212,11 +1258,17 @@ namespace Configuration_Management
             // (4,0,4,8 и поле 8), поэтому её вид не меняется.
             var leftContent = new Grid { Margin = new Thickness(12, 12, 0, 12) };
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             var tagPanel = BuildTagFilterPanel();
+            // Панель команд стоит между фильтром тегов и списком, как в разметке
+            // (MainWindow.xaml:488, Grid.Row=2 левой колонки).
+            var commandPanel = BuildCommandPanel();
             Grid.SetRow(tagPanel, 0);
-            Grid.SetRow(listWithBar, 1);
+            Grid.SetRow(commandPanel, 1);
+            Grid.SetRow(listWithBar, 2);
             leftContent.Children.Add(tagPanel);
+            leftContent.Children.Add(commandPanel);
             leftContent.Children.Add(listWithBar);
 
             var leftPanel = new Border
@@ -1259,7 +1311,15 @@ namespace Configuration_Management
                         QueueColumnHeaderRefresh();
                     // Кнопки групп живут в заголовке и видны только при группировке.
                     if (e.PropertyName == nameof(MainViewModel.ShowExpandCollapseButtons))
+                    {
                         QueueColumnHeaderRefresh();
+                        // Кнопки групп живут в панели команд, а их видимость
+                        // меняется из окна настроек на живом окне.
+                        RefreshCommandPanel();
+                    }
+                    // Метка закрепления стоит в том же блоке кнопок панели команд.
+                    if (e.PropertyName == nameof(MainViewModel.ShowPinnedButton))
+                        RefreshCommandPanel();
                     // Переключатель тегов в списке живёт в том же заголовке,
                     // а его настройка меняется и из окна настроек.
                     if (e.PropertyName == nameof(MainViewModel.ShowTags))
@@ -1662,13 +1722,12 @@ namespace Configuration_Management
         {
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(GroupButtonsColumnWidth) });
             grid.ColumnDefinitions.Add(compensator ?? new ColumnDefinition { Width = new GridLength(0) });
-            // Минимум колонки звезды держится всегда: под ним в заголовке стоит
-            // переключатель тегов, и без резерва он срезался бы границей колонки
-            // «Название» (MainWindow.xaml:502, issue 84 апстрима).
+            // Резерв под переключатель тегов снят вместе с переносом кнопок
+            // в панель команд: колонка пустая и лишнего отступа слева от
+            // «Названия» давать не должна (MainWindow.xaml:653 и 1028).
             grid.ColumnDefinitions.Add(new ColumnDefinition
             {
-                Width = new GridLength(showFavorite ? FavoriteColumnWidth : 0),
-                MinWidth = TagsToggleReserve
+                Width = new GridLength(showFavorite ? FavoriteColumnWidth : 0)
             });
             grid.ColumnDefinitions.Add(new ColumnDefinition
             {
@@ -3861,18 +3920,13 @@ namespace Configuration_Management
         private static double FavoriteColumnWidth => 28;
 
         /// <summary>
-        /// Резерв под переключатель тегов: минимум колонки звезды, который держится
-        /// и при скрытой звезде (MainWindow.xaml:502).
-        /// </summary>
-        private static double TagsToggleReserve => 30;
-
-        /// <summary>
-        /// Место под кнопки групп в ведущих колонках всех трёх сеток списка.
-        /// Ширина фиксированная, как в разметке, и обнуляется вместе с кнопками
-        /// (MainWindow.xaml:495).
+        /// Ведущая колонка на месте прежних кнопок групп во всех трёх сетках
+        /// списка. Сами кнопки живут в панели команд, а колонка осталась
+        /// небольшим отступом выравнивания и обнуляется вместе с ними
+        /// (MainWindow.xaml:650 и 1026).
         /// </summary>
         private double GroupButtonsColumnWidth
-            => (_vm?.ShowExpandCollapseButtons ?? true) ? 144 : 0;
+            => (_vm?.ShowExpandCollapseButtons ?? true) ? 24 : 0;
 
         /// <summary>Ширина колонки булавки «закреплено» в заголовке и в строке базы.</summary>
         private static double PinColumnWidth => 26;
@@ -3885,22 +3939,6 @@ namespace Configuration_Management
         /// </summary>
         private double ActionsColumnWidth
             => _vm is { ActionsColumnWidth: > 0 } vm ? vm.ActionsColumnWidth : 170;
-
-        /// <summary>Ширина одной кнопки панели инструментов над списком.</summary>
-        private static double ToolbarButtonWidth => UiMetrics.Scaled(24);
-
-        /// <summary>Ширина блока кнопок групп: четыре кнопки с промежутками.</summary>
-        private static double GroupToolbarWidth => ToolbarButtonWidth * 4 + 6 + UiMetrics.Scaled(6);
-
-        /// <summary>
-        /// Расчётная ширина переключателя тегов: он сделан сегментной кнопкой
-        /// с горизонтальным отступом 12, рамкой 2 и иконкой 15, то есть
-        /// заметно шире обычной кнопки панели.
-        /// </summary>
-        private const double TagsToggleWidth = 12 * 2 + 2 * 2 + 15;
-
-        /// <summary>Зазор между блоком кнопок и подписью «Название».</summary>
-        private const double HeaderToolbarGap = 2;
 
         /// <summary>
         /// Номер колонки с именем: место кнопок групп, компенсатор, звезда, булавка.
@@ -4112,12 +4150,6 @@ namespace Configuration_Management
             _columnHeaderRow.ColumnDefinitions.Clear();
 
             var columns = ListColumns();
-            // Ширина блока кнопок нужна, чтобы подпись «Название» встала правее
-            // него. Здесь она только расчётная: панель ещё не создана, а Bounds
-            // прежней панели относятся к прежнему составу кнопок. Измеренную
-            // ширину подставляет AlignHeaderToRows, когда панель разложена.
-            _headerToolbarWidth = (_vm.ShowExpandCollapseButtons ? GroupToolbarWidth : 0)
-                + TagsToggleWidth + HeaderToolbarGap;
 
             // Колонки заголовка строятся тем же построителем, что и колонки строк:
             // набор ведущих колонок обязан совпадать, иначе значения разъезжаются
@@ -4126,15 +4158,6 @@ namespace Configuration_Management
             var actionsOffset = ActionsOffsetInColumns(columns);
             AddListColumns(_columnHeaderRow, _vm.ShowFavoritesButton, _vm.ShowPinnedButton, _headerOffsetColumn);
 
-
-            // Кнопки лежат поверх компенсатора и пустых колонок звезды,
-            // булавки и иконки: своя колонка сдвинула бы подписи вправо
-            // от значений, а колонки заголовка тут ничего не показывают.
-            var tools = BuildGroupToolbar();
-            _columnHeaderRow.Children.Add(tools);
-            Grid.SetColumn(tools, 0);
-            Grid.SetColumnSpan(tools, NameHeaderColumn);
-            tools.ZIndex = 1;
 
             var nameHeader = ColumnHeader(LocalizationManager.T("Column.Name"), IconHelper.ColumnIconKey("Name"));
             // У «Названия» отступ слева нулевой: заголовок равняется по тексту строк
@@ -4191,25 +4214,6 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Измеренная ширина блока кнопок; null, пока он не разложен.
-        /// Панель зажата в узкие колонки заголовка, поэтому её собственный
-        /// Bounds обрезан по ним, а кнопки рисуются дальше: ширину берём
-        /// по самому правому краю содержимого.
-        /// </summary>
-        private double? MeasuredToolbarWidth
-        {
-            get
-            {
-                if (_groupToolbar is null)
-                    return null;
-                var right = 0d;
-                foreach (var child in _groupToolbar.Children)
-                    right = Math.Max(right, child.Bounds.Right);
-                return right > 0 ? right : null;
-            }
-        }
-
-        /// <summary>
         /// Блок кнопок над списком: развернуть и свернуть все группы и две
         /// сортировки групп (только при группировке), а также переключатель
         /// тегов в строках, который нужен всегда.
@@ -4254,14 +4258,6 @@ namespace Configuration_Management
                 panel.Children.Add(pinMark);
             }
 
-            _groupToolbar = panel;
-            // Ширина известна только после раскладки, а подпись выравнивается
-            // по ней. Следим за переключателем: он всегда крайний справа,
-            // поэтому именно он задаёт правый край блока. Bounds самой панели
-            // обрезаны колонками заголовка и на измерение не влияют.
-            _toolbarWidthLink?.Dispose();
-            _toolbarWidthLink = tagsToggle.GetObservable(Visual.BoundsProperty)
-                .Subscribe(new PropertyObserver<Rect>(_ => QueueHeaderAlign()));
             return panel;
         }
 
@@ -4693,7 +4689,7 @@ namespace Configuration_Management
             for (var i = NameHeaderColumn + 1; i < definitions.Count; i++)
                 values += definitions[i].Width.IsAbsolute ? definitions[i].Width.Value : 0;
 
-            _listContent.MinWidth = nameWidth + Math.Max(lead, _headerToolbarWidth)
+            _listContent.MinWidth = nameWidth + lead
                 + UiMetrics.PaddingControl * 2 + values;
         }
 
@@ -4751,18 +4747,6 @@ namespace Configuration_Management
                 {
                     rowGrid = content;
                     rowOrigin = origin.Value.X;
-                }
-            }
-
-            // Измеренная ширина блока кнопок нужна минимуму области списка:
-            // по константам он оставлял бы пустоту или лишнюю прокрутку.
-            if (MeasuredToolbarWidth is { } measured)
-            {
-                var target = measured + HeaderToolbarGap;
-                if (Math.Abs(target - _headerToolbarWidth) > 0.5)
-                {
-                    _headerToolbarWidth = target;
-                    UpdateListMinWidth();
                 }
             }
 
