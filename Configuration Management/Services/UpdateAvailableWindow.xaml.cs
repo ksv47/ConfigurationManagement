@@ -1,6 +1,8 @@
 #if WINDOWS
 using System;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
@@ -54,6 +56,19 @@ public partial class UpdateAvailableWindow : Window
         }
 
         Loaded += (_, _) => DownloadButton.Focus();
+    }
+
+    /// <summary>
+    /// Навешиваем перехватчик Win32-сообщений сразу после инициализации окна,
+    /// чтобы жёстко зафиксировать его размер независимо от кастомного Window-Chrome
+    /// (MaterialDesignThemes обходит ResizeMode="NoResize").
+    /// </summary>
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle != IntPtr.Zero)
+            HwndSource.FromHwnd(handle)?.AddHook(WndProc);
     }
 
     /// <summary>Обрезает ведущий символ «v» у тега версии для отображения.</summary>
@@ -213,5 +228,52 @@ public partial class UpdateAvailableWindow : Window
     }
 
     private void OnCancelClick(object sender, RoutedEventArgs e) => Close();
+
+    private const int WmGetMinMaxInfo = 0x0024;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PoINT { public int X; public int Y; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MinMaxInfo
+    {
+        public PoINT Reserved;
+        public PoINT MaxSize;
+        public PoINT MaxPosition;
+        public PoINT MinTrackSize;
+        public PoINT MaxTrackSize;
+    }
+
+    /// <summary>
+    /// Перехватывает WM_GETMINMAXINFO и принудительно фиксирует минимальный и
+    /// максимальный трекинг-размер равными фактическому размеру окна. Это надёжно
+    /// блокирует изменение размера мышью даже при активном кастомном Window-Chrome.
+    /// </summary>
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WmGetMinMaxInfo)
+        {
+            var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+
+            // На момент первого сообщения RestoreBounds может быть ещё нулевым —
+            // тогда берём ширину/высоту из свойств окна.
+            double width = RestoreBounds.Width > 0 ? RestoreBounds.Width : ActualWidth;
+            double height = RestoreBounds.Height > 0 ? RestoreBounds.Height : ActualHeight;
+            if (width <= 0 && Width > 0)
+                width = Width;
+            if (height <= 0 && Height > 0)
+                height = Height;
+
+            int w = (int)Math.Round(width);
+            int h = (int)Math.Round(height);
+            mmi.MinTrackSize.X = w;
+            mmi.MinTrackSize.Y = h;
+            mmi.MaxTrackSize.X = w;
+            mmi.MaxTrackSize.Y = h;
+            Marshal.StructureToPtr(mmi, lParam, true);
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
 }
 #endif
