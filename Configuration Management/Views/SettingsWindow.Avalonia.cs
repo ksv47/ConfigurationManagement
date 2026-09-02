@@ -1486,19 +1486,26 @@ namespace Configuration_Management
             schemeColumn.Children.Add(SettingsGroup(LocalizationManager.T("Settings.Preview"), previewStrip, new Thickness(8), bottom: 0));
 
             // Корневой Grid из двух колонок: слева управление схемой и превью,
-            // справа список цветов, растянутый по вертикали и прокручиваемый внутри колонки.
+            // справа список цветов. Обе колонки Auto, чтобы Grid измерялся по содержимому
+            // и при горизонтальной прокрутке внешнего ScrollViewer ни один элемент не обрезался.
             var appearanceGrid = new Grid();
-            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var colorsScroll = new ScrollViewer { Content = colorsColumn, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             Grid.SetColumn(schemeColumn, 0);
-            Grid.SetColumn(colorsScroll, 1);
+            Grid.SetColumn(colorsColumn, 1);
             appearanceGrid.Children.Add(schemeColumn);
-            appearanceGrid.Children.Add(colorsScroll);
+            appearanceGrid.Children.Add(colorsColumn);
             appearance.Children.Add(appearanceGrid);
 
+            // Весь контент вкладки — единый прокручиваемый блок (вертикаль + горизонталь),
+            // чтобы при любом размере окна ни один элемент не скрывался.
             var tabAppearance = MainTab("IconPalette", "Settings.TabAppearance",
-                new ScrollViewer { Content = appearance, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+                new ScrollViewer
+                {
+                    Content = appearance,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
+                });
 
             // ===== Базы =====
             var bases = new StackPanel { Spacing = 6 };

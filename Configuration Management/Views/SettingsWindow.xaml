@@ -826,17 +826,19 @@
                     </StackPanel>
                 </TabItem.Header>
                 <!-- Вкладка по варианту 2 (#155): две колонки — слева управление схемой и превью,
-                     справа список цветов. Превью — часть левой колонки под блоком схемы. -->
+                     справа список цветов. Превью — часть левой колонки под блоком схемы.
+                     Весь контент вкладки — единый прокручиваемый блок (вертикаль + горизонталь),
+                     чтобы при любом размере окна ни один элемент не скрывался. -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                 <Grid Margin="4,12,4,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Левая колонка: управление схемой и превью (прокручивается по вертикали). -->
-                    <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                  Padding="0,0,12,0">
-                        <StackPanel>
+                    <!-- Левая колонка: управление схемой и превью (без внутренней прокрутки,
+                         прокрутка возложена на внешний ScrollViewer, клиппинг отсутствует). -->
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
                             <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
@@ -1110,11 +1112,11 @@
                             </StackPanel>
                         </ScrollViewer>
                             </GroupBox>
-                        </StackPanel>
-                    </ScrollViewer>
+                    </StackPanel>
 
-                    <!-- Правая колонка: список цветов выбранной палитры (прокручивается по вертикали). -->
-                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <!-- Правая колонка: список цветов выбранной палитры (без внутренней прокрутки,
+                         прокрутка возложена на внешний ScrollViewer, клиппинг отсутствует). -->
+                    <StackPanel Grid.Column="1">
                         <GroupBox Header="{loc:Loc Settings.Colors}" Padding="8">
                             <StackPanel>
                                 <TextBlock Text="{loc:Loc Settings.Colors.Description}"
@@ -1162,8 +1164,9 @@
                                 </ItemsControl>
                             </StackPanel>
                         </GroupBox>
-                    </ScrollViewer>
+                    </StackPanel>
                 </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <!-- ============ Вкладка «Клавиши» ============ -->
