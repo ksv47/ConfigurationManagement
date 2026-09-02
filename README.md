@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.37-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.38-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.37**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.38**
+>
+> ✨ **0.3.6.38:** кнопкам окна обновления заданы фиксированные размеры и увеличена ширина окна — текст «Перезапустить сейчас» и другие надписи всегда читаются и не обрезаются ни при каком размере окна ([`Services/UpdateAvailableWindow.xaml`](Configuration%20Management/Services/UpdateAvailableWindow.xaml), issue #148).
 >
 > ✨ **0.3.6.37:** редактор цветовых схем на вкладке «Оформление» переработан по варианту 2 из issue #155 — сверху две колонки (слева управление схемой, справа список цветов), снизу горизонтальный блок из двух живых превью (светлое и тёмное). В строке цвета порядок стал «образец → hex → название», а название — кликабельной подчёркнутой ссылкой вместо отдельной кнопки «Выбрать»; живой предпросмотр темы появился и в Linux/Avalonia.
 >
