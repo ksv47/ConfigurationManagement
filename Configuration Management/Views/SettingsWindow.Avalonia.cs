@@ -565,13 +565,17 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center
             };
             // Подписи локализованные, как в WPF (SettingsWindow.Display.cs:35),
-            // а наружу по-прежнему уходит «X64» или «X86» по номеру строки.
+            // а наружу по-прежнему уходит режим по номеру строки: X64 / X86 / Priority.
             archBox.ItemsSource = new[]
             {
                 LocalizationManager.T("Settings.Arch64Recommended"),
-                LocalizationManager.T("Settings.Arch32")
+                LocalizationManager.T("Settings.Arch32"),
+                LocalizationManager.T("Settings.ArchBasePriority")
             };
-            archBox.SelectedIndex = string.Equals(_viewModel.DefaultArchitecture, "X64", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+            archBox.SelectedIndex =
+                string.Equals(_viewModel.DefaultArchitecture, "X86", StringComparison.OrdinalIgnoreCase) ? 1
+                : string.Equals(_viewModel.DefaultArchitecture, "Priority", StringComparison.OrdinalIgnoreCase) ? 2
+                : 0;
             Grid.SetColumn(archBox, 1);
             archRow.Children.Add(archLabel);
             archRow.Children.Add(archBox);
@@ -815,6 +819,8 @@ namespace Configuration_Management
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails, "IconPageLayoutSidebarRight", "#14B8A6");
             var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel, "IconMonitor", "#8B5CF6");
             var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup, "IconFolderMultiple", "#3B82F6");
+            // Системный заголовок окна вместо собственного безрамкового (issue #152).
+            var systemTitleBarCheck = DisplayCheck("Settings.SystemTitleBar", _viewModel.UseSystemTitleBar, "IconMonitoring", "#6366F1");
             // Режим списка «только избранные» тот же, что переключается кнопкой
             // в главном окне: флажок и кнопка меняют одно значение.
             var favoritesOnlyCheck = DisplayCheck("Settings.Panels.ShowFavoritesOnly", _viewModel.IsListModeFavorites, "IconStarCircle", "#FBBF24");
@@ -837,6 +843,8 @@ namespace Configuration_Management
             hintSessionLaunchPanelHint.Margin = new Thickness(24, 0, 0, 12);
             displayPanels.Children.Add(hintSessionLaunchPanelHint);
             displayPanels.Children.Add(groupByGroupCheck);
+            // Пояснение к переключателю системного заголовка (issue #152).
+            displayPanels.Children.Add(systemTitleBarCheck);
             displayPanels.Children.Add(favoritesOnlyCheck);
             displayPanels.Children.Add(emptyGroupsCheck);
             var hintShowEmptyGroupsHint = Hint(LocalizationManager.T("Settings.Panels.ShowEmptyGroupsHint"), bottom: 12);
@@ -1124,14 +1132,23 @@ namespace Configuration_Management
 
             // ===== Оформление =====
             var appearance = new StackPanel();
+            // Верхняя часть из двух колонок: слева управление схемой, справа список цветов.
+            var schemeColumn = new StackPanel();
+            var colorsColumn = new StackPanel();
             // Заголовок группы из разметки WPF (SettingsWindow.xaml:824).
-            appearance.Children.Add(GroupTitle(LocalizationManager.T("Settings.Theme")));
+            schemeColumn.Children.Add(GroupTitle(LocalizationManager.T("Settings.Theme")));
 
             // Правки идут по копии сохранённой схемы, а не применённой предпросмотром:
             // закрытие окна крестиком не должно оставлять редактор на непринятых цветах.
             editedScheme = _viewModel.ActiveColorScheme.Clone();
             // Какая палитра сейчас редактируется/показывается (светлая или тёмная).
             var previewDark = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName;
+
+            // Живой предпросмотр темы — два миниатюрных окна (светлое и тёмное), как
+            // в WPF (SettingsWindow.xaml:962). Строятся один раз и перекрашиваются
+            // при каждом изменении цветов через RepaintThemePreviews.
+            _previewLight = BuildThemePreview();
+            _previewDark = BuildThemePreview();
 
             // Список схем 280 на 34 с левым полем 10 (SettingsWindow.xaml:829).
             var schemeBox = new ComboBox
@@ -1194,6 +1211,7 @@ namespace Configuration_Management
                     var current = editedScheme.PaletteValue(previewDark, key);
                     colorsPanel.Children.Add(ColorRow(editedScheme, previewDark, key, label, current));
                 }
+                RepaintThemePreviews(editedScheme);
             }
 
             bool NameTaken(string name)
@@ -1227,8 +1245,8 @@ namespace Configuration_Management
             ReloadSchemes();
             RefreshColors();
             refreshEditedScheme = () => { ReloadSchemes(editedScheme.Name); RefreshColors(); };
-            appearance.Children.Add(schemeBox);
-            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Theme.Description"), bottom: 10));
+            schemeColumn.Children.Add(schemeBox);
+            schemeColumn.Children.Add(Hint(LocalizationManager.T("Settings.Theme.Description"), bottom: 10));
 
             var schemeButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
 
@@ -1431,9 +1449,9 @@ namespace Configuration_Management
             // для встроенной темы выставляется здесь, а не только по смене выбора.
             UpdateSchemeButtons();
 
-            appearance.Children.Add(schemeButtons);
-            appearance.Children.Add(GroupTitle(LocalizationManager.T("Settings.Colors")));
-            appearance.Children.Add(Hint(LocalizationManager.T("Settings.Colors.Description"), bottom: 8));
+            schemeColumn.Children.Add(schemeButtons);
+            colorsColumn.Children.Add(GroupTitle(LocalizationManager.T("Settings.Colors")));
+            colorsColumn.Children.Add(Hint(LocalizationManager.T("Settings.Colors.Description"), bottom: 8));
 
             // Переключатель палитры: какая сейчас редактируется и показывается (светлая/тёмная).
             var lightPalette = new RadioButton { Content = LocalizationManager.T("Theme.Light"), GroupName = "Palette", IsChecked = !previewDark };
@@ -1450,9 +1468,31 @@ namespace Configuration_Management
             var paletteSwitch = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 4, 0, 0) };
             paletteSwitch.Children.Add(lightPalette);
             paletteSwitch.Children.Add(darkPalette);
-            appearance.Children.Add(paletteSwitch);
+            colorsColumn.Children.Add(paletteSwitch);
 
-            appearance.Children.Add(colorsPanel);
+            colorsColumn.Children.Add(colorsPanel);
+
+            // Верхняя часть: две колонки — слева управление схемой, справа цвета.
+            var topGrid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+            topGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            topGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Grid.SetColumn(schemeColumn, 0);
+            Grid.SetColumn(colorsColumn, 1);
+            topGrid.Children.Add(schemeColumn);
+            topGrid.Children.Add(colorsColumn);
+
+            appearance.Children.Add(topGrid);
+
+            // Нижний блок: горизонтальный предпросмотр обеих палитр на всю ширину.
+            RepaintThemePreviews(editedScheme);
+            var lightLabel = new TextBlock { Text = LocalizationManager.T("Theme.Light"), FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
+            ThemeBrushes.Bind(lightLabel, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            var lightCol = new StackPanel { Margin = new Thickness(0, 0, 16, 0), Children = { lightLabel, _previewLight!.Shell } };
+            var darkLabel = new TextBlock { Text = LocalizationManager.T("Theme.Dark"), FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
+            ThemeBrushes.Bind(darkLabel, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            var darkCol = new StackPanel { Children = { darkLabel, _previewDark!.Shell } };
+            var previewStrip = new StackPanel { Orientation = Orientation.Horizontal, Children = { lightCol, darkCol } };
+            appearance.Children.Add(SettingsGroup(LocalizationManager.T("Settings.Preview"), previewStrip, new Thickness(8), bottom: 0));
 
             var tabAppearance = MainTab("IconPalette", "Settings.TabAppearance",
                 new ScrollViewer { Content = appearance, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
@@ -2232,7 +2272,12 @@ namespace Configuration_Management
                 // только до перезапуска.
                 _viewModel.ApplyColorScheme(editedScheme);
 
-                _viewModel.ApplyPlatformSettings(paths, archBox.SelectedIndex == 1 ? "X86" : "X64");
+                _viewModel.ApplyPlatformSettings(paths, archBox.SelectedIndex switch
+                {
+                    1 => "X86",
+                    2 => "Priority",
+                    _ => "X64"
+                });
                 _viewModel.ApplyBehaviorSettings(
                     multipleInstancesCheck.IsChecked == true,
                     rememberLayoutCheck.IsChecked == true);
@@ -2312,6 +2357,9 @@ namespace Configuration_Management
                     _viewModel.IsListModeFavorites = true;
                 else if (_viewModel.IsListModeFavorites)
                     _viewModel.IsListModeAll = true;
+
+                // Системный заголовок окна (issue #152): применяется после перезапуска.
+                _viewModel.UseSystemTitleBar = systemTitleBarCheck.IsChecked == true;
 
                 _viewModel.ApplyStatusBarSettings(
                     statusPathCheck.IsChecked == true,
@@ -2400,14 +2448,6 @@ namespace Configuration_Management
             // поэтому обновление передаётся отложенно.
             Action<string>? hexText = null;
 
-            var button = new Button
-            {
-                Content = swatch,
-                Padding = new Thickness(2),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                HorizontalAlignment = HorizontalAlignment.Right
-            };
             void PickColor()
             {
                 var picker = new ColorPickerWindow(value);
@@ -2418,48 +2458,57 @@ namespace Configuration_Management
                 scheme.Palette(dark)[key] = value;
                 swatch.Background = ParseBrush(value);
                 hexText?.Invoke(value);
+                RepaintThemePreviews(scheme);
             }
 
-            button.Click += (_, _) => PickColor();
-
-            // Строка как в разметке WPF (SettingsWindow.xaml:903): подпись, образец,
-            // шестнадцатеричное значение и кнопка выбора. Значение показывается
-            // потому, что цвет часто переносят копированием, а не глазом.
+            // Порядок колонок по варианту 2 (#155): образец, затем hex, и уже потом
+            // подчёркнутая кликабельная подпись. Значение показывается потому, что
+            // цвет часто переносят копированием, а не глазом.
             var hex = new TextBlock
             {
                 Text = value,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(12, 0, 0, 0)
+                Margin = new Thickness(4, 0, 0, 0)
             };
             ThemeBrushes.Bind(hex, TextBlock.ForegroundProperty, "TextSecondaryBrush");
 
             hexText = updated => hex.Text = updated;
 
-            var choose = new Button
+            // Название цвета — кликабельная подчёркнутая ссылка, открывает выбор цвета.
+            // Это убирает отдельную кнопку «Выбрать» и заметно сужает список.
+            var link = new TextBlock
             {
-                Content = LocalizationManager.T("Settings.ChooseColor"),
-                Padding = new Thickness(10, 3),
+                Text = label,
+                VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(12, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center
+                TextDecorations = TextDecorations.Underline,
+                Cursor = new Cursor(StandardCursorType.Hand),
+                HorizontalAlignment = HorizontalAlignment.Left
             };
-            choose.Styled(ControlThemes.SecondaryButton);
-            choose.Click += (_, _) => PickColor();
+            ThemeBrushes.Bind(link, TextBlock.ForegroundProperty, "AccentBrush");
+            link.PointerReleased += (_, e) =>
+            {
+                if (e.InitialPressMouseButton != MouseButton.Left)
+                    return;
+                // Отпускание вне текста щелчком не считается (как в LinkBlock).
+                var point = e.GetPosition(link);
+                if (point.X < 0 || point.Y < 0
+                    || point.X > link.Bounds.Width || point.Y > link.Bounds.Height)
+                    return;
+                PickColor();
+            };
+            ToolTip.SetTip(link, LocalizationManager.T("Settings.ChooseColorTooltip"));
 
-            // Ширины колонок как в разметке WPF (SettingsWindow.xaml:906): подпись
-            // по содержимому, тянется колонка со значением, а не подпись.
+            // Ширины колонок: образец 36, hex по содержимому, тянется ссылка-подпись.
             var grid = new Grid { Margin = new Thickness(0, 3) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(36)));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
-            grid.Children.Add(text);
-            grid.Children.Add(button);
-            Grid.SetColumn(button, 1);
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            grid.Children.Add(swatch);
             grid.Children.Add(hex);
-            Grid.SetColumn(hex, 2);
-            grid.Children.Add(choose);
-            Grid.SetColumn(choose, 3);
+            Grid.SetColumn(hex, 1);
+            grid.Children.Add(link);
+            Grid.SetColumn(link, 2);
             return grid;
         }
 
@@ -2467,6 +2516,259 @@ namespace Configuration_Management
         {
             try { return new SolidColorBrush(Color.Parse(value)); }
             catch (Exception) { return Brushes.Transparent; }
+        }
+
+        /// <summary>
+        /// Миниатюрный предпросмотр темы (аналог WPF PreviewShellLight/Dark в
+        /// SettingsWindow.xaml). Хранит ссылки на все части, чтобы перекрашивать
+        /// их при изменении цветов схемы.
+        /// </summary>
+        private sealed class ThemePreview
+        {
+            public Border Shell = null!;
+            public Border TitleBar = null!;
+            public TextBlock TitleText = null!;
+            public Border Sidebar = null!;
+            public Border NavSelected = null!;
+            public TextBlock NavSelectedText = null!;
+            public Border NavItem1 = null!;
+            public TextBlock NavItem1Text = null!;
+            public Border NavItem2 = null!;
+            public TextBlock NavItem2Text = null!;
+            public Border Main = null!;
+            public TextBlock ContentTitle = null!;
+            public TextBlock ContentSubtitle = null!;
+            public Border Card = null!;
+            public TextBlock CardTitle = null!;
+            public TextBlock CardText = null!;
+            public TextBox TextField = null!;
+            public Border PrimaryButton = null!;
+            public TextBlock PrimaryButtonText = null!;
+            public Border SecondaryButton = null!;
+            public TextBlock SecondaryButtonText = null!;
+            public Border ListBox = null!;
+            public Border ListSelected = null!;
+            public TextBlock ListSelectedText = null!;
+            public Border ListItem1 = null!;
+            public TextBlock ListItem1Text = null!;
+            public Border ListItem2 = null!;
+            public TextBlock ListItem2Text = null!;
+        }
+
+        /// <summary>Превью светлой палитры (слева в нижнем блоке).</summary>
+        private ThemePreview _previewLight = null!;
+
+        /// <summary>Превью тёмной палитры (справа в нижнем блоке).</summary>
+        private ThemePreview _previewDark = null!;
+
+        /// <summary>
+        /// Строит миниатюрное окно приложения для предпросмотра схемы. Разметка
+        /// повторяет WPF PreviewShellLight/Dark (SettingsWindow.xaml:962-1071):
+        /// акцентная шапка, боковое меню, карточка, поле ввода, кнопки, список.
+        /// </summary>
+        private static ThemePreview BuildThemePreview()
+        {
+            var p = new ThemePreview();
+
+            // Шапка (акцент): заголовок и зелёный индикатор.
+            p.TitleText = new TextBlock
+            {
+                Text = "Управление конфигурациями",
+                FontWeight = FontWeight.SemiBold,
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var statusDot = new Border
+            {
+                Width = 12,
+                Height = 12,
+                CornerRadius = new CornerRadius(6),
+                Background = new SolidColorBrush(Color.Parse("#22C55E")),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var titleGrid = new Grid();
+            titleGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            titleGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Grid.SetColumn(statusDot, 1);
+            titleGrid.Children.Add(p.TitleText);
+            titleGrid.Children.Add(statusDot);
+            p.TitleBar = new Border { Height = 34, Padding = new Thickness(10, 0), Child = titleGrid };
+
+            // Боковое меню.
+            p.NavSelectedText = new TextBlock { Text = "Базы", FontSize = 11 };
+            p.NavItem1Text = new TextBlock { Text = "Избранное", FontSize = 11 };
+            p.NavItem2Text = new TextBlock { Text = "История", FontSize = 11 };
+            p.NavSelected = NewNavItem(p.NavSelectedText);
+            p.NavItem1 = NewNavItem(p.NavItem1Text);
+            p.NavItem2 = NewNavItem(p.NavItem2Text);
+            p.Sidebar = new Border
+            {
+                Padding = new Thickness(6),
+                Child = new StackPanel { Children = { p.NavSelected, p.NavItem1, p.NavItem2 } }
+            };
+
+            // Контент.
+            p.ContentTitle = new TextBlock { Text = "Документы", FontWeight = FontWeight.SemiBold, FontSize = 13 };
+            p.ContentSubtitle = new TextBlock { Text = "Последние изменения", FontSize = 11, Margin = new Thickness(0, 2, 0, 8) };
+            p.CardTitle = new TextBlock { Text = "Карточка базы", FontWeight = FontWeight.SemiBold, FontSize = 11 };
+            p.CardText = new TextBlock { Text = "Краткое описание объекта", FontSize = 10, Margin = new Thickness(0, 2, 0, 0) };
+            p.Card = new Border
+            {
+                CornerRadius = new CornerRadius(6),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(8),
+                Margin = new Thickness(0, 0, 0, 8),
+                Child = new StackPanel { Children = { p.CardTitle, p.CardText } }
+            };
+            p.TextField = new TextBox { Height = 26, FontSize = 11, Padding = new Thickness(6, 2), BorderThickness = new Thickness(1) };
+            p.PrimaryButtonText = new TextBlock { Text = "Готово", FontSize = 11, FontWeight = FontWeight.SemiBold };
+            p.SecondaryButtonText = new TextBlock { Text = "Отмена", FontSize = 11 };
+            p.PrimaryButton = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(12, 5), Margin = new Thickness(0, 0, 6, 0), Child = p.PrimaryButtonText };
+            p.SecondaryButton = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(12, 5), Child = p.SecondaryButtonText };
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 8, 0, 0),
+                Children = { p.PrimaryButton, p.SecondaryButton }
+            };
+            p.ListSelectedText = new TextBlock { Text = "Бухгалтерия предприятия", FontSize = 11 };
+            p.ListItem1Text = new TextBlock { Text = "Зарплата и кадры", FontSize = 11 };
+            p.ListItem2Text = new TextBlock { Text = "Управление торговлей", FontSize = 11 };
+            p.ListSelected = new Border { Padding = new Thickness(8, 5), Child = p.ListSelectedText };
+            p.ListItem1 = new Border { Padding = new Thickness(8, 5), BorderThickness = new Thickness(0, 1, 0, 0), Child = p.ListItem1Text };
+            p.ListItem2 = new Border { Padding = new Thickness(8, 5), BorderThickness = new Thickness(0, 1, 0, 0), Child = p.ListItem2Text };
+            p.ListBox = new Border
+            {
+                CornerRadius = new CornerRadius(6),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 10, 0, 0),
+                Child = new StackPanel { Children = { p.ListSelected, p.ListItem1, p.ListItem2 } }
+            };
+            p.Main = new Border
+            {
+                Padding = new Thickness(10),
+                Child = new StackPanel { Children = { p.ContentTitle, p.ContentSubtitle, p.Card, p.TextField, buttons, p.ListBox } }
+            };
+
+            // Каркас: боковое меню слева, контент справа.
+            var content = new Grid();
+            content.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(64)));
+            content.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            Grid.SetColumn(p.Main, 1);
+            content.Children.Add(p.Sidebar);
+            content.Children.Add(p.Main);
+
+            var body = new Grid();
+            body.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            body.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
+            Grid.SetRow(content, 1);
+            body.Children.Add(p.TitleBar);
+            body.Children.Add(content);
+
+            p.Shell = new Border
+            {
+                Width = 220,
+                CornerRadius = new CornerRadius(8),
+                BorderThickness = new Thickness(1),
+                ClipToBounds = true,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                Child = body
+            };
+            return p;
+        }
+
+        private static Border NewNavItem(TextBlock text) => new()
+        {
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(6, 4),
+            Margin = new Thickness(0, 0, 0, 4),
+            Child = text
+        };
+
+        /// <summary>Перекрашивает оба миниатюрных предпросмотра схемой (светлый и тёмный).</summary>
+        private void RepaintThemePreviews(ColorScheme scheme)
+        {
+            if (_previewLight is null || _previewDark is null)
+                return;
+            PaintThemePreview(_previewLight, scheme, dark: false);
+            PaintThemePreview(_previewDark, scheme, dark: true);
+        }
+
+        /// <summary>Рисует один миниатюрный предпросмотр темы для заданной палитры.</summary>
+        private static void PaintThemePreview(ThemePreview p, ColorScheme scheme, bool dark)
+        {
+            string V(string key) => scheme.PaletteValue(dark, key);
+
+            // Окно: подложка-карточка с рамкой и акцентная шапка.
+            PaintBorder(p.Shell, V("CardBackgroundColor"), V("BorderColor"));
+            PaintSolid(p.TitleBar, V("AccentColor"));
+            PaintText(p.TitleText, V("TextOnAccentColor"));
+
+            // Боковая панель: фон, контрастный текст, подсветка пунктов.
+            var sidebar = Color.Parse(V("SidebarColor"));
+            var sidebarText = new SolidColorBrush(ContrastColor(sidebar));
+            PaintSolid(p.Sidebar, V("SidebarColor"));
+            PaintSolid(p.NavSelected, V("SidebarSelectedColor"));
+            PaintSolid(p.NavItem1, V("SidebarHoverColor"));
+            PaintSolid(p.NavItem2, V("SidebarHoverColor"));
+            PaintTextBrush(p.NavSelectedText, sidebarText);
+            PaintTextBrush(p.NavItem1Text, sidebarText);
+            PaintTextBrush(p.NavItem2Text, sidebarText);
+
+            // Контент.
+            PaintSolid(p.Main, V("ContentBackgroundColor"));
+            PaintText(p.ContentTitle, V("TextPrimaryColor"));
+            PaintText(p.ContentSubtitle, V("TextSecondaryColor"));
+
+            // Карточка.
+            PaintBorder(p.Card, V("CardBackgroundColor"), V("BorderColor"));
+            PaintText(p.CardTitle, V("TextPrimaryColor"));
+            PaintText(p.CardText, V("TextSecondaryColor"));
+
+            // Поле ввода.
+            PaintTextBox(p.TextField, V("CardBackgroundColor"), V("BorderColor"), V("TextPrimaryColor"));
+
+            // Кнопки: акцентная и вторичная.
+            PaintSolid(p.PrimaryButton, V("AccentColor"));
+            PaintText(p.PrimaryButtonText, V("ButtonTextColor"));
+            PaintSolid(p.SecondaryButton, V("SecondaryButtonBackgroundColor"));
+            PaintText(p.SecondaryButtonText, V("ButtonTextColor"));
+
+            // Список.
+            PaintBorder(p.ListBox, V("CardBackgroundColor"), V("BorderColor"));
+            PaintSolid(p.ListSelected, V("ItemSelectedColor"));
+            PaintSolid(p.ListItem1, V("ItemHoverColor"));
+            PaintSolid(p.ListItem2, V("ItemHoverColor"));
+            PaintText(p.ListSelectedText, V("TextPrimaryColor"));
+            PaintText(p.ListItem1Text, V("TextPrimaryColor"));
+            PaintText(p.ListItem2Text, V("TextPrimaryColor"));
+        }
+
+        /// <summary>Чёрный или белый — цвет с максимальным контрастом к заданному.</summary>
+        private static Color ContrastColor(Color c)
+        {
+            var lum = (0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B) / 255.0;
+            return lum > 0.5 ? Colors.Black : Colors.White;
+        }
+
+        private static void PaintSolid(Border b, string hex) => b.Background = ParseBrush(hex);
+
+        private static void PaintBorder(Border b, string bg, string bd)
+        {
+            b.Background = ParseBrush(bg);
+            b.BorderBrush = ParseBrush(bd);
+        }
+
+        private static void PaintText(TextBlock t, string hex) => t.Foreground = ParseBrush(hex);
+
+        private static void PaintTextBrush(TextBlock t, IBrush brush) => t.Foreground = brush;
+
+        private static void PaintTextBox(TextBox t, string bg, string bd, string fg)
+        {
+            t.Background = ParseBrush(bg);
+            t.BorderBrush = ParseBrush(bd);
+            t.Foreground = ParseBrush(fg);
         }
 
         /// <summary>Запрашивает имя схемы отдельным окном ввода.</summary>

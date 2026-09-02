@@ -8,8 +8,9 @@
 #
 # Требования:
 #   * запускать НА Linux (TFM net10.0 выбирается по ОС в csproj);
+#     либо на Windows с FORCE_LINUX=1 (кросс-компиляция, нужен .NET SDK 10);
 #   * установлен .NET SDK 10 (>= 10.0.400);
-#   * установлены зависимости Avalonia для Linux:
+#   * для запуска НА Linux установлены зависимости Avalonia:
 #       sudo apt install -y libice6 libsm6 libfontconfig1 libfreetype6 libx11-6 \
 #           libx11-dev libxext6 libxrender1 libglib2.0-0 libgtk-3-0
 #
@@ -17,6 +18,10 @@
 #   ./build-linux-single-file.sh            # сборка Release, RID linux-x64
 #   ./build-linux-single-file.sh Debug      # другой конфиг
 #   RID=linux-arm64 ./build-linux-single-file.sh   # другой RID
+#
+# Кросс-сборка из Windows (без WSL):
+#   FORCE_LINUX=1 ./build-linux-single-file.sh
+#   (передаёт -p:ForceLinux=true в csproj и принудительно включает Linux-ветку)
 #
 # ВНИМАНИЕ: скрипт НЕ запускает dotnet publish, если установлена переменная
 # SKIP_PUBLISH=1 (полезно для проверки синтаксиса): SKIP_PUBLISH=1 ./script.sh
@@ -28,11 +33,15 @@ PROJECT="$ROOT/Configuration Management.csproj"
 CONFIG="${1:-Release}"
 RID="${RID:-linux-x64}"
 DIST="$ROOT/dist/$RID"
+FORCE_LINUX="${FORCE_LINUX:-0}"
 
-# Проверяем, что сборка идёт на Linux (в csproj Linux TFM выбирается по ОС).
-if [[ "$(uname -s)" != "Linux" ]]; then
+# На Linux TFM net10.0 выбирается по ОС. Для кросс-сборки из Windows
+# включаем Linux-ветку принудительно через -p:ForceLinux=true.
+if [[ "$(uname -s)" != "Linux" && "$FORCE_LINUX" != "1" ]]; then
   echo "!! Скрипт предназначен для запуска НА Linux (TFM net10.0 задаётся по ОС сборки)."
-  echo "   На текущей ОС ('$(uname -s)') кросс-компиляция даст net10.0-windows/WPF и не запустится на Linux."
+  echo "   Либо запустите с FORCE_LINUX=1 для кросс-сборки Linux-версии из Windows:"
+  echo "     FORCE_LINUX=1 ./build-linux-single-file.sh"
+  echo "   На текущей ОС ('$(uname -s)') без FORCE_LINUX сборка даст WPF и не запустится на Linux."
   exit 1
 fi
 
@@ -41,12 +50,21 @@ if ! command -v dotnet >/dev/null 2>&1; then
   exit 1
 fi
 
+# Доп. свойство для кросс-сборки (пустое на реальном Linux).
+FORCE_PROP=""
+if [[ "$FORCE_LINUX" == "1" ]]; then
+  FORCE_PROP="-p:ForceLinux=true"
+fi
+
 echo "==> Конфигурация: $CONFIG"
 echo "==> RID:          $RID"
+if [[ "$FORCE_LINUX" == "1" ]]; then
+  echo "==> Кросс-сборка Linux из Windows (ForceLinux=true)"
+fi
 echo "==> Цель:         $DIST"
 
 echo "==> Restore"
-dotnet restore "$PROJECT"
+dotnet restore "$PROJECT" $FORCE_PROP
 
 if [[ "${SKIP_PUBLISH:-0}" == "1" ]]; then
   echo "==> SKIP_PUBLISH=1 — публикация пропущена."
@@ -59,6 +77,7 @@ dotnet publish "$PROJECT" \
   -c "$CONFIG" \
   -r "$RID" \
   --self-contained true \
+  $FORCE_PROP \
   -p:PublishSingleFile=true \
   -p:IncludeNativeLibrariesForSelfExtract=true \
   -p:EnableCompressionInSingleFile=true \

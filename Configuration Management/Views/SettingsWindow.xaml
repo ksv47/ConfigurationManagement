@@ -825,20 +825,26 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <!-- Вкладка построена как единый Grid с двумя колонками: слева прокручиваемые
-                     настройки (тема + редактор цветов), справа закреплённый живой предпросмотр,
-                     который НЕ скроллится вместе со списком цветов. -->
+                <!-- Вкладка по варианту 2 (#155): две колонки сверху — слева управление схемой,
+                     справа список цветов; снизу на всю ширину горизонтальный блок из двух
+                     превью (светлая слева, тёмная справа). -->
                 <Grid Margin="4,12,4,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                    <!-- Левая колонка: настройки темы и редактор цветов (прокручиваются) -->
-                    <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                  Padding="0,0,12,0">
-                        <StackPanel>
-                            <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8" Margin="0,0,0,12">
+                    <!-- Верхняя часть: две колонки — слева управление схемой, справа цвета. -->
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Левая колонка: управление схемой (прокручивается). -->
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      Padding="0,0,12,0">
+                            <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                         <TextBlock Text="{loc:Loc Settings.ThemeLabel}" VerticalAlignment="Center"
@@ -908,9 +914,11 @@
                                     </WrapPanel>
                                 </StackPanel>
                             </GroupBox>
+                        </ScrollViewer>
 
-                            <!-- Редактор цветов выбранной палитры -->
-                            <GroupBox Header="{loc:Loc Settings.Colors}" Padding="8" Margin="0,0,0,8">
+                        <!-- Правая колонка: список цветов выбранной палитры (прокручивается). -->
+                        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <GroupBox Header="{loc:Loc Settings.Colors}" Padding="8">
                                 <StackPanel>
                                     <TextBlock Text="{loc:Loc Settings.Colors.Description}"
                                                Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
@@ -933,46 +941,41 @@
                                             <DataTemplate>
                                                 <Grid Margin="0,3">
                                                     <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
                                                         <ColumnDefinition Width="36"/>
-                                                        <ColumnDefinition Width="*"/>
                                                         <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{Binding Label}" VerticalAlignment="Center"
-                                                               Margin="0,0,12,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                    <Border Grid.Column="1" Width="28" Height="20" CornerRadius="4"
+                                                    <Border Grid.Column="0" Width="28" Height="20" CornerRadius="4"
                                                             BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
                                                             Background="{Binding ColorBrush}"/>
-                                                    <TextBlock Grid.Column="2" Text="{Binding Hex}" VerticalAlignment="Center"
-                                                               Margin="12,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <Button Grid.Column="3" Content="{loc:Loc Settings.ChooseColor}" Padding="10,3"
-                                                            Margin="12,0,0,0" VerticalAlignment="Center"
-                                                            Style="{DynamicResource SecondaryButton}"
-                                                            Tag="{Binding Key}"
-                                                            Click="OnColorPick_Click"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Hex}" VerticalAlignment="Center"
+                                                               Margin="4,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <Button Grid.Column="2" Tag="{Binding Key}" Click="OnColorPick_Click"
+                                                            Margin="12,0,0,0" Padding="0" VerticalAlignment="Center"
+                                                            Background="Transparent" BorderThickness="0"
+                                                            HorizontalAlignment="Left" Cursor="Hand"
+                                                            ToolTip="{loc:Loc Settings.ChooseColorTooltip}">
+                                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center"
+                                                                   TextDecorations="Underline"
+                                                                   Foreground="{DynamicResource AccentBrush}"/>
+                                                    </Button>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </StackPanel>
                             </GroupBox>
-                        </StackPanel>
-                    </ScrollViewer>
+                        </ScrollViewer>
+                    </Grid>
 
-                    <!-- Правая колонка: закреплённый живой предпросмотр темы.
-                         Показывает сразу ОБЕ палитры — светлую (сверху) и тёмную (снизу),
-                         поэтому кнопка-переключатель палитры не нужна. Каждое превью уже
-                         прежнего (220→175), чтобы освободить место левой колонке.
-                         Не прокручивается вместе с настройками; при малой высоте окна
-                         ограничен по высоте и получает собственную вертикальную прокрутку. -->
-                    <GroupBox Grid.Column="1" Header="{loc:Loc Settings.Preview}" Padding="8"
-                              VerticalAlignment="Top">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                      MaxHeight="520">
-                            <StackPanel>
-                                <!-- Светлая палитра -->
-                                <TextBlock Text="{loc:Loc Theme.Light}" FontWeight="SemiBold" FontSize="12"
-                                           Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <!-- Нижний блок: горизонтальный живой предпросмотр темы на всю ширину.
+                         Оба превью рядом — светлая слева, тёмная справа. -->
+                    <GroupBox Grid.Row="1" Header="{loc:Loc Settings.Preview}" Padding="8">
+                        <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel Margin="0,0,16,0">
+                                    <TextBlock Text="{loc:Loc Theme.Light}" FontWeight="SemiBold" FontSize="12"
+                                               Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 <Border x:Name="PreviewShellLight" Width="175" CornerRadius="8" BorderThickness="1"
                                         ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
                                     <Grid>
@@ -1066,12 +1069,12 @@
                                         </Grid>
                                     </Grid>
                                 </Border>
-
-                                <!-- Тёмная палитра -->
-                                <TextBlock Text="{loc:Loc Theme.Dark}" FontWeight="SemiBold" FontSize="12"
-                                           Margin="0,12,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <Border x:Name="PreviewShellDark" Width="175" CornerRadius="8" BorderThickness="1"
-                                        ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Loc Theme.Dark}" FontWeight="SemiBold" FontSize="12"
+                                               Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <Border x:Name="PreviewShellDark" Width="175" CornerRadius="8" BorderThickness="1"
+                                            ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
@@ -1163,6 +1166,7 @@
                                         </Grid>
                                     </Grid>
                                 </Border>
+                                </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
                     </GroupBox>

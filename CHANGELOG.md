@@ -9,6 +9,109 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.38] — 2026-09-02
+
+Кнопкам окна обновления заданы фиксированные размеры, а само окно стало шире, чтобы текст «Перезапустить сейчас» и другие надписи всегда были читаемы и не обрезались ни при каком размере окна.
+
+### Исправлено
+
+- **Текст кнопок окна обновления мог обрезаться (issue #148)** ([`Services/UpdateAvailableWindow.xaml`](Configuration%20Management/Services/UpdateAvailableWindow.xaml)): всем кнопкам вместо минимального `MinWidth` задана фиксированная `Width` — `RestartNowButton` = 230, `UpdateAfterCloseButton` = 190, `DownloadButton` = 150, `CancelButton` = 100, `DoneCloseButton` = 100, `ErrorCloseButton` = 100, а ширина окна увеличена (`Width` 480→600, `MaxWidth` 520→640), чтобы текст «Перезапустить сейчас» и другие надписи всегда читались и не обрезались ни при каком размере окна.
+
+### Версия
+
+- **Версия поднята до `0.3.6.37` → `0.3.6.38`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.37] — 2026-09-02
+
+Редактор цветовых схем на вкладке «Оформление» переработан по варианту 2 из issue #155: теперь функционал помещается в одно окно без обрезания. Управление схемой осталось слева, список цветов переехал в правую колонку, а оба живых превью (светлое и тёмное) размещены в нижнем горизонтальном блоке на всю ширину. В строке цвета порядок изменён на «образец → hex → название», а само название стало кликабельной подчёркнутой ссылкой вместо отдельной кнопки «Выбрать».
+
+### Изменено
+
+- **Перекомпонована вкладка «Оформление» (issue #155)** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): редактор тем приведён к виду по варианту 2 — сверху две колонки (слева управление схемой: комбобокс и кнопки «Применить/Создать/Переименовать/Удалить/Сбросить/Экспорт/Импорт», справа список цветов выбранной палитры), снизу на всю ширину горизонтальный блок из двух живых превью (светлая палитра слева, тёмная справа). Раньше список цветов и превью делили левую колонку, из-за чего кнопка «Применить» была видна частично.
+- **Добавлен живой предпросмотр темы в Linux-версии** ([`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): в Avalonia-редакторе появились два миниатюрных предпросмотра (светлый и тёмный), построенные в коде по образцу WPF (методы `BuildThemePreview`/`PaintThemePreview`); они перекрашиваются при каждом изменении цвета.
+- **Изменён порядок элементов в строке цвета (issue #155)** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): теперь сначала идёт образец-кубик цвета, затем его HEX-значение и уже потом название. Название стало кликабельным подчёркнутым (цвет-акцент, курсор-рука) и открывает выбор цвета; отдельная кнопка «Выбрать» (ключ `Settings.ChooseColor`) удалена, вместо неё добавлен ключ-подсказка `Settings.ChooseColorTooltip`. Это позволило заметно сузить список цветов.
+
+### Версия
+
+- **Версия поднята до `0.3.6.36` → `0.3.6.37`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.36] — 2026-09-02
+
+Исправление обрезания текста кнопки «Перезапустить сейчас» в окне обновления — увеличен минимальный размер кнопки, чтобы текст не обрезался справа.
+
+### Исправлено
+
+- **Кнопка «Перезапустить сейчас» обрезалась справа (issue #148)** ([`Services/UpdateAvailableWindow.xaml`](Configuration%20Management/Services/UpdateAvailableWindow.xaml)): у кнопки `RestartNowButton` увеличен `MinWidth` со 180 до 200, чтобы текст «Перезапустить сейчас» не обрезался справа.
+
+### Версия
+
+- **Версия поднята до `0.3.6.35` → `0.3.6.36`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.35] — 2026-09-02
+
+Из окна обновления удалена вводящая в заблуждение подпись `Update.RestartChoiceHint` («Да — перезапустить программу сейчас, Нет — обновить после закрытия»), которая не соответствовала надписям на реальных кнопках «Перезапустить сейчас» / «Обновить после закрытия».
+
+### Исправлено
+
+- **Удалена вводящая в заблуждение подсказка выбора в диалоге обновления** ([`Services/UpdateAvailableWindow.xaml`](Configuration%20Management/Services/UpdateAvailableWindow.xaml)): удалён TextBlock с подписью `Update.RestartChoiceHint` из окна обновления, а ключи `Update.RestartChoiceHint` удалены из [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json). Подпись «Да — перезапустить программу сейчас, Нет — обновить после закрытия» не соответствовала надписям на реальных кнопках «Перезапустить сейчас» / «Обновить после закрытия» и вводила пользователя в заблуждение.
+
+### Версия
+
+- **Версия поднята до `0.3.6.34` → `0.3.6.35`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.34] — 2026-09-02
+
+Исправления выбора разрядности запуска в режиме «Авто» и обрезания кнопки обновления в Windows-версии, внесённые поверх версии 0.3.6.33. Теперь при чистой версии платформы без суффикса «(32)/(64)» выбор разрядности корректно переходит к глобальной «Разрядность по умолчанию» и настройке базы, а текст кнопок диалога обновления «Перезапустить сейчас» и «Скачать» больше не обрезается слева.
+
+### Исправлено
+
+- **Ошибка выбора разрядности в режиме «Авто» (issue #146)** ([`Services/OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs), [`Services/OneCLauncher.Linux.cs`](Configuration%20Management/Services/OneCLauncher.Linux.cs)): шаг 2 приоритета выбора разрядности (по суффиксу «(32)/(64)» в строке версии платформы) теперь срабатывает только если суффикс реально присутствует в строке `PlatformVersion` (добавлена проверка `hasSuffix`). Раньше `PlatformVersionService.ParseVariant` возвращал `architecture="32"` по умолчанию для чистой версии без суффикса, из-за чего шаг 2 ложно возвращал x86, игнорируя глобальную настройку X64 и настройку базы. Теперь для чистой версии логика корректно переходит к шагу 3 (глобальная «Разрядность по умолчанию») и шагу 4 (настройка базы / priority).
+- **Кнопка обновления обрезалась слева в Windows-версии (issue #148)** ([`Services/UpdateAvailableWindow.xaml`](Configuration%20Management/Services/UpdateAvailableWindow.xaml)): у кнопок `DownloadButton` и `RestartNowButton` удалены проблемные `TextOptions.TextFormattingMode="Display"` и `TextOptions.TextRenderingMode="ClearType"`, которые прижимали глифы к левому краю, а `MinWidth` увеличен — DownloadButton 120→130, RestartNowButton 140→180, поэтому текст «Перезапустить сейчас» (ru) и «Restart now» (en) теперь помещается и не обрезается.
+
+### Версия
+
+- **Версия поднята до `0.3.6.33` → `0.3.6.34`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.33] — 2026-09-02
+
+Исправления выбора разрядности запуска и читаемости файлов настроек, внесённые поверх версии 0.3.6.32. Теперь в лаунчер корректно передаётся выбранная в блоке «Текущая сессия» разрядность и она учитывается первым шагом приоритета, а `groups.json` и `infobases.json` сохраняются в читаемом виде с переносами строк и отступами.
+
+### Исправлено
+
+- **Выбор разрядности из блока «Текущая сессия» не передавался в лаунчер (issue #146)** ([`Services/OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs), [`Services/OneCLauncher.Linux.cs`](Configuration%20Management/Services/OneCLauncher.Linux.cs), [`ViewModels/MainViewModel.cs`](Configuration%20Management/ViewModels/MainViewModel.cs), [`ViewModels/MainViewModel.Display.cs`](Configuration%20Management/ViewModels/MainViewModel.Display.cs), [`ViewModels/MainViewModel.Launch.cs`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)): выбранная в «Текущей сессии» разрядность (`SessionArchitectureMode`) теперь передаётся в лаунчер и учитывается первым шагом приоритета. Полный порядок разрешения разрядности стал следующим — 1) «Текущая сессия»; 2) суффикс «(32)/(64)» в версии платформы; 3) глобальная «Разрядность по умолчанию»; 4) «Использовать приоритет базы».
+- **Файлы `groups.json` и `infobases.json` сохранялись без форматирования (issue #147)** ([`Services/InfobaseRepository.cs`](Configuration%20Management/Services/InfobaseRepository.cs)): базовые параметры JSON (`JsonOptions`) теперь используют `WriteIndented = true`, поэтому списки групп и информационных баз тоже сохраняются в читаемом виде с переносами строк и отступами (ранее в читаемом виде сохранялся только `settings.json`).
+
+### Версия
+
+- **Версия поднята до `0.3.6.32` → `0.3.6.33`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.31] — 2026-09-02
+
+Выпуск объединяет несколько исправлений стабильности и интерфейса по открытым issues #146–#153: переработан выбор разрядности запуска (добавлен новый приоритет «Использовать приоритет базы»), `settings.json` теперь сохраняется в читаемом виде с переносами строк, исправлены кнопка обновления, сохранение компактного режима правой панели, крах (SIGABRT) при открытии любых диалогов на ПО-рендере/VM, открытие окна настроек при нескольких мониторах, пропавший заголовок окна и зависание Linux при запуске в безрамковом режиме.
+
+### Исправлено
+
+- **Кнопка обновления не обрезает подпись слева (issue #148)** ([`Views/UpdateAvailableWindow.xaml`](Configuration%20Management/Views/UpdateAvailableWindow.xaml)): увеличена ширина и `Padding` левых кнопок `DownloadButton` и `RestartNowButton`, чтобы текст не обрезался слева.
+- **Не сохранялся компактный режим правой панели (issue #149)** ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs), [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)): сеттер `ShowRightPanelDetails` теперь сохраняет значение в настройки, а в `Initialize()` оно восстанавливается; добавлено свойство `ShowRightPanelHint`, которое видно только при включённых подробностях и невыбранной базе, поэтому в компактном режиме всплывающая информация больше не появляется.
+- **Крах (SIGABRT) при открытии любых диалогов (issue #150)** ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs), [`Views/AddEditWindow.Avalonia.cs`](Configuration%20Management/Views/AddEditWindow.Avalonia.cs)): прозрачность модальных окон сведена к `Transparent` без `AcrylicBlur`/`Blur` — запрос blur ронял процесс на ПО-рендере/VM; добавлено виртуальное свойство `UseGlassChrome` (`false` при `SystemDecorations.Full`), а `AddEditWindow` отключает стеклянную обёртку при системном заголовке.
+- **Настройки и несколько мониторов (issue #151)** ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs)): модальные окна по умолчанию центрируются относительно владельца (`CenterOwner`) вместо экрана — окно настроек открывается на мониторе главного окна.
+- **Пропал заголовок окна (issue #152)** ([`Models/AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs), [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json), [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json)): добавлено поле `UseSystemTitleBar` и соответствующая настройка — при включении используются `SystemDecorations.Full` без прозрачности, так что системный заголовок окна больше не пропадает.
+- **Зависание Linux при запуске (issue #153)** ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs), [`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs)): безрамковое окно с `AcrylicBlur`/`Blur` вызывало непрерывную перерисовку без VSync (~36% CPU) на VM/ПО-рендере; теперь в безрамковом режиме запрашивается только `Transparent` без blur-перерисовки.
+
+### Изменено
+
+- **Перестроен порядок приоритетов разрядности (issue #146)** ([`Services/OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs), [`Services/OneCLauncher.Linux.cs`](Configuration%20Management/Services/OneCLauncher.Linux.cs)): в `ResolveArchitecture` порядок стал следующим — 1) «Текущая сессия»; 2) суффикс «(32)/(64)» в версии платформы; 3) глобальная «Разрядность по умолчанию»; 4) новый пункт «Использовать приоритет базы», при котором срабатывает явная настройка разрядности базы (вкладка «Разрядность»). Статическое поле `DefaultArchitecture` заменено на `DefaultArchitectureMode` (строка X86/X64/Priority).
+- **Читаемые настройки `settings.json` (issue #147)** ([`Services/InfobaseRepository.cs`](Configuration%20Management/Services/InfobaseRepository.cs)): добавлен `SettingsJsonOptions` с `WriteIndented = true` — файл теперь сохраняется с переносами строк и отступами; чтение обратно совместимо.
+
+### Добавлено
+
+- **Пункт «Использовать приоритет базы» в списках выбора разрядности по умолчанию** ([`Views/SettingsWindow.Display.cs`](Configuration%20Management/Views/SettingsWindow.Display.cs), [`Views/SettingsWindow.xaml.cs`](Configuration%20Management/Views/SettingsWindow.xaml.cs), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), [`ViewModels/MainViewModel.cs`](Configuration%20Management/ViewModels/MainViewModel.cs), [`ViewModels/MainViewModel.Display.cs`](Configuration%20Management/ViewModels/MainViewModel.Display.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs), [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json), [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json)): добавлена нормализация режима `DefaultArchitectureMode` и локализация ключа `Settings.ArchBasePriority`.
+- **Опция «Использовать системный заголовок окна»** в настройках (см. issue #152 выше) с локализацией ключа `Settings.SystemTitleBar`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.30` → `0.3.6.31`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.30] — 2026-09-02
 
 При открытии спонсорской картинки «О программе» (`donat.png`) в полном размере в отдельном окне размер окна теперь равен размеру самой картинки: ширина окна — по ширине картинки, высота — по её пропорциям. Если картинка больше доступной рабочей области экрана, она пропорционально уменьшается и целиком помещается без прокрутки, а размер рабочей области берётся с учётом разрешения и масштаба экрана (DPI).

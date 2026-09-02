@@ -34,8 +34,11 @@ namespace Configuration_Management
             DefaultArchComboBox.Items.Clear();
             DefaultArchComboBox.Items.Add(LocalizationManager.T("Settings.Arch64Recommended"));
             DefaultArchComboBox.Items.Add(LocalizationManager.T("Settings.Arch32"));
+            DefaultArchComboBox.Items.Add(LocalizationManager.T("Settings.ArchBasePriority"));
             DefaultArchComboBox.SelectedIndex =
-                string.Equals(_viewModel.DefaultArchitecture, "X64", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+                string.Equals(_viewModel.DefaultArchitecture, "X86", StringComparison.OrdinalIgnoreCase) ? 1
+                : string.Equals(_viewModel.DefaultArchitecture, "Priority", StringComparison.OrdinalIgnoreCase) ? 2
+                : 0;
         }
 
         /// <summary>Локализованное название колонки по её ключу.</summary>
