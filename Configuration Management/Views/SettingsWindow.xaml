@@ -831,19 +831,21 @@
                      со собственной вертикальной прокруткой внутри своей колонки. -->
                 <Grid Margin="4,12,4,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="3*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Левая колонка: управление схемой и превью — фиксированная по содержимому,
-                         всегда видна целиком, не ужимается и не прокручивается внешним контейнером. -->
-                    <StackPanel Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Top">
+                    <!-- Левая колонка: управление схемой и превью — в собственном вертикальном
+                         ScrollViewer, всегда доступна при любой высоте окна (2* — пропорциональная). -->
+                    <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled" Padding="0,0,12,0">
+                    <StackPanel VerticalAlignment="Top">
                             <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                         <TextBlock Text="{loc:Loc Settings.ThemeLabel}" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <ComboBox x:Name="SchemeComboBox" Width="280" Height="34" Margin="10,0,0,0"
+                                        <ComboBox x:Name="SchemeComboBox" Width="240" Height="34" Margin="10,0,0,0"
                                                   VerticalAlignment="Center"
                                                   Style="{StaticResource ModernComboBox}"
                                                   SelectionChanged="OnSchemeCombo_SelectionChanged"/>
@@ -913,11 +915,11 @@
                                  под блоком управления схемой. -->
                             <GroupBox Header="{loc:Loc Settings.Preview}" Padding="8" Margin="0,12,0,0">
                         <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
-                            <StackPanel Orientation="Horizontal">
-                                <StackPanel Margin="0,0,16,0">
+                            <StackPanel>
+                                <StackPanel Margin="0,0,0,12">
                                     <TextBlock Text="{loc:Loc Theme.Light}" FontWeight="SemiBold" FontSize="12"
                                                Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <Border x:Name="PreviewShellLight" Width="175" CornerRadius="8" BorderThickness="1"
+                                <Border x:Name="PreviewShellLight" Width="210" CornerRadius="8" BorderThickness="1"
                                         ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
                                     <Grid>
                                         <Grid.RowDefinitions>
@@ -1014,7 +1016,7 @@
                                 <StackPanel>
                                     <TextBlock Text="{loc:Loc Theme.Dark}" FontWeight="SemiBold" FontSize="12"
                                                Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <Border x:Name="PreviewShellDark" Width="175" CornerRadius="8" BorderThickness="1"
+                                    <Border x:Name="PreviewShellDark" Width="210" CornerRadius="8" BorderThickness="1"
                                             ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
                                     <Grid>
                                         <Grid.RowDefinitions>
@@ -1112,6 +1114,7 @@
                         </ScrollViewer>
                             </GroupBox>
                     </StackPanel>
+                    </ScrollViewer>
 
                     <!-- Правая колонка: список цветов — со собственной вертикальной прокруткой
                          внутри своей колонки (занимает оставшуюся высоту). -->

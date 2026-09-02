@@ -1156,7 +1156,7 @@ namespace Configuration_Management
             // Список схем 280 на 34 с левым полем 10 (SettingsWindow.xaml:829).
             var schemeBox = new ComboBox
             {
-                Width = 280,
+                Width = 240,
                 Height = 34,
                 Margin = new Thickness(10, 0, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Left
@@ -1476,25 +1476,34 @@ namespace Configuration_Management
             colorsColumn.Children.Add(colorsPanel);
 
             // Группа превью — часть левой колонки, под блоком управления схемой:
-            // светлая слева, тёмная справа (горизонтально).
+            // светлая сверху, тёмная снизу (вертикально), чтобы левая колонка оставалась узкой.
             RepaintThemePreviews(editedScheme);
             var lightLabel = new TextBlock { Text = LocalizationManager.T("Theme.Light"), FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
             ThemeBrushes.Bind(lightLabel, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            var lightCol = new StackPanel { Margin = new Thickness(0, 0, 16, 0), Children = { lightLabel, _previewLight!.Shell } };
+            var lightCol = new StackPanel { Margin = new Thickness(0, 0, 0, 12), Children = { lightLabel, _previewLight!.Shell } };
             var darkLabel = new TextBlock { Text = LocalizationManager.T("Theme.Dark"), FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
             ThemeBrushes.Bind(darkLabel, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             var darkCol = new StackPanel { Children = { darkLabel, _previewDark!.Shell } };
-            var previewStrip = new StackPanel { Orientation = Orientation.Horizontal, Children = { lightCol, darkCol } };
+            var previewStrip = new StackPanel { Children = { lightCol, darkCol } };
             schemeColumn.Children.Add(SettingsGroup(LocalizationManager.T("Settings.Preview"), previewStrip, new Thickness(8), bottom: 0));
 
             // Корневой Grid из двух колонок: слева управление схемой и превью —
             // фиксированная по содержимому (Auto), всегда видна целиком; справа список
             // цветов — занимает остаток (Star) и прокручивается в собственной колонке.
             var appearanceGrid = new Grid();
-            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            Grid.SetColumn(schemeColumn, 0);
+            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(2, GridUnitType.Star)));
+            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(3, GridUnitType.Star)));
+            // Левая колонка — в собственном вертикальном ScrollViewer, чтобы при нехватке
+            // высоты окна контент прокручивался и панели управления/превью оставались доступны.
+            var schemeScroll = new ScrollViewer
+            {
+                Content = schemeColumn,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Padding = new Thickness(0, 0, 12, 0)
+            };
             schemeColumn.VerticalAlignment = VerticalAlignment.Top;
+            Grid.SetColumn(schemeScroll, 0);
             var colorsScroll = new ScrollViewer
             {
                 Content = colorsColumn,
@@ -1502,7 +1511,7 @@ namespace Configuration_Management
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
             };
             Grid.SetColumn(colorsScroll, 1);
-            appearanceGrid.Children.Add(schemeColumn);
+            appearanceGrid.Children.Add(schemeScroll);
             appearanceGrid.Children.Add(colorsScroll);
             appearance.Children.Add(appearanceGrid);
 
@@ -2678,7 +2687,7 @@ namespace Configuration_Management
 
             p.Shell = new Border
             {
-                Width = 220,
+                Width = 210,
                 CornerRadius = new CornerRadius(8),
                 BorderThickness = new Thickness(1),
                 ClipToBounds = true,
