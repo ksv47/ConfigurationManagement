@@ -1131,7 +1131,9 @@ namespace Configuration_Management
             var tabDisplay = MainTab("IconEye", "Settings.TabDisplay", displayTabs);
 
             // ===== Оформление =====
-            var appearance = new StackPanel();
+            // Контейнер вкладки — Grid, заполняющий всю доступную высоту, чтобы правая
+            // колонка со списком цветов могла прокручиваться внутри оставшейся высоты.
+            var appearance = new Grid();
             // Две колонки: слева управление схемой и превью, справа список цветов
             // (превью — часть левой колонки под блоком схемы, по варианту 2 из #155).
             var schemeColumn = new StackPanel();
@@ -1485,27 +1487,26 @@ namespace Configuration_Management
             var previewStrip = new StackPanel { Orientation = Orientation.Horizontal, Children = { lightCol, darkCol } };
             schemeColumn.Children.Add(SettingsGroup(LocalizationManager.T("Settings.Preview"), previewStrip, new Thickness(8), bottom: 0));
 
-            // Корневой Grid из двух колонок: слева управление схемой и превью,
-            // справа список цветов. Обе колонки Auto, чтобы Grid измерялся по содержимому
-            // и при горизонтальной прокрутке внешнего ScrollViewer ни один элемент не обрезался.
+            // Корневой Grid из двух колонок: слева управление схемой и превью —
+            // фиксированная по содержимому (Auto), всегда видна целиком; справа список
+            // цветов — занимает остаток (Star) и прокручивается в собственной колонке.
             var appearanceGrid = new Grid();
             appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             Grid.SetColumn(schemeColumn, 0);
-            Grid.SetColumn(colorsColumn, 1);
+            schemeColumn.VerticalAlignment = VerticalAlignment.Top;
+            var colorsScroll = new ScrollViewer
+            {
+                Content = colorsColumn,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
+            Grid.SetColumn(colorsScroll, 1);
             appearanceGrid.Children.Add(schemeColumn);
-            appearanceGrid.Children.Add(colorsColumn);
+            appearanceGrid.Children.Add(colorsScroll);
             appearance.Children.Add(appearanceGrid);
 
-            // Весь контент вкладки — единый прокручиваемый блок (вертикаль + горизонталь),
-            // чтобы при любом размере окна ни один элемент не скрывался.
-            var tabAppearance = MainTab("IconPalette", "Settings.TabAppearance",
-                new ScrollViewer
-                {
-                    Content = appearance,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
-                });
+            var tabAppearance = MainTab("IconPalette", "Settings.TabAppearance", appearance);
 
             // ===== Базы =====
             var bases = new StackPanel { Spacing = 6 };

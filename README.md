@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.42-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.43-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.42**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.43**
+>
+> ✨ **0.3.6.43:** в редакторе тем на вкладке «Оформление» возвращена двухколоночная компоновка и доработана так, чтобы все элементы были видны при открытии окна настроек: левая колонка (управление схемой и превью) — фиксированная и всегда видна, а список цветов в правой колонке прокручивается внутри собственной области ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), issue #155).
 >
 > ✨ **0.3.6.42:** окно обновления больше нельзя изменить размером мышкой — размер зафиксирован жёстко через перехват Win32-сообщения `WM_GETMINMAXINFO` (`HwndSource`-хук), т.к. `ResizeMode="NoResize"` обходится кастомным Window-Chrome ([`Services/UpdateAvailableWindow.xaml.cs`](Configuration%20Management/Services/UpdateAvailableWindow.xaml.cs), issue #148).
 >
