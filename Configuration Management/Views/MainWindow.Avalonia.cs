@@ -4165,7 +4165,14 @@ namespace Configuration_Management
             nameHeader.Margin = new Thickness(0, 0, 8, 4);
             MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
             _columnHeaderRow.Children.Add(nameHeader);
-            Grid.SetColumn(nameHeader, NameHeaderColumn);
+            // Подпись охватывает ведущие колонки и колонку имени и прижата влево,
+            // как в разметке после переноса кнопок в панель команд
+            // (MainWindow.xaml:739, Grid.Column=0 и ColumnSpan=5): ведущие колонки
+            // стоят пустыми ради выравнивания значений, а подпись начинается
+            // у левого края шапки, а не за ними.
+            Grid.SetColumn(nameHeader, 0);
+            Grid.SetColumnSpan(nameHeader, NameHeaderColumn + 1);
+            nameHeader.HorizontalAlignment = HorizontalAlignment.Left;
 
             _headerColumnIndex.Clear();
             _headerColumnIndex["Name"] = NameHeaderColumn;
