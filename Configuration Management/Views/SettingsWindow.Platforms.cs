@@ -335,25 +335,31 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Открывает спонсорскую картинку «О программе» (donat.png) в полном размере
-        /// в отдельном окне с прокруткой, если картинка больше окна.
+        /// Открывает спонсорскую картинку «О программе» (donat.png) в отдельном окне.
+        /// Размер окна рассчитывается от рабочей области экрана с учётом его разрешения
+        /// и масштаба (DPI); картинка масштабируется пропорционально (<see cref="Stretch.Uniform"/>)
+        /// и целиком помещается в окне — прокрутка не требуется.
         /// </summary>
         private void OnDonatImage_Click(object sender, MouseButtonEventArgs e)
         {
             try
             {
                 var bmp = new BitmapImage(new Uri("pack://application:,,,/donat.png"));
-                var scroll = new ScrollViewer
-                {
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Background = Brushes.Black,
-                    HorizontalContentAlignment = HorizontalAlignment.Center,
-                    VerticalContentAlignment = VerticalAlignment.Center,
-                    Content = new Image { Source = bmp, Stretch = Stretch.None, SnapsToDevicePixels = true }
-                };
 
-                var wa = SystemParameters.WorkArea;
+                // Рабочая область экрана в физических пикселях. Учитываем DPI-масштаб
+                // окна, чтобы перевести её в единицы WPF (DIP): при 100% — 1 к 1,
+                // при 150%/200% — пропорционально больше, и окно корректно вписывается
+                // в экран независимо от системного масштабирования.
+                var dpi = VisualTreeHelper.GetDpi(this);
+                var workArea = System.Windows.Forms.Screen.FromHandle(
+                    new System.Windows.Interop.WindowInteropHelper(this).Handle).WorkingArea;
+
+                // Берём 90% ширины и 85% высоты рабочей области, оставляя поля по краям.
+                var width = workArea.Width / dpi.DpiScaleX * 0.9;
+                var height = workArea.Height / dpi.DpiScaleY * 0.85;
+                if (width < 300) width = 300;
+                if (height < 200) height = 200;
+
                 var win = new Window
                 {
                     Title = "donat.png",
@@ -361,13 +367,12 @@ namespace Configuration_Management
                     ShowInTaskbar = false,
                     WindowStartupLocation = WindowStartupLocation.CenterOwner,
                     Owner = this,
-                    Content = scroll
+                    Width = width,
+                    Height = height,
+                    // Uniform вписывает картинку целиком, сохраняя пропорции, поэтому
+                    // ни колесо прокрутки, ни обрезка не нужны.
+                    Content = new Image { Source = bmp, Stretch = Stretch.Uniform }
                 };
-                // Окно ограничено рабочей областью; при большем размере картинки появляется прокрутка.
-                win.Width = Math.Min(bmp.Width, wa.Width * 0.9);
-                win.Height = Math.Min(bmp.Height, wa.Height * 0.9);
-                if (win.Width < 300) win.Width = 300;
-                if (win.Height < 200) win.Height = 200;
                 win.ShowDialog();
             }
             catch

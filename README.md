@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.29-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.30-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.29**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.30**
+>
+> ✨ **0.3.6.30:** спонсорская картинка «О программе» при открытии в полном размере теперь целиком помещается в окне без прокрутки — размер окна рассчитывается от разрешения и масштаба (DPI) экрана, а сама картинка масштабируется пропорционально.
 >
 > ✨ **0.3.6.29:** вкладка «О программе» приведена в порядок — кнопка «Проверить обновления» перенесена в строку с текстом версии (рядом с ней), а спонсорская картинка `donat.png` пропорционально уменьшена (MaxWidth 420→240, MaxHeight 560→320), чтобы не уходила за границы окна и не вызывала полную прокрутку.
 >
