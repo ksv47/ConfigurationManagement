@@ -3117,8 +3117,8 @@ namespace Configuration_Management
                 var donatImage = new Image
                 {
                     Source = donat,
-                    MaxWidth = 420,
-                    MaxHeight = 560,
+                    MaxWidth = 240,
+                    MaxHeight = 320,
                     Stretch = Stretch.Uniform,
                     HorizontalAlignment = HorizontalAlignment.Left,
                     Margin = new Thickness(0, 4, 0, 0),
