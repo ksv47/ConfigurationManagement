@@ -1,10 +1,12 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.45-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.46-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.45**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.46**
 >
-> ✨ **0.3.6.45:** в редакторе тем на вкладке «Оформление» увеличены превью (175→210), левая колонка стала уже правой, а ширины обеих колонок динамически меняются от размера окна настроек; превью сложены вертикально (светлое сверху, тёмное снизу), у каждой колонки своя вертикальная прокрутка — обе панели всегда видны при любом размере окна ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), issue #155).
+> ✨ **0.3.6.46:** в редакторе тем на вкладке «Оформление» предпросмотры снова размещены в одну линию — светлая палитра слева, тёмная справа (ранее были друг под другом); увеличенный размер превью (175→210), динамические пропорциональные колонки (левая уже правой) и отдельная вертикальная прокрутка у каждой панели сохранены ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), issue #155).
+>
+> ✨ **0.3.6.45:** в редакторе тем на вкладке «Оформление» увеличены превью (175→210), левая колонка стала уже правой, а ширины обеих колонок динамически меняются от размера окна настроек; у каждой колонки своя вертикальная прокрутка — обе панели всегда видны при любом размере окна ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), issue #155).
 >
 > ✨ **0.3.6.44:** в окне обновления больше нет пустого места внизу после скачивания — обработчик Win32-сообщения `WM_GETMINMAXINFO` теперь фиксирует только ширину окна, а высоту подстраивает `SizeToContent="Height"` под каждый этап; ширину по-прежнему нельзя изменить мышкой ([`Services/UpdateAvailableWindow.xaml.cs`](Configuration%20Management/Services/UpdateAvailableWindow.xaml.cs), issue #148).
 >

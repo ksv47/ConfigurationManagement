@@ -1476,15 +1476,15 @@ namespace Configuration_Management
             colorsColumn.Children.Add(colorsPanel);
 
             // Группа превью — часть левой колонки, под блоком управления схемой:
-            // светлая сверху, тёмная снизу (вертикально), чтобы левая колонка оставалась узкой.
+            // светлая слева, тёмная справа (горизонтально, в одну линию).
             RepaintThemePreviews(editedScheme);
             var lightLabel = new TextBlock { Text = LocalizationManager.T("Theme.Light"), FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
             ThemeBrushes.Bind(lightLabel, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            var lightCol = new StackPanel { Margin = new Thickness(0, 0, 0, 12), Children = { lightLabel, _previewLight!.Shell } };
+            var lightCol = new StackPanel { Margin = new Thickness(0, 0, 16, 0), Children = { lightLabel, _previewLight!.Shell } };
             var darkLabel = new TextBlock { Text = LocalizationManager.T("Theme.Dark"), FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
             ThemeBrushes.Bind(darkLabel, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             var darkCol = new StackPanel { Children = { darkLabel, _previewDark!.Shell } };
-            var previewStrip = new StackPanel { Children = { lightCol, darkCol } };
+            var previewStrip = new StackPanel { Orientation = Orientation.Horizontal, Children = { lightCol, darkCol } };
             schemeColumn.Children.Add(SettingsGroup(LocalizationManager.T("Settings.Preview"), previewStrip, new Thickness(8), bottom: 0));
 
             // Корневой Grid из двух колонок: слева управление схемой и превью —

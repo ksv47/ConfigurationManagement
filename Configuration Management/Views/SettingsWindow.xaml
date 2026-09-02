@@ -915,8 +915,8 @@
                                  под блоком управления схемой. -->
                             <GroupBox Header="{loc:Loc Settings.Preview}" Padding="8" Margin="0,12,0,0">
                         <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
-                            <StackPanel>
-                                <StackPanel Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel Margin="0,0,16,0">
                                     <TextBlock Text="{loc:Loc Theme.Light}" FontWeight="SemiBold" FontSize="12"
                                                Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 <Border x:Name="PreviewShellLight" Width="210" CornerRadius="8" BorderThickness="1"
