@@ -1,0 +1,67 @@
+# =============================================================================
+# Публикация Linux-версии в GitHub Releases.
+#
+# Срабатывает на push тега релиза (например v0.3.6.31 или 0.3.6.31), собирает
+# самодостаточный single-file исполняемый файл Linux (Avalonia, net10.0,
+# linux-x64) с помощью build-linux-single-file.sh и прикрепляет его asset'ом
+# к GitHub Release с этим тегом. Если релиз для тега ещё не создан — создаёт
+# его, если уже существует — только добавляет/перезаписывает asset.
+#
+# Windows-версия собирается/публикуется отдельно и здесь не затрагивается.
+# =============================================================================
+name: Публикация Linux-релиза
+
+# В фильтрах тегов GitHub Actions не поддерживает символьные классы ([0-9]),
+# поэтому используем glob-шаблоны: v0.3.6.31, 0.3.6.31, 0.3.6 и т.п.
+on:
+  push:
+    tags:
+      - 'v*'
+      - '*.*.*'
+      - '*.*.*.*'
+
+# Создание/обновление release и загрузка asset требуют записи в репозиторий.
+permissions:
+  contents: write
+
+# Отменяем незавершённый прогон по тому же тегу, чтобы не плодить гонки.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux (Avalonia, single-file) → Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Установка .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # На реальном Linux скрипт собирает net10.0 + Avalonia (linux-x64),
+      # выдаёт dist/linux-x64/ConfigurationManagement — один исполняемый файл.
+      - name: Сборка Linux single-file
+        working-directory: Configuration Management
+        run: ./build-linux-single-file.sh Release
+
+      - name: Подготовка asset'а релиза
+        run: |
+          mkdir -p dist/release
+          cp "Configuration Management/dist/linux-x64/ConfigurationManagement" \
+             dist/release/ConfigurationManagement-linux-x64
+          ls -lh dist/release
+
+      - name: Прикрепление Linux-артефакта к GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/release/ConfigurationManagement-linux-x64
+          # Перезаписываем одноимённый asset при повторном прогоне на том же релизе.
+          overwrite: true
+          # Падаем, если указанный файл не собран/не существует.
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

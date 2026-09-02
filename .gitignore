@@ -46,3 +46,8 @@ package/linux/AppDir/
 package/linux/out/
 package/linux/deb/staging/
 package/linux/deb/out/
+
+## Артефакты сборки / временные файлы
+build_out.txt
+.tmp/
+release_notes_*.md

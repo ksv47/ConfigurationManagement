@@ -1,12 +1,26 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- ======================================================================
+       Переключатель кросс-платформенной сборки.
+       По умолчанию целевой TFM и состав проекта выбираются по ОС сборки:
+         * Windows -> net10.0-windows (WPF);
+         * Linux   -> net10.0 (Avalonia).
+       Чтобы собрать Linux-версию (net10.0 + Avalonia) НА Windows,
+       передайте -p:ForceLinux=true (см. build-linux-single-file.ps1).
+       ====================================================================== -->
+  <PropertyGroup>
+    <!-- BuildLinux = true при реальной сборке на Linux ИЛИ при ForceLinux=true. -->
+    <BuildLinux Condition="'$(ForceLinux)' == 'true'">true</BuildLinux>
+    <BuildLinux Condition="'$(BuildLinux)' == '' and !$([MSBuild]::IsOSPlatform('Windows'))">true</BuildLinux>
+  </PropertyGroup>
+
+  <!-- ======================================================================
        Windows-конфигурация (WPF): net10.0-windows
        TFM net10.0-windows автоматически определяет символ условной
        компиляции WINDOWS (и WINDOWS10_0_*), поэтому #if WINDOWS работает
        на Windows без дополнительной настройки.
        ====================================================================== -->
-  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+  <PropertyGroup Condition="'$(BuildLinux)' != 'true' and $([MSBuild]::IsOSPlatform('Windows'))">
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
@@ -23,7 +37,7 @@
        UseWPF / UseWindowsForms / System.Management / MaterialDesignThemes
        здесь не подключаются (нет WPF на Linux).
        ====================================================================== -->
-  <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+  <PropertyGroup Condition="'$(BuildLinux)' == 'true' or !$([MSBuild]::IsOSPlatform('Windows'))">
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <!-- Символ LINUX для директив #if LINUX / #if !WINDOWS -->
@@ -45,10 +59,10 @@
          поэтому AssemblyVersion/FileVersion/Version ограничены 4 частями, а точная
          пользовательская версия «0.3.1.1» задаётся через InformationalVersion
          и выводится в заголовок окна. -->
-    <Version>0.3.6.31</Version>
-    <AssemblyVersion>0.3.6.31</AssemblyVersion>
-    <FileVersion>0.3.6.31</FileVersion>
-    <InformationalVersion>0.3.6.31</InformationalVersion>
+    <Version>0.3.6.32</Version>
+    <AssemblyVersion>0.3.6.32</AssemblyVersion>
+    <FileVersion>0.3.6.32</FileVersion>
+    <InformationalVersion>0.3.6.32</InformationalVersion>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>
@@ -61,21 +75,21 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' == 'Release' and $([MSBuild]::IsOSPlatform('Windows'))">
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(BuildLinux)' != 'true' and $([MSBuild]::IsOSPlatform('Windows'))">
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' == 'Release' and !$([MSBuild]::IsOSPlatform('Windows'))">
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and ('$(BuildLinux)' == 'true' or !$([MSBuild]::IsOSPlatform('Windows')))">
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
   </PropertyGroup>
 
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+  <ItemGroup Condition="'$(BuildLinux)' != 'true' and $([MSBuild]::IsOSPlatform('Windows'))">
     <!-- Тестам нужны чистые функции протокола и сборки строки подключения. Публичными
          их делать незачем: за пределами сборки они не имеют смысла. -->
     <InternalsVisibleTo Include="ConfigurationManagement.Tests" />
   </ItemGroup>
 
   <!-- WPF-ресурсы иконок (embedded, только Windows) -->
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+  <ItemGroup Condition="'$(BuildLinux)' != 'true' and $([MSBuild]::IsOSPlatform('Windows'))">
     <Resource Include="app.ico" />
     <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
     <Resource Include="tray.ico" />
@@ -87,7 +101,7 @@
   <!-- App.xaml как Page, а не ApplicationDefinition: тогда генератор даёт
        InitializeComponent(), но не собственный Main, и точкой входа остаётся
        Program.Main из StartupObject выше. -->
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+  <ItemGroup Condition="'$(BuildLinux)' != 'true' and $([MSBuild]::IsOSPlatform('Windows'))">
     <ApplicationDefinition Remove="App.xaml" />
     <Page Include="App.xaml" SubType="Designer" Generator="MSBuild:Compile" />
   </ItemGroup>
@@ -112,7 +126,7 @@
 
   <!-- Пакеты: только Windows (WPF). System.Management (Win32_Process) и
        MaterialDesignThemes (PackIcon) — Windows-only, для Linux исключены. -->
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+  <ItemGroup Condition="'$(BuildLinux)' != 'true' and $([MSBuild]::IsOSPlatform('Windows'))">
     <PackageReference Include="MaterialDesignThemes" Version="5.2.1" />
     <!-- Для чтения командной строки процессов 1cv8.exe (Win32_Process) при проверке
          блокировки запуска конфигуратора перед выгрузкой .dt / .cf. -->
@@ -125,13 +139,13 @@
        используется, поэтому AVLN3001 («нет открытого конструктора без
        параметров») здесь не о чем: у части окон конструктор с параметрами,
        и заводить пустой ради инструмента значит портить их API. -->
-  <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+  <PropertyGroup Condition="'$(BuildLinux)' == 'true' or !$([MSBuild]::IsOSPlatform('Windows'))">
     <NoWarn>$(NoWarn);AVLN3001</NoWarn>
   </PropertyGroup>
 
   <!-- Пакеты: только Linux (Avalonia). На этапе 1 подключаются как замена WPF;
        MaterialDesignThemes для Linux не подключается (полная замена иконок — позже). -->
-  <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+  <ItemGroup Condition="'$(BuildLinux)' == 'true' or !$([MSBuild]::IsOSPlatform('Windows'))">
     <PackageReference Include="Avalonia" Version="11.3.20" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.20" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
@@ -144,7 +158,7 @@
 
   <!-- Иконки для трея (Linux): PNG встраиваются в сборку, чтобы трей имел иконку
        независимо от рабочего каталога. Загрузка через WindowIcon без System.Drawing. -->
-  <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+  <ItemGroup Condition="'$(BuildLinux)' == 'true' or !$([MSBuild]::IsOSPlatform('Windows'))">
     <EmbeddedResource Include="tray_icon_preview.png" LogicalName="tray_icon_preview.png" />
     <EmbeddedResource Include="app_icon_preview.png" LogicalName="app_icon_preview.png" />
     <!-- Изображение во вкладке «О программе» (Avalonia/Linux): загрузка из ресурса -->
@@ -152,7 +166,7 @@
   </ItemGroup>
 
   <!-- Не импортировать WinForms/Drawing глобально на Windows — иначе конфликт с типами WPF -->
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+  <ItemGroup Condition="'$(BuildLinux)' != 'true' and $([MSBuild]::IsOSPlatform('Windows'))">
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
   </ItemGroup>
@@ -166,7 +180,7 @@
        .xaml-файлы здесь не компилируются (нет UseWPF/Avalonia для .xaml),
        поэтому достаточно удалить их code-behind (.cs).
        ====================================================================== -->
-  <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+  <ItemGroup Condition="'$(BuildLinux)' == 'true' or !$([MSBuild]::IsOSPlatform('Windows'))">
     <!-- WPF App (вместо него — App.axaml/.cs) -->
     <Compile Remove="App.xaml.cs" />
     <!-- Окна (код за разметкой; разметка .xaml в Linux не компилируется).
