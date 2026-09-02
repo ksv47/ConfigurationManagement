@@ -1132,7 +1132,8 @@ namespace Configuration_Management
 
             // ===== Оформление =====
             var appearance = new StackPanel();
-            // Верхняя часть из двух колонок: слева управление схемой, справа список цветов.
+            // Две колонки: слева управление схемой и превью, справа список цветов
+            // (превью — часть левой колонки под блоком схемы, по варианту 2 из #155).
             var schemeColumn = new StackPanel();
             var colorsColumn = new StackPanel();
             // Заголовок группы из разметки WPF (SettingsWindow.xaml:824).
@@ -1472,18 +1473,8 @@ namespace Configuration_Management
 
             colorsColumn.Children.Add(colorsPanel);
 
-            // Верхняя часть: две колонки — слева управление схемой, справа цвета.
-            var topGrid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
-            topGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            topGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            Grid.SetColumn(schemeColumn, 0);
-            Grid.SetColumn(colorsColumn, 1);
-            topGrid.Children.Add(schemeColumn);
-            topGrid.Children.Add(colorsColumn);
-
-            appearance.Children.Add(topGrid);
-
-            // Нижний блок: горизонтальный предпросмотр обеих палитр на всю ширину.
+            // Группа превью — часть левой колонки, под блоком управления схемой:
+            // светлая слева, тёмная справа (горизонтально).
             RepaintThemePreviews(editedScheme);
             var lightLabel = new TextBlock { Text = LocalizationManager.T("Theme.Light"), FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
             ThemeBrushes.Bind(lightLabel, TextBlock.ForegroundProperty, "TextSecondaryBrush");
@@ -1492,7 +1483,19 @@ namespace Configuration_Management
             ThemeBrushes.Bind(darkLabel, TextBlock.ForegroundProperty, "TextSecondaryBrush");
             var darkCol = new StackPanel { Children = { darkLabel, _previewDark!.Shell } };
             var previewStrip = new StackPanel { Orientation = Orientation.Horizontal, Children = { lightCol, darkCol } };
-            appearance.Children.Add(SettingsGroup(LocalizationManager.T("Settings.Preview"), previewStrip, new Thickness(8), bottom: 0));
+            schemeColumn.Children.Add(SettingsGroup(LocalizationManager.T("Settings.Preview"), previewStrip, new Thickness(8), bottom: 0));
+
+            // Корневой Grid из двух колонок: слева управление схемой и превью,
+            // справа список цветов, растянутый по вертикали и прокручиваемый внутри колонки.
+            var appearanceGrid = new Grid();
+            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            var colorsScroll = new ScrollViewer { Content = colorsColumn, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            Grid.SetColumn(schemeColumn, 0);
+            Grid.SetColumn(colorsScroll, 1);
+            appearanceGrid.Children.Add(schemeColumn);
+            appearanceGrid.Children.Add(colorsScroll);
+            appearance.Children.Add(appearanceGrid);
 
             var tabAppearance = MainTab("IconPalette", "Settings.TabAppearance",
                 new ScrollViewer { Content = appearance, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });

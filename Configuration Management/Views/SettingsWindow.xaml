@@ -825,25 +825,18 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <!-- Вкладка по варианту 2 (#155): две колонки сверху — слева управление схемой,
-                     справа список цветов; снизу на всю ширину горизонтальный блок из двух
-                     превью (светлая слева, тёмная справа). -->
+                <!-- Вкладка по варианту 2 (#155): две колонки — слева управление схемой и превью,
+                     справа список цветов. Превью — часть левой колонки под блоком схемы. -->
                 <Grid Margin="4,12,4,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                    <!-- Верхняя часть: две колонки — слева управление схемой, справа цвета. -->
-                    <Grid Grid.Row="0" Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Левая колонка: управление схемой (прокручивается). -->
-                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                      Padding="0,0,12,0">
+                    <!-- Левая колонка: управление схемой и превью (прокручивается по вертикали). -->
+                    <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  Padding="0,0,12,0">
+                        <StackPanel>
                             <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
@@ -914,63 +907,10 @@
                                     </WrapPanel>
                                 </StackPanel>
                             </GroupBox>
-                        </ScrollViewer>
 
-                        <!-- Правая колонка: список цветов выбранной палитры (прокручивается). -->
-                        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <GroupBox Header="{loc:Loc Settings.Colors}" Padding="8">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc Settings.Colors.Description}"
-                                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
-                                               TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                    <!-- Переключатель палитры «светлая/тёмная»: одна кнопка-переключатель,
-                                         как в главном окне (в тёмной палитре — солнце, в светлой — луна). -->
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                        <Button x:Name="PaletteToggleButton" Click="OnPaletteSwitch_Click"
-                                                Style="{DynamicResource IconButton}"
-                                                ToolTip="{loc:Loc Theme.Dark}">
-                                            <Path x:Name="PaletteToggleIcon" Width="18" Height="18" Stretch="Uniform"
-                                                  Data="{StaticResource IconMoon}" Fill="#8B5CF6"/>
-                                        </Button>
-                                        <TextBlock x:Name="PaletteStateText" Text="{loc:Loc Theme.Light}"
-                                                   VerticalAlignment="Center" Margin="8,0,0,0"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    </StackPanel>
-                                    <ItemsControl x:Name="ColorItemsControl">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid Margin="0,3">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="36"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <Border Grid.Column="0" Width="28" Height="20" CornerRadius="4"
-                                                            BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
-                                                            Background="{Binding ColorBrush}"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding Hex}" VerticalAlignment="Center"
-                                                               Margin="4,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <Button Grid.Column="2" Tag="{Binding Key}" Click="OnColorPick_Click"
-                                                            Margin="12,0,0,0" Padding="0" VerticalAlignment="Center"
-                                                            Background="Transparent" BorderThickness="0"
-                                                            HorizontalAlignment="Left" Cursor="Hand"
-                                                            ToolTip="{loc:Loc Settings.ChooseColorTooltip}">
-                                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center"
-                                                                   TextDecorations="Underline"
-                                                                   Foreground="{DynamicResource AccentBrush}"/>
-                                                    </Button>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </GroupBox>
-                        </ScrollViewer>
-                    </Grid>
-
-                    <!-- Нижний блок: горизонтальный живой предпросмотр темы на всю ширину.
-                         Оба превью рядом — светлая слева, тёмная справа. -->
-                    <GroupBox Grid.Row="1" Header="{loc:Loc Settings.Preview}" Padding="8">
+                            <!-- Превью: светлая слева, тёмная справа — часть левой колонки
+                                 под блоком управления схемой. -->
+                            <GroupBox Header="{loc:Loc Settings.Preview}" Padding="8" Margin="0,12,0,0">
                         <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
                             <StackPanel Orientation="Horizontal">
                                 <StackPanel Margin="0,0,16,0">
@@ -1169,7 +1109,60 @@
                                 </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
-                    </GroupBox>
+                            </GroupBox>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Правая колонка: список цветов выбранной палитры (прокручивается по вертикали). -->
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <GroupBox Header="{loc:Loc Settings.Colors}" Padding="8">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc Settings.Colors.Description}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <!-- Переключатель палитры «светлая/тёмная»: одна кнопка-переключатель,
+                                     как в главном окне (в тёмной палитре — солнце, в светлой — луна). -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Button x:Name="PaletteToggleButton" Click="OnPaletteSwitch_Click"
+                                            Style="{DynamicResource IconButton}"
+                                            ToolTip="{loc:Loc Theme.Dark}">
+                                        <Path x:Name="PaletteToggleIcon" Width="18" Height="18" Stretch="Uniform"
+                                              Data="{StaticResource IconMoon}" Fill="#8B5CF6"/>
+                                    </Button>
+                                    <TextBlock x:Name="PaletteStateText" Text="{loc:Loc Theme.Light}"
+                                               VerticalAlignment="Center" Margin="8,0,0,0"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                                <ItemsControl x:Name="ColorItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="36"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Width="28" Height="20" CornerRadius="4"
+                                                        BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                                                        Background="{Binding ColorBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Hex}" VerticalAlignment="Center"
+                                                           Margin="4,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <Button Grid.Column="2" Tag="{Binding Key}" Click="OnColorPick_Click"
+                                                        Margin="12,0,0,0" Padding="0" VerticalAlignment="Center"
+                                                        Background="Transparent" BorderThickness="0"
+                                                        HorizontalAlignment="Left" Cursor="Hand"
+                                                        ToolTip="{loc:Loc Settings.ChooseColorTooltip}">
+                                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center"
+                                                               TextDecorations="Underline"
+                                                               Foreground="{DynamicResource AccentBrush}"/>
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </GroupBox>
+                    </ScrollViewer>
                 </Grid>
             </TabItem>
 
