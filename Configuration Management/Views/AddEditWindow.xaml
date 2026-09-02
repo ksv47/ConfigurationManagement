@@ -78,8 +78,8 @@
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="📋" FontSize="24" VerticalAlignment="Center"
-                               Foreground="{DynamicResource AccentBrush}"/>
+                    <materialDesign:PackIcon Grid.Column="0" Kind="ClipboardTextOutline" Width="22" Height="22"
+                                             VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{loc:Loc AddEdit.ExistingBase}" FontWeight="SemiBold" FontSize="14"/>
                         <TextBlock Text="{loc:Loc AddEdit.ExistingBaseDescription}"
@@ -97,8 +97,8 @@
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="💾" FontSize="24" VerticalAlignment="Center"
-                               Foreground="{DynamicResource AccentBrush}"/>
+                    <materialDesign:PackIcon Grid.Column="0" Kind="ContentSave" Width="22" Height="22"
+                                             VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{loc:Loc AddEdit.CreateEmpty}" FontWeight="SemiBold" FontSize="14"/>
                         <TextBlock Text="{loc:Loc AddEdit.CreateEmptyDescription}"
@@ -116,8 +116,8 @@
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="📦" FontSize="24" VerticalAlignment="Center"
-                               Foreground="{DynamicResource AccentBrush}"/>
+                    <materialDesign:PackIcon Grid.Column="0" Kind="CubeOutline" Width="22" Height="22"
+                                             VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{loc:Loc AddEdit.CreateFromTemplate}" FontWeight="SemiBold" FontSize="14"/>
                         <TextBlock Text="{loc:Loc AddEdit.CreateFromTemplateDescription}"
@@ -135,8 +135,8 @@
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="📁" FontSize="24" VerticalAlignment="Center"
-                               Foreground="{DynamicResource AccentBrush}"/>
+                    <materialDesign:PackIcon Grid.Column="0" Kind="FolderOutline" Width="22" Height="22"
+                                             VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{loc:Loc AddEdit.Group}" FontWeight="SemiBold" FontSize="14"/>
                         <TextBlock Text="{loc:Loc AddEdit.GroupDescription}"

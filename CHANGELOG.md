@@ -9,6 +9,117 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.30] — 2026-09-02
+
+При открытии спонсорской картинки «О программе» (`donat.png`) в полном размере в отдельном окне размер окна теперь равен размеру самой картинки: ширина окна — по ширине картинки, высота — по её пропорциям. Если картинка больше доступной рабочей области экрана, она пропорционально уменьшается и целиком помещается без прокрутки, а размер рабочей области берётся с учётом разрешения и масштаба экрана (DPI).
+
+### Изменено
+
+- **Спонсорская картинка «О программе» в полном размере открывается размером самой картинки** ([`Views/SettingsWindow.Platforms.cs`](Configuration%20Management/Views/SettingsWindow.Platforms.cs)): при клике на картинку `donat.png` она открывается в отдельном окне, ширина которого равна ширине картинки, а высота — по её пропорциям; если картинка больше доступной рабочей области экрана, она пропорционально уменьшается (`Stretch=Uniform`) и целиком помещается в окне без прокрутки; размер рабочей области берётся с учётом разрешения и масштаба экрана (DPI, через `VisualTreeHelper.GetDpi` + `System.Windows.Forms.Screen.WorkingArea`).
+
+### Версия
+
+- **Версия поднята до `0.3.6.29` → `0.3.6.30`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.29] — 2026-09-02
+
+Внешний вид вкладки «О программе» приведён в порядок: кнопка «Проверить обновления» перенесена в строку с текстом версии (рядом с ней), а спонсорская картинка `donat.png` пропорционально уменьшена (MaxWidth 420→240, MaxHeight 560→320), чтобы не уходила за границы окна и не вызывала полную прокрутку.
+
+### Изменено
+
+- **Перенос кнопки «Проверить обновления» в строку версии вкладки «О программе»** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): кнопка проверки обновлений теперь расположена рядом с текстом версии, а не отдельной строкой.
+- **Пропорциональное уменьшение спонсорской картинки `donat.png`** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): размеры уменьшены (MaxWidth 420→240, MaxHeight 560→320), чтобы картинка не уходила за границы окна и не вызывала полную прокрутку.
+
+### Версия
+
+- **Версия поднята до `0.3.6.28` → `0.3.6.29`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.28] — 2026-09-02
+
+Новый отчёт пользователя 7OH (issue #146, комментарий https://github.com/sivatorov/ConfigurationManagement/issues/146#issuecomment-5505422453) показал: после импорта баз из файла `ibases.v8i` у базы стоит конкретная версия без выбора разрядности, и при запуске возникает ошибка, хотя задана глобальная «Разрядность по умолчанию» = X64 («приоритет 64, если ничего не задано»). Причина — импортированным базам без явного суффикса разрядности «(32)/(64)» безусловно проставлялось непустое значение `architecture = "32-priority"`. Поскольку глобальная «Разрядность по умолчанию» в `ResolveArchitecture` применяется только при пустой строке разрядности, шаг с глобальной настройкой пропускался и действовал приоритетный режим по стилю 1С с предпочтением 32-бит, поэтому глобальный «приоритет 64» игнорировался — отсюда неверная разрядность или «Платформа не найдена».
+
+### Исправлено
+
+- **Импортированные из `ibases.v8i` базы не учитывали глобальную «Разрядность по умолчанию» (issue #146)** ([`Services/IbasesV8iImporter.cs`](Configuration%20Management/Services/IbasesV8iImporter.cs)): в `ToInfobase` дефолт разрядности изменён с `var architecture = "32-priority"` на `var architecture = string.Empty;` (ветка с явным суффиксом «(32)/(64)» не тронута). Теперь импортированная база без явной разрядности остаётся с пустой строкой разрядности, поэтому в `OneCLauncher.ResolveArchitecture` срабатывает шаг 3 — глобальная «Разрядность по умолчанию». Файл общий для обеих платформ (Windows/WPF и Linux/Avalonia); сборка успешна.
+
+### Версия
+
+- **Версия поднята до `0.3.6.27` → `0.3.6.28`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.27] — 2026-09-02
+
+Коммит `853d99b` (исправление issue #146 в версии 0.3.6.26) обновил порядок приоритетов разрядности только в Windows-лаунчере, но не затронул Linux-двойник, из-за чего в Linux/Avalonia-порте баг выбора разрядности остался: суффикс разрядности в версии платформы проверялся ДО явной настройки базы, и приоритетный режим (32-priority/64-priority) вместе с глобальной настройкой по умолчанию не могли корректно сработать. Метод `ResolveArchitecture` в Linux-порте приведён к тому же корректному порядку приоритетов, что и в Windows.
+
+### Исправлено
+
+- **Приоритет разрядности в Linux-порте (issue #146)** ([`Services/OneCLauncher.Linux.cs`](Configuration%20Management/Services/OneCLauncher.Linux.cs)): метод `ResolveArchitecture` приведён к правильному порядку приоритетов, как в Windows-версии: 1) явная настройка разрядности базы («только 32» / «только 64») — наивысший приоритет; 2) суффикс разрядности в выбранной версии платформы («8.3.27.1688 (64)») — уступает явной настройке базы; 3) глобальная настройка «Разрядность по умолчанию», если в базе ничего не указано; 4) приоритетный режим 32-priority/64-priority по стилю 1С (сравнение лучших установленных версий 32 и 64 через `FindBestVersionDir`/`CompareVersionStrings`). Раньше в Linux-версии суффикс разрядности версии платформы проверялся до явной настройки базы, поэтому приоритетный режим и глобальная настройка по умолчанию не могли корректно сработать. Также обновлён XML-комментарий метода.
+
+### Версия
+
+- **Версия поднята до `0.3.6.26` → `0.3.6.27`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.26] — 2026-09-01
+
+Исправлен выбор разрядности запуска клиента 1С (issue #146). Пользователь сообщил, что после выбора для базы х64-версии платформы (например, «8.3.27 (х64)») при запуске в авторежиме запускалась х86: сменить разрядность на х64 не удавалось, а после успешного выбора обратно на х86 — тоже. Причина была двойной: (1) при выборе той же версии через диалог выбора платформы выполнение прерывалось ранним `return`, поэтому суффикс разрядности «(32)/(64)» не переносился в поле разрядности базы; (2) в методе выбора разрядности суффикс версии имел приоритет над явной настройкой разрядности базы, что противоречило приоритетам, описанным пользователем.
+
+### Исправлено
+
+- **Смена разрядности той же версии платформы (issue #146)** ([`Views/MainWindow.Events.cs`](Configuration%20Management/Views/MainWindow.Events.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)): убран ранний `return` при совпадении выбранной и текущей версии платформы в методах `OpenPlatformVersionPicker` и `PickPlatformVersionFor`. Теперь суффикс разрядности «(32)/(64)» всегда переносится в поле разрядности базы даже если версия не изменилась — можно переключить х86 ↔ х64 одной и той же версии в обе стороны.
+- **Приоритет явной настройки разрядности базы над суффиксом версии (issue #146)** ([`Services/OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs)): в `ResolveArchitecture` порядок приоритетов приведён к описанному в issue: явная настройка разрядности базы («только 32» / «только 64») → суффикс разрядности в выбранной версии платформы → глобальная настройка «Разрядность по умолчанию» → приоритетный режим (32-priority / 64-priority) по стилю 1С. Раньше суффикс версии обрабатывался раньше явной настройки базы, из-за чего «только 64» могло игнорироваться, если в версии оставался суффикс «(32)».
+
+### Версия
+
+- **Версия поднята до `0.3.6.25` → `0.3.6.26`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.25] — 2026-09-01
+
+Устаревшие эмодзи-иконки команд заменены на современные векторные иконки Material Design (`materialDesign:PackIcon`) в Windows/WPF-версии. Теперь иконки главного окна (поиск), окна добавления информационной базы, темы поиска, окон групп и профилей стали векторными: они перекрашиваются цветом темы/акцента и выглядят единообразно с остальным интерфейсом.
+
+### Изменено
+
+- **Замена эмодзи-иконок на векторные Material Design (`materialDesign:PackIcon`)** ([`Views/AddEditWindow.xaml`](Configuration%20Management/Views/AddEditWindow.xaml), [`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml), [`Themes/LightTheme.xaml`](Configuration%20Management/Themes/LightTheme.xaml), [`Themes/DarkTheme.xaml`](Configuration%20Management/Themes/DarkTheme.xaml), [`Views/GroupEditWindow.xaml`](Configuration%20Management/Views/GroupEditWindow.xaml), [`Views/GroupSettingsWindow.xaml`](Configuration%20Management/Views/GroupSettingsWindow.xaml), [`Views/ProfilesPanel.xaml`](Configuration%20Management/Views/ProfilesPanel.xaml), [`Views/ProfilesWindow.xaml`](Configuration%20Management/Views/ProfilesWindow.xaml)): эмодзи 📋💾📦📁🔍🗑 заменены на векторные `materialDesign:PackIcon`: в окне добавления базы — `ClipboardTextOutline`, `ContentSave`, `CubeOutline`, `FolderOutline` (22×22); в главном окне — `Magnify` (поиск); в шаблоне `SearchTextBox` тем — `Magnify`; в окнах групп — `FolderOutline`; в окнах профилей и настроек групп — `DeleteOutline`. Иконки стали векторными, перекрашиваются цветом темы/акцента и выглядят единообразно с остальным интерфейсом.
+
+### Версия
+
+- **Версия поднята до `0.3.6.24` → `0.3.6.25`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.24] — 2026-09-01
+
+Из списка режимов клиента блока «Текущая сессия» убрана подпись «(управляемые формы)» — пункт «Толстый клиент» теперь называется просто «Толстый». Обновлена справка блока: режимы перечислены как «Авто / Обычный (обычные формы, RunModeOrdinaryApplication) / Толстый (управляемые формы, /RunModeManagedApplication) / Тонкий» — с явным пояснением соответствия пунктов режимам форм 1С (issue #144, замечание в комментарии пользователя 7OH).
+
+### Изменено
+
+- **Подпись пункта толстого клиента и справка блока «Текущая сессия» (issue #144)** ([`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json), [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json)): ключ `Main.SessionClientThickManaged` — значение «Толстый (управляемые формы)»/«Thick (managed forms)» заменено на «Толстый»/«Thick» (подпись «(управляемые формы)» убрана). Ключ `Main.CurrentSessionHelp` — буллет режима клиента обновлён на «Авто / Обычный (обычные формы, RunModeOrdinaryApplication) / Толстый (управляемые формы, /RunModeManagedApplication) / Тонкий.» в справке блока, чтобы явно пояснить соответствие пунктов режимам форм 1С (замечание пользователя 7OH в issue #144).
+
+### Версия
+
+- **Версия поднята до `0.3.6.23` → `0.3.6.24`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.23] — 2026-09-01
+
+Исправлено скачивание обновления на Windows/WPF: раньше при загрузке крупного релиз-файла (~79 МБ) провайдер/прокси на ~5% сбрасывал соединение, и скачивание каждый раз начиналось с нуля, а при повторном обрыве показывалась ошибка «не удалось скачать обновление». Теперь скачивание устойчиво к обрывам соединения: частично скачанный файл сохраняется во временном каталоге, а при повторе докачивается с места обрыва через HTTP Range (до 12 попыток с паузой между ними) вместо полного перезапуска.
+
+### Исправлено
+
+- **Устойчивость скачивания обновления к обрывам соединения** ([`Services/UpdateService.cs`](Configuration%20Management/Services/UpdateService.cs)): переписан метод `DownloadAsync` — добавлен цикл повторов с докачкой (до 12 попыток, с паузой между ними), частично скачанный файл сохраняется во временном каталоге. Добавлены методы `DownloadChunkAsync` (скачивание фрагмента с поддержкой ответов `206`/`200` и заголовком `Range`), `ParseContentRangeTotal`, `TryGetFileLength`; добавлены using `System.Net` и `System.Net.Http.Headers`. При обрыве соединения загрузка продолжается с места обрыва через HTTP Range вместо полного перезапуска.
+
+### Версия
+
+- **Версия поднята до `0.3.6.22` → `0.3.6.23`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.22] — 2026-09-01
+
+Уменьшено количество окон при обновлении (Windows/WPF): ошибки скачивания/установки теперь показываются **внутри единого окна обновления** `UpdateAvailableWindow`, а не отдельным модальным окном ошибки поверх. Раньше при ошибке окно обновления закрывалось, после чего открывалось отдельное модальное окно `MaterialMessageWindow` — пользователь видел несколько окон друг за другом. Теперь в `UpdateAvailableWindow` добавлена панель `ErrorPanel` с заголовком «Ошибка обновления», текстом ошибки и кнопкой закрытия; ошибка отображается в том же окне обновления, поэтому весь процесс всегда проходит в одном окне.
+
+### Изменено
+
+- **Ошибки скачивания/установки показываются внутри окна обновления** ([`Services/UpdateAvailableWindow.xaml`](Configuration%20Management/Services/UpdateAvailableWindow.xaml), [`Services/UpdateAvailableWindow.xaml.cs`](Configuration%20Management/Services/UpdateAvailableWindow.xaml.cs)): добавлена панель `ErrorPanel` (этап 5) с заголовком `{loc:Loc Update.ErrorTitle}`, текстом и кнопкой закрытия. Добавлен метод `ShowError(string)`; все вызовы `_service.ShowErrorOnUi(...)` + `Close()` заменены на `ShowError(...)` — ошибки остаются в том же окне обновления, а не показываются отдельным модальным окном поверх.
+- **Локализация заголовка ошибки обновления** ([`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json), [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json)): добавлен ключ `Update.ErrorTitle` — «Ошибка обновления» / «Update error».
+
+### Версия
+
+- **Версия поднята до `0.3.6.21` → `0.3.6.22`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.21] — 2026-09-01
 
 В окне выбора версии платформы 1С теперь доступен выбор не только полных 4-компонентных версий (например, `8.3.27.2295`), но и **частичных префиксов** — линии (`8.3`) и группы сборок (`8.3.27`) — с сохранением указания разрядности «(32)/(64)`. Если выбрана частичная версия, при запуске подставляется **максимальная из установленных сборок**, соответствующая префиксу и нужной разрядности; поиск ведётся по **всем каталогам платформ** из настроек, включая дополнительные диски. В Linux/Avalonia-порте эта возможность теперь работает так же, как в Windows/WPF. Кроме того, из списка режимов клиента блока «Текущая сессия» удалён дублирующий пункт «Толстый (обычные формы)» — осталось 4 режима: Авто, Толстый клиент, Тонкий клиент, Обычный режим.

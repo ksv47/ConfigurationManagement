@@ -2760,14 +2760,18 @@ public class MainViewModel : ViewModelBase
 
         PlatformVersionService.ParseVariant(selected, out var cleanVersion, out var arch);
         var newVersion = string.IsNullOrWhiteSpace(cleanVersion) ? selected : cleanVersion;
-        if (string.Equals(infobase.PlatformVersion, newVersion, StringComparison.Ordinal))
-            return;
-
-        infobase.PlatformVersion = newVersion;
+        var versionChanged = !string.Equals(infobase.PlatformVersion, newVersion, StringComparison.Ordinal);
+        // Раньше здесь был ранний return при совпадении версии — из-за этого
+        // нельзя было сменить разрядность (х86 → х64) одной и той же версии (issue #146).
+        if (versionChanged)
+            infobase.PlatformVersion = newVersion;
         if (arch is "32" or "64")
             infobase.Architecture = arch;
-        SaveSilently();
-        RebuildTree();
+        if (versionChanged || arch is "32" or "64")
+        {
+            SaveSilently();
+            RebuildTree();
+        }
     }
 
     private List<string> InstalledPlatformVersions()

@@ -573,7 +573,7 @@ public static class IbasesV8iImporter
             var connection = ParseConnection(Connect);
 
             var version = Version;
-            var architecture = "32-priority";
+            var architecture = string.Empty;
             var end = Version.LastIndexOf(')');
             var start = Version.LastIndexOf('(');
             if (end >= 0 && start >= 0 && start < end)

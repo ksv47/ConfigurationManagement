@@ -56,6 +56,7 @@
     "Update.NoDownloadUrl": "No installer file was found for this release.",
     "Update.DownloadFailed": "Failed to download the update.",
     "Update.InstallFailed": "Failed to install the update.",
+    "Update.ErrorTitle": "Update error",
 
     "Main.GroupBy": "Groups",
     "Main.ToggleGroups": "Show / hide groups",
@@ -126,7 +127,7 @@
     "Main.LaunchHistory": "Launch history",
     "Main.SessionClientAuto": "Auto",
     "Main.SessionClientOrdinary": "Ordinary",
-    "Main.SessionClientThickManaged": "Thick (managed forms)",
+    "Main.SessionClientThickManaged": "Thick",
     "Main.SessionClientThin": "Thin",
     "Main.ClearProgramCacheTitle": "Clear program cache",
     "Main.ClearUserCacheTitle": "Clear user cache",
@@ -208,7 +209,7 @@
     "Main.BaseListHelp": "The central list of 1C infobases.\n\n• To launch a base, select it and click 1C:Enterprise or Configurator in the right panel (or double-click the row).\n• Groups expand/collapse with the ◂ arrow, as well as with the ←/→ keys when a group is selected.\n• The ↑/↓ arrows move the selection between rows.\n• ★ adds a base to Favorites (quick launch Alt+1…Alt+9); 📌 pins it at the top of the list.\n• The width of any column can be changed by dragging the separator on its right edge.\n• Clicking the Name or Last launch header sorts the list.",
     "Main.TagFilterHelp": "The quick tag filter panel.\n\n• Click a tag — the base list is filtered by that tag (the selected tag is highlighted).\n• You can select several tags at once — bases that have all the selected tags are shown (multi-filter).\n• Clicking the selected tag again removes it from the filter.\n• The Clear button (on the right) resets all selected tags.\n• While filtering by tag, groups and pinned bases are temporarily hidden — a single flat list of found bases is shown.",
     "Main.NoSelection": "No selection",
-    "Main.CurrentSessionHelp": "The Current session block sets the client mode and bitness only for the next launch of 1C:Enterprise, without changing the saved infobase settings.\n\n• Client mode: Auto / Ordinary / Thick (managed forms, /RunModeManagedApplication) / Thick (ordinary forms, /RunModeOrdinaryApplication) / Thin.\n• Bitness: Auto / 32 / 64.\n• The selected values apply to the next launch; the infobase settings in properties remain unchanged.",
+    "Main.CurrentSessionHelp": "The Current session block sets the client mode and bitness only for the next launch of 1C:Enterprise, without changing the saved infobase settings.\n\n• Client mode: Auto / Ordinary (ordinary forms, RunModeOrdinaryApplication) / Thick (managed forms, /RunModeManagedApplication) / Thin.\n• Bitness: Auto / 32 / 64.\n• The selected values apply to the next launch; the infobase settings in properties remain unchanged.",
 
     "Main.Ready": "Ready",
     "Main.StatusBase": "Base: {0} — {1}",
