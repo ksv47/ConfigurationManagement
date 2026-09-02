@@ -446,7 +446,10 @@ namespace Configuration_Management
             var panel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                // В разметке зазор задан отступом каждой кнопки (Margin="0,0,2,0",
+                // MainWindow.xaml:496 и далее), здесь он общий для всей строки.
+                Spacing = 2
             };
 
             // Развернуть и свернуть группы, сортировка групп, показ тегов в строках.
@@ -865,13 +868,15 @@ namespace Configuration_Management
         }
 
         /// <summary>Сегментный переключатель (например «группы»/«теги») с иконкой и состояниями.</summary>
-        private SegmentButton MakeSegmentToggle(string iconKey, string tooltip)
+        private SegmentButton MakeSegmentToggle(string iconKey, string tooltip, double iconSize = 18)
         {
             // Размеры из разметки (MainWindow.xaml:171-179): значок 18, отступ 6,
             // зазор между сегментами 2. Прежние 15, 12 на 5 и общий Spacing
             // разносили кнопки заметно шире, чем в версии для Windows.
+            // У переключателя тегов в панели команд значок свой, 14
+            // (MainWindow.xaml:528), поэтому размер параметром.
             var segment = new SegmentButton(iconKey, string.Empty, "ItemHoverBrush", "ItemSelectedBrush", lockOn: false,
-                iconSize: UiMetrics.Scaled(18))
+                iconSize: UiMetrics.Scaled(iconSize))
             {
                 IsChecked = true,
                 // У автора рамки нет, отступ 6. У нас рамка в 2 держит фокусное
@@ -1317,13 +1322,16 @@ namespace Configuration_Management
                         // меняется из окна настроек на живом окне.
                         RefreshCommandPanel();
                     }
-                    // Метка закрепления стоит в том же блоке кнопок панели команд.
-                    if (e.PropertyName == nameof(MainViewModel.ShowPinnedButton))
-                        RefreshCommandPanel();
-                    // Переключатель тегов в списке живёт в том же заголовке,
+                    // Звезда и булавка задают ширину ведущих колонок, а строки
+                    // при смене настройки пересобираются: без пересборки шапки
+                    // её колонки остались бы прежней ширины и разошлись со строками.
+                    if (e.PropertyName == nameof(MainViewModel.ShowPinnedButton)
+                        || e.PropertyName == nameof(MainViewModel.ShowFavoritesButton))
+                        QueueColumnHeaderRefresh();
+                    // Переключатель тегов в списке живёт в панели команд,
                     // а его настройка меняется и из окна настроек.
                     if (e.PropertyName == nameof(MainViewModel.ShowTags))
-                        QueueColumnHeaderRefresh();
+                        RefreshCommandPanel();
                     // Группировку меняют и верхняя панель, и окно настроек,
                     // поэтому переключатель подтягивает состояние вьюмодели.
                     if (e.PropertyName == nameof(MainViewModel.GroupByGroup) && _groupByToggle is not null)
@@ -1724,7 +1732,7 @@ namespace Configuration_Management
             grid.ColumnDefinitions.Add(compensator ?? new ColumnDefinition { Width = new GridLength(0) });
             // Резерв под переключатель тегов снят вместе с переносом кнопок
             // в панель команд: колонка пустая и лишнего отступа слева от
-            // «Названия» давать не должна (MainWindow.xaml:653 и 1028).
+            // «Названия» давать не должна (MainWindow.xaml:656 и 1030).
             grid.ColumnDefinitions.Add(new ColumnDefinition
             {
                 Width = new GridLength(showFavorite ? FavoriteColumnWidth : 0)
@@ -3923,7 +3931,7 @@ namespace Configuration_Management
         /// Ведущая колонка на месте прежних кнопок групп во всех трёх сетках
         /// списка. Сами кнопки живут в панели команд, а колонка осталась
         /// небольшим отступом выравнивания и обнуляется вместе с ними
-        /// (MainWindow.xaml:650 и 1026).
+        /// (MainWindow.xaml:651 и 1026).
         /// </summary>
         private double GroupButtonsColumnWidth
             => (_vm?.ShowExpandCollapseButtons ?? true) ? 24 : 0;
@@ -4100,6 +4108,11 @@ namespace Configuration_Management
                 // обязан совпадать с отступом строки, иначе заголовки разъедутся
                 // со значениями; в разметке он нулевой в обоих местах.
                 Padding = new Thickness(0, 2),
+                // Высоту шапке задавали кнопки блока групп; после их переноса
+                // в панель команд её держит минимум из разметки
+                // (MainWindow.xaml:639: MinHeight 36 и прозрачность 0.95).
+                MinHeight = 36,
+                Opacity = 0.95,
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Child = _columnHeaderRow
             };
@@ -4161,7 +4174,7 @@ namespace Configuration_Management
 
             var nameHeader = ColumnHeader(LocalizationManager.T("Column.Name"), IconHelper.ColumnIconKey("Name"));
             // У «Названия» отступ слева нулевой: заголовок равняется по тексту строк
-            // списка, а не по границе колонки. В разметке WPF так же (MainWindow.xaml:627).
+            // списка, а не по границе колонки. В разметке WPF так же (MainWindow.xaml:739).
             nameHeader.Margin = new Thickness(0, 0, 8, 4);
             MakeSortableHeader(nameHeader, "Name", LocalizationManager.T("Main.ColumnNameSortTooltip"));
             _columnHeaderRow.Children.Add(nameHeader);
@@ -4253,18 +4266,6 @@ namespace Configuration_Management
             var tagsToggle = BuildTagsInListToggle();
             panel.Children.Add(tagsToggle);
 
-            // Пометка закрепления стоит сразу за переключателем тегов внутри
-            // того же блока, как в разметке (MainWindow.xaml:620): своей колонки
-            // у неё нет, поэтому и прятать её ни от чего не нужно.
-            if (_vm?.ShowPinnedButton == true)
-            {
-                var pinMark = IconHelper.MakeIcon("IconPin", UiMetrics.Scaled(14), "TextSecondaryBrush");
-                pinMark.Margin = new Thickness(4, 0, 0, 0);
-                pinMark.VerticalAlignment = VerticalAlignment.Center;
-                ToolTip.SetTip(pinMark, LocalizationManager.T("Main.Pinned"));
-                panel.Children.Add(pinMark);
-            }
-
             return panel;
         }
 
@@ -4275,9 +4276,12 @@ namespace Configuration_Management
         /// </summary>
         private Control BuildTagsInListToggle()
         {
-            var toggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleListTags"));
+            var toggle = MakeSegmentToggle("IconTag", LocalizationManager.T("Main.ToggleListTags"), iconSize: 14);
             toggle.IsChecked = _vm?.ShowTags ?? false;
             toggle.VerticalAlignment = VerticalAlignment.Center;
+            // Отступ у него слева, а не справа, как у остальных сегментов
+            // (MainWindow.xaml:526).
+            toggle.Margin = new Thickness(2, 0, 0, 0);
             toggle.Click += (_, _) =>
             {
                 if (_vm is not null)
@@ -4293,7 +4297,9 @@ namespace Configuration_Management
             // прозрачный фон, скругление 8, подсветка при наведении, отступ 8.
             var button = new Button
             {
-                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(15), "TextSecondaryBrush"),
+                // Значок 18, как у этих же кнопок в панели команд разметки
+                // (MainWindow.xaml:499, 506, 513, 520).
+                Content = IconHelper.MakeIcon(iconKey, UiMetrics.Scaled(18), "TextSecondaryBrush"),
                 Padding = new Thickness(UiMetrics.Scaled(8)),
                 MinWidth = 0,
                 MinHeight = 0,
