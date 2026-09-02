@@ -207,7 +207,9 @@ namespace Configuration_Management.Services
             //    пользователь выбрал конкретную сборку. Это следующий по приоритету шаг
             //    после «текущей сессии» и перебивает глобальную настройку.
             PlatformVersionService.ParseVariant(platformVersion ?? string.Empty, out var cleanVersion, out var versionArch);
-            if (!string.IsNullOrWhiteSpace(cleanVersion) && (versionArch == "32" || versionArch == "64"))
+            var hasSuffix = !string.IsNullOrWhiteSpace(platformVersion)
+                && platformVersion.Contains("(") && platformVersion.Contains(")");
+            if (hasSuffix && !string.IsNullOrWhiteSpace(cleanVersion) && (versionArch == "32" || versionArch == "64"))
                 return versionArch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86;
 
             // 3. Глобальная настройка «Разрядность по умолчанию»

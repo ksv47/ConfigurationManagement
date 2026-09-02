@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.33-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.34-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.33**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.34**
+>
+> ✨ **0.3.6.34:** исправлен выбор разрядности запуска в режиме «Авто» (issue #146) — шаг 2 приоритета (по суффиксу «(32)/(64)» в версии платформы) теперь срабатывает только если суффикс реально присутствует в `PlatformVersion`, поэтому при чистой версии без суффикса выбор корректно переходит к глобальной «Разрядность по умолчанию» и настройке базы (раньше платформа всегда запускалась x86 даже при глобальной настройке X64 и приоритете базы 64). Кнопки диалога обновления «Перезапустить сейчас» и «Скачать» больше не обрезаются слева в Windows-версии (issue #148) — удалены проблемные `TextOptions` (`Display`/`ClearType`) и увеличен `MinWidth`.
 >
 > ✨ **0.3.6.33:** исправлен выбор разрядности запуска (issue #146) — выбранная в блоке «Текущая сессия» разрядность (`SessionArchitectureMode`) теперь передаётся в лаунчер и учитывается первым шагом приоритета (полный порядок: 1) «Текущая сессия»; 2) суффикс «(32)/(64)» в версии платформы; 3) глобальная «Разрядность по умолчанию»; 4) «Использовать приоритет базы»); `groups.json` и `infobases.json` теперь тоже сохраняются в читаемом виде с переносами строк и отступами (`WriteIndented = true`), как и `settings.json` (issue #147).
 >
@@ -376,8 +378,8 @@ sudo apt remove configuration-management   # удаление
 
 ```bash
 # Клонирование репозитория
-git clone https://github.com/USERNAME/Configuration-Management.git
-cd Configuration-Management
+git clone https://github.com/sivatorov/ConfigurationManagement.git
+cd Configuration Management
 
 # Сборка проекта
 dotnet build "Configuration Management/Configuration Management.csproj"
@@ -598,7 +600,7 @@ tools/
 
 ## 📬 Контакты
 
-Если у вас возникли вопросы или предложения — создайте [issue](https://github.com/USERNAME/Configuration-Management/issues) в репозитории.
+Если у вас возникли вопросы или предложения — создайте [issue](https://github.com/sivatorov/ConfigurationManagement/issues) в репозитории.
 
 ## Сборка
 
