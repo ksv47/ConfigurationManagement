@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.35-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.36-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.35**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.36**
+>
+> ✨ **0.3.6.36:** кнопка «Перезапустить сейчас» в окне обновления больше не обрезается справа — у `RestartNowButton` увеличен `MinWidth` со 180 до 200 в [`Services/UpdateAvailableWindow.xaml`](Configuration%20Management/Services/UpdateAvailableWindow.xaml) (issue #148).
 >
 > ✨ **0.3.6.35:** из окна обновления удалена вводящая в заблуждение подпись `Update.RestartChoiceHint` («Да — перезапустить программу сейчас, Нет — обновить после закрытия»), которая не соответствовала надписям на реальных кнопках «Перезапустить сейчас» / «Обновить после закрытия». Удалён TextBlock в [`Services/UpdateAvailableWindow.xaml`](Configuration%20Management/Services/UpdateAvailableWindow.xaml) и ключи `Update.RestartChoiceHint` из ru.json/en.json.
 >

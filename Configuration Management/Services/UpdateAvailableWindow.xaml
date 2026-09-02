@@ -116,7 +116,7 @@
 
                     <!-- «Перезапустить сейчас» (основная кнопка) и «Обновить после закрытия» -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-                        <Button x:Name="RestartNowButton" MinWidth="180" Height="34" Padding="0" IsDefault="True"
+                        <Button x:Name="RestartNowButton" MinWidth="200" Height="34" Padding="0" IsDefault="True"
                                 Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White"
                                 Margin="0,0,10,0"
                                 Click="OnRestartNowClick">
