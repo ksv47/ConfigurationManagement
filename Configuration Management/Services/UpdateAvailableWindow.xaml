@@ -7,7 +7,7 @@
         Icon="{StaticResource AppIcon}"
         SizeToContent="Height"
         Width="600"
-        MaxWidth="640"
+        MaxWidth="600"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         FontFamily="Segoe UI"
@@ -138,7 +138,7 @@
                             <TextBlock x:Name="RestartNowText" Text="{loc:Loc Update.RestartNow}" VerticalAlignment="Center"
                                        Foreground="White" FontWeight="Bold" FontSize="13"/>
                         </Button>
-                        <Button x:Name="UpdateAfterCloseButton" Width="190" Height="34"
+                        <Button x:Name="UpdateAfterCloseButton" Width="240" Height="34"
                                 Background="Transparent" BorderThickness="1.5"
                                 BorderBrush="{DynamicResource BorderBrushColor}"
                                 Cursor="Hand"
@@ -159,7 +159,7 @@
                                 </ControlTemplate>
                             </Button.Template>
                             <TextBlock x:Name="UpdateAfterCloseText" Text="{loc:Loc Update.UpdateAfterClose}"
-                                       VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                       VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </Button>
                     </StackPanel>
                 </StackPanel>
