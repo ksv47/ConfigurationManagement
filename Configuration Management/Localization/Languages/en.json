@@ -277,7 +277,7 @@
     "Settings.Theme": "Color theme",
     "Settings.Colors": "Colors",
     "Settings.Preview": "Preview",
-    "Settings.ChooseColor": "Choose…",
+    "Settings.ChooseColorTooltip": "Choose color",
     "Settings.SyncSettings": "Synchronization settings",
     "Settings.TemplateDirs": "Configuration template directories",
     "Settings.IbaseList": "Infobase list",

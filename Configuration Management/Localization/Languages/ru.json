@@ -277,7 +277,7 @@
     "Settings.Theme": "Тема оформления",
     "Settings.Colors": "Цвета",
     "Settings.Preview": "Предпросмотр",
-    "Settings.ChooseColor": "Выбрать…",
+    "Settings.ChooseColorTooltip": "Выбрать цвет",
     "Settings.SyncSettings": "Настройки синхронизации",
     "Settings.TemplateDirs": "Каталоги шаблонов конфигураций",
     "Settings.IbaseList": "Список информационных баз",
