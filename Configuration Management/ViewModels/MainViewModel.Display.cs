@@ -419,6 +419,8 @@ public partial class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsSessionArchAuto));
                 OnPropertyChanged(nameof(IsSessionArch32));
                 OnPropertyChanged(nameof(IsSessionArch64));
+                // «Текущая сессия» учитывается лаунчером первым шагом приоритета (issue #146).
+                OneCLauncher.SessionArchitecture = value;
                 ScheduleSaveSettings();
             }
         }

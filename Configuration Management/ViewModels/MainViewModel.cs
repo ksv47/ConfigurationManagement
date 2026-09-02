@@ -247,6 +247,9 @@ public partial class MainViewModel : ViewModelBase
             _sessionClientMode = scm;
         if (Enum.TryParse<SessionArchitectureMode>(settings.SessionArchitecture, true, out var sam))
             _sessionArchitecture = sam;
+        // Передаём «Текущую сессию» лаунчеру: он учитывает её первым шагом приоритета
+        // выбора разрядности (issue #146), даже для запусков напрямую (без переопределений).
+        OneCLauncher.SessionArchitecture = _sessionArchitecture;
         // Режим «Разрядности по умолчанию» (X86 / X64 / Priority). Сохраняем строку
         // как есть, а лаунчер сам разрешает её; легаси «X64» остаётся X64.
         _defaultArchitecture = NormalizeDefaultArchitecture(settings.DefaultArchitecture);

@@ -229,12 +229,10 @@ public partial class MainViewModel : ViewModelBase
             _ => ResolveClientFromInfobase(ib)
         };
 
-        var arch = _sessionArchitecture switch
-        {
-            SessionArchitectureMode.X86 => OneCArchitecture.x86,
-            SessionArchitectureMode.X64 => OneCArchitecture.x64,
-            _ => OneCLauncher.ResolveArchitecture(ib.Architecture, ib.PlatformVersion)
-        };
+        // Разрядность полностью определяет лаунчер по приоритету (issue #146):
+        // 1) «Текущая сессия» (передана через OneCLauncher.SessionArchitecture),
+        // 2) суффикс версии, 3) глобальная настройка, 4) настройка базы / priority.
+        var arch = OneCLauncher.ResolveArchitecture(ib.Architecture, ib.PlatformVersion);
 
         // Режим форм: «Толстый (управляемые формы)» и «Обычный режим» задают его явно;
         // в остальных случаях берём из настройки базы при автоматическом клиенте.

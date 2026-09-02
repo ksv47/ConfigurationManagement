@@ -13,8 +13,10 @@ public class InfobaseRepository : IInfobaseRepository
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        // Без отступов — заметно быстрее сериализация/запись при большом списке баз.
-        WriteIndented = false,
+        // Переносы строк и отступы, чтобы файлы infobases.json и groups.json было
+        // удобно править вручную (issue #147). Чтение остаётся совместимым как с
+        // компактным, так и с форматированным JSON — оба разбираются одинаково.
+        WriteIndented = true,
         PropertyNameCaseInsensitive = true,
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };

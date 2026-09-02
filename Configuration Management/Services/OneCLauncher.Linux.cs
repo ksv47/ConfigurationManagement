@@ -65,6 +65,15 @@ namespace Configuration_Management.Services
         /// </summary>
         public static string DefaultArchitectureMode { get; set; } = "X64";
 
+        /// <summary>
+        /// Разрядность для «текущей сессии» (блок «Текущая сессия» в окне списка баз).
+        /// Наивысший (первый) шаг приоритета выбора разрядности в <see cref="ResolveArchitecture"/>:
+        /// если здесь задан конкретный режим (не Auto), он побеждает и суффикс версии,
+        /// и глобальную настройку, и настройку базы. Auto — выбираем по шагам 2–4.
+        /// Значение передаётся из <c>MainViewModel</c> (изменяется вместе с выбором в UI).
+        /// </summary>
+        public static SessionArchitectureMode SessionArchitecture { get; set; } = SessionArchitectureMode.Auto;
+
         private static readonly ConcurrentDictionary<string, Process> _activeBatchProcesses =
             new(StringComparer.OrdinalIgnoreCase);
 
@@ -176,7 +185,7 @@ namespace Configuration_Management.Services
         /// Выбор разрядности по правилам 1С:Предприятие.
         /// Порядок приоритетов (issue #146, комментарий 7OH):
         /// 1. «Текущая сессия» — выбранное значение в группе «Текущая сессия»
-        ///    (обрабатывается в вызывающем коде до этого метода).
+        ///    (свойство <see cref="SessionArchitecture"/>, передаётся из MainViewModel).
         /// 2. Суффикс разрядности в выбранной версии платформы («8.3.27.1688 (64)»).
         /// 3. Глобальная настройка «Разрядность по умолчанию»: X64 / X86 либо
         ///    новый режим «Использовать приоритет базы» (Priority).
@@ -186,6 +195,14 @@ namespace Configuration_Management.Services
         /// </summary>
         public static OneCArchitecture ResolveArchitecture(string? architectureSetting, string? platformVersion)
         {
+            // 1. «Текущая сессия» — первый (наивысший) шаг приоритета (issue #146).
+            //    Явный выбор разрядности в блоке «Текущая сессия» побеждает суффикс
+            //    версии, глобальную настройку и настройку базы.
+            if (SessionArchitecture == SessionArchitectureMode.X86)
+                return OneCArchitecture.x86;
+            if (SessionArchitecture == SessionArchitectureMode.X64)
+                return OneCArchitecture.x64;
+
             // 2. Если в версии платформы явно указан суффикс разрядности («8.3.27.1688 (64)») —
             //    пользователь выбрал конкретную сборку. Это следующий по приоритету шаг
             //    после «текущей сессии» и перебивает глобальную настройку.

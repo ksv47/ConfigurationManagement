@@ -1053,6 +1053,8 @@ public class MainViewModel : ViewModelBase
             if (!SetPropertyWithRelated(ref _sessionArch, value, nameof(SessionArch), nameof(IsSessionArchAuto), nameof(IsSessionArch32), nameof(IsSessionArch64)))
                 return;
 
+            // «Текущая сессия» учитывается лаунчером первым шагом приоритета (issue #146).
+            OneCLauncher.SessionArchitecture = SessionArchitectureMode();
             _settings.SessionArchitecture = SessionArchitectureMode().ToString();
             SaveSettingsSilently();
         }
@@ -1117,12 +1119,10 @@ public class MainViewModel : ViewModelBase
             _ => ClientFromInfobase(infobase)
         };
 
-        var architecture = arch switch
-        {
-            Models.SessionArchitectureMode.X86 => OneCArchitecture.x86,
-            Models.SessionArchitectureMode.X64 => OneCArchitecture.x64,
-            _ => OneCLauncher.ResolveArchitecture(infobase.Architecture, infobase.PlatformVersion)
-        };
+        // Разрядность полностью определяет лаунчер по приоритету (issue #146):
+        // 1) «Текущая сессия» (передана через OneCLauncher.SessionArchitecture),
+        // 2) суффикс версии, 3) глобальная настройка, 4) настройка базы / priority.
+        var architecture = OneCLauncher.ResolveArchitecture(infobase.Architecture, infobase.PlatformVersion);
 
         OneCRunMode? runMode = client switch
         {
@@ -1182,6 +1182,9 @@ public class MainViewModel : ViewModelBase
             _listMode = _settings.ShowFavoritesOnly ? "Favorites" : "All";
             _sessionClient = SessionClientFromSetting(_settings.SessionClientMode);
             _sessionArch = SessionArchFromSetting(_settings.SessionArchitecture);
+            // «Текущая сессия» учитывается лаунчером первым шагом приоритета
+            // выбора разрядности (issue #146), даже для запусков напрямую.
+            OneCLauncher.SessionArchitecture = SessionArchitectureMode();
             ApplyDefaultArchitecture();
             ApplyAdditionalSearchPaths();
             ApplyTemplateCatalogPaths();

@@ -9,6 +9,19 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.33] — 2026-09-02
+
+Исправления выбора разрядности запуска и читаемости файлов настроек, внесённые поверх версии 0.3.6.32. Теперь в лаунчер корректно передаётся выбранная в блоке «Текущая сессия» разрядность и она учитывается первым шагом приоритета, а `groups.json` и `infobases.json` сохраняются в читаемом виде с переносами строк и отступами.
+
+### Исправлено
+
+- **Выбор разрядности из блока «Текущая сессия» не передавался в лаунчер (issue #146)** ([`Services/OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs), [`Services/OneCLauncher.Linux.cs`](Configuration%20Management/Services/OneCLauncher.Linux.cs), [`ViewModels/MainViewModel.cs`](Configuration%20Management/ViewModels/MainViewModel.cs), [`ViewModels/MainViewModel.Display.cs`](Configuration%20Management/ViewModels/MainViewModel.Display.cs), [`ViewModels/MainViewModel.Launch.cs`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)): выбранная в «Текущей сессии» разрядность (`SessionArchitectureMode`) теперь передаётся в лаунчер и учитывается первым шагом приоритета. Полный порядок разрешения разрядности стал следующим — 1) «Текущая сессия»; 2) суффикс «(32)/(64)» в версии платформы; 3) глобальная «Разрядность по умолчанию»; 4) «Использовать приоритет базы».
+- **Файлы `groups.json` и `infobases.json` сохранялись без форматирования (issue #147)** ([`Services/InfobaseRepository.cs`](Configuration%20Management/Services/InfobaseRepository.cs)): базовые параметры JSON (`JsonOptions`) теперь используют `WriteIndented = true`, поэтому списки групп и информационных баз тоже сохраняются в читаемом виде с переносами строк и отступами (ранее в читаемом виде сохранялся только `settings.json`).
+
+### Версия
+
+- **Версия поднята до `0.3.6.32` → `0.3.6.33`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.31] — 2026-09-02
 
 Выпуск объединяет несколько исправлений стабильности и интерфейса по открытым issues #146–#153: переработан выбор разрядности запуска (добавлен новый приоритет «Использовать приоритет базы»), `settings.json` теперь сохраняется в читаемом виде с переносами строк, исправлены кнопка обновления, сохранение компактного режима правой панели, крах (SIGABRT) при открытии любых диалогов на ПО-рендере/VM, открытие окна настроек при нескольких мониторах, пропавший заголовок окна и зависание Linux при запуске в безрамковом режиме.
