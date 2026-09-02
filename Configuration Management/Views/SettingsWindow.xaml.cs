@@ -94,8 +94,13 @@ namespace Configuration_Management
             _viewModel.SetAdditionalPlatformSearchPaths(_additionalPlatformPaths);
             _viewModel.SetInstalledPlatformVersions(_installedPlatformVersions);
 
-            // Разрядность по умолчанию (Настройки → Платформы).
-            _viewModel.ApplyDefaultArchitecture(DefaultArchComboBox.SelectedIndex == 0 ? "X64" : "X86");
+            // Режим «Разрядности по умолчанию» (Настройки → Платформы).
+            _viewModel.ApplyDefaultArchitecture(DefaultArchComboBox.SelectedIndex switch
+            {
+                1 => "X86",
+                2 => "Priority",
+                _ => "X64"
+            });
 
             // Сохраняем настройки синхронизации с файлом ibases.v8i.
             var s = _settings.Sync;

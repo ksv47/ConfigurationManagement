@@ -247,10 +247,10 @@ public partial class MainViewModel : ViewModelBase
             _sessionClientMode = scm;
         if (Enum.TryParse<SessionArchitectureMode>(settings.SessionArchitecture, true, out var sam))
             _sessionArchitecture = sam;
-        // Разрядность по умолчанию для запуска, если у базы она не указана.
-        _defaultArchitecture = string.Equals(settings.DefaultArchitecture, "X64", StringComparison.OrdinalIgnoreCase)
-            ? "X64" : "X86";
-        OneCLauncher.DefaultArchitecture = ParseArchitecture(_defaultArchitecture);
+        // Режим «Разрядности по умолчанию» (X86 / X64 / Priority). Сохраняем строку
+        // как есть, а лаунчер сам разрешает её; легаси «X64» остаётся X64.
+        _defaultArchitecture = NormalizeDefaultArchitecture(settings.DefaultArchitecture);
+        OneCLauncher.DefaultArchitectureMode = _defaultArchitecture;
         _statusShowConnectionPath = settings.StatusShowConnectionPath;
         _statusShowArchitecture = settings.StatusShowArchitecture;
         _statusShowLaunchMode = settings.StatusShowLaunchMode;

@@ -45,13 +45,13 @@ namespace Configuration_Management
             SystemDecorations = SystemDecorations.None;
             ExtendClientAreaToDecorationsHint = true;
 
-            // Прозрачное окно под эффект «стекла»: просим у оконного менеджера
-            // AcrylicBlur, при недоступности откатываемся на Blur, затем Transparent.
-            // Полупрозрачную подложку нужного цвета темы рисует стеклянный контейнер.
+            // Прозрачное окно под эффект «стекла»: используем обычную прозрачность без
+            // размытия. Запрос AcrylicBlur/Blur включает непрерывную перерисовку фона, что
+            // в виртуальной машине и окружениях с программным рендером даёт высокую нагрузку
+            // CPU и падение при открытии диалога (issues #150, #153). Полупрозрачную подложку
+            // нужного цвета темы рисует стеклянный контейнер.
             TransparencyLevelHint = new[]
             {
-                WindowTransparencyLevel.AcrylicBlur,
-                WindowTransparencyLevel.Blur,
                 WindowTransparencyLevel.Transparent
             };
             Background = Brushes.Transparent;
@@ -60,6 +60,12 @@ namespace Configuration_Management
             // ShowInTaskbar="False" стоит у всех шестнадцати окон, поэтому здесь
             // это общее свойство базового окна, а не повторение в каждом.
             ShowInTaskbar = false;
+
+            // Модальные окна по умолчанию центрируются относительно владельца, а не
+            // экрана: иначе окно настроек открывалось бы всегда на первом мониторе,
+            // даже когда главное окно на втором (issue #151). CenterOwner при отсутствии
+            // владельца даёт центр экрана, так что ухудшения нет.
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
         }
 
         /// <summary>
@@ -86,6 +92,16 @@ namespace Configuration_Management
 
         /// <summary>Результат диалога: true — подтверждён (ОК), false — отменён.</summary>
         public bool DialogResult { get; protected set; }
+
+        /// <summary>
+        /// Оборачивать ли содержимое диалога в собственную «стеклянную» рамку без системного
+        /// заголовка (по умолчанию — да, как у главного окна). Окно автоматически обходится
+        /// без неё, если использует стандартный системный заголовок (<see cref="SystemDecorations.Full"/>):
+        /// иначе SystemDecorations.None + ExtendClientAreaToDecorationsHint + прозрачный фон
+        /// конфликтуют с запрошенной системной рамкой и вызывают падение на Linux (issue #150).
+        /// Конкретное окно может отключить обёртку и для безрамкового режима.
+        /// </summary>
+        protected virtual bool UseGlassChrome => SystemDecorations != SystemDecorations.Full;
 
         protected override void OnClosed(EventArgs e)
         {
@@ -152,6 +168,13 @@ namespace Configuration_Management
         {
             base.OnPropertyChanged(change);
             if (change.Property != ContentProperty || _wrappingContent)
+            {
+                return;
+            }
+            // Окна со стандартной системной рамкой обходятся без «стеклянной» обёртки:
+            // прозрачная подложка и ExtendClientAreaToDecorationsHint в сочетании с ней
+            // на Linux роняют приложение при открытии диалога (issue #150).
+            if (!UseGlassChrome)
             {
                 return;
             }

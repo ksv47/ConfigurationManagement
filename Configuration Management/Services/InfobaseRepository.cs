@@ -20,6 +20,18 @@ public class InfobaseRepository : IInfobaseRepository
     };
 
     /// <summary>
+    /// Настройки сериализации файла <c>settings.json</c>: с переносами строк и отступами,
+    /// чтобы файл было удобно править вручную (issue #147). Чтение остаётся совместимым
+    /// как с компактным, так и с форматированным JSON — оба разбираются одинаково.
+    /// </summary>
+    private static readonly JsonSerializerOptions SettingsJsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
+    /// <summary>
     /// Текущая версия схемы файла <c>settings.json</c>. Увеличивается при изменении модели
     /// настроек, несовместимом со старыми файлами. Файлы с большей версией схемы (созданные
     /// более новой версией приложения) не читаются: они откладываются в резервную копию,
@@ -277,7 +289,7 @@ public class InfobaseRepository : IInfobaseRepository
         Console.Error.WriteLine("[l10n-debug] SaveSettings: Language=" + settings.Language + ", file=" + SettingsPath);
 #endif
         settings.SchemaVersion = ConfigSchemaVersion;
-        WriteAtomic(SettingsPath, JsonSerializer.Serialize(settings, JsonOptions));
+        WriteAtomic(SettingsPath, JsonSerializer.Serialize(settings, SettingsJsonOptions));
     }
 
 
@@ -296,7 +308,7 @@ public class InfobaseRepository : IInfobaseRepository
     public async Task SaveSettingsAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
         settings.SchemaVersion = ConfigSchemaVersion;
-        var json = JsonSerializer.Serialize(settings, JsonOptions);
+        var json = JsonSerializer.Serialize(settings, SettingsJsonOptions);
         await WriteAtomicAsync(SettingsPath, json, cancellationToken).ConfigureAwait(false);
     }
 

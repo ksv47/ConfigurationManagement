@@ -58,8 +58,12 @@ namespace Configuration_Management.Services
     /// </summary>
     public static class OneCLauncher
     {
-        /// <summary>Глобальная разрядность по умолчанию (Настройки → Платформы).</summary>
-        public static OneCArchitecture DefaultArchitecture { get; set; } = OneCArchitecture.x64;
+        /// <summary>
+        /// Режим глобальной «Разрядности по умолчанию» («Настройки → Платформы»):
+        /// "X64" — всегда 64-бит, "X86" — всегда 32-бит, либо "Priority"
+        /// («Использовать приоритет базы») — брать явную настройку разрядности базы.
+        /// </summary>
+        public static string DefaultArchitectureMode { get; set; } = "X64";
 
         private static readonly ConcurrentDictionary<string, Process> _activeBatchProcesses =
             new(StringComparer.OrdinalIgnoreCase);
@@ -170,35 +174,40 @@ namespace Configuration_Management.Services
 
         /// <summary>
         /// Выбор разрядности по правилам 1С:Предприятие.
-        /// Приоритет 32/64: если у «другой» разрядности более старшая версия — берётся она.
-        /// Порядок приоритетов (issue #146):
-        /// 1. Явная настройка разрядности базы («только 32» / «только 64»).
+        /// Порядок приоритетов (issue #146, комментарий 7OH):
+        /// 1. «Текущая сессия» — выбранное значение в группе «Текущая сессия»
+        ///    (обрабатывается в вызывающем коде до этого метода).
         /// 2. Суффикс разрядности в выбранной версии платформы («8.3.27.1688 (64)»).
-        /// 3. Глобальная настройка «Разрядность по умолчанию», если в базе ничего не указано.
-        /// 4. Приоритетный режим (32-priority / 64-priority) по стилю 1С.
+        /// 3. Глобальная настройка «Разрядность по умолчанию»: X64 / X86 либо
+        ///    новый режим «Использовать приоритет базы» (Priority).
+        /// 4. Если выбрано «Использовать приоритет базы» — явная настройка
+        ///    разрядности базы (вкладка «Разрядность») и приоритетные режимы
+        ///    32-priority / 64-priority по стилю 1С.
         /// </summary>
         public static OneCArchitecture ResolveArchitecture(string? architectureSetting, string? platformVersion)
         {
-            var mode = (architectureSetting ?? string.Empty).Trim().ToLowerInvariant();
-
-            // 1. Явная настройка разрядности базы имеет наивысший приоритет
-            //    (кроме явного выбора в «текущей сессии», который обрабатывается выше).
-            if (mode is "64" or "x64" or "x86-64" or "x86_64")
-                return OneCArchitecture.x64;
-            if (mode is "32" or "x86")
-                return OneCArchitecture.x86;
-
             // 2. Если в версии платформы явно указан суффикс разрядности («8.3.27.1688 (64)») —
-            //    пользователь выбрал конкретную сборку: он перебивает приоритетный режим
-            //    и глобальную настройку, но уступает явной настройке базы.
+            //    пользователь выбрал конкретную сборку. Это следующий по приоритету шаг
+            //    после «текущей сессии» и перебивает глобальную настройку.
             PlatformVersionService.ParseVariant(platformVersion ?? string.Empty, out var cleanVersion, out var versionArch);
             if (!string.IsNullOrWhiteSpace(cleanVersion) && (versionArch == "32" || versionArch == "64"))
                 return versionArch == "64" ? OneCArchitecture.x64 : OneCArchitecture.x86;
 
-            // 3. Разрядность в базе не указана — используем глобальную настройку
-            //    по умолчанию (Настройки → Платформы → «Разрядность по умолчанию»).
-            if (string.IsNullOrWhiteSpace(mode))
-                return DefaultArchitecture;
+            // 3. Глобальная настройка «Разрядность по умолчанию»
+            //    (Настройки → Платформы → «Разрядность по умолчанию»).
+            var defaultMode = string.IsNullOrWhiteSpace(DefaultArchitectureMode) ? "X64" : DefaultArchitectureMode.Trim();
+            if (string.Equals(defaultMode, "X86", StringComparison.OrdinalIgnoreCase))
+                return OneCArchitecture.x86;
+            if (string.Equals(defaultMode, "X64", StringComparison.OrdinalIgnoreCase))
+                return OneCArchitecture.x64;
+            // defaultMode == "Priority" («Использовать приоритет базы») → шаг 4.
+
+            // 4. Явная настройка разрядности базы (вкладка «Разрядность») и приоритетные режимы.
+            var mode = (architectureSetting ?? string.Empty).Trim().ToLowerInvariant();
+            if (mode is "64" or "x64" or "x86-64" or "x86_64")
+                return OneCArchitecture.x64;
+            if (mode is "32" or "x86")
+                return OneCArchitecture.x86;
 
             // Приоритетные режимы: сравниваем лучшие доступные версии 32 и 64.
             var prefer64 = mode is "64-priority" or "priority64" or "x86-64-priority";

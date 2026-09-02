@@ -442,16 +442,17 @@ public partial class MainViewModel : ViewModelBase
         set { if (value) SessionArchitecture = SessionArchitectureMode.X64; }
     }
 
-    /// <summary>Разрядность по умолчанию (X86 / X64), если у базы она не указана.</summary>
+    /// <summary>Режим «Разрядности по умолчанию» (X86 / X64 / Priority).</summary>
     public string DefaultArchitecture => _defaultArchitecture;
 
     /// <summary>
-    /// Задаёт разрядность по умолчанию и немедленно применяет её для последующих запусков.
+    /// Задаёт режим «Разрядности по умолчанию» и немедленно применяет его для последующих
+    /// запусков. Допустимы "X86", "X64" и "Priority" («Использовать приоритет базы»).
     /// </summary>
     public void ApplyDefaultArchitecture(string architecture)
     {
-        _defaultArchitecture = ParseArchitecture(architecture) == OneCArchitecture.x64 ? "X64" : "X86";
-        OneCLauncher.DefaultArchitecture = ParseArchitecture(_defaultArchitecture);
+        _defaultArchitecture = NormalizeDefaultArchitecture(architecture);
+        OneCLauncher.DefaultArchitectureMode = _defaultArchitecture;
         SaveSettings();
     }
 
@@ -460,6 +461,20 @@ public partial class MainViewModel : ViewModelBase
         string.Equals(value, "X64", StringComparison.OrdinalIgnoreCase)
             ? OneCArchitecture.x64
             : OneCArchitecture.x86;
+
+    /// <summary>
+    /// Нормализует строку режима «Разрядности по умолчанию»: "X86", "X64" либо
+    /// "Priority" («Использовать приоритет базы»). Любое нераспознанное значение
+    /// (включая легаси) приводится к "X64".
+    /// </summary>
+    private static string NormalizeDefaultArchitecture(string? value)
+    {
+        if (string.Equals(value, "X86", StringComparison.OrdinalIgnoreCase))
+            return "X86";
+        if (string.Equals(value, "Priority", StringComparison.OrdinalIgnoreCase))
+            return "Priority";
+        return "X64";
+    }
 
     public bool StatusShowConnectionPath => _statusShowConnectionPath;
     public bool StatusShowArchitecture => _statusShowArchitecture;

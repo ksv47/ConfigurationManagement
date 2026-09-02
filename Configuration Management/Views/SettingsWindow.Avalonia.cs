@@ -565,13 +565,17 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center
             };
             // Подписи локализованные, как в WPF (SettingsWindow.Display.cs:35),
-            // а наружу по-прежнему уходит «X64» или «X86» по номеру строки.
+            // а наружу по-прежнему уходит режим по номеру строки: X64 / X86 / Priority.
             archBox.ItemsSource = new[]
             {
                 LocalizationManager.T("Settings.Arch64Recommended"),
-                LocalizationManager.T("Settings.Arch32")
+                LocalizationManager.T("Settings.Arch32"),
+                LocalizationManager.T("Settings.ArchBasePriority")
             };
-            archBox.SelectedIndex = string.Equals(_viewModel.DefaultArchitecture, "X64", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+            archBox.SelectedIndex =
+                string.Equals(_viewModel.DefaultArchitecture, "X86", StringComparison.OrdinalIgnoreCase) ? 1
+                : string.Equals(_viewModel.DefaultArchitecture, "Priority", StringComparison.OrdinalIgnoreCase) ? 2
+                : 0;
             Grid.SetColumn(archBox, 1);
             archRow.Children.Add(archLabel);
             archRow.Children.Add(archBox);
@@ -815,6 +819,8 @@ namespace Configuration_Management
             var rightPanelCheck = DisplayCheck("Settings.Panels.RightPanelDetails", _viewModel.ShowRightPanelDetails, "IconPageLayoutSidebarRight", "#14B8A6");
             var sessionPanelCheck = DisplayCheck("Settings.Panels.SessionLaunchPanel", _viewModel.ShowSessionLaunchPanel, "IconMonitor", "#8B5CF6");
             var groupByGroupCheck = DisplayCheck("Settings.Panels.GroupByGroups", _viewModel.GroupByGroup, "IconFolderMultiple", "#3B82F6");
+            // Системный заголовок окна вместо собственного безрамкового (issue #152).
+            var systemTitleBarCheck = DisplayCheck("Settings.SystemTitleBar", _viewModel.UseSystemTitleBar, "IconMonitoring", "#6366F1");
             // Режим списка «только избранные» тот же, что переключается кнопкой
             // в главном окне: флажок и кнопка меняют одно значение.
             var favoritesOnlyCheck = DisplayCheck("Settings.Panels.ShowFavoritesOnly", _viewModel.IsListModeFavorites, "IconStarCircle", "#FBBF24");
@@ -837,6 +843,8 @@ namespace Configuration_Management
             hintSessionLaunchPanelHint.Margin = new Thickness(24, 0, 0, 12);
             displayPanels.Children.Add(hintSessionLaunchPanelHint);
             displayPanels.Children.Add(groupByGroupCheck);
+            // Пояснение к переключателю системного заголовка (issue #152).
+            displayPanels.Children.Add(systemTitleBarCheck);
             displayPanels.Children.Add(favoritesOnlyCheck);
             displayPanels.Children.Add(emptyGroupsCheck);
             var hintShowEmptyGroupsHint = Hint(LocalizationManager.T("Settings.Panels.ShowEmptyGroupsHint"), bottom: 12);
@@ -2232,7 +2240,12 @@ namespace Configuration_Management
                 // только до перезапуска.
                 _viewModel.ApplyColorScheme(editedScheme);
 
-                _viewModel.ApplyPlatformSettings(paths, archBox.SelectedIndex == 1 ? "X86" : "X64");
+                _viewModel.ApplyPlatformSettings(paths, archBox.SelectedIndex switch
+                {
+                    1 => "X86",
+                    2 => "Priority",
+                    _ => "X64"
+                });
                 _viewModel.ApplyBehaviorSettings(
                     multipleInstancesCheck.IsChecked == true,
                     rememberLayoutCheck.IsChecked == true);
@@ -2312,6 +2325,9 @@ namespace Configuration_Management
                     _viewModel.IsListModeFavorites = true;
                 else if (_viewModel.IsListModeFavorites)
                     _viewModel.IsListModeAll = true;
+
+                // Системный заголовок окна (issue #152): применяется после перезапуска.
+                _viewModel.UseSystemTitleBar = systemTitleBarCheck.IsChecked == true;
 
                 _viewModel.ApplyStatusBarSettings(
                     statusPathCheck.IsChecked == true,

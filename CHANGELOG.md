@@ -9,6 +9,33 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.31] — 2026-09-02
+
+Выпуск объединяет несколько исправлений стабильности и интерфейса по открытым issues #146–#153: переработан выбор разрядности запуска (добавлен новый приоритет «Использовать приоритет базы»), `settings.json` теперь сохраняется в читаемом виде с переносами строк, исправлены кнопка обновления, сохранение компактного режима правой панели, крах (SIGABRT) при открытии любых диалогов на ПО-рендере/VM, открытие окна настроек при нескольких мониторах, пропавший заголовок окна и зависание Linux при запуске в безрамковом режиме.
+
+### Исправлено
+
+- **Кнопка обновления не обрезает подпись слева (issue #148)** ([`Views/UpdateAvailableWindow.xaml`](Configuration%20Management/Views/UpdateAvailableWindow.xaml)): увеличена ширина и `Padding` левых кнопок `DownloadButton` и `RestartNowButton`, чтобы текст не обрезался слева.
+- **Не сохранялся компактный режим правой панели (issue #149)** ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs), [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)): сеттер `ShowRightPanelDetails` теперь сохраняет значение в настройки, а в `Initialize()` оно восстанавливается; добавлено свойство `ShowRightPanelHint`, которое видно только при включённых подробностях и невыбранной базе, поэтому в компактном режиме всплывающая информация больше не появляется.
+- **Крах (SIGABRT) при открытии любых диалогов (issue #150)** ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs), [`Views/AddEditWindow.Avalonia.cs`](Configuration%20Management/Views/AddEditWindow.Avalonia.cs)): прозрачность модальных окон сведена к `Transparent` без `AcrylicBlur`/`Blur` — запрос blur ронял процесс на ПО-рендере/VM; добавлено виртуальное свойство `UseGlassChrome` (`false` при `SystemDecorations.Full`), а `AddEditWindow` отключает стеклянную обёртку при системном заголовке.
+- **Настройки и несколько мониторов (issue #151)** ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs)): модальные окна по умолчанию центрируются относительно владельца (`CenterOwner`) вместо экрана — окно настроек открывается на мониторе главного окна.
+- **Пропал заголовок окна (issue #152)** ([`Models/AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs), [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json), [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json)): добавлено поле `UseSystemTitleBar` и соответствующая настройка — при включении используются `SystemDecorations.Full` без прозрачности, так что системный заголовок окна больше не пропадает.
+- **Зависание Linux при запуске (issue #153)** ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs), [`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs)): безрамковое окно с `AcrylicBlur`/`Blur` вызывало непрерывную перерисовку без VSync (~36% CPU) на VM/ПО-рендере; теперь в безрамковом режиме запрашивается только `Transparent` без blur-перерисовки.
+
+### Изменено
+
+- **Перестроен порядок приоритетов разрядности (issue #146)** ([`Services/OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs), [`Services/OneCLauncher.Linux.cs`](Configuration%20Management/Services/OneCLauncher.Linux.cs)): в `ResolveArchitecture` порядок стал следующим — 1) «Текущая сессия»; 2) суффикс «(32)/(64)» в версии платформы; 3) глобальная «Разрядность по умолчанию»; 4) новый пункт «Использовать приоритет базы», при котором срабатывает явная настройка разрядности базы (вкладка «Разрядность»). Статическое поле `DefaultArchitecture` заменено на `DefaultArchitectureMode` (строка X86/X64/Priority).
+- **Читаемые настройки `settings.json` (issue #147)** ([`Services/InfobaseRepository.cs`](Configuration%20Management/Services/InfobaseRepository.cs)): добавлен `SettingsJsonOptions` с `WriteIndented = true` — файл теперь сохраняется с переносами строк и отступами; чтение обратно совместимо.
+
+### Добавлено
+
+- **Пункт «Использовать приоритет базы» в списках выбора разрядности по умолчанию** ([`Views/SettingsWindow.Display.cs`](Configuration%20Management/Views/SettingsWindow.Display.cs), [`Views/SettingsWindow.xaml.cs`](Configuration%20Management/Views/SettingsWindow.xaml.cs), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), [`ViewModels/MainViewModel.cs`](Configuration%20Management/ViewModels/MainViewModel.cs), [`ViewModels/MainViewModel.Display.cs`](Configuration%20Management/ViewModels/MainViewModel.Display.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs), [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json), [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json)): добавлена нормализация режима `DefaultArchitectureMode` и локализация ключа `Settings.ArchBasePriority`.
+- **Опция «Использовать системный заголовок окна»** в настройках (см. issue #152 выше) с локализацией ключа `Settings.SystemTitleBar`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.30` → `0.3.6.31`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.30] — 2026-09-02
 
 При открытии спонсорской картинки «О программе» (`donat.png`) в полном размере в отдельном окне размер окна теперь равен размеру самой картинки: ширина окна — по ширине картинки, высота — по её пропорциям. Если картинка больше доступной рабочей области экрана, она пропорционально уменьшается и целиком помещается без прокрутки, а размер рабочей области берётся с учётом разрешения и масштаба экрана (DPI).

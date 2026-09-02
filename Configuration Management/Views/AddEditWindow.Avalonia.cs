@@ -32,6 +32,14 @@ namespace Configuration_Management
             Content = BuildRoot();
         }
 
+        /// <summary>
+        /// Окно использует стандартный системный заголовок (как в Windows), поэтому
+        /// собственная «стеклянная» рамка без системных кнопок не нужна (issue #150):
+        /// её прозрачный фон и ExtendClientAreaToDecorationsHint конфликтуют с запрошенной
+        /// системной рамкой и роняют приложение на Linux при открытии диалога.
+        /// </summary>
+        protected override bool UseGlassChrome => false;
+
         private Control BuildRoot()
         {
             var grid = new Grid { Margin = new Thickness(16) };

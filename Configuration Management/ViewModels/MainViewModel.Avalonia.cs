@@ -143,6 +143,24 @@ public class MainViewModel : ViewModelBase
     /// <summary>Уводить ли окно в трей вместо выхода при закрытии.</summary>
     public bool CloseToTray => _settings.CloseToTray;
 
+    /// <summary>
+    /// Показывать стандартный системный заголовок окна вместо собственного
+    /// безрамкового (issue #152). Изменение вступает в силу после перезапуска,
+    /// так как декор окна задаётся при построении главного окна.
+    /// </summary>
+    public bool UseSystemTitleBar
+    {
+        get => _settings.UseSystemTitleBar;
+        set
+        {
+            if (_settings.UseSystemTitleBar == value)
+                return;
+            _settings.UseSystemTitleBar = value;
+            SaveSettingsSilently();
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>Уводить ли окно в трей по клавише Esc.</summary>
     public bool EscapeToTray => _settings.EscapeToTray;
 
@@ -274,6 +292,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowTagFilterPanel));
         OnPropertyChanged(nameof(ShowRightPanelDetails));
         OnPropertyChanged(nameof(ShowConnectionInfo));
+        OnPropertyChanged(nameof(ShowRightPanelHint));
         OnPropertyChanged(nameof(GroupByGroup));
         OnPropertyChanged(nameof(ShowEmptyGroups));
         OnPropertyChanged(nameof(ShowExpandCollapseButtons));
@@ -592,7 +611,7 @@ public class MainViewModel : ViewModelBase
         set
         {
             if (SetPropertyWithRelated(ref _selectedInfobase, value, nameof(SelectedInfobase), nameof(RightPanelTitle), nameof(RightPanelSubtitle),
-                    nameof(IsInfobaseSelected), nameof(ShowConnectionInfo),
+                    nameof(IsInfobaseSelected), nameof(ShowConnectionInfo), nameof(ShowRightPanelHint),
                     nameof(RightPanelIconKey), nameof(HasRightPanelIcon)))
             {
                 if (value is not null)
@@ -609,7 +628,7 @@ public class MainViewModel : ViewModelBase
         set
         {
             if (SetPropertyWithRelated(ref _selectedGroupNode, value, nameof(SelectedGroupNode), nameof(RightPanelTitle), nameof(RightPanelSubtitle),
-                    nameof(IsInfobaseSelected), nameof(ShowConnectionInfo),
+                    nameof(IsInfobaseSelected), nameof(ShowConnectionInfo), nameof(ShowRightPanelHint),
                     nameof(RightPanelIconKey), nameof(HasRightPanelIcon)))
             {
                 if (value is not null)
@@ -625,7 +644,16 @@ public class MainViewModel : ViewModelBase
     public bool ShowRightPanelDetails
     {
         get => _showRightPanelDetails;
-        set => SetPropertyWithRelated(ref _showRightPanelDetails, value, nameof(ShowRightPanelDetails), nameof(RightPanelToggleTooltip), nameof(ShowConnectionInfo), nameof(OpenByLinkCaption));
+        set
+        {
+            // Компактный режим правой панели должен переживать перезапуск (issue #149):
+            // сохраняем признак в настройки, как делает WPF-версия.
+            if (SetPropertyWithRelated(ref _showRightPanelDetails, value, nameof(ShowRightPanelDetails), nameof(RightPanelToggleTooltip), nameof(ShowConnectionInfo), nameof(OpenByLinkCaption), nameof(ShowRightPanelHint)))
+            {
+                _settings.ShowRightPanelDetails = value;
+                SaveSettingsSilently();
+            }
+        }
     }
 
     /// <summary>
@@ -667,6 +695,14 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>Выбрана база, а не группа и не пустота.</summary>
     public bool IsInfobaseSelected => SelectedInfobase is not null;
+
+    /// <summary>
+    /// Показывать подсказку «выберите базу» под заголовком правой панели.
+    /// Видна, только когда подробности панели включены и база ещё не выбрана:
+    /// в компактном режиме она не должна появляться даже при выбранной группе
+    /// (issue #149).
+    /// </summary>
+    public bool ShowRightPanelHint => ShowRightPanelDetails && !IsInfobaseSelected;
 
     /// <summary>
     /// Показывать таблицу сведений о подключении: только когда выбрана база
@@ -1135,6 +1171,8 @@ public class MainViewModel : ViewModelBase
             _groupByGroup = _settings.GroupByGroup;
             _showEmptyGroups = _settings.ShowEmptyGroups;
             _showTagFilterPanel = _settings.ShowTagFilterPanel;
+            // Компактный режим правой панели восстанавливается из настроек (issue #149).
+            _showRightPanelDetails = _settings.ShowRightPanelDetails;
             _themeName = _settings.Theme;
             _compactMode = _settings.CompactMode;
             _afterLaunchAction = _settings.AfterLaunchAction ?? "None";
@@ -1923,7 +1961,7 @@ public class MainViewModel : ViewModelBase
     /// <summary>Дополнительные пути поиска платформы из настроек.</summary>
     public IReadOnlyList<string> AdditionalPlatformSearchPaths => _settings.AdditionalPlatformSearchPaths;
 
-    /// <summary>Разрядность запуска по умолчанию: «X64» или «X86».</summary>
+    /// <summary>Режим «Разрядности по умолчанию»: «X64», «X86» или «Priority».</summary>
     public string DefaultArchitecture => _settings.DefaultArchitecture;
 
     // ---- Синхронизация с ibases.v8i ----
@@ -2107,8 +2145,7 @@ public class MainViewModel : ViewModelBase
             .Where(p => p.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        _settings.DefaultArchitecture =
-            string.Equals(architecture, "X86", StringComparison.OrdinalIgnoreCase) ? "X86" : "X64";
+        _settings.DefaultArchitecture = NormalizeDefaultArchitecture(architecture);
 
         ApplyDefaultArchitecture();
         ApplyAdditionalSearchPaths();
@@ -2729,14 +2766,23 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Отдаёт разрядность по умолчанию запуску платформы. Без этого настройка
-    /// в Linux-ветке не действовала: запуск всегда считал её x64.
+    /// Передаёт режим «Разрядности по умолчанию» лаунчеру платформы. Без этого
+    /// настройка в Linux-ветке не действовала: запуск всегда считал её x64.
+    /// Строка "Priority" («Использовать приоритет базы») передаётся как есть —
+    /// разрешение разрядности происходит в лаунчере.
     /// </summary>
     private void ApplyDefaultArchitecture() =>
-        OneCLauncher.DefaultArchitecture =
-            string.Equals(_settings.DefaultArchitecture, "X86", StringComparison.OrdinalIgnoreCase)
-                ? OneCArchitecture.x86
-                : OneCArchitecture.x64;
+        OneCLauncher.DefaultArchitectureMode = NormalizeDefaultArchitecture(_settings.DefaultArchitecture);
+
+    /// <summary>Нормализует строку режима «Разрядности по умолчанию» (X86 / X64 / Priority).</summary>
+    private static string NormalizeDefaultArchitecture(string? value)
+    {
+        if (string.Equals(value, "X86", StringComparison.OrdinalIgnoreCase))
+            return "X86";
+        if (string.Equals(value, "Priority", StringComparison.OrdinalIgnoreCase))
+            return "Priority";
+        return "X64";
+    }
 
     /// <summary>
     /// Смена версии платформы у базы двойным щелчком по колонке версии.

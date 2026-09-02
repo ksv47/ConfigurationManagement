@@ -104,27 +104,38 @@ namespace Configuration_Management
             MinWidth = 900;
             MinHeight = 600;
 
-            // Linux: отказываемся от системных кнопок и рамки управления окном
-            // в пользу собственных (свернуть/развернуть/закрыть), рисуемых в коде.
-            // Перетаскивание реализовано за фон верхней панели (BeginMoveDrag),
+            // По настройке можно вернуть стандартный системный заголовок, как в Windows
+            // (issue #152). По умолчанию — собственный безрамковый: отказываемся от системных
+            // кнопок и рамки в пользу собственных (свернуть/развернуть/закрыть), рисуемых
+            // в коде. Перетаскивание реализовано за фон верхней панели (BeginMoveDrag),
             // изменение размера — угловыми и краевыми зонами (BeginResizeDrag).
-            SystemDecorations = SystemDecorations.None;
-            ExtendClientAreaToDecorationsHint = true;
+            var useSystemTitleBar = viewModel.UseSystemTitleBar;
+            SystemDecorations = useSystemTitleBar ? SystemDecorations.Full : SystemDecorations.None;
+            ExtendClientAreaToDecorationsHint = !useSystemTitleBar;
 
-            // Прозрачное окно под эффект «стекла»: просим у оконного менеджера
-            // AcrylicBlur, при недоступности откатываемся на Blur, затем Transparent.
-            // Список упорядочен по убыванию желаемого — Avalonia берёт первый
-            // поддерживаемый уровень (порядок в массиве не гарантируется WM,
+            // Прозрачное окно под эффект «стекла» (только в безрамковом режиме: со стандартной
+            // системной рамкой прозрачность и расширение клиентской области конфликтуют).
+            // Просим у оконного менеджера AcrylicBlur, при недоступности откатываемся
+            // на Blur, затем Transparent. Список упорядочен по убыванию желаемого — Avalonia
+            // берёт первый поддерживаемый уровень (порядок в массиве не гарантируется WM,
             // поэтому корректный фолбэк обеспечивает и полупрозрачная подложка ниже).
-            TransparencyLevelHint = new[]
+            if (!useSystemTitleBar)
             {
-                WindowTransparencyLevel.AcrylicBlur,
-                WindowTransparencyLevel.Blur,
-                WindowTransparencyLevel.Transparent
-            };
-            // Без прозрачного фона самого окна acrylic/размытие не активируются:
-            // содержимое рисуется поверх, а «стекло» даёт полупрозрачный фон корня.
-            Background = Brushes.Transparent;
+                // Прозрачность без размытия (issue #153): запрос AcrylicBlur/Blur у оконного
+                // менеджера включает непрерывную перерисовку фона, что в виртуальной машине
+                // и окружениях с программным рендером без VSync давало ~36% CPU и зависание.
+                // Обычная прозрачность «стеклянную» подложку сохраняет, но не заставляет WM
+                // пересчитывать размытие на каждом кадре. При желании пользователь может
+                // включить стандартный системный заголовок (настройка «Системный заголовок»),
+                // который полностью отключает прозрачность.
+                TransparencyLevelHint = new[]
+                {
+                    WindowTransparencyLevel.Transparent
+                };
+                // Без прозрачного фона самого окна прозрачность не активируется:
+                // содержимое рисуется поверх, а «стекло» даёт полупрозрачный фон корня.
+                Background = Brushes.Transparent;
+            }
 
             ApplySavedWindowLayout();
 
@@ -2267,7 +2278,11 @@ namespace Configuration_Management
                 Margin = new Thickness(0, 0, 0, 4)
             };
             hintBlock.Bind(TextBlock.TextProperty, new Binding("RightPanelHint"));
-            hintBlock.Bind(Control.IsVisibleProperty, new Binding("!IsInfobaseSelected"));
+            // Подсказка «выберите базу» скрыта и в компактном режиме правой панели
+            // (issue #149): иначе при выделении группы сверху появлялась лишняя строка
+            // информации. Видимость — производное от «подробности включены» и «база
+            // не выбрана», поэтому вынесено в свойство модели ShowRightPanelHint.
+            hintBlock.Bind(Control.IsVisibleProperty, new Binding("ShowRightPanelHint"));
             // Заголовок выбранной базы скрыт вместе с подробностями и при пустом
             // выборе, как в разметке (MainWindow.xaml:1694-1706): раньше он висел
             // в узкой панели всегда.
