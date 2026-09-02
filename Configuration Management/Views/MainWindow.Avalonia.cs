@@ -96,7 +96,7 @@ namespace Configuration_Management
         {
             _vm = viewModel;
 
-            Title = LocalizationManager.T("App.Title");
+            Title = ComposeWindowTitle();
             // Значок в заголовке окна — тот же app.ico, что и у приложения и трея.
             Icon = Services.AppIconLoader.LoadAppIcon();
             Width = 1200;
@@ -145,6 +145,11 @@ namespace Configuration_Management
             Loaded += OnWindowLoaded;
             KeyDown += OnWindowKeyDown;
 
+            // Шапка окна реагирует на активность: акцентная заливка у активного окна,
+            // цвет карточки у неактивного (MainWindow.xaml.cs:78-79).
+            Activated += (_, _) => ApplyTitleBarAppearance(true);
+            Deactivated += (_, _) => ApplyTitleBarAppearance(false);
+
             // Геометрия обычного состояния запоминается на ходу: у Avalonia нет
             // аналога RestoreBounds, а развёрнутое окно надо сохранять размером,
             // к которому оно вернётся.
@@ -165,6 +170,15 @@ namespace Configuration_Management
             // чтобы переведённый текст появился сразу, а не после перезапуска.
             LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         }
+
+        /// <summary>Шапка окна: полоса, подпись и кнопки, перекрашиваемые по активности.</summary>
+        private Border? _titleBarBorder;
+        private TextBlock? _appTitleText;
+        private IDisposable? _appTitleSub;
+        private IDisposable? _glassCornerSub;
+        private IDisposable? _titleBackgroundSub;
+        private IDisposable? _titleForegroundSub;
+        private readonly List<WindowControlButton> _windowControlButtons = new();
 
         /// <summary>Значок трея создан без ошибки: значение проверяется перед тем, как прятать окно.</summary>
         private bool _trayIconCreated;
@@ -235,18 +249,25 @@ namespace Configuration_Management
             // строкой окна (MainWindow.xaml:341-372): иначе при её показе вниз
             // уезжала и правая панель, чего в версии для Windows не происходит.
             var grid = new Grid();
+            // Строка заголовка окна, панель команд, содержимое, строка состояния.
+            // У автора строк окна три (MainWindow.xaml:173-175): панель команд лежит
+            // внутри левой колонки, а у нас она отдельной строкой ещё с прошлых кусков.
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
+            var titleBar = BuildTitleBar();
             var topBar = BuildTopBar();
             var mainArea = BuildMainArea();
             var statusBar = BuildStatusBar();
 
-            Grid.SetRow(topBar, 0);
-            Grid.SetRow(mainArea, 1);
-            Grid.SetRow(statusBar, 2);
+            Grid.SetRow(titleBar, 0);
+            Grid.SetRow(topBar, 1);
+            Grid.SetRow(mainArea, 2);
+            Grid.SetRow(statusBar, 3);
 
+            grid.Children.Add(titleBar);
             grid.Children.Add(topBar);
             grid.Children.Add(mainArea);
             grid.Children.Add(statusBar);
@@ -279,7 +300,11 @@ namespace Configuration_Management
             // В развёрнутом виде скругление убираем: в углах окна не должно
             // просвечивать содержимое рабочего стола под рамкой соседних окон.
             // WindowStateObserver берёт Action без параметра и читает состояние сам.
-            this.GetObservable(WindowStateProperty)
+            // Подписка живёт на окне, а содержимое пересобирается при смене языка
+            // и компактного режима: без освобождения каждая пересборка укореняла бы
+            // прежнее дерево целиком вместе с шапкой и кнопками.
+            _glassCornerSub?.Dispose();
+            _glassCornerSub = this.GetObservable(WindowStateProperty)
                 .Subscribe(new WindowStateObserver(() =>
                     glass.CornerRadius = WindowState == WindowState.Maximized
                         ? new CornerRadius(0)
@@ -311,8 +336,6 @@ namespace Configuration_Management
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 200 });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            // Свои кнопки управления окном вместо системных — в самом правом углу.
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             // Слева: сегментные переключатели групп и тегов (с иконками и состояниями).
@@ -466,12 +489,6 @@ namespace Configuration_Management
             grid.Children.Add(actionsGroup);
             Grid.SetColumn(actionsGroup, 3);
 
-            // Собственные кнопки окна (свернуть/развернуть/закрыть) — правее команд,
-            // прижаты к правому краю, как системные в верхней строке.
-            var winCtrls = BuildWindowControls();
-            grid.Children.Add(winCtrls);
-            Grid.SetColumn(winCtrls, 4);
-
             var topBarBorder = new Border
             {
                 Child = grid,
@@ -493,6 +510,122 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Заголовок программы: локализованное имя и суффикс версии. Суффикс
+        /// не задваивается при повторном вызове, как в версии для Windows
+        /// (MainWindow.Language.cs:107-122). Пользователь видит эту строку в шапке
+        /// окна, потому что системной строки заголовка на Linux у нас нет.
+        /// </summary>
+        private static string ComposeWindowTitle()
+        {
+            var baseTitle = LocalizationManager.T("App.Title");
+            var version = VersionInfo.Display();
+            if (string.IsNullOrWhiteSpace(version))
+                return baseTitle;
+
+            var suffix = $" v{version}";
+            return baseTitle.EndsWith(suffix, StringComparison.Ordinal) ? baseTitle : baseTitle + suffix;
+        }
+
+        /// <summary>
+        /// Строка заголовка окна вместо системной: слева значок приложения и название
+        /// с версией, справа кнопки управления окном (MainWindow.xaml:182-235).
+        /// Шапка активного окна заливается акцентом, неактивного — цветом карточки,
+        /// перетаскивание идёт за пустое место полосы.
+        /// </summary>
+        private Control BuildTitleBar()
+        {
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var left = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            if (Services.AppIconLoader.TitleBarBitmap() is { } appBitmap)
+            {
+                left.Children.Add(new Image
+                {
+                    Source = appBitmap,
+                    Width = UiMetrics.Scaled(18),
+                    Height = UiMetrics.Scaled(18),
+                    Margin = new Thickness(0, 0, UiMetrics.Scaled(8), 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+
+            // Подпись берётся из свойства окна: там уже собран заголовок с версией
+            // (App.axaml.cs:213-215), как в UpdateWindowTitle версии для Windows.
+            _appTitleText = new TextBlock
+            {
+                FontSize = UiMetrics.ScaledFont(13),
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _appTitleSub?.Dispose();
+            _titleBackgroundSub?.Dispose();
+            _titleForegroundSub?.Dispose();
+            _titleBackgroundSub = null;
+            _titleForegroundSub = null;
+            _appTitleSub = _appTitleText.Bind(TextBlock.TextProperty, this.GetObservable(TitleProperty));
+            left.Children.Add(_appTitleText);
+
+            var buttons = BuildWindowControls();
+
+            Grid.SetColumn(left, 0);
+            Grid.SetColumn(buttons, 1);
+            grid.Children.Add(left);
+            grid.Children.Add(buttons);
+
+            _titleBarBorder = new Border
+            {
+                Child = grid,
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(UiMetrics.Scaled(12), UiMetrics.Scaled(6))
+            };
+            ThemeBrushes.Bind(_titleBarBorder, Border.BorderBrushProperty, "BorderColorBrush");
+
+            // Перетаскивание и разворот двойным щелчком — как у автора
+            // (MainWindow.xaml.cs:711-731), обработчик общий с панелью команд.
+            _titleBarBorder.PointerPressed += OnTopBarPointerPressed;
+
+            // Цвета шапки зависят от активности окна и от темы, поэтому применяются
+            // и сразу после пересборки содержимого, а не только по событию.
+            ApplyTitleBarAppearance(IsActive);
+            return _titleBarBorder;
+        }
+
+        /// <summary>
+        /// Шапка активного окна заливается акцентным цветом темы, неактивного — цветом
+        /// карточки; вместе с фоном меняются цвет названия и значков кнопок окна, иначе
+        /// на акценте они нечитаемы (MainWindow.xaml.cs:588-615).
+        /// </summary>
+        private void ApplyTitleBarAppearance(bool active)
+        {
+            if (_titleBarBorder is null || _appTitleText is null)
+                return;
+
+            // Прежняя привязка снимается явно. Avalonia заменяет привязку того же
+            // приоритета и сама (ValueStore.AddBinding зовёт
+            // DisposeExistingLocalValueBinding), накопления не было бы и без этого,
+            // но активность окна переключается за сессию сотни раз, и владение
+            // привязкой здесь лучше держать явным.
+            _titleBackgroundSub?.Dispose();
+            _titleForegroundSub?.Dispose();
+            _titleBackgroundSub = _titleBarBorder.Bind(Border.BackgroundProperty,
+                new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(
+                    active ? "AccentBrush" : "CardBackgroundBrush"));
+            _titleForegroundSub = _appTitleText.Bind(TextBlock.ForegroundProperty,
+                new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(
+                    active ? "ButtonTextBrush" : "TextPrimaryColorBrush"));
+
+            foreach (var button in _windowControlButtons)
+                button.SetOnAccent(active);
+        }
+
+        /// <summary>
         /// Собственные кнопки управления окном вместо системных: свернуть (минус),
         /// развернуть/восстановить (квадрат / два квадрата) и закрыть (крест).
         /// Панель прижата к правому краю верхней панели.
@@ -502,16 +635,20 @@ namespace Configuration_Management
             var panel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center,
-                Spacing = 2
+                VerticalAlignment = VerticalAlignment.Center
             };
+
+            // Список пересобирается вместе с шапкой: старые кнопки уже не в дереве.
+            _windowControlButtons.Clear();
 
             var minimize = new WindowControlButton(this, WindowControlKind.Minimize);
             ToolTip.SetTip(minimize, LocalizationManager.T("Window.Minimize"));
             minimize.Click += (_, _) => WindowState = WindowState.Minimized;
             panel.Children.Add(minimize);
+            _windowControlButtons.Add(minimize);
 
             var maximize = new WindowControlButton(this, WindowControlKind.Maximize);
+            ToolTip.SetTip(maximize, LocalizationManager.T("Window.Maximize"));
             maximize.Click += (_, _) =>
             {
                 WindowState = WindowState == WindowState.Maximized
@@ -519,6 +656,7 @@ namespace Configuration_Management
                     : WindowState.Maximized;
             };
             panel.Children.Add(maximize);
+            _windowControlButtons.Add(maximize);
 
             // Закрытие уходит через штатный Close(): OnClosing сам решает,
             // прятать ли окно в трей (CloseToTray) или завершать приложение.
@@ -526,6 +664,7 @@ namespace Configuration_Management
             ToolTip.SetTip(close, LocalizationManager.T("Common.Close"));
             close.Click += (_, _) => Close();
             panel.Children.Add(close);
+            _windowControlButtons.Add(close);
 
             return panel;
         }
@@ -538,12 +677,25 @@ namespace Configuration_Management
         {
             if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
                 return;
+            if (IsInteractiveSource(e.Source))
+                return;
+
+            // Двойной щелчок по полосе разворачивает и возвращает окно, как у автора
+            // (MainWindow.xaml.cs:715-719). Проверяется раньше перетаскивания: у
+            // развёрнутого окна перетаскивание отключено, а разворот работать должен.
+            if (e.ClickCount == 2)
+            {
+                WindowState = WindowState == WindowState.Maximized
+                    ? WindowState.Normal
+                    : WindowState.Maximized;
+                e.Handled = true;
+                return;
+            }
+
             // Развёрнутое окно не таскаем: возврат к «плавающему» виду делается
             // кнопкой разворота, а BeginMoveDrag по развёрнутому окну на части
             // оконных менеджеров ведёт себя непредсказуемо.
             if (WindowState == WindowState.Maximized)
-                return;
-            if (IsInteractiveSource(e.Source))
                 return;
             BeginMoveDrag(e);
         }
@@ -3219,7 +3371,7 @@ namespace Configuration_Management
             {
                 if (!IsEnabled)
                 {
-                    Opacity = 0.55;
+                    Opacity = 0.4;
                     Background = _baseBg;
                     BorderBrush = _border;
                     BorderThickness = new Thickness(1);
@@ -3505,12 +3657,16 @@ namespace Configuration_Management
         /// </summary>
         private sealed class WindowControlButton : Button
         {
-            // Контуры в координатном поле 24 на 24 (как ресурсы Icons.axaml).
-            private const string MinimizeData = "M6,11.5H18V13H6Z";
-            private const string MaximizeData = "F1 M5,5H19V19H5Z M8,8H16V16H8Z";
-            private const string RestoreData = "F1 M5,5H15V15H5Z M8,8H12V12H8Z M9,9H19V19H9Z M12,12H16V16H12Z";
-            private const string CloseData =
-                "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z";
+            // Контуры по разметке WPF (MainWindow.xaml:205-231): черта, квадрат,
+            // два квадрата и крест в координатном поле 13 на 13. Черта рисуется
+            // заливкой, остальные три обводкой толщиной 1.2.
+            private const string MinimizeData = "M0,5.5 L11,5.5 L11,6.5 L0,6.5 Z";
+            private const string MaximizeData = "M1,1 H12 V12 H1 Z";
+            private const string RestoreData = "M3,1 H9 V7 H3 Z M1,3 H7 V9 H1 Z";
+            private const string CloseData = "M1,1 L12,12 M12,1 L1,12";
+
+            /// <summary>Толщина обводки значков окна (MainWindow.xaml:216, 221, 231).</summary>
+            private const double GlyphStrokeThickness = 1.2;
 
             private readonly MainWindow _window;
             private readonly WindowControlKind _kind;
@@ -3519,9 +3675,12 @@ namespace Configuration_Management
 
             private IBrush _hoverBg = Brushes.Transparent;
             private IBrush _pressedBg = Brushes.Transparent;
-            private IBrush _baseGlyphBrush = Brushes.Transparent;
+            private IBrush _restGlyphBrush = Brushes.Transparent;
+            private IBrush _hoverGlyphBrush = Brushes.Transparent;
+            private IBrush _accentGlyphBrush = Brushes.Transparent;
             private bool _hovered;
             private bool _pressed;
+            private bool _onAccent;
 
             // Красная подложка кнопки «закрыть» (классический алый), не зависит от темы:
             // наведение — алый, нажатие — чуть темнее. Значок на ней всегда белый.
@@ -3533,8 +3692,8 @@ namespace Configuration_Management
                 _window = window;
                 _kind = kind;
 
-                Width = UiMetrics.Scaled(40);
-                Height = UiMetrics.Scaled(32);
+                Width = UiMetrics.Scaled(46);
+                Height = UiMetrics.Scaled(34);
                 Padding = new Thickness(0);
                 HorizontalContentAlignment = HorizontalAlignment.Center;
                 VerticalContentAlignment = VerticalAlignment.Center;
@@ -3547,7 +3706,9 @@ namespace Configuration_Management
                     {
                         new Setter(TemplatedControl.TemplateProperty, new FuncControlTemplate<WindowControlButton>((_, _) =>
                         {
-                            var border = new Border { CornerRadius = new CornerRadius(UiMetrics.RadiusSm) };
+                            // Углы прямые: в шапке кнопки окна идут встык, как в разметке
+                            // (App.xaml:90, CornerRadius="0").
+                            var border = new Border { CornerRadius = new CornerRadius(0) };
                             border[!Border.BackgroundProperty] = new TemplateBinding(TemplatedControl.BackgroundProperty);
                             border[!Border.BorderBrushProperty] = new TemplateBinding(TemplatedControl.BorderBrushProperty);
                             border[!Border.PaddingProperty] = new TemplateBinding(TemplatedControl.PaddingProperty);
@@ -3561,22 +3722,29 @@ namespace Configuration_Management
                     }
                 };
 
+                // Черта «свернуть» у автора 11 на 11, квадрат и крест 13 на 13
+                // (MainWindow.xaml:207, 214, 229).
+                var glyphSize = _kind == WindowControlKind.Minimize ? 11.0 : 13.0;
                 _glyph = new Avalonia.Controls.Shapes.Path
                 {
-                    Width = UiMetrics.Scaled(16),
-                    Height = UiMetrics.Scaled(16),
+                    Width = UiMetrics.Scaled(glyphSize),
+                    Height = UiMetrics.Scaled(glyphSize),
                     Stretch = Stretch.Uniform,
                     Data = BuildGeometry()
                 };
+                if (_kind != WindowControlKind.Minimize)
+                    _glyph.StrokeThickness = GlyphStrokeThickness;
                 Content = _glyph;
 
-                // Цвет значка и hover-подложка следуют теме. У кнопки «закрыть» цвет значка
-                // храним отдельно: при красной подложке он перекрашивается в белый, а при
-                // выходе курсора возвращается к теме (см. ApplyState).
-                if (_kind == WindowControlKind.Close)
-                    ThemeBrushes.Observe(this, "TextPrimaryColorBrush", b => { _baseGlyphBrush = b; ApplyState(); });
-                else
-                    ThemeBrushes.Bind(_glyph, Avalonia.Controls.Shapes.Path.FillProperty, "TextPrimaryColorBrush");
+                // Цвет значка и hover-подложка следуют теме. Кисть значка не привязывается
+                // напрямую: он перекрашивается по состоянию (белый на красной подложке
+                // «закрыть», цвет подписи на акцентной шапке), см. ApplyState.
+                // Состояний три, как у автора: приглушённый в покое (App.xaml:79),
+                // цвет подписи под курсором (App.xaml:94-97) и ButtonTextBrush
+                // на акцентной шапке (App.xaml:116-118).
+                ThemeBrushes.Observe(this, "TextSecondaryColorBrush", b => { _restGlyphBrush = b; ApplyState(); });
+                ThemeBrushes.Observe(this, "TextPrimaryColorBrush", b => { _hoverGlyphBrush = b; ApplyState(); });
+                ThemeBrushes.Observe(this, "ButtonTextBrush", b => { _accentGlyphBrush = b; ApplyState(); });
                 ThemeBrushes.Observe(this, "ItemHoverBrush", b => { _hoverBg = b; ApplyState(); });
                 ThemeBrushes.Observe(this, "AccentPressedBrush", b => { _pressedBg = b; ApplyState(); });
 
@@ -3623,17 +3791,44 @@ namespace Configuration_Management
                 Opacity = 1.0;
                 BorderBrush = Brushes.Transparent;
 
+                // В покое значок приглушён, на акцентной шапке красится цветом подписи
+                // на акценте, а под курсором и то и другое уступает основному цвету
+                // текста, как триггер IsMouseOver в шаблоне автора (App.xaml:94-97).
+                var restBrush = _onAccent ? _accentGlyphBrush : _restGlyphBrush;
+
                 if (_kind == WindowControlKind.Close)
                 {
                     // Кнопка «закрыть»: красная подложка при наведении/нажатии, значок — белый.
                     var redActive = _pressed || _hovered;
                     Background = _pressed ? ClosePressedBrush : (_hovered ? CloseHoverBrush : Brushes.Transparent);
-                    _glyph.Fill = redActive ? Brushes.White : _baseGlyphBrush;
+                    SetGlyphBrush(redActive ? Brushes.White : restBrush);
                 }
                 else
                 {
                     Background = _pressed ? _pressedBg : (_hovered ? _hoverBg : Brushes.Transparent);
+                    SetGlyphBrush(_hovered || _pressed ? _hoverGlyphBrush : restBrush);
                 }
+            }
+
+            /// <summary>Черта «свернуть» залита, квадрат и крест обведены.</summary>
+            private void SetGlyphBrush(IBrush brush)
+            {
+                if (_kind == WindowControlKind.Minimize)
+                    _glyph.Fill = brush;
+                else
+                    _glyph.Stroke = brush;
+            }
+
+            /// <summary>
+            /// Шапка активного окна залита акцентом, и значок на ней читается только
+            /// цветом ButtonTextBrush (MainWindow.xaml.cs:588-615).
+            /// </summary>
+            public void SetOnAccent(bool onAccent)
+            {
+                if (_onAccent == onAccent)
+                    return;
+                _onAccent = onAccent;
+                ApplyState();
             }
 
             /// <summary>Подписка на состояние окна живёт, пока кнопка в дереве.</summary>
@@ -4961,7 +5156,7 @@ namespace Configuration_Management
             var offset = TreeScroll?.Offset;
 
             Content = BuildRoot();
-            Title = LocalizationManager.T("App.Title");
+            Title = ComposeWindowTitle();
 
             // Обновляем меню и подсказку трея, чтобы подписи кнопок и ToolTip
             // тоже переключились на новый язык без перезапуска.

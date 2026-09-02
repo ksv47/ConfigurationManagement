@@ -16,12 +16,12 @@ namespace Configuration_Management.Services
     /// </summary>
     public static class AppIconLoader
     {
-        private static WindowIcon? TryLoadFromFile(string path)
+        private static Bitmap? TryLoadFromFile(string path)
         {
             try
             {
                 if (File.Exists(path))
-                    return new WindowIcon(new Bitmap(path));
+                    return new Bitmap(path);
             }
             catch
             {
@@ -30,14 +30,14 @@ namespace Configuration_Management.Services
             return null;
         }
 
-        private static WindowIcon? TryLoadFromResource(string resourceName)
+        private static Bitmap? TryLoadFromResource(string resourceName)
         {
             try
             {
                 var asm = Assembly.GetExecutingAssembly();
                 using var stream = asm.GetManifestResourceStream(resourceName);
                 if (stream is not null)
-                    return new WindowIcon(new Bitmap(stream));
+                    return new Bitmap(stream);
             }
             catch
             {
@@ -46,8 +46,34 @@ namespace Configuration_Management.Services
             return null;
         }
 
-        /// <summary>Загружает значок приложения (app.ico) либо null, если ни один источник недоступен.</summary>
+        /// <summary>Значок приложения для заголовка окна и трея, либо null, если источников нет.</summary>
         public static WindowIcon? LoadAppIcon()
+            => LoadAppBitmap() is { } bitmap ? new WindowIcon(bitmap) : null;
+
+        /// <summary>Растр значка для шапки окна: один на приложение, декодируется один раз.</summary>
+        private static Bitmap? _titleBarBitmap;
+        private static bool _titleBarBitmapLoaded;
+
+        /// <summary>
+        /// Тот же значок картинкой: шапку главного окна рисует обычный Image
+        /// (MainWindow.xaml:193-197), а WindowIcon доступа к растру не даёт.
+        /// Растр общий и живёт до конца работы приложения: содержимое окна
+        /// пересобирается при смене языка и компактного режима, а декодирование
+        /// на каждую пересборку оставляло бы неосвобождённые растры. Делить его
+        /// со значком окна безопасно: WindowIcon копирует пиксели себе.
+        /// </summary>
+        public static Bitmap? TitleBarBitmap()
+        {
+            if (_titleBarBitmapLoaded)
+                return _titleBarBitmap;
+
+            _titleBarBitmapLoaded = true;
+            _titleBarBitmap = LoadAppBitmap();
+            return _titleBarBitmap;
+        }
+
+        /// <summary>Значок приложения растром: каждый вызов читает свой экземпляр.</summary>
+        public static Bitmap? LoadAppBitmap()
         {
             // 1) Сам app.ico рядом с приложением (если лежит в выходном каталоге и декодируется).
             foreach (var dir in new[] { AppContext.BaseDirectory, Environment.CurrentDirectory })
