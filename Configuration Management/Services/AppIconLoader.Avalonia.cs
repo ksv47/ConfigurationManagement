@@ -16,12 +16,12 @@ namespace Configuration_Management.Services
     /// </summary>
     public static class AppIconLoader
     {
-        private static WindowIcon? TryLoadFromFile(string path)
+        private static Bitmap? TryLoadFromFile(string path)
         {
             try
             {
                 if (File.Exists(path))
-                    return new WindowIcon(new Bitmap(path));
+                    return new Bitmap(path);
             }
             catch
             {
@@ -30,14 +30,14 @@ namespace Configuration_Management.Services
             return null;
         }
 
-        private static WindowIcon? TryLoadFromResource(string resourceName)
+        private static Bitmap? TryLoadFromResource(string resourceName)
         {
             try
             {
                 var asm = Assembly.GetExecutingAssembly();
                 using var stream = asm.GetManifestResourceStream(resourceName);
                 if (stream is not null)
-                    return new WindowIcon(new Bitmap(stream));
+                    return new Bitmap(stream);
             }
             catch
             {
@@ -46,8 +46,16 @@ namespace Configuration_Management.Services
             return null;
         }
 
-        /// <summary>Загружает значок приложения (app.ico) либо null, если ни один источник недоступен.</summary>
+        /// <summary>Значок приложения для заголовка окна и трея, либо null, если источников нет.</summary>
         public static WindowIcon? LoadAppIcon()
+            => LoadAppBitmap() is { } bitmap ? new WindowIcon(bitmap) : null;
+
+        /// <summary>
+        /// Тот же значок картинкой: шапка главного окна рисует его как обычный Image
+        /// (MainWindow.xaml:191-197), а WindowIcon доступа к растру не даёт. Каждый
+        /// вызов читает свой экземпляр, чтобы картинка и значок окна не делили объект.
+        /// </summary>
+        public static Bitmap? LoadAppBitmap()
         {
             // 1) Сам app.ico рядом с приложением (если лежит в выходном каталоге и декодируется).
             foreach (var dir in new[] { AppContext.BaseDirectory, Environment.CurrentDirectory })
