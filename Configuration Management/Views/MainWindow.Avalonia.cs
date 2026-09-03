@@ -121,9 +121,11 @@ namespace Configuration_Management
             _useSystemTitleBar = viewModel.UseSystemTitleBar;
             // На X11 с программным рендером или в виртуализации прозрачность окна заставляет
             // оконный менеджер непрерывно перерисовывать фон, что при простаивающем окне даёт
-            // высокую нагрузку CPU и «зависание» (issue #153). В таких случаях рисуем
-            // непрозрачный фон и вовсе не просим прозрачность.
-            _opaqueWindow = _useSystemTitleBar || DetectSoftwareRenderOrVm();
+            // высокую нагрузку CPU и «зависание» реакции на мышь (issue #153). Окно рисуется
+            // непрозрачным во всех таких случаях (X11 без композитинга, виртуализация, любой
+            // программный рендер); прозрачное «стекло» оставляется только на Wayland, где
+            // композитор обязателен и постоянной перерисовки фона нет.
+            _opaqueWindow = _useSystemTitleBar || DetectSoftwareRenderOrVm() || !IsWaylandSession();
             ApplySystemDecorations();
 
             ApplySavedWindowLayout();
@@ -5237,6 +5239,31 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Работаем ли мы под Wayland-сессией (issue #153). На Wayland композитор обязателен,
+        /// поэтому прозрачность окна не провоцирует непрерывной перерисовки фона и её можно
+        /// оставить. На X11 (или в неопределённой сессии) прозрачность без композитинга
+        /// заставляет оконный менеджер перерисовывать фон постоянно — там окно рисуется
+        /// непрозрачным. Определение по переменным окружения; при любом сбое считаем, что
+        /// Wayland нет (консервативно — окно станет непрозрачным).
+        /// </summary>
+        private static bool IsWaylandSession()
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")))
+                    return true;
+                var sessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
+                if (!string.IsNullOrWhiteSpace(sessionType))
+                    return sessionType.Contains("wayland", StringComparison.OrdinalIgnoreCase);
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Пересобирает главное окно при смене языка интерфейса, чтобы названия колонок,
         /// кнопки правой панели и подсказки (создаваемые через <c>LocalizationManager.T(...)</c>)
         /// обновились на новый язык сразу, а не после перезапуска. Компактный режим
@@ -5565,6 +5592,43 @@ namespace Configuration_Management
             AddHotkey(_vm.HotkeyShowAll, _vm.ShowAllCommand);
             AddHotkey(_vm.HotkeyShowFavorites, _vm.ShowFavoritesCommand);
             AddHotkey(_vm.HotkeyShowRecent, _vm.ShowRecentCommand);
+
+            // Жёстко заданные (без настройки) хоткеи ускорения работы (issue #160).
+            // Добавляются ПОСЛЕ пользовательских, чтобы назначенные пользователем
+            // сочетания имели приоритет. Ctrl+Shift+C не конфликтует с Ctrl+C (копирование):
+            // в привязки окна идёт только комбинация с Shift.
+            KeyBindings.Add(new KeyBinding
+            {
+                Gesture = new KeyGesture(Key.C, KeyModifiers.Control | KeyModifiers.Shift),
+                Command = _vm.ClearSearchCommand
+            });
+            KeyBindings.Add(new KeyBinding
+            {
+                Gesture = new KeyGesture(Key.T, KeyModifiers.Control | KeyModifiers.Shift),
+                Command = _vm.ClearTagFiltersCommand
+            });
+            // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
+            // Регистрируются обе раскладки (основная клавиатура Oem* и цифровой блок Add/Subtract).
+            KeyBindings.Add(new KeyBinding
+            {
+                Gesture = new KeyGesture(Key.OemPlus, KeyModifiers.Control | KeyModifiers.Shift),
+                Command = _vm.ExpandAllGroupsCommand
+            });
+            KeyBindings.Add(new KeyBinding
+            {
+                Gesture = new KeyGesture(Key.Add, KeyModifiers.Control | KeyModifiers.Shift),
+                Command = _vm.ExpandAllGroupsCommand
+            });
+            KeyBindings.Add(new KeyBinding
+            {
+                Gesture = new KeyGesture(Key.OemMinus, KeyModifiers.Control | KeyModifiers.Shift),
+                Command = _vm.CollapseAllGroupsCommand
+            });
+            KeyBindings.Add(new KeyBinding
+            {
+                Gesture = new KeyGesture(Key.Subtract, KeyModifiers.Control | KeyModifiers.Shift),
+                Command = _vm.CollapseAllGroupsCommand
+            });
         }
 
         /// <summary>

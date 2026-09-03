@@ -227,6 +227,17 @@ namespace Configuration_Management
                     desktop.MainWindow = mainWindow;
                     mainWindow.Show();
 
+                    // Фоновая проверка обновлений (Linux/Avalonia): запускаем после показа
+                    // главного окна, чтобы не задерживать старт. Если пользователь отключил
+                    // проверку в настройках — пропускаем. При обнаружении новой версии всегда
+                    // показывается единый диалог с вопросом о применении обновления.
+                    if (settings.CheckForUpdatesOnStartup)
+                    {
+                        var updateService = AppServices.GetRequiredService<UpdateService>();
+                        updateService.AutoUpdateEnabled = settings.AutoUpdateEnabled;
+                        CheckForUpdatesInBackground(updateService);
+                    }
+
                     // Прежний режим завершения возвращается: на время старта он
                     // переключался на явный, иначе закрытие окна входа гасило
                     // приложение до появления главного.
@@ -240,6 +251,23 @@ namespace Configuration_Management
             }
 
             base.OnFrameworkInitializationCompleted();
+        }
+
+        /// <summary>
+        /// Запускает фоновую проверку обновлений и не ждёт её завершения.
+        /// Внутренние ошибки ловятся в <see cref="UpdateService"/>, здесь лишь
+        /// дополнительно страхуемся, чтобы исключение не уронило поток.
+        /// </summary>
+        private static async void CheckForUpdatesInBackground(UpdateService updateService)
+        {
+            try
+            {
+                await updateService.CheckForUpdatesAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // Фоновая проверка не должна влиять на запуск и работу приложения.
+            }
         }
 
         /// <summary>

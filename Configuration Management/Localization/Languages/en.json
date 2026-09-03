@@ -52,6 +52,8 @@
     "Update.UpdateAfterClose": "Update after closing",
     "Update.AppliedLater": "The update will be applied the next time you close the program.",
     "Update.RestartPrompt": "The application will be closed and restarted to apply the update.",
+    "Update.RestartNowPrompt": "The update has been downloaded. Restart the application now to apply it?",
+    "Update.WillApplyOnExit": "The update will be applied after the application closes.",
     "Update.NoDownloadUrl": "No installer file was found for this release.",
     "Update.DownloadFailed": "Failed to download the update.",
     "Update.InstallFailed": "Failed to install the update.",

@@ -421,14 +421,20 @@ public class Infobase : INotifyPropertyChanged
 
     /// <summary>
     /// Ключ иконки статуса базы для списка баз (геометрия из Icons.xaml / Icons.axaml):
-    /// файловая — папка, веб-сервер — глобус, клиент-серверная — сеть, недоступная — ошибка.
+    /// файловая — база данных, веб-сервер — глобус, клиент-серверная — сеть, недоступная — ошибка.
     /// Передаётся в IconKeyToGeometryConverter для отрисовки Path.
+    /// <para>
+    /// Issue #161: файловая база раньше рисовалась той же иконкой «папка» (IconFolder), что
+    /// и группы, и отличалась от неё только цветом. Чтобы база отличалась от папки по форме,
+    /// файловые базы теперь используют отдельную геометрию базы данных (IconDatabase),
+    /// которая по форме не совпадает с IconFolder.
+    /// </para>
     /// </summary>
     public string StatusIconKey => !IsAvailable
         ? "IconError"
         : Connection.Type switch
         {
-            ConnectionType.File => "IconFolder",
+            ConnectionType.File => "IconDatabase",
             ConnectionType.WebServer => "IconWeb",
             _ => "IconNetwork"
         };
