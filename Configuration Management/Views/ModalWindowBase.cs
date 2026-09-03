@@ -38,23 +38,28 @@ namespace Configuration_Management
         /// </summary>
         protected ModalWindowBase()
         {
-            // Отказываемся от системной рамки и кнопок: диалоги, как и главное окно,
-            // получают собственные кнопки управления (свернуть/закрыть, у закрытия
-            // красное выделение) и «стеклянный» полупрозрачный фон. Это единое место
-            // для всех диалогов, а не повторение в каждом.
-            SystemDecorations = SystemDecorations.None;
-            ExtendClientAreaToDecorationsHint = true;
+            // Декор окна следует настройке «Системный заголовок окна» (issue #152), как
+            // и у главного окна: включена — стандартная системная рамка с её кнопками
+            // и перетаскиванием; выключена — собственный безрамковый режим с кнопками
+            // управления (свернуть/закрыть) и «стеклянным» полупрозрачным фоном, который
+            // рисует базовый класс. Это единое место для всех диалогов, а не повторение
+            // в каждом (раньше отдельные окна жёстко ставили SystemDecorations.Full).
+            var useSystemTitleBar = ResolveUseSystemTitleBar();
+            SystemDecorations = useSystemTitleBar ? SystemDecorations.Full : SystemDecorations.None;
+            ExtendClientAreaToDecorationsHint = !useSystemTitleBar;
 
-            // Прозрачное окно под эффект «стекла»: используем обычную прозрачность без
-            // размытия. Запрос AcrylicBlur/Blur включает непрерывную перерисовку фона, что
-            // в виртуальной машине и окружениях с программным рендером даёт высокую нагрузку
-            // CPU и падение при открытии диалога (issues #150, #153). Полупрозрачную подложку
-            // нужного цвета темы рисует стеклянный контейнер.
-            TransparencyLevelHint = new[]
+            // Прозрачность — только в безрамковом режиме: со стандартной системной рамкой
+            // прозрачный фон и расширение клиентской области конфликтуют и могут ронять
+            // приложение при открытии диалога на Linux (issue #150). Размытие не просим:
+            // AcrylicBlur/Blur включает непрерывную перерисовку фона (issues #150, #153).
+            if (!useSystemTitleBar)
             {
-                WindowTransparencyLevel.Transparent
-            };
-            Background = Brushes.Transparent;
+                TransparencyLevelHint = new[]
+                {
+                    WindowTransparencyLevel.Transparent
+                };
+                Background = Brushes.Transparent;
+            }
 
             // Диалоги не показываются в панели задач: в разметке WPF
             // ShowInTaskbar="False" стоит у всех шестнадцати окон, поэтому здесь
@@ -66,6 +71,35 @@ namespace Configuration_Management
             // даже когда главное окно на втором (issue #151). CenterOwner при отсутствии
             // владельца даёт центр экрана, так что ухудшения нет.
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        }
+
+        // Кэш настройки «Системный заголовок окна» на время жизни процесса.
+        private static bool? _systemTitleBarCache;
+
+        /// <summary>
+        /// Читает настройку «Системный заголовок окна» из репозитория. Значение кэшируется
+        /// на время жизни процесса, как и у главного окна: изменение вступает в силу после
+        /// перезапуска. При любой ошибке чтения настроек возвращается false (безрамковый
+        /// режим по умолчанию), чтобы диалог гарантированно открылся.
+        /// </summary>
+        private static bool ResolveUseSystemTitleBar()
+        {
+            if (_systemTitleBarCache is bool cached)
+            {
+                return cached;
+            }
+            var value = false;
+            try
+            {
+                value = AppServices.GetRequiredService<Configuration_Management.Services.IInfobaseRepository>()
+                    .LoadSettings().UseSystemTitleBar;
+            }
+            catch
+            {
+                value = false;
+            }
+            _systemTitleBarCache = value;
+            return value;
         }
 
         /// <summary>

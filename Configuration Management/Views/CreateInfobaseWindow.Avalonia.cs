@@ -113,7 +113,6 @@ namespace Configuration_Management
                 SizeToContent = SizeToContent.Height;
                 CanResize = false;
             }
-            SystemDecorations = SystemDecorations.Full;
 
             _groupPathBox.Text = string.IsNullOrWhiteSpace(_selectedGroupPath)
                 ? LocalizationManager.T("Connection.NoGroup")

@@ -9,6 +9,20 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.48] — 2026-09-03
+
+Диалоговые окна (Linux/Avalonia) исправлены: теперь они учитывают настройку «Системный заголовок окна» и их можно перетаскивать. Устранено расхождение «закраски» (полупрозрачной подложки) между окнами.
+
+### Изменено
+
+- **Диалоговые окна учитывают настройку «Системный заголовок окна» (issue #152)** ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs)): базовый класс всех диалогов больше не жёстко задаёт `SystemDecorations.None` и `ExtendClientAreaToDecorationsHint = true`. Когда настройка включена, диалог, как и главное окно, использует стандартную системную рамку (`SystemDecorations.Full`) с её кнопками и перетаскиванием; когда выключена — собственный безрамковый режим со «стеклянной» подложкой. Прозрачность и расширение клиентской области применяются только в безрамковом режиме, что исключает конфликт с системной рамкой и падение на Linux (issue #150).
+- **Устранено жёсткое переопределение системного заголовка в отдельных окнах (issue #152)** ([`Views/AddEditWindow.Avalonia.cs`](Configuration%20Management/Views/AddEditWindow.Avalonia.cs), [`Views/ColorPickerWindow.Avalonia.cs`](Configuration%20Management/Views/ColorPickerWindow.Avalonia.cs), [`Views/ConnectionStringInputWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionStringInputWindow.Avalonia.cs), [`Views/CreateInfobaseWindow.Avalonia.cs`](Configuration%20Management/Views/CreateInfobaseWindow.Avalonia.cs), [`Views/LoginWindow.Avalonia.cs`](Configuration%20Management/Views/LoginWindow.Avalonia.cs), [`Views/ProfilesWindow.Avalonia.cs`](Configuration%20Management/Views/ProfilesWindow.Avalonia.cs)): из конструкторов шести окон убрано `SystemDecorations = Full`, а у `AddEditWindow` — переопределение `UseGlassChrome => false`. Теперь все производные окна следуют базовому классу и единообразно реагируют на настройку системного заголовка, а расхождение «закраски» между диалогами устранено.
+- **Перетаскивание диалогов работает в обоих режимах (issue #152)**: в безрамковом режиме окно перетаскивается за полосу заголовка (`BeginMoveDrag`) с исключением интерактивных элементов и корректным поведением при развороте; при включённом системном заголовке перетаскивание обеспечивает сама системная рамка.
+
+### Версия
+
+- **Версия поднята до `0.3.6.47` → `0.3.6.48`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.47] — 2026-09-03
 
 В редакторе тем на вкладке «Оформление» возвращён прежний вид: вместо двух живых предпросмотров (светлая и тёмная палитры) снова один живой предпросмотр, отражающий активную цветовую схему, справа в фиксированной колонке; список цветов слева расположен в прокручиваемой колонке.
