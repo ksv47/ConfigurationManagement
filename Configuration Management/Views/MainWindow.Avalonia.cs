@@ -91,6 +91,16 @@ namespace Configuration_Management
         /// </summary>
         private bool _allowCloseToTray = true;
 
+        // Текущий режим системного заголовка (issue #159). Держится полем, чтобы при
+        // пересборке содержимого (ApplySystemTitleBar) знать, рисовать ли собственную
+        // шапку с кнопками окна и зоны изменения размера, или их даёт системная рамка.
+        private bool _useSystemTitleBar;
+
+        // Непрозрачный режим окна (issue #153): прозрачность на X11 с программным
+        // рендером/в виртуализации заставляет WM непрерывно перерисовывать фон.
+        // В этом режиме «стеклянная» подложка рисуется полностью непрозрачной.
+        private readonly bool _opaqueWindow;
+
         public MainWindow(MainViewModel viewModel)
         {
             _vm = viewModel;
@@ -108,33 +118,13 @@ namespace Configuration_Management
             // кнопок и рамки в пользу собственных (свернуть/развернуть/закрыть), рисуемых
             // в коде. Перетаскивание реализовано за фон верхней панели (BeginMoveDrag),
             // изменение размера — угловыми и краевыми зонами (BeginResizeDrag).
-            var useSystemTitleBar = viewModel.UseSystemTitleBar;
-            SystemDecorations = useSystemTitleBar ? SystemDecorations.Full : SystemDecorations.None;
-            ExtendClientAreaToDecorationsHint = !useSystemTitleBar;
-
-            // Прозрачное окно под эффект «стекла» (только в безрамковом режиме: со стандартной
-            // системной рамкой прозрачность и расширение клиентской области конфликтуют).
-            // Просим у оконного менеджера AcrylicBlur, при недоступности откатываемся
-            // на Blur, затем Transparent. Список упорядочен по убыванию желаемого — Avalonia
-            // берёт первый поддерживаемый уровень (порядок в массиве не гарантируется WM,
-            // поэтому корректный фолбэк обеспечивает и полупрозрачная подложка ниже).
-            if (!useSystemTitleBar)
-            {
-                // Прозрачность без размытия (issue #153): запрос AcrylicBlur/Blur у оконного
-                // менеджера включает непрерывную перерисовку фона, что в виртуальной машине
-                // и окружениях с программным рендером без VSync давало ~36% CPU и зависание.
-                // Обычная прозрачность «стеклянную» подложку сохраняет, но не заставляет WM
-                // пересчитывать размытие на каждом кадре. При желании пользователь может
-                // включить стандартный системный заголовок (настройка «Системный заголовок»),
-                // который полностью отключает прозрачность.
-                TransparencyLevelHint = new[]
-                {
-                    WindowTransparencyLevel.Transparent
-                };
-                // Без прозрачного фона самого окна прозрачность не активируется:
-                // содержимое рисуется поверх, а «стекло» даёт полупрозрачный фон корня.
-                Background = Brushes.Transparent;
-            }
+            _useSystemTitleBar = viewModel.UseSystemTitleBar;
+            // На X11 с программным рендером или в виртуализации прозрачность окна заставляет
+            // оконный менеджер непрерывно перерисовывать фон, что при простаивающем окне даёт
+            // высокую нагрузку CPU и «зависание» (issue #153). В таких случаях рисуем
+            // непрозрачный фон и вовсе не просим прозрачность.
+            _opaqueWindow = _useSystemTitleBar || DetectSoftwareRenderOrVm();
+            ApplySystemDecorations();
 
             ApplySavedWindowLayout();
 
@@ -255,17 +245,19 @@ namespace Configuration_Management
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            var titleBar = BuildTitleBar();
+            // Собственная безрамковая шапка с кнопками окна нужна только в безрамковом
+            // режиме: при системной рамке она не строится, чтобы не было двух заголовков
+            // (issue #159). Соответственно, строка 0 остаётся пустой нулевой высоты.
+            if (!_useSystemTitleBar)
+                grid.Children.Add(BuildTitleBar());
             var topBar = BuildTopBar();
             var mainArea = BuildMainArea();
             var statusBar = BuildStatusBar();
 
-            Grid.SetRow(titleBar, 0);
             Grid.SetRow(topBar, 1);
             Grid.SetRow(mainArea, 2);
             Grid.SetRow(statusBar, 3);
 
-            grid.Children.Add(titleBar);
             grid.Children.Add(topBar);
             grid.Children.Add(mainArea);
             grid.Children.Add(statusBar);
@@ -280,7 +272,9 @@ namespace Configuration_Management
 
             // Без системной рамки изменение размера рисуем сами: невидимые зоны
             // по краям и углам окна перехватывают нажатие и вызывают BeginResizeDrag.
-            AddResizeZones(grid);
+            // При системной рамке размер меняет сама система, зоны не нужны.
+            if (!_useSystemTitleBar)
+                AddResizeZones(grid);
 
             // «Стеклянный» контейнер: скруглённые углы в стиле glass и полупрозрачный
             // фон, адаптивно получаемый из цвета темы (светлая/тёмная и любые схемы).
@@ -323,8 +317,14 @@ namespace Configuration_Management
         /// чтобы обе темы и все цветовые схемы выглядели как «стекло» своего цвета.
         /// </summary>
         private void ApplyGlassBackground(Border glass)
-            => ThemeBrushes.Observe(glass, "ContentBackgroundColorBrush",
-                brush => glass.Background = ThemeBrushes.WithAlpha(brush, GlassBackgroundAlpha));
+        {
+            // В непрозрачном режиме (программный рендер/виртуализация, issue #153) фон
+            // рисуем полностью непрозрачным: полупрозрачная подложка поверх непрозрачного
+            // окна в этих окружениях тоже способна включать лишнюю компоновку кадра.
+            var alpha = _opaqueWindow ? (byte)0xFF : GlassBackgroundAlpha;
+            ThemeBrushes.Observe(glass, "ContentBackgroundColorBrush",
+                brush => glass.Background = ThemeBrushes.WithAlpha(brush, alpha));
+        }
 
         private Control BuildTopBar()
         {
@@ -1749,13 +1749,17 @@ namespace Configuration_Management
 
             var columns = ListColumns();
             var actionsOffset = ActionsOffsetInColumns(columns);
+            // Скрытая колонка «Действия» остаётся в сетке нулевой ширины (issue #158):
+            // индексы и выравнивание остальных колонок и заголовка не меняются, а на
+            // экране колонка просто не занимает места.
+            var actionsWidth = _vm?.ShowActionsColumn != false ? ActionsColumnWidth : 0;
             var actionsIndex = -1;
             for (var i = 0; i < columns.Count; i++)
             {
                 if (i == actionsOffset)
                 {
                     actionsIndex = grid.ColumnDefinitions.Count;
-                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(actionsWidth) });
                 }
                 grid.ColumnDefinitions.Add(
                     new ColumnDefinition { Width = new GridLength(columns[i].Width), MinWidth = MinColumnWidth });
@@ -1763,7 +1767,7 @@ namespace Configuration_Management
             if (actionsOffset >= columns.Count)
             {
                 actionsIndex = grid.ColumnDefinitions.Count;
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ActionsColumnWidth) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(actionsWidth) });
             }
             return actionsIndex;
         }
@@ -1910,18 +1914,24 @@ namespace Configuration_Management
 
             // Кнопки действий в колонке «Действия» (после колонки «Режим запуска»):
             // запуск, конфигуратор, изменить настройки, очистить кеш, удалить.
+            // Колонка при этом нулевой ширины, поэтому панель не строится вовсе
+            // и не остаётся невидимых обработчиков на каждую строку (issue #158).
             var actionsCol = NameRowColumn + 1 + actionsOffset;
-            var actions = new ActionsPanel { Spacing = 1 };
-            actions.Children.Add(RowActionButton(ib, "IconPlay", "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconBroom", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
-            actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#DC2626"));
-            // Кнопки живут внутри панели, обрезанной по своей колонке: в узкой
-            // колонке «Действия» лишние значки у автора пропадают, а у нас
-            // рисовались поверх колонки «Сервер/База».
-            grid.Children.Add(actions);
-            Grid.SetColumn(actions, actionsCol);
+            ActionsPanel? actions = null;
+            if (_vm?.ShowActionsColumn != false)
+            {
+                actions = new ActionsPanel { Spacing = 1 };
+                actions.Children.Add(RowActionButton(ib, "IconPlay", "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
+                actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
+                actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
+                actions.Children.Add(RowActionButton(ib, "IconBroom", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
+                actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#DC2626"));
+                // Кнопки живут внутри панели, обрезанной по своей колонке: в узкой
+                // колонке «Действия» лишние значки у автора пропадают, а у нас
+                // рисовались поверх колонки «Сервер/База».
+                grid.Children.Add(actions);
+                Grid.SetColumn(actions, actionsCol);
+            }
 
             if (_vm?.ShowTags == true)
             {
@@ -1931,7 +1941,8 @@ namespace Configuration_Management
                 // действиями и остальными значениями.
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                Grid.SetRowSpan(actions, 2);
+                if (actions is not null)
+                    Grid.SetRowSpan(actions, 2);
 
                 var tags = BuildRowTags(card, ib);
                 // Тот же отступ вложенности, что и у ведущего блока
@@ -4222,13 +4233,18 @@ namespace Configuration_Management
             // Подпись колонки «Действия» — сразу после колонки «Режим запуска».
             // Разделитель у неё есть и в разметке (ActionsSplitter,
             // MainWindow.xaml:745), поэтому ширина тянется и сохраняется.
-            var actionsColumn = NameHeaderColumn + 1 + actionsOffset;
-            _headerColumnIndex["Actions"] = actionsColumn;
-            var actionsHeader = ColumnHeader(LocalizationManager.T("Column.Actions"), IconHelper.ColumnIconKey("Actions"));
-            ToolTip.SetTip(actionsHeader, LocalizationManager.T("Main.Actions"));
-            _columnHeaderRow.Children.Add(actionsHeader);
-            Grid.SetColumn(actionsHeader, actionsColumn);
-            _columnHeaderRow.Children.Add(BuildResizeGrip("Actions", actionsColumn));
+            // Скрытая колонка остаётся нулевой ширины (AddListColumns), поэтому
+            // заголовок с разделителем не строится вовсе (issue #158).
+            if (_vm.ShowActionsColumn)
+            {
+                var actionsColumn = NameHeaderColumn + 1 + actionsOffset;
+                _headerColumnIndex["Actions"] = actionsColumn;
+                var actionsHeader = ColumnHeader(LocalizationManager.T("Column.Actions"), IconHelper.ColumnIconKey("Actions"));
+                ToolTip.SetTip(actionsHeader, LocalizationManager.T("Main.Actions"));
+                _columnHeaderRow.Children.Add(actionsHeader);
+                Grid.SetColumn(actionsHeader, actionsColumn);
+                _columnHeaderRow.Children.Add(BuildResizeGrip("Actions", actionsColumn));
+            }
 
             UpdateListMinWidth();
 
@@ -5130,6 +5146,94 @@ namespace Configuration_Management
         {
             UiMetrics.Compact = compact;
             Content = BuildRoot();
+        }
+
+        /// <summary>
+        /// Применяет декор главного окна по текущей настройке «Системный заголовок окна»
+        /// (issue #159): стандартная системная рамка или собственная безрамковая с кнопками
+        /// окна, зонами изменения размера и прозрачностью. Прозрачность не запрашивается,
+        /// если окно работает в непрозрачном режиме (<see cref="_opaqueWindow"/>), чтобы не
+        /// провоцировать непрерывную перерисовку фона на X11 с программным рендером.
+        /// </summary>
+        private void ApplySystemDecorations()
+        {
+            SystemDecorations = _useSystemTitleBar ? SystemDecorations.Full : SystemDecorations.None;
+            ExtendClientAreaToDecorationsHint = !_useSystemTitleBar;
+
+            if (_useSystemTitleBar || _opaqueWindow)
+            {
+                // Со стандартной рамкой прозрачность и расширение клиентской области
+                // конфликтуют; в непрозрачном режиме она просто не нужна. Убираем запрос
+                // уровня прозрачности — по умолчанию окно рисуется непрозрачным фоном.
+                TransparencyLevelHint = null;
+                Background = null;
+            }
+            else
+            {
+                // Прозрачность без размытия: AcrylicBlur/Blur включает непрерывную
+                // перерисовку фона и в виртуализации давал ~36% CPU (issue #153).
+                TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
+                // Без прозрачного фона самого окна прозрачность не активируется:
+                // содержимое рисуется поверх, а «стекло» даёт полупрозрачный фон корня.
+                Background = Brushes.Transparent;
+            }
+        }
+
+        /// <summary>
+        /// Применяет настройку «Системный заголовок окна» на живом главном окне без
+        /// перезапуска (issue #159). Значение уже сохранено во вьюмодели (кнопка
+        /// «Сохранить» в настройках присваивает <c>UseSystemTitleBar</c> до вызова),
+        /// здесь только обновляется декор и пересобирается содержимое под новый режим:
+        /// при системной рамке убираются собственная шапка и зоны изменения размера.
+        /// Если платформа не позволяет сменить декор живого окна (некоторые X11 WM),
+        /// свойство SystemDecorations всё равно перечитывается, а контент приводится
+        /// к согласованному виду; эффект гарантируется после следующего показа окна.
+        /// </summary>
+        public void ApplySystemTitleBar(bool useSystemTitleBar)
+        {
+            _useSystemTitleBar = useSystemTitleBar;
+            ApplySystemDecorations();
+            Content = BuildRoot();
+        }
+
+        /// <summary>
+        /// Определяет, стоит ли рисовать окно непрозрачным (issue #153): прозрачность
+        /// на X11 с программным рендером или в виртуализации заставляет оконный менеджер
+        /// непрерывно перерисовывать фон. Надёжный признак — наличие гипервизора
+        /// (VirtualBox/QEMU/VMware): читаем флаг в /proc/cpuinfo и DMI-данные о вендоре.
+        /// Это консервативный детектор; на остальном железе прозрачность сохраняется.
+        /// </summary>
+        private static bool DetectSoftwareRenderOrVm()
+        {
+            try
+            {
+                if (File.Exists("/proc/cpuinfo"))
+                {
+                    var cpuInfo = File.ReadAllText("/proc/cpuinfo");
+                    if (cpuInfo.Contains("hypervisor", StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+                foreach (var dmiPath in new[]
+                         {
+                             "/sys/devices/virtual/dmi/id/sys_vendor",
+                             "/sys/devices/virtual/dmi/id/product_name"
+                         })
+                {
+                    if (!File.Exists(dmiPath))
+                        continue;
+                    var value = File.ReadAllText(dmiPath);
+                    if (value.Contains("VirtualBox", StringComparison.OrdinalIgnoreCase)
+                        || value.Contains("innotek", StringComparison.OrdinalIgnoreCase)
+                        || value.Contains("QEMU", StringComparison.OrdinalIgnoreCase)
+                        || value.Contains("VMware", StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+            catch
+            {
+                // При любой ошибке чтения не мешаем запуску и оставляем прозрачный режим.
+            }
+            return false;
         }
 
         /// <summary>

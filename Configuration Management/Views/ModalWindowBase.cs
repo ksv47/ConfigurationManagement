@@ -1,5 +1,6 @@
 #if LINUX
 using System;
+using System.IO;
 using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
@@ -52,7 +53,9 @@ namespace Configuration_Management
             // прозрачный фон и расширение клиентской области конфликтуют и могут ронять
             // приложение при открытии диалога на Linux (issue #150). Размытие не просим:
             // AcrylicBlur/Blur включает непрерывную перерисовку фона (issues #150, #153).
-            if (!useSystemTitleBar)
+            // В непрозрачном режиме (программный рендер/виртуализация) прозрачность не
+            // запрашиваем вовсе, чтобы не провоцировать непрерывную перерисовку фона (issue #153).
+            if (!useSystemTitleBar && !ShouldRenderOpaque)
             {
                 TransparencyLevelHint = new[]
                 {
@@ -75,6 +78,46 @@ namespace Configuration_Management
 
         // Кэш настройки «Системный заголовок окна» на время жизни процесса.
         private static bool? _systemTitleBarCache;
+
+        /// <summary>
+        /// Рисовать ли диалоги непрозрачными (issue #153): на X11 с программным рендером
+        /// или в виртуализации прозрачность заставляет оконный менеджер непрерывно
+        /// перерисовывать фон, что даёт высокую нагрузку CPU. Вычисляется один раз.
+        /// </summary>
+        private static readonly bool ShouldRenderOpaque = DetectSoftwareRenderOrVm();
+
+        private static bool DetectSoftwareRenderOrVm()
+        {
+            try
+            {
+                if (File.Exists("/proc/cpuinfo"))
+                {
+                    var cpuInfo = File.ReadAllText("/proc/cpuinfo");
+                    if (cpuInfo.Contains("hypervisor", StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+                foreach (var dmiPath in new[]
+                         {
+                             "/sys/devices/virtual/dmi/id/sys_vendor",
+                             "/sys/devices/virtual/dmi/id/product_name"
+                         })
+                {
+                    if (!File.Exists(dmiPath))
+                        continue;
+                    var value = File.ReadAllText(dmiPath);
+                    if (value.Contains("VirtualBox", StringComparison.OrdinalIgnoreCase)
+                        || value.Contains("innotek", StringComparison.OrdinalIgnoreCase)
+                        || value.Contains("QEMU", StringComparison.OrdinalIgnoreCase)
+                        || value.Contains("VMware", StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+            catch
+            {
+                // При любой ошибке чтения не мешаем запуску и оставляем прозрачный режим.
+            }
+            return false;
+        }
 
         /// <summary>
         /// Читает настройку «Системный заголовок окна» из репозитория. Значение кэшируется
@@ -101,6 +144,13 @@ namespace Configuration_Management
             _systemTitleBarCache = value;
             return value;
         }
+
+        /// <summary>
+        /// Сбрасывает кэш настройки «Системный заголовок окна» (issue #159). Вызывается
+        /// из окна настроек после изменения настройки, чтобы уже открываемые далее
+        /// модальные окна применили новое значение, не дожидаясь перезапуска.
+        /// </summary>
+        public static void InvalidateSystemTitleBarCache() => _systemTitleBarCache = null;
 
         /// <summary>
         /// Источник локализации для привязок XAML: <c>{Binding Loc[Key]}</c>.

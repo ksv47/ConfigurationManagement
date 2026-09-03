@@ -232,6 +232,7 @@ public class MainViewModel : ViewModelBase
         bool showFavoritesButton, bool showPinnedButton, bool showTags, bool showTagFilterPanel,
         bool showVersionColumn, bool showConfigurationColumn, bool showLaunchModeColumn,
         bool showServerColumn, bool showLastLaunchColumn, bool showSizeColumn,
+        bool showActionsColumn,
         bool showRightPanelDetails, bool showSessionLaunchPanel,
         bool groupByGroup, bool showEmptyGroups,
         List<string>? columnOrder)
@@ -245,6 +246,7 @@ public class MainViewModel : ViewModelBase
         var previousShowServerColumn = _settings.ShowServerColumn;
         var previousShowLastLaunchColumn = _settings.ShowLastLaunchColumn;
         var previousShowSizeColumn = _settings.ShowSizeColumn;
+        var previousShowActionsColumn = _settings.ShowActionsColumn;
         var previousColumnOrder = _settings.ColumnOrder ?? new List<string>();
         var previousGroupByGroup = _groupByGroup;
         var previousShowEmptyGroups = _showEmptyGroups;
@@ -259,6 +261,7 @@ public class MainViewModel : ViewModelBase
         _settings.ShowServerColumn = showServerColumn;
         _settings.ShowLastLaunchColumn = showLastLaunchColumn;
         _settings.ShowSizeColumn = showSizeColumn;
+        _settings.ShowActionsColumn = showActionsColumn;
         _settings.ColumnOrder = columnOrder ?? new List<string>();
         _settings.ShowRightPanelDetails = showRightPanelDetails;
         _settings.ShowSessionLaunchPanel = showSessionLaunchPanel;
@@ -283,6 +286,7 @@ public class MainViewModel : ViewModelBase
             || showServerColumn != previousShowServerColumn
             || showLastLaunchColumn != previousShowLastLaunchColumn
             || showSizeColumn != previousShowSizeColumn
+            || showActionsColumn != previousShowActionsColumn
             || !previousColumnOrder.SequenceEqual(_settings.ColumnOrder);
 
         SaveSettingsSilently();
@@ -290,6 +294,7 @@ public class MainViewModel : ViewModelBase
         NotifyColumnSettings();
         NotifySessionSettings();
         OnPropertyChanged(nameof(ShowTagFilterPanel));
+        OnPropertyChanged(nameof(ShowActionsColumn));
         OnPropertyChanged(nameof(ShowRightPanelDetails));
         OnPropertyChanged(nameof(ShowConnectionInfo));
         OnPropertyChanged(nameof(ShowRightPanelHint));
@@ -828,12 +833,28 @@ public class MainViewModel : ViewModelBase
         { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
 
     /// <summary>
-    /// Порядок колонок списка баз слева направо (кроме фиксированных колонок
-    /// «Название» и «Действия»). Если порядок не задан или пуст — возвращается
-    /// порядок по умолчанию с колонкой «Конфигурация» в конце.
+    /// Порядок колонок списка баз слева направо (кроме фиксированной колонки
+    /// «Название», которая всегда первая). Если порядок не задан или пуст —
+    /// возвращается порядок по умолчанию с колонкой «Конфигурация» в конце.
+    /// Колонка «Действия» всегда присутствует в порядке: старые сохранённые
+    /// настройки могли не содержать её вовсе, и тогда колонку нельзя было ни
+    /// показать, ни отключить в окне настроек (issue #158).
     /// </summary>
-    public IReadOnlyList<string> ColumnOrderKeys =>
-        _settings.ColumnOrder is { Count: > 0 } ? _settings.ColumnOrder : DefaultColumnOrder;
+    public IReadOnlyList<string> ColumnOrderKeys
+    {
+        get
+        {
+            var order = _settings.ColumnOrder;
+            if (order is { Count: 0 })
+                return DefaultColumnOrder;
+            // «Действия» обязана быть в списке: если её нет в пользовательском
+            // порядке (например, порядок сохранён до появления этой колонки),
+            // дописываем в конец, не меняя сам сохранённый список.
+            return order!.Contains("Actions", StringComparer.Ordinal)
+                ? order
+                : order.Concat(new[] { "Actions" }).ToList();
+        }
+    }
 
     public bool ShowExpandCollapseButtons => GroupByGroup;
     public bool ShowFavoritesButton => _settings.ShowFavoritesButton;
@@ -844,6 +865,9 @@ public class MainViewModel : ViewModelBase
     public bool ShowServerColumn => _settings.ShowServerColumn;
     public bool ShowLastLaunchColumn => _settings.ShowLastLaunchColumn;
     public bool ShowSizeColumn => _settings.ShowSizeColumn;
+
+    /// <summary>Показывать колонку «Действия» (кнопки запуска/конфигуратора/очистки кеша) в списке баз.</summary>
+    public bool ShowActionsColumn => _settings.ShowActionsColumn;
 
     /// <summary>
     /// Состав нижней панели: какие сведения о выбранной базе в неё попадают.
@@ -1173,6 +1197,14 @@ public class MainViewModel : ViewModelBase
             _showTagFilterPanel = _settings.ShowTagFilterPanel;
             // Компактный режим правой панели восстанавливается из настроек (issue #149).
             _showRightPanelDetails = _settings.ShowRightPanelDetails;
+            // Уведомляем производные признаки, чтобы уже построенное главное окно
+            // (панель могла быть собрана с дефолтным значением до загрузки настроек)
+            // сразу применило компактный режим и скрыло лишние блоки информации.
+            OnPropertyChanged(nameof(ShowRightPanelDetails));
+            OnPropertyChanged(nameof(ShowRightPanelHint));
+            OnPropertyChanged(nameof(ShowConnectionInfo));
+            OnPropertyChanged(nameof(OpenByLinkCaption));
+            OnPropertyChanged(nameof(RightPanelToggleTooltip));
             _themeName = _settings.Theme;
             _compactMode = _settings.CompactMode;
             _afterLaunchAction = _settings.AfterLaunchAction ?? "None";
@@ -3751,6 +3783,22 @@ public class MainViewModel : ViewModelBase
             is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
             && desktop.MainWindow is Configuration_Management.MainWindow main)
             main.ApplyCompactMode(compact);
+    }
+
+    /// <summary>
+    /// Применяет настройку «Системный заголовок окна» к главному окну сразу, без
+    /// перезапуска (issue #159). Сама настройка уже сохранена через свойство
+    /// <see cref="UseSystemTitleBar"/>; здесь только обновляется декор окна и
+    /// сбрасывается кэш настройки модальных окон, чтобы новые диалоги тоже
+    /// применили свежее значение.
+    /// </summary>
+    public void ApplySystemTitleBar(bool useSystemTitleBar)
+    {
+        Configuration_Management.ModalWindowBase.InvalidateSystemTitleBarCache();
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            && desktop.MainWindow is Configuration_Management.MainWindow main)
+            main.ApplySystemTitleBar(useSystemTitleBar);
     }
 
     /// <summary>

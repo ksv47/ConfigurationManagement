@@ -636,6 +636,7 @@ namespace Configuration_Management
                 "ServerBase" => _viewModel.ShowServerColumn,
                 "LastLaunch" => _viewModel.ShowLastLaunchColumn,
                 "Size" => _viewModel.ShowSizeColumn,
+                "Actions" => _viewModel.ShowActionsColumn,
                 _ => true
             };
 
@@ -2360,6 +2361,9 @@ namespace Configuration_Management
                     VisibleOf("ServerBase"),
                     VisibleOf("LastLaunch"),
                     VisibleOf("Size"),
+                    // Видимость колонки «Действия» (issue #158): раньше она не
+                    // передавалась и колонку нельзя было ни скрыть, ни показать.
+                    VisibleOf("Actions"),
                     rightPanelCheck.IsChecked == true,
                     sessionPanelCheck.IsChecked == true,
                     groupByGroupCheck.IsChecked == true,
@@ -2374,8 +2378,11 @@ namespace Configuration_Management
                 else if (_viewModel.IsListModeFavorites)
                     _viewModel.IsListModeAll = true;
 
-                // Системный заголовок окна (issue #152): применяется после перезапуска.
+                // Системный заголовок окна (issue #159): настройка сохраняется и применяется
+                // к главному окну сразу, без перезапуска; кэш модальных окон сбрасывается,
+                // чтобы и новые диалоги взяли свежее значение.
                 _viewModel.UseSystemTitleBar = systemTitleBarCheck.IsChecked == true;
+                _viewModel.ApplySystemTitleBar(systemTitleBarCheck.IsChecked == true);
 
                 _viewModel.ApplyStatusBarSettings(
                     statusPathCheck.IsChecked == true,
