@@ -1147,11 +1147,9 @@ namespace Configuration_Management
             // Какая палитра сейчас редактируется/показывается (светлая или тёмная).
             var previewDark = ThemeManager.CurrentTheme == ThemeManager.DarkThemeName;
 
-            // Живой предпросмотр темы — два миниатюрных окна (светлое и тёмное), как
-            // в WPF (SettingsWindow.xaml:962). Строятся один раз и перекрашиваются
-            // при каждом изменении цветов через RepaintThemePreviews.
-            _previewLight = BuildThemePreview();
-            _previewDark = BuildThemePreview();
+            // Живой предпросмотр темы — одно миниатюрное окно, перекрашивается текущей
+            // редактируемой палитрой при каждом изменении цветов через RepaintThemePreview.
+            _preview = BuildThemePreview();
 
             // Список схем 280 на 34 с левым полем 10 (SettingsWindow.xaml:829).
             var schemeBox = new ComboBox
@@ -1214,7 +1212,7 @@ namespace Configuration_Management
                     var current = editedScheme.PaletteValue(previewDark, key);
                     colorsPanel.Children.Add(ColorRow(editedScheme, previewDark, key, label, current));
                 }
-                RepaintThemePreviews(editedScheme);
+                RepaintThemePreview(editedScheme, previewDark);
             }
 
             bool NameTaken(string name)
@@ -1453,8 +1451,10 @@ namespace Configuration_Management
             UpdateSchemeButtons();
 
             schemeColumn.Children.Add(schemeButtons);
-            colorsColumn.Children.Add(GroupTitle(LocalizationManager.T("Settings.Colors")));
-            colorsColumn.Children.Add(Hint(LocalizationManager.T("Settings.Colors.Description"), bottom: 8));
+
+            // Редактор цветов выбранной палитры — в левой колонке, под блоком схемы.
+            schemeColumn.Children.Add(GroupTitle(LocalizationManager.T("Settings.Colors")));
+            schemeColumn.Children.Add(Hint(LocalizationManager.T("Settings.Colors.Description"), bottom: 8));
 
             // Переключатель палитры: какая сейчас редактируется и показывается (светлая/тёмная).
             var lightPalette = new RadioButton { Content = LocalizationManager.T("Theme.Light"), GroupName = "Palette", IsChecked = !previewDark };
@@ -1471,30 +1471,32 @@ namespace Configuration_Management
             var paletteSwitch = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 4, 0, 0) };
             paletteSwitch.Children.Add(lightPalette);
             paletteSwitch.Children.Add(darkPalette);
-            colorsColumn.Children.Add(paletteSwitch);
+            schemeColumn.Children.Add(paletteSwitch);
 
-            colorsColumn.Children.Add(colorsPanel);
+            schemeColumn.Children.Add(colorsPanel);
 
-            // Группа превью — часть левой колонки, под блоком управления схемой:
-            // светлая слева, тёмная справа (горизонтально, в одну линию).
-            RepaintThemePreviews(editedScheme);
-            var lightLabel = new TextBlock { Text = LocalizationManager.T("Theme.Light"), FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
-            ThemeBrushes.Bind(lightLabel, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            var lightCol = new StackPanel { Margin = new Thickness(0, 0, 16, 0), Children = { lightLabel, _previewLight!.Shell } };
-            var darkLabel = new TextBlock { Text = LocalizationManager.T("Theme.Dark"), FontWeight = FontWeight.SemiBold, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
-            ThemeBrushes.Bind(darkLabel, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            var darkCol = new StackPanel { Children = { darkLabel, _previewDark!.Shell } };
-            var previewStrip = new StackPanel { Orientation = Orientation.Horizontal, Children = { lightCol, darkCol } };
-            schemeColumn.Children.Add(SettingsGroup(LocalizationManager.T("Settings.Preview"), previewStrip, new Thickness(8), bottom: 0));
+            // Единый живой предпросмотр текущей редактируемой палитры — в правой колонке.
+            RepaintThemePreview(editedScheme, previewDark);
+            var previewGroup = SettingsGroup(
+                LocalizationManager.T("Settings.Preview"),
+                new ScrollViewer
+                {
+                    Content = _preview.Shell,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    MaxHeight = 520
+                },
+                new Thickness(8), bottom: 0);
+            previewGroup.VerticalAlignment = VerticalAlignment.Top;
 
-            // Корневой Grid из двух колонок: слева управление схемой и превью —
-            // фиксированная по содержимому (Auto), всегда видна целиком; справа список
-            // цветов — занимает остаток (Star) и прокручивается в собственной колонке.
+            // Корневой Grid из двух колонок: слева прокручиваемые настройки (тема +
+            // редактор цветов), справа закреплённый живой предпросмотр, который НЕ
+            // скроллится вместе со списком цветов (Auto — по содержимому).
             var appearanceGrid = new Grid();
-            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(2, GridUnitType.Star)));
-            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(3, GridUnitType.Star)));
+            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+            appearanceGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             // Левая колонка — в собственном вертикальном ScrollViewer, чтобы при нехватке
-            // высоты окна контент прокручивался и панели управления/превью оставались доступны.
+            // высоты окна контент прокручивался и панели управления оставались доступны.
             var schemeScroll = new ScrollViewer
             {
                 Content = schemeColumn,
@@ -1504,15 +1506,9 @@ namespace Configuration_Management
             };
             schemeColumn.VerticalAlignment = VerticalAlignment.Top;
             Grid.SetColumn(schemeScroll, 0);
-            var colorsScroll = new ScrollViewer
-            {
-                Content = colorsColumn,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
-            };
-            Grid.SetColumn(colorsScroll, 1);
+            Grid.SetColumn(previewGroup, 1);
             appearanceGrid.Children.Add(schemeScroll);
-            appearanceGrid.Children.Add(colorsScroll);
+            appearanceGrid.Children.Add(previewGroup);
             appearance.Children.Add(appearanceGrid);
 
             var tabAppearance = MainTab("IconPalette", "Settings.TabAppearance", appearance);
@@ -2478,7 +2474,7 @@ namespace Configuration_Management
                 scheme.Palette(dark)[key] = value;
                 swatch.Background = ParseBrush(value);
                 hexText?.Invoke(value);
-                RepaintThemePreviews(scheme);
+                RepaintThemePreview(scheme, dark);
             }
 
             // Порядок колонок по варианту 2 (#155): образец, затем hex, и уже потом
@@ -2539,7 +2535,7 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Миниатюрный предпросмотр темы (аналог WPF PreviewShellLight/Dark в
+        /// Миниатюрный предпросмотр темы (аналог WPF PreviewShell в
         /// SettingsWindow.xaml). Хранит ссылки на все части, чтобы перекрашивать
         /// их при изменении цветов схемы.
         /// </summary>
@@ -2575,16 +2571,13 @@ namespace Configuration_Management
             public TextBlock ListItem2Text = null!;
         }
 
-        /// <summary>Превью светлой палитры (слева в нижнем блоке).</summary>
-        private ThemePreview _previewLight = null!;
-
-        /// <summary>Превью тёмной палитры (справа в нижнем блоке).</summary>
-        private ThemePreview _previewDark = null!;
+        /// <summary>Единый живой предпросмотр текущей редактируемой палитры.</summary>
+        private ThemePreview _preview = null!;
 
         /// <summary>
         /// Строит миниатюрное окно приложения для предпросмотра схемы. Разметка
-        /// повторяет WPF PreviewShellLight/Dark (SettingsWindow.xaml:962-1071):
-        /// акцентная шапка, боковое меню, карточка, поле ввода, кнопки, список.
+        /// повторяет WPF PreviewShell (SettingsWindow.xaml): акцентная шапка,
+        /// боковое меню, карточка, поле ввода, кнопки, список.
         /// </summary>
         private static ThemePreview BuildThemePreview()
         {
@@ -2706,13 +2699,12 @@ namespace Configuration_Management
             Child = text
         };
 
-        /// <summary>Перекрашивает оба миниатюрных предпросмотра схемой (светлый и тёмный).</summary>
-        private void RepaintThemePreviews(ColorScheme scheme)
+        /// <summary>Перекрашивает единый предпросмотр текущей редактируемой палитрой схемы.</summary>
+        private void RepaintThemePreview(ColorScheme scheme, bool dark)
         {
-            if (_previewLight is null || _previewDark is null)
+            if (_preview is null)
                 return;
-            PaintThemePreview(_previewLight, scheme, dark: false);
-            PaintThemePreview(_previewDark, scheme, dark: true);
+            PaintThemePreview(_preview, scheme, dark);
         }
 
         /// <summary>Рисует один миниатюрный предпросмотр темы для заданной палитры.</summary>

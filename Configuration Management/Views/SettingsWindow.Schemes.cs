@@ -214,72 +214,69 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Перерисовывает миниатюрные предпросмотры темы цветами редактируемой схемы.
-        /// Показывает сразу ОБЕ палитры — светлую (сверху) и тёмную (снизу) — читая каждую
-        /// независимо через <see cref="ColorScheme.PaletteValue"/>. Поэтому отражает
-        /// незаконченные правки редактора до сохранения. Редактируемая палитра
-        /// (<c>_settings.EditingDarkPalette</c>) при этом не меняется — она по-прежнему
-        /// определяет лишь то, какую палитру редактирует список цветов слева.
+        /// Перерисовывает единый живой предпросмотр темы цветами редактируемой схемы.
+        /// Рисует ОДНУ палитру — ту, что сейчас редактируется (светлую или тёмную,
+        /// в зависимости от переключателя палитры <c>_settings.EditingDarkPalette</c>) —
+        /// читая значения через <see cref="ColorScheme.PaletteValue"/>. Поэтому отражает
+        /// незаконченные правки редактора до сохранения.
         /// </summary>
         private void RefreshSchemePreview()
         {
-            if (_settings is null || PreviewShellLight is null || PreviewShellDark is null)
+            if (_settings is null || PreviewShell is null)
                 return;
 
-            var scheme = _settings.CurrentColorScheme;
-            PaintSchemePreview(scheme, dark: false); // светлая — сверху
-            PaintSchemePreview(scheme, dark: true);  // тёмная — снизу
+            PaintSchemePreview(_settings.CurrentColorScheme, _settings.EditingDarkPalette);
         }
 
-        /// <summary>Рисует один миниатюрный предпросмотр темы для заданной палитры.</summary>
+        /// <summary>Рисует единый миниатюрный предпросмотр темы для заданной палитры.</summary>
         private void PaintSchemePreview(ColorScheme scheme, bool dark)
         {
             string V(string key) => scheme.PaletteValue(dark, key);
 
             // Окно: подложка-карточка с рамкой и акцентная шапка.
-            PaintBorder(dark ? PreviewShellDark : PreviewShellLight, V("CardBackgroundColor"), V("BorderColor"));
-            Paint(dark ? PreviewTitleBarDark : PreviewTitleBarLight, V("AccentColor"));
-            PaintText(dark ? PreviewTitleTextDark : PreviewTitleTextLight, V("TextOnAccentColor"));
+            PaintBorder(PreviewShell, V("CardBackgroundColor"), V("BorderColor"));
+            Paint(PreviewTitleBar, V("AccentColor"));
+            PaintText(PreviewTitleText, V("TextOnAccentColor"));
 
             // Боковая панель: тёмный фон, контрастный текст, акцентная/фоновая подсветка пунктов.
             var sidebar = ParseColor(V("SidebarColor"));
             var sidebarText = Contrast(sidebar);
-            Paint(dark ? PreviewSidebarDark : PreviewSidebarLight, V("SidebarColor"));
-            Paint(dark ? PreviewNavSelectedDark : PreviewNavSelectedLight, V("SidebarSelectedColor"));
-            Paint(dark ? PreviewNavItem1Dark : PreviewNavItem1Light, V("SidebarHoverColor"));
-            Paint(dark ? PreviewNavItem2Dark : PreviewNavItem2Light, V("SidebarHoverColor"));
-            PaintText(dark ? PreviewNavSelectedTextDark : PreviewNavSelectedTextLight, sidebarText);
-            PaintText(dark ? PreviewNavItem1TextDark : PreviewNavItem1TextLight, sidebarText);
-            PaintText(dark ? PreviewNavItem2TextDark : PreviewNavItem2TextLight, sidebarText);
+            Paint(PreviewSidebar, V("SidebarColor"));
+            Paint(PreviewNavSelected, V("SidebarSelectedColor"));
+            Paint(PreviewNavItem1, V("SidebarHoverColor"));
+            Paint(PreviewNavItem2, V("SidebarHoverColor"));
+            PaintText(PreviewNavSelectedText, sidebarText);
+            PaintText(PreviewNavItem1Text, sidebarText);
+            PaintText(PreviewNavItem2Text, sidebarText);
 
             // Контент.
-            Paint(dark ? PreviewMainDark : PreviewMainLight, V("ContentBackgroundColor"));
-            PaintText(dark ? PreviewContentTitleDark : PreviewContentTitleLight, V("TextPrimaryColor"));
-            PaintText(dark ? PreviewContentSubtitleDark : PreviewContentSubtitleLight, V("TextSecondaryColor"));
+            Paint(PreviewMain, V("ContentBackgroundColor"));
+            PaintText(PreviewContentTitle, V("TextPrimaryColor"));
+            PaintText(PreviewContentSubtitle, V("TextSecondaryColor"));
 
             // Карточка.
-            PaintBorder(dark ? PreviewCardDark : PreviewCardLight, V("CardBackgroundColor"), V("BorderColor"));
-            PaintText(dark ? PreviewCardTitleDark : PreviewCardTitleLight, V("TextPrimaryColor"));
-            PaintText(dark ? PreviewCardTextDark : PreviewCardTextLight, V("TextSecondaryColor"));
+            PaintBorder(PreviewCard, V("CardBackgroundColor"), V("BorderColor"));
+            PaintText(PreviewCardTitle, V("TextPrimaryColor"));
+            PaintText(PreviewCardText, V("TextSecondaryColor"));
 
             // Поле ввода.
-            PaintTextBox(dark ? PreviewTextFieldDark : PreviewTextFieldLight,
+            PaintTextBox(PreviewTextField,
                 V("CardBackgroundColor"), V("BorderColor"), V("TextPrimaryColor"));
 
             // Кнопки: акцентная и вторичная.
-            Paint(dark ? PreviewPrimaryButtonDark : PreviewPrimaryButtonLight, V("AccentColor"));
-            PaintText(dark ? PreviewPrimaryButtonTextDark : PreviewPrimaryButtonTextLight, V("ButtonTextColor"));
-            Paint(dark ? PreviewSecondaryButtonDark : PreviewSecondaryButtonLight, V("SecondaryButtonBackgroundColor"));
-            PaintText(dark ? PreviewSecondaryButtonTextDark : PreviewSecondaryButtonTextLight, V("ButtonTextColor"));
+            Paint(PreviewPrimaryButton, V("AccentColor"));
+            PaintText(PreviewPrimaryButtonText, V("ButtonTextColor"));
+            Paint(PreviewSecondaryButton, V("SecondaryButtonBackgroundColor"));
+            PaintText(PreviewSecondaryButtonText, V("ButtonTextColor"));
 
             // Список.
-            PaintBorder(dark ? PreviewListBoxDark : PreviewListBoxLight, V("CardBackgroundColor"), V("BorderColor"));
-            Paint(dark ? PreviewListSelectedDark : PreviewListSelectedLight, V("ItemSelectedColor"));
-            Paint(dark ? PreviewListItem1Dark : PreviewListItem1Light, V("ItemHoverColor"));
-            Paint(dark ? PreviewListItem2Dark : PreviewListItem2Light, V("ItemHoverColor"));
-            PaintText(dark ? PreviewListSelectedTextDark : PreviewListSelectedTextLight, V("TextPrimaryColor"));
-            PaintText(dark ? PreviewListItem1TextDark : PreviewListItem1TextLight, V("TextPrimaryColor"));
-            PaintText(dark ? PreviewListItem2TextDark : PreviewListItem2TextLight, V("TextPrimaryColor"));
+            PaintBorder(PreviewListBox, V("CardBackgroundColor"), V("BorderColor"));
+            Paint(PreviewListSelected, V("ItemSelectedColor"));
+            Paint(PreviewListItem1, V("ItemHoverColor"));
+            Paint(PreviewListItem2, V("ItemHoverColor"));
+            PaintText(PreviewListSelectedText, V("TextPrimaryColor"));
+            PaintText(PreviewListItem1Text, V("TextPrimaryColor"));
+            PaintText(PreviewListItem2Text, V("TextPrimaryColor"));
         }
 
         // ---- Вспомогательные методы для миниатюрного предпросмотра ----
