@@ -223,10 +223,25 @@ public static class IbasesV8iImporter
     /// сохраняя первую встреченную. Используется для очистки «унаследованных» дубликатов
     /// папок, возникавших при повторных синхронизациях со штатным стартером.
     /// </summary>
+    /// <remarks>
+    /// Помимо удаления дубликатов обязательно переназначает родителя у дочерних групп,
+    /// чей <see cref="Group.ParentId"/> указывал на удалённый дубликат. Без этого дети
+    /// «осиротевали»: их полный путь переставал строиться (родитель не находился),
+    /// и на следующей синхронизации <see cref="CreateGroupWithParents"/> не находил такую
+    /// группу по полному пути и создавал новый дубликат — отсюда постоянное повторное
+    /// появление дублей у вложенных папок (issue #165).
+    /// </remarks>
     private static void RemoveDuplicateGroupsByPath(IList<Group> groups)
     {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Полный путь каждой группы вычисляем по исходному списку (до удаления),
+        // чтобы дубликаты с одним и тем же путём корректно сопоставились, даже если
+        // их родитель сам является дубликатом.
         var keep = new List<Group>(groups.Count);
+        // Первая группа, встреченная для каждого полного пути (для дедупликации).
+        var keptByPath = new Dictionary<string, Group>(StringComparer.OrdinalIgnoreCase);
+        // Соответствие «Id удалённого дубликата → Id сохранённой группы»,
+        // чтобы после дедупликации перенаправить ссылки дочерних групп.
+        var removedToKept = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var group in groups)
         {
@@ -238,14 +253,32 @@ public static class IbasesV8iImporter
                 continue;
             }
 
-            if (!seen.Add(path))
-                continue; // Дубликат пути — пропускаем.
+            if (keptByPath.TryGetValue(path, out var kept))
+            {
+                // Дубликат пути — сохраняем первую встреченную группу и запоминаем
+                // перенаправление Id для дочерних групп.
+                if (!string.IsNullOrWhiteSpace(group.Id) && !string.IsNullOrWhiteSpace(kept.Id))
+                    removedToKept[group.Id] = kept.Id;
+                continue;
+            }
 
+            keptByPath[path] = group;
             keep.Add(group);
         }
 
         if (keep.Count == groups.Count)
             return;
+
+        // Перенаправляем ParentId дочерних групп, ссылавшихся на удалённые дубликаты,
+        // на сохранённые группы. Это сохраняет иерархию и предотвращает повторное
+        // создание дубликатов вложенных папок при следующих синхронизациях.
+        foreach (var group in keep)
+        {
+            if (string.IsNullOrWhiteSpace(group.ParentId))
+                continue;
+            if (removedToKept.TryGetValue(group.ParentId, out var newParentId))
+                group.ParentId = newParentId;
+        }
 
         groups.Clear();
         foreach (var group in keep)

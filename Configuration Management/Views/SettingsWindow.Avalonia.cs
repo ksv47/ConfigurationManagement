@@ -1657,9 +1657,15 @@ namespace Configuration_Management
             ToolTip.SetTip(importV8i, LocalizationManager.T("Settings.Bases.ImportV8iTooltip"));
             importV8i.Click += (_, _) => _viewModel.ImportFromIbasesV8i();
 
+            // Импорт баз и настроек платформы из программы StartManager (issue #163).
+            var importStartManager = new Button { Content = LocalizationManager.T("Settings.Bases.ImportStartManager") };
+            ToolTip.SetTip(importStartManager, LocalizationManager.T("Settings.Bases.ImportStartManagerTooltip"));
+            importStartManager.Click += (_, _) => _viewModel.ImportFromStartManager();
+
             listButtons.Children.Add(exportList);
             listButtons.Children.Add(importList);
             listButtons.Children.Add(importV8i);
+            listButtons.Children.Add(importStartManager);
             bases.Children.Add(listButtons);
             bases.Children.Add(timestampCheck);
 

@@ -2718,6 +2718,104 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Импорт баз и настроек платформы из программы StartManager (issue #163).
+    /// Читает каталог настроек StartManager (v8config.smc и settings.cnf), добавляет
+    /// и обновляет базы с авторизацией (расшифровывая пароли по алгоритму Виженера),
+    /// а также добавляет найденный путь платформы 1С (V8AppPath) в дополнительные
+    /// пути поиска платформы приложения.
+    /// </summary>
+    public void ImportFromStartManager()
+    {
+        var dir = StartManagerImporter.FindDefaultSettingsDir();
+        if (string.IsNullOrWhiteSpace(dir) || !System.IO.Directory.Exists(dir))
+        {
+            dir = _dialog.OpenFolderDialog(
+                LocalizationManager.T("StartManager.ChooseFolder"), null);
+            if (string.IsNullOrWhiteSpace(dir))
+                return;
+        }
+
+        try
+        {
+            var candidateInfobases = _allInfobases.ToList();
+            var candidateGroups = _groups.ToList();
+
+            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups);
+
+            if (result.NoConfigFound)
+            {
+                _dialog.ShowInfo(
+                    string.Format(LocalizationManager.T("StartManager.NoConfig"), dir),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            if (result.Added == 0 && result.Updated == 0)
+            {
+                _dialog.ShowInfo(
+                    LocalizationManager.T("StartManager.NothingImported"),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            _allInfobases.Clear();
+            _allInfobases.AddRange(candidateInfobases);
+            SyncFavoriteHotkeys();
+            _groups.Clear();
+            _groups.AddRange(candidateGroups);
+
+            var saved = SaveSilently();
+            saved &= SaveGroupsSilently();
+            RebuildTree();
+
+            // Путь платформы 1С из settings.cnf добавляем в дополнительные пути поиска.
+            var platformAdded = false;
+            if (result.PlatformSearchPaths.Count > 0)
+            {
+                var paths = new List<string>(_settings.AdditionalPlatformSearchPaths);
+                foreach (var p in result.PlatformSearchPaths)
+                {
+                    if (!paths.Contains(p, StringComparer.OrdinalIgnoreCase))
+                    {
+                        paths.Add(p);
+                        platformAdded = true;
+                    }
+                }
+                if (platformAdded)
+                    ApplyPlatformSettings(paths, _settings.DefaultArchitecture);
+            }
+
+            StatusBarInfo = string.Format(
+                LocalizationManager.T("Sync.ImportedCount"), _allInfobases.Count, _groups.Count);
+            _logger.Info($"Импорт из StartManager: {dir}, добавлено {result.Added}, " +
+                         $"обновлено {result.Updated}, пропущено {result.Skipped}");
+
+            if (!saved)
+            {
+                _dialog.ShowError(
+                    string.Format(LocalizationManager.T("Main.ErrImportFailed"),
+                        LocalizationManager.T("Main.SaveFailedHint")),
+                    LocalizationManager.T("Main.ImportErrorTitle"));
+                return;
+            }
+
+            var message = string.Format(
+                LocalizationManager.T("StartManager.Done"),
+                result.Added, result.Updated);
+            if (platformAdded)
+                message += "\n" + LocalizationManager.T("StartManager.PlatformPathAdded");
+            _dialog.ShowInfo(message, LocalizationManager.T("StartManager.Title"));
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка импорта из StartManager", ex);
+            _dialog.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrImportFailed"), ex.Message),
+                LocalizationManager.T("Main.ImportErrorTitle"));
+        }
+    }
+
     /// <summary>Имя файла выгрузки с меткой времени, если она включена.</summary>
     private static string BuildExportFileName(string baseName, string extension, bool addTimestamp, string timestampFormat)
     {
