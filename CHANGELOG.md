@@ -9,6 +9,22 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.54] — 2026-09-03
+
+Кнопка «Импорт из StartManager» (issue #163) добавлена в Windows/WPF-версию окна настроек: в разделе «Базы» появился пункт импорта рядом с импортом из `ibases.v8i`, который вызывает тот же механизм переноса баз и настроек платформы из StartManager, что и в Linux/Avalonia-версии. Ранее кнопка присутствовала только в Linux-версии, поэтому на Windows её невозможно было найти.
+
+### Добавлено
+
+- **Кнопка «Импорт из StartManager» в Windows/WPF-версию окна настроек (issue #163)**: в раздел «Базы» ([`SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml)) добавлена кнопка импорта рядом с импортом из `ibases.v8i`, а в [`SettingsWindow.Platforms.cs`](Configuration%20Management/Views/SettingsWindow.Platforms.cs) — обработчик `OnImportStartManager_Click`, вызывающий `MainViewModel.ImportFromStartManager()`. Для WPF в [`MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs) реализован метод `ImportFromStartManager()`: при отсутствии стандартного каталога `%APPDATA%\StartManager14\SMSettings` предлагается выбрать его вручную, затем переносятся базы с авторизацией и путь к платформе 1С добавляется в дополнительные пути поиска.
+
+### Исправлено
+
+- **Функция импорта из StartManager стала доступна на Windows (issue #163)**: ранее кнопка «Импорт из StartManager» присутствовала только в Linux/Avalonia-версии окна настроек; теперь пункт доступен и пользователям Windows/WPF.
+
+### Версия
+
+- **Версия поднята до `0.3.6.53` → `0.3.6.54`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.53] — 2026-09-03
 
 Новая функция импорта из StartManager (issue #163): перенос баз с путями, группами и авторизацией (в т.ч. расшифровка паролей методом Виженера с ключом `SLAVKA`) и настройки расположения платформы из файлов `settings.cnf` / `v8config.smc`. Также доработано исправление дублирования папок в родном стартере (issue #165): дедупликация теперь корректно переназначает родительские связи дочерних групп, поэтому иерархия сохраняется и дубли больше не регенерируются при повторных синхронизациях.

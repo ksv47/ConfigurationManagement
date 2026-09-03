@@ -1559,6 +1559,16 @@
                                         <TextBlock Text="{loc:Loc Settings.Bases.ImportV8i}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
+                                <!-- Импорт баз и настроек платформы из программы StartManager (issue #163). -->
+                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                        HorizontalAlignment="Stretch"
+                                        Click="OnImportStartManager_Click"
+                                        ToolTip="{loc:Loc Settings.Bases.ImportStartManagerTooltip}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="FolderOpen" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Bases.ImportStartManager}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                                 <CheckBox x:Name="AddTimestampToExportFileNameCheck"
                                           Content="{loc:Loc Settings.AddTimestamp}"
                                           Margin="0,6,0,0"

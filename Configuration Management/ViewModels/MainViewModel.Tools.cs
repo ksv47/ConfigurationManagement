@@ -354,6 +354,99 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Импорт баз и настроек платформы из программы StartManager (issue #163).
+    /// Читает каталог настроек StartManager (v8config.smc и settings.cnf), добавляет
+    /// и обновляет базы с авторизацией (расшифровывая пароли по алгоритму Виженера),
+    /// а также добавляет найденный путь платформы 1С (V8AppPath) в дополнительные
+    /// пути поиска платформы приложения.
+    /// </summary>
+    public void ImportFromStartManager()
+    {
+        var dir = StartManagerImporter.FindDefaultSettingsDir();
+        if (string.IsNullOrWhiteSpace(dir) || !System.IO.Directory.Exists(dir))
+        {
+            dir = _dialogs.OpenFolderDialog(
+                LocalizationManager.T("StartManager.ChooseFolder"), null);
+            if (string.IsNullOrWhiteSpace(dir))
+                return;
+        }
+
+        try
+        {
+            var candidateInfobases = Infobases.ToList();
+            var candidateGroups = Groups.ToList();
+
+            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups);
+
+            if (result.NoConfigFound)
+            {
+                _dialogs.ShowInfo(
+                    string.Format(LocalizationManager.T("StartManager.NoConfig"), dir),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            if (result.Added == 0 && result.Updated == 0)
+            {
+                _dialogs.ShowInfo(
+                    LocalizationManager.T("StartManager.NothingImported"),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            Infobases.Clear();
+            foreach (var ib in candidateInfobases)
+                Infobases.Add(ib);
+            SyncFavoriteHotkeys();
+            Groups.Clear();
+            foreach (var g in candidateGroups)
+                Groups.Add(g);
+
+            Save();
+            SaveGroups();
+            RebuildGroupTree();
+            InfobasesView.Refresh();
+
+            // Путь платформы 1С из settings.cnf добавляем в дополнительные пути поиска.
+            var platformAdded = false;
+            if (result.PlatformSearchPaths.Count > 0)
+            {
+                var paths = new List<string>(AdditionalPlatformSearchPaths);
+                foreach (var p in result.PlatformSearchPaths)
+                {
+                    if (!paths.Contains(p, StringComparer.OrdinalIgnoreCase))
+                    {
+                        paths.Add(p);
+                        platformAdded = true;
+                    }
+                }
+                if (platformAdded)
+                {
+                    SetAdditionalPlatformSearchPaths(paths);
+                    ApplyDefaultArchitecture(DefaultArchitecture);
+                }
+            }
+
+            _logger.Info($"Импорт из StartManager: {dir}, добавлено {result.Added}, " +
+                         $"обновлено {result.Updated}, пропущено {result.Skipped}");
+
+            var message = string.Format(
+                LocalizationManager.T("StartManager.Done"),
+                result.Added, result.Updated);
+            if (platformAdded)
+                message += "\n" + LocalizationManager.T("StartManager.PlatformPathAdded");
+            _dialogs.ShowInfo(message, LocalizationManager.T("StartManager.Title"));
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка импорта из StartManager", ex);
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrImportFailed"), ex.Message),
+                LocalizationManager.T("Main.ImportErrorTitle"));
+        }
+    }
+
+    /// <summary>
     /// Экспортирует список информационных баз в выбранный JSON-файл.
     /// </summary>
     private void ExportInfobases(object? parameter)
