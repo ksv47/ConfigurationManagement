@@ -457,36 +457,23 @@ namespace Configuration_Management
 
         /// <summary>
         /// Синхронизирует IsExpanded контейнеров TreeView с моделью.
-        /// Только узлы GroupNodeViewModel; без многократных layout-проходов.
+        /// Только узлы GroupNodeViewModel.
         /// </summary>
         internal void ApplyGroupExpandedState(bool expand)
         {
             if (MainTree is null)
                 return;
 
-            if (expand)
-                ExpandGroupContainers(MainTree);
-            else
-                CollapseGroupContainers(MainTree);
-        }
-
-        private static void CollapseGroupContainers(ItemsControl parent)
-        {
-            for (var i = 0; i < parent.Items.Count; i++)
-            {
-                if (parent.ItemContainerGenerator.ContainerFromIndex(i) is not TreeViewItem tvi)
-                    continue;
-                if (tvi.DataContext is not ViewModels.GroupNodeViewModel node)
-                    continue;
-                node.NotifyIsExpanded();
-            }
+            ApplyGroupExpandedStateRecursive(MainTree, expand);
         }
 
         /// <summary>
-        /// Раскрывает только контейнеры групп. Вложенность подтянется из Binding IsExpanded
-        /// (в модели уже выставлено silent), без ручного обхода каждого уровня.
+        /// Рекурсивно применяет состояние развёрнутости ко всем контейнерам групп, не завися
+        /// от их текущего состояния (issue #160). Прежняя реализация обходила только уже
+        /// раскрытые ветки, из-за чего «Развернуть всё» / «Свернуть всё» при первом нажатии
+        /// действовали лишь на текущую группу, а остальные — только со второго раза.
         /// </summary>
-        private static void ExpandGroupContainers(ItemsControl parent)
+        private static void ApplyGroupExpandedStateRecursive(ItemsControl parent, bool expand)
         {
             for (var i = 0; i < parent.Items.Count; i++)
             {
@@ -494,10 +481,16 @@ namespace Configuration_Management
                     continue;
                 if (tvi.DataContext is not ViewModels.GroupNodeViewModel node)
                     continue;
-                node.NotifyIsExpanded();
-                // Уже раскрытый узел: обновить вложенные контейнеры, если они есть.
-                if (tvi.IsExpanded)
-                    ExpandGroupContainers(tvi);
+
+                // Прямая установка контейнера и модели независимо от прежнего состояния.
+                node.SetExpandedSilent(expand);
+                tvi.IsExpanded = expand;
+
+                // Принудительно генерируем дочерние контейнеры (родитель мог быть свёрнут),
+                // затем рекурсивно обходим вложенные уровни.
+                tvi.ApplyTemplate();
+                tvi.UpdateLayout();
+                ApplyGroupExpandedStateRecursive(tvi, expand);
             }
         }
 

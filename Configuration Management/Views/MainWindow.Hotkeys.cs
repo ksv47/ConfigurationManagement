@@ -61,13 +61,13 @@ namespace Configuration_Management
             Add(_viewModel.HotkeyShowFavorites, _viewModel.ShowFavoritesCommand);
             Add(_viewModel.HotkeyShowRecent, _viewModel.ShowRecentCommand);
 
-            // Жёстко заданные (без настройки) хоткеи ускорения работы (issue #160).
-            // Очистка строки поиска и отключение всех включённых тегов; Ctrl+Shift+Plus /
-            // Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева. Регистрируются обе
-            // раскладки (основная Oem* и цифровой блок Add/Subtract). Ctrl+Shift+C не
-            // конфликтует с Ctrl+C (копирование) — в биндинг идёт только комбинация с Shift.
-            InputBindings.Add(new KeyBinding(_viewModel.ClearSearchCommand, Key.C, ModifierKeys.Control | ModifierKeys.Shift));
-            InputBindings.Add(new KeyBinding(_viewModel.ClearTagFiltersCommand, Key.T, ModifierKeys.Control | ModifierKeys.Shift));
+            // Очистка строки поиска и сброс фильтра тегов — настраиваемые хоткеи (issue #160),
+            // значения по умолчанию Ctrl+Shift+C / Ctrl+Shift+T задаются в настройках.
+            Add(_viewModel.HotkeyClearSearch, _viewModel.ClearSearchCommand);
+            Add(_viewModel.HotkeyClearTags, _viewModel.ClearTagFiltersCommand);
+
+            // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
+            // Регистрируются обе раскладки (основная Oem* и цифровой блок Add/Subtract).
             InputBindings.Add(new KeyBinding(_viewModel.ExpandAllGroupsCommand, Key.OemPlus, ModifierKeys.Control | ModifierKeys.Shift));
             InputBindings.Add(new KeyBinding(_viewModel.ExpandAllGroupsCommand, Key.Add, ModifierKeys.Control | ModifierKeys.Shift));
             InputBindings.Add(new KeyBinding(_viewModel.CollapseAllGroupsCommand, Key.OemMinus, ModifierKeys.Control | ModifierKeys.Shift));

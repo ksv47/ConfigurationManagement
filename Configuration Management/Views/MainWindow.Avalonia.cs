@@ -124,8 +124,10 @@ namespace Configuration_Management
             // высокую нагрузку CPU и «зависание» реакции на мышь (issue #153). Окно рисуется
             // непрозрачным во всех таких случаях (X11 без композитинга, виртуализация, любой
             // программный рендер); прозрачное «стекло» оставляется только на Wayland, где
-            // композитор обязателен и постоянной перерисовки фона нет.
-            _opaqueWindow = _useSystemTitleBar || DetectSoftwareRenderOrVm() || !IsWaylandSession();
+            // композитор обязателен и постоянной перерисовки фона нет. Дополнительно можно
+            // принудительно включить непрозрачный режим переменной окружения
+            // CM_DISABLE_TRANSPARENCY=1 (запасной ручной способ диагностики, issue #153).
+            _opaqueWindow = _useSystemTitleBar || ForceOpaqueWindow() || DetectSoftwareRenderOrVm() || !IsWaylandSession();
             ApplySystemDecorations();
 
             ApplySavedWindowLayout();
@@ -5199,10 +5201,31 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Возвращает true, если пользователь явно запросил непрозрачное окно переменной
+        /// окружения <c>CM_DISABLE_TRANSPARENCY=1</c> (запасной ручной способ диагностики
+        /// проблемы высокого CPU на X11/VM, issue #153). Работает даже там, где авто-детект
+        /// виртуализации/программного рендера не сработал (KDE/Mint без гипервизора).
+        /// </summary>
+        private static bool ForceOpaqueWindow()
+        {
+            try
+            {
+                var v = Environment.GetEnvironmentVariable("CM_DISABLE_TRANSPARENCY");
+                return v is not null
+                    && (v.Trim() == "1" || v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Определяет, стоит ли рисовать окно непрозрачным (issue #153): прозрачность
         /// на X11 с программным рендером или в виртуализации заставляет оконный менеджер
-        /// непрерывно перерисовывать фон. Надёжный признак — наличие гипервизора
-        /// (VirtualBox/QEMU/VMware): читаем флаг в /proc/cpuinfo и DMI-данные о вендоре.
+        /// непрерывно перерисовывать фон. Признаки: наличие гипервизора
+        /// (VirtualBox/QEMU/VMware/KVM — флаг в /proc/cpuinfo и DMI-данные о вендоре),
+        /// а также признаки программного рендера (llvmpipe/softpipe, LIBGL_ALWAYS_SOFTWARE).
         /// Это консервативный детектор; на остальном железе прозрачность сохраняется.
         /// </summary>
         private static bool DetectSoftwareRenderOrVm()
@@ -5212,13 +5235,16 @@ namespace Configuration_Management
                 if (File.Exists("/proc/cpuinfo"))
                 {
                     var cpuInfo = File.ReadAllText("/proc/cpuinfo");
-                    if (cpuInfo.Contains("hypervisor", StringComparison.OrdinalIgnoreCase))
+                    if (cpuInfo.Contains("hypervisor", StringComparison.OrdinalIgnoreCase)
+                        || cpuInfo.Contains("qemu", StringComparison.OrdinalIgnoreCase)
+                        || cpuInfo.Contains("kvm", StringComparison.OrdinalIgnoreCase))
                         return true;
                 }
                 foreach (var dmiPath in new[]
                          {
                              "/sys/devices/virtual/dmi/id/sys_vendor",
-                             "/sys/devices/virtual/dmi/id/product_name"
+                             "/sys/devices/virtual/dmi/id/product_name",
+                             "/sys/devices/virtual/dmi/id/board_vendor"
                          })
                 {
                     if (!File.Exists(dmiPath))
@@ -5227,9 +5253,21 @@ namespace Configuration_Management
                     if (value.Contains("VirtualBox", StringComparison.OrdinalIgnoreCase)
                         || value.Contains("innotek", StringComparison.OrdinalIgnoreCase)
                         || value.Contains("QEMU", StringComparison.OrdinalIgnoreCase)
-                        || value.Contains("VMware", StringComparison.OrdinalIgnoreCase))
+                        || value.Contains("VMware", StringComparison.OrdinalIgnoreCase)
+                        || value.Contains("KVM", StringComparison.OrdinalIgnoreCase)
+                        || value.Contains("Microsoft Corporation", StringComparison.OrdinalIgnoreCase))
                         return true;
                 }
+
+                // Программный рендер (нет аппаратного GPU-драйвера в гостевой ОС или задан
+                // принудительно): такие окружения чаще всего и есть источник постоянной
+                // перерисовки фона с высокой нагрузкой CPU на X11 без композитинга.
+                var gallium = Environment.GetEnvironmentVariable("GALLIUM_DRIVER");
+                if (gallium?.Contains("llvmpipe", StringComparison.OrdinalIgnoreCase) == true
+                    || gallium?.Contains("softpipe", StringComparison.OrdinalIgnoreCase) == true)
+                    return true;
+                if (Environment.GetEnvironmentVariable("LIBGL_ALWAYS_SOFTWARE") == "1")
+                    return true;
             }
             catch
             {
@@ -5593,20 +5631,12 @@ namespace Configuration_Management
             AddHotkey(_vm.HotkeyShowFavorites, _vm.ShowFavoritesCommand);
             AddHotkey(_vm.HotkeyShowRecent, _vm.ShowRecentCommand);
 
-            // Жёстко заданные (без настройки) хоткеи ускорения работы (issue #160).
+            // Очистка строки поиска и сброс фильтра тегов — настраиваемые хоткеи (issue #160),
+            // значения по умолчанию Ctrl+Shift+C / Ctrl+Shift+T задаются в настройках.
             // Добавляются ПОСЛЕ пользовательских, чтобы назначенные пользователем
-            // сочетания имели приоритет. Ctrl+Shift+C не конфликтует с Ctrl+C (копирование):
-            // в привязки окна идёт только комбинация с Shift.
-            KeyBindings.Add(new KeyBinding
-            {
-                Gesture = new KeyGesture(Key.C, KeyModifiers.Control | KeyModifiers.Shift),
-                Command = _vm.ClearSearchCommand
-            });
-            KeyBindings.Add(new KeyBinding
-            {
-                Gesture = new KeyGesture(Key.T, KeyModifiers.Control | KeyModifiers.Shift),
-                Command = _vm.ClearTagFiltersCommand
-            });
+            // сочетания имели приоритет.
+            AddHotkey(_vm.HotkeyClearSearch, _vm.ClearSearchCommand);
+            AddHotkey(_vm.HotkeyClearTags, _vm.ClearTagFiltersCommand);
             // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
             // Регистрируются обе раскладки (основная клавиатура Oem* и цифровой блок Add/Subtract).
             KeyBindings.Add(new KeyBinding

@@ -783,6 +783,8 @@ public class MainViewModel : ViewModelBase
     public string HotkeyShowAll => _settings.HotkeyShowAll;
     public string HotkeyShowFavorites => _settings.HotkeyShowFavorites;
     public string HotkeyShowRecent => _settings.HotkeyShowRecent;
+    public string HotkeyClearSearch => _settings.HotkeyClearSearch;
+    public string HotkeyClearTags => _settings.HotkeyClearTags;
 
     /// <summary>
     /// Сохраняет назначенные сочетания и сообщает окну, что их надо
@@ -790,7 +792,8 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public void ApplyHotkeys(string enterprise, string configurator, string edit, string add,
         string favorite, string pin, string delete, string clearCache,
-        string showAll, string showFavorites, string showRecent)
+        string showAll, string showFavorites, string showRecent,
+        string clearSearch, string clearTags)
     {
         _settings.HotkeyEnterprise = enterprise ?? string.Empty;
         _settings.HotkeyConfigurator = configurator ?? string.Empty;
@@ -803,6 +806,8 @@ public class MainViewModel : ViewModelBase
         _settings.HotkeyShowAll = showAll ?? string.Empty;
         _settings.HotkeyShowFavorites = showFavorites ?? string.Empty;
         _settings.HotkeyShowRecent = showRecent ?? string.Empty;
+        _settings.HotkeyClearSearch = clearSearch ?? string.Empty;
+        _settings.HotkeyClearTags = clearTags ?? string.Empty;
 
         SaveSettingsSilently();
 
@@ -817,6 +822,8 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyShowAll));
         OnPropertyChanged(nameof(HotkeyShowFavorites));
         OnPropertyChanged(nameof(HotkeyShowRecent));
+        OnPropertyChanged(nameof(HotkeyClearSearch));
+        OnPropertyChanged(nameof(HotkeyClearTags));
         HotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 

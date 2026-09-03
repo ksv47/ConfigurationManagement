@@ -2043,6 +2043,8 @@ namespace Configuration_Management
             var hotkeyShowAll = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowAll"), _viewModel.HotkeyShowAll);
             var hotkeyShowFavorites = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowFavorites"), _viewModel.HotkeyShowFavorites);
             var hotkeyShowRecent = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowRecent"), _viewModel.HotkeyShowRecent);
+            var hotkeyClearSearch = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearSearch"), _viewModel.HotkeyClearSearch);
+            var hotkeyClearTags = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearTags"), _viewModel.HotkeyClearTags);
             // У автора последняя строка идёт без нижнего поля, а весь блок строк
             // несёт низ 12 (SettingsWindow.xaml:957 и 1039). У нас строки лежат
             // в общей панели, поэтому поле снимается у последней и добирается
@@ -2273,7 +2275,9 @@ namespace Configuration_Management
                     (LocalizationManager.T("Main.Pin"), hotkeyPin),
                     (LocalizationManager.T("Main.AllBasesTooltip"), hotkeyShowAll),
                     (LocalizationManager.T("Main.FavoritesTooltip"), hotkeyShowFavorites),
-                    (LocalizationManager.T("Main.RecentTooltip"), hotkeyShowRecent)
+                    (LocalizationManager.T("Main.RecentTooltip"), hotkeyShowRecent),
+                    (LocalizationManager.T("Main.ClearSearch"), hotkeyClearSearch),
+                    (LocalizationManager.T("Main.ClearTags"), hotkeyClearTags)
                 };
 
                 if (!ValidateHotkeys(assignments))
@@ -2343,7 +2347,8 @@ namespace Configuration_Management
                 _viewModel.ApplyHotkeys(
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
                     hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value,
-                    hotkeyShowAll.Value, hotkeyShowFavorites.Value, hotkeyShowRecent.Value);
+                    hotkeyShowAll.Value, hotkeyShowFavorites.Value, hotkeyShowRecent.Value,
+                    hotkeyClearSearch.Value, hotkeyClearTags.Value);
 
                 // Настройки отображения применяются и сохраняются одним вызовом.
                 // Видимость колонок читается из тех же элементов списка, где

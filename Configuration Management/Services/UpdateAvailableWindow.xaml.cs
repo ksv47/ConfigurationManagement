@@ -1,5 +1,6 @@
 #if WINDOWS
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -88,6 +89,9 @@ public partial class UpdateAvailableWindow : Window
         ProgressBar.Value = 0;
         ProgressBar.IsIndeterminate = false;
         ProgressText.Text = LocalizationManager.T("Update.Downloading");
+        // Размер окна должен перестроиться под компактный этап скачивания (issue #157):
+        // не наследуем габариты этапа предложения с длинным описанием изменений.
+        RefreshWindowSize();
 
         // Подписка на прогресс скачивания (событие приходит из фонового потока).
         _service.DownloadProgressChanged += OnDownloadProgress;
@@ -106,7 +110,16 @@ public partial class UpdateAvailableWindow : Window
                 return;
             }
 
-            _newExe = await _service.DownloadNewExeCoreAsync(_release.DownloadUrl!);
+            try
+            {
+                _newExe = await _service.DownloadNewExeCoreAsync(_release.DownloadUrl!);
+            }
+            catch (Exception ex)
+            {
+                LogDiagnostic("Ошибка при скачивании обновления: " + ex);
+                _newExe = null;
+            }
+
             if (_newExe is null)
             {
                 ShowError(LocalizationManager.T("Update.DownloadFailed"));
@@ -118,6 +131,7 @@ public partial class UpdateAvailableWindow : Window
             RestartPanel.Visibility = Visibility.Visible;
             RestartHeadingText.Text = LocalizationManager.T("Update.RestartOrLater");
             RestartNowButton.Focus();
+            RefreshWindowSize();
         }
         finally
         {
@@ -209,6 +223,7 @@ public partial class UpdateAvailableWindow : Window
         DonePanel.Visibility = Visibility.Visible;
         DoneText.Text = text;
         DoneCloseButton.Focus();
+        RefreshWindowSize();
     }
 
     /// <summary>
@@ -218,6 +233,7 @@ public partial class UpdateAvailableWindow : Window
     /// </summary>
     private void ShowError(string message)
     {
+        LogDiagnostic("Ошибка в диалоге обновления: " + message);
         OfferPanel.Visibility = Visibility.Collapsed;
         ProgressPanel.Visibility = Visibility.Collapsed;
         RestartPanel.Visibility = Visibility.Collapsed;
@@ -225,11 +241,68 @@ public partial class UpdateAvailableWindow : Window
         ErrorPanel.Visibility = Visibility.Visible;
         ErrorText.Text = message;
         ErrorCloseButton.Focus();
+        RefreshWindowSize();
+    }
+
+    /// <summary>
+    /// Принудительно пересчитывает размер окна по содержимому текущего этапа
+    /// (issue #157). Кастомный Window-Chrome MaterialDesign может «запоминать» прежние
+    /// габариты после смены видимого блока; сброс SizeToContent в Manual и обратно в Height
+    /// заставляет окно подстроиться под новый этап (прогресс, вопрос о применении, ошибка),
+    /// чтобы прогресс-бар и кнопки не обрезались и не оставалось пустоты.
+    /// </summary>
+    private void RefreshWindowSize()
+    {
+        try
+        {
+            if (!IsLoaded)
+                return;
+
+            // Сброс в Manual и обратно в Height заставляет окно пересчитать высоту
+            // по содержимому текущего этапа (предложение → скачивание → применение → ошибка).
+            SizeToContent = SizeToContent.Manual;
+            UpdateLayout();
+            SizeToContent = SizeToContent.Height;
+            UpdateLayout();
+            InvalidateMeasure();
+        }
+        catch
+        {
+            // Сбой пересчёта размера не должен ломать диалог.
+        }
+    }
+
+    /// <summary>
+    /// Записывает диагностическую информацию об ошибках обновления во временный файл
+    /// (%TEMP%\ConfigurationManagement\update\update-dialog.log), чтобы причину сбоя можно
+    /// было изучить после неудачного скачивания/применения (issue #162).
+    /// </summary>
+    private static void LogDiagnostic(string message)
+    {
+        try
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "ConfigurationManagement", "update");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(
+                Path.Combine(dir, "update-dialog.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{Environment.ProcessId}] {message}{Environment.NewLine}",
+                System.Text.Encoding.UTF8);
+        }
+        catch
+        {
+            // Логирование не должно ломать диалог.
+        }
     }
 
     private void OnCancelClick(object sender, RoutedEventArgs e) => Close();
 
     private const int WmGetMinMaxInfo = 0x0024;
+    private const int WmSizing = 0x0214;
+
+    // Ориентиры сторон для WM_SIZING.
+    private const int WmszLeft = 1;
+    private const int WmszRight = 2;
+    private const int WmszBottomRight = 8;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct PoINT { public int X; public int Y; }
@@ -244,29 +317,70 @@ public partial class UpdateAvailableWindow : Window
         public PoINT MaxTrackSize;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
     /// <summary>
-    /// Перехватывает WM_GETMINMAXINFO и жёстко фиксирует ТОЛЬКО ширину окна (MinTrackSize.X
-    /// и MaxTrackSize.X равны фактической ширине), блокируя изменение ширины мышью даже при
-    /// активном кастомном Window-Chrome. Высоту не ограничиваем: её контролирует
-    /// SizeToContent="Height", который подстраивает окно под каждый этап и сам запрещает
-    /// ручное изменение высоты, поэтому пустого места внизу не остаётся.
+    /// Возвращает фиксированную ширину окна, которую нельзя изменить мышью.
+    /// До первой реальной отрисовки берём значение из свойства <see cref="Window.Width"/>.
+    /// </summary>
+    private int FixedWidth
+    {
+        get
+        {
+            var w = (int)Math.Round(ActualWidth);
+            return w > 0 ? w : (int)Width;
+        }
+    }
+
+    /// <summary>
+    /// Перехватывает WM_GETMINMAXINFO и WM_SIZING, жёстко фиксируя ширину окна. Это
+    /// блокирует «схлопывание» окна при перетаскивании правой/левой границы, которое
+    /// обходит ResizeMode="NoResize" из-за кастомного Window-Chrome MaterialDesign
+    /// (issue #162). Высоту не ограничиваем — её подстраивает SizeToContent="Height".
     /// </summary>
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == WmGetMinMaxInfo)
+        switch (msg)
         {
-            var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+            case WmGetMinMaxInfo:
+            {
+                var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
 
-            // На момент первого сообщения ActualWidth может быть ещё нулевой —
-            // тогда берём ширину из свойства Width. Высоту не трогаем.
-            int w = (int)Math.Round(ActualWidth);
-            if (w <= 0) w = (int)Width;
-            mmi.MinTrackSize.X = w;
-            mmi.MaxTrackSize.X = w;
-            // Высоту не трогаем: SizeToContent="Height" сам подстраивает окно под этап,
-            // поэтому пустого места внизу не будет, а ширину менять нельзя.
-            Marshal.StructureToPtr(mmi, lParam, true);
-            handled = true;
+                // Ширина фиксирована: MinTrackSize.X == MaxTrackSize.X == фактической ширине,
+                // поэтому изменение ширины мышью невозможно.
+                int w = FixedWidth;
+                mmi.MinTrackSize.X = w;
+                mmi.MaxTrackSize.X = w;
+                Marshal.StructureToPtr(mmi, lParam, true);
+                handled = true;
+                break;
+            }
+            case WmSizing:
+            {
+                // Дополнительная защита на случай, если кастомный Chrome инициирует изменение
+                // размера в обход MINMAXINFO: принудительно возвращаем фиксированную ширину.
+                var rc = Marshal.PtrToStructure<RECT>(lParam);
+                int w = FixedWidth;
+                switch (wParam.ToInt32())
+                {
+                    case WmszLeft:
+                        rc.Left = rc.Right - w;
+                        break;
+                    default:
+                        rc.Right = rc.Left + w;
+                        break;
+                }
+                Marshal.StructureToPtr(rc, lParam, true);
+                handled = true;
+                break;
+            }
         }
         return IntPtr.Zero;
     }

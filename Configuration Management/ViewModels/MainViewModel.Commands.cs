@@ -935,6 +935,28 @@ public string HotkeyEnterprise
         }
     }
 
+    /// <summary>Горячая клавиша очистки строки поиска. Пусто — не назначена.</summary>
+    public string HotkeyClearSearch
+    {
+        get => _hotkeyClearSearch;
+        set
+        {
+            if (SetProperty(ref _hotkeyClearSearch, NormalizeHotkey(value, "Ctrl+Shift+C")))
+                ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>Горячая клавиша сброса фильтра по тегам. Пусто — не назначена.</summary>
+    public string HotkeyClearTags
+    {
+        get => _hotkeyClearTags;
+        set
+        {
+            if (SetProperty(ref _hotkeyClearTags, NormalizeHotkey(value, "Ctrl+Shift+T")))
+                ScheduleSaveSettings();
+        }
+    }
+
     private static string NormalizeHotkey(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 

@@ -211,6 +211,45 @@ public static class IbasesV8iImporter
         {
             CreateGroupWithParents(groupPath, groupEntries, groups, result);
         }
+
+        // Устраняем уже накопившиеся дубликаты групп по полному пути (например, созданные
+        // предыдущими версиями приложения). При совпадении пути оставляем первую группу;
+        // базы привязаны к группам по полному пути, поэтому ссылки не ломаются.
+        RemoveDuplicateGroupsByPath(groups);
+    }
+
+    /// <summary>
+    /// Удаляет из коллекции группы с дублирующимся полным путём (регистронезависимо),
+    /// сохраняя первую встреченную. Используется для очистки «унаследованных» дубликатов
+    /// папок, возникавших при повторных синхронизациях со штатным стартером.
+    /// </summary>
+    private static void RemoveDuplicateGroupsByPath(IList<Group> groups)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var keep = new List<Group>(groups.Count);
+
+        foreach (var group in groups)
+        {
+            var path = GroupHierarchyHelper.GetFullPath(group, groups);
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                // Группы без пути (без имени) не участвуют в дедупликации.
+                keep.Add(group);
+                continue;
+            }
+
+            if (!seen.Add(path))
+                continue; // Дубликат пути — пропускаем.
+
+            keep.Add(group);
+        }
+
+        if (keep.Count == groups.Count)
+            return;
+
+        groups.Clear();
+        foreach (var group in keep)
+            groups.Add(group);
     }
 
     /// <summary>
@@ -228,14 +267,19 @@ public static class IbasesV8iImporter
             return;
 
         string? parentId = null;
+        var pathSegments = new List<string>(segments.Count);
+
         for (var i = 0; i < segments.Count; i++)
         {
             var segment = segments[i];
-            var pathSoFar = string.Join(GroupHierarchyHelper.PathSeparator, segments.Take(i + 1));
+            pathSegments.Add(segment);
+            var pathSoFar = string.Join(GroupHierarchyHelper.PathSeparator, pathSegments);
 
-            var existing = groups.FirstOrDefault(g =>
-                string.Equals(g.Name, segment, StringComparison.OrdinalIgnoreCase)
-                && IsParent(g, parentId));
+            // Идемпотентность: сначала ищем существующую группу по точному полному пути
+            // (регистронезависимо). Это не даёт создавать дубликаты папок при повторных
+            // синхронизациях, когда одна и та же вложенная папка встречается в файле
+            // в нескольких представлениях (секция-группа и Folder-ссылки баз).
+            var existing = FindGroupByFullPath(groups, pathSoFar, segment, parentId);
 
             if (existing is null)
             {
@@ -257,6 +301,36 @@ public static class IbasesV8iImporter
 
             parentId = existing.Id;
         }
+    }
+
+    /// <summary>
+    /// Находит существующую группу, соответствующую сегменту пути. Приоритет — точное
+    /// совпадение по полному пути группы (через <see cref="GroupHierarchyHelper.GetFullPath"/>),
+    /// что обеспечивает идемпотентность импорта и предотвращает дублирование папок
+    /// (в т.ч. у вложенных папок). Если группа по полному пути не найдена, используется
+    /// прежнее сопоставление по имени листа и родителю.
+    /// </summary>
+    private static Group? FindGroupByFullPath(
+        IList<Group> groups,
+        string fullPath,
+        string leafName,
+        string? parentId)
+    {
+        if (groups.Count == 0)
+            return null;
+
+        foreach (var group in groups)
+        {
+            if (string.Equals(
+                    GroupHierarchyHelper.GetFullPath(group, groups),
+                    fullPath,
+                    StringComparison.OrdinalIgnoreCase))
+                return group;
+        }
+
+        return groups.FirstOrDefault(g =>
+            string.Equals(g.Name, leafName, StringComparison.OrdinalIgnoreCase)
+            && IsParent(g, parentId));
     }
 
     /// <summary>

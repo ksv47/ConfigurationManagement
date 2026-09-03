@@ -414,6 +414,8 @@
     "Settings.Hotkeys.ShowAll": "Показать все базы:",
     "Settings.Hotkeys.ShowFavorites": "Показать избранное:",
     "Settings.Hotkeys.ShowRecent": "Показать недавние:",
+    "Settings.Hotkeys.ClearSearch": "Очистить поиск:",
+    "Settings.Hotkeys.ClearTags": "Сбросить теги:",
     "Settings.Hotkeys.FavoritesOrder": "Порядок избранного (Alt+1 … Alt+9)",
     "Settings.Hotkeys.FavoritesOrderHint": "Порядок слотов определяет, какая база запускается по Alt+1, Alt+2 и т.д. Используйте стрелки для перемещения.",
     "Settings.Hotkeys.MoveUpTooltip": "Выше (меньший номер Alt)",

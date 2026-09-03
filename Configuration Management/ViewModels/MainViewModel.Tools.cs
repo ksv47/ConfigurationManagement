@@ -1613,7 +1613,9 @@ public partial class MainViewModel : ViewModelBase
         string? hotkeyShowFavorites = null,
         string? hotkeyShowRecent = null,
         bool rememberWindowLayout = true,
-        string afterLaunchAction = "None")
+        string afterLaunchAction = "None",
+        string? hotkeyClearSearch = null,
+        string? hotkeyClearTags = null)
     {
         _allowMultipleInstances = allowMultipleInstances;
         _checkForUpdatesOnStartup = checkForUpdatesOnStartup;
@@ -1635,6 +1637,8 @@ public partial class MainViewModel : ViewModelBase
         if (hotkeyShowAll != null) _hotkeyShowAll = hotkeyShowAll.Trim();
         if (hotkeyShowFavorites != null) _hotkeyShowFavorites = hotkeyShowFavorites.Trim();
         if (hotkeyShowRecent != null) _hotkeyShowRecent = hotkeyShowRecent.Trim();
+        if (hotkeyClearSearch != null) _hotkeyClearSearch = hotkeyClearSearch.Trim();
+        if (hotkeyClearTags != null) _hotkeyClearTags = hotkeyClearTags.Trim();
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(CheckForUpdatesOnStartup));
         OnPropertyChanged(nameof(AutoUpdateEnabled));
@@ -1654,6 +1658,8 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyShowAll));
         OnPropertyChanged(nameof(HotkeyShowFavorites));
         OnPropertyChanged(nameof(HotkeyShowRecent));
+        OnPropertyChanged(nameof(HotkeyClearSearch));
+        OnPropertyChanged(nameof(HotkeyClearTags));
         OnPropertyChanged(nameof(RememberWindowLayout));
         SaveSettings();
     }
