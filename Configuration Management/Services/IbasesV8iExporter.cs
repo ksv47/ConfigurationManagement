@@ -218,14 +218,15 @@ public static class IbasesV8iExporter
                 groupPath = GroupHierarchyHelper.GetFullPath(group, groups);
             }
 
-            // Важно (issue #165): ключ Folder в файле ibases.v8i использует нативный
-            // разделитель «\», а не внутренний « / » приложения. Если оставить внутренний
-            // разделитель (в ToGroupEntry он уже конвертируется через ToFolderPath),
-            // то для вложенных папок (путь из нескольких сегментов) 1С-стартер увидит
+            // Важно (issue #165): ключ Folder в файле ibases.v8i использует НАТИВНЫЙ
+            // разделитель платформы («\» на Windows, «/» на Linux), а не внутренний
+            // « / » приложения. Если оставить внутренний разделитель, то для вложенных
+            // папок (путь из нескольких сегментов) 1С-стартер увидит
             // Folder=«Учёт / Бухгалтерия» как имя ОДНОЙ литеральной папки и создаст
             // её дубликат рядом с правильно вложенной «Бухгалтерия». Для плоских папок
-            // (один сегмент, без разделителя) бага не видно — потому проблема проявлялась
-            // только у вложенных папок. Всегда приводим Folder к нативному виду.
+            // (один сегмент, без разделителя) бага не видна — потому проблема проявлялась
+            // только у вложенных папок. Всегда приводим Folder к нативному виду (для
+            // Linux это именно «/»: захардкоженный «\» давал дубль с обратным слешем).
             groupPath = ToFolderPath(groupPath);
         }
 
@@ -289,17 +290,24 @@ public static class IbasesV8iExporter
 
     /// <summary>
     /// Преобразует полный путь группы из внутреннего представления приложения
-    /// (разделитель « / ») в формат ключа Folder файла ibases.v8i (разделитель «\»).
+    /// (разделитель « / ») в формат ключа Folder файла ibases.v8i с НАТИВНЫМ
+    /// разделителем платформы: «\» на Windows и «/» на Linux (порождён через
+    /// <see cref="Path.DirectorySeparatorChar"/>). Штатный стартер 1С строит иерархию
+    /// вложенных папок из ключа Folder, используя разделитель той ОС, на которой
+    /// работает платформа. Жёстко зашитый «\» на Linux заставлял стартер видеть
+    /// Folder=«Учёт\Бухгалтерия» как имя одной литеральной папки и создавать её
+    /// дубликат рядом с правильно вложенной «Бухгалтерией» (issue #165).
     /// </summary>
     private static string ToFolderPath(string fullPath)
     {
         if (string.IsNullOrWhiteSpace(fullPath))
             return string.Empty;
 
+        var separator = Path.DirectorySeparatorChar.ToString();
         var segments = fullPath.Split(
             new[] { GroupHierarchyHelper.PathSeparator, "/", "\\" },
             StringSplitOptions.RemoveEmptyEntries);
-        return string.Join("\\", segments.Select(s => s.Trim()));
+        return string.Join(separator, segments.Select(s => s.Trim()));
     }
 
     /// <summary>

@@ -331,9 +331,16 @@ public static class IbasesV8iImporter
                 groups.Add(existing);
                 result.GroupsCreated++;
             }
-            else if (string.IsNullOrWhiteSpace(existing.ParentId) && !string.IsNullOrEmpty(parentId))
+            else if (!string.IsNullOrEmpty(parentId)
+                     && (string.IsNullOrWhiteSpace(existing.ParentId) || !GroupExistsById(groups, existing.ParentId)))
             {
-                // Восстанавливаем родителя, если группа уже была создана без иерархии.
+                // Восстанавливаем/перевешиваем родителя: группа либо была создана без
+                // иерархии, либо её родитель отсутствует («осиротела» — например, после
+                // удаления дубликата-родителя прежними версиями приложения, когда ParentId
+                // указывал на удалённую группу). Без перевешивания такая группа не находилась
+                // бы по полному пути на следующей синхронизации, и импорт плодил бы новый
+                // дубликат вложенной папки (issue #165). Здесь корректно восстанавливаем
+                // связь с текущим родителем из пути.
                 existing.ParentId = parentId;
             }
 
@@ -371,9 +378,36 @@ public static class IbasesV8iImporter
                 return group;
         }
 
+        // Запасной вариант — по имени листа: существующая группа считается подходящей,
+        // если её родитель совпадает с текущим, ЛИБО группа «осиротела» (родитель задан,
+        // но отсутствует в списке). Осиротевшую группу <see cref="CreateGroupWithParents"/>
+        // перевешивает на актуального родителя, поэтому она не теряется и не порождает
+        // новый дубликат при следующей синхронизации (issue #165).
         return groups.FirstOrDefault(g =>
             string.Equals(g.Name, leafName, StringComparison.OrdinalIgnoreCase)
-            && IsParent(g, parentId));
+            && (IsParent(g, parentId) || IsOrphanedParent(g, groups)));
+    }
+
+    /// <summary>
+    /// Проверяет, что группа <paramref name="group"/> «осиротела»: у неё задан
+    /// <see cref="Group.ParentId"/>, но соответствующей группы нет в коллекции.
+    /// Такие группы возникают после удаления родителя-дубликата прежними версиями
+    /// приложения и должны перевешиваться на актуального родителя по имени.
+    /// </summary>
+    private static bool IsOrphanedParent(Group group, IList<Group> groups)
+    {
+        return !string.IsNullOrWhiteSpace(group.ParentId)
+               && !GroupExistsById(groups, group.ParentId);
+    }
+
+    /// <summary>
+    /// Проверяет наличие группы с указанным идентификатором в коллекции.
+    /// </summary>
+    private static bool GroupExistsById(IList<Group> groups, string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return false;
+        return groups.Any(g => string.Equals(g.Id, id, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
