@@ -481,7 +481,10 @@ public partial class MainViewModel : ViewModelBase
             var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions
             {
                 WriteIndented = true,
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                // Кириллицу и прочие не-ASCII символы пишем читаемыми UTF-8,
+                // а не \uXXXX-последовательностями (issue #170).
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             });
             File.WriteAllText(dialog.FileName, json);
 

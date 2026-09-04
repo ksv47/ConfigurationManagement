@@ -318,6 +318,9 @@ public class ColorScheme
     {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        // Кириллицу и прочие не-ASCII символы (например, имена схем) записываем читаемыми
+        // UTF-8, а не \uXXXX-последовательностями (issue #170). Влияет только на запись.
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 }

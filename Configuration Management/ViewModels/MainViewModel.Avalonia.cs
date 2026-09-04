@@ -2466,7 +2466,13 @@ public class MainViewModel : ViewModelBase
                     Infobases = _allInfobases.ToList(),
                     Groups = _groups.ToList()
                 },
-                new JsonSerializerOptions { WriteIndented = true });
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    // Кириллицу и прочие не-ASCII символы пишем читаемыми UTF-8,
+                    // а не \uXXXX-последовательностями (issue #170).
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
             File.WriteAllText(path, json);
 
             _dialog.ShowInfo(

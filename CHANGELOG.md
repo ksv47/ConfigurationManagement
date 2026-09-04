@@ -9,6 +9,21 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.57] — 2026-09-04
+
+Выпуск с исправлением issue #170: кириллица и другие не-ASCII символы теперь сохраняются в конфиг-файлы (`infobases.json`, `groups.json`, `settings.json`), реестр профилей и экспортные файлы баз в читаемом виде UTF-8, а не в виде `\uXXXX`-последовательностей. Ранее .NET-сериализатор по умолчанию экранировал все не-ASCII символы, из-за чего русские буквы в файлах было невозможно прочитать. Внесённые вручную значения программа принимала, корректно показывала, но каждый раз перезаписывала обратно в юникод. Теперь задан `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`, который пишет не-ASCII литерально; при этом чтение старых файлов с `\uXXXX` полностью совместимо.
+
+### Добавлено
+
+- **Читаемый UTF-8 в конфиг-файлах (issue #170)**: в [`Services/InfobaseRepository.cs`](Configuration%20Management/Services/InfobaseRepository.cs) в оба набора опций сериализации `JsonOptions` (файлы `infobases.json`, `groups.json`, чтение `settings.json`) и `SettingsJsonOptions` (запись `settings.json`) добавлен `Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping` — кириллица и прочие не-ASCII символы записываются читаемыми символами UTF-8, а не `\uXXXX`-последовательностями. Encoder влияет только на запись, поэтому существующие файлы с `\uXXXX` продолжают корректно читаться.
+- **Читаемый UTF-8 в реестре профилей (issue #170)**: в [`Services/ProfileService.cs`](Configuration%20Management/Services/ProfileService.cs) в `JsonOptions` добавлен тот же `Encoder` — имена профилей на кириллице сохраняются в `profiles.json` в читаемом виде.
+- **Читаемый UTF-8 в цветовых схемах (issue #170)**: в [`Models/ColorScheme.cs`](Configuration%20Management/Models/ColorScheme.cs) в `JsonOptions` добавлен `Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping` — названия схем и прочие не-ASCII символы сохраняются читаемо.
+- **Читаемый UTF-8 в экспортных файлах баз (issue #170)**: в экспорт баз добавлен тот же `Encoder` в [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) и [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs) — выгруженные JSON-файлы содержат русские названия баз и групп в читаемом виде.
+
+### Версия
+
+- **Версия поднята до `0.3.6.56` → `0.3.6.57`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.56] — 2026-09-04
 
 Выпуск с исправлениями девяти открытых issues: просмотр паролей в свойствах базы, падение на Linux при открытии доп. окон, большой отступ у тегов, цветовое оформление папок, дублирование вложенных папок в родном стартере, хоткеи «Свернуть/Развернуть всё», окно обновления, высокая нагрузка CPU на Linux в виртуальных машинах и сохранение данных в поле «Конфигурация».
