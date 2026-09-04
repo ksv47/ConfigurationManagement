@@ -407,7 +407,10 @@ namespace Configuration_Management
         /// </summary>
         private Control BuildTitleStrip()
         {
-            var strip = new Border();
+            // Прозрачная заливка обязательна: Border без Background не участвует
+            // в проверке попадания, нажатие уходит мимо и окно не таскается
+            // (issue #177). Внешний вид от неё не меняется.
+            var strip = new Border { Background = Brushes.Transparent };
             strip.PointerPressed += OnTitleStripPointerPressed;
 
             var grid = new Grid();
