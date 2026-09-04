@@ -48,10 +48,15 @@ namespace Configuration_Management.Controls
         private double _saturation = 100;
         private double _brightness = 100;
 
-        private readonly Slider _redSlider = new() { Minimum = 0, Maximum = 255 };
-        private readonly Slider _greenSlider = new() { Minimum = 0, Maximum = 255 };
-        private readonly Slider _blueSlider = new() { Minimum = 0, Maximum = 255 };
-        private readonly Slider _brightnessSlider = new() { Minimum = 0, Maximum = 100 };
+        // Ползунок Fluent высотой около 50 против 22 у WPF: четыре строки давали
+        // лишние сто пикселей, и ряд кнопок уходил за нижнюю границу окна,
+        // высота которого задана числом из разметки (ColorPickerWindow.xaml:11).
+        private const double SliderHeight = 22;
+
+        private readonly Slider _redSlider = new() { Minimum = 0, Maximum = 255, Height = SliderHeight };
+        private readonly Slider _greenSlider = new() { Minimum = 0, Maximum = 255, Height = SliderHeight };
+        private readonly Slider _blueSlider = new() { Minimum = 0, Maximum = 255, Height = SliderHeight };
+        private readonly Slider _brightnessSlider = new() { Minimum = 0, Maximum = 100, Height = SliderHeight };
 
         private readonly TextBlock _redValue = new() { TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
         private readonly TextBlock _greenValue = new() { TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
@@ -263,7 +268,8 @@ namespace Configuration_Management.Controls
 
         private Grid BuildRgbRow(int row, string label, string accent, Slider slider, TextBlock value)
         {
-            var grid = new Grid { Margin = new Thickness(0, 1) };
+            // Поле строки как в разметке (ColorPickerControl.xaml:85, 96, 107).
+            var grid = new Grid { Margin = new Thickness(0, 2) };
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(20)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(40)));
