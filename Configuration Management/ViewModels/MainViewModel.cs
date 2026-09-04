@@ -140,6 +140,8 @@ public partial class MainViewModel : ViewModelBase
     private string _hotkeyShowAll = "";
     private string _hotkeyShowFavorites = "";
     private string _hotkeyShowRecent = "";
+    private string _hotkeyClearSearch = "Ctrl+Shift+C";
+    private string _hotkeyClearTags = "Ctrl+Shift+T";
     private string _sortField = "Name";
     private bool _sortAscending = true;
     /// <summary>Направление сортировки подгрупп по имени (true — А→Я, false — Я→А).</summary>
@@ -310,6 +312,12 @@ public partial class MainViewModel : ViewModelBase
         _hotkeyShowAll = settings.HotkeyShowAll?.Trim() ?? "";
         _hotkeyShowFavorites = settings.HotkeyShowFavorites?.Trim() ?? "";
         _hotkeyShowRecent = settings.HotkeyShowRecent?.Trim() ?? "";
+        _hotkeyClearSearch = string.IsNullOrWhiteSpace(settings.HotkeyClearSearch)
+            ? "Ctrl+Shift+C"
+            : settings.HotkeyClearSearch.Trim();
+        _hotkeyClearTags = string.IsNullOrWhiteSpace(settings.HotkeyClearTags)
+            ? "Ctrl+Shift+T"
+            : settings.HotkeyClearTags.Trim();
         _sortField = string.IsNullOrWhiteSpace(settings.SortField) ? "Name" : settings.SortField;
         _sortAscending = settings.SortAscending;
         _lastSelectedInfobaseId = settings.LastSelectedInfobaseId ?? string.Empty;

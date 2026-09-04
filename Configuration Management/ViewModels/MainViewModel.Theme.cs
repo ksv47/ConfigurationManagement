@@ -112,6 +112,9 @@ public partial class MainViewModel : ViewModelBase
         _activeColorScheme = clone;
         // Схема применяется по текущему варианту темы (палитра выбирается им).
         Themes.ThemeManager.ApplyScheme(clone);
+        // Общий цвет папок хранится в схеме и применяется при построении дерева —
+        // пересобираем его, чтобы папки сразу перекрасились.
+        RebuildGroupTree();
         SaveSettings();
         LogTheme($"ApplyColorScheme('{clone.Name}', colors light={clone.LightColors.Count}, dark={clone.DarkColors.Count}) -> active='{_activeColorScheme.Name}'");
     }
@@ -182,6 +185,8 @@ public partial class MainViewModel : ViewModelBase
         if (scheme is null)
             return;
         Themes.ThemeManager.ApplyScheme(scheme);
+        // Общий цвет папок пересчитывается при построении дерева.
+        RebuildGroupTree();
     }
 
     /// <summary>
@@ -310,12 +315,13 @@ public partial class MainViewModel : ViewModelBase
     /// </summary>
     private void CollapseAllGroups(object? parameter)
     {
-        SetExpandedDeepSilent(_groupNodes, expanded: false);
+        SetExpandedDeep(_groupNodes, expanded: false);
         _collapsedGroups.Clear();
         CollectGroupPaths(_groupNodes, _collapsedGroups);
         ScheduleSaveSettings();
 
-        // Сворачиваем только существующие контейнеры (быстро, без пересборки ItemsSource).
+        // Контейнеры обновляются сами из OneWay-привязки IsExpanded (issue #160).
+        // Layout нужен лишь для того, чтобы виртуализация завершила пересборку.
         if (Application.Current?.MainWindow is global::Configuration_Management.MainWindow window)
             window.ApplyGroupExpandedState(expand: false);
     }
@@ -325,12 +331,10 @@ public partial class MainViewModel : ViewModelBase
     /// </summary>
     private void ExpandAllGroups(object? parameter)
     {
-        // Модель сразу в expanded — при создании новых TreeViewItem Binding читает true.
-        SetExpandedDeepSilent(_groupNodes, expanded: true);
+        SetExpandedDeep(_groupNodes, expanded: true);
         _collapsedGroups.Clear();
         ScheduleSaveSettings();
 
-        // По уровням через контейнеры TreeView (без PropertyChanged-лавины и без ReplaceGroupNodes).
         if (Application.Current?.MainWindow is global::Configuration_Management.MainWindow window)
             window.ApplyGroupExpandedState(expand: true);
     }
@@ -345,13 +349,22 @@ public partial class MainViewModel : ViewModelBase
         RebuildGroupTree();
     }
 
-    /// <summary>Рекурсивно задаёт IsExpanded без уведомлений UI.</summary>
-    private static void SetExpandedDeepSilent(IEnumerable<GroupNodeViewModel> nodes, bool expanded)
+    /// <summary>
+    /// Рекурсивно задаёт IsExpanded всем узлам через свойство (с PropertyChanged).
+    /// Существующие контейнеры TreeView обновляются из OneWay-привязки автоматически,
+    /// а виртуализация догенерирует контейнеры вновь развёрнутых веток.
+    /// Прямая установка TreeViewItem.IsExpanded (local value) здесь намеренно НЕ
+    /// используется: у local value выше приоритет, чем у OneWay-привязки из DataTrigger,
+    /// поэтому после «развернуть/свернуть всё» мышь перестаёт сворачивать/разворачивать
+    /// отдельные папки (issue #160). Уведомление же затрагивает только реализованные
+    /// контейнеры, поэтому PropertyChanged-лавины (как при пересборке ItemsSource) нет.
+    /// </summary>
+    private static void SetExpandedDeep(IEnumerable<GroupNodeViewModel> nodes, bool expanded)
     {
         foreach (var node in nodes)
         {
-            node.SetExpandedSilent(expanded);
-            SetExpandedDeepSilent(node.Children, expanded);
+            node.IsExpanded = expanded;
+            SetExpandedDeep(node.Children, expanded);
         }
     }
 

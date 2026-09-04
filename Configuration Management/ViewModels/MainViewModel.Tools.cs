@@ -354,6 +354,99 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Импорт баз и настроек платформы из программы StartManager (issue #163).
+    /// Читает каталог настроек StartManager (v8config.smc и settings.cnf), добавляет
+    /// и обновляет базы с авторизацией (расшифровывая пароли по алгоритму Виженера),
+    /// а также добавляет найденный путь платформы 1С (V8AppPath) в дополнительные
+    /// пути поиска платформы приложения.
+    /// </summary>
+    public void ImportFromStartManager()
+    {
+        var dir = StartManagerImporter.FindDefaultSettingsDir();
+        if (string.IsNullOrWhiteSpace(dir) || !System.IO.Directory.Exists(dir))
+        {
+            dir = _dialogs.OpenFolderDialog(
+                LocalizationManager.T("StartManager.ChooseFolder"), null);
+            if (string.IsNullOrWhiteSpace(dir))
+                return;
+        }
+
+        try
+        {
+            var candidateInfobases = Infobases.ToList();
+            var candidateGroups = Groups.ToList();
+
+            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups);
+
+            if (result.NoConfigFound)
+            {
+                _dialogs.ShowInfo(
+                    string.Format(LocalizationManager.T("StartManager.NoConfig"), dir),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            if (result.Added == 0 && result.Updated == 0)
+            {
+                _dialogs.ShowInfo(
+                    LocalizationManager.T("StartManager.NothingImported"),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            Infobases.Clear();
+            foreach (var ib in candidateInfobases)
+                Infobases.Add(ib);
+            SyncFavoriteHotkeys();
+            Groups.Clear();
+            foreach (var g in candidateGroups)
+                Groups.Add(g);
+
+            Save();
+            SaveGroups();
+            RebuildGroupTree();
+            InfobasesView.Refresh();
+
+            // Путь платформы 1С из settings.cnf добавляем в дополнительные пути поиска.
+            var platformAdded = false;
+            if (result.PlatformSearchPaths.Count > 0)
+            {
+                var paths = new List<string>(AdditionalPlatformSearchPaths);
+                foreach (var p in result.PlatformSearchPaths)
+                {
+                    if (!paths.Contains(p, StringComparer.OrdinalIgnoreCase))
+                    {
+                        paths.Add(p);
+                        platformAdded = true;
+                    }
+                }
+                if (platformAdded)
+                {
+                    SetAdditionalPlatformSearchPaths(paths);
+                    ApplyDefaultArchitecture(DefaultArchitecture);
+                }
+            }
+
+            _logger.Info($"Импорт из StartManager: {dir}, добавлено {result.Added}, " +
+                         $"обновлено {result.Updated}, пропущено {result.Skipped}");
+
+            var message = string.Format(
+                LocalizationManager.T("StartManager.Done"),
+                result.Added, result.Updated);
+            if (platformAdded)
+                message += "\n" + LocalizationManager.T("StartManager.PlatformPathAdded");
+            _dialogs.ShowInfo(message, LocalizationManager.T("StartManager.Title"));
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка импорта из StartManager", ex);
+            _dialogs.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrImportFailed"), ex.Message),
+                LocalizationManager.T("Main.ImportErrorTitle"));
+        }
+    }
+
+    /// <summary>
     /// Экспортирует список информационных баз в выбранный JSON-файл.
     /// </summary>
     private void ExportInfobases(object? parameter)
@@ -388,7 +481,10 @@ public partial class MainViewModel : ViewModelBase
             var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions
             {
                 WriteIndented = true,
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                // Кириллицу и прочие не-ASCII символы пишем читаемыми UTF-8,
+                // а не \uXXXX-последовательностями (issue #170).
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             });
             File.WriteAllText(dialog.FileName, json);
 
@@ -1591,6 +1687,127 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Пересчитывает полные пути <see cref="Infobase.Group"/> у всех баз подветки группы
+    /// после её переименования или перемещения. Старые пути собраны в
+    /// <paramref name="oldPathsById"/> ДО применения изменений, а <paramref name="oldRootPath"/>
+    /// и <paramref name="newRootPath"/> — пути самой группы до и после.
+    /// Предотвращает «исчезновение» группы (issue #171): иначе базы остаются со старым путём,
+    /// попадают в «Без группы», а сама группа становится пустой и скрывается из дерева.
+    /// </summary>
+    private void RemapSubtreeInfobasePaths(
+        IReadOnlyDictionary<string, string> oldPathsById,
+        string oldRootPath,
+        string newRootPath)
+    {
+        var oldRootNorm = NormalizeGroupPath(oldRootPath);
+        var newRootPathNorm = NormalizeGroupPath(newRootPath);
+
+        // pathRemap: старый путь (и нормализованный) → новый канонический.
+        var pathRemap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(oldRootPath) && !string.IsNullOrEmpty(newRootPath))
+        {
+            pathRemap[oldRootPath] = newRootPath;
+            pathRemap[oldRootNorm] = newRootPath;
+        }
+
+        foreach (var (id, oldPath) in oldPathsById)
+        {
+            if (string.IsNullOrEmpty(oldPath))
+                continue;
+            var g = Groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is null)
+                continue;
+            var newPath = GroupHierarchyHelper.GetFullPath(g, Groups);
+            if (string.IsNullOrEmpty(newPath))
+                continue;
+            pathRemap[oldPath] = newPath;
+            var norm = NormalizeGroupPath(oldPath);
+            if (!string.IsNullOrEmpty(norm))
+                pathRemap[norm] = newPath;
+        }
+
+        if (pathRemap.Count == 0)
+            return;
+
+        // Длинные пути первыми — чтобы «A / B» не переписывался как префикс «A».
+        var remapByLength = pathRemap
+            .OrderByDescending(kv => kv.Key.Length)
+            .ToList();
+
+        foreach (var ib in Infobases)
+        {
+            var current = ib.Group?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(current))
+                continue;
+
+            var currentNorm = NormalizeGroupPath(current);
+            if (pathRemap.TryGetValue(current, out var mapped)
+                || pathRemap.TryGetValue(currentNorm, out mapped))
+            {
+                ib.Group = mapped;
+                continue;
+            }
+
+            // Префикс: база во вложенном пути, которого не было в pathRemap.
+            // Всегда работаем через нормализованный путь и нормализованный ключ, чтобы
+            // суффикс и итоговый путь получались каноническими и совпадали с FullPath узла.
+            // Иначе база не найдёт группу при перестройке дерева и «уедет» в «Без группы».
+            foreach (var (oldKey, newKey) in remapByLength)
+            {
+                var oldKeyNorm = NormalizeGroupPath(oldKey);
+                if (string.IsNullOrEmpty(oldKeyNorm))
+                    continue;
+                var prefix = oldKeyNorm + GroupHierarchyHelper.PathSeparator;
+                if (!currentNorm.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                ib.Group = newKey + currentNorm.Substring(oldKeyNorm.Length);
+                break;
+            }
+
+            // Фолбэк: если путь базы относится к подветке (сама группа или вложенная),
+            // но почему-то не попал в pathRemap — пересчитываем его по старому корневому пути.
+            // Защищает от потери группы (попадания базы в «Без группы») при любых расхождениях
+            // в формате/нормализации пути.
+            if (!string.IsNullOrEmpty(oldRootNorm)
+                && !string.IsNullOrEmpty(newRootPathNorm)
+                && (string.Equals(currentNorm, oldRootNorm, StringComparison.OrdinalIgnoreCase)
+                    || currentNorm.StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                var suffix = currentNorm.Length > oldRootNorm.Length
+                    ? currentNorm.Substring(oldRootNorm.Length)
+                    : string.Empty;
+                ib.Group = newRootPathNorm + suffix;
+            }
+        }
+
+        if (_collapsedGroups is { Count: > 0 })
+        {
+            var updated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in _collapsedGroups)
+            {
+                if (pathRemap.TryGetValue(key, out var mapped)
+                    || pathRemap.TryGetValue(NormalizeGroupPath(key), out mapped))
+                    updated.Add(mapped);
+                else if (!string.IsNullOrEmpty(oldRootNorm)
+                         && (key.StartsWith(oldRootPath + GroupHierarchyHelper.PathSeparator,
+                                 StringComparison.OrdinalIgnoreCase)
+                             || NormalizeGroupPath(key).StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                                 StringComparison.OrdinalIgnoreCase))
+                         && pathRemap.TryGetValue(oldRootPath, out var newRoot))
+                    updated.Add(newRoot + key.Substring(Math.Min(key.Length, oldRootPath.Length)));
+                else
+                    updated.Add(key);
+            }
+            _collapsedGroups.Clear();
+            foreach (var k in updated)
+                _collapsedGroups.Add(k);
+        }
+    }
+
+    /// <summary>
     /// Применяет настройки приложения (экземпляры, панель тегов).
     /// </summary>
     public void ApplyAppBehaviorSettings(
@@ -1613,7 +1830,9 @@ public partial class MainViewModel : ViewModelBase
         string? hotkeyShowFavorites = null,
         string? hotkeyShowRecent = null,
         bool rememberWindowLayout = true,
-        string afterLaunchAction = "None")
+        string afterLaunchAction = "None",
+        string? hotkeyClearSearch = null,
+        string? hotkeyClearTags = null)
     {
         _allowMultipleInstances = allowMultipleInstances;
         _checkForUpdatesOnStartup = checkForUpdatesOnStartup;
@@ -1635,6 +1854,8 @@ public partial class MainViewModel : ViewModelBase
         if (hotkeyShowAll != null) _hotkeyShowAll = hotkeyShowAll.Trim();
         if (hotkeyShowFavorites != null) _hotkeyShowFavorites = hotkeyShowFavorites.Trim();
         if (hotkeyShowRecent != null) _hotkeyShowRecent = hotkeyShowRecent.Trim();
+        if (hotkeyClearSearch != null) _hotkeyClearSearch = hotkeyClearSearch.Trim();
+        if (hotkeyClearTags != null) _hotkeyClearTags = hotkeyClearTags.Trim();
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(CheckForUpdatesOnStartup));
         OnPropertyChanged(nameof(AutoUpdateEnabled));
@@ -1654,6 +1875,8 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyShowAll));
         OnPropertyChanged(nameof(HotkeyShowFavorites));
         OnPropertyChanged(nameof(HotkeyShowRecent));
+        OnPropertyChanged(nameof(HotkeyClearSearch));
+        OnPropertyChanged(nameof(HotkeyClearTags));
         OnPropertyChanged(nameof(RememberWindowLayout));
         SaveSettings();
     }

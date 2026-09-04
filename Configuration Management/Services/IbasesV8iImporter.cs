@@ -211,6 +211,83 @@ public static class IbasesV8iImporter
         {
             CreateGroupWithParents(groupPath, groupEntries, groups, result);
         }
+
+        // Устраняем уже накопившиеся дубликаты групп по полному пути (например, созданные
+        // предыдущими версиями приложения). При совпадении пути оставляем первую группу;
+        // базы привязаны к группам по полному пути, поэтому ссылки не ломаются.
+        RemoveDuplicateGroupsByPath(groups);
+    }
+
+    /// <summary>
+    /// Удаляет из коллекции группы с дублирующимся полным путём (регистронезависимо),
+    /// сохраняя первую встреченную. Используется для очистки «унаследованных» дубликатов
+    /// папок, возникавших при повторных синхронизациях со штатным стартером.
+    /// </summary>
+    /// <remarks>
+    /// Помимо удаления дубликатов обязательно переназначает родителя у дочерних групп,
+    /// чей <see cref="Group.ParentId"/> указывал на удалённый дубликат. Без этого дети
+    /// «осиротевали»: их полный путь переставал строиться (родитель не находился),
+    /// и на следующей синхронизации <see cref="CreateGroupWithParents"/> не находил такую
+    /// группу по полному пути и создавал новый дубликат — отсюда постоянное повторное
+    /// появление дублей у вложенных папок (issue #165).
+    /// </remarks>
+    private static void RemoveDuplicateGroupsByPath(IList<Group> groups)
+    {
+        // Полный путь каждой группы вычисляем по исходному списку (до удаления),
+        // чтобы дубликаты с одним и тем же путём корректно сопоставились, даже если
+        // их родитель сам является дубликатом.
+        var keep = new List<Group>(groups.Count);
+        // Первая группа, встреченная для каждого полного пути (для дедупликации).
+        var keptByPath = new Dictionary<string, Group>(StringComparer.OrdinalIgnoreCase);
+        // Соответствие «Id удалённого дубликата → Id сохранённой группы»,
+        // чтобы после дедупликации перенаправить ссылки дочерних групп.
+        var removedToKept = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in groups)
+        {
+            // Канонизируем полный путь: нормализуем разделители («/», «\» → « / ») и
+            // обрезаем пробелы у сегментов. Это гарантирует, что два дубликата одной и той же
+            // вложенной папки сопоставятся, даже если их путь был построен с разным разделителем,
+            // регистром сегментов или ведущими/хвостовыми пробелами в именах (например, после
+            // импорта из файла, переписанного штатным стартером 1С).
+            var path = NormalizeGroupPath(GroupHierarchyHelper.GetFullPath(group, groups));
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                // Группы без пути (без имени) не участвуют в дедупликации.
+                keep.Add(group);
+                continue;
+            }
+
+            if (keptByPath.TryGetValue(path, out var kept))
+            {
+                // Дубликат пути — сохраняем первую встреченную группу и запоминаем
+                // перенаправление Id для дочерних групп.
+                if (!string.IsNullOrWhiteSpace(group.Id) && !string.IsNullOrWhiteSpace(kept.Id))
+                    removedToKept[group.Id] = kept.Id;
+                continue;
+            }
+
+            keptByPath[path] = group;
+            keep.Add(group);
+        }
+
+        if (keep.Count == groups.Count)
+            return;
+
+        // Перенаправляем ParentId дочерних групп, ссылавшихся на удалённые дубликаты,
+        // на сохранённые группы. Это сохраняет иерархию и предотвращает повторное
+        // создание дубликатов вложенных папок при следующих синхронизациях.
+        foreach (var group in keep)
+        {
+            if (string.IsNullOrWhiteSpace(group.ParentId))
+                continue;
+            if (removedToKept.TryGetValue(group.ParentId, out var newParentId))
+                group.ParentId = newParentId;
+        }
+
+        groups.Clear();
+        foreach (var group in keep)
+            groups.Add(group);
     }
 
     /// <summary>
@@ -228,14 +305,19 @@ public static class IbasesV8iImporter
             return;
 
         string? parentId = null;
+        var pathSegments = new List<string>(segments.Count);
+
         for (var i = 0; i < segments.Count; i++)
         {
             var segment = segments[i];
-            var pathSoFar = string.Join(GroupHierarchyHelper.PathSeparator, segments.Take(i + 1));
+            pathSegments.Add(segment);
+            var pathSoFar = string.Join(GroupHierarchyHelper.PathSeparator, pathSegments);
 
-            var existing = groups.FirstOrDefault(g =>
-                string.Equals(g.Name, segment, StringComparison.OrdinalIgnoreCase)
-                && IsParent(g, parentId));
+            // Идемпотентность: сначала ищем существующую группу по точному полному пути
+            // (регистронезависимо). Это не даёт создавать дубликаты папок при повторных
+            // синхронизациях, когда одна и та же вложенная папка встречается в файле
+            // в нескольких представлениях (секция-группа и Folder-ссылки баз).
+            var existing = FindGroupByFullPath(groups, pathSoFar, segment, parentId);
 
             if (existing is null)
             {
@@ -249,14 +331,83 @@ public static class IbasesV8iImporter
                 groups.Add(existing);
                 result.GroupsCreated++;
             }
-            else if (string.IsNullOrWhiteSpace(existing.ParentId) && !string.IsNullOrEmpty(parentId))
+            else if (!string.IsNullOrEmpty(parentId)
+                     && (string.IsNullOrWhiteSpace(existing.ParentId) || !GroupExistsById(groups, existing.ParentId)))
             {
-                // Восстанавливаем родителя, если группа уже была создана без иерархии.
+                // Восстанавливаем/перевешиваем родителя: группа либо была создана без
+                // иерархии, либо её родитель отсутствует («осиротела» — например, после
+                // удаления дубликата-родителя прежними версиями приложения, когда ParentId
+                // указывал на удалённую группу). Без перевешивания такая группа не находилась
+                // бы по полному пути на следующей синхронизации, и импорт плодил бы новый
+                // дубликат вложенной папки (issue #165). Здесь корректно восстанавливаем
+                // связь с текущим родителем из пути.
                 existing.ParentId = parentId;
             }
 
             parentId = existing.Id;
         }
+    }
+
+    /// <summary>
+    /// Находит существующую группу, соответствующую сегменту пути. Приоритет — точное
+    /// совпадение по полному пути группы (через <see cref="GroupHierarchyHelper.GetFullPath"/>),
+    /// что обеспечивает идемпотентность импорта и предотвращает дублирование папок
+    /// (в т.ч. у вложенных папок). Если группа по полному пути не найдена, используется
+    /// прежнее сопоставление по имени листа и родителю.
+    /// </summary>
+    private static Group? FindGroupByFullPath(
+        IList<Group> groups,
+        string fullPath,
+        string leafName,
+        string? parentId)
+    {
+        if (groups.Count == 0)
+            return null;
+
+        foreach (var group in groups)
+        {
+            // Сравниваем канонизированные пути (нормализованные разделители и пробелы),
+            // чтобы существующая группа всегда находилась по полному пути независимо от
+            // того, как именно построен путь (через GetFullPath или через создание сегментами).
+            // Это гарантирует идемпотентность импорта вложенных папок и не даёт повторным
+            // синхронизациям плодить дубликаты.
+            if (string.Equals(
+                    NormalizeGroupPath(GroupHierarchyHelper.GetFullPath(group, groups)),
+                    fullPath,
+                    StringComparison.OrdinalIgnoreCase))
+                return group;
+        }
+
+        // Запасной вариант — по имени листа: существующая группа считается подходящей,
+        // если её родитель совпадает с текущим, ЛИБО группа «осиротела» (родитель задан,
+        // но отсутствует в списке). Осиротевшую группу <see cref="CreateGroupWithParents"/>
+        // перевешивает на актуального родителя, поэтому она не теряется и не порождает
+        // новый дубликат при следующей синхронизации (issue #165).
+        return groups.FirstOrDefault(g =>
+            string.Equals(g.Name, leafName, StringComparison.OrdinalIgnoreCase)
+            && (IsParent(g, parentId) || IsOrphanedParent(g, groups)));
+    }
+
+    /// <summary>
+    /// Проверяет, что группа <paramref name="group"/> «осиротела»: у неё задан
+    /// <see cref="Group.ParentId"/>, но соответствующей группы нет в коллекции.
+    /// Такие группы возникают после удаления родителя-дубликата прежними версиями
+    /// приложения и должны перевешиваться на актуального родителя по имени.
+    /// </summary>
+    private static bool IsOrphanedParent(Group group, IList<Group> groups)
+    {
+        return !string.IsNullOrWhiteSpace(group.ParentId)
+               && !GroupExistsById(groups, group.ParentId);
+    }
+
+    /// <summary>
+    /// Проверяет наличие группы с указанным идентификатором в коллекции.
+    /// </summary>
+    private static bool GroupExistsById(IList<Group> groups, string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return false;
+        return groups.Any(g => string.Equals(g.Id, id, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

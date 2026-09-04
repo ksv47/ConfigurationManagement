@@ -38,23 +38,47 @@ namespace Configuration_Management
         /// </summary>
         protected ModalWindowBase()
         {
-            // Отказываемся от системной рамки и кнопок: диалоги, как и главное окно,
-            // получают собственные кнопки управления (свернуть/закрыть, у закрытия
-            // красное выделение) и «стеклянный» полупрозрачный фон. Это единое место
-            // для всех диалогов, а не повторение в каждом.
-            SystemDecorations = SystemDecorations.None;
-            ExtendClientAreaToDecorationsHint = true;
+            // Декор окна следует настройке «Системный заголовок окна» (issue #152), как
+            // и у главного окна: включена — стандартная системная рамка с её кнопками
+            // и перетаскиванием; выключена — собственный безрамковый режим с кнопками
+            // управления (свернуть/закрыть) и «стеклянным» полупрозрачным фоном, который
+            // рисует базовый класс. Это единое место для всех диалогов, а не повторение
+            // в каждом (раньше отдельные окна жёстко ставили SystemDecorations.Full).
+            var useSystemTitleBar = ResolveUseSystemTitleBar();
+            SystemDecorations = useSystemTitleBar ? SystemDecorations.Full : SystemDecorations.None;
 
-            // Прозрачное окно под эффект «стекла»: используем обычную прозрачность без
-            // размытия. Запрос AcrylicBlur/Blur включает непрерывную перерисовку фона, что
-            // в виртуальной машине и окружениях с программным рендером даёт высокую нагрузку
-            // CPU и падение при открытии диалога (issues #150, #153). Полупрозрачную подложку
-            // нужного цвета темы рисует стеклянный контейнер.
-            TransparencyLevelHint = new[]
+            // На X11 без композитора (или в виртуализации на программном рендере) любое
+            // «прозрачное» окно заставляет оконный менеджер непрерывно перерисовывать фон,
+            // что проявляется как «зависание» и высокая нагрузка CPU (~36%, issue #153).
+            // Поэтому в непрозрачном режиме окно делается простым прямоугольником: без
+            // запроса прозрачности и без расширения клиентской области (последнее в
+            // безрамковом режиме тоже требует прозрачных полей под скругление/тень).
+            // Расширение и прозрачность остаются только для «стекла» на Wayland, где
+            // композитор обязателен и постоянной перерисовки фона нет.
+            var opaque = useSystemTitleBar || ShouldRenderOpaque;
+            ExtendClientAreaToDecorationsHint = !opaque;
+
+            if (opaque)
             {
-                WindowTransparencyLevel.Transparent
-            };
-            Background = Brushes.Transparent;
+                // В непрозрачном режиме прозрачность и расширение не запрашиваем вовсе,
+                // чтобы не провоцировать непрерывную перерисовку фона (issue #153).
+                // Сплошной фон задаём явно, чтобы нативное окно было непрозрачным.
+                TransparencyLevelHint = null;
+                Background = new SolidColorBrush(Color.Parse("#FF161616"));
+            }
+            else
+            {
+                // Прозрачность — только в безрамковом режиме: со стандартной системной
+                // рамкой прозрачный фон и расширение клиентской области конфликтуют и могут
+                // ронять приложение при открытии диалога на Linux (issue #150). Размытие
+                // не просим: AcrylicBlur/Blur включает непрерывную перерисовку фона
+                // (issues #150, #153).
+                TransparencyLevelHint = new[]
+                {
+                    WindowTransparencyLevel.Transparent
+                };
+                Background = Brushes.Transparent;
+            }
 
             // Диалоги не показываются в панели задач: в разметке WPF
             // ShowInTaskbar="False" стоит у всех шестнадцати окон, поэтому здесь
@@ -67,6 +91,50 @@ namespace Configuration_Management
             // владельца даёт центр экрана, так что ухудшения нет.
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
         }
+
+        // Кэш настройки «Системный заголовок окна» на время жизни процесса.
+        private static bool? _systemTitleBarCache;
+
+        /// <summary>
+        /// Рисовать ли диалоги непрозрачными (issue #153): на X11 с программным рендером
+        /// или в виртуализации прозрачность заставляет оконный менеджер непрерывно
+        /// перерисовывать фон, что даёт высокую нагрузку CPU. Вычисляется один раз общим
+        /// детектором Services.LinuxRendering — та же логика, что у главного окна.
+        /// </summary>
+        private static readonly bool ShouldRenderOpaque = Services.LinuxRendering.OpaqueWindow;
+
+        /// <summary>
+        /// Читает настройку «Системный заголовок окна» из репозитория. Значение кэшируется
+        /// на время жизни процесса, как и у главного окна: изменение вступает в силу после
+        /// перезапуска. При любой ошибке чтения настроек возвращается false (безрамковый
+        /// режим по умолчанию), чтобы диалог гарантированно открылся.
+        /// </summary>
+        private static bool ResolveUseSystemTitleBar()
+        {
+            if (_systemTitleBarCache is bool cached)
+            {
+                return cached;
+            }
+            var value = false;
+            try
+            {
+                value = AppServices.GetRequiredService<Configuration_Management.Services.IInfobaseRepository>()
+                    .LoadSettings().UseSystemTitleBar;
+            }
+            catch
+            {
+                value = false;
+            }
+            _systemTitleBarCache = value;
+            return value;
+        }
+
+        /// <summary>
+        /// Сбрасывает кэш настройки «Системный заголовок окна» (issue #159). Вызывается
+        /// из окна настроек после изменения настройки, чтобы уже открываемые далее
+        /// модальные окна применили новое значение, не дожидаясь перезапуска.
+        /// </summary>
+        public static void InvalidateSystemTitleBarCache() => _systemTitleBarCache = null;
 
         /// <summary>
         /// Источник локализации для привязок XAML: <c>{Binding Loc[Key]}</c>.
@@ -131,23 +199,90 @@ namespace Configuration_Management
         /// <returns>True, если пользователь подтвердил действие (DialogResult == true).</returns>
         public bool ShowDialogSync(Window? owner = null)
         {
+            // Повторный вход при уже открытом окне недопустим: вложенный PushFrame
+            // никогда бы не завершился, так как Closed не сработает повторно.
+            if (IsVisible)
+                return DialogResult;
+
             var frame = new DispatcherFrame();
             Closed += (_, _) => frame.Continue = false;
 
-            if (owner is not null)
-            {
-                WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                _ = ShowDialog(owner);
-            }
-            else
-            {
-                WindowStartupLocation = WindowStartupLocation.CenterScreen;
-                Show();
-            }
+            // Владелец пригоден только видимый и с измеренной геометрией. На Linux/X11
+            // модальный показ относительно неотрисованного владельца (нулевая геометрия)
+            // и центрирование по нему способны вызывать нативный abort при открытии
+            // диалога (issue #168). С непригодным владельцем окно открываем по центру
+            // экрана и без привязки модальности к окну.
+            var validOwner = owner is { IsVisible: true } o && HasUsableBounds(o);
 
-            Dispatcher.UIThread.PushFrame(frame);
+            try
+            {
+                if (validOwner)
+                {
+                    // validOwner гарантирует ненулевого владельца; оператор ! — только
+                    // для анализатора nullability, чтобы не давать ложное предупреждение.
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                    _ = ShowDialog(owner!);
+                }
+                else
+                {
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                    Show();
+                }
+
+                Dispatcher.UIThread.PushFrame(frame);
+            }
+            catch
+            {
+                // Первый способ показа сорвался (нативный сбой Avalonia при открытии
+                // диалога, раньше ронявший процесс abort-ом). Не даём окну молча
+                // исчезнуть (issue #168: «не падает, но и не открывается»): пробуем
+                // запасной путь — немодальный показ по центру экрана. Если и он падает,
+                // снимаем кадр и прячем неоткрытое окно.
+                frame.Continue = false;
+                try
+                {
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                    if (!IsVisible)
+                        Show();
+                    Dispatcher.UIThread.PushFrame(frame);
+                }
+                catch
+                {
+                    frame.Continue = false;
+                    try { if (IsVisible) Hide(); } catch { /* ignore */ }
+                }
+            }
+            finally
+            {
+                // Снимаем кадр при любом исходе: если ShowDialog/Show бросили исключение
+                // до входа в цикл сообщений, кадр не должен зависнуть, а неоткрытое окно
+                // прячем, чтобы повторное открытие не копило висящие окна.
+                frame.Continue = false;
+                try { if (IsVisible) Hide(); } catch { /* ignore */ }
+            }
 
             return DialogResult;
+        }
+
+        /// <summary>
+        /// Признак того, что окно имеет измеренную ненулевую геометрию и пригодно
+        /// в качестве владельца модального диалога. На Linux/X11 центрирование по
+        /// владельцу с нулевым размером и показ диалога поверх него могут давать
+        /// нативный abort при открытии окна (issue #168).
+        /// </summary>
+        private static bool HasUsableBounds(Window w)
+        {
+            try
+            {
+                if (w.Bounds.Width > 0 && w.Bounds.Height > 0)
+                    return true;
+            }
+            catch
+            {
+                // Bounds может быть недоступен у ещё не показанного окна.
+            }
+            // Явно заданная ширина/высота тоже считается пригодной геометрией.
+            return w.Width > 0 && w.Height > 0;
         }
 
         /// <summary>
@@ -246,12 +381,18 @@ namespace Configuration_Management
 
         /// <summary>
         /// Подписка стеклянного контейнера на цвет фона темы: берём текущий
-        /// <c>ContentBackgroundColorBrush</c> и делаем из него полупрозрачную версию,
+        /// <c>ContentBackgroundColorBrush</c> и делаем из него (полу)прозрачную версию,
         /// чтобы обе темы и все цветовые схемы выглядели как «стекло» своего цвета.
+        /// В непрозрачном режиме (X11 без композитора/виртуализация, issue #153)
+        /// подложка рисуется полностью непрозрачной: полупрозрачный слой поверх окна
+        /// в этих окружениях тоже способен включать лишнюю компоновку кадра.
         /// </summary>
         private void ApplyGlassBackground(Border glass)
-            => ThemeBrushes.Observe(glass, "ContentBackgroundColorBrush",
-                brush => glass.Background = ThemeBrushes.WithAlpha(brush, GlassBackgroundAlpha));
+        {
+            var alpha = ShouldRenderOpaque ? (byte)0xFF : GlassBackgroundAlpha;
+            ThemeBrushes.Observe(glass, "ContentBackgroundColorBrush",
+                brush => glass.Background = ThemeBrushes.WithAlpha(brush, alpha));
+        }
 
         /// <summary>
         /// Полоса заголовка диалога: слева заголовок окна, справа собственные кнопки

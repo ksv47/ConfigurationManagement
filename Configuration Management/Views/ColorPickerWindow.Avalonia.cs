@@ -31,7 +31,6 @@ namespace Configuration_Management
             // Высота из разметки, а не подгонка по содержимому.
             Height = 560;
             CanResize = false;
-            SystemDecorations = SystemDecorations.Full;
 
             if (!string.IsNullOrWhiteSpace(initialColor))
                 _picker.SelectedColor = initialColor;

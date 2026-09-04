@@ -825,31 +825,25 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <!-- Вкладка по варианту 2 (#155): две колонки сверху — слева управление схемой,
-                     справа список цветов; снизу на всю ширину горизонтальный блок из двух
-                     превью (светлая слева, тёмная справа). -->
+                <!-- Вкладка построена как единый Grid с двумя колонками: слева прокручиваемые
+                     настройки (тема + редактор цветов), справа закреплённый живой предпросмотр,
+                     который НЕ скроллится вместе со списком цветов. -->
                 <Grid Margin="4,12,4,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                    <!-- Верхняя часть: две колонки — слева управление схемой, справа цвета. -->
-                    <Grid Grid.Row="0" Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Левая колонка: управление схемой (прокручивается). -->
-                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                      Padding="0,0,12,0">
-                            <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8">
+                    <!-- Левая колонка: настройки темы и редактор цветов (прокручиваются) -->
+                    <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled" Padding="0,0,12,0">
+                        <StackPanel>
+                            <GroupBox Header="{loc:Loc Settings.Theme}" Padding="8" Margin="0,0,0,12">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                         <TextBlock Text="{loc:Loc Settings.ThemeLabel}" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <ComboBox x:Name="SchemeComboBox" Width="280" Height="34" Margin="10,0,0,0"
+                                        <ComboBox x:Name="SchemeComboBox" Width="240" Height="34" Margin="10,0,0,0"
                                                   VerticalAlignment="Center"
                                                   Style="{StaticResource ModernComboBox}"
                                                   SelectionChanged="OnSchemeCombo_SelectionChanged"/>
@@ -914,11 +908,9 @@
                                     </WrapPanel>
                                 </StackPanel>
                             </GroupBox>
-                        </ScrollViewer>
 
-                        <!-- Правая колонка: список цветов выбранной палитры (прокручивается). -->
-                        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <GroupBox Header="{loc:Loc Settings.Colors}" Padding="8">
+                            <!-- Редактор цветов выбранной палитры -->
+                            <GroupBox Header="{loc:Loc Settings.Colors}" Padding="8" Margin="0,0,0,8">
                                 <StackPanel>
                                     <TextBlock Text="{loc:Loc Settings.Colors.Description}"
                                                Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
@@ -965,209 +957,109 @@
                                     </ItemsControl>
                                 </StackPanel>
                             </GroupBox>
-                        </ScrollViewer>
-                    </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
 
-                    <!-- Нижний блок: горизонтальный живой предпросмотр темы на всю ширину.
-                         Оба превью рядом — светлая слева, тёмная справа. -->
-                    <GroupBox Grid.Row="1" Header="{loc:Loc Settings.Preview}" Padding="8">
-                        <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
-                            <StackPanel Orientation="Horizontal">
-                                <StackPanel Margin="0,0,16,0">
-                                    <TextBlock Text="{loc:Loc Theme.Light}" FontWeight="SemiBold" FontSize="12"
-                                               Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <Border x:Name="PreviewShellLight" Width="175" CornerRadius="8" BorderThickness="1"
-                                        ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="*"/>
-                                        </Grid.RowDefinitions>
+                    <!-- Правая колонка: закреплённый живой предпросмотр темы.
+                         Не прокручивается вместе с настройками; при малой высоте окна
+                         ограничен по высоте и получает собственную вертикальную прокрутку. -->
+                    <GroupBox Grid.Column="1" Header="{loc:Loc Settings.Preview}" Padding="8"
+                              VerticalAlignment="Top">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      MaxHeight="520">
+                            <Border x:Name="PreviewShell" Width="264" CornerRadius="8" BorderThickness="1"
+                                    ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
 
-                                        <!-- Шапка (акцент) -->
-                                        <Border x:Name="PreviewTitleBarLight" Height="34" Padding="10,0">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock x:Name="PreviewTitleTextLight" Text="Управление конфигурациями"
-                                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12"/>
-                                                <Border Grid.Column="1" Width="12" Height="12" CornerRadius="6"
-                                                        Background="#22C55E" VerticalAlignment="Center"/>
-                                            </Grid>
+                                    <!-- Шапка (акцент) -->
+                                    <Border x:Name="PreviewTitleBar" Height="34" Padding="10,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="PreviewTitleText" Text="Управление конфигурациями"
+                                                       VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12"/>
+                                            <Border Grid.Column="1" Width="12" Height="12" CornerRadius="6"
+                                                    Background="#22C55E" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <Grid Grid.Row="1">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="64"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Боковая панель -->
+                                        <Border x:Name="PreviewSidebar" Padding="6">
+                                            <StackPanel>
+                                                <Border x:Name="PreviewNavSelected" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
+                                                    <TextBlock x:Name="PreviewNavSelectedText" Text="Базы" FontSize="11"/>
+                                                </Border>
+                                                <Border x:Name="PreviewNavItem1" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
+                                                    <TextBlock x:Name="PreviewNavItem1Text" Text="Избранное" FontSize="11"/>
+                                                </Border>
+                                                <Border x:Name="PreviewNavItem2" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
+                                                    <TextBlock x:Name="PreviewNavItem2Text" Text="История" FontSize="11"/>
+                                                </Border>
+                                            </StackPanel>
                                         </Border>
 
-                                        <Grid Grid.Row="1">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="64"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
+                                        <!-- Контент -->
+                                        <Border x:Name="PreviewMain" Grid.Column="1" Padding="10">
+                                            <StackPanel>
+                                                <TextBlock x:Name="PreviewContentTitle" Text="Документы"
+                                                           FontWeight="SemiBold" FontSize="13"/>
+                                                <TextBlock x:Name="PreviewContentSubtitle" Text="Последние изменения"
+                                                           FontSize="11" Margin="0,2,0,8"/>
 
-                                            <!-- Боковая панель -->
-                                            <Border x:Name="PreviewSidebarLight" Padding="6">
-                                                <StackPanel>
-                                                    <Border x:Name="PreviewNavSelectedLight" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
-                                                        <TextBlock x:Name="PreviewNavSelectedTextLight" Text="Базы" FontSize="11"/>
+                                                <Border x:Name="PreviewCard" CornerRadius="6" BorderThickness="1"
+                                                        Padding="8" Margin="0,0,0,8">
+                                                    <StackPanel>
+                                                        <TextBlock x:Name="PreviewCardTitle" Text="Карточка базы"
+                                                                   FontWeight="SemiBold" FontSize="11"/>
+                                                        <TextBlock x:Name="PreviewCardText" Text="Краткое описание объекта"
+                                                                   FontSize="10" Margin="0,2,0,0"/>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <TextBox x:Name="PreviewTextField" Height="26" FontSize="11"
+                                                         Padding="6,2" BorderThickness="1"/>
+
+                                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                    <Border x:Name="PreviewPrimaryButton" CornerRadius="4" Padding="12,5" Margin="0,0,6,0">
+                                                        <TextBlock x:Name="PreviewPrimaryButtonText" Text="Готово"
+                                                                   FontSize="11" FontWeight="SemiBold"/>
                                                     </Border>
-                                                    <Border x:Name="PreviewNavItem1Light" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
-                                                        <TextBlock x:Name="PreviewNavItem1TextLight" Text="Избранное" FontSize="11"/>
-                                                    </Border>
-                                                    <Border x:Name="PreviewNavItem2Light" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
-                                                        <TextBlock x:Name="PreviewNavItem2TextLight" Text="История" FontSize="11"/>
+                                                    <Border x:Name="PreviewSecondaryButton" CornerRadius="4" Padding="12,5">
+                                                        <TextBlock x:Name="PreviewSecondaryButtonText" Text="Отмена" FontSize="11"/>
                                                     </Border>
                                                 </StackPanel>
-                                            </Border>
 
-                                            <!-- Контент -->
-                                            <Border x:Name="PreviewMainLight" Grid.Column="1" Padding="10">
-                                                <StackPanel>
-                                                    <TextBlock x:Name="PreviewContentTitleLight" Text="Документы"
-                                                               FontWeight="SemiBold" FontSize="13"/>
-                                                    <TextBlock x:Name="PreviewContentSubtitleLight" Text="Последние изменения"
-                                                               FontSize="11" Margin="0,2,0,8"/>
-
-                                                    <Border x:Name="PreviewCardLight" CornerRadius="6" BorderThickness="1"
-                                                            Padding="8" Margin="0,0,0,8">
-                                                        <StackPanel>
-                                                            <TextBlock x:Name="PreviewCardTitleLight" Text="Карточка базы"
-                                                                       FontWeight="SemiBold" FontSize="11"/>
-                                                            <TextBlock x:Name="PreviewCardTextLight" Text="Краткое описание объекта"
-                                                                       FontSize="10" Margin="0,2,0,0"/>
-                                                        </StackPanel>
-                                                    </Border>
-
-                                                    <TextBox x:Name="PreviewTextFieldLight" Height="26" FontSize="11"
-                                                             Padding="6,2" BorderThickness="1"/>
-
-                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                                        <Border x:Name="PreviewPrimaryButtonLight" CornerRadius="4" Padding="12,5" Margin="0,0,6,0">
-                                                            <TextBlock x:Name="PreviewPrimaryButtonTextLight" Text="Готово"
-                                                                       FontSize="11" FontWeight="SemiBold"/>
+                                                <!-- Список -->
+                                                <Border x:Name="PreviewListBox" CornerRadius="6" BorderThickness="1" Margin="0,10,0,0">
+                                                    <StackPanel>
+                                                        <Border x:Name="PreviewListSelected" Padding="8,5">
+                                                            <TextBlock x:Name="PreviewListSelectedText" Text="Бухгалтерия предприятия" FontSize="11"/>
                                                         </Border>
-                                                        <Border x:Name="PreviewSecondaryButtonLight" CornerRadius="4" Padding="12,5">
-                                                            <TextBlock x:Name="PreviewSecondaryButtonTextLight" Text="Отмена" FontSize="11"/>
+                                                        <Border x:Name="PreviewListItem1" Padding="8,5" BorderThickness="0,1,0,0">
+                                                            <TextBlock x:Name="PreviewListItem1Text" Text="Зарплата и кадры" FontSize="11"/>
+                                                        </Border>
+                                                        <Border x:Name="PreviewListItem2" Padding="8,5" BorderThickness="0,1,0,0">
+                                                            <TextBlock x:Name="PreviewListItem2Text" Text="Управление торговлей" FontSize="11"/>
                                                         </Border>
                                                     </StackPanel>
-
-                                                    <!-- Список -->
-                                                    <Border x:Name="PreviewListBoxLight" CornerRadius="6" BorderThickness="1" Margin="0,10,0,0">
-                                                        <StackPanel>
-                                                            <Border x:Name="PreviewListSelectedLight" Padding="8,5">
-                                                                <TextBlock x:Name="PreviewListSelectedTextLight" Text="Бухгалтерия предприятия" FontSize="11"/>
-                                                            </Border>
-                                                            <Border x:Name="PreviewListItem1Light" Padding="8,5" BorderThickness="0,1,0,0">
-                                                                <TextBlock x:Name="PreviewListItem1TextLight" Text="Зарплата и кадры" FontSize="11"/>
-                                                            </Border>
-                                                            <Border x:Name="PreviewListItem2Light" Padding="8,5" BorderThickness="0,1,0,0">
-                                                                <TextBlock x:Name="PreviewListItem2TextLight" Text="Управление торговлей" FontSize="11"/>
-                                                            </Border>
-                                                        </StackPanel>
-                                                    </Border>
-                                                </StackPanel>
-                                            </Border>
-                                        </Grid>
-                                    </Grid>
-                                </Border>
-                                </StackPanel>
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Loc Theme.Dark}" FontWeight="SemiBold" FontSize="12"
-                                               Margin="0,0,0,4" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <Border x:Name="PreviewShellDark" Width="175" CornerRadius="8" BorderThickness="1"
-                                            ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="*"/>
-                                        </Grid.RowDefinitions>
-
-                                        <!-- Шапка (акцент) -->
-                                        <Border x:Name="PreviewTitleBarDark" Height="34" Padding="10,0">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock x:Name="PreviewTitleTextDark" Text="Управление конфигурациями"
-                                                           VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12"/>
-                                                <Border Grid.Column="1" Width="12" Height="12" CornerRadius="6"
-                                                        Background="#22C55E" VerticalAlignment="Center"/>
-                                            </Grid>
+                                                </Border>
+                                            </StackPanel>
                                         </Border>
-
-                                        <Grid Grid.Row="1">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="64"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-
-                                            <!-- Боковая панель -->
-                                            <Border x:Name="PreviewSidebarDark" Padding="6">
-                                                <StackPanel>
-                                                    <Border x:Name="PreviewNavSelectedDark" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
-                                                        <TextBlock x:Name="PreviewNavSelectedTextDark" Text="Базы" FontSize="11"/>
-                                                    </Border>
-                                                    <Border x:Name="PreviewNavItem1Dark" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
-                                                        <TextBlock x:Name="PreviewNavItem1TextDark" Text="Избранное" FontSize="11"/>
-                                                    </Border>
-                                                    <Border x:Name="PreviewNavItem2Dark" CornerRadius="5" Padding="6,4" Margin="0,0,0,4">
-                                                        <TextBlock x:Name="PreviewNavItem2TextDark" Text="История" FontSize="11"/>
-                                                    </Border>
-                                                </StackPanel>
-                                            </Border>
-
-                                            <!-- Контент -->
-                                            <Border x:Name="PreviewMainDark" Grid.Column="1" Padding="10">
-                                                <StackPanel>
-                                                    <TextBlock x:Name="PreviewContentTitleDark" Text="Документы"
-                                                               FontWeight="SemiBold" FontSize="13"/>
-                                                    <TextBlock x:Name="PreviewContentSubtitleDark" Text="Последние изменения"
-                                                               FontSize="11" Margin="0,2,0,8"/>
-
-                                                    <Border x:Name="PreviewCardDark" CornerRadius="6" BorderThickness="1"
-                                                            Padding="8" Margin="0,0,0,8">
-                                                        <StackPanel>
-                                                            <TextBlock x:Name="PreviewCardTitleDark" Text="Карточка базы"
-                                                                       FontWeight="SemiBold" FontSize="11"/>
-                                                            <TextBlock x:Name="PreviewCardTextDark" Text="Краткое описание объекта"
-                                                                       FontSize="10" Margin="0,2,0,0"/>
-                                                        </StackPanel>
-                                                    </Border>
-
-                                                    <TextBox x:Name="PreviewTextFieldDark" Height="26" FontSize="11"
-                                                             Padding="6,2" BorderThickness="1"/>
-
-                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                                        <Border x:Name="PreviewPrimaryButtonDark" CornerRadius="4" Padding="12,5" Margin="0,0,6,0">
-                                                            <TextBlock x:Name="PreviewPrimaryButtonTextDark" Text="Готово"
-                                                                       FontSize="11" FontWeight="SemiBold"/>
-                                                        </Border>
-                                                        <Border x:Name="PreviewSecondaryButtonDark" CornerRadius="4" Padding="12,5">
-                                                            <TextBlock x:Name="PreviewSecondaryButtonTextDark" Text="Отмена" FontSize="11"/>
-                                                        </Border>
-                                                    </StackPanel>
-
-                                                    <!-- Список -->
-                                                    <Border x:Name="PreviewListBoxDark" CornerRadius="6" BorderThickness="1" Margin="0,10,0,0">
-                                                        <StackPanel>
-                                                            <Border x:Name="PreviewListSelectedDark" Padding="8,5">
-                                                                <TextBlock x:Name="PreviewListSelectedTextDark" Text="Бухгалтерия предприятия" FontSize="11"/>
-                                                            </Border>
-                                                            <Border x:Name="PreviewListItem1Dark" Padding="8,5" BorderThickness="0,1,0,0">
-                                                                <TextBlock x:Name="PreviewListItem1TextDark" Text="Зарплата и кадры" FontSize="11"/>
-                                                            </Border>
-                                                            <Border x:Name="PreviewListItem2Dark" Padding="8,5" BorderThickness="0,1,0,0">
-                                                                <TextBlock x:Name="PreviewListItem2TextDark" Text="Управление торговлей" FontSize="11"/>
-                                                            </Border>
-                                                        </StackPanel>
-                                                    </Border>
-                                                </StackPanel>
-                                            </Border>
-                                        </Grid>
                                     </Grid>
-                                </Border>
-                                </StackPanel>
-                            </StackPanel>
+                                </Grid>
+                            </Border>
                         </ScrollViewer>
                     </GroupBox>
                 </Grid>
@@ -1202,6 +1094,8 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
@@ -1267,6 +1161,16 @@
                             <TextBlock Grid.Row="10" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ShowRecent}" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyShowRecentBox" Grid.Row="10" Grid.Column="1"
+                                                Height="34" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="11" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ClearSearch}" VerticalAlignment="Center" Margin="0,6,0,6"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HotkeyBox x:Name="HotkeyClearSearchBox" Grid.Row="11" Grid.Column="1"
+                                                Height="34" Margin="0,6,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="12" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ClearTags}" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HotkeyBox x:Name="HotkeyClearTagsBox" Grid.Row="12" Grid.Column="1"
                                                 Height="34" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
                         </Grid>
@@ -1653,6 +1557,16 @@
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="FileDownload" Width="16" Height="16" Foreground="#14B8A6" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                         <TextBlock Text="{loc:Loc Settings.Bases.ImportV8i}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <!-- Импорт баз и настроек платформы из программы StartManager (issue #163). -->
+                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                        HorizontalAlignment="Stretch"
+                                        Click="OnImportStartManager_Click"
+                                        ToolTip="{loc:Loc Settings.Bases.ImportStartManagerTooltip}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="FolderOpen" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Bases.ImportStartManager}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <CheckBox x:Name="AddTimestampToExportFileNameCheck"

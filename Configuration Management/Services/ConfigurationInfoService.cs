@@ -17,7 +17,9 @@ public static class ConfigurationInfoService
 
     /// <summary>
     /// Пытается прочитать имя и версию конфигурации для информационной базы.
-    /// Сначала используется COM-коннектор, затем эвристика по файловой базе.
+    /// Сначала используется COM-коннектор (только на Windows; на Linux его заменяет
+    /// реализация <c>OneCComConnector.Linux</c>, которая COM не использует — эвристика
+    /// по файловой базе и пакетный режим конфигуратора), затем эвристика по файлу 1Cv8.1CD.
     /// </summary>
     public static OneCConfigInfo? TryRead(Infobase ib, int timeoutMs = 8000)
     {
@@ -53,7 +55,11 @@ public static class ConfigurationInfoService
 
     /// <summary>
     /// Обновляет поля ConfigurationName / ConfigurationVersion, если удалось прочитать.
-    /// Не затирает вручную заданные значения, если чтение не удалось.
+    /// Политика ручного ввода (issue #164): при <paramref name="overwriteExisting"/>=false
+    /// (фоновое автополучение) непустые поля считаются введёнными пользователем и никогда
+    /// не перезаписываются — заполняются только пустые. При true (явная команда пользователя
+    /// «Обновить информацию») допускается перезапись. На Linux COM-чтение недоступно, поэтому
+    /// значения остаются ручными, если эвристика/конфигуратор их не вернули.
     /// </summary>
     public static bool TryApply(Infobase ib, bool overwriteExisting = false)
     {

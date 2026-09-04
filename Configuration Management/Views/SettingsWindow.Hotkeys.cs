@@ -40,6 +40,8 @@ namespace Configuration_Management
             BindHotkeyBox(HotkeyShowAllBox, _viewModel.HotkeyShowAll);
             BindHotkeyBox(HotkeyShowFavoritesBox, _viewModel.HotkeyShowFavorites);
             BindHotkeyBox(HotkeyShowRecentBox, _viewModel.HotkeyShowRecent);
+            BindHotkeyBox(HotkeyClearSearchBox, _viewModel.HotkeyClearSearch);
+            BindHotkeyBox(HotkeyClearTagsBox, _viewModel.HotkeyClearTags);
         }
 
         private static void BindHotkeyBox(Controls.HotkeyBox? box, string current)

@@ -18,7 +18,11 @@ public class InfobaseRepository : IInfobaseRepository
         // компактным, так и с форматированным JSON — оба разбираются одинаково.
         WriteIndented = true,
         PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        // Не экранировать кириллицу и прочие не-ASCII символы в \uXXXX-последовательности,
+        // а записывать их читаемыми UTF-8 (issue #170). Encoder влияет только на запись;
+        // при чтении старые файлы с \uXXXX по-прежнему корректно разбираются.
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     /// <summary>
@@ -30,7 +34,10 @@ public class InfobaseRepository : IInfobaseRepository
     {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        // Не экранировать кириллицу и прочие не-ASCII символы в \uXXXX-последовательности,
+        // а записывать их читаемыми UTF-8 (issue #170). Влияет только на запись.
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     /// <summary>

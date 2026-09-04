@@ -299,6 +299,12 @@ public class AppSettings
     /// <summary>Горячая клавиша показа вкладки «Недавние». Пусто — не назначена.</summary>
     public string HotkeyShowRecent { get; set; } = "";
 
+    /// <summary>Горячая клавиша очистки строки поиска. Пусто — не назначена (issue #160).</summary>
+    public string HotkeyClearSearch { get; set; } = "Ctrl+Shift+C";
+
+    /// <summary>Горячая клавиша сброса фильтра по тегам. Пусто — не назначена (issue #160).</summary>
+    public string HotkeyClearTags { get; set; } = "Ctrl+Shift+T";
+
     /// <summary>
     /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.
     /// </summary>

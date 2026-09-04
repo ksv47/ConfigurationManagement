@@ -158,6 +158,8 @@ namespace Configuration_Management
             var hkShowAll = ReadHotkeyBox(HotkeyShowAllBox);
             var hkShowFavorites = ReadHotkeyBox(HotkeyShowFavoritesBox);
             var hkShowRecent = ReadHotkeyBox(HotkeyShowRecentBox);
+            var hkClearSearch = ReadHotkeyBox(HotkeyClearSearchBox);
+            var hkClearTags = ReadHotkeyBox(HotkeyClearTagsBox);
 
             // Проверка: одна клавиша — одно действие (пустые «Нет» не учитываются).
             var assigned = new (string Name, string Key)[]
@@ -172,7 +174,9 @@ namespace Configuration_Management
                 (LocalizationManager.T("Main.Pin"), hkPin),
                 (LocalizationManager.T("Main.AllBasesTooltip"), hkShowAll),
                 (LocalizationManager.T("Main.FavoritesTooltip"), hkShowFavorites),
-                (LocalizationManager.T("Main.RecentTooltip"), hkShowRecent)
+                (LocalizationManager.T("Main.RecentTooltip"), hkShowRecent),
+                (LocalizationManager.T("Main.ClearSearch"), hkClearSearch),
+                (LocalizationManager.T("Main.ClearTags"), hkClearTags)
             };
             var duplicates = SettingsViewModel.FindDuplicateHotkeys(assigned).ToList();
             if (duplicates.Count > 0)
@@ -208,7 +212,9 @@ namespace Configuration_Management
                 hkShowFavorites,
                 hkShowRecent,
                 RememberWindowLayoutCheck.IsChecked ?? true,
-                ReadAfterLaunchAction());
+                ReadAfterLaunchAction(),
+                hotkeyClearSearch: hkClearSearch,
+                hotkeyClearTags: hkClearTags);
 
             var templatePaths = TemplatePathsList?.Items.Cast<string>().Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
                 ?? new System.Collections.Generic.List<string>();

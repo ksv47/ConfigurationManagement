@@ -59,10 +59,10 @@
          поэтому AssemblyVersion/FileVersion/Version ограничены 4 частями, а точная
          пользовательская версия «0.3.1.1» задаётся через InformationalVersion
          и выводится в заголовок окна. -->
-    <Version>0.3.6.38</Version>
-    <AssemblyVersion>0.3.6.38</AssemblyVersion>
-    <FileVersion>0.3.6.38</FileVersion>
-    <InformationalVersion>0.3.6.38</InformationalVersion>
+    <Version>0.3.6.64</Version>
+    <AssemblyVersion>0.3.6.64</AssemblyVersion>
+    <FileVersion>0.3.6.64</FileVersion>
+    <InformationalVersion>0.3.6.64</InformationalVersion>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>
@@ -86,6 +86,9 @@
     <!-- Тестам нужны чистые функции протокола и сборки строки подключения. Публичными
          их делать незачем: за пределами сборки они не имеют смысла. -->
     <InternalsVisibleTo Include="ConfigurationManagement.Tests" />
+    <!-- Linux-подсистема автообновления собирается только на Linux (#if LINUX). Явно
+         исключаем из Windows-сборки, чтобы она не попадала в компиляцию WPF. -->
+    <Compile Remove="Services\UpdateService.Avalonia.cs" />
   </ItemGroup>
 
   <!-- WPF-ресурсы иконок (embedded, только Windows) -->
@@ -219,12 +222,14 @@
     <Compile Include="ViewModels\ConnectionSettingsViewModel.cs" />
     <!-- Windows-only сервисы — Этап 5 -->
     <Compile Remove="Services\WpfDialogService.cs" />
-    <!-- Проверка обновлений из GitHub Releases — Windows-only (автообновление). -->
-    <Compile Remove="Services\GitHubReleaseService.cs" />
+    <!-- Проверка обновлений из GitHub Releases кроссплатформенная: на Linux тоже используется
+         автообновлением (UpdateService.Avalonia.cs), поэтому файл НЕ исключается. -->
     <Compile Remove="Services\MaterialMessageWindow.xaml.cs" />
     <Compile Remove="Services\MaterialMessageKind.cs" />
     <Compile Include="Services\MaterialMessageKind.cs" />
-    <!-- Подсистема автообновления — Windows-only (диалог + сервис). -->
+    <!-- WPF-подсистема автообновления (UpdateService.cs) исключается; на Linux её заменяет
+         UpdateService.Avalonia.cs. WPF-диалог обновления UpdateAvailableWindow также исключается:
+         на Linux вопрос задаётся через AvaloniaDialogService. -->
     <Compile Remove="Services\UpdateService.cs" />
     <Compile Remove="Services\UpdateAvailableWindow.xaml.cs" />
     <Compile Remove="Services\OneCLauncher.cs" />
