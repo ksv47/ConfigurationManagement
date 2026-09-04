@@ -53,12 +53,13 @@ namespace Configuration_Management.Services
 
         /// <summary>
         /// Отключить непрерывные анимации и плавные переходы. Включается на программном
-        /// рендере и в виртуализации: там каждый кадр анимации целиком рисуется софтом,
-        /// а бесконечные индикаторы (индетерминантный ProgressBar, hover-переходы) держат
-        /// рендер-цикл постоянно занятым, что проявляется как ~36% CPU и «зависание»
-        /// реакции на мышь (issue #153).
+        /// рендере, в виртуализации и на X11 без композитора: там каждый кадр анимации
+        /// целиком рисуется софтом (а на X11 без композитора даже обычная компоновка
+        /// кадра идёт без GPU-ускорения), а бесконечные индикаторы (индетерминантный
+        /// ProgressBar, hover-переходы) держат рендер-цикл постоянно занятым, что
+        /// проявляется как ~36% CPU и «зависание» реакции на мышь (issue #153).
         /// </summary>
-        public static bool DisableAnimations { get; } = SoftwareRender || Virtualized;
+        public static bool DisableAnimations { get; } = SoftwareRender || Virtualized || NoCompositorAssumed;
 
         /// <summary>Программный рендер: нет аппаратного GPU-драйвера либо он задан принудительно.</summary>
         public static bool SoftwareRender { get; } = DetectSoftwareRender();
@@ -128,21 +129,50 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>
+        /// Пользователь явно запросил программный рендер переменной окружения
+        /// <c>CM_FORCE_SOFTWARE_RENDER=1</c> (запасной ручной способ диагностики, issue #153).
+        /// </summary>
+        private static bool ForceSoftwareRenderEnv()
+        {
+            try
+            {
+                var v = Environment.GetEnvironmentVariable("CM_FORCE_SOFTWARE_RENDER");
+                return v is not null
+                    && (v.Trim() == "1" || v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Признак программного рендера. Источники: переменные окружения Mesa/Gallium
-        /// (llvmpipe/softpipe, LIBGL_ALWAYS_SOFTWARE), Vulkan software-ICD (lavapipe),
-        /// а также отсутствие аппаратных узлов рендеринга /dev/dri/renderD* (признак
-        /// того, что GPU-ускорения в сессии нет). Последний признак консервативен —
-        /// при сомнении считаем рендер программным.
+        /// (llvmpipe/softpipe, LIBGL_ALWAYS_SOFTWARE, MESA_LOADER_DRIVER_OVERRIDE),
+        /// Vulkan software-ICD (lavapipe), явный флаг <c>CM_FORCE_SOFTWARE_RENDER=1</c>
+        /// (запасной ручной способ, issue #153), а также отсутствие аппаратных узлов
+        /// рендеринга /dev/dri/renderD* (признак того, что GPU-ускорения в сессии нет).
+        /// Последний признак консервативен — при сомнении считаем рендер программным.
         /// </summary>
         private static bool DetectSoftwareRender()
         {
+            if (ForceSoftwareRenderEnv())
+                return true;
+
             try
             {
                 var gallium = Environment.GetEnvironmentVariable("GALLIUM_DRIVER");
                 if (gallium?.Contains("llvmpipe", StringComparison.OrdinalIgnoreCase) == true
                     || gallium?.Contains("softpipe", StringComparison.OrdinalIgnoreCase) == true)
                     return true;
-                if (Environment.GetEnvironmentVariable("LIBGL_ALWAYS_SOFTWARE") == "1")
+                var loader = Environment.GetEnvironmentVariable("MESA_LOADER_DRIVER_OVERRIDE");
+                if (loader?.Contains("llvmpipe", StringComparison.OrdinalIgnoreCase) == true
+                    || loader?.Contains("softpipe", StringComparison.OrdinalIgnoreCase) == true)
+                    return true;
+                var alwaysSoftware = Environment.GetEnvironmentVariable("LIBGL_ALWAYS_SOFTWARE");
+                if (alwaysSoftware is not null
+                    && (alwaysSoftware.Trim() == "1"
+                        || alwaysSoftware.Trim().Equals("true", StringComparison.OrdinalIgnoreCase)))
                     return true;
                 var vkIcd = Environment.GetEnvironmentVariable("VK_ICD_FILENAMES");
                 if (!string.IsNullOrWhiteSpace(vkIcd)

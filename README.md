@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.65-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.66-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.65**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.66**
+>
+> ✨ **0.3.6.66:** продолжено устранение зависания при запуске на Linux/X11 в виртуальных машинах без композитора (issue #153). Теперь статичный индикатор загрузки (не анимированный `IsIndeterminate`) и не блокирующий ввод оверлей применяются и на любом X11 без композитора ([`Services/LinuxRendering.cs`](Configuration%20Management/Services/LinuxRendering.cs): `DisableAnimations` учитывает `NoCompositorAssumed`), а детектор программного рендера расширен источниками `MESA_LOADER_DRIVER_OVERRIDE`, значением `true` у `LIBGL_ALWAYS_SOFTWARE` и ручным флагом `CM_FORCE_SOFTWARE_RENDER=1`.
 >
 > ✨ **0.3.6.65:** добавлен настраиваемый хоткей `HotkeyRightPanelDetails` для переключения подробностей правой панели информации (**Настройки → Горячие клавиши → «Панель информации (подробности)»**); по умолчанию не назначен (issue #172).
 >
