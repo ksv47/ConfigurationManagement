@@ -36,7 +36,6 @@ namespace Configuration_Management
             // Высота из разметки, а не подгонка по содержимому.
             Height = 230;
             CanResize = false;
-            SystemDecorations = SystemDecorations.Full;
 
             _dialogs = AppServices.GetRequiredService<IDialogService>();
 

@@ -7,7 +7,8 @@ namespace Configuration_Management.Services;
 
 /// <summary>
 /// Проверка наличия новых версий приложения через GitHub Releases API.
-/// Windows-only: используется подсистемой автообновления на Windows.
+/// Кроссплатформенный: имя искомого asset выбирается по текущей ОС (Windows — exe,
+/// Linux — self-contained single-file бинарник без расширения).
 /// </summary>
 public class GitHubReleaseService
 {
@@ -17,12 +18,17 @@ public class GitHubReleaseService
     /// <summary>Резервный источник — Atom-лента релизов (доступна через обычный github.com).</summary>
     private const string AtomUrl = "https://github.com/sivatorov/ConfigurationManagement/releases.atom";
 
+#if WINDOWS
     /// <summary>Имя Windows-сборки (self-contained exe), на которую указывает прямая ссылка загрузки.</summary>
-    private const string WindowsAssetName = "ConfigurationManagement.exe";
+    private const string AssetName = "ConfigurationManagement.exe";
+#else
+    /// <summary>Имя Linux-сборки (self-contained single-file бинарник без расширения, см. build-linux-single-file.sh).</summary>
+    private const string AssetName = "ConfigurationManagement";
+#endif
 
     /// <summary>Шаблон прямой ссылки на asset release в GitHub Releases (без нормализации тега).</summary>
     private const string DownloadUrlTemplate =
-        "https://github.com/sivatorov/ConfigurationManagement/releases/download/{0}/" + WindowsAssetName;
+        "https://github.com/sivatorov/ConfigurationManagement/releases/download/{0}/" + AssetName;
 
     /// <summary>Namespace Atom-ленты GitHub.</summary>
     private static readonly XNamespace AtomNs = XNamespace.Get("http://www.w3.org/2005/Atom");
@@ -73,7 +79,7 @@ public class GitHubReleaseService
                 HtmlUrl = GetString(root, "html_url"),
             };
 
-            release.DownloadUrl = FindWindowsAssetUrl(root);
+            release.DownloadUrl = FindAssetUrl(root);
             return release;
         }
         catch
@@ -126,7 +132,7 @@ public class GitHubReleaseService
                 Body = CleanText(entry.Element(AtomNs + "content")?.Value ?? string.Empty),
                 Prerelease = false,
                 PublishedAt = publishedAt,
-                DownloadUrl = BuildWindowsDownloadUrl(tag),
+                DownloadUrl = BuildDownloadUrl(tag),
                 HtmlUrl = htmlUrl,
             };
         }
@@ -138,14 +144,14 @@ public class GitHubReleaseService
     }
 
     /// <summary>
-    /// Строит прямую ссылку на Windows-сборку (<see cref="WindowsAssetName"/>) для тега
+    /// Строит прямую ссылку на сборку текущей платформы (<see cref="AssetName"/>) для тега
     /// релиза из Atom-ленты. Тег подставляется в путь загрузки БЕЗ нормализации — таким,
     /// каким он указан в <c><title></c> ленты, чтобы ссылка точно совпадала с
     /// фактическим именем release на GitHub. Небезопасные символы пути экранируются,
     /// итоговый URL проверяется через <see cref="Uri.TryCreate(string, UriKind, out Uri)"/>.
     /// Возвращает null, если тег пуст или из него не удалось собрать валидную ссылку.
     /// </summary>
-    private static string? BuildWindowsDownloadUrl(string tag)
+    private static string? BuildDownloadUrl(string tag)
     {
         if (string.IsNullOrWhiteSpace(tag))
             return null;
@@ -248,10 +254,10 @@ public class GitHubReleaseService
     }
 
     /// <summary>
-    /// Ищет в assets выпуска asset, который является Windows-инсталлятором
-    /// (имя заканчивается на «.exe» либо содержит «win-x64» / «ConfigurationManagement.exe»).
+    /// Ищет в assets выпуска asset, подходящий для текущей платформы
+    /// (см. <see cref="IsPlatformAsset"/>).
     /// </summary>
-    private static string? FindWindowsAssetUrl(JsonElement root)
+    private static string? FindAssetUrl(JsonElement root)
     {
         if (!root.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array)
             return null;
@@ -265,7 +271,7 @@ public class GitHubReleaseService
             if (string.IsNullOrEmpty(name))
                 continue;
 
-            if (!IsWindowsAsset(name))
+            if (!IsPlatformAsset(name))
                 continue;
 
             var url = GetString(asset, "browser_download_url");
@@ -276,13 +282,26 @@ public class GitHubReleaseService
         return null;
     }
 
-    private static bool IsWindowsAsset(string name)
+#if WINDOWS
+    private static bool IsPlatformAsset(string name)
     {
         var lower = name.ToLowerInvariant();
         return lower.EndsWith(".exe", StringComparison.Ordinal)
             || lower.Contains("win-x64", StringComparison.Ordinal)
             || lower.Contains("configurationmanagement.exe", StringComparison.Ordinal);
     }
+#else
+    private static bool IsPlatformAsset(string name)
+    {
+        var lower = name.ToLowerInvariant();
+        // Linux-сборка — single-file исполняемый файл «ConfigurationManagement» без
+        // расширения (build-linux-single-file.sh), либо AppImage/архив с признаком linux-x64.
+        return string.Equals(name.Trim(), "ConfigurationManagement", StringComparison.OrdinalIgnoreCase)
+            || lower.Contains("linux-x64", StringComparison.Ordinal)
+            || lower.EndsWith(".appimage", StringComparison.Ordinal)
+            || lower.EndsWith(".tar.gz", StringComparison.Ordinal);
+    }
+#endif
 
     private static string GetString(JsonElement element, string property)
     {

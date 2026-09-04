@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -62,6 +63,19 @@ namespace Configuration_Management
                 if (args.ExceptionObject is Exception ex)
                     ShowFatalError(LocalizationManager.T("App.Fatal.Critical"), ex);
             };
+
+            // Необработанные исключения на UI-потоке (команды, построение и показ модальных
+            // окон) Avalonia маршрутизирует через Dispatcher. Без обработчика они поднимаются
+            // наверх и завершают процесс аварийно (Signal 6 / SIGABRT), как в issue #168:
+            // при правке свойств базы и при открытии настроек приложение падало без отчёта.
+            // Перехватываем, логируем в errors.log и не даём abort-у убить процесс. Окно,
+            // которое строится в момент сбоя, не откроется, но приложение продолжит работу.
+            Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (_, args) =>
+            {
+                ShowFatalError(LocalizationManager.T("App.Fatal.Interface"), args.Exception);
+                args.Handled = true;
+            };
+
             TaskScheduler.UnobservedTaskException += (_, args) =>
             {
                 ShowFatalError(LocalizationManager.T("App.Fatal.BackgroundTask"), args.Exception);
@@ -227,6 +241,17 @@ namespace Configuration_Management
                     desktop.MainWindow = mainWindow;
                     mainWindow.Show();
 
+                    // Фоновая проверка обновлений (Linux/Avalonia): запускаем после показа
+                    // главного окна, чтобы не задерживать старт. Если пользователь отключил
+                    // проверку в настройках — пропускаем. При обнаружении новой версии всегда
+                    // показывается единый диалог с вопросом о применении обновления.
+                    if (settings.CheckForUpdatesOnStartup)
+                    {
+                        var updateService = AppServices.GetRequiredService<UpdateService>();
+                        updateService.AutoUpdateEnabled = settings.AutoUpdateEnabled;
+                        CheckForUpdatesInBackground(updateService);
+                    }
+
                     // Прежний режим завершения возвращается: на время старта он
                     // переключался на явный, иначе закрытие окна входа гасило
                     // приложение до появления главного.
@@ -240,6 +265,23 @@ namespace Configuration_Management
             }
 
             base.OnFrameworkInitializationCompleted();
+        }
+
+        /// <summary>
+        /// Запускает фоновую проверку обновлений и не ждёт её завершения.
+        /// Внутренние ошибки ловятся в <see cref="UpdateService"/>, здесь лишь
+        /// дополнительно страхуемся, чтобы исключение не уронило поток.
+        /// </summary>
+        private static async void CheckForUpdatesInBackground(UpdateService updateService)
+        {
+            try
+            {
+                await updateService.CheckForUpdatesAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // Фоновая проверка не должна влиять на запуск и работу приложения.
+            }
         }
 
         /// <summary>
@@ -336,7 +378,8 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Записывает фатальную ошибку в errors.log и на stderr.
+        /// Записывает фатальную ошибку в errors.log и на stderr, а также в журнал
+        /// приложения через логгер, если контейнер уже настроен.
         /// (Полноценный диалог ошибок появится вместе с портом окон — Этап 3.)
         /// </summary>
         private static void ShowFatalError(string title, Exception ex)
@@ -351,6 +394,15 @@ namespace Configuration_Management
                     File.AppendAllText(
                         Path.Combine(DataDirectory, "errors.log"),
                         $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {text}");
+                }
+                catch { /* ignore */ }
+
+                // Дублируем в штатный журнал приложения (app.log), если логгер уже доступен:
+                // в нём фатальная ошибка видна рядом с обычными событиями и облегчает разбор.
+                try
+                {
+                    var logger = AppServices.Services?.GetService<IAppLogger>();
+                    logger?.Error($"{title}: {ex.Message}", ex);
                 }
                 catch { /* ignore */ }
             }

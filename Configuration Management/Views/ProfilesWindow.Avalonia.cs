@@ -49,7 +49,6 @@ namespace Configuration_Management
             MinWidth = 640;
             MinHeight = 500;
             CanResize = true;
-            SystemDecorations = SystemDecorations.Full;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
             var grid = new Grid { Margin = new Thickness(16) };

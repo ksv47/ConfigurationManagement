@@ -60,6 +60,18 @@ namespace Configuration_Management
             Add(_viewModel.HotkeyShowAll, _viewModel.ShowAllCommand);
             Add(_viewModel.HotkeyShowFavorites, _viewModel.ShowFavoritesCommand);
             Add(_viewModel.HotkeyShowRecent, _viewModel.ShowRecentCommand);
+
+            // Очистка строки поиска и сброс фильтра тегов — настраиваемые хоткеи (issue #160),
+            // значения по умолчанию Ctrl+Shift+C / Ctrl+Shift+T задаются в настройках.
+            Add(_viewModel.HotkeyClearSearch, _viewModel.ClearSearchCommand);
+            Add(_viewModel.HotkeyClearTags, _viewModel.ClearTagFiltersCommand);
+
+            // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
+            // Регистрируются обе раскладки (основная Oem* и цифровой блок Add/Subtract).
+            InputBindings.Add(new KeyBinding(_viewModel.ExpandAllGroupsCommand, Key.OemPlus, ModifierKeys.Control | ModifierKeys.Shift));
+            InputBindings.Add(new KeyBinding(_viewModel.ExpandAllGroupsCommand, Key.Add, ModifierKeys.Control | ModifierKeys.Shift));
+            InputBindings.Add(new KeyBinding(_viewModel.CollapseAllGroupsCommand, Key.OemMinus, ModifierKeys.Control | ModifierKeys.Shift));
+            InputBindings.Add(new KeyBinding(_viewModel.CollapseAllGroupsCommand, Key.Subtract, ModifierKeys.Control | ModifierKeys.Shift));
         }
 
         /// <summary>
@@ -143,6 +155,32 @@ namespace Configuration_Management
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             var key = e.Key == Key.System ? e.SystemKey : e.Key;
+
+            // Ctrl+Shift++ / Ctrl+Shift+- — «развернуть все» / «свернуть все» (issue #160).
+            // Обрабатываем на этапе Preview (туннелирование): событие доходит сюда раньше,
+            // чем до вложенных элементов и чем оцениваются InputBindings (фаза всплытия),
+            // и не зависит от фокуса/времени регистрации привязок. Поэтому хоткей
+            // гарантированно срабатывает с первого нажатия. Вызываются те же команды,
+            // что и у кнопок верхней панели (ExpandAllGroupsCommand/CollapseAllGroupsCommand),
+            // которые, по отзывам, работают сразу. Установка e.Handled = true отменяет
+            // всплытие KeyDown, так что дублирующие InputBindings не сработают повторно.
+            if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control &&
+                (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
+            {
+                if (key is Key.OemPlus or Key.Add)
+                {
+                    _viewModel.ExpandAllGroupsCommand.Execute(null);
+                    e.Handled = true;
+                    return;
+                }
+
+                if (key is Key.OemMinus or Key.Subtract)
+                {
+                    _viewModel.CollapseAllGroupsCommand.Execute(null);
+                    e.Handled = true;
+                    return;
+                }
+            }
 
             // Стрелки ↑/↓/←/→ управляют выделением в списке баз, только если
             // фокус находится в пределах дерева и не в поле ввода текста.

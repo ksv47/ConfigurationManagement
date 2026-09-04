@@ -194,6 +194,13 @@ namespace Configuration_Management
             RefreshGroupsAfterDataChange();
         }
 
+        // Импорт баз и настроек платформы из программы StartManager (issue #163).
+        private void OnImportStartManager_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.ImportFromStartManager();
+            RefreshGroupsAfterDataChange();
+        }
+
         private void OnClearAllInfobases_Click(object sender, RoutedEventArgs e)
         {
             _viewModel.ClearAllInfobasesCommand.Execute(null);

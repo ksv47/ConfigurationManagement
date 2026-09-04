@@ -456,49 +456,28 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Синхронизирует IsExpanded контейнеров TreeView с моделью.
-        /// Только узлы GroupNodeViewModel; без многократных layout-проходов.
+        /// Завершает синхронизацию IsExpanded после «Развернуть всё» / «Свернуть всё».
+        /// Модель уже приведена к нужному состоянию через <see cref="GroupNodeViewModel.IsExpanded"/>
+        /// (PropertyChanged), поэтому контейнеры обновляются сами из OneWay-привязки
+        /// (MainWindow.xaml:1723). Здесь остаётся только заставить виртуализацию
+        /// (VirtualizingStackPanel) догенерировать контейнеры вновь развёрнутых веток.
+        ///
+        /// Прямые установки <see cref="TreeViewItem.IsExpanded"/> (local value) намеренно
+        /// удалены (issue #160): у local value выше приоритет, чем у OneWay-привязки из
+        /// DataTrigger, из-за чего после команды мышь перестаёт сворачивать/разворачивать
+        /// отдельные папки. Обход по <c>ItemContainerGenerator.ContainerFromIndex</c> также
+        /// ненадёжен под виртуализацией — для нереализованных строк он возвращает null,
+        /// поэтому первое нажатие действовало лишь на видимые ветки, а остальные — со второго.
+        /// Каскадная генерация здесь не нужна: разворачивание родителя порождает контейнеры
+        /// детей, а те читают уже выставленный IsExpanded из модели.
         /// </summary>
         internal void ApplyGroupExpandedState(bool expand)
         {
             if (MainTree is null)
                 return;
 
-            if (expand)
-                ExpandGroupContainers(MainTree);
-            else
-                CollapseGroupContainers(MainTree);
-        }
-
-        private static void CollapseGroupContainers(ItemsControl parent)
-        {
-            for (var i = 0; i < parent.Items.Count; i++)
-            {
-                if (parent.ItemContainerGenerator.ContainerFromIndex(i) is not TreeViewItem tvi)
-                    continue;
-                if (tvi.DataContext is not ViewModels.GroupNodeViewModel node)
-                    continue;
-                node.NotifyIsExpanded();
-            }
-        }
-
-        /// <summary>
-        /// Раскрывает только контейнеры групп. Вложенность подтянется из Binding IsExpanded
-        /// (в модели уже выставлено silent), без ручного обхода каждого уровня.
-        /// </summary>
-        private static void ExpandGroupContainers(ItemsControl parent)
-        {
-            for (var i = 0; i < parent.Items.Count; i++)
-            {
-                if (parent.ItemContainerGenerator.ContainerFromIndex(i) is not TreeViewItem tvi)
-                    continue;
-                if (tvi.DataContext is not ViewModels.GroupNodeViewModel node)
-                    continue;
-                node.NotifyIsExpanded();
-                // Уже раскрытый узел: обновить вложенные контейнеры, если они есть.
-                if (tvi.IsExpanded)
-                    ExpandGroupContainers(tvi);
-            }
+            // Один проход разметки доводит каскад разворачивания до конца.
+            MainTree.UpdateLayout();
         }
 
         private void OnMainTree_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)

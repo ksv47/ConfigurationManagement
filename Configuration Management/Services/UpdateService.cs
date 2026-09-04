@@ -438,13 +438,18 @@ public sealed class UpdateService
     /// </summary>
     private static string CreateUpdaterScript(string targetExe, string newExe, int currentPid, bool restart)
     {
-        var scriptPath = Path.Combine(
-            Path.GetTempPath(), UpdateTempDir, $"apply-update-{Guid.NewGuid():N}.ps1");
+        var dir = Path.Combine(Path.GetTempPath(), UpdateTempDir);
+        Directory.CreateDirectory(dir);
+
+        var id = Guid.NewGuid().ToString("N");
+        var scriptPath = Path.Combine(dir, $"apply-update-{id}.ps1");
+        var logPath = Path.Combine(dir, $"apply-update-{id}.log");
 
         // Ожидание завершения основного процесса: с таймаутом для перезапуска «сейчас»,
-        // без ограничения — для режима «после закрытия».
+        // без ограничения — для режима «после закрытия». Каждый шаг фиксируется в логе.
         var waitBlock = restart
             ? @"
+# Ожидание завершения основного процесса (с таймаутом), чтобы exe не был заблокирован.
 $maxWait = 120
 $elapsed = 0
 while ($elapsed -lt $maxWait) {
@@ -452,61 +457,169 @@ while ($elapsed -lt $maxWait) {
     Start-Sleep -Milliseconds 500
     $elapsed++
 }
-Start-Sleep -Seconds 1"
+Start-Sleep -Seconds 1
+if (Get-Process -Id $pidTarget -ErrorAction SilentlyContinue) {
+    Log ('WARNING: target process still running after ' + $maxWait + 's; continuing anyway')
+} else {
+    Log ('Target process exited after ~' + ($elapsed / 2) + 's')
+}"
             : @"
+# Ожидание естественного завершения основного процесса (режим «после закрытия»).
 while (Get-Process -Id $pidTarget -ErrorAction SilentlyContinue) {
     Start-Sleep -Seconds 1
 }
-Start-Sleep -Seconds 1";
+Start-Sleep -Seconds 1
+Log 'Target process exited (after-close mode).'";
 
         // Перезапуск приложения выполняем только по явному запросу пользователя.
         var relaunchBlock = restart
-            ? "Start-Process -FilePath $target"
-            : "# Перезапуск не требуется — обновление применится при следующем закрытии приложения.";
+            ? @"
+try {
+    Start-Process -FilePath $target
+    Log 'Relaunch started.'
+} catch {
+    Log ('Relaunch failed: ' + $_.Exception.Message)
+}"
+            : @"
+# Перезапуск не требуется — обновление применится при следующем закрытии приложения.
+Log 'Restart not requested (after-close mode).'";
 
-        var script = $@"
+        // Весь скрипт собирается как verbatim-строка с плейсхолдерами, которые заменяются
+        // после подстановки значений, чтобы не экранировать фигурные скобки PowerShell.
+        const string scriptTemplate = @"
 $ErrorActionPreference = 'Stop'
-$target = '{Pq(targetExe)}'
-$new = '{Pq(newExe)}'
-$pidTarget = {currentPid}
+$target = '@@TARGET@@'
+$new = '@@NEW@@'
+$pidTarget = @@PID@@
+$restart = @@RESTART@@
+$logFile = '@@LOGFILE@@'
+$scriptPath = '@@SCRIPTPATH@@'
 
-# Ожидание завершения основного процесса, чтобы exe не был заблокирован.
-{waitBlock}
+function Log([string]$msg) {
+    try {
+        Add-Content -LiteralPath $logFile -Value (('[{0}] ' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff')) + $msg) -Encoding UTF8
+    } catch {}
+}
 
-# Заменяем текущий exe новым.
-Move-Item -Path $new -Destination $target -Force
-{relaunchBlock}
+Log ('Updater started. restart=' + $restart)
+Log ('Target: ' + $target)
+Log ('New: ' + $new)
+Log ('PidTarget: ' + $pidTarget)
+
+@@WAIT_BLOCK@@
+
+# Заменяем текущий exe новым (с повторами на случай кратковременной блокировки файла).
+$moved = $false
+$attempts = 0
+while (-not $moved -and $attempts -lt 10) {
+    $attempts++
+    try {
+        Move-Item -Path $new -Destination $target -Force
+        $moved = $true
+        Log ('Move-Item succeeded on attempt ' + $attempts)
+    } catch {
+        Log ('Move-Item attempt ' + $attempts + ' failed: ' + $_.Exception.Message)
+        Start-Sleep -Milliseconds 500
+    }
+}
+if (-not $moved) {
+    Log 'FATAL: failed to replace target executable.'
+    Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
+    exit 1
+}
+
+@@RELAUNCH_BLOCK@@
 
 # Убираем временный скрипт.
-Remove-Item -LiteralPath '{Pq(scriptPath)}' -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
+Log 'Updater finished.'
 ";
 
-        Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
-        File.WriteAllText(scriptPath, script, new UTF8Encoding(false));
+        var script = scriptTemplate
+            .Replace("@@TARGET@@", Pq(targetExe))
+            .Replace("@@NEW@@", Pq(newExe))
+            .Replace("@@PID@@", currentPid.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .Replace("@@RESTART@@", restart ? "1" : "0")
+            .Replace("@@LOGFILE@@", Pq(logPath))
+            .Replace("@@SCRIPTPATH@@", Pq(scriptPath))
+            .Replace("@@WAIT_BLOCK@@", waitBlock)
+            .Replace("@@RELAUNCH_BLOCK@@", relaunchBlock);
+
+        // Кодировка с BOM обязательна: Windows PowerShell 5.1 читает .ps1 без BOM как ANSI
+        // (активная кодовая страница, напр. cp1251), из-за чего не-ASCII пути портятся и
+        // Move-Item «тихо» не находит файл. С BOM скрипт читается как UTF-8 корректно.
+        File.WriteAllText(scriptPath, script, new UTF8Encoding(true));
         return scriptPath;
     }
 
     /// <summary>
     /// Запускает временный PowerShell-помощник скрытно, без ожидания его завершения.
-    /// Возвращает true, если процесс удалось запустить.
+    /// Используется 64-битная версия PowerShell (см. <see cref="ResolvePowerShellPath"/>) с
+    /// политикой выполнения Bypass. Возвращает true, если процесс удалось запустить, иначе
+    /// false (ошибку покажет вызывающий код в UI). Все действия помощника пишутся в лог-файл
+    /// рядом со скриптом, поэтому сбой на любом шаге (скрипт не стартовал / exe заблокирован /
+    /// Move-Item упал / перезапуск не выполнен) доступен для диагностики.
     /// </summary>
     private static bool LaunchUpdater(string scriptPath)
     {
         try
         {
-            Process.Start(new ProcessStartInfo
+            if (!File.Exists(scriptPath))
+                return false;
+
+            var psi = new ProcessStartInfo
             {
-                FileName = "powershell.exe",
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{scriptPath}\"",
+                FileName = ResolvePowerShellPath(),
                 UseShellExecute = false,
-                CreateNoWindow = true
-            });
-            return true;
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+            psi.ArgumentList.Add("-NoProfile");
+            psi.ArgumentList.Add("-ExecutionPolicy");
+            psi.ArgumentList.Add("Bypass");
+            psi.ArgumentList.Add("-NonInteractive");
+            psi.ArgumentList.Add("-WindowStyle");
+            psi.ArgumentList.Add("Hidden");
+            psi.ArgumentList.Add("-File");
+            // Путь передаётся отдельным аргументом списка — кавычки/пробелы в пути
+            // обрабатываются корректно, без ручного экранирования строки Arguments.
+            psi.ArgumentList.Add(scriptPath);
+
+            var process = Process.Start(psi);
+            return process is not null;
         }
         catch
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// Возвращает путь к PowerShell. Предпочитается 64-битная версия: из 32-битного процесса
+    /// обращение к %SystemRoot%\System32 перенаправляется на SysWOW64 (32-битный PowerShell),
+    /// поэтому сначала пробуется каталог Sysnative (доступен только из 32-битных процессов и
+    /// указывает на настоящую 64-битную System32). Из 64-битного процесса Sysnative недоступен —
+    /// тогда берётся System32 напрямую. Последний запасной вариант — powershell из PATH.
+    /// </summary>
+    private static string ResolvePowerShellPath()
+    {
+        var sysRoot = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (string.IsNullOrEmpty(sysRoot))
+            return "powershell.exe";
+
+        var candidates = new[]
+        {
+            Path.Combine(sysRoot, "Sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
+            Path.Combine(sysRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return "powershell.exe";
     }
 
     /// <summary>Экранирует строку для одинарных кавычек PowerShell.</summary>

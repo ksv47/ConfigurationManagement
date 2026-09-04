@@ -232,6 +232,7 @@ public class MainViewModel : ViewModelBase
         bool showFavoritesButton, bool showPinnedButton, bool showTags, bool showTagFilterPanel,
         bool showVersionColumn, bool showConfigurationColumn, bool showLaunchModeColumn,
         bool showServerColumn, bool showLastLaunchColumn, bool showSizeColumn,
+        bool showActionsColumn,
         bool showRightPanelDetails, bool showSessionLaunchPanel,
         bool groupByGroup, bool showEmptyGroups,
         List<string>? columnOrder)
@@ -245,6 +246,7 @@ public class MainViewModel : ViewModelBase
         var previousShowServerColumn = _settings.ShowServerColumn;
         var previousShowLastLaunchColumn = _settings.ShowLastLaunchColumn;
         var previousShowSizeColumn = _settings.ShowSizeColumn;
+        var previousShowActionsColumn = _settings.ShowActionsColumn;
         var previousColumnOrder = _settings.ColumnOrder ?? new List<string>();
         var previousGroupByGroup = _groupByGroup;
         var previousShowEmptyGroups = _showEmptyGroups;
@@ -259,6 +261,7 @@ public class MainViewModel : ViewModelBase
         _settings.ShowServerColumn = showServerColumn;
         _settings.ShowLastLaunchColumn = showLastLaunchColumn;
         _settings.ShowSizeColumn = showSizeColumn;
+        _settings.ShowActionsColumn = showActionsColumn;
         _settings.ColumnOrder = columnOrder ?? new List<string>();
         _settings.ShowRightPanelDetails = showRightPanelDetails;
         _settings.ShowSessionLaunchPanel = showSessionLaunchPanel;
@@ -283,6 +286,7 @@ public class MainViewModel : ViewModelBase
             || showServerColumn != previousShowServerColumn
             || showLastLaunchColumn != previousShowLastLaunchColumn
             || showSizeColumn != previousShowSizeColumn
+            || showActionsColumn != previousShowActionsColumn
             || !previousColumnOrder.SequenceEqual(_settings.ColumnOrder);
 
         SaveSettingsSilently();
@@ -290,6 +294,7 @@ public class MainViewModel : ViewModelBase
         NotifyColumnSettings();
         NotifySessionSettings();
         OnPropertyChanged(nameof(ShowTagFilterPanel));
+        OnPropertyChanged(nameof(ShowActionsColumn));
         OnPropertyChanged(nameof(ShowRightPanelDetails));
         OnPropertyChanged(nameof(ShowConnectionInfo));
         OnPropertyChanged(nameof(ShowRightPanelHint));
@@ -778,6 +783,8 @@ public class MainViewModel : ViewModelBase
     public string HotkeyShowAll => _settings.HotkeyShowAll;
     public string HotkeyShowFavorites => _settings.HotkeyShowFavorites;
     public string HotkeyShowRecent => _settings.HotkeyShowRecent;
+    public string HotkeyClearSearch => _settings.HotkeyClearSearch;
+    public string HotkeyClearTags => _settings.HotkeyClearTags;
 
     /// <summary>
     /// Сохраняет назначенные сочетания и сообщает окну, что их надо
@@ -785,7 +792,8 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public void ApplyHotkeys(string enterprise, string configurator, string edit, string add,
         string favorite, string pin, string delete, string clearCache,
-        string showAll, string showFavorites, string showRecent)
+        string showAll, string showFavorites, string showRecent,
+        string clearSearch, string clearTags)
     {
         _settings.HotkeyEnterprise = enterprise ?? string.Empty;
         _settings.HotkeyConfigurator = configurator ?? string.Empty;
@@ -798,6 +806,8 @@ public class MainViewModel : ViewModelBase
         _settings.HotkeyShowAll = showAll ?? string.Empty;
         _settings.HotkeyShowFavorites = showFavorites ?? string.Empty;
         _settings.HotkeyShowRecent = showRecent ?? string.Empty;
+        _settings.HotkeyClearSearch = clearSearch ?? string.Empty;
+        _settings.HotkeyClearTags = clearTags ?? string.Empty;
 
         SaveSettingsSilently();
 
@@ -812,6 +822,8 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyShowAll));
         OnPropertyChanged(nameof(HotkeyShowFavorites));
         OnPropertyChanged(nameof(HotkeyShowRecent));
+        OnPropertyChanged(nameof(HotkeyClearSearch));
+        OnPropertyChanged(nameof(HotkeyClearTags));
         HotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -828,12 +840,28 @@ public class MainViewModel : ViewModelBase
         { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
 
     /// <summary>
-    /// Порядок колонок списка баз слева направо (кроме фиксированных колонок
-    /// «Название» и «Действия»). Если порядок не задан или пуст — возвращается
-    /// порядок по умолчанию с колонкой «Конфигурация» в конце.
+    /// Порядок колонок списка баз слева направо (кроме фиксированной колонки
+    /// «Название», которая всегда первая). Если порядок не задан или пуст —
+    /// возвращается порядок по умолчанию с колонкой «Конфигурация» в конце.
+    /// Колонка «Действия» всегда присутствует в порядке: старые сохранённые
+    /// настройки могли не содержать её вовсе, и тогда колонку нельзя было ни
+    /// показать, ни отключить в окне настроек (issue #158).
     /// </summary>
-    public IReadOnlyList<string> ColumnOrderKeys =>
-        _settings.ColumnOrder is { Count: > 0 } ? _settings.ColumnOrder : DefaultColumnOrder;
+    public IReadOnlyList<string> ColumnOrderKeys
+    {
+        get
+        {
+            var order = _settings.ColumnOrder;
+            if (order is { Count: 0 })
+                return DefaultColumnOrder;
+            // «Действия» обязана быть в списке: если её нет в пользовательском
+            // порядке (например, порядок сохранён до появления этой колонки),
+            // дописываем в конец, не меняя сам сохранённый список.
+            return order!.Contains("Actions", StringComparer.Ordinal)
+                ? order
+                : order.Concat(new[] { "Actions" }).ToList();
+        }
+    }
 
     public bool ShowExpandCollapseButtons => GroupByGroup;
     public bool ShowFavoritesButton => _settings.ShowFavoritesButton;
@@ -844,6 +872,9 @@ public class MainViewModel : ViewModelBase
     public bool ShowServerColumn => _settings.ShowServerColumn;
     public bool ShowLastLaunchColumn => _settings.ShowLastLaunchColumn;
     public bool ShowSizeColumn => _settings.ShowSizeColumn;
+
+    /// <summary>Показывать колонку «Действия» (кнопки запуска/конфигуратора/очистки кеша) в списке баз.</summary>
+    public bool ShowActionsColumn => _settings.ShowActionsColumn;
 
     /// <summary>
     /// Состав нижней панели: какие сведения о выбранной базе в неё попадают.
@@ -1173,6 +1204,14 @@ public class MainViewModel : ViewModelBase
             _showTagFilterPanel = _settings.ShowTagFilterPanel;
             // Компактный режим правой панели восстанавливается из настроек (issue #149).
             _showRightPanelDetails = _settings.ShowRightPanelDetails;
+            // Уведомляем производные признаки, чтобы уже построенное главное окно
+            // (панель могла быть собрана с дефолтным значением до загрузки настроек)
+            // сразу применило компактный режим и скрыло лишние блоки информации.
+            OnPropertyChanged(nameof(ShowRightPanelDetails));
+            OnPropertyChanged(nameof(ShowRightPanelHint));
+            OnPropertyChanged(nameof(ShowConnectionInfo));
+            OnPropertyChanged(nameof(OpenByLinkCaption));
+            OnPropertyChanged(nameof(RightPanelToggleTooltip));
             _themeName = _settings.Theme;
             _compactMode = _settings.CompactMode;
             _afterLaunchAction = _settings.AfterLaunchAction ?? "None";
@@ -1818,9 +1857,21 @@ public class MainViewModel : ViewModelBase
         if (ib is null)
             return;
 
-        var dialog = new Configuration_Management.ConnectionSettingsWindow(
-            ib, _groups, InstalledPlatformVersions(), ib.Group,
-            AvailableServers(), AvailablePorts());
+        // Построение окна может упасть (битые ресурсы, иконки, темы, сбой локализации):
+        // на Linux без обработчика это роняло приложение abort-ом (issue #168). Ловим
+        // здесь, логируем и не даём сбою одного окна остановить работу программы.
+        Configuration_Management.ConnectionSettingsWindow dialog;
+        try
+        {
+            dialog = new Configuration_Management.ConnectionSettingsWindow(
+                ib, _groups, InstalledPlatformVersions(), ib.Group,
+                AvailableServers(), AvailablePorts());
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно свойств базы: {ex.Message}", ex);
+            return;
+        }
 
         if (!dialog.ShowDialogSync(OwnerWindow()))
             return;
@@ -1834,6 +1885,10 @@ public class MainViewModel : ViewModelBase
         ib.Group = dialog.Result.Group;
         ib.Description = dialog.Result.Description;
         ib.PlatformVersion = dialog.Result.PlatformVersion;
+        // Поля конфигурации переносим явно, иначе введённые вручную имя/версия
+        // конфигурации не сохранялись бы (issue #164).
+        ib.ConfigurationName = dialog.Result.ConfigurationName;
+        ib.ConfigurationVersion = dialog.Result.ConfigurationVersion;
         ib.Architecture = dialog.Result.Architecture;
         ib.LaunchMode = dialog.Result.LaunchMode;
         ib.LaunchParameters = dialog.Result.LaunchParameters;
@@ -1866,7 +1921,13 @@ public class MainViewModel : ViewModelBase
 
     private void AddInfobase()
     {
-        var chooser = new Configuration_Management.AddEditWindow();
+        Configuration_Management.AddEditWindow chooser;
+        try { chooser = new Configuration_Management.AddEditWindow(); }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно выбора типа элемента: {ex.Message}", ex);
+            return;
+        }
         if (!chooser.ShowDialogSync(OwnerWindow()))
             return;
 
@@ -1894,11 +1955,20 @@ public class MainViewModel : ViewModelBase
     /// <summary>Создание новой базы: пустой или из шаблона.</summary>
     private void CreateInfobase(bool fromTemplate, string defaultGroupPath)
     {
-        var dialog = new Configuration_Management.CreateInfobaseWindow(
-            fromTemplate,
-            InstalledPlatformVersions(),
-            defaultGroupPath,
-            _groups);
+        Configuration_Management.CreateInfobaseWindow dialog;
+        try
+        {
+            dialog = new Configuration_Management.CreateInfobaseWindow(
+                fromTemplate,
+                InstalledPlatformVersions(),
+                defaultGroupPath,
+                _groups);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно создания базы: {ex.Message}", ex);
+            return;
+        }
 
         if (!dialog.ShowDialogSync(OwnerWindow()) || dialog.Result is null)
             return;
@@ -1916,9 +1986,18 @@ public class MainViewModel : ViewModelBase
     /// <summary>Регистрация уже существующей базы в списке.</summary>
     private void RegisterExistingInfobase(string defaultGroupPath)
     {
-        var dialog = new Configuration_Management.ConnectionSettingsWindow(
-            null, _groups, InstalledPlatformVersions(), defaultGroupPath,
-            AvailableServers(), AvailablePorts());
+        Configuration_Management.ConnectionSettingsWindow dialog;
+        try
+        {
+            dialog = new Configuration_Management.ConnectionSettingsWindow(
+                null, _groups, InstalledPlatformVersions(), defaultGroupPath,
+                AvailableServers(), AvailablePorts());
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно регистрации базы: {ex.Message}", ex);
+            return;
+        }
 
         if (!dialog.ShowDialogSync(OwnerWindow()))
             return;
@@ -2086,6 +2165,9 @@ public class MainViewModel : ViewModelBase
         _settings.DarkColorScheme = null;
         // Применяем палитру по текущему варианту темы; сам вариант не меняем.
         ThemeManager.ApplyScheme(clone);
+        // Общий цвет папок хранится в схеме и применяется при построении дерева —
+        // пересобираем его, чтобы папки сразу перекрасились.
+        RebuildTree();
         SaveSettingsSilently();
         OnPropertyChanged(nameof(ThemeName));
     }
@@ -2384,7 +2466,13 @@ public class MainViewModel : ViewModelBase
                     Infobases = _allInfobases.ToList(),
                     Groups = _groups.ToList()
                 },
-                new JsonSerializerOptions { WriteIndented = true });
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    // Кириллицу и прочие не-ASCII символы пишем читаемыми UTF-8,
+                    // а не \uXXXX-последовательностями (issue #170).
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
             File.WriteAllText(path, json);
 
             _dialog.ShowInfo(
@@ -2673,6 +2761,104 @@ public class MainViewModel : ViewModelBase
         catch (Exception ex)
         {
             _logger.Error("Ошибка импорта из ibases.v8i", ex);
+            _dialog.ShowError(
+                string.Format(LocalizationManager.T("Main.ErrImportFailed"), ex.Message),
+                LocalizationManager.T("Main.ImportErrorTitle"));
+        }
+    }
+
+    /// <summary>
+    /// Импорт баз и настроек платформы из программы StartManager (issue #163).
+    /// Читает каталог настроек StartManager (v8config.smc и settings.cnf), добавляет
+    /// и обновляет базы с авторизацией (расшифровывая пароли по алгоритму Виженера),
+    /// а также добавляет найденный путь платформы 1С (V8AppPath) в дополнительные
+    /// пути поиска платформы приложения.
+    /// </summary>
+    public void ImportFromStartManager()
+    {
+        var dir = StartManagerImporter.FindDefaultSettingsDir();
+        if (string.IsNullOrWhiteSpace(dir) || !System.IO.Directory.Exists(dir))
+        {
+            dir = _dialog.OpenFolderDialog(
+                LocalizationManager.T("StartManager.ChooseFolder"), null);
+            if (string.IsNullOrWhiteSpace(dir))
+                return;
+        }
+
+        try
+        {
+            var candidateInfobases = _allInfobases.ToList();
+            var candidateGroups = _groups.ToList();
+
+            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups);
+
+            if (result.NoConfigFound)
+            {
+                _dialog.ShowInfo(
+                    string.Format(LocalizationManager.T("StartManager.NoConfig"), dir),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            if (result.Added == 0 && result.Updated == 0)
+            {
+                _dialog.ShowInfo(
+                    LocalizationManager.T("StartManager.NothingImported"),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            _allInfobases.Clear();
+            _allInfobases.AddRange(candidateInfobases);
+            SyncFavoriteHotkeys();
+            _groups.Clear();
+            _groups.AddRange(candidateGroups);
+
+            var saved = SaveSilently();
+            saved &= SaveGroupsSilently();
+            RebuildTree();
+
+            // Путь платформы 1С из settings.cnf добавляем в дополнительные пути поиска.
+            var platformAdded = false;
+            if (result.PlatformSearchPaths.Count > 0)
+            {
+                var paths = new List<string>(_settings.AdditionalPlatformSearchPaths);
+                foreach (var p in result.PlatformSearchPaths)
+                {
+                    if (!paths.Contains(p, StringComparer.OrdinalIgnoreCase))
+                    {
+                        paths.Add(p);
+                        platformAdded = true;
+                    }
+                }
+                if (platformAdded)
+                    ApplyPlatformSettings(paths, _settings.DefaultArchitecture);
+            }
+
+            StatusBarInfo = string.Format(
+                LocalizationManager.T("Sync.ImportedCount"), _allInfobases.Count, _groups.Count);
+            _logger.Info($"Импорт из StartManager: {dir}, добавлено {result.Added}, " +
+                         $"обновлено {result.Updated}, пропущено {result.Skipped}");
+
+            if (!saved)
+            {
+                _dialog.ShowError(
+                    string.Format(LocalizationManager.T("Main.ErrImportFailed"),
+                        LocalizationManager.T("Main.SaveFailedHint")),
+                    LocalizationManager.T("Main.ImportErrorTitle"));
+                return;
+            }
+
+            var message = string.Format(
+                LocalizationManager.T("StartManager.Done"),
+                result.Added, result.Updated);
+            if (platformAdded)
+                message += "\n" + LocalizationManager.T("StartManager.PlatformPathAdded");
+            _dialog.ShowInfo(message, LocalizationManager.T("StartManager.Title"));
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка импорта из StartManager", ex);
             _dialog.ShowError(
                 string.Format(LocalizationManager.T("Main.ErrImportFailed"), ex.Message),
                 LocalizationManager.T("Main.ImportErrorTitle"));
@@ -3041,6 +3227,22 @@ public class MainViewModel : ViewModelBase
         if (!dialog.ShowDialogSync(OwnerWindow()))
             return;
 
+        // Старые полные пути группы и её потомков фиксируются ДО применения изменений:
+        // по ним пересчитываются пути баз (issue #171). Иначе после переименования базы
+        // остаются на старом пути, уезжают в «Без группы», а сама группа становится
+        // пустой и скрывается из дерева.
+        var oldPathsById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var subtreeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { group.Id };
+        CollectGroupDescendants(group.Id, subtreeIds);
+        foreach (var id in subtreeIds)
+        {
+            var g = _groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is not null)
+                oldPathsById[id] = GroupHierarchyHelper.GetFullPath(g, _groups);
+        }
+        var oldRootPath = oldPathsById.TryGetValue(group.Id, out var orp) ? orp : string.Empty;
+
         group.Name = dialog.Result.Name;
         group.Description = dialog.Result.Description;
         group.Color = dialog.Result.Color;
@@ -3048,7 +3250,18 @@ public class MainViewModel : ViewModelBase
         group.Icon = dialog.Result.Icon ?? string.Empty;
         group.ParentId = dialog.Result.ParentId;
 
-        SaveGroupsSilently();
+        var newRootPath = GroupHierarchyHelper.GetFullPath(group, _groups);
+
+        // Пересчитываем Infobase.Group у всех баз подветки на новый полный путь группы,
+        // чтобы группа осталась видимой вместе со своими базами после переименования.
+        RemapSubtreeInfobasePaths(oldPathsById, oldRootPath, newRootPath);
+
+        // Записываются оба файла; экспорт идёт только когда удались оба: иначе
+        // пути баз и дерево групп разъедутся, и базы уедут в «Без группы».
+        var saved = SaveSilently();
+        saved &= SaveGroupsSilently();
+        if (saved)
+            ExportToIbasesAfterLocalChange();
         RebuildTree();
 
         // Узлы групп пересоздаются при пересборке; восстанавливаем выделение отредактированной
@@ -3336,6 +3549,123 @@ public class MainViewModel : ViewModelBase
         {
             if (result.Add(child.Id))
                 CollectGroupDescendants(child.Id, result);
+        }
+    }
+
+    /// <summary>
+    /// Пересчитывает полные пути <see cref="Infobase.Group"/> у всех баз подветки группы
+    /// после её переименования или перемещения. Старые пути собраны в
+    /// <paramref name="oldPathsById"/> ДО применения изменений, а <paramref name="oldRootPath"/>
+    /// и <paramref name="newRootPath"/> — пути самой группы до и после.
+    /// Предотвращает «исчезновение» группы (issue #171): иначе базы остаются со старым путём,
+    /// попадают в «Без группы», а сама группа становится пустой и скрывается из дерева.
+    /// </summary>
+    private void RemapSubtreeInfobasePaths(
+        IReadOnlyDictionary<string, string> oldPathsById,
+        string oldRootPath,
+        string newRootPath)
+    {
+        var oldRootNorm = NormalizeGroupPath(oldRootPath);
+        var newRootPathNorm = NormalizeGroupPath(newRootPath);
+
+        // pathRemap: старый путь (и нормализованный) → новый канонический.
+        var pathRemap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(oldRootPath) && !string.IsNullOrEmpty(newRootPath))
+        {
+            pathRemap[oldRootPath] = newRootPath;
+            pathRemap[oldRootNorm] = newRootPath;
+        }
+
+        foreach (var (id, oldPath) in oldPathsById)
+        {
+            if (string.IsNullOrEmpty(oldPath))
+                continue;
+            var g = _groups.FirstOrDefault(x =>
+                string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (g is null)
+                continue;
+            var newPath = GroupHierarchyHelper.GetFullPath(g, _groups);
+            if (string.IsNullOrEmpty(newPath))
+                continue;
+            pathRemap[oldPath] = newPath;
+            var norm = NormalizeGroupPath(oldPath);
+            if (!string.IsNullOrEmpty(norm))
+                pathRemap[norm] = newPath;
+        }
+
+        if (pathRemap.Count == 0)
+            return;
+
+        // Длинные пути первыми — чтобы «A / B» не переписывался как префикс «A».
+        var remapByLength = pathRemap
+            .OrderByDescending(kv => kv.Key.Length)
+            .ToList();
+
+        foreach (var ib in _allInfobases)
+        {
+            var current = ib.Group?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(current))
+                continue;
+
+            var currentNorm = NormalizeGroupPath(current);
+            if (pathRemap.TryGetValue(current, out var mapped)
+                || pathRemap.TryGetValue(currentNorm, out mapped))
+            {
+                ib.Group = mapped;
+                continue;
+            }
+
+            // Префикс: база во вложенном пути, которого не было в pathRemap.
+            // Путь считается по нормализованному ключу, иначе база не найдёт
+            // свой узел при перестройке дерева и уедет в «Без группы».
+            foreach (var (oldKey, newKey) in remapByLength)
+            {
+                var oldKeyNorm = NormalizeGroupPath(oldKey);
+                if (string.IsNullOrEmpty(oldKeyNorm))
+                    continue;
+                var prefix = oldKeyNorm + GroupHierarchyHelper.PathSeparator;
+                if (!currentNorm.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                ib.Group = newKey + currentNorm.Substring(oldKeyNorm.Length);
+                break;
+            }
+
+            // Фолбэк на случай расхождений в формате пути: путь пересчитывается
+            // по старому корневому пути подветки.
+            if (!string.IsNullOrEmpty(oldRootNorm)
+                && !string.IsNullOrEmpty(newRootPathNorm)
+                && (string.Equals(currentNorm, oldRootNorm, StringComparison.OrdinalIgnoreCase)
+                    || currentNorm.StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                var suffix = currentNorm.Length > oldRootNorm.Length
+                    ? currentNorm.Substring(oldRootNorm.Length)
+                    : string.Empty;
+                ib.Group = newRootPathNorm + suffix;
+            }
+        }
+
+        if (_collapsedGroups.Count > 0)
+        {
+            var updated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in _collapsedGroups)
+            {
+                if (pathRemap.TryGetValue(key, out var mapped)
+                    || pathRemap.TryGetValue(NormalizeGroupPath(key), out mapped))
+                    updated.Add(mapped);
+                else if (!string.IsNullOrEmpty(oldRootNorm)
+                         && NormalizeGroupPath(key).StartsWith(oldRootNorm + GroupHierarchyHelper.PathSeparator,
+                             StringComparison.OrdinalIgnoreCase)
+                         && pathRemap.TryGetValue(oldRootPath, out var newRoot))
+                    updated.Add(newRoot + NormalizeGroupPath(key).Substring(oldRootNorm.Length));
+                else
+                    updated.Add(key);
+            }
+            _collapsedGroups.Clear();
+            foreach (var k in updated)
+                _collapsedGroups.Add(k);
+            PersistCollapsedGroups();
         }
     }
 
@@ -3731,7 +4061,20 @@ public class MainViewModel : ViewModelBase
 
     private void OpenSettings()
     {
-        var settings = new Configuration_Management.SettingsWindow(this);
+        // Построение окна настроек — большая процедура (восемь вкладок, иконки, темы).
+        // На Linux сбой в ней завершал процесс abort-ом (issue #168); ловим и логируем,
+        // чтобы приложение продолжало работать, а ошибка попала в журнал.
+        Configuration_Management.SettingsWindow settings;
+        try
+        {
+            settings = new Configuration_Management.SettingsWindow(this);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно настроек: {ex.Message}", ex);
+            return;
+        }
+
         // Владелец берётся только видимый: окно, спрятанное в трей, остаётся
         // в списке окон приложения, и показ поверх него ничего не показывает.
         // Настройки открываются из меню трея именно в таком состоянии.
@@ -3751,6 +4094,22 @@ public class MainViewModel : ViewModelBase
             is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
             && desktop.MainWindow is Configuration_Management.MainWindow main)
             main.ApplyCompactMode(compact);
+    }
+
+    /// <summary>
+    /// Применяет настройку «Системный заголовок окна» к главному окну сразу, без
+    /// перезапуска (issue #159). Сама настройка уже сохранена через свойство
+    /// <see cref="UseSystemTitleBar"/>; здесь только обновляется декор окна и
+    /// сбрасывается кэш настройки модальных окон, чтобы новые диалоги тоже
+    /// применили свежее значение.
+    /// </summary>
+    public void ApplySystemTitleBar(bool useSystemTitleBar)
+    {
+        Configuration_Management.ModalWindowBase.InvalidateSystemTitleBarCache();
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            && desktop.MainWindow is Configuration_Management.MainWindow main)
+            main.ApplySystemTitleBar(useSystemTitleBar);
     }
 
     /// <summary>
@@ -4174,6 +4533,8 @@ public class MainViewModel : ViewModelBase
     private void ApplySchemeForTheme(bool dark)
     {
         ThemeManager.ApplyTheme(dark);
+        // Общий цвет папок берётся из активной палитры схемы при построении дерева.
+        RebuildTree();
         _settings.Theme = dark ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName;
         _themeName = _settings.Theme;
         SaveSettingsSilently();

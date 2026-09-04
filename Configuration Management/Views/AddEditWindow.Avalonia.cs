@@ -27,18 +27,9 @@ namespace Configuration_Management
             Width = 480;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
-            SystemDecorations = SystemDecorations.Full;
 
             Content = BuildRoot();
         }
-
-        /// <summary>
-        /// Окно использует стандартный системный заголовок (как в Windows), поэтому
-        /// собственная «стеклянная» рамка без системных кнопок не нужна (issue #150):
-        /// её прозрачный фон и ExtendClientAreaToDecorationsHint конфликтуют с запрошенной
-        /// системной рамкой и роняют приложение на Linux при открытии диалога.
-        /// </summary>
-        protected override bool UseGlassChrome => false;
 
         private Control BuildRoot()
         {

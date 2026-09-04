@@ -66,7 +66,7 @@ public class GroupNodeViewModel : ViewModelBase
         Children = new ObservableCollection<GroupNodeViewModel>();
         Infobases = new ObservableCollection<Infobase>();
         Items = new ObservableCollection<object>();
-        _color = group?.Color ?? defaultColor ?? "#2D6CDF";
+        _color = ResolveColor(group, defaultColor, marker);
         _iconColor = group is not null
             ? (!string.IsNullOrWhiteSpace(group.IconColor) ? group.IconColor : "#FFFFFF")
             : (defaultIconColor ?? "#FFFFFF");
@@ -84,6 +84,48 @@ public class GroupNodeViewModel : ViewModelBase
             _containsInfobasesCache = null;
             NotifyCountChanged();
         };
+    }
+
+    // Цвет обычной папки по умолчанию (равен цвету группы в модели и fallback в конвертерах).
+    private const string DefaultFolderColor = "#2D6CDF";
+    // Цвет узла «Закреплённые» (избранная папка) по умолчанию.
+    private const string DefaultPinnedColor = "#8B5CF6";
+
+    /// <summary>
+    /// Разрешает цвет фона заголовка узла: индивидуальный цвет группы (или специального
+    /// узла) имеет приоритет; иначе берётся общий цвет папки из активной цветовой схемы
+    /// (<see cref="Models.ColorScheme"/>) — обычной или избранной. Схема читается из
+    /// <c>Themes.ThemeManager.CurrentScheme</c> под текущий вариант темы, поэтому цвет
+    /// папки пересчитывается при каждой перестройке дерева после применения схемы.
+    /// </summary>
+    private static string ResolveColor(Group? group, string? defaultColor, string? marker)
+    {
+        var scheme = Themes.ThemeManager.CurrentScheme;
+        var dark = Themes.ThemeManager.CurrentTheme == Themes.ThemeManager.DarkThemeName;
+
+        if (group is not null)
+        {
+            // Индивидуальный цвет группы; значение по умолчанию считаем ненастроенным,
+            // чтобы общий цвет папки из схемы реально влиял на обычные папки.
+            if (!string.IsNullOrWhiteSpace(group.Color)
+                && !string.Equals(group.Color, DefaultFolderColor, StringComparison.OrdinalIgnoreCase))
+                return group.Color;
+            return scheme.PaletteValue(dark, "FolderColor");
+        }
+
+        // Узел «Закреплённые» — избранная папка: индивидуальный цвет или общий из схемы.
+        if (string.Equals(marker, PinnedMarker, StringComparison.Ordinal))
+        {
+            if (!string.IsNullOrWhiteSpace(defaultColor)
+                && !string.Equals(defaultColor, DefaultPinnedColor, StringComparison.OrdinalIgnoreCase))
+                return defaultColor;
+            return scheme.PaletteValue(dark, "FavoriteFolderColor");
+        }
+
+        // Прочие специальные узлы («Без группы», «Все базы»): свой цвет или обычная папка.
+        if (!string.IsNullOrWhiteSpace(defaultColor))
+            return defaultColor;
+        return scheme.PaletteValue(dark, "FolderColor");
     }
 
     /// <summary>Кэшированная кисть фона заголовка группы.</summary>

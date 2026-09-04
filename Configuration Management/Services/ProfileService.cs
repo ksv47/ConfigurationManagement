@@ -40,7 +40,10 @@ public class ProfileService : IProfileService
     {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        // Имена профилей могут содержать кириллицу — записываем их читаемыми UTF-8,
+        // а не \uXXXX-последовательностями (issue #170). Влияет только на запись.
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     private readonly List<UserProfile> _profiles = new();

@@ -9,6 +9,377 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.64] — 2026-09-04
+
+Выпуск с полным устранением issue #171: исправлено исчезновение группы (вместе с её базами) при изменении наименования. Причина была в том, что базы ссылаются на группу строкой полного пути (`Infobase.Group`): при переименовании через `EditGroup` менялось имя группы, но пути баз не пересчитывались — базы не находили узел, группа становилась «пустой» и скрывалась из дерева. Теперь при переименовании или смене родителя добавляется метод `RemapSubtreeInfobasePaths` ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) и WPF-версия в [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs)), который пересчитывает `Infobase.Group` у всех баз подветки, переносит ключи свёрнутых групп, сохраняет и базы, и группы, а затем экспортирует `ibases.v8i`. Метод вызывается из `EditGroup` в Avalonia ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)) и Windows ([`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs)).
+
+### Исправлено
+
+- **Группа больше не исчезает при переименовании вместе с её базами (issue #171)**: базы ссылаются на группу строкой полного пути (`Infobase.Group`); при переименовании через `EditGroup` имя группы менялось, но пути баз не пересчитывались, из-за чего базы не находили узел, группа становилась «пустой» и скрывалась из дерева.
+- **Пересчёт путей баз подветки при переименовании/смене родителя (issue #171)**: добавлен метод `RemapSubtreeInfobasePaths` ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) и WPF-версия в [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs)), который при переименовании или смене родителя пересчитывает `Infobase.Group` у всех баз подветки, переносит ключи свёрнутых групп и сохраняет и базы, и группы.
+- **Повторный экспорт `ibases.v8i` после переименования (issue #171)**: после сохранения баз и групп выполняется экспорт `ibases.v8i`, чтобы иерархия в родном стартере 1С соответствовала новому имени группы; метод вызывается из `EditGroup` в Avalonia ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)) и Windows ([`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs)). Исправление действует на обеих платформах — Windows и Linux.
+
+### Версия
+
+- **Версия поднята до `0.3.6.63` → `0.3.6.64`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.63] — 2026-09-04
+
+Выпуск с полным устранением issue #168: устранено падение (Signal 6 / SIGABRT) при открытии дополнительных (модальных) окон на Linux. Причина была двойной. Во-первых, ненадёжный детектор Wayland в `LinuxRendering.IsWayland()` — он возвращал `true` уже по одной переменной окружения `WAYLAND_DISPLAY`, даже если сессия фактически X11 (XWayland), из-за чего модальные окна шли прозрачным путём (`ExtendClientAreaToDecorationsHint` + `Transparent`), что на X11 даёт SIGABRT; теперь `IsWayland()` требует выполнения обоих условий — `XDG_SESSION_TYPE=wayland` И `WAYLAND_DISPLAY`. Во-вторых, показ и центрирование окна относительно непригодного владельца (без проверки видимости/геометрии); укреплены `ShowDialogSync` в [`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs) и `ShowModalSync` в [`Services/AvaloniaDialogService.cs`](Configuration%20Management/Services/AvaloniaDialogService.cs): владелец используется только если видим и имеет размеры, добавлен запасной немодальный путь показа и снятие кадра в `finally`.
+
+### Исправлено
+
+- **Устранено падение (Signal 6 / SIGABRT) при открытии дополнительных окон на Linux (issue #168)**: причиной была прозрачная ветка показа модальных окон на сессиях, ошибочно распознаваемых как Wayland. `LinuxRendering.IsWayland()` возвращал `true` уже по одной переменной `WAYLAND_DISPLAY`, даже в X11/XWayland-сессии, из-за чего окна шли через `ExtendClientAreaToDecorationsHint` + `Transparent`, что на X11 приводит к SIGABRT. Теперь `IsWayland()` требует `XDG_SESSION_TYPE=wayland` И `WAYLAND_DISPLAY`.
+- **Безопасный показ/центрирование модальных окон с запасным путём (issue #168)**: владелец окна использовался без проверки видимости/геометрии, из-за чего показ и центрирование выполнялись относительно непригодного владельца. В [`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs) (`ShowDialogSync`) и [`Services/AvaloniaDialogService.cs`](Configuration%20Management/Services/AvaloniaDialogService.cs) (`ShowModalSync`) владелец используется только если видим и имеет размеры, добавлен запасной немодальный путь показа и снятие кадра в `finally`. Изменения изолированы под `#if LINUX/Avalonia`, Windows не затронут.
+
+### Версия
+
+- **Версия поднята до `0.3.6.62` → `0.3.6.63`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.62] — 2026-09-04
+
+Выпуск с полным устранением issue #167: устранён «большой непонятный отступ» (лишний вертикальный зазор) в правой панели и панель «Теги» выровнена по высоте на обеих платформах — Windows и Linux. Первопричина была двойной. Во-первых, правая панель была опущена вниз лишним зазором `Padding`/`Margin`: в WPF — `Padding="12,56"→"12,12"` в [`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml), в Avalonia — `Margin(12,56)→(12,12)` в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs). Во-вторых, верхний отступ верхней панели поиска `TopBarV=10` не совпадал с нижним отступом панели тегов `8`, из-за чего на Linux группа «Теги» сдвигалась вниз; значение исправлено в [`Services/UiMetrics.Avalonia.cs`](Configuration%20Management/Services/UiMetrics.Avalonia.cs) `TopBarV 10→8` (симметрично `8/8`, как на Windows).
+
+### Исправлено
+
+- **Устранён «большой непонятный отступ» (лишний вертикальный зазор) в правой панели (issue #167)**: правая панель была опущена вниз зазором `Padding`/`Margin` «56» вместо «12» — на Windows в [`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml) `Padding="12,56"→"12,12"`, на Linux в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) `Margin(12,56)→(12,12)`. Теперь панель прижата к верху, как и остальные элементы.
+- **Выровнена по высоте панель «Теги» на обеих платформах (issue #167)**: верхний отступ верхней панели поиска `TopBarV=10` не совпадал с нижним отступом панели тегов `8`, из-за чего на Linux группа «Теги» сдвигалась вниз относительно остальных панелей. Значение исправлено в [`Services/UiMetrics.Avalonia.cs`](Configuration%20Management/Services/UiMetrics.Avalonia.cs) `TopBarV 10→8` (симметрично `8/8`, как на Windows). На Windows поведение не изменилось.
+
+### Версия
+
+- **Версия поднята до `0.3.6.61` → `0.3.6.62`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.61] — 2026-09-04
+
+Выпуск с полным устранением issue #165: дублирование вложенных папок при синхронизации с родным стартером 1С (`ibases.v8i`), которое сохранялось после фиксов 0.3.6.52/53, больше не возникает. Корневая причина — жёстко зашитый разделитель `«\\»` в ключе `Folder` вместо нативного `Path.DirectorySeparatorChar`: на Linux штатный стартер строит иерархию по `/`, а запись вида `Учёт\Бухгалтерия` воспринималась как имя одной литеральной папки с обратным слешем, из-за чего рядом с правильно вложенной папкой создавался дубль. Теперь `IbasesV8iExporter.ToFolderPath` использует `Path.DirectorySeparatorChar` (на Linux — `/`, на Windows — `\`). Дополнительно устранена вторичная причина — осиротевшие группы (`ParentId` указывал на удалённый дубликат), из-за которых путь строился неполным и дубль воссоздавался: импортёр санитизирует осиротевшие группы, `RemoveDuplicateGroupsByPath` удаляет дубли по полному пути и переназначает `ParentId` детей, а базы привязаны к группам по пути, поэтому не «переезжают».
+
+### Исправлено
+
+- **Дублирование вложенных папок при синхронизации с родным стартером (issue #165)**: найден и устранён корень проблемы, сохранявшийся после фиксов 0.3.6.52/53 — жёстко зашитый разделитель `«\\»` в ключе `Folder` вместо нативного `Path.DirectorySeparatorChar`. На Linux штатный стартер строит иерархию по `/`, а запись `Учёт\Бухгалтерия` воспринималась как имя одной литеральной папки с обратным слешем, что приводило к созданию дубля рядом с правильно вложенной папкой. `IbasesV8iExporter.ToFolderPath` теперь использует `Path.DirectorySeparatorChar` (на Linux — `/`, на Windows — `\`).
+- **Санитизация осиротевших групп (issue #165)**: вторичная причина дублей — осиротевшие группы, у которых `ParentId` указывал на уже удалённый дубликат: путь строился неполным, из-за чего дубль воссоздавался. В [`Services/IbasesV8iImporter.cs`](Configuration%20Management/Services/IbasesV8iImporter.cs) добавлены перевешивание родителя для осиротевших групп, усиленный `FindGroupByFullPath` с учётом осиротевших, методы `IsOrphanedParent`/`GroupExistsById`, а `RemoveDuplicateGroupsByPath` удаляет дубли по полному пути и корректно переназначает `ParentId` дочерних групп.
+- **Базы не «переезжают» между группами (issue #165)**: базы привязаны к группам по пути, поэтому после удаления дубликатов и переназначения `ParentId` детей они остаются в правильных группах и больше не регенерируют дубли при повторных синхронизациях.
+
+### Версия
+
+- **Версия поднята до `0.3.6.60` → `0.3.6.61`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.60] — 2026-09-04
+
+Выпуск с исправлением issue #160: хоткеи «Развернуть всё» (`Ctrl+Shift++`, `OemPlus`/`Add`) и «Свернуть всё» (`Ctrl+Shift+-`, `OemMinus`/`Subtract`) теперь срабатывают с первого нажатия и больше не конфликтуют с переключением папок мышью. Первопричиной было то, что декларативные `InputBindings`/`KeyBindings` оценивались в фазе всплытия и зависели от фокуса, из-за чего первое нажатие не доходило до команды. Обработка вынесена в туннельную фазу: для WPF — `Window_PreviewKeyDown` в [`Views/MainWindow.Hotkeys.cs`](Configuration%20Management/Views/MainWindow.Hotkeys.cs), для Avalonia — ранний обработчик окна `OnWindowKeyDown` в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs). Вызываются те же команды `ExpandAllGroupsCommand`/`CollapseAllGroupsCommand`, что и у рабочих кнопок, а `e.Handled=true` исключает повторное срабатывание. Команды идемпотентны — переключение папок мышью по-прежнему работает.
+
+### Исправлено
+
+- **Хоткеи «Развернуть всё» / «Свернуть всё» срабатывают с первого нажатия (issue #160)**: раньше декларативные `InputBindings`/`KeyBindings` оценивались в фазе всплытия и зависели от фокуса, поэтому первое нажатие не доходило до команды. Обработка перенесена в туннельную фазу — `Window_PreviewKeyDown` ([`Views/MainWindow.Hotkeys.cs`](Configuration%20Management/Views/MainWindow.Hotkeys.cs)) для WPF и `OnWindowKeyDown` ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)) для Avalonia; вызываются те же команды `ExpandAllGroupsCommand`/`CollapseAllGroupsCommand`, что и у кнопок, а `e.Handled=true` исключает повторное срабатывание.
+- **Устранён конфликт хоткеев с переключением мышью (issue #160)**: команды разворачивания/сворачивания идемпотентны, поэтому выделение папки и её раскрытие/сворачивание кликом мыши продолжают работать без побочных эффектов; обработчики объявлены ранними и не зависят от фокуса.
+
+### Версия
+
+- **Версия поднята до `0.3.6.59` → `0.3.6.60`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.59] — 2026-09-04
+
+Выпуск с полным исправлением issue #153: устранено «зависание» окна при запуске на Linux/X11 (в т.ч. в виртуальных машинах без композитора/на программном рендере) и высокая нагрузка CPU (~36%). Первопричиной было то, что безрамное окно всегда запрашивало расширение клиентской области в декорации (`ExtendClientAreaToDecorationsHint=true`), что на X11 без композитора заставляет непрерывно перерисовывать фон; к этому добавлялись полупрозрачные подложки модальных окон и затемняющий оверлей загрузки, включавшие постоянную альфа-компоновку кадра. Теперь прозрачность на Linux автоопределяется по типу сессии (`LinuxRendering`): на X11 композитор не гарантирован, поэтому окно рисуется непрозрачным прямоугольным (без расширения клиентской области и прозрачности), а на Wayland прозрачность безопасна и сохраняется. В непрозрачном режиме сбрасывается `ExtendClientAreaToDecorationsHint=false` и задаётся сплошной фон для главного окна ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)) и всех модальных ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs)); «стеклянные» подложки и оверлей загрузки делаются непрозрачными. Принудительный путь флага окружения `CM_DISABLE_TRANSPARENCY=1` сохранён.
+
+### Исправлено
+
+- **Зависание окна и высокая нагрузка CPU при запуске на Linux/X11 (issue #153)**: безрамное окно всегда запрашивало расширение клиентской области в декорации (`ExtendClientAreaToDecorationsHint=true`), что на X11 без композитора заставляет постоянно перерисовывать фон. Добавлено автоопределение `LinuxRendering` ([`Services/LinuxRendering.cs`](Configuration%20Management/Services/LinuxRendering.cs)): на X11 (композитор не гарантирован) окно становится непрозрачным прямоугольным, без расширения и прозрачности; на Wayland прозрачность безопасна и сохраняется.
+- **Непрозрачный режим для всех окон (issue #153)**: при непрозрачном рендере сбрасывается `ExtendClientAreaToDecorationsHint=false` и задаётся сплошной фон для главного окна ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)) и всех модальных ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs)); полупрозрачные «стеклянные» подложки модальных окон и затемняющий оверлей загрузки делаются непрозрачными, чтобы исключить постоянную альфа-компоновку кадра.
+- **Принудительная непрозрачность через `CM_DISABLE_TRANSPARENCY` (issue #153)**: флаг окружения `CM_DISABLE_TRANSPARENCY=1` сохранён как принудительный путь отключения прозрачности в дополнение к автоопределению. Изменения изолированы под `#if LINUX/Avalonia`, Windows не затронут.
+
+### Версия
+
+- **Версия поднята до `0.3.6.58` → `0.3.6.59`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.58] — 2026-09-04
+
+Выпуск с завершением работы над issue #164: имя конфигурации и версия релиза теперь отображаются в правой панели сведений о подключении (новый блок «Конфигурация» со значением `ConfigurationDisplay`) и в колонке «Конфигурация» списка баз. Введённые вручную в свойствах базы «Имя конфигурации» и «Версия конфигурации» читаются из модели информационной базы (`ConfigurationName`/`ConfigurationVersion`), сохраняются и персистятся в `infobases.json`, поэтому ручной ввод переживает перезапуск. На Linux COM-чтение не используется (только ручной ввод/эвристика), а на Windows автозаполнение через COM сохранено, но ручной ввод может его переопределить.
+
+### Добавлено
+
+- **Блок «Конфигурация» в правой панели сведений о подключении (issue #164)**: добавлен блок со значением `ConfigurationDisplay` — имя конфигурации и версия релиза. Реализовано в WPF ([`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml)) и Avalonia ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)).
+- **Ручной ввод имени и версии конфигурации сохраняется между запусками (issue #164)**: введённые в свойствах базы поля «Имя конфигурации» и «Версия конфигурации» читаются из модели ИБ (`ConfigurationName`/`ConfigurationVersion`), сохраняются и персистятся в `infobases.json`, поэтому переживают перезапуск приложения.
+- **Поведение автозаполнения по платформам (issue #164)**: на Linux COM-чтение не выполняется — значения остаются из ручного ввода/эвристики; на Windows автозаполнение через COM сохранено, но ручной ввод может его переопределить. Полученные данные отображаются в колонке «Конфигурация» и в правой панели.
+
+### Версия
+
+- **Версия поднята до `0.3.6.57` → `0.3.6.58`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.57] — 2026-09-04
+
+Выпуск с исправлением issue #170: кириллица и другие не-ASCII символы теперь сохраняются в конфиг-файлы (`infobases.json`, `groups.json`, `settings.json`), реестр профилей и экспортные файлы баз в читаемом виде UTF-8, а не в виде `\uXXXX`-последовательностей. Ранее .NET-сериализатор по умолчанию экранировал все не-ASCII символы, из-за чего русские буквы в файлах было невозможно прочитать. Внесённые вручную значения программа принимала, корректно показывала, но каждый раз перезаписывала обратно в юникод. Теперь задан `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`, который пишет не-ASCII литерально; при этом чтение старых файлов с `\uXXXX` полностью совместимо.
+
+### Добавлено
+
+- **Читаемый UTF-8 в конфиг-файлах (issue #170)**: в [`Services/InfobaseRepository.cs`](Configuration%20Management/Services/InfobaseRepository.cs) в оба набора опций сериализации `JsonOptions` (файлы `infobases.json`, `groups.json`, чтение `settings.json`) и `SettingsJsonOptions` (запись `settings.json`) добавлен `Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping` — кириллица и прочие не-ASCII символы записываются читаемыми символами UTF-8, а не `\uXXXX`-последовательностями. Encoder влияет только на запись, поэтому существующие файлы с `\uXXXX` продолжают корректно читаться.
+- **Читаемый UTF-8 в реестре профилей (issue #170)**: в [`Services/ProfileService.cs`](Configuration%20Management/Services/ProfileService.cs) в `JsonOptions` добавлен тот же `Encoder` — имена профилей на кириллице сохраняются в `profiles.json` в читаемом виде.
+- **Читаемый UTF-8 в цветовых схемах (issue #170)**: в [`Models/ColorScheme.cs`](Configuration%20Management/Models/ColorScheme.cs) в `JsonOptions` добавлен `Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping` — названия схем и прочие не-ASCII символы сохраняются читаемо.
+- **Читаемый UTF-8 в экспортных файлах баз (issue #170)**: в экспорт баз добавлен тот же `Encoder` в [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) и [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs) — выгруженные JSON-файлы содержат русские названия баз и групп в читаемом виде.
+
+### Версия
+
+- **Версия поднята до `0.3.6.56` → `0.3.6.57`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.56] — 2026-09-04
+
+Выпуск с исправлениями девяти открытых issues: просмотр паролей в свойствах базы, падение на Linux при открытии доп. окон, большой отступ у тегов, цветовое оформление папок, дублирование вложенных папок в родном стартере, хоткеи «Свернуть/Развернуть всё», окно обновления, высокая нагрузка CPU на Linux в виртуальных машинах и сохранение данных в поле «Конфигурация».
+
+### Добавлено
+
+- **Просмотр паролей в свойствах базы (issue #169)**: для полей пароля хранилища, авторизации предприятия и Конфигуратора добавлены кнопка-«глазик» (показать/скрыть) и кнопка копирования пароля в буфер обмена. Реализовано в WPF ([`Views/ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml), [`Views/ConnectionSettingsWindow.xaml.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml.cs)) и Avalonia ([`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs)). Добавлены ключи локализации `Connection.ShowPasswordTooltip` / `Connection.CopyPasswordTooltip`.
+- **Цветовое оформление папок (issue #166)**: в цветовую схему добавлены общие цвета обычной (`FolderColor`) и избранной (`FavoriteFolderColor`) папки, настраиваемые в редакторе схем; индивидуальная настройка каждой папки сохранена. Добавлены подписи в локализацию (ru/en).
+
+### Исправлено
+
+- **Падение на Linux при открытии доп. окон (issue #168)**: добавлен глобальный обработчик необработанных исключений UI-потока в Avalonia ([`App.axaml.cs`](Configuration%20Management/App.axaml.cs)), защищены вложенные циклы сообщений ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs), [`Services/AvaloniaDialogService.cs`](Configuration%20Management/Services/AvaloniaDialogService.cs)) и конструкторы окон в [`MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs).
+- **Большой непонятный отступ (issue #167)**: убран верхний margin у левой колонки списка баз в Avalonia, панель «Теги» прижата к поиску, как на Windows ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)).
+- **Дублирование вложенных папок в родном стартере (issue #165)**: корневая причина — разделитель пути в Folder при экспорте `ibases.v8i` (`/` вместо `\`); теперь Folder пишется нативным разделителем ([`Services/IbasesV8iExporter.cs`](Configuration%20Management/Services/IbasesV8iExporter.cs)), а импортёр дополнительно канонизирует пути и дедуплицирует вложенные группы идемпотентно ([`Services/IbasesV8iImporter.cs`](Configuration%20Management/Services/IbasesV8iImporter.cs)).
+- **Хоткеи «Свернуть всё/Развернуть всё» (issue #160)**: устранён пропуск первого нажатия (виртуализация) и поломка мышиного переключения узлов (local value DP) — команды теперь ведут модель через `node.IsExpanded` ([`ViewModels/MainViewModel.Theme.cs`](Configuration%20Management/ViewModels/MainViewModel.Theme.cs), [`Views/MainWindow.Tree.cs`](Configuration%20Management/Views/MainWindow.Tree.cs)).
+- **Окно обновления (issue #157)**: устранён DPI-баг в Win32-хуке (размер окна считался в DIP вместо физических пикселей) — контент больше не обрезается при масштабе >100%; пересчёт высоты по этапу ([`Services/UpdateAvailableWindow.xaml.cs`](Configuration%20Management/Services/UpdateAvailableWindow.xaml.cs)).
+- **Высокая нагрузка CPU/зависание на Linux в VM (issue #153)**: найден источник бесконечной перерисовки (индетерминантный индикатор загрузки); добавлен детектор ПО-рендера/VM ([`Services/LinuxRendering.cs`](Configuration%20Management/Services/LinuxRendering.cs)), статичный индикатор и страховочный таймаут в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs).
+- **Сохранение данных в поле «Конфигурация» (issue #164)**: введённые вручную имя и версия конфигурации теперь корректно переносятся из диалога свойств в объект базы и сохраняются ([`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)).
+
+### Версия
+
+- **Версия поднята до `0.3.6.55` → `0.3.6.56`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.55] — 2026-09-04
+
+Добавлен ручной ввод имени конфигурации и версии релиза конфигурации информационной базы (issue #164). На Windows значения можно оставить для автополучения через COM-коннектор, а на Linux, где COM-соединение недоступно и автополучение не всегда возможно, имя и версию конфигурации теперь можно заполнить вручную в окне свойств базы. Введённые вручную значения сохраняются и не затираются фоновым автообновлением, а в колонке «Конфигурация» списка баз отображаются полученные данные.
+
+### Добавлено
+
+- **Ручной ввод имени и версии конфигурации ИБ в свойствах базы (issue #164)**: в окне свойств информационной базы под полями «Конфигурация» и «Версия конфигурации» добавлена подсказка о возможности ручного ввода ([`Views/ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml), [`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs)). Поля `ConfigurationName` / `ConfigurationVersion` теперь можно заполнить вручную, что критично для Linux, где COM-соединение недоступно и автополучение имени/версии невозможно.
+- **Разграничение автозаполнения по платформам (issue #164)**: в [`Services/ConfigurationInfoService.cs`](Configuration%20Management/Services/ConfigurationInfoService.cs) метод `TryApply` при фоновом автополучении (`overwriteExisting=false`) не перезаписывает уже непустые поля — они считаются введёнными пользователем и заполняются только пустые; перезапись допускается лишь при явной команде пользователя «Обновить информацию» (`overwriteExisting=true`). На Linux COM-чтение не выполняется, поэтому значения остаются ручными, если эвристика по файлу `1Cv8.1CD` или пакетный режим конфигуратора их не вернули.
+- **Сохранение ручных значений без затирания (issue #164)**: введённые пользователем имя и версия конфигурации сохраняются и не теряются при фоновом автообновлении данных о конфигурации, а полученные значения отображаются в колонке «Конфигурация» списка баз.
+- **Обновление локализации (issue #164)**: добавлены ключи `Connection.ConfigurationManualHint`, `Connection.ConfigurationNameTooltip` и `Connection.ConfigurationVersionTooltip` в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.6.54` → `0.3.6.55`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.54] — 2026-09-03
+
+Кнопка «Импорт из StartManager» (issue #163) добавлена в Windows/WPF-версию окна настроек: в разделе «Базы» появился пункт импорта рядом с импортом из `ibases.v8i`, который вызывает тот же механизм переноса баз и настроек платформы из StartManager, что и в Linux/Avalonia-версии. Ранее кнопка присутствовала только в Linux-версии, поэтому на Windows её невозможно было найти.
+
+### Добавлено
+
+- **Кнопка «Импорт из StartManager» в Windows/WPF-версию окна настроек (issue #163)**: в раздел «Базы» ([`SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml)) добавлена кнопка импорта рядом с импортом из `ibases.v8i`, а в [`SettingsWindow.Platforms.cs`](Configuration%20Management/Views/SettingsWindow.Platforms.cs) — обработчик `OnImportStartManager_Click`, вызывающий `MainViewModel.ImportFromStartManager()`. Для WPF в [`MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs) реализован метод `ImportFromStartManager()`: при отсутствии стандартного каталога `%APPDATA%\StartManager14\SMSettings` предлагается выбрать его вручную, затем переносятся базы с авторизацией и путь к платформе 1С добавляется в дополнительные пути поиска.
+
+### Исправлено
+
+- **Функция импорта из StartManager стала доступна на Windows (issue #163)**: ранее кнопка «Импорт из StartManager» присутствовала только в Linux/Avalonia-версии окна настроек; теперь пункт доступен и пользователям Windows/WPF.
+
+### Версия
+
+- **Версия поднята до `0.3.6.53` → `0.3.6.54`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.53] — 2026-09-03
+
+Новая функция импорта из StartManager (issue #163): перенос баз с путями, группами и авторизацией (в т.ч. расшифровка паролей методом Виженера с ключом `SLAVKA`) и настройки расположения платформы из файлов `settings.cnf` / `v8config.smc`. Также доработано исправление дублирования папок в родном стартере (issue #165): дедупликация теперь корректно переназначает родительские связи дочерних групп, поэтому иерархия сохраняется и дубли больше не регенерируются при повторных синхронизациях.
+
+### Добавлено
+
+- **Импорт из StartManager (issue #163)**: добавлен сервис [`StartManagerImporter.cs`](Configuration%20Management/Services/StartManagerImporter.cs), который читает каталог настроек `%APPDATA%\StartManager14\SMSettings` (файлы `settings.cnf` и `v8config.smc`, кодировка Windows-1251), переносит пути и авторизацию баз (хранилище / Предприятие / Конфигуратор) и расшифровывает пароли методом Виженера по ASCII-символам с ключом `SLAVKA`. Пункт «Импорт из StartManager» доступен в настройках в разделе «Базы» (кнопка рядом с импортом из `ibases.v8i`); путь к платформе 1С из StartManager добавляется в дополнительные пути поиска.
+
+### Исправлено
+
+- **Устранено дублирование вложенных папок в родном стартере (issue #165)**: предыдущее исправление (импорт по полному пути + дедупликация унаследованных дублей) не устранило корневую причину. Теперь в [`IbasesV8iImporter.cs`](Configuration%20Management/Services/IbasesV8iImporter.cs) при удалении дубликатов групп (`RemoveDuplicateGroupsByPath`) корректно переназначается `ParentId` дочерних групп, ссылавшихся на удалённый дубликат, — иерархия сохраняется, полные пути продолжают строиться, а дубли больше не создаются заново при последующих синхронизациях.
+
+### Версия
+
+- **Версия поднята до `0.3.6.52` → `0.3.6.53`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.52] — 2026-09-03
+
+Набор исправлений для Linux (Avalonia) и Windows (WPF): устранено дублирование папок в родном стартере при синхронизации групп, исправлено окно обновления (контент больше не обрезается, окно нельзя «схлопнуть» перетаскиванием границы, добавлена диагностика ошибок в лог), хоткеи «Свернуть всё/Развернуть всё» теперь срабатывают с первого нажатия, добавлены настраиваемые хоткеи очистки поиска и сброса тегов, а также снижена нагрузка на CPU на Linux X11/VM за счёт усиленного определения программного рендера/VM и нового флага окружения `CM_DISABLE_TRANSPARENCY=1`.
+
+### Исправлено
+
+- **Устранено дублирование папок в родном стартере при синхронизации (issue #165)**: импорт групп сделан идемпотентным по полному пути, добавлена дедупликация уже унаследованных дубликатов — повторные синхронизации больше не создают копий папок.
+- **Окно обновления больше не обрезает контент и его нельзя «схлопнуть» (issues #157, #162)**: прогресс-бар и кнопки больше не обрезаются, окно нельзя изменить перетаскиванием границы, добавлена диагностика ошибок обновления в лог.
+
+### Изменено
+
+- **Хоткеи «Свернуть всё/Развернуть всё» срабатывают с первого нажатия (issue #160)**: устранён пропуск первого нажатия; дополнительно добавлены настраиваемые хоткеи очистки поиска и сброса тегов (по умолчанию `Ctrl+Shift+C` / `Ctrl+Shift+T`).
+- **Снижена нагрузка на CPU на Linux X11/VM (issue #153)**: усилено определение программного рендера/виртуальных машин, добавлен флаг окружения `CM_DISABLE_TRANSPARENCY=1` для принудительной непрозрачности окна.
+
+### Версия
+
+- **Версия поднята до `0.3.6.51` → `0.3.6.52`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.51] — 2026-09-03
+
+Исправление автообновления на Windows (WPF): устранён «тихий» провал установки обновления, когда новая версия скачивалась, но не применялась без какого-либо сообщения об ошибке. Добавлено диагностическое логирование bash/powershell-помощника в `%TEMP%`, исправлена кодировка PowerShell-скрипта (UTF-8 BOM), гарантирован запуск 64-битной PowerShell, повышена надёжность замены исполняемого файла (повторные попытки с ожиданием) и обеспечена корректная передача аргументов.
+
+### Исправлено
+
+- **Автообновление на Windows работает надёжно (issue #161)**: устранён «тихий» провал — раньше новая версия могла скачаться, но не установиться без уведомления пользователя. Теперь помощник запускается с гарантированной 64-битной PowerShell (`-ExecutionPolicy Bypass`), PowerShell-скрипт сохраняется с кодировкой UTF-8 BOM (иначе кириллические пути/аргументы ломали разбор), а диагностический лог помощника пишется в `%TEMP%` для разбора сбоев.
+- **Повышена надёжность замены исполняемого файла (issue #161)**: замена `ConfigurationManagement.exe` выполняется с повторными попытками и ожиданием, пока целевой процесс не завершится и файл не освободится (антивирус/задержка завершения процесса больше не приводят к молчаливому отказу), а аргументы запуска после перезапуска передаются корректно.
+
+### Версия
+
+- **Версия поднята до `0.3.6.50` → `0.3.6.51`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.50] — 2026-09-03
+
+Набор новых возможностей и исправлений для Linux (Avalonia): реализовано автообновление на Linux — приложение скачивает новый бинарник и устанавливает его после выхода процесса через bash-помощник с автоматическим перезапуском; файловые базы 1С теперь отображаются отдельной иконкой (база данных-цилиндр); добавлены нередактируемые хоткеи очистки; а также устранено зависание и высокая нагрузка CPU при запуске на Linux в X11/виртуальных машинах — окно рисуется полностью непрозрачным при программном рендере.
+
+### Добавлено
+
+- **Автообновление на Linux (issue #161)**: реализовано скачивание нового бинарника и его установка после выхода процесса через bash-помощник, с автоматическим перезапуском приложения.
+- **Нередактируемые хоткеи очистки (issue #160)**: добавлены хоткеи — `Ctrl+Shift+C` (очистка строки поиска), `Ctrl+Shift+T` (отключение всех тегов), `Ctrl+Shift+Plus` / `Ctrl+Shift+Minus` (развернуть/свернуть все узлы дерева).
+
+### Изменено
+
+- **Файловые базы 1С отображаются отдельной иконкой (issue #161)**: файловые базы данных теперь показываются иконкой «база данных-цилиндр», отличной от иконки папки по форме.
+
+### Исправлено
+
+- **Устранено зависание и высокая нагрузка CPU при запуске на Linux в X11/виртуальных машинах (issue #153)**: окно рисуется полностью непрозрачным на X11/программном рендере, полупрозрачное оформление сохранено только на Wayland.
+
+### Версия
+
+- **Версия поднята до `0.3.6.49` → `0.3.6.50`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.49] — 2026-09-03
+
+Набор исправлений стабильности и интерфейса для Windows (WPF) и Linux (Avalonia): переключатель «Системный заголовок окна» на Linux применяется мгновенно без перезапуска, колонка «Действия» стала доступна на вкладке «Отображение», окно обновления больше не обрезает контент при увеличении, устранено зависание с высокой нагрузкой CPU при запуске на Linux в X11/виртуальных машинах, а также исправлено сохранение компактного режима правой панели.
+
+### Изменено
+
+- **Переключатель «Системный заголовок окна» на Linux применяется мгновенно, без перезапуска (issue #159)**: смена настройки теперь сразу перестраивает рамку главного окна, не требуя перезапуска приложения.
+- **Колонка «Действия» доступна в списке настроек на вкладке «Отображение» (issue #158)**: колонку можно отключить и снова включить.
+- **Увеличено и сделано масштабируемым окно обновления (issue #157)**: прогресс, текст и кнопки больше не обрезаются.
+- **Устранено зависание и высокая нагрузка CPU при запуске на Linux в X11/виртуальных машинах (issue #153)**: окно рисуется непрозрачным при программном рендере/VM.
+- **Исправлено сохранение и восстановление компактного режима правой панели (issue #149)**: убран лишний всплывающий информационный блок в компактном режиме.
+
+### Версия
+
+- **Версия поднята до `0.3.6.48` → `0.3.6.49`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.48] — 2026-09-03
+
+Диалоговые окна (Linux/Avalonia) исправлены: теперь они учитывают настройку «Системный заголовок окна» и их можно перетаскивать. Устранено расхождение «закраски» (полупрозрачной подложки) между окнами.
+
+### Изменено
+
+- **Диалоговые окна учитывают настройку «Системный заголовок окна» (issue #152)** ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs)): базовый класс всех диалогов больше не жёстко задаёт `SystemDecorations.None` и `ExtendClientAreaToDecorationsHint = true`. Когда настройка включена, диалог, как и главное окно, использует стандартную системную рамку (`SystemDecorations.Full`) с её кнопками и перетаскиванием; когда выключена — собственный безрамковый режим со «стеклянной» подложкой. Прозрачность и расширение клиентской области применяются только в безрамковом режиме, что исключает конфликт с системной рамкой и падение на Linux (issue #150).
+- **Устранено жёсткое переопределение системного заголовка в отдельных окнах (issue #152)** ([`Views/AddEditWindow.Avalonia.cs`](Configuration%20Management/Views/AddEditWindow.Avalonia.cs), [`Views/ColorPickerWindow.Avalonia.cs`](Configuration%20Management/Views/ColorPickerWindow.Avalonia.cs), [`Views/ConnectionStringInputWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionStringInputWindow.Avalonia.cs), [`Views/CreateInfobaseWindow.Avalonia.cs`](Configuration%20Management/Views/CreateInfobaseWindow.Avalonia.cs), [`Views/LoginWindow.Avalonia.cs`](Configuration%20Management/Views/LoginWindow.Avalonia.cs), [`Views/ProfilesWindow.Avalonia.cs`](Configuration%20Management/Views/ProfilesWindow.Avalonia.cs)): из конструкторов шести окон убрано `SystemDecorations = Full`, а у `AddEditWindow` — переопределение `UseGlassChrome => false`. Теперь все производные окна следуют базовому классу и единообразно реагируют на настройку системного заголовка, а расхождение «закраски» между диалогами устранено.
+- **Перетаскивание диалогов работает в обоих режимах (issue #152)**: в безрамковом режиме окно перетаскивается за полосу заголовка (`BeginMoveDrag`) с исключением интерактивных элементов и корректным поведением при развороте; при включённом системном заголовке перетаскивание обеспечивает сама системная рамка.
+
+### Версия
+
+- **Версия поднята до `0.3.6.47` → `0.3.6.48`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.47] — 2026-09-03
+
+В редакторе тем на вкладке «Оформление» возвращён прежний вид: вместо двух живых предпросмотров (светлая и тёмная палитры) снова один живой предпросмотр, отражающий активную цветовую схему, справа в фиксированной колонке; список цветов слева расположен в прокручиваемой колонке.
+
+### Изменено
+
+- **Вкладка «Оформление» возвращена к прежнему виду (issue #155)** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs), [`Views/SettingsWindow.Schemes.cs`](Configuration%20Management/Views/SettingsWindow.Schemes.cs)): отказались от двух живых предпросмотров (`PreviewShellLight`/`PreviewShellDark`) и динамической пропорциональной компоновки колонок (`2* : 3*`). Возвращён один живой предпросмотр, отражающий активную цветовую схему, справа в фиксированной колонке `Auto`; список цветов слева размещён в прокручиваемой колонке `*`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.46` → `0.3.6.47`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.46] — 2026-09-02
+
+В редакторе тем на вкладке «Оформление» предпросмотры снова размещены в одну линию (светлая слева, тёмная справа), как и должно быть; остальные доработки сохранены — увеличенный размер превью, динамические колонки и собственная прокрутка у каждой панели.
+
+### Изменено
+
+- **Предпросмотры темы размещены в одну линию (issue #155)** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): оба живых превью вновь расположены горизонтально — светлая палитра слева, тёмная справа (были друг под другом). Увеличенный размер превью, пропорциональные динамические колонки (левая уже правой) и отдельная вертикальная прокрутка у каждой панели сохранены.
+
+### Версия
+
+- **Версия поднята до `0.3.6.45` → `0.3.6.46`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.45] — 2026-09-02
+
+В редакторе тем на вкладке «Оформление» увеличены превью, левая колонка стала уже правой, а ширины обеих колонок теперь динамически меняются от размера окна настроек. Превью сложены вертикально (светлое сверху, тёмное снизу), у каждой колонки своя вертикальная прокрутка, поэтому обе панели всегда видны при любом размере окна.
+
+### Изменено
+
+- **Увеличены превью темы, левая колонка уже, колонки динамически масштабируются (issue #155)** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): ширина превью поднята с 175 до 210 (обе платформы выровнены на 210), чтобы в макете помещались все элементы и текст не обрезался. Оба превью сложены вертикально в левой колонке (светлое сверху, тёмное снизу), а не горизонтально — благодаря этому левая колонка может быть уже правой. Колонки сделаны пропорциональными (`2* : 3*`, левая уже) — их ширина динамически меняется от размера окна настроек; каждая колонка обёрнута в собственный вертикальный `ScrollViewer`, поэтому при любой высоте окна панели остаются доступными, а список цветов прокручивается внутри своей колонки.
+
+### Версия
+
+- **Версия поднята до `0.3.6.44` → `0.3.6.45`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.44] — 2026-09-02
+
+В окне обновления исчезло пустое место внизу после скачивания — обработчик Win32-сообщения `WM_GETMINMAXINFO` теперь фиксирует только ширину окна (высоту не ограничивает), поэтому `SizeToContent="Height"` снова подстраивает высоту окна под каждый этап, а ширину по-прежнему нельзя изменить мышью.
+
+### Исправлено
+
+- **Пустое место внизу окна обновления после скачивания** ([`Services/UpdateAvailableWindow.xaml.cs`](Configuration%20Management/Services/UpdateAvailableWindow.xaml.cs)): обработчик `WM_GETMINMAXINFO` фиксировал и ширину, и высоту окна (min/max track size равными его размеру), из-за чего `SizeToContent="Height"` переставал подстраивать высоту и после перехода к вопросу о применении обновления внизу оставалось пустое место. Теперь обработчик принудительно фиксирует только ширину (`MinTrackSize.X`/`MaxTrackSize.X` равны фактической ширине), а высоту не ограничивает — её снова подстраивает `SizeToContent="Height"` под каждый этап. Пустое место внизу исчезло, а ширину окна по-прежнему нельзя изменить мышью.
+
+### Версия
+
+- **Версия поднята до `0.3.6.43` → `0.3.6.44`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.43] — 2026-09-02
+
+В редакторе тем на вкладке «Оформление» возвращена прежняя двухколоночная компоновка и доработана так, чтобы все элементы были видны при открытии окна настроек: левая колонка (управление схемой и превью) — фиксированная и всегда видна, а список цветов в правой колонке прокручивается внутри собственной области.
+
+### Изменено
+
+- **Левая колонка редактора тем зафиксирована, список цветов получил собственную прокрутку (issue #155)** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): убран внешний двусторонний `ScrollViewer`, из-за которого компоновка стала неудобной. Вкладка снова разделена на две колонки — слева `Auto` (фиксированная ширина по содержимому: блок управления схемой и два превью под ним), справа `*` с `ScrollViewer` (вертикальная прокрутка) со списком цветов, который занимает оставшуюся высоту. В результате левая колонка не ужимается и не обрезается, все элементы оформления видны при открытии окна, а при нехватке места прокручивается только список цветов.
+
+### Версия
+
+- **Версия поднята до `0.3.6.42` → `0.3.6.43`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.42] — 2026-09-02
+
+Размер окна обновления теперь нельзя изменить мышкой — добавлен жёсткий перехват Win32-сообщения `WM_GETMINMAXINFO`, который принудительно фиксирует min/max track size окна равными его размеру, поэтому обход `ResizeMode="NoResize"` кастомным Window-Chrome больше не позволяет растягивать окно.
+
+### Исправлено
+
+- **Размер окна обновления можно было изменить мышкой** ([`Services/UpdateAvailableWindow.xaml.cs`](Configuration%20Management/Services/UpdateAvailableWindow.xaml.cs)): кастомный Window-Chrome обходил `ResizeMode="NoResize"`, и окно обновления можно было растягивать за края мышью. Добавлен жёсткий перехват Win32-сообщения `WM_GETMINMAXINFO` через `HwndSource`-хук, который принудительно фиксирует min/max track size окна равными его текущему размеру — теперь размер окна обновления нельзя изменить мышкой.
+
+### Версия
+
+- **Версия поднята до `0.3.6.41` → `0.3.6.42`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.41] — 2026-09-02
+
+Весь контент вкладки «Оформление» окна настроек сделан единым прокручиваемым блоком с прокруткой по вертикали и горизонтали, поэтому левая панель редактора тем больше не скрывается и не обрезается при любом размере окна.
+
+### Изменено
+
+- **Левая панель редактора тем больше не скрывается при любом размере окна (issue #155)** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): весь контент вкладки «Оформление» свёрнут в один внешний `ScrollViewer` с прокруткой в обе стороны, а внутренние per-column `ScrollViewer`'ы убраны (в Avalonia правая колонка — это сам `colorsColumn` без собственной прокрутки, колонки измеряются по содержимому). Если окно настроек мало, появляются полосы прокрутки и все элементы оформления остаются доступными — ни один элемент не скрывается и не обрезается.
+
+### Версия
+
+- **Версия поднята до `0.3.6.40` → `0.3.6.41`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.40] — 2026-09-02
+
+Текст кнопки «Обновить после закрытия» в окне обновления переведён в одну строку — кнопка расширена, а перенос слов убран; размер окна зафиксирован (MaxWidth приведён к Width), поэтому окно больше не меняет размер.
+
+### Исправлено
+
+- **Текст кнопки «Обновить после закрытия» переносился на две строки** ([`Services/UpdateAvailableWindow.xaml`](Configuration%20Management/Services/UpdateAvailableWindow.xaml)): у `UpdateAfterCloseButton` ширина увеличена со 190 до 240, а у `UpdateAfterCloseText` убран `TextWrapping="Wrap"` — текст «Обновить после закрытия» теперь размещается в одну строку и не выходит за пределы кнопки.
+- **Размер окна обновления зафиксирован**: `MaxWidth` уменьшен с 640 до 600 (равен `Width`), поэтому окно имеет фиксированный размер и его нельзя изменить (`ResizeMode=NoResize` остаётся).
+
+### Версия
+
+- **Версия поднята до `0.3.6.39` → `0.3.6.40`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.39] — 2026-09-02
+
+Доработана компоновка редактора тем на вкладке «Оформление»: превью перенесены в левую колонку под блок управления схемой, а список цветов вынесен в отдельную правую колонку, растянутую по вертикали. Устранено перекрытие верхнего блока управления схемой списком цветов.
+
+### Изменено
+
+- **Превью перенесены в левую колонку редактора тем, а список цветов — в правую (issue #155)** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): нижний горизонтальный блок предпросмотра, ранее занимавший всю ширину окна, перенесён в левую колонку под блок управления схемой — оба живых превью (светлое слева, тёмное справа) размещены горизонтально. Список цветов вынесен в отдельную правую колонку, растянут по вертикали и прокручивается внутри своей колонки; устранено перекрытие верхнего блока управления схемой списком цветов.
+
+### Версия
+
+- **Версия поднята до `0.3.6.38` → `0.3.6.39`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.38] — 2026-09-02
 
 Кнопкам окна обновления заданы фиксированные размеры, а само окно стало шире, чтобы текст «Перезапустить сейчас» и другие надписи всегда были читаемы и не обрезались ни при каком размере окна.

@@ -42,6 +42,9 @@ public static class AppServices
         // Linux (Avalonia): диалоги Avalonia. Регистратор COM-коннектора не подключается —
         // на Linux COM отсутствует (чтение конфигурации выполняется без COM: 1Cv8.1CD / DESIGNER).
         services.AddSingleton<IDialogService, AvaloniaDialogService>();
+        // Проверка обновлений из GitHub Releases + подсистема автообновления (Linux/Avalonia).
+        services.AddSingleton<GitHubReleaseService>();
+        services.AddSingleton<UpdateService>();
 #endif
 
         Services = services.BuildServiceProvider();

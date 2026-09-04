@@ -486,6 +486,8 @@ public partial class MainViewModel : ViewModelBase
             HotkeyShowAll = _hotkeyShowAll,
             HotkeyShowFavorites = _hotkeyShowFavorites,
             HotkeyShowRecent = _hotkeyShowRecent,
+            HotkeyClearSearch = _hotkeyClearSearch,
+            HotkeyClearTags = _hotkeyClearTags,
             SortField = _sortField,
             SortAscending = _sortAscending,
             FavoriteHotkeyIds = _favoriteHotkeyIds.ToList(),

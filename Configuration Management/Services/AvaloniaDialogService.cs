@@ -176,7 +176,16 @@ namespace Configuration_Management.Services
                 var frame = new DispatcherFrame();
                 task.ContinueWith(_ => frame.Continue = false,
                     TaskScheduler.FromCurrentSynchronizationContext());
-                Dispatcher.UIThread.PushFrame(frame);
+                try
+                {
+                    Dispatcher.UIThread.PushFrame(frame);
+                }
+                finally
+                {
+                    // Снимаем кадр при любом исходе, чтобы диалоговая очередь не зависла,
+                    // если задача завершилась с ошибкой до того, как продолжится цикл.
+                    frame.Continue = false;
+                }
             }
             return task.GetAwaiter().GetResult();
         }
@@ -199,20 +208,80 @@ namespace Configuration_Management.Services
                 frame.Continue = false;
             };
 
-            if (owner is not null)
-            {
-                window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                _ = window.ShowDialog(owner);
-            }
-            else
-            {
-                window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-                window.Show();
-            }
+            // Владелец пригоден только видимый и с измеренной геометрией. На Linux/X11
+            // модальный показ относительно неотрисованного владельца (нулевая геометрия)
+            // и центрирование по нему способны вызывать нативный abort при открытии
+            // диалога (issue #168). С непригодным владельцем диалог открывается по
+            // центру экрана и без привязки модальности к окну.
+            var validOwner = owner is { IsVisible: true } o && HasUsableBounds(o);
 
-            Dispatcher.UIThread.PushFrame(frame);
+            try
+            {
+                if (validOwner)
+                {
+                    // validOwner гарантирует ненулевого владельца; оператор ! — только
+                    // для анализатора nullability, чтобы не давать ложное предупреждение.
+                    window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                    _ = window.ShowDialog(owner!);
+                }
+                else
+                {
+                    window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                    window.Show();
+                }
+
+                Dispatcher.UIThread.PushFrame(frame);
+            }
+            catch
+            {
+                // Запасной путь показа: простой немодальный показ по центру экрана.
+                // Нативный сбой Avalonia при открытии диалога не должен оставлять окно
+                // неоткрытым и гасить вложенный цикл сообщений (issue #168: «не падает,
+                // но и не открывается»).
+                frame.Continue = false;
+                try
+                {
+                    window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                    if (!window.IsVisible)
+                        window.Show();
+                    Dispatcher.UIThread.PushFrame(frame);
+                }
+                catch
+                {
+                    frame.Continue = false;
+                    try { if (window.IsVisible) window.Hide(); } catch { /* ignore */ }
+                }
+            }
+            finally
+            {
+                // Снимаем кадр при любом исходе и прячем неоткрытое окно: сбой показа
+                // не должен оставлять висящий вложенный цикл сообщений.
+                frame.Continue = false;
+                try { if (window.IsVisible) window.Hide(); } catch { /* ignore */ }
+            }
 
             return result;
+        }
+
+        /// <summary>
+        /// Признак того, что окно имеет измеренную ненулевую геометрию и пригодно
+        /// в качестве владельца модального диалога. На Linux/X11 центрирование по
+        /// владельцу с нулевым размером и показ диалога поверх него могут давать
+        /// нативный abort при открытии окна (issue #168).
+        /// </summary>
+        private static bool HasUsableBounds(Window w)
+        {
+            try
+            {
+                if (w.Bounds.Width > 0 && w.Bounds.Height > 0)
+                    return true;
+            }
+            catch
+            {
+                // Bounds может быть недоступен у ещё не показанного окна.
+            }
+            // Явно заданная ширина/высота тоже считается пригодной геометрией.
+            return w.Width > 0 && w.Height > 0;
         }
 
         private static Window? CurrentOwner()
