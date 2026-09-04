@@ -9,6 +9,20 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.64] — 2026-09-04
+
+Выпуск с полным устранением issue #171: исправлено исчезновение группы (вместе с её базами) при изменении наименования. Причина была в том, что базы ссылаются на группу строкой полного пути (`Infobase.Group`): при переименовании через `EditGroup` менялось имя группы, но пути баз не пересчитывались — базы не находили узел, группа становилась «пустой» и скрывалась из дерева. Теперь при переименовании или смене родителя добавляется метод `RemapSubtreeInfobasePaths` ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) и WPF-версия в [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs)), который пересчитывает `Infobase.Group` у всех баз подветки, переносит ключи свёрнутых групп, сохраняет и базы, и группы, а затем экспортирует `ibases.v8i`. Метод вызывается из `EditGroup` в Avalonia ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)) и Windows ([`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs)).
+
+### Исправлено
+
+- **Группа больше не исчезает при переименовании вместе с её базами (issue #171)**: базы ссылаются на группу строкой полного пути (`Infobase.Group`); при переименовании через `EditGroup` имя группы менялось, но пути баз не пересчитывались, из-за чего базы не находили узел, группа становилась «пустой» и скрывалась из дерева.
+- **Пересчёт путей баз подветки при переименовании/смене родителя (issue #171)**: добавлен метод `RemapSubtreeInfobasePaths` ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) и WPF-версия в [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs)), который при переименовании или смене родителя пересчитывает `Infobase.Group` у всех баз подветки, переносит ключи свёрнутых групп и сохраняет и базы, и группы.
+- **Повторный экспорт `ibases.v8i` после переименования (issue #171)**: после сохранения баз и групп выполняется экспорт `ibases.v8i`, чтобы иерархия в родном стартере 1С соответствовала новому имени группы; метод вызывается из `EditGroup` в Avalonia ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)) и Windows ([`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs)). Исправление действует на обеих платформах — Windows и Linux.
+
+### Версия
+
+- **Версия поднята до `0.3.6.63` → `0.3.6.64`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.63] — 2026-09-04
 
 Выпуск с полным устранением issue #168: устранено падение (Signal 6 / SIGABRT) при открытии дополнительных (модальных) окон на Linux. Причина была двойной. Во-первых, ненадёжный детектор Wayland в `LinuxRendering.IsWayland()` — он возвращал `true` уже по одной переменной окружения `WAYLAND_DISPLAY`, даже если сессия фактически X11 (XWayland), из-за чего модальные окна шли прозрачным путём (`ExtendClientAreaToDecorationsHint` + `Transparent`), что на X11 даёт SIGABRT; теперь `IsWayland()` требует выполнения обоих условий — `XDG_SESSION_TYPE=wayland` И `WAYLAND_DISPLAY`. Во-вторых, показ и центрирование окна относительно непригодного владельца (без проверки видимости/геометрии); укреплены `ShowDialogSync` в [`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs) и `ShowModalSync` в [`Services/AvaloniaDialogService.cs`](Configuration%20Management/Services/AvaloniaDialogService.cs): владелец используется только если видим и имеет размеры, добавлен запасной немодальный путь показа и снятие кадра в `finally`.

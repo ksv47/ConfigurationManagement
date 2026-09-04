@@ -295,6 +295,22 @@ public partial class MainViewModel : ViewModelBase
         };
         if (dialog.ShowDialog() == true)
         {
+            // Старые полные пути группы и её потомков фиксируются ДО применения изменений:
+            // по ним пересчитываются пути баз (issue #171). Иначе после переименования базы
+            // остаются на старом пути, уезжают в «Без группы», а сама группа становится
+            // пустой и скрывается из дерева.
+            var oldPathsById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var subtreeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { group.Id };
+            CollectGroupDescendants(group.Id, subtreeIds);
+            foreach (var id in subtreeIds)
+            {
+                var g = Groups.FirstOrDefault(x =>
+                    string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+                if (g is not null)
+                    oldPathsById[id] = GroupHierarchyHelper.GetFullPath(g, Groups);
+            }
+            var oldRootPath = oldPathsById.TryGetValue(group.Id, out var orp) ? orp : string.Empty;
+
             // Обновляем поля существующего объекта группы (сохраняем ссылку),
             // чтобы иерархия по ParentId и все привязки остались валидными.
             group.Name = dialog.Result.Name;
@@ -304,7 +320,14 @@ public partial class MainViewModel : ViewModelBase
             group.Icon = dialog.Result.Icon ?? string.Empty;
             group.ParentId = dialog.Result.ParentId;
 
+            var newRootPath = GroupHierarchyHelper.GetFullPath(group, Groups);
+
+            // Пересчитываем Infobase.Group у всех баз подветки на новый полный путь группы,
+            // чтобы группа осталась видимой вместе со своими базами после переименования.
+            RemapSubtreeInfobasePaths(oldPathsById, oldRootPath, newRootPath);
+
             SaveGroups();
+            Save();
             RebuildGroupTree();
 
             // Узлы групп пересоздаются при пересборке, поэтому восстанавливаем выделение
