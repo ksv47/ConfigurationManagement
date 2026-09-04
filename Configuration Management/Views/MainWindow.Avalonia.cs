@@ -2636,7 +2636,8 @@ namespace Configuration_Management
                 DetailRow(LocalizationManager.T("Main.Bitness"), new Binding("SelectedInfobase.ArchitectureDisplay")),
                 DetailRow(LocalizationManager.T("Main.Parameters"), new Binding("SelectedInfobase.LaunchParameters")),
                 DetailRow(LocalizationManager.T("Main.LastLaunch"), new Binding("SelectedInfobase.LastLaunchDisplay")),
-                DetailRow(LocalizationManager.T("Main.CacheSize"), new Binding("SelectedInfobase.CacheSizeDisplay")));
+                DetailRow(LocalizationManager.T("Main.CacheSize"), new Binding("SelectedInfobase.CacheSizeDisplay")),
+                DetailRow(LocalizationManager.T("Column.Configuration"), new Binding("SelectedInfobase.ConfigurationDisplay")));
             connectionCard.Bind(Control.IsVisibleProperty, new Binding("ShowConnectionInfo"));
 
             // Блок «Текущая сессия»: значения действуют только на следующий запуск.
