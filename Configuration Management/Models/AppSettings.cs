@@ -305,6 +305,9 @@ public class AppSettings
     /// <summary>Горячая клавиша сброса фильтра по тегам. Пусто — не назначена (issue #160).</summary>
     public string HotkeyClearTags { get; set; } = "Ctrl+Shift+T";
 
+    /// <summary>Горячая клавиша переключения подробностей правой панели информации (issue #172). Пусто — не назначена.</summary>
+    public string HotkeyRightPanelDetails { get; set; } = "";
+ 
     /// <summary>
     /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.
     /// </summary>

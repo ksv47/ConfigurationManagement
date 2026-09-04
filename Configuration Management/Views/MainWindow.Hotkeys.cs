@@ -66,6 +66,10 @@ namespace Configuration_Management
             Add(_viewModel.HotkeyClearSearch, _viewModel.ClearSearchCommand);
             Add(_viewModel.HotkeyClearTags, _viewModel.ClearTagFiltersCommand);
 
+            // Переключение подробностей правой панели информации — настраиваемый
+            // хоткей (issue #172); значение по умолчанию не назначено.
+            Add(_viewModel.HotkeyRightPanelDetails, _viewModel.ToggleRightPanelDetailsCommand);
+ 
             // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
             // Регистрируются обе раскладки (основная Oem* и цифровой блок Add/Subtract).
             InputBindings.Add(new KeyBinding(_viewModel.ExpandAllGroupsCommand, Key.OemPlus, ModifierKeys.Control | ModifierKeys.Shift));

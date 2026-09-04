@@ -984,6 +984,17 @@ public string HotkeyEnterprise
         }
     }
 
+    /// <summary>Горячая клавиша переключения подробностей правой панели информации. Пусто — не назначена (issue #172).</summary>
+    public string HotkeyRightPanelDetails
+    {
+        get => _hotkeyRightPanelDetails;
+        set
+        {
+            if (SetProperty(ref _hotkeyRightPanelDetails, NormalizeHotkey(value, "")))
+                ScheduleSaveSettings();
+        }
+    }
+ 
     private static string NormalizeHotkey(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 

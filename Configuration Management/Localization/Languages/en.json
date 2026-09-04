@@ -416,6 +416,7 @@
     "Settings.Hotkeys.ShowRecent": "Show recent:",
     "Settings.Hotkeys.ClearSearch": "Clear search:",
     "Settings.Hotkeys.ClearTags": "Reset tags:",
+    "Settings.Hotkeys.RightPanelDetails": "Info panel (details):",
     "Settings.Hotkeys.FavoritesOrder": "Favorites order (Alt+1 … Alt+9)",
     "Settings.Hotkeys.FavoritesOrderHint": "The slot order determines which infobase is launched by Alt+1, Alt+2, etc. Use the arrows to move items.",
     "Settings.Hotkeys.MoveUpTooltip": "Up (lower Alt number)",

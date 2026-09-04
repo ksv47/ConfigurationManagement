@@ -785,7 +785,8 @@ public class MainViewModel : ViewModelBase
     public string HotkeyShowRecent => _settings.HotkeyShowRecent;
     public string HotkeyClearSearch => _settings.HotkeyClearSearch;
     public string HotkeyClearTags => _settings.HotkeyClearTags;
-
+    public string HotkeyRightPanelDetails => _settings.HotkeyRightPanelDetails;
+ 
     /// <summary>
     /// Сохраняет назначенные сочетания и сообщает окну, что их надо
     /// перерегистрировать: подписи в меню и сами привязки берутся отсюда.
@@ -793,7 +794,7 @@ public class MainViewModel : ViewModelBase
     public void ApplyHotkeys(string enterprise, string configurator, string edit, string add,
         string favorite, string pin, string delete, string clearCache,
         string showAll, string showFavorites, string showRecent,
-        string clearSearch, string clearTags)
+        string clearSearch, string clearTags, string rightPanelDetails)
     {
         _settings.HotkeyEnterprise = enterprise ?? string.Empty;
         _settings.HotkeyConfigurator = configurator ?? string.Empty;
@@ -808,7 +809,8 @@ public class MainViewModel : ViewModelBase
         _settings.HotkeyShowRecent = showRecent ?? string.Empty;
         _settings.HotkeyClearSearch = clearSearch ?? string.Empty;
         _settings.HotkeyClearTags = clearTags ?? string.Empty;
-
+        _settings.HotkeyRightPanelDetails = rightPanelDetails ?? string.Empty;
+ 
         SaveSettingsSilently();
 
         OnPropertyChanged(nameof(HotkeyEnterprise));
@@ -824,6 +826,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyShowRecent));
         OnPropertyChanged(nameof(HotkeyClearSearch));
         OnPropertyChanged(nameof(HotkeyClearTags));
+        OnPropertyChanged(nameof(HotkeyRightPanelDetails));
         HotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 

@@ -5603,6 +5603,8 @@ namespace Configuration_Management
             // сочетания имели приоритет.
             AddHotkey(_vm.HotkeyClearSearch, _vm.ClearSearchCommand);
             AddHotkey(_vm.HotkeyClearTags, _vm.ClearTagFiltersCommand);
+            // Переключение подробностей правой панели информации — настраиваемый хоткей (issue #172).
+            AddHotkey(_vm.HotkeyRightPanelDetails, _vm.ToggleRightPanelDetailsCommand);
             // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
             // Регистрируются обе раскладки (основная клавиатура Oem* и цифровой блок Add/Subtract).
             KeyBindings.Add(new KeyBinding

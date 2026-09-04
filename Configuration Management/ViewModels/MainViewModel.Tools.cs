@@ -1832,7 +1832,8 @@ public partial class MainViewModel : ViewModelBase
         bool rememberWindowLayout = true,
         string afterLaunchAction = "None",
         string? hotkeyClearSearch = null,
-        string? hotkeyClearTags = null)
+        string? hotkeyClearTags = null,
+        string? hotkeyRightPanelDetails = null)
     {
         _allowMultipleInstances = allowMultipleInstances;
         _checkForUpdatesOnStartup = checkForUpdatesOnStartup;
@@ -1856,6 +1857,7 @@ public partial class MainViewModel : ViewModelBase
         if (hotkeyShowRecent != null) _hotkeyShowRecent = hotkeyShowRecent.Trim();
         if (hotkeyClearSearch != null) _hotkeyClearSearch = hotkeyClearSearch.Trim();
         if (hotkeyClearTags != null) _hotkeyClearTags = hotkeyClearTags.Trim();
+        if (hotkeyRightPanelDetails != null) _hotkeyRightPanelDetails = hotkeyRightPanelDetails.Trim();
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(CheckForUpdatesOnStartup));
         OnPropertyChanged(nameof(AutoUpdateEnabled));
@@ -1877,6 +1879,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyShowRecent));
         OnPropertyChanged(nameof(HotkeyClearSearch));
         OnPropertyChanged(nameof(HotkeyClearTags));
+        OnPropertyChanged(nameof(HotkeyRightPanelDetails));
         OnPropertyChanged(nameof(RememberWindowLayout));
         SaveSettings();
     }

@@ -2056,6 +2056,7 @@ namespace Configuration_Management
             var hotkeyShowRecent = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowRecent"), _viewModel.HotkeyShowRecent);
             var hotkeyClearSearch = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearSearch"), _viewModel.HotkeyClearSearch);
             var hotkeyClearTags = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearTags"), _viewModel.HotkeyClearTags);
+            var hotkeyRightPanelDetails = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.RightPanelDetails"), _viewModel.HotkeyRightPanelDetails);
             // У автора последняя строка идёт без нижнего поля, а весь блок строк
             // несёт низ 12 (SettingsWindow.xaml:957 и 1039). У нас строки лежат
             // в общей панели, поэтому поле снимается у последней и добирается
@@ -2359,7 +2360,7 @@ namespace Configuration_Management
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
                     hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value,
                     hotkeyShowAll.Value, hotkeyShowFavorites.Value, hotkeyShowRecent.Value,
-                    hotkeyClearSearch.Value, hotkeyClearTags.Value);
+                    hotkeyClearSearch.Value, hotkeyClearTags.Value, hotkeyRightPanelDetails.Value);
 
                 // Настройки отображения применяются и сохраняются одним вызовом.
                 // Видимость колонок читается из тех же элементов списка, где
