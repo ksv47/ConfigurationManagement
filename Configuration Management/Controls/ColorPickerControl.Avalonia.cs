@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Configuration_Management.Localization;
 using Configuration_Management.Themes;
 
@@ -48,15 +49,18 @@ namespace Configuration_Management.Controls
         private double _saturation = 100;
         private double _brightness = 100;
 
-        // Ползунок Fluent высотой около 50 против 22 у WPF: четыре строки давали
-        // лишние сто пикселей, и ряд кнопок уходил за нижнюю границу окна,
-        // высота которого задана числом из разметки (ColorPickerWindow.xaml:11).
+        // Ползунок Fluent занимает около 50 пикселей против 22 у WPF: четыре строки
+        // давали лишние сто, и ряд кнопок уходил за нижнюю границу окна, высота
+        // которого задана числом из разметки (ColorPickerWindow.xaml:11). Высота
+        // строки уменьшена вместе с бегунком: одна высота без второго размера
+        // обрезает круглый бегунок Fluent по нижнему краю.
         private const double SliderHeight = 22;
+        private const double SliderThumbSize = 14;
 
-        private readonly Slider _redSlider = new() { Minimum = 0, Maximum = 255, Height = SliderHeight };
-        private readonly Slider _greenSlider = new() { Minimum = 0, Maximum = 255, Height = SliderHeight };
-        private readonly Slider _blueSlider = new() { Minimum = 0, Maximum = 255, Height = SliderHeight };
-        private readonly Slider _brightnessSlider = new() { Minimum = 0, Maximum = 100, Height = SliderHeight };
+        private readonly Slider _redSlider = new() { Minimum = 0, Maximum = 255 };
+        private readonly Slider _greenSlider = new() { Minimum = 0, Maximum = 255 };
+        private readonly Slider _blueSlider = new() { Minimum = 0, Maximum = 255 };
+        private readonly Slider _brightnessSlider = new() { Minimum = 0, Maximum = 100 };
 
         private readonly TextBlock _redValue = new() { TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
         private readonly TextBlock _greenValue = new() { TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
@@ -100,6 +104,23 @@ namespace Configuration_Management.Controls
         /// </summary>
         public ColorPickerControl()
         {
+            // Шаблон ползунка Fluent держит собственный минимум высоты 32 и бегунок
+            // 20 на 20, поэтому при высоте строки из разметки он вылезал за границы
+            // и обрезался по нижнему краю. Минимум снимается, бегунок уменьшается
+            // до размера дорожки: в разметке WPF бегунок круглый и в строку влезает.
+            // Размеры ползунка шаблон Fluent берёт из своих ресурсов: полоса 32
+            // высотой (15 + дорожка 2 + 15) и круглый бегунок 20 на 20. Четыре
+            // такие строки давали лишние сто пикселей, и ряд кнопок уходил
+            // за нижнюю границу окна, высота которого задана числом из разметки
+            // (ColorPickerWindow.xaml:11). Ресурсы переопределяются здесь, а не
+            // высотой самого ползунка: от голой высоты бегунок обрезается снизу.
+            Resources["SliderHorizontalHeight"] = SliderHeight;
+            Resources["SliderPreContentMargin"] = new GridLength((SliderHeight - SliderThumbSize) / 2);
+            Resources["SliderPostContentMargin"] = new GridLength((SliderHeight - SliderThumbSize) / 2);
+            Resources["SliderHorizontalThumbWidth"] = SliderThumbSize;
+            Resources["SliderHorizontalThumbHeight"] = SliderThumbSize;
+            Resources["SliderThumbCornerRadius"] = new CornerRadius(SliderThumbSize / 2);
+
             _hexBox = new TextBox { Width = 110, Padding = new Thickness(4, 3) };
             _hexBox.TextChanged += OnHex_TextChanged;
 
