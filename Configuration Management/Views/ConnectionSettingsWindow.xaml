@@ -965,21 +965,26 @@
                         </Grid>
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.ConfigurationLabel}" VerticalAlignment="Center" Margin="0,6,0,3"/>
-                        <Grid Grid.Row="1" Grid.Column="1" Margin="0,6,0,3">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0"
-                                     Text="{Binding ConfigurationName, UpdateSourceTrigger=PropertyChanged}"
-                                     Padding="8,6" VerticalContentAlignment="Center"
-                                     ToolTip="{loc:Loc Connection.ConfigurationNameTooltip}"/>
-                            <TextBox Grid.Column="2"
-                                     Text="{Binding ConfigurationVersion, UpdateSourceTrigger=PropertyChanged}"
-                                     Padding="8,6" VerticalContentAlignment="Center"
-                                     ToolTip="{loc:Loc Connection.ConfigurationVersionTooltip}"/>
-                        </Grid>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,6,0,3">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding ConfigurationName, UpdateSourceTrigger=PropertyChanged}"
+                                         Padding="8,6" VerticalContentAlignment="Center"
+                                         ToolTip="{loc:Loc Connection.ConfigurationNameTooltip}"/>
+                                <TextBox Grid.Column="2"
+                                         Text="{Binding ConfigurationVersion, UpdateSourceTrigger=PropertyChanged}"
+                                         Padding="8,6" VerticalContentAlignment="Center"
+                                         ToolTip="{loc:Loc Connection.ConfigurationVersionTooltip}"/>
+                            </Grid>
+                            <TextBlock Text="{loc:Loc Connection.ConfigurationManualHint}"
+                                       FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
 
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.ParametersLabel}" VerticalAlignment="Center" Margin="0,3"/>
                         <Grid Grid.Row="2" Grid.Column="1" Margin="0,3">

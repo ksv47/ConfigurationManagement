@@ -733,7 +733,11 @@ namespace Configuration_Management
             pickPlatform.Padding = new Thickness(8, 3);
             Place(fields, 0, "Connection.VersionLabel", WithButton(version, pickPlatform));
 
-            var configRow = new Grid { Margin = new Thickness(0, 6, 0, 3) };
+            // Поля конфигурации можно заполнять вручную (issue #164): на Linux COM-соединение
+            // недоступно и автополучение имени/версии не всегда возможно, поэтому под полями
+            // выводим подсказку о ручном вводе. Введённые значения сохраняются и не затираются.
+            var configStack = new StackPanel { Margin = new Thickness(0, 6, 0, 3) };
+            var configRow = new Grid { Margin = new Thickness(0) };
             configRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(2, GridUnitType.Star)));
             configRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(8)));
             configRow.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
@@ -749,7 +753,17 @@ namespace Configuration_Management
             ToolTip.SetTip(configVersion, LocalizationManager.T("Connection.ConfigurationVersionTooltip"));
             Grid.SetColumn(configVersion, 2);
             configRow.Children.Add(configVersion);
-            Place(fields, 1, "Connection.ConfigurationLabel", configRow);
+            configStack.Children.Add(configRow);
+            var configHint = new TextBlock
+            {
+                Text = LocalizationManager.T("Connection.ConfigurationManualHint"),
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            ThemeBrushes.Bind(configHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            configStack.Children.Add(configHint);
+            Place(fields, 1, "Connection.ConfigurationLabel", configStack);
 
             var parameters = Tb("LaunchParameters");
             parameters.Padding = new Thickness(8, 6);
