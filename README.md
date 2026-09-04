@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.68-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.69-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.68**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.69**
+>
+> ✨ **0.3.6.69:** добавлен настраиваемый хоткей для переключения подробностей правой панели информации (issue #172) — по умолчанию **`Ctrl+D`**, комбинация меняется в **Настройки → Горячие клавиши → «Панель информации (подробности)»**. Работает на Windows/WPF ([`Views/MainWindow.Hotkeys.cs`](Configuration%20Management/Views/MainWindow.Hotkeys.cs)) и Linux/Avalonia ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)).
 >
 > ✨ **0.3.6.68:** исправлен повторный импорт баз из StartManager (issue #163) — теперь реализован режим слияния: при повторном импорте записи сопоставляются с уже существующими базами не только по имени, но и по идентификатору (ID) и по строке подключения, поэтому авторизации (хранилище / Предприятие / Конфигуратор) **дополняются/перезаписываются** в существующих базах, а не только добавляются новые. «Удалённые вручную» авторизации восстанавливаются из StartManager ([`Services/StartManagerImporter.cs`](Configuration%20Management/Services/StartManagerImporter.cs)).
 >
@@ -10,7 +12,7 @@
 >
 > ✨ **0.3.6.66:** продолжено устранение зависания при запуске на Linux/X11 в виртуальных машинах без композитора (issue #153). Теперь статичный индикатор загрузки (не анимированный `IsIndeterminate`) и не блокирующий ввод оверлей применяются и на любом X11 без композитора ([`Services/LinuxRendering.cs`](Configuration%20Management/Services/LinuxRendering.cs): `DisableAnimations` учитывает `NoCompositorAssumed`), а детектор программного рендера расширен источниками `MESA_LOADER_DRIVER_OVERRIDE`, значением `true` у `LIBGL_ALWAYS_SOFTWARE` и ручным флагом `CM_FORCE_SOFTWARE_RENDER=1`.
 >
-> ✨ **0.3.6.65:** добавлен настраиваемый хоткей `HotkeyRightPanelDetails` для переключения подробностей правой панели информации (**Настройки → Горячие клавиши → «Панель информации (подробности)»**); по умолчанию не назначен (issue #172).
+> ✨ **0.3.6.65:** добавлен настраиваемый хоткей `HotkeyRightPanelDetails` для переключения подробностей правой панели информации (**Настройки → Горячие клавиши → «Панель информации (подробности)»**); значение по умолчанию `Ctrl+D` окончательно закреплено в 0.3.6.69 (issue #172).
 >
 > ✨ **0.3.6.64:** исправлено исчезновение группы (вместе с её базами) при изменении наименования (issue #171). Причина была в том, что базы ссылаются на группу строкой полного пути (`Infobase.Group`): при переименовании через `EditGroup` менялось имя группы, но пути баз не пересчитывались — базы не находили узел, группа становилась «пустой» и скрывалась из дерева. Теперь при переименовании или смене родителя добавлен метод `RemapSubtreeInfobasePaths` ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) и WPF-версия в [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs)), который пересчитывает `Infobase.Group` у всех баз подветки, переносит ключи свёрнутых групп, сохраняет и базы, и группы, а затем экспортирует `ibases.v8i`; вызывается из `EditGroup` в Avalonia ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)) и Windows ([`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs)). Исправление действует на обеих платформах — Windows и Linux.
 >

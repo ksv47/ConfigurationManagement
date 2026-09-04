@@ -67,7 +67,7 @@ namespace Configuration_Management
             Add(_viewModel.HotkeyClearTags, _viewModel.ClearTagFiltersCommand);
 
             // Переключение подробностей правой панели информации — настраиваемый
-            // хоткей (issue #172); значение по умолчанию не назначено.
+            // хоткей (issue #172); значение по умолчанию Ctrl+D задаётся в настройках.
             Add(_viewModel.HotkeyRightPanelDetails, _viewModel.ToggleRightPanelDetailsCommand);
  
             // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.

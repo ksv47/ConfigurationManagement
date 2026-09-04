@@ -306,7 +306,7 @@ public class AppSettings
     public string HotkeyClearTags { get; set; } = "Ctrl+Shift+T";
 
     /// <summary>Горячая клавиша переключения подробностей правой панели информации (issue #172). Пусто — не назначена.</summary>
-    public string HotkeyRightPanelDetails { get; set; } = "";
+    public string HotkeyRightPanelDetails { get; set; } = "Ctrl+D";
  
     /// <summary>
     /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.
