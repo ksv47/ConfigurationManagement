@@ -1272,7 +1272,6 @@ namespace Configuration_Management
             var leftContent = new Grid { Margin = new Thickness(12, 0, 0, 12) };
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             var tagPanel = BuildTagFilterPanel();
             // Панель команд стоит между фильтром тегов и списком, как в разметке
