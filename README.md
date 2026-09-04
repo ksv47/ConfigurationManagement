@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.66-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.67-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.66**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.67**
+>
+> ✨ **0.3.6.67:** исправлено автообновление на Windows при установке в защищённую папку, например `C:\Program Files\ConfigurationManagement\` (issue #161). Если целевой каталог установки не доступен пользователю на запись, PowerShell-помощник замены exe теперь запускается с повышением прав через UAC ([`Services/UpdateService.cs`](Configuration%20Management/Services/UpdateService.cs)), поэтому `Move-Item` больше не падает с «Access to the path is denied» и новая версия корректно устанавливается.
 >
 > ✨ **0.3.6.66:** продолжено устранение зависания при запуске на Linux/X11 в виртуальных машинах без композитора (issue #153). Теперь статичный индикатор загрузки (не анимированный `IsIndeterminate`) и не блокирующий ввод оверлей применяются и на любом X11 без композитора ([`Services/LinuxRendering.cs`](Configuration%20Management/Services/LinuxRendering.cs): `DisableAnimations` учитывает `NoCompositorAssumed`), а детектор программного рендера расширен источниками `MESA_LOADER_DRIVER_OVERRIDE`, значением `true` у `LIBGL_ALWAYS_SOFTWARE` и ручным флагом `CM_FORCE_SOFTWARE_RENDER=1`.
 >
