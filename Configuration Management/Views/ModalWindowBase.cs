@@ -1,6 +1,5 @@
 #if LINUX
 using System;
-using System.IO;
 using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
@@ -82,42 +81,10 @@ namespace Configuration_Management
         /// <summary>
         /// Рисовать ли диалоги непрозрачными (issue #153): на X11 с программным рендером
         /// или в виртуализации прозрачность заставляет оконный менеджер непрерывно
-        /// перерисовывать фон, что даёт высокую нагрузку CPU. Вычисляется один раз.
+        /// перерисовывать фон, что даёт высокую нагрузку CPU. Вычисляется один раз общим
+        /// детектором Services.LinuxRendering — та же логика, что у главного окна.
         /// </summary>
-        private static readonly bool ShouldRenderOpaque = DetectSoftwareRenderOrVm();
-
-        private static bool DetectSoftwareRenderOrVm()
-        {
-            try
-            {
-                if (File.Exists("/proc/cpuinfo"))
-                {
-                    var cpuInfo = File.ReadAllText("/proc/cpuinfo");
-                    if (cpuInfo.Contains("hypervisor", StringComparison.OrdinalIgnoreCase))
-                        return true;
-                }
-                foreach (var dmiPath in new[]
-                         {
-                             "/sys/devices/virtual/dmi/id/sys_vendor",
-                             "/sys/devices/virtual/dmi/id/product_name"
-                         })
-                {
-                    if (!File.Exists(dmiPath))
-                        continue;
-                    var value = File.ReadAllText(dmiPath);
-                    if (value.Contains("VirtualBox", StringComparison.OrdinalIgnoreCase)
-                        || value.Contains("innotek", StringComparison.OrdinalIgnoreCase)
-                        || value.Contains("QEMU", StringComparison.OrdinalIgnoreCase)
-                        || value.Contains("VMware", StringComparison.OrdinalIgnoreCase))
-                        return true;
-                }
-            }
-            catch
-            {
-                // При любой ошибке чтения не мешаем запуску и оставляем прозрачный режим.
-            }
-            return false;
-        }
+        private static readonly bool ShouldRenderOpaque = Services.LinuxRendering.OpaqueWindow;
 
         /// <summary>
         /// Читает настройку «Системный заголовок окна» из репозитория. Значение кэшируется
@@ -215,21 +182,37 @@ namespace Configuration_Management
         /// <returns>True, если пользователь подтвердил действие (DialogResult == true).</returns>
         public bool ShowDialogSync(Window? owner = null)
         {
+            // Повторный вход при уже открытом окне недопустим: вложенный PushFrame
+            // никогда бы не завершился, так как Closed не сработает повторно.
+            if (IsVisible)
+                return DialogResult;
+
             var frame = new DispatcherFrame();
             Closed += (_, _) => frame.Continue = false;
 
-            if (owner is not null)
+            try
             {
-                WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                _ = ShowDialog(owner);
-            }
-            else
-            {
-                WindowStartupLocation = WindowStartupLocation.CenterScreen;
-                Show();
-            }
+                if (owner is not null)
+                {
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                    _ = ShowDialog(owner);
+                }
+                else
+                {
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                    Show();
+                }
 
-            Dispatcher.UIThread.PushFrame(frame);
+                Dispatcher.UIThread.PushFrame(frame);
+            }
+            finally
+            {
+                // Снимаем кадр при любом исходе: если ShowDialog/Show бросили исключение
+                // до входа в цикл сообщений, кадр не должен зависнуть, а неоткрытое окно
+                // прячем, чтобы повторное открытие не копило висящие окна.
+                frame.Continue = false;
+                try { if (IsVisible) Hide(); } catch { /* ignore */ }
+            }
 
             return DialogResult;
         }

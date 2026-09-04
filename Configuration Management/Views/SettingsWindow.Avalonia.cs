@@ -1269,7 +1269,12 @@ namespace Configuration_Management
                 return button;
             }
 
-            SchemeButton("Common.Apply", "Settings.Theme.ApplyTooltip", () => ThemeManager.ApplyScheme(editedScheme));
+            SchemeButton("Common.Apply", "Settings.Theme.ApplyTooltip", () =>
+            {
+                ThemeManager.ApplyScheme(editedScheme);
+                // Общий цвет папок применяется при построении дерева — пересобираем его.
+                _viewModel.RebuildTree();
+            });
 
             SchemeButton("Settings.CreateTheme", "Settings.CreateThemeTooltip", () =>
             {

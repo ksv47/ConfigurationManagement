@@ -197,6 +197,71 @@ namespace Configuration_Management
             return grid;
         }
 
+        /// <summary>
+        /// Панель поля пароля (issue #169): само поле и две кнопки справа — «глаз»
+        /// для показа/скрытия пароля и «копировать в буфер обмена». Возвращает сетку
+        /// с полем в колонке 0 и кнопками в колонках 1-2.
+        /// </summary>
+        private Control BuildPasswordField(PasswordBox box)
+        {
+            var revealed = false;
+
+            var reveal = new Button
+            {
+                Content = IconHelper.MakeIcon("IconEye", 16),
+                Width = 30,
+                Height = 30,
+                Padding = new Thickness(0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            reveal.Styled(ControlThemes.IconButton);
+            ToolTip.SetTip(reveal, LocalizationManager.T("Connection.ShowPasswordTooltip"));
+            reveal.Click += (_, _) =>
+            {
+                revealed = !revealed;
+                // В отличие от WPF-контрола у нашей версии поле — это TextBox,
+                // поэтому показать/скрыть пароль можно сменой символа маски.
+                box.PasswordChar = revealed ? '\0' : '•';
+            };
+
+            var copy = new Button
+            {
+                Content = IconHelper.MakeIcon("IconCopy", 16),
+                Width = 30,
+                Height = 30,
+                Padding = new Thickness(0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            copy.Styled(ControlThemes.IconButton);
+            ToolTip.SetTip(copy, LocalizationManager.T("Connection.CopyPasswordTooltip"));
+            copy.Click += async (_, _) =>
+            {
+                if (string.IsNullOrEmpty(box.Password)) return;
+                var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+                if (clipboard is not null)
+                    await clipboard.SetTextAsync(box.Password);
+            };
+
+            var grid = new Grid { Margin = new Thickness(0, 3) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+
+            box.Margin = new Thickness(0);
+            Grid.SetColumn(box, 0);
+            grid.Children.Add(box);
+
+            reveal.Margin = new Thickness(6, 0, 0, 0);
+            Grid.SetColumn(reveal, 1);
+            grid.Children.Add(reveal);
+
+            copy.Margin = new Thickness(4, 0, 0, 0);
+            Grid.SetColumn(copy, 2);
+            grid.Children.Add(copy);
+
+            return grid;
+        }
+
         /// <summary>Вторичная кнопка со значком и подписью, как в разметке окна.</summary>
         private static Button SecondaryButton(string iconKey, string textKey, Action onClick,
             string? tooltipKey = null, double iconSize = 14, IBrush? iconBrush = null)
@@ -609,7 +674,7 @@ namespace Configuration_Management
                 if (_isSyncingRepositoryPassword) return;
                 _viewModel.RepositoryPassword = _repositoryPasswordBox.Password;
             };
-            Place(fields, 3, "Connection.RepositoryPasswordLabel", _repositoryPasswordBox);
+            Place(fields, 3, "Connection.RepositoryPasswordLabel", BuildPasswordField(_repositoryPasswordBox));
 
             var content = new StackPanel
             {
@@ -642,7 +707,7 @@ namespace Configuration_Management
                 if (_isSyncingPassword) return;
                 _viewModel.Password = _passwordBox.Password;
             };
-            Place(enterprise, 2, "Connection.PasswordLabel", _passwordBox, "IsCredentialsVisible");
+            Place(enterprise, 2, "Connection.PasswordLabel", BuildPasswordField(_passwordBox), "IsCredentialsVisible");
 
             var configurator = FieldsGrid(3);
             Place(configurator, 0, "Connection.ModeLabel", new StackPanel
@@ -665,7 +730,7 @@ namespace Configuration_Management
                 if (_isSyncingConfiguratorPassword) return;
                 _viewModel.ConfiguratorPassword = _configuratorPasswordBox.Password;
             };
-            Place(configurator, 2, "Connection.PasswordLabel", _configuratorPasswordBox, "IsConfiguratorCredentialsVisible");
+            Place(configurator, 2, "Connection.PasswordLabel", BuildPasswordField(_configuratorPasswordBox), "IsConfiguratorCredentialsVisible");
 
             return new StackPanel
             {

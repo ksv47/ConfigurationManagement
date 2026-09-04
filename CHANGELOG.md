@@ -9,6 +9,29 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.56] — 2026-09-04
+
+Выпуск с исправлениями девяти открытых issues: просмотр паролей в свойствах базы, падение на Linux при открытии доп. окон, большой отступ у тегов, цветовое оформление папок, дублирование вложенных папок в родном стартере, хоткеи «Свернуть/Развернуть всё», окно обновления, высокая нагрузка CPU на Linux в виртуальных машинах и сохранение данных в поле «Конфигурация».
+
+### Добавлено
+
+- **Просмотр паролей в свойствах базы (issue #169)**: для полей пароля хранилища, авторизации предприятия и Конфигуратора добавлены кнопка-«глазик» (показать/скрыть) и кнопка копирования пароля в буфер обмена. Реализовано в WPF ([`Views/ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml), [`Views/ConnectionSettingsWindow.xaml.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml.cs)) и Avalonia ([`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs)). Добавлены ключи локализации `Connection.ShowPasswordTooltip` / `Connection.CopyPasswordTooltip`.
+- **Цветовое оформление папок (issue #166)**: в цветовую схему добавлены общие цвета обычной (`FolderColor`) и избранной (`FavoriteFolderColor`) папки, настраиваемые в редакторе схем; индивидуальная настройка каждой папки сохранена. Добавлены подписи в локализацию (ru/en).
+
+### Исправлено
+
+- **Падение на Linux при открытии доп. окон (issue #168)**: добавлен глобальный обработчик необработанных исключений UI-потока в Avalonia ([`App.axaml.cs`](Configuration%20Management/App.axaml.cs)), защищены вложенные циклы сообщений ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs), [`Services/AvaloniaDialogService.cs`](Configuration%20Management/Services/AvaloniaDialogService.cs)) и конструкторы окон в [`MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs).
+- **Большой непонятный отступ (issue #167)**: убран верхний margin у левой колонки списка баз в Avalonia, панель «Теги» прижата к поиску, как на Windows ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)).
+- **Дублирование вложенных папок в родном стартере (issue #165)**: корневая причина — разделитель пути в Folder при экспорте `ibases.v8i` (`/` вместо `\`); теперь Folder пишется нативным разделителем ([`Services/IbasesV8iExporter.cs`](Configuration%20Management/Services/IbasesV8iExporter.cs)), а импортёр дополнительно канонизирует пути и дедуплицирует вложенные группы идемпотентно ([`Services/IbasesV8iImporter.cs`](Configuration%20Management/Services/IbasesV8iImporter.cs)).
+- **Хоткеи «Свернуть всё/Развернуть всё» (issue #160)**: устранён пропуск первого нажатия (виртуализация) и поломка мышиного переключения узлов (local value DP) — команды теперь ведут модель через `node.IsExpanded` ([`ViewModels/MainViewModel.Theme.cs`](Configuration%20Management/ViewModels/MainViewModel.Theme.cs), [`Views/MainWindow.Tree.cs`](Configuration%20Management/Views/MainWindow.Tree.cs)).
+- **Окно обновления (issue #157)**: устранён DPI-баг в Win32-хуке (размер окна считался в DIP вместо физических пикселей) — контент больше не обрезается при масштабе >100%; пересчёт высоты по этапу ([`Services/UpdateAvailableWindow.xaml.cs`](Configuration%20Management/Services/UpdateAvailableWindow.xaml.cs)).
+- **Высокая нагрузка CPU/зависание на Linux в VM (issue #153)**: найден источник бесконечной перерисовки (индетерминантный индикатор загрузки); добавлен детектор ПО-рендера/VM ([`Services/LinuxRendering.cs`](Configuration%20Management/Services/LinuxRendering.cs)), статичный индикатор и страховочный таймаут в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs).
+- **Сохранение данных в поле «Конфигурация» (issue #164)**: введённые вручную имя и версия конфигурации теперь корректно переносятся из диалога свойств в объект базы и сохраняются ([`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)).
+
+### Версия
+
+- **Версия поднята до `0.3.6.55` → `0.3.6.56`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.55] — 2026-09-04
 
 Добавлен ручной ввод имени конфигурации и версии релиза конфигурации информационной базы (issue #164). На Windows значения можно оставить для автополучения через COM-коннектор, а на Linux, где COM-соединение недоступно и автополучение не всегда возможно, имя и версию конфигурации теперь можно заполнить вручную в окне свойств базы. Введённые вручную значения сохраняются и не затираются фоновым автообновлением, а в колонке «Конфигурация» списка баз отображаются полученные данные.

@@ -245,6 +245,10 @@ public partial class MainViewModel : ViewModelBase
             target.Group = dialog.Result.Group;
             target.Description = dialog.Result.Description;
             target.PlatformVersion = dialog.Result.PlatformVersion;
+            // Поля конфигурации переносим явно, иначе введённые вручную имя/версия
+            // конфигурации не сохранялись бы (issue #164).
+            target.ConfigurationName = dialog.Result.ConfigurationName;
+            target.ConfigurationVersion = dialog.Result.ConfigurationVersion;
             target.Architecture = dialog.Result.Architecture;
             target.LaunchMode = dialog.Result.LaunchMode;
             target.LaunchParameters = dialog.Result.LaunchParameters;

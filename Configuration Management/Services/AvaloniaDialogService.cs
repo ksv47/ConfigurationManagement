@@ -176,7 +176,16 @@ namespace Configuration_Management.Services
                 var frame = new DispatcherFrame();
                 task.ContinueWith(_ => frame.Continue = false,
                     TaskScheduler.FromCurrentSynchronizationContext());
-                Dispatcher.UIThread.PushFrame(frame);
+                try
+                {
+                    Dispatcher.UIThread.PushFrame(frame);
+                }
+                finally
+                {
+                    // Снимаем кадр при любом исходе, чтобы диалоговая очередь не зависла,
+                    // если задача завершилась с ошибкой до того, как продолжится цикл.
+                    frame.Continue = false;
+                }
             }
             return task.GetAwaiter().GetResult();
         }
@@ -199,18 +208,28 @@ namespace Configuration_Management.Services
                 frame.Continue = false;
             };
 
-            if (owner is not null)
+            try
             {
-                window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                _ = window.ShowDialog(owner);
-            }
-            else
-            {
-                window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-                window.Show();
-            }
+                if (owner is not null)
+                {
+                    window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                    _ = window.ShowDialog(owner);
+                }
+                else
+                {
+                    window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                    window.Show();
+                }
 
-            Dispatcher.UIThread.PushFrame(frame);
+                Dispatcher.UIThread.PushFrame(frame);
+            }
+            finally
+            {
+                // Снимаем кадр при любом исходе и прячем неоткрытое окно: сбой показа
+                // не должен оставлять висящий вложенный цикл сообщений.
+                frame.Continue = false;
+                try { if (window.IsVisible) window.Hide(); } catch { /* ignore */ }
+            }
 
             return result;
         }

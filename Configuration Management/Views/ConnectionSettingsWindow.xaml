@@ -438,10 +438,32 @@
                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RepositoryUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"
                                      ToolTip="{loc:Loc Connection.RepositoryUserTooltip}"/>
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Connection.RepositoryPasswordLabel}" VerticalAlignment="Center" Margin="0,3"/>
-                            <PasswordBox x:Name="RepositoryPasswordBox" Grid.Row="3" Grid.Column="1" Margin="0,3" Padding="6,4"
-                                         VerticalContentAlignment="Center"
-                                         PasswordChanged="OnRepositoryPasswordBox_PasswordChanged"
-                                         ToolTip="{loc:Loc Connection.RepositoryPasswordTooltip}"/>
+                            <Grid Grid.Row="3" Grid.Column="1" Margin="0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid Grid.Column="0">
+                                    <PasswordBox x:Name="RepositoryPasswordBox" Padding="6,4"
+                                                 VerticalContentAlignment="Center"
+                                                 PasswordChanged="OnRepositoryPasswordBox_PasswordChanged"
+                                                 ToolTip="{loc:Loc Connection.RepositoryPasswordTooltip}"/>
+                                    <TextBox x:Name="RepositoryPasswordRevealTextBox" Margin="0" Padding="6,4"
+                                             VerticalContentAlignment="Center"
+                                             IsReadOnly="True" Visibility="Collapsed"/>
+                                </Grid>
+                                <Button x:Name="RepositoryPasswordRevealButton" Grid.Column="1" Width="30" Height="30" Margin="6,0,0,0"
+                                        Style="{DynamicResource IconButton}" Click="OnRepositoryPasswordReveal_Click"
+                                        ToolTip="{loc:Loc Connection.ShowPasswordTooltip}">
+                                    <materialDesign:PackIcon Kind="EyeOutline" Width="16" Height="16"/>
+                                </Button>
+                                <Button x:Name="RepositoryPasswordCopyButton" Grid.Column="2" Width="30" Height="30" Margin="4,0,0,0"
+                                        Style="{DynamicResource IconButton}" Click="OnRepositoryPasswordCopy_Click"
+                                        ToolTip="{loc:Loc Connection.CopyPasswordTooltip}">
+                                    <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16"/>
+                                </Button>
+                            </Grid>
                         </Grid>
                         <TextBlock Text="{loc:Loc Connection.RepositoryDescription}"
                                    FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
@@ -543,10 +565,32 @@
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.UserLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding User, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.PasswordLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                            <PasswordBox x:Name="PasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,3" Padding="6,4"
-                                         VerticalContentAlignment="Center"
-                                         PasswordChanged="OnPasswordBox_PasswordChanged"
-                                         Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <Grid Grid.Row="2" Grid.Column="1" Margin="0,3"
+                                  Visibility="{Binding IsCredentialsVisible, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid Grid.Column="0">
+                                    <PasswordBox x:Name="PasswordBox" Padding="6,4"
+                                                 VerticalContentAlignment="Center"
+                                                 PasswordChanged="OnPasswordBox_PasswordChanged"/>
+                                    <TextBox x:Name="PasswordRevealTextBox" Margin="0" Padding="6,4"
+                                             VerticalContentAlignment="Center"
+                                             IsReadOnly="True" Visibility="Collapsed"/>
+                                </Grid>
+                                <Button x:Name="PasswordRevealButton" Grid.Column="1" Width="30" Height="30" Margin="6,0,0,0"
+                                        Style="{DynamicResource IconButton}" Click="OnPasswordReveal_Click"
+                                        ToolTip="{loc:Loc Connection.ShowPasswordTooltip}">
+                                    <materialDesign:PackIcon Kind="EyeOutline" Width="16" Height="16"/>
+                                </Button>
+                                <Button x:Name="PasswordCopyButton" Grid.Column="2" Width="30" Height="30" Margin="4,0,0,0"
+                                        Style="{DynamicResource IconButton}" Click="OnPasswordCopy_Click"
+                                        ToolTip="{loc:Loc Connection.CopyPasswordTooltip}">
+                                    <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16"/>
+                                </Button>
+                            </Grid>
                         </Grid>
                     </GroupBox>
 
@@ -633,10 +677,32 @@
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.UserLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ConfiguratorUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.PasswordLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                            <PasswordBox x:Name="ConfiguratorPasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,3" Padding="6,4"
-                                         VerticalContentAlignment="Center"
-                                         PasswordChanged="OnConfiguratorPasswordBox_PasswordChanged"
-                                         Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <Grid Grid.Row="2" Grid.Column="1" Margin="0,3"
+                                  Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid Grid.Column="0">
+                                    <PasswordBox x:Name="ConfiguratorPasswordBox" Padding="6,4"
+                                                 VerticalContentAlignment="Center"
+                                                 PasswordChanged="OnConfiguratorPasswordBox_PasswordChanged"/>
+                                    <TextBox x:Name="ConfiguratorPasswordRevealTextBox" Margin="0" Padding="6,4"
+                                             VerticalContentAlignment="Center"
+                                             IsReadOnly="True" Visibility="Collapsed"/>
+                                </Grid>
+                                <Button x:Name="ConfiguratorPasswordRevealButton" Grid.Column="1" Width="30" Height="30" Margin="6,0,0,0"
+                                        Style="{DynamicResource IconButton}" Click="OnConfiguratorPasswordReveal_Click"
+                                        ToolTip="{loc:Loc Connection.ShowPasswordTooltip}">
+                                    <materialDesign:PackIcon Kind="EyeOutline" Width="16" Height="16"/>
+                                </Button>
+                                <Button x:Name="ConfiguratorPasswordCopyButton" Grid.Column="2" Width="30" Height="30" Margin="4,0,0,0"
+                                        Style="{DynamicResource IconButton}" Click="OnConfiguratorPasswordCopy_Click"
+                                        ToolTip="{loc:Loc Connection.CopyPasswordTooltip}">
+                                    <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16"/>
+                                </Button>
+                            </Grid>
                         </Grid>
                     </GroupBox>
                 </StackPanel>

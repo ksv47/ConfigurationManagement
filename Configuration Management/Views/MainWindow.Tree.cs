@@ -456,42 +456,28 @@ namespace Configuration_Management
         }
 
         /// <summary>
-        /// Синхронизирует IsExpanded контейнеров TreeView с моделью.
-        /// Только узлы GroupNodeViewModel.
+        /// Завершает синхронизацию IsExpanded после «Развернуть всё» / «Свернуть всё».
+        /// Модель уже приведена к нужному состоянию через <see cref="GroupNodeViewModel.IsExpanded"/>
+        /// (PropertyChanged), поэтому контейнеры обновляются сами из OneWay-привязки
+        /// (MainWindow.xaml:1723). Здесь остаётся только заставить виртуализацию
+        /// (VirtualizingStackPanel) догенерировать контейнеры вновь развёрнутых веток.
+        ///
+        /// Прямые установки <see cref="TreeViewItem.IsExpanded"/> (local value) намеренно
+        /// удалены (issue #160): у local value выше приоритет, чем у OneWay-привязки из
+        /// DataTrigger, из-за чего после команды мышь перестаёт сворачивать/разворачивать
+        /// отдельные папки. Обход по <c>ItemContainerGenerator.ContainerFromIndex</c> также
+        /// ненадёжен под виртуализацией — для нереализованных строк он возвращает null,
+        /// поэтому первое нажатие действовало лишь на видимые ветки, а остальные — со второго.
+        /// Каскадная генерация здесь не нужна: разворачивание родителя порождает контейнеры
+        /// детей, а те читают уже выставленный IsExpanded из модели.
         /// </summary>
         internal void ApplyGroupExpandedState(bool expand)
         {
             if (MainTree is null)
                 return;
 
-            ApplyGroupExpandedStateRecursive(MainTree, expand);
-        }
-
-        /// <summary>
-        /// Рекурсивно применяет состояние развёрнутости ко всем контейнерам групп, не завися
-        /// от их текущего состояния (issue #160). Прежняя реализация обходила только уже
-        /// раскрытые ветки, из-за чего «Развернуть всё» / «Свернуть всё» при первом нажатии
-        /// действовали лишь на текущую группу, а остальные — только со второго раза.
-        /// </summary>
-        private static void ApplyGroupExpandedStateRecursive(ItemsControl parent, bool expand)
-        {
-            for (var i = 0; i < parent.Items.Count; i++)
-            {
-                if (parent.ItemContainerGenerator.ContainerFromIndex(i) is not TreeViewItem tvi)
-                    continue;
-                if (tvi.DataContext is not ViewModels.GroupNodeViewModel node)
-                    continue;
-
-                // Прямая установка контейнера и модели независимо от прежнего состояния.
-                node.SetExpandedSilent(expand);
-                tvi.IsExpanded = expand;
-
-                // Принудительно генерируем дочерние контейнеры (родитель мог быть свёрнут),
-                // затем рекурсивно обходим вложенные уровни.
-                tvi.ApplyTemplate();
-                tvi.UpdateLayout();
-                ApplyGroupExpandedStateRecursive(tvi, expand);
-            }
+            // Один проход разметки доводит каскад разворачивания до конца.
+            MainTree.UpdateLayout();
         }
 
         private void OnMainTree_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)

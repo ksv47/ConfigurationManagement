@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Configuration_Management.Services;
 
 namespace Configuration_Management.Controls
 {
@@ -146,6 +147,11 @@ namespace Configuration_Management.Controls
         /// <summary>Добавляет плавный переход цвета фона и/или границы элемента.</summary>
         public static void AddBrushTransition(Border target, bool background = true, bool border = true)
         {
+            // На программном рендере/в виртуализации каждый переход держит рендер-цикл
+            // занятым и перерисовывает кадры софтом; там отказываемся от плавности,
+            // чтобы не жечь CPU (issue #153).
+            if (LinuxRendering.DisableAnimations)
+                return;
             target.Transitions ??= new Transitions();
             if (background)
                 target.Transitions.Add(new BrushTransition
@@ -164,6 +170,10 @@ namespace Configuration_Management.Controls
         /// <summary>Добавляет плавное появление/исчезание по прозрачности.</summary>
         public static void AddOpacityTransition(Visual target, double durationMs = 180)
         {
+            // См. AddBrushTransition: на программном рендере/в виртуализации плавность
+            // отключаем, чтобы не держать рендер-цикл занятым (issue #153).
+            if (LinuxRendering.DisableAnimations)
+                return;
             target.Transitions ??= new Transitions();
             target.Transitions.Add(new DoubleTransition
             {

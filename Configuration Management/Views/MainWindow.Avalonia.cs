@@ -124,10 +124,10 @@ namespace Configuration_Management
             // высокую нагрузку CPU и «зависание» реакции на мышь (issue #153). Окно рисуется
             // непрозрачным во всех таких случаях (X11 без композитинга, виртуализация, любой
             // программный рендер); прозрачное «стекло» оставляется только на Wayland, где
-            // композитор обязателен и постоянной перерисовки фона нет. Дополнительно можно
-            // принудительно включить непрозрачный режим переменной окружения
-            // CM_DISABLE_TRANSPARENCY=1 (запасной ручной способ диагностики, issue #153).
-            _opaqueWindow = _useSystemTitleBar || ForceOpaqueWindow() || DetectSoftwareRenderOrVm() || !IsWaylandSession();
+            // композитор обязателен и постоянной перерисовки фона нет. Определение собрано
+            // в одном месте — Services.LinuxRendering (учитывает и ручную переменную
+            // CM_DISABLE_TRANSPARENCY=1, issue #153).
+            _opaqueWindow = _useSystemTitleBar || Services.LinuxRendering.OpaqueWindow;
             ApplySystemDecorations();
 
             ApplySavedWindowLayout();
@@ -1258,14 +1258,18 @@ namespace Configuration_Management
             listWithBar.Children.Add(listArea);
             listWithBar.Children.Add(_listVerticalBar);
 
-            // Левая колонка: свой фон и правая граница, внутреннее поле 12,12,0,12.
+            // Левая колонка: свой фон и правая граница, внутреннее поле 12,0,0,12.
+            // Верхнего отступа нет: над левой колонкой стоит полноширинная панель поиска
+            // (BuildTopBar), и лишний зазор между ней и панелью тегов выглядел «большим
+            // непонятным отступом» (issue #167). В WPF-версии панель поиска лежит внутри
+            // левой колонки, а панель тегов прижата к ней без промежутка — здесь так же.
             // В WPF (MainWindow.xaml:347-350) отступ справа 8 был нужен полосе дерева,
             // которая жила внутри области прокрутки. Здесь вертикальная полоса вынесена
             // отдельным столбцом (listWithBar), и правый отступ оставлял бы между ней и
             // границей панели пустоту ~8px. Убираем его, чтобы полоса была прижата к
             // правому краю панели. Панель тегов сверху имеет собственные отступы
             // (4,0,4,8 и поле 8), поэтому её вид не меняется.
-            var leftContent = new Grid { Margin = new Thickness(12, 12, 0, 12) };
+            var leftContent = new Grid { Margin = new Thickness(12, 0, 0, 12) };
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             leftContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
@@ -4993,9 +4997,16 @@ namespace Configuration_Management
             ThemeBrushes.Bind(message, TextBlock.ForegroundProperty, "TextPrimaryColorBrush");
             message.Bind(TextBlock.TextProperty, new Binding("LoadingMessage"));
 
+            // На программном рендере/в виртуализации индетерминантный индикатор — бесконечная
+            // анимация, которая держит рендер-цикл постоянно занятым и даёт ~36% CPU при
+            // «зависшем» окне (issue #153). Там показываем статичную заполненную полосу,
+            // а сам оверлей не перехватывает мышь: даже если фоновая инициализация затянется,
+            // окно останется отзывчивым и не будет жечь CPU.
+            var disableAnimations = Services.LinuxRendering.DisableAnimations;
             var bar = new ProgressBar
             {
-                IsIndeterminate = true,
+                IsIndeterminate = !disableAnimations,
+                Value = disableAnimations ? 100 : 0,
                 Height = 6,
                 Background = new SolidColorBrush(Color.Parse("#22000000"))
             };
@@ -5019,6 +5030,7 @@ namespace Configuration_Management
 
             var overlay = new Panel { Background = new SolidColorBrush(Color.Parse("#99000000")) };
             overlay.Children.Add(card);
+            overlay.IsHitTestVisible = !disableAnimations;
             overlay.Bind(Control.IsVisibleProperty, new Binding("IsLoading"));
             return overlay;
         }
@@ -5140,6 +5152,39 @@ namespace Configuration_Management
 
             }
             SetupTray();
+            // Страховка от «зависшего» оверлея загрузки (issue #153): если фоновая
+            // инициализация не завершилась за разумное время — например, на медленном
+            // программном рендере/в виртуализации индетерминантный индикатор крутится
+            // бесконечно, а блокирующий подложкой оверлей съедает ввод. Таймер сбрасывает
+            // IsLoading, и окно возвращается к отзывчивости, даже если инициализация
+            // где-то повисла.
+            ArmLoadingOverlayWatchdog();
+        }
+
+        /// <summary>Максимальное время показа оверлея загрузки перед принудительным скрытием.</summary>
+        private static readonly TimeSpan LoadingOverlayMaxDuration = TimeSpan.FromSeconds(30);
+
+        /// <summary>
+        /// Запускает одноразовый таймер, который по истечении <see cref="LoadingOverlayMaxDuration"/>
+        /// сбрасывает флаг <c>IsLoading</c>, если тот всё ещё взведён. Это последний рубеж:
+        /// индикатор не должен оставаться на экране и жечь CPU/блокировать ввод бесконечно.
+        /// </summary>
+        private void ArmLoadingOverlayWatchdog()
+        {
+            var timer = new Avalonia.Threading.DispatcherTimer
+            {
+                Interval = LoadingOverlayMaxDuration
+            };
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                if (_vm is not null && _vm.IsLoading)
+                {
+                    _vm.IsLoading = false;
+                    _vm.LogWarning("Оверлей загрузки скрыт по таймауту (фоновая инициализация не завершилась)");
+                }
+            };
+            timer.Start();
         }
 
         /// <summary>
@@ -5198,107 +5243,6 @@ namespace Configuration_Management
             _useSystemTitleBar = useSystemTitleBar;
             ApplySystemDecorations();
             Content = BuildRoot();
-        }
-
-        /// <summary>
-        /// Возвращает true, если пользователь явно запросил непрозрачное окно переменной
-        /// окружения <c>CM_DISABLE_TRANSPARENCY=1</c> (запасной ручной способ диагностики
-        /// проблемы высокого CPU на X11/VM, issue #153). Работает даже там, где авто-детект
-        /// виртуализации/программного рендера не сработал (KDE/Mint без гипервизора).
-        /// </summary>
-        private static bool ForceOpaqueWindow()
-        {
-            try
-            {
-                var v = Environment.GetEnvironmentVariable("CM_DISABLE_TRANSPARENCY");
-                return v is not null
-                    && (v.Trim() == "1" || v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase));
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Определяет, стоит ли рисовать окно непрозрачным (issue #153): прозрачность
-        /// на X11 с программным рендером или в виртуализации заставляет оконный менеджер
-        /// непрерывно перерисовывать фон. Признаки: наличие гипервизора
-        /// (VirtualBox/QEMU/VMware/KVM — флаг в /proc/cpuinfo и DMI-данные о вендоре),
-        /// а также признаки программного рендера (llvmpipe/softpipe, LIBGL_ALWAYS_SOFTWARE).
-        /// Это консервативный детектор; на остальном железе прозрачность сохраняется.
-        /// </summary>
-        private static bool DetectSoftwareRenderOrVm()
-        {
-            try
-            {
-                if (File.Exists("/proc/cpuinfo"))
-                {
-                    var cpuInfo = File.ReadAllText("/proc/cpuinfo");
-                    if (cpuInfo.Contains("hypervisor", StringComparison.OrdinalIgnoreCase)
-                        || cpuInfo.Contains("qemu", StringComparison.OrdinalIgnoreCase)
-                        || cpuInfo.Contains("kvm", StringComparison.OrdinalIgnoreCase))
-                        return true;
-                }
-                foreach (var dmiPath in new[]
-                         {
-                             "/sys/devices/virtual/dmi/id/sys_vendor",
-                             "/sys/devices/virtual/dmi/id/product_name",
-                             "/sys/devices/virtual/dmi/id/board_vendor"
-                         })
-                {
-                    if (!File.Exists(dmiPath))
-                        continue;
-                    var value = File.ReadAllText(dmiPath);
-                    if (value.Contains("VirtualBox", StringComparison.OrdinalIgnoreCase)
-                        || value.Contains("innotek", StringComparison.OrdinalIgnoreCase)
-                        || value.Contains("QEMU", StringComparison.OrdinalIgnoreCase)
-                        || value.Contains("VMware", StringComparison.OrdinalIgnoreCase)
-                        || value.Contains("KVM", StringComparison.OrdinalIgnoreCase)
-                        || value.Contains("Microsoft Corporation", StringComparison.OrdinalIgnoreCase))
-                        return true;
-                }
-
-                // Программный рендер (нет аппаратного GPU-драйвера в гостевой ОС или задан
-                // принудительно): такие окружения чаще всего и есть источник постоянной
-                // перерисовки фона с высокой нагрузкой CPU на X11 без композитинга.
-                var gallium = Environment.GetEnvironmentVariable("GALLIUM_DRIVER");
-                if (gallium?.Contains("llvmpipe", StringComparison.OrdinalIgnoreCase) == true
-                    || gallium?.Contains("softpipe", StringComparison.OrdinalIgnoreCase) == true)
-                    return true;
-                if (Environment.GetEnvironmentVariable("LIBGL_ALWAYS_SOFTWARE") == "1")
-                    return true;
-            }
-            catch
-            {
-                // При любой ошибке чтения не мешаем запуску и оставляем прозрачный режим.
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Работаем ли мы под Wayland-сессией (issue #153). На Wayland композитор обязателен,
-        /// поэтому прозрачность окна не провоцирует непрерывной перерисовки фона и её можно
-        /// оставить. На X11 (или в неопределённой сессии) прозрачность без композитинга
-        /// заставляет оконный менеджер перерисовывать фон постоянно — там окно рисуется
-        /// непрозрачным. Определение по переменным окружения; при любом сбое считаем, что
-        /// Wayland нет (консервативно — окно станет непрозрачным).
-        /// </summary>
-        private static bool IsWaylandSession()
-        {
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")))
-                    return true;
-                var sessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
-                if (!string.IsNullOrWhiteSpace(sessionType))
-                    return sessionType.Contains("wayland", StringComparison.OrdinalIgnoreCase);
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         /// <summary>

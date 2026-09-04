@@ -245,7 +245,12 @@ public static class IbasesV8iImporter
 
         foreach (var group in groups)
         {
-            var path = GroupHierarchyHelper.GetFullPath(group, groups);
+            // Канонизируем полный путь: нормализуем разделители («/», «\» → « / ») и
+            // обрезаем пробелы у сегментов. Это гарантирует, что два дубликата одной и той же
+            // вложенной папки сопоставятся, даже если их путь был построен с разным разделителем,
+            // регистром сегментов или ведущими/хвостовыми пробелами в именах (например, после
+            // импорта из файла, переписанного штатным стартером 1С).
+            var path = NormalizeGroupPath(GroupHierarchyHelper.GetFullPath(group, groups));
             if (string.IsNullOrWhiteSpace(path))
             {
                 // Группы без пути (без имени) не участвуют в дедупликации.
@@ -354,8 +359,13 @@ public static class IbasesV8iImporter
 
         foreach (var group in groups)
         {
+            // Сравниваем канонизированные пути (нормализованные разделители и пробелы),
+            // чтобы существующая группа всегда находилась по полному пути независимо от
+            // того, как именно построен путь (через GetFullPath или через создание сегментами).
+            // Это гарантирует идемпотентность импорта вложенных папок и не даёт повторным
+            // синхронизациям плодить дубликаты.
             if (string.Equals(
-                    GroupHierarchyHelper.GetFullPath(group, groups),
+                    NormalizeGroupPath(GroupHierarchyHelper.GetFullPath(group, groups)),
                     fullPath,
                     StringComparison.OrdinalIgnoreCase))
                 return group;

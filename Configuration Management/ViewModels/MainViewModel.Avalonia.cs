@@ -1857,9 +1857,21 @@ public class MainViewModel : ViewModelBase
         if (ib is null)
             return;
 
-        var dialog = new Configuration_Management.ConnectionSettingsWindow(
-            ib, _groups, InstalledPlatformVersions(), ib.Group,
-            AvailableServers(), AvailablePorts());
+        // Построение окна может упасть (битые ресурсы, иконки, темы, сбой локализации):
+        // на Linux без обработчика это роняло приложение abort-ом (issue #168). Ловим
+        // здесь, логируем и не даём сбою одного окна остановить работу программы.
+        Configuration_Management.ConnectionSettingsWindow dialog;
+        try
+        {
+            dialog = new Configuration_Management.ConnectionSettingsWindow(
+                ib, _groups, InstalledPlatformVersions(), ib.Group,
+                AvailableServers(), AvailablePorts());
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно свойств базы: {ex.Message}", ex);
+            return;
+        }
 
         if (!dialog.ShowDialogSync(OwnerWindow()))
             return;
@@ -1873,6 +1885,10 @@ public class MainViewModel : ViewModelBase
         ib.Group = dialog.Result.Group;
         ib.Description = dialog.Result.Description;
         ib.PlatformVersion = dialog.Result.PlatformVersion;
+        // Поля конфигурации переносим явно, иначе введённые вручную имя/версия
+        // конфигурации не сохранялись бы (issue #164).
+        ib.ConfigurationName = dialog.Result.ConfigurationName;
+        ib.ConfigurationVersion = dialog.Result.ConfigurationVersion;
         ib.Architecture = dialog.Result.Architecture;
         ib.LaunchMode = dialog.Result.LaunchMode;
         ib.LaunchParameters = dialog.Result.LaunchParameters;
@@ -1905,7 +1921,13 @@ public class MainViewModel : ViewModelBase
 
     private void AddInfobase()
     {
-        var chooser = new Configuration_Management.AddEditWindow();
+        Configuration_Management.AddEditWindow chooser;
+        try { chooser = new Configuration_Management.AddEditWindow(); }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно выбора типа элемента: {ex.Message}", ex);
+            return;
+        }
         if (!chooser.ShowDialogSync(OwnerWindow()))
             return;
 
@@ -1933,11 +1955,20 @@ public class MainViewModel : ViewModelBase
     /// <summary>Создание новой базы: пустой или из шаблона.</summary>
     private void CreateInfobase(bool fromTemplate, string defaultGroupPath)
     {
-        var dialog = new Configuration_Management.CreateInfobaseWindow(
-            fromTemplate,
-            InstalledPlatformVersions(),
-            defaultGroupPath,
-            _groups);
+        Configuration_Management.CreateInfobaseWindow dialog;
+        try
+        {
+            dialog = new Configuration_Management.CreateInfobaseWindow(
+                fromTemplate,
+                InstalledPlatformVersions(),
+                defaultGroupPath,
+                _groups);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно создания базы: {ex.Message}", ex);
+            return;
+        }
 
         if (!dialog.ShowDialogSync(OwnerWindow()) || dialog.Result is null)
             return;
@@ -1955,9 +1986,18 @@ public class MainViewModel : ViewModelBase
     /// <summary>Регистрация уже существующей базы в списке.</summary>
     private void RegisterExistingInfobase(string defaultGroupPath)
     {
-        var dialog = new Configuration_Management.ConnectionSettingsWindow(
-            null, _groups, InstalledPlatformVersions(), defaultGroupPath,
-            AvailableServers(), AvailablePorts());
+        Configuration_Management.ConnectionSettingsWindow dialog;
+        try
+        {
+            dialog = new Configuration_Management.ConnectionSettingsWindow(
+                null, _groups, InstalledPlatformVersions(), defaultGroupPath,
+                AvailableServers(), AvailablePorts());
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно регистрации базы: {ex.Message}", ex);
+            return;
+        }
 
         if (!dialog.ShowDialogSync(OwnerWindow()))
             return;
@@ -2125,6 +2165,9 @@ public class MainViewModel : ViewModelBase
         _settings.DarkColorScheme = null;
         // Применяем палитру по текущему варианту темы; сам вариант не меняем.
         ThemeManager.ApplyScheme(clone);
+        // Общий цвет папок хранится в схеме и применяется при построении дерева —
+        // пересобираем его, чтобы папки сразу перекрасились.
+        RebuildTree();
         SaveSettingsSilently();
         OnPropertyChanged(nameof(ThemeName));
     }
@@ -3868,7 +3911,20 @@ public class MainViewModel : ViewModelBase
 
     private void OpenSettings()
     {
-        var settings = new Configuration_Management.SettingsWindow(this);
+        // Построение окна настроек — большая процедура (восемь вкладок, иконки, темы).
+        // На Linux сбой в ней завершал процесс abort-ом (issue #168); ловим и логируем,
+        // чтобы приложение продолжало работать, а ошибка попала в журнал.
+        Configuration_Management.SettingsWindow settings;
+        try
+        {
+            settings = new Configuration_Management.SettingsWindow(this);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно настроек: {ex.Message}", ex);
+            return;
+        }
+
         // Владелец берётся только видимый: окно, спрятанное в трей, остаётся
         // в списке окон приложения, и показ поверх него ничего не показывает.
         // Настройки открываются из меню трея именно в таком состоянии.
@@ -4327,6 +4383,8 @@ public class MainViewModel : ViewModelBase
     private void ApplySchemeForTheme(bool dark)
     {
         ThemeManager.ApplyTheme(dark);
+        // Общий цвет папок берётся из активной палитры схемы при построении дерева.
+        RebuildTree();
         _settings.Theme = dark ? ThemeManager.DarkThemeName : ThemeManager.LightThemeName;
         _themeName = _settings.Theme;
         SaveSettingsSilently();

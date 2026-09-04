@@ -301,6 +301,28 @@ namespace Configuration_Management
         private bool _isSyncingRepositoryPassword;
         private bool _isSyncingConfiguratorPassword;
 
+        // Флаги показа пароля «глазом» (issue #169). WPF-PasswordBox не умеет снимать
+        // маску напрямую, поэтому при показе поверх скрываем PasswordBox и показываем
+        // текстовое поле только для чтения со значением из PasswordBox.
+        private bool _isPasswordRevealed;
+        private bool _isRepositoryPasswordRevealed;
+        private bool _isConfiguratorPasswordRevealed;
+
+        /// <summary>Переключает видимость пароля между PasswordBox и полем для чтения.</summary>
+        private static void ApplyReveal(PasswordBox box, TextBox reveal, bool show)
+        {
+            reveal.Text = box.Password;
+            box.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
+            reveal.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>Копирует пароль в буфер обмена.</summary>
+        private static void CopyPassword(PasswordBox box)
+        {
+            if (!string.IsNullOrEmpty(box.Password))
+                System.Windows.Clipboard.SetText(box.Password);
+        }
+
         /// <summary>Заполняет PasswordBox из ViewModel без рекурсии событий.</summary>
         private void SyncPasswordBoxFromViewModel()
         {
@@ -364,6 +386,32 @@ namespace Configuration_Management
                 _isSyncingConfiguratorPassword = false;
             }
         }
+
+        // ===================== Показ и копирование пароля (issue #169) =====================
+
+        private void OnPasswordReveal_Click(object sender, RoutedEventArgs e)
+        {
+            _isPasswordRevealed = !_isPasswordRevealed;
+            ApplyReveal(PasswordBox, PasswordRevealTextBox, _isPasswordRevealed);
+        }
+
+        private void OnPasswordCopy_Click(object sender, RoutedEventArgs e) => CopyPassword(PasswordBox);
+
+        private void OnRepositoryPasswordReveal_Click(object sender, RoutedEventArgs e)
+        {
+            _isRepositoryPasswordRevealed = !_isRepositoryPasswordRevealed;
+            ApplyReveal(RepositoryPasswordBox, RepositoryPasswordRevealTextBox, _isRepositoryPasswordRevealed);
+        }
+
+        private void OnRepositoryPasswordCopy_Click(object sender, RoutedEventArgs e) => CopyPassword(RepositoryPasswordBox);
+
+        private void OnConfiguratorPasswordReveal_Click(object sender, RoutedEventArgs e)
+        {
+            _isConfiguratorPasswordRevealed = !_isConfiguratorPasswordRevealed;
+            ApplyReveal(ConfiguratorPasswordBox, ConfiguratorPasswordRevealTextBox, _isConfiguratorPasswordRevealed);
+        }
+
+        private void OnConfiguratorPasswordCopy_Click(object sender, RoutedEventArgs e) => CopyPassword(ConfiguratorPasswordBox);
     }
 }
 #endif

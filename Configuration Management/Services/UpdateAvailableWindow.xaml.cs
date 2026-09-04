@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
@@ -246,10 +247,12 @@ public partial class UpdateAvailableWindow : Window
 
     /// <summary>
     /// Принудительно пересчитывает размер окна по содержимому текущего этапа
-    /// (issue #157). Кастомный Window-Chrome MaterialDesign может «запоминать» прежние
-    /// габариты после смены видимого блока; сброс SizeToContent в Manual и обратно в Height
-    /// заставляет окно подстроиться под новый этап (прогресс, вопрос о применении, ошибка),
-    /// чтобы прогресс-бар и кнопки не обрезались и не оставалось пустоты.
+    /// (issue #157). WPF не всегда пересобирает окно с <c>SizeToContent="Height"</c>
+    /// после изменения <c>Visibility</c> блоков (предложение → скачивание → применение →
+    /// ошибка), поэтому сбрасываем авто-подбор в Manual, заново меряем содержимое и
+    /// возвращаем обратно. Так окно каждый раз подстраивается именно под текущий этап:
+    /// высота не «застревает» от длинного описания изменений или от предыдущего диалога,
+    /// а прогресс-бар и кнопки не обрезаются и не остаётся пустоты снизу.
     /// </summary>
     private void RefreshWindowSize()
     {
@@ -258,13 +261,16 @@ public partial class UpdateAvailableWindow : Window
             if (!IsLoaded)
                 return;
 
-            // Сброс в Manual и обратно в Height заставляет окно пересчитать высоту
-            // по содержимому текущего этапа (предложение → скачивание → применение → ошибка).
+            // Сброс в Manual (авто-подбор выключен) и принудительный перерасчёт заставляют
+            // окно заново измерить содержимое текущего этапа, после чего возвращаем
+            // авто-подбор высоты.
             SizeToContent = SizeToContent.Manual;
-            UpdateLayout();
-            SizeToContent = SizeToContent.Height;
-            UpdateLayout();
             InvalidateMeasure();
+            UpdateLayout();
+
+            SizeToContent = SizeToContent.Height;
+            InvalidateMeasure();
+            UpdateLayout();
         }
         catch
         {
@@ -327,23 +333,50 @@ public partial class UpdateAvailableWindow : Window
     }
 
     /// <summary>
-    /// Возвращает фиксированную ширину окна, которую нельзя изменить мышью.
-    /// До первой реальной отрисовки берём значение из свойства <see cref="Window.Width"/>.
+    /// Возвращает фиксированную ширину окна в DIP (device-independent units), которую
+    /// нельзя изменить мышью. До первой реальной отрисовки берём значение из свойства
+    /// <see cref="Window.Width"/>, иначе — фактическую ширину окна.
     /// </summary>
-    private int FixedWidth
+    private double FixedWidthDips
     {
         get
         {
-            var w = (int)Math.Round(ActualWidth);
-            return w > 0 ? w : (int)Width;
+            var w = ActualWidth;
+            return w > 0 ? w : Width;
         }
     }
+
+    /// <summary>
+    /// Текущий DPI-масштаб окна по горизонтали (1.0 = 100%). WPF измеряет размеры
+    /// (<see cref="Window.Width"/>, <see cref="FrameworkElement.ActualWidth"/>) в DIP,
+    /// а Win32-структуры <see cref="MinMaxInfo"/> и <see cref="RECT"/> (WM_GETMINMAXINFO,
+    /// WM_SIZING) оперируют физическими пикселями экрана.
+    /// </summary>
+    private double DpiScaleX
+    {
+        get
+        {
+            var source = PresentationSource.FromVisual(this);
+            return source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+        }
+    }
+
+    /// <summary>
+    /// Фиксированная ширина окна в физических пикселях — то значение, которое надо
+    /// подставлять в Win32-структуры MINMAXINFO/RECT. Без перевода DIP→px при масштабе
+    /// Windows 125%/150%/200% ширина принудительно сжималась до Width/Dpi (например
+    /// 680/1.5 ≈ 453 DIP): окно становилось узким как у диалога сообщения (~440),
+    /// и кнопки/прогресс-бар выходили за его правый край (issue #157).
+    /// </summary>
+    private int FixedWidthPx => (int)Math.Round(FixedWidthDips * DpiScaleX);
 
     /// <summary>
     /// Перехватывает WM_GETMINMAXINFO и WM_SIZING, жёстко фиксируя ширину окна. Это
     /// блокирует «схлопывание» окна при перетаскивании правой/левой границы, которое
     /// обходит ResizeMode="NoResize" из-за кастомного Window-Chrome MaterialDesign
     /// (issue #162). Высоту не ограничиваем — её подстраивает SizeToContent="Height".
+    /// В Win32-структуры подставляется ширина в физических пикселях (с учётом DPI),
+    /// иначе при масштабе экрана >100% окно принудительно сужалось и обрезало контент.
     /// </summary>
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
@@ -354,8 +387,8 @@ public partial class UpdateAvailableWindow : Window
                 var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
 
                 // Ширина фиксирована: MinTrackSize.X == MaxTrackSize.X == фактической ширине,
-                // поэтому изменение ширины мышью невозможно.
-                int w = FixedWidth;
+                // поэтому изменение ширины мышью невозможно. Значение в физических пикселях.
+                int w = FixedWidthPx;
                 mmi.MinTrackSize.X = w;
                 mmi.MaxTrackSize.X = w;
                 Marshal.StructureToPtr(mmi, lParam, true);
@@ -365,9 +398,10 @@ public partial class UpdateAvailableWindow : Window
             case WmSizing:
             {
                 // Дополнительная защита на случай, если кастомный Chrome инициирует изменение
-                // размера в обход MINMAXINFO: принудительно возвращаем фиксированную ширину.
+                // размера в обход MINMAXINFO: принудительно возвращаем фиксированную ширину
+                // (в физических пикселях, чтобы не сузить окно при масштабе >100%).
                 var rc = Marshal.PtrToStructure<RECT>(lParam);
-                int w = FixedWidth;
+                int w = FixedWidthPx;
                 switch (wParam.ToInt32())
                 {
                     case WmszLeft:
