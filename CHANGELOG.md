@@ -9,6 +9,21 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.70] — 2026-09-04
+
+Выпуск с реализацией issue #173 «Пожелание - быстрая настройка колонок». По правому клику на заголовке колонки списка баз появляется контекстное меню с пунктами **«Скрыть колонку»** и **«Открыть настройки колонок»**. Первый сразу скрывает выбранную колонку (как в диспетчере задач Windows), второй открывает окно настроек сразу на подвкладке «Колонки». Работает на обеих платформах (Windows/WPF и Linux/Avalonia).
+
+### Добавлено
+
+- **Контекстное меню заголовков колонок (issue #173)**: правый клик по заголовку любой колонки данных («Версия платформы», «Режим запуска», «Действия», «Сервер/База», «Последний запуск», «Размер», «Конфигурация») открывает меню с пунктом «Скрыть колонку» — колонка скрывается сразу, как галка видимости в настройках. Реализовано в WPF через `ContextMenu` в [`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml) и обработчики в [`Views/MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs); в Avalonia — контекстное меню прикрепляется в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) (`AttachColumnContextMenu`).
+- **Переход к настройкам на вкладку «Колонки» (issue #173)**: пункт «Открыть настройки колонок» открывает окно настроек сразу на подвкладке **Отображение → Колонки**. Добавлен метод `SelectColumnsTab()` в [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs) и в WPF-версии ([`Views/SettingsWindow.Display.cs`](Configuration%20Management/Views/SettingsWindow.Display.cs)); во вложенном `TabControl` раздела «Отображение» задано имя `DisplaySubTabs` ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml)).
+- **Единая команда скрытия колонки в модели**: метод `SetColumnVisible(key, visible)` в [`ViewModels/MainViewModel.Display.cs`](Configuration%20Management/ViewModels/MainViewModel.Display.cs) (WPF) и [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) переиспользует `ApplyDisplaySettings`, поэтому скрытие колонки сохраняется и перестраивает список теми же механизмами, что и правка в настройках.
+- **Локализация**: ключи `Column.HideColumn` и `Settings.Columns.OpenSettings` добавлены в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.69` → `0.3.6.70`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.69] — 2026-09-04
 
 Выпуск с релизом issue #172: добавлен настраиваемый хоткей для переключения подробностей правой панели информации. Заготовка фичи существовала ещё со времён невыпущенной версии 0.3.6.65; в этом выпуске она доведена до релиза — задано значение по умолчанию `Ctrl+D`, комбинация настраивается в **Настройки → Горячие клавиши → «Панель информации (подробности)»** и работает на обеих платформах (Windows/WPF и Linux/Avalonia).

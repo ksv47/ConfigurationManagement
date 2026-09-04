@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.69-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.70-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.69**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.70**
+>
+> ✨ **0.3.6.70:** быстрая настройка колонок (issue #173). По правому клику на заголовке колонки списка баз появляется контекстное меню: **«Скрыть колонку»** сразу скрывает выбранную колонку (как в диспетчере задач Windows), **«Открыть настройки колонок»** открывает окно настроек сразу на подвкладке **Отображение → Колонки**. Работает на Windows/WPF ([`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml), [`Views/MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs)) и Linux/Avalonia ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)).
 >
 > ✨ **0.3.6.69:** добавлен настраиваемый хоткей для переключения подробностей правой панели информации (issue #172) — по умолчанию **`Ctrl+D`**, комбинация меняется в **Настройки → Горячие клавиши → «Панель информации (подробности)»**. Работает на Windows/WPF ([`Views/MainWindow.Hotkeys.cs`](Configuration%20Management/Views/MainWindow.Hotkeys.cs)) и Linux/Avalonia ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)).
 >

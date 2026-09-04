@@ -257,6 +257,8 @@
     "Column.LastLaunch": "Последний запуск",
     "Column.Size": "Размер",
     "Column.Actions": "Действия",
+    "Column.HideColumn": "Скрыть колонку",
+    "Settings.Columns.OpenSettings": "Открыть настройки колонок",
     "Main.ColumnNameTooltip": "Название и версия конфигурации 1С",
 
     "Settings.Title": "Настройки",

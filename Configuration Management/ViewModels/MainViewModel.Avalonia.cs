@@ -308,6 +308,33 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Меняет видимость одной колонки списка баз по её ключу (issue #173).
+    /// Прочие параметры отображения берутся из текущих настроек и применяются через
+    /// <see cref="ApplyDisplaySettings"/>, поэтому изменение сохраняется и пересобирает
+    /// дерево/заголовок теми же механизмами, что и правка в окне настроек.
+    /// </summary>
+    public void SetColumnVisible(string key, bool visible)
+    {
+        ApplyDisplaySettings(
+            _settings.ShowFavoritesButton,
+            _settings.ShowPinnedButton,
+            _settings.ShowTags,
+            _showTagFilterPanel,
+            key == "Version" ? visible : _settings.ShowVersionColumn,
+            key == "Configuration" ? visible : _settings.ShowConfigurationColumn,
+            key == "LaunchMode" ? visible : _settings.ShowLaunchModeColumn,
+            key == "ServerBase" ? visible : _settings.ShowServerColumn,
+            key == "LastLaunch" ? visible : _settings.ShowLastLaunchColumn,
+            key == "Size" ? visible : _settings.ShowSizeColumn,
+            key == "Actions" ? visible : _settings.ShowActionsColumn,
+            _showRightPanelDetails,
+            _settings.ShowSessionLaunchPanel,
+            _groupByGroup,
+            _showEmptyGroups,
+            _settings.ColumnOrder);
+    }
+
+    /// <summary>
     /// Применяет состав нижней панели (строки состояния) и сразу пересобирает
     /// её текст, чтобы изменение было видно без переключения базы.
     /// </summary>

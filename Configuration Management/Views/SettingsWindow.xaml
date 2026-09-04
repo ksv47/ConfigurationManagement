@@ -479,7 +479,7 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <TabControl Margin="0,4,0,0" Style="{StaticResource SettingsSubTabControl}">
+                <TabControl x:Name="DisplaySubTabs" Margin="0,4,0,0" Style="{StaticResource SettingsSubTabControl}">
                     <!-- Значки и кнопки -->
                     <TabItem Style="{StaticResource SettingsSubTabItem}">
                         <TabItem.Header>

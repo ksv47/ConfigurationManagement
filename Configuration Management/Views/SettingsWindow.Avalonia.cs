@@ -36,6 +36,27 @@ namespace Configuration_Management
     {
         private readonly MainViewModel _viewModel;
 
+        /// <summary>Главный контрол вкладок окна (полоса слева).</summary>
+        private TabControl? _settingsTabs;
+
+        /// <summary>Вкладка «Отображение» внутри главного контрола вкладок.</summary>
+        private TabItem? _displayTab;
+
+        /// <summary>Контрол вложенных вкладок раздела «Отображение» (Значки/Колонки/…).</summary>
+        private TabControl? _displaySubTabs;
+
+        /// <summary>
+        /// Переключает окно настроек сразу на подвкладку «Колонки» (issue #173).
+        /// Используется из контекстного меню заголовка колонки списка баз.
+        /// </summary>
+        public void SelectColumnsTab()
+        {
+            if (_settingsTabs is not null && _displayTab is not null)
+                _settingsTabs.SelectedItem = _displayTab;
+            if (_displaySubTabs is not null)
+                _displaySubTabs.SelectedIndex = 1;
+        }
+
         /// <summary>
         /// Создаёт диалог настроек приложения.
         /// </summary>
@@ -113,6 +134,7 @@ namespace Configuration_Management
             // отвечало фактическому расположению полосы, как в разметке.
             var tabs = new TabControl { TabStripPlacement = Dock.Left };
             tabs.Styled(ControlThemes.SettingsTabControl);
+            _settingsTabs = tabs;
 
             // ===== Настройки =====
             // Общего зазора у панели нет: в Avalonia он складывается с полями
@@ -1123,6 +1145,7 @@ namespace Configuration_Management
             // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт».
             var displayTabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
             displayTabs.Styled(ControlThemes.SettingsSubTabControl);
+            _displaySubTabs = displayTabs;
             displayTabs.Items.Add(SubTab("Settings.Subtab.Icons", "Settings.Subtab.IconsTooltip", "IconStarOutline", displayIcons));
             displayTabs.Items.Add(SubTab("Settings.Subtab.Columns", "Settings.Subtab.ColumnsTooltip", "IconViewColumn", displayColumns));
             displayTabs.Items.Add(SubTab("Settings.Subtab.Panels", "Settings.Subtab.PanelsTooltip", "IconPageLayoutSidebarRight", displayPanels));
@@ -1130,6 +1153,7 @@ namespace Configuration_Management
             displayTabs.Items.Add(SubTab("Settings.Subtab.Font", "Settings.Subtab.FontTooltip", "IconFormatFont", displayFont));
 
             var tabDisplay = MainTab("IconEye", "Settings.TabDisplay", displayTabs);
+            _displayTab = tabDisplay;
 
             // ===== Оформление =====
             // Контейнер вкладки — Grid, заполняющий всю доступную высоту, чтобы правая

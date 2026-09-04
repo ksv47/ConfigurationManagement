@@ -643,6 +643,28 @@ public partial class MainViewModel : ViewModelBase
         SaveSettings();
     }
 
+    /// <summary>
+    /// Меняет видимость одной колонки списка баз по её ключу (issue #173).
+    /// Пересчитывает остальные параметры отображения из текущих значений и применяет их
+    /// через <see cref="ApplyDisplaySettings"/>, поэтому состояние сохраняется и интерфейс
+    /// перестраивается теми же механизмами, что и при правке в окне настроек.
+    /// </summary>
+    public void SetColumnVisible(string key, bool visible)
+    {
+        ApplyDisplaySettings(
+            _showFavoritesButton, _showPinnedButton, _showTags,
+            key == "Version" ? visible : _showVersionColumn,
+            key == "LaunchMode" ? visible : _showLaunchModeColumn,
+            key == "ServerBase" ? visible : _showServerColumn,
+            key == "LastLaunch" ? visible : _showLastLaunchColumn,
+            _groupByGroup, ShowFavoritesOnly,
+            showSizeColumn: key == "Size" ? visible : _showSizeColumn,
+            showConfigurationColumn: key == "Configuration" ? visible : _showConfigurationColumn,
+            showEmptyGroups: _showEmptyGroups,
+            columnOrder: _columnOrder,
+            showActionsColumn: key == "Actions" ? visible : _showActionsColumn);
+    }
+
     /// <summary>Сохранённая ширина окна приложения (0 — по умолчанию).</summary>
     public double SavedWindowWidth => _windowWidth;
 

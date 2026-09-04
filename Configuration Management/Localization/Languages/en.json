@@ -257,6 +257,8 @@
     "Column.LastLaunch": "Last launch",
     "Column.Size": "Size",
     "Column.Actions": "Actions",
+    "Column.HideColumn": "Hide column",
+    "Settings.Columns.OpenSettings": "Open column settings",
     "Main.ColumnNameTooltip": "Name and version of the 1C configuration",
 
     "Settings.Title": "Settings",
