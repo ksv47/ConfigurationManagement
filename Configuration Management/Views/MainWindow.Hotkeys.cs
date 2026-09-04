@@ -156,6 +156,32 @@ namespace Configuration_Management
         {
             var key = e.Key == Key.System ? e.SystemKey : e.Key;
 
+            // Ctrl+Shift++ / Ctrl+Shift+- — «развернуть все» / «свернуть все» (issue #160).
+            // Обрабатываем на этапе Preview (туннелирование): событие доходит сюда раньше,
+            // чем до вложенных элементов и чем оцениваются InputBindings (фаза всплытия),
+            // и не зависит от фокуса/времени регистрации привязок. Поэтому хоткей
+            // гарантированно срабатывает с первого нажатия. Вызываются те же команды,
+            // что и у кнопок верхней панели (ExpandAllGroupsCommand/CollapseAllGroupsCommand),
+            // которые, по отзывам, работают сразу. Установка e.Handled = true отменяет
+            // всплытие KeyDown, так что дублирующие InputBindings не сработают повторно.
+            if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control &&
+                (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
+            {
+                if (key is Key.OemPlus or Key.Add)
+                {
+                    _viewModel.ExpandAllGroupsCommand.Execute(null);
+                    e.Handled = true;
+                    return;
+                }
+
+                if (key is Key.OemMinus or Key.Subtract)
+                {
+                    _viewModel.CollapseAllGroupsCommand.Execute(null);
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             // Стрелки ↑/↓/←/→ управляют выделением в списке баз, только если
             // фокус находится в пределах дерева и не в поле ввода текста.
             // Это гарантирует, что стрелки всегда перемещают выделение по дереву,

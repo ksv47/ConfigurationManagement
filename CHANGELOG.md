@@ -9,6 +9,19 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.60] — 2026-09-04
+
+Выпуск с исправлением issue #160: хоткеи «Развернуть всё» (`Ctrl+Shift++`, `OemPlus`/`Add`) и «Свернуть всё» (`Ctrl+Shift+-`, `OemMinus`/`Subtract`) теперь срабатывают с первого нажатия и больше не конфликтуют с переключением папок мышью. Первопричиной было то, что декларативные `InputBindings`/`KeyBindings` оценивались в фазе всплытия и зависели от фокуса, из-за чего первое нажатие не доходило до команды. Обработка вынесена в туннельную фазу: для WPF — `Window_PreviewKeyDown` в [`Views/MainWindow.Hotkeys.cs`](Configuration%20Management/Views/MainWindow.Hotkeys.cs), для Avalonia — ранний обработчик окна `OnWindowKeyDown` в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs). Вызываются те же команды `ExpandAllGroupsCommand`/`CollapseAllGroupsCommand`, что и у рабочих кнопок, а `e.Handled=true` исключает повторное срабатывание. Команды идемпотентны — переключение папок мышью по-прежнему работает.
+
+### Исправлено
+
+- **Хоткеи «Развернуть всё» / «Свернуть всё» срабатывают с первого нажатия (issue #160)**: раньше декларативные `InputBindings`/`KeyBindings` оценивались в фазе всплытия и зависели от фокуса, поэтому первое нажатие не доходило до команды. Обработка перенесена в туннельную фазу — `Window_PreviewKeyDown` ([`Views/MainWindow.Hotkeys.cs`](Configuration%20Management/Views/MainWindow.Hotkeys.cs)) для WPF и `OnWindowKeyDown` ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)) для Avalonia; вызываются те же команды `ExpandAllGroupsCommand`/`CollapseAllGroupsCommand`, что и у кнопок, а `e.Handled=true` исключает повторное срабатывание.
+- **Устранён конфликт хоткеев с переключением мышью (issue #160)**: команды разворачивания/сворачивания идемпотентны, поэтому выделение папки и её раскрытие/сворачивание кликом мыши продолжают работать без побочных эффектов; обработчики объявлены ранними и не зависят от фокуса.
+
+### Версия
+
+- **Версия поднята до `0.3.6.59` → `0.3.6.60`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.59] — 2026-09-04
 
 Выпуск с полным исправлением issue #153: устранено «зависание» окна при запуске на Linux/X11 (в т.ч. в виртуальных машинах без композитора/на программном рендере) и высокая нагрузка CPU (~36%). Первопричиной было то, что безрамное окно всегда запрашивало расширение клиентской области в декорации (`ExtendClientAreaToDecorationsHint=true`), что на X11 без композитора заставляет непрерывно перерисовывать фон; к этому добавлялись полупрозрачные подложки модальных окон и затемняющий оверлей загрузки, включавшие постоянную альфа-компоновку кадра. Теперь прозрачность на Linux автоопределяется по типу сессии (`LinuxRendering`): на X11 композитор не гарантирован, поэтому окно рисуется непрозрачным прямоугольным (без расширения клиентской области и прозрачности), а на Wayland прозрачность безопасна и сохраняется. В непрозрачном режиме сбрасывается `ExtendClientAreaToDecorationsHint=false` и задаётся сплошной фон для главного окна ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)) и всех модальных ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs)); «стеклянные» подложки и оверлей загрузки делаются непрозрачными. Принудительный путь флага окружения `CM_DISABLE_TRANSPARENCY=1` сохранён.

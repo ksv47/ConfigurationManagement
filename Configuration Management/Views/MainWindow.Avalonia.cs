@@ -5633,6 +5633,31 @@ namespace Configuration_Management
             if (e.Handled || _vm is null)
                 return;
 
+            // Ctrl+Shift++ / Ctrl+Shift+- — «развернуть все» / «свернуть все» (issue #160).
+            // Дублируем назначенные в RegisterHotkeys KeyBindings надёжным явным разбором:
+            // KeyBinding/KeyGesture на части раскладок и при разном состоянии фокуса
+            // срабатывают только со второго нажатия. Прямой вызов тех же команд, что и у
+            // кнопок верхней панели, делает хоткей детерминированным с первого нажатия.
+            // Если привязка уже обработала жест (e.Handled == true), сюда не доходим —
+            // повторного срабатывания нет.
+            if ((e.KeyModifiers & KeyModifiers.Control) != 0 &&
+                (e.KeyModifiers & KeyModifiers.Shift) != 0)
+            {
+                if (e.Key is Key.OemPlus or Key.Add)
+                {
+                    _vm.ExpandAllGroupsCommand.Execute(null);
+                    e.Handled = true;
+                    return;
+                }
+
+                if (e.Key is Key.OemMinus or Key.Subtract)
+                {
+                    _vm.CollapseAllGroupsCommand.Execute(null);
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             // Esc уводит окно в трей, если так задано настройкой. В поле ввода
             // клавиша остаётся своей: там ей отменяют правку.
             if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None
