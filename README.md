@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.67-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.68-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.67**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.68**
+>
+> ✨ **0.3.6.68:** исправлен повторный импорт баз из StartManager (issue #163) — теперь реализован режим слияния: при повторном импорте записи сопоставляются с уже существующими базами не только по имени, но и по идентификатору (ID) и по строке подключения, поэтому авторизации (хранилище / Предприятие / Конфигуратор) **дополняются/перезаписываются** в существующих базах, а не только добавляются новые. «Удалённые вручную» авторизации восстанавливаются из StartManager ([`Services/StartManagerImporter.cs`](Configuration%20Management/Services/StartManagerImporter.cs)).
 >
 > ✨ **0.3.6.67:** исправлено автообновление на Windows при установке в защищённую папку, например `C:\Program Files\ConfigurationManagement\` (issue #161). Если целевой каталог установки не доступен пользователю на запись, PowerShell-помощник замены exe теперь запускается с повышением прав через UAC ([`Services/UpdateService.cs`](Configuration%20Management/Services/UpdateService.cs)), поэтому `Move-Item` больше не падает с «Access to the path is denied» и новая версия корректно устанавливается.
 >

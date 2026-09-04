@@ -172,8 +172,7 @@ public static class StartManagerImporter
                 continue;
             }
 
-            var existing = infobases.FirstOrDefault(b =>
-                string.Equals(b.Name, infobase.Name, StringComparison.OrdinalIgnoreCase));
+            var existing = FindExisting(infobases, infobase);
 
             if (existing is null)
             {
@@ -182,8 +181,11 @@ public static class StartManagerImporter
             }
             else
             {
-                // Обновляем настройки подключения, группу и авторизации. Логин/пароль
-                // существующей базы не затираем, если в StartManager они не заданы.
+                // Режим слияния при повторном импорте (issue #163): дополняем/перезаписываем
+                // настройки подключения, группу и авторизации существующей базы, а не только
+                // добавляем новые. Логин/пароль существующей базы не затираем, если в
+                // StartManager они не заданы. Так «удалённые вручную» авторизации (хранилище /
+                // Предприятие / Конфигуратор) восстанавливаются из StartManager.
                 Merge(existing, infobase);
                 result.Updated++;
             }
@@ -227,6 +229,53 @@ public static class StartManagerImporter
             target.EnterpriseAuth = imported.EnterpriseAuth;
         if (imported.ConfiguratorAuth is not null && !imported.ConfiguratorAuth.IsDefault)
             target.ConfiguratorAuth = imported.ConfiguratorAuth;
+    }
+
+    /// <summary>
+    /// Находит существующую базу приложения для слияния с импортируемой записью
+    /// (режим слияния при повторном импорте, issue #163). Поиск выполняется
+    /// последовательно по нескольким критериям, чтобы не создавать дубликаты и
+    /// корректно обновлять авторизации существующих баз:
+    /// <list type="number">
+    ///   <item>точное совпадение имени (как было ранее);</item>
+    ///   <item>совпадение идентификатора StartManager / приложения (ID);</item>
+    ///   <item>совпадение нормализованной строки подключения (путь / сервер+база / URL).</item>
+    /// </list>
+    /// Возвращает null, если подходящая база не найдена (тогда добавляется новая).
+    /// </summary>
+    private static Infobase? FindExisting(IList<Infobase> infobases, Infobase imported)
+    {
+        var name = (imported.Name ?? string.Empty).Trim();
+        if (!string.IsNullOrEmpty(name))
+        {
+            var byName = infobases.FirstOrDefault(b =>
+                string.Equals((b.Name ?? string.Empty).Trim(), name, StringComparison.OrdinalIgnoreCase));
+            if (byName is not null)
+                return byName;
+        }
+
+        var id = (imported.Id ?? string.Empty).Trim();
+        if (!string.IsNullOrEmpty(id))
+        {
+            var byId = infobases.FirstOrDefault(b =>
+                !string.IsNullOrWhiteSpace(b.Id)
+                && string.Equals((b.Id ?? string.Empty).Trim(), id, StringComparison.OrdinalIgnoreCase));
+            if (byId is not null)
+                return byId;
+        }
+
+        var conn = imported.Connection?.ToConnectionString();
+        if (!string.IsNullOrWhiteSpace(conn))
+        {
+            var byConn = infobases.FirstOrDefault(b =>
+                b.Connection is not null
+                && !string.IsNullOrWhiteSpace(b.Connection.ToConnectionString())
+                && string.Equals(b.Connection.ToConnectionString(), conn, StringComparison.OrdinalIgnoreCase));
+            if (byConn is not null)
+                return byConn;
+        }
+
+        return null;
     }
 
     /// <summary>
