@@ -5029,7 +5029,14 @@ namespace Configuration_Management
             };
             ThemeBrushes.Bind(card, Border.BackgroundProperty, "CardBackgroundBrush");
 
-            var overlay = new Panel { Background = new SolidColorBrush(Color.Parse("#99000000")) };
+            // Затемняющий слой поверх всего окна. На программном рендере/в виртуализации
+            // полупрозрачный оверлей (альфа #99) требует постоянной альфа-компоновки
+            // кадра и на X11 без композитора даёт высокую нагрузку CPU (issue #153),
+            // поэтому там затемнение делаем сплошным непрозрачным.
+            var dimColor = Services.LinuxRendering.OpaqueWindow
+                ? Color.Parse("#FF000000")
+                : Color.Parse("#99000000");
+            var overlay = new Panel { Background = new SolidColorBrush(dimColor) };
             overlay.Children.Add(card);
             overlay.IsHitTestVisible = !disableAnimations;
             overlay.Bind(Control.IsVisibleProperty, new Binding("IsLoading"));
@@ -5208,15 +5215,25 @@ namespace Configuration_Management
         private void ApplySystemDecorations()
         {
             SystemDecorations = _useSystemTitleBar ? SystemDecorations.Full : SystemDecorations.None;
-            ExtendClientAreaToDecorationsHint = !_useSystemTitleBar;
 
-            if (_useSystemTitleBar || _opaqueWindow)
+            // На X11 без композитора (или в виртуализации на программном рендере) любое
+            // «прозрачное» окно заставляет оконный менеджер непрерывно перерисовывать фон,
+            // что проявляется как «зависание» и высокая нагрузка CPU (~36%, issue #153).
+            // Поэтому в непрозрачном режиме окно делается простым прямоугольником: без
+            // запроса прозрачности и без расширения клиентской области (последнее в
+            // безрамковом режиме тоже требует прозрачных полей под скругление/тень).
+            // Расширение и прозрачность остаются только для «стекла» на Wayland, где
+            // композитор обязателен и постоянной перерисовки фона нет.
+            var opaque = _useSystemTitleBar || _opaqueWindow;
+            ExtendClientAreaToDecorationsHint = !opaque;
+
+            if (opaque)
             {
-                // Со стандартной рамкой прозрачность и расширение клиентской области
-                // конфликтуют; в непрозрачном режиме она просто не нужна. Убираем запрос
-                // уровня прозрачности — по умолчанию окно рисуется непрозрачным фоном.
+                // Убираем запрос уровня прозрачности — по умолчанию окно рисуется
+                // непрозрачным прямоугольным фоном. Сплошной фон задаём явно, чтобы
+                // нативное окно гарантированно было непрозрачным.
                 TransparencyLevelHint = null;
-                Background = null;
+                Background = new SolidColorBrush(Color.Parse("#FF161616"));
             }
             else
             {

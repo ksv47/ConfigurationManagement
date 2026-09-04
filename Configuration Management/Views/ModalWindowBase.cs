@@ -46,16 +46,33 @@ namespace Configuration_Management
             // в каждом (раньше отдельные окна жёстко ставили SystemDecorations.Full).
             var useSystemTitleBar = ResolveUseSystemTitleBar();
             SystemDecorations = useSystemTitleBar ? SystemDecorations.Full : SystemDecorations.None;
-            ExtendClientAreaToDecorationsHint = !useSystemTitleBar;
 
-            // Прозрачность — только в безрамковом режиме: со стандартной системной рамкой
-            // прозрачный фон и расширение клиентской области конфликтуют и могут ронять
-            // приложение при открытии диалога на Linux (issue #150). Размытие не просим:
-            // AcrylicBlur/Blur включает непрерывную перерисовку фона (issues #150, #153).
-            // В непрозрачном режиме (программный рендер/виртуализация) прозрачность не
-            // запрашиваем вовсе, чтобы не провоцировать непрерывную перерисовку фона (issue #153).
-            if (!useSystemTitleBar && !ShouldRenderOpaque)
+            // На X11 без композитора (или в виртуализации на программном рендере) любое
+            // «прозрачное» окно заставляет оконный менеджер непрерывно перерисовывать фон,
+            // что проявляется как «зависание» и высокая нагрузка CPU (~36%, issue #153).
+            // Поэтому в непрозрачном режиме окно делается простым прямоугольником: без
+            // запроса прозрачности и без расширения клиентской области (последнее в
+            // безрамковом режиме тоже требует прозрачных полей под скругление/тень).
+            // Расширение и прозрачность остаются только для «стекла» на Wayland, где
+            // композитор обязателен и постоянной перерисовки фона нет.
+            var opaque = useSystemTitleBar || ShouldRenderOpaque;
+            ExtendClientAreaToDecorationsHint = !opaque;
+
+            if (opaque)
             {
+                // В непрозрачном режиме прозрачность и расширение не запрашиваем вовсе,
+                // чтобы не провоцировать непрерывную перерисовку фона (issue #153).
+                // Сплошной фон задаём явно, чтобы нативное окно было непрозрачным.
+                TransparencyLevelHint = null;
+                Background = new SolidColorBrush(Color.Parse("#FF161616"));
+            }
+            else
+            {
+                // Прозрачность — только в безрамковом режиме: со стандартной системной
+                // рамкой прозрачный фон и расширение клиентской области конфликтуют и могут
+                // ронять приложение при открытии диалога на Linux (issue #150). Размытие
+                // не просим: AcrylicBlur/Blur включает непрерывную перерисовку фона
+                // (issues #150, #153).
                 TransparencyLevelHint = new[]
                 {
                     WindowTransparencyLevel.Transparent
@@ -306,12 +323,18 @@ namespace Configuration_Management
 
         /// <summary>
         /// Подписка стеклянного контейнера на цвет фона темы: берём текущий
-        /// <c>ContentBackgroundColorBrush</c> и делаем из него полупрозрачную версию,
+        /// <c>ContentBackgroundColorBrush</c> и делаем из него (полу)прозрачную версию,
         /// чтобы обе темы и все цветовые схемы выглядели как «стекло» своего цвета.
+        /// В непрозрачном режиме (X11 без композитора/виртуализация, issue #153)
+        /// подложка рисуется полностью непрозрачной: полупрозрачный слой поверх окна
+        /// в этих окружениях тоже способен включать лишнюю компоновку кадра.
         /// </summary>
         private void ApplyGlassBackground(Border glass)
-            => ThemeBrushes.Observe(glass, "ContentBackgroundColorBrush",
-                brush => glass.Background = ThemeBrushes.WithAlpha(brush, GlassBackgroundAlpha));
+        {
+            var alpha = ShouldRenderOpaque ? (byte)0xFF : GlassBackgroundAlpha;
+            ThemeBrushes.Observe(glass, "ContentBackgroundColorBrush",
+                brush => glass.Background = ThemeBrushes.WithAlpha(brush, alpha));
+        }
 
         /// <summary>
         /// Полоса заголовка диалога: слева заголовок окна, справа собственные кнопки
