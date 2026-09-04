@@ -9,6 +9,18 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.65] — 2026-09-04
+
+Выпуск с реализацией issue #172: добавлен настраиваемый хоткей `HotkeyRightPanelDetails` для переключения подробностей правой панели информации. По умолчанию не назначен; задаётся в **Настройки → Горячие клавиши → строка «Панель информации (подробности)»**. Добавлена локализация в ru.json/en.json.
+
+### Добавлено
+
+- **Настраиваемый хоткей для переключения подробностей правой панели информации (issue #172)**: добавлен `HotkeyRightPanelDetails`, который по умолчанию не назначен и задаётся пользователем в **Настройки → Горячие клавиши → «Панель информации (подробности)»**. Комбинация позволяет быстро показывать/скрывать подробные сведения правой панели. Локализация добавлена в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.64` → `0.3.6.65`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.64] — 2026-09-04
 
 Выпуск с полным устранением issue #171: исправлено исчезновение группы (вместе с её базами) при изменении наименования. Причина была в том, что базы ссылаются на группу строкой полного пути (`Infobase.Group`): при переименовании через `EditGroup` менялось имя группы, но пути баз не пересчитывались — базы не находили узел, группа становилась «пустой» и скрывалась из дерева. Теперь при переименовании или смене родителя добавляется метод `RemapSubtreeInfobasePaths` ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) и WPF-версия в [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs)), который пересчитывает `Infobase.Group` у всех баз подветки, переносит ключи свёрнутых групп, сохраняет и базы, и группы, а затем экспортирует `ibases.v8i`. Метод вызывается из `EditGroup` в Avalonia ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)) и Windows ([`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs)).
