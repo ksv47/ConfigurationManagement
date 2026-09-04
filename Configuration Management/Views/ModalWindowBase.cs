@@ -316,8 +316,21 @@ namespace Configuration_Management
             if (change.GetNewValue<object?>() is Control inner)
             {
                 _wrappingContent = true;
-                Content = BuildChrome(inner);
-                _wrappingContent = false;
+                try
+                {
+                    // Обёртка ставит Content второй раз, пока inner уже числится
+                    // логическим ребёнком окна: при замене ContentControl снимает
+                    // у него логического родителя, а inner к этому моменту лежит
+                    // внутри нового Grid, и обход дерева обёртки падает с
+                    // AttachedToLogicalTreeCore ... has no logical parent.
+                    // Сброс в null отпускает inner заранее.
+                    Content = null;
+                    Content = BuildChrome(inner);
+                }
+                finally
+                {
+                    _wrappingContent = false;
+                }
             }
         }
 
@@ -530,10 +543,10 @@ namespace Configuration_Management
                 if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
                     BeginResizeDrag(edge, e);
             };
-            Grid.SetRow(zone, 0);
-            Grid.SetColumn(zone, 0);
-            Grid.SetRowSpan(zone, host.RowDefinitions.Count);
-            Grid.SetColumnSpan(zone, host.ColumnDefinitions.Count);
+            // host это overlay, созданный как new Grid() без строк и колонок,
+            // поэтому span из его счётчиков равен нулю, а Avalonia такой span
+            // не принимает: ArgumentException прямо в OnOpened. Зона и без
+            // привязок занимает единственную ячейку целиком.
             host.Children.Add(zone);
         }
 
