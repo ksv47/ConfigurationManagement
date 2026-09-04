@@ -66,7 +66,14 @@ namespace Configuration_Management.Controls
         public static double ScaledFont(double value) => value * FontScale;
 
         /// <summary>Вертикальный отступ верхней панели.</summary>
-        public static double TopBarV => Compact ? 6 : 10;
+        /// <remarks>
+        /// Значение 8 (в обычном режиме) согласовано с WPF-разметкой, где верхняя панель
+        /// поиска имеет Padding="0,8" (MainWindow.xaml:265). Это даёт панели «Теги» под ней
+        /// одинаковый вертикальный отступ сверху и снизу (по 8) и выравнивает группу «Теги»
+        /// по высоте на обеих платформах (issue #167). Прежнее 10 оставляло сверху 10 против
+        /// 8 снизу, из-за чего группа «Теги» на Linux выглядела сдвинутой вниз.
+        /// </remarks>
+        public static double TopBarV => Compact ? 6 : 8;
         /// <summary>Горизонтальный отступ верхней панели.</summary>
         public static double TopBarH => Compact ? 8 : 12;
 

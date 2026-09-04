@@ -1834,17 +1834,17 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <ScrollViewer.Style>
                         <Style TargetType="ScrollViewer">
-                            <!-- Верхняя составляющая Padding (56) выравнивает верхний край блока
-                                 действий запуска («1С Предприятие»/«Конфигуратор») с верхним краем
-                                 панели команд CommandPanelBorder над списком баз. Значение ≈ высоте
-                                 строки TopBarBorder (поиск/вкладки) вместе с верхним отступом левой
-                                 колонки; окно теперь имеет отдельную строку-заголовок, поэтому
-                                 кнопки окна больше не накладываются на основную область. -->
-                            <Setter Property="Padding" Value="12,56"/>
+                            <!-- Верхний отступ правой панели приведён к стандартному (12), как у левой
+                                 колонки. Большой зазор 56 «отодвигал» блок запуска («1С Предприятие»/
+                                 «Конфигуратор») вниз и выглядел «конским отступом перед кнопками
+                                 справа» (issue #167). Теперь кнопка запуска поднята и стоит вровень
+                                 с верхними сегментами «Все / Избранное / Недавние» левой колонки,
+                                 отступы в правом блоке стали одинаковыми с остальными. -->
+                            <Setter Property="Padding" Value="12,12"/>
                             <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding ShowRightPanelDetails}" Value="False">
-                                    <Setter Property="Padding" Value="2,56,4,6"/>
+                                    <Setter Property="Padding" Value="2,12,4,6"/>
                                     <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
                                 </DataTrigger>
                             </Style.Triggers>

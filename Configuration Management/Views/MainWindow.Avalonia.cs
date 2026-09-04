@@ -2457,11 +2457,15 @@ namespace Configuration_Management
             // Отступы держит само содержимое, а не Padding у ScrollViewer:
             // его отступ не входит в прокручиваемую высоту, и нижняя кнопка
             // становилась недостижимой, от неё была видна одна рамка.
+            // Верхний отступ приведён к стандартному (12), как в WPF-версии и левой
+            // колонке: прежний зазор 56 «отодвигал» блок запуска вниз и выглядел
+            // «конским отступом перед кнопками справа» (issue #167). Теперь кнопка
+            // запуска поднята и стоит вровень с верхними сегментами левой колонки.
             var panel = new StackPanel
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Spacing = UiMetrics.ActionGridGap,
-                Margin = new Thickness(12, 56)
+                Margin = new Thickness(12, 12)
             };
             _rightPanelContent = panel;
 
