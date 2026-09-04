@@ -172,16 +172,27 @@ namespace Configuration_Management.Services
             return false;
         }
 
-        /// <summary>Сессия Wayland (композитор обязателен, прозрачность безопасна).</summary>
+        /// <summary>
+        /// Сессия Wayland (композитор обязателен, прозрачность безопасна). Признак
+        /// считается установленным только при согласованных показателях: тип сессии
+        /// (<c>XDG_SESSION_TYPE</c>) содержит «wayland» И задана <c>WAYLAND_DISPLAY</c>.
+        /// <para>
+        /// Если задана только <c>WAYLAND_DISPLAY</c>, а тип сессии не Wayland, это,
+        /// как правило, X11-приложение в XWayland: реальное окно создаётся на X11,
+        /// где прозрачность и расширение клиентской области вызывают нативный abort
+        /// при открытии диалога (issue #168). Требование согласованности не даёт
+        /// ошибочно считать такой случай безопасным Wayland.
+        /// </para>
+        /// </summary>
         private static bool IsWayland()
         {
             try
             {
-                if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")))
-                    return true;
+                var hasDisplay = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"));
                 var sessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
-                return !string.IsNullOrWhiteSpace(sessionType)
+                var waylandSession = !string.IsNullOrWhiteSpace(sessionType)
                     && sessionType.Contains("wayland", StringComparison.OrdinalIgnoreCase);
+                return hasDisplay && waylandSession;
             }
             catch
             {

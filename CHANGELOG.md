@@ -9,6 +9,19 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.63] — 2026-09-04
+
+Выпуск с полным устранением issue #168: устранено падение (Signal 6 / SIGABRT) при открытии дополнительных (модальных) окон на Linux. Причина была двойной. Во-первых, ненадёжный детектор Wayland в `LinuxRendering.IsWayland()` — он возвращал `true` уже по одной переменной окружения `WAYLAND_DISPLAY`, даже если сессия фактически X11 (XWayland), из-за чего модальные окна шли прозрачным путём (`ExtendClientAreaToDecorationsHint` + `Transparent`), что на X11 даёт SIGABRT; теперь `IsWayland()` требует выполнения обоих условий — `XDG_SESSION_TYPE=wayland` И `WAYLAND_DISPLAY`. Во-вторых, показ и центрирование окна относительно непригодного владельца (без проверки видимости/геометрии); укреплены `ShowDialogSync` в [`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs) и `ShowModalSync` в [`Services/AvaloniaDialogService.cs`](Configuration%20Management/Services/AvaloniaDialogService.cs): владелец используется только если видим и имеет размеры, добавлен запасной немодальный путь показа и снятие кадра в `finally`.
+
+### Исправлено
+
+- **Устранено падение (Signal 6 / SIGABRT) при открытии дополнительных окон на Linux (issue #168)**: причиной была прозрачная ветка показа модальных окон на сессиях, ошибочно распознаваемых как Wayland. `LinuxRendering.IsWayland()` возвращал `true` уже по одной переменной `WAYLAND_DISPLAY`, даже в X11/XWayland-сессии, из-за чего окна шли через `ExtendClientAreaToDecorationsHint` + `Transparent`, что на X11 приводит к SIGABRT. Теперь `IsWayland()` требует `XDG_SESSION_TYPE=wayland` И `WAYLAND_DISPLAY`.
+- **Безопасный показ/центрирование модальных окон с запасным путём (issue #168)**: владелец окна использовался без проверки видимости/геометрии, из-за чего показ и центрирование выполнялись относительно непригодного владельца. В [`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs) (`ShowDialogSync`) и [`Services/AvaloniaDialogService.cs`](Configuration%20Management/Services/AvaloniaDialogService.cs) (`ShowModalSync`) владелец используется только если видим и имеет размеры, добавлен запасной немодальный путь показа и снятие кадра в `finally`. Изменения изолированы под `#if LINUX/Avalonia`, Windows не затронут.
+
+### Версия
+
+- **Версия поднята до `0.3.6.62` → `0.3.6.63`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.62] — 2026-09-04
 
 Выпуск с полным устранением issue #167: устранён «большой непонятный отступ» (лишний вертикальный зазор) в правой панели и панель «Теги» выровнена по высоте на обеих платформах — Windows и Linux. Первопричина была двойной. Во-первых, правая панель была опущена вниз лишним зазором `Padding`/`Margin`: в WPF — `Padding="12,56"→"12,12"` в [`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml), в Avalonia — `Margin(12,56)→(12,12)` в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs). Во-вторых, верхний отступ верхней панели поиска `TopBarV=10` не совпадал с нижним отступом панели тегов `8`, из-за чего на Linux группа «Теги» сдвигалась вниз; значение исправлено в [`Services/UiMetrics.Avalonia.cs`](Configuration%20Management/Services/UiMetrics.Avalonia.cs) `TopBarV 10→8` (симметрично `8/8`, как на Windows).

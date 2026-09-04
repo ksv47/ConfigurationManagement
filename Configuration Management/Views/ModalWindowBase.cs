@@ -207,12 +207,21 @@ namespace Configuration_Management
             var frame = new DispatcherFrame();
             Closed += (_, _) => frame.Continue = false;
 
+            // Владелец пригоден только видимый и с измеренной геометрией. На Linux/X11
+            // модальный показ относительно неотрисованного владельца (нулевая геометрия)
+            // и центрирование по нему способны вызывать нативный abort при открытии
+            // диалога (issue #168). С непригодным владельцем окно открываем по центру
+            // экрана и без привязки модальности к окну.
+            var validOwner = owner is { IsVisible: true } o && HasUsableBounds(o);
+
             try
             {
-                if (owner is not null)
+                if (validOwner)
                 {
+                    // validOwner гарантирует ненулевого владельца; оператор ! — только
+                    // для анализатора nullability, чтобы не давать ложное предупреждение.
                     WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                    _ = ShowDialog(owner);
+                    _ = ShowDialog(owner!);
                 }
                 else
                 {
@@ -221,6 +230,27 @@ namespace Configuration_Management
                 }
 
                 Dispatcher.UIThread.PushFrame(frame);
+            }
+            catch
+            {
+                // Первый способ показа сорвался (нативный сбой Avalonia при открытии
+                // диалога, раньше ронявший процесс abort-ом). Не даём окну молча
+                // исчезнуть (issue #168: «не падает, но и не открывается»): пробуем
+                // запасной путь — немодальный показ по центру экрана. Если и он падает,
+                // снимаем кадр и прячем неоткрытое окно.
+                frame.Continue = false;
+                try
+                {
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                    if (!IsVisible)
+                        Show();
+                    Dispatcher.UIThread.PushFrame(frame);
+                }
+                catch
+                {
+                    frame.Continue = false;
+                    try { if (IsVisible) Hide(); } catch { /* ignore */ }
+                }
             }
             finally
             {
@@ -232,6 +262,27 @@ namespace Configuration_Management
             }
 
             return DialogResult;
+        }
+
+        /// <summary>
+        /// Признак того, что окно имеет измеренную ненулевую геометрию и пригодно
+        /// в качестве владельца модального диалога. На Linux/X11 центрирование по
+        /// владельцу с нулевым размером и показ диалога поверх него могут давать
+        /// нативный abort при открытии окна (issue #168).
+        /// </summary>
+        private static bool HasUsableBounds(Window w)
+        {
+            try
+            {
+                if (w.Bounds.Width > 0 && w.Bounds.Height > 0)
+                    return true;
+            }
+            catch
+            {
+                // Bounds может быть недоступен у ещё не показанного окна.
+            }
+            // Явно заданная ширина/высота тоже считается пригодной геометрией.
+            return w.Width > 0 && w.Height > 0;
         }
 
         /// <summary>
