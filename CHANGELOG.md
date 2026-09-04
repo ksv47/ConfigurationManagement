@@ -9,6 +9,21 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.55] — 2026-09-04
+
+Добавлен ручной ввод имени конфигурации и версии релиза конфигурации информационной базы (issue #164). На Windows значения можно оставить для автополучения через COM-коннектор, а на Linux, где COM-соединение недоступно и автополучение не всегда возможно, имя и версию конфигурации теперь можно заполнить вручную в окне свойств базы. Введённые вручную значения сохраняются и не затираются фоновым автообновлением, а в колонке «Конфигурация» списка баз отображаются полученные данные.
+
+### Добавлено
+
+- **Ручной ввод имени и версии конфигурации ИБ в свойствах базы (issue #164)**: в окне свойств информационной базы под полями «Конфигурация» и «Версия конфигурации» добавлена подсказка о возможности ручного ввода ([`Views/ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml), [`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs)). Поля `ConfigurationName` / `ConfigurationVersion` теперь можно заполнить вручную, что критично для Linux, где COM-соединение недоступно и автополучение имени/версии невозможно.
+- **Разграничение автозаполнения по платформам (issue #164)**: в [`Services/ConfigurationInfoService.cs`](Configuration%20Management/Services/ConfigurationInfoService.cs) метод `TryApply` при фоновом автополучении (`overwriteExisting=false`) не перезаписывает уже непустые поля — они считаются введёнными пользователем и заполняются только пустые; перезапись допускается лишь при явной команде пользователя «Обновить информацию» (`overwriteExisting=true`). На Linux COM-чтение не выполняется, поэтому значения остаются ручными, если эвристика по файлу `1Cv8.1CD` или пакетный режим конфигуратора их не вернули.
+- **Сохранение ручных значений без затирания (issue #164)**: введённые пользователем имя и версия конфигурации сохраняются и не теряются при фоновом автообновлении данных о конфигурации, а полученные значения отображаются в колонке «Конфигурация» списка баз.
+- **Обновление локализации (issue #164)**: добавлены ключи `Connection.ConfigurationManualHint`, `Connection.ConfigurationNameTooltip` и `Connection.ConfigurationVersionTooltip` в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.6.54` → `0.3.6.55`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.54] — 2026-09-03
 
 Кнопка «Импорт из StartManager» (issue #163) добавлена в Windows/WPF-версию окна настроек: в разделе «Базы» появился пункт импорта рядом с импортом из `ibases.v8i`, который вызывает тот же механизм переноса баз и настроек платформы из StartManager, что и в Linux/Avalonia-версии. Ранее кнопка присутствовала только в Linux-версии, поэтому на Windows её невозможно было найти.
