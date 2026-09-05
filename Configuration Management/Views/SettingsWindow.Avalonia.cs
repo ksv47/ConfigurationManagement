@@ -329,7 +329,12 @@ namespace Configuration_Management
                 Width = 280,
                 Height = 30,
                 VerticalContentAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Stretch
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                // Placeholder с примером шаблона по умолчанию (issue #175): при пустом поле
+                // видно, какая строка берётся, если настройка не задана. Пустое значение
+                // означает стандартные ProgID (V85/V83/V82/V81.COMConnector), а развёрнутый
+                // по версии платформы «V%V12%.ComConnector» даёт V83.COMConnector для 8.3.
+                Watermark = "V%V12%.ComConnector"
             }.Styled(ControlThemes.ModernTextBox);
             ToolTip.SetTip(comTemplateBox, new TextBlock
             {

@@ -48,7 +48,11 @@ public static class IbasesV8iImporter
         var entries = Parse(filePath);
 
         // Создаём недостающие группы из импортируемых баз.
+        var groupsBefore = groups.Count;
         EnsureGroups(entries, groups, result);
+        LogInfo(
+            $"Импорт ibases.v8i: групп было {groupsBefore}, стало {groups.Count}, " +
+            $"создано {result.GroupsCreated}, удалено дубликатов {Math.Max(0, result.GroupsCreated + groupsBefore - groups.Count)}");
 
         foreach (var entry in entries)
         {
@@ -666,14 +670,24 @@ public static class IbasesV8iImporter
         return string.Join(GroupHierarchyHelper.PathSeparator, segments);
     }
 
-    /// <summary>
-    /// Нормализует одиночное имя группы (без учёта пути): убирает разделители.
-    /// Используется для сопоставления имён секций-групп.
-    /// </summary>
+    /// <summary>Нормализует одиночное имя группы (без учёта пути): убирает разделители.</summary>
     private static string NormalizeGroupName(string name)
     {
         var segments = SplitGroupPath(name);
         return segments.Count > 0 ? segments[^1] : string.Empty;
+    }
+
+    /// <summary>Пишет информационное сообщение импорта в файловый лог (issue #165).</summary>
+    private static void LogInfo(string message)
+    {
+        try
+        {
+            AppServices.GetRequiredService<IAppLogger>().Info(message);
+        }
+        catch
+        {
+            // Логирование не должно ломать импорт.
+        }
     }
 
     /// <summary>

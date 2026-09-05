@@ -16,6 +16,20 @@ public static class ConfigurationInfoService
     public static string? LastComError { get; private set; }
 
     /// <summary>
+    /// ProgID COM-коннектора, который фактически использовался при последнем чтении
+    /// (первый предпочтительный кандидат с учётом шаблона имени, issue #175). Выводится
+    /// в UI при ошибке определения свойств конфигурации (issue #174), чтобы было видно,
+    /// какой именно COM-коннектор пробовался. Пустая строка — COM не использовался.
+    /// </summary>
+    public static string? LastUsedProgId { get; private set; }
+
+    /// <summary>
+    /// Версия платформы базы, по которой разворачивался шаблон имени COM-коннектора
+    /// при последнем чтении (issue #174). Пустая строка, если версия не задана.
+    /// </summary>
+    public static string? LastUsedPlatformVersion { get; private set; }
+
+    /// <summary>
     /// Пытается прочитать имя и версию конфигурации для информационной базы.
     /// Сначала используется COM-коннектор (только на Windows; на Linux его заменяет
     /// реализация <c>OneCComConnector.Linux</c>, которая COM не использует — эвристика
@@ -26,10 +40,19 @@ public static class ConfigurationInfoService
         if (ib is null) return null;
 
         LastComError = null;
+        LastUsedProgId = null;
+        LastUsedPlatformVersion = null;
         try
         {
             var connector = AppServices.GetRequiredService<IOneCComConnector>();
             var viaCom = connector.ReadConfigurationInfo(ib, timeoutMs);
+
+            // Фиксируем, какой COM-коннектор/версия платформы фактически использовались
+            // при попытке чтения (issue #174): это помогает понять, почему «Определить»
+            // не сработало (например, шаблон имени дал неправильный ProgID).
+            LastUsedProgId = connector.LastUsedProgId;
+            LastUsedPlatformVersion = connector.LastUsedPlatformVersion;
+
             if (viaCom is not null)
                 return viaCom;
             LastComError = connector.LastError;

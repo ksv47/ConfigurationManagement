@@ -140,7 +140,17 @@ public static class IbasesV8iExporter
         // уникально (это ключ базы). Дубли появляются, например, когда имя группы
         // приложения совпадает с именем базы (в файл попадали две секции с одним
         // именем — группа и база), либо когда в файле уже были повторные записи.
+        var entriesBeforeDedup = entries.Count;
         entries = Deduplicate(entries);
+
+        // Лог экспорта (issue #165): количество записей, баз, групп и устранённых
+        // дубликатов — по журналу видно, на каком шаге возникает дублирование папок
+        // под Windows при повторной синхронизации со штатным стартером.
+        LogInfo(
+            $"Экспорт ibases.v8i: записей стало {entries.Count} " +
+            $"(баз добавлено {result.Added}, обновлено {result.Updated}, удалено {result.Removed}, " +
+            $"групп создано {result.GroupsCreated}), " +
+            $"устранено дубликатов секций {entriesBeforeDedup - entries.Count}");
 
         // Сериализуем полный список записей.
         var sb = new StringBuilder();
@@ -308,6 +318,19 @@ public static class IbasesV8iExporter
             new[] { GroupHierarchyHelper.PathSeparator, "/", "\\" },
             StringSplitOptions.RemoveEmptyEntries);
         return string.Join(separator, segments.Select(s => s.Trim()));
+    }
+
+    /// <summary>Пишет информационное сообщение экспорта в файловый лог (issue #165).</summary>
+    private static void LogInfo(string message)
+    {
+        try
+        {
+            AppServices.GetRequiredService<IAppLogger>().Info(message);
+        }
+        catch
+        {
+            // Логирование не должно ломать экспорт.
+        }
     }
 
     /// <summary>

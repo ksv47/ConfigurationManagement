@@ -51,3 +51,14 @@ package/linux/deb/out/
 build_out.txt
 .tmp/
 release_notes_*.md
+ 
+# Аналитические/временные файлы задач 
+analysis_issues*.md 
+selected_issues*.md 
+issues_fresh.md 
+issues_full.json 
+open_issues_full.json 
+_uncommitted.diff 
+cred_input.txt 
+rel_out.txt 
+PREFLIGHT.md

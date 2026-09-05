@@ -46,6 +46,12 @@ namespace Configuration_Management.Services
         /// <inheritdoc />
         public string? LastError { get; private set; }
 
+        /// <inheritdoc />
+        public string? LastUsedProgId { get; private set; } = null;
+
+        /// <inheritdoc />
+        public string? LastUsedPlatformVersion { get; private set; } = null;
+
         /// <summary>
         /// Доступность COM-коннектора на Linux всегда равна false (COM отсутствует).
         /// Метод добавлен для совместимости с общим кодом.

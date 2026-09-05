@@ -188,6 +188,16 @@ public static class StartManagerImporter
                 // Предприятие / Конфигуратор) восстанавливаются из StartManager.
                 Merge(existing, infobase);
                 result.Updated++;
+
+                // Лог слияния (issue #163): по журналу видно, какие авторизации были
+                // восстановлены, а какие остались пустыми — ускоряет подтверждение на
+                // машине пользователя без угадывания.
+                LogInfo(
+                    $"Слияние базы «{infobase.Name}» из StartManager: " +
+                    $"группа=[{(string.IsNullOrWhiteSpace(existing.Group) ? "—" : existing.Group)}], " +
+                    $"хранилище={(existing.Repository is { HasServer: true } ? "задано" : "—")}, " +
+                    $"Предприятие={(existing.EnterpriseAuth is { IsDefault: false } ? "задано" : "—")}, " +
+                    $"Конфигуратор={(existing.ConfiguratorAuth is { IsDefault: false } ? "задано" : "—")}");
             }
         }
 
@@ -198,7 +208,15 @@ public static class StartManagerImporter
     }
 
     /// <summary>
-    /// Переносит настройки импортированной базы в существующую, не затирая пустые значения.
+    /// Переносит настройки импортированной базы в существующую, не затирая заполненные
+    /// значения, но восстанавливая удалённые вручную авторизации (issue #163).
+    /// <para>
+    /// Ключевое правило: если авторизация в приложении пустая (пользователь удалил
+    /// имя/пароль/путь к хранилищу), а в StartManager запись существует — она
+    /// восстанавливается целиком или дополняется по незаполненным полям. Прежняя логика
+    /// отбрасывала запись целиком по <c>HasServer</c>/<c>IsDefault</c>, из-за чего
+    /// «пустые» в приложении, но заполненные в StartManager авторизации не возвращались.
+    /// </para>
     /// </summary>
     private static void Merge(Infobase target, Infobase imported)
     {
@@ -223,12 +241,98 @@ public static class StartManagerImporter
                 target.Connection.Password = prevPassword;
         }
 
-        if (imported.Repository is not null && imported.Repository.HasServer)
-            target.Repository = imported.Repository;
-        if (imported.EnterpriseAuth is not null && !imported.EnterpriseAuth.IsDefault)
-            target.EnterpriseAuth = imported.EnterpriseAuth;
-        if (imported.ConfiguratorAuth is not null && !imported.ConfiguratorAuth.IsDefault)
-            target.ConfiguratorAuth = imported.ConfiguratorAuth;
+        MergeRepository(target, imported.Repository);
+        target.EnterpriseAuth = MergeAuthSettings(target.EnterpriseAuth, imported.EnterpriseAuth);
+        target.ConfiguratorAuth = MergeAuthSettings(target.ConfiguratorAuth, imported.ConfiguratorAuth);
+    }
+
+    /// <summary>
+    /// Восстанавливает/дополняет настройки хранилища конфигурации. Если хранилище в
+    /// приложении пустое, а в StartManager задано — берётся целиком; иначе заполняются
+    /// только незаполненные поля.
+    /// </summary>
+    private static void MergeRepository(Infobase target, RepositorySettings? imported)
+    {
+        if (imported is null)
+            return; // В StartManager хранилище не задано — ничего не трогаем.
+
+        var dst = target.Repository;
+        if (dst is null)
+        {
+            target.Repository = imported;
+            return;
+        }
+
+        // Хранилище в приложении пустое (пользователь удалил его вручную) — восстанавливаем
+        // из StartManager целиком, включая пустой пароль, чтобы не осталось «полуудалённых»
+        // полей (issue #163).
+        var dstEmpty = !dst.HasServer
+                       && string.IsNullOrWhiteSpace(dst.RepositoryName)
+                       && string.IsNullOrWhiteSpace(dst.User)
+                       && string.IsNullOrWhiteSpace(dst.Password);
+        if (dstEmpty)
+        {
+            target.Repository = imported;
+            return;
+        }
+
+        // Иначе дополняем только те поля, которые в приложении остались пустыми.
+        if (string.IsNullOrWhiteSpace(dst.Server) && !string.IsNullOrWhiteSpace(imported.Server))
+            dst.Server = imported.Server;
+        if (string.IsNullOrWhiteSpace(dst.RepositoryName) && !string.IsNullOrWhiteSpace(imported.RepositoryName))
+            dst.RepositoryName = imported.RepositoryName;
+        if (string.IsNullOrWhiteSpace(dst.User) && !string.IsNullOrWhiteSpace(imported.User))
+            dst.User = imported.User;
+        if (string.IsNullOrWhiteSpace(dst.Password) && !string.IsNullOrWhiteSpace(imported.Password))
+            dst.Password = imported.Password;
+    }
+
+    /// <summary>
+    /// Восстанавливает/дополняет авторизацию («1С:Предприятие» или «Конфигуратор»).
+    /// Если авторизация в приложении по умолчанию (пустая), а в StartManager задана —
+    /// берётся целиком; иначе заполняются только незаполненные поля и режим аутентификации.
+    /// Возвращает итоговую авторизацию для записи в базу.
+    /// </summary>
+    private static InfobaseAuthSettings? MergeAuthSettings(
+        InfobaseAuthSettings? target,
+        InfobaseAuthSettings? imported)
+    {
+        if (imported is null)
+        {
+            // В StartManager авторизация не задана — сохраняем текущее состояние.
+            return target;
+        }
+
+        if (target is null || target.IsDefault)
+        {
+            // Пользователь удалил авторизацию (стала «по умолчанию») — восстанавливаем
+            // из StartManager целиком (issue #163).
+            return imported;
+        }
+
+        // Частично заполнена и в приложении, и в StartManager — дополняем незаполненные поля.
+        if (string.IsNullOrWhiteSpace(target.User) && !string.IsNullOrWhiteSpace(imported.User))
+            target.User = imported.User;
+        if (string.IsNullOrWhiteSpace(target.Password) && !string.IsNullOrWhiteSpace(imported.Password))
+            target.Password = imported.Password;
+        if (target.AuthenticationMode == AuthenticationMode.Prompt
+            && imported.AuthenticationMode != AuthenticationMode.Prompt)
+            target.AuthenticationMode = imported.AuthenticationMode;
+
+        return target;
+    }
+
+    /// <summary>Пишет информационное сообщение импорта в файловый лог (issue #163).</summary>
+    private static void LogInfo(string message)
+    {
+        try
+        {
+            AppServices.GetRequiredService<IAppLogger>().Info(message);
+        }
+        catch
+        {
+            // Логирование не должно ломать импорт.
+        }
     }
 
     /// <summary>

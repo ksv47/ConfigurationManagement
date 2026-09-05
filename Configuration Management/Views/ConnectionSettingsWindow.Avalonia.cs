@@ -978,8 +978,28 @@ namespace Configuration_Management
         private void OnDetectConfiguration_Click()
         {
             if (_viewModel.DetermineConfiguration()) return;
+
+            // Детальная диагностика неудачи определения свойств конфигурации (issue #174):
+            // помимо общей фразы показываем текст последней ошибки COM и фактически
+            // использованный ProgID/версию платформы, чтобы было видно, какой именно
+            // COM-коннектор пробовался (например, шаблон имени дал неправильный ProgID).
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(LocalizationManager.T("Connection.DetectConfigFailed"));
+
+            var comError = ConfigurationInfoService.LastComError;
+            if (!string.IsNullOrWhiteSpace(comError))
+                sb.AppendLine().AppendLine(comError);
+
+            var progId = ConfigurationInfoService.LastUsedProgId;
+            if (!string.IsNullOrWhiteSpace(progId))
+                sb.AppendLine().AppendLine($"Использован COM-коннектор: {progId}");
+
+            var platformVersion = ConfigurationInfoService.LastUsedPlatformVersion;
+            if (!string.IsNullOrWhiteSpace(platformVersion))
+                sb.AppendLine().AppendLine($"Версия платформы базы: {platformVersion}");
+
             _dialogs.ShowInfo(
-                LocalizationManager.T("Connection.DetectConfigFailed"),
+                sb.ToString().TrimEnd(),
                 LocalizationManager.T("Connection.DetectConfigTitle"));
         }
 

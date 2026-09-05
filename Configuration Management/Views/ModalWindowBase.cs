@@ -56,28 +56,45 @@ namespace Configuration_Management
             // Расширение и прозрачность остаются только для «стекла» на Wayland, где
             // композитор обязателен и постоянной перерисовки фона нет.
             var opaque = useSystemTitleBar || ShouldRenderOpaque;
-            ExtendClientAreaToDecorationsHint = !opaque;
 
-            if (opaque)
+            // Установка «расширения» клиентской области и прозрачности на X11 без
+            // композитора способна бросать исключение или ронять отрисовку безрамочного
+            // окна (issue #177: «после правки окно вообще не появилось»). Оборачиваем
+            // в try/catch с диагностическим логом, чтобы по журналу видеть первопричину,
+            // а не молча получать «чёрное окно» или отсутствие окна на превью.
+            try
             {
-                // В непрозрачном режиме прозрачность и расширение не запрашиваем вовсе,
-                // чтобы не провоцировать непрерывную перерисовку фона (issue #153).
-                // Сплошной фон задаём явно, чтобы нативное окно было непрозрачным.
-                TransparencyLevelHint = null;
-                Background = new SolidColorBrush(Color.Parse("#FF161616"));
-            }
-            else
-            {
-                // Прозрачность — только в безрамковом режиме: со стандартной системной
-                // рамкой прозрачный фон и расширение клиентской области конфликтуют и могут
-                // ронять приложение при открытии диалога на Linux (issue #150). Размытие
-                // не просим: AcrylicBlur/Blur включает непрерывную перерисовку фона
-                // (issues #150, #153).
-                TransparencyLevelHint = new[]
+                ExtendClientAreaToDecorationsHint = !opaque;
+
+                if (opaque)
                 {
-                    WindowTransparencyLevel.Transparent
-                };
-                Background = Brushes.Transparent;
+                    // В непрозрачном режиме прозрачность и расширение не запрашиваем вовсе,
+                    // чтобы не провоцировать непрерывную перерисовку фона (issue #153).
+                    // Сплошной фон задаём явно, чтобы нативное окно было непрозрачным.
+                    TransparencyLevelHint = null;
+                    Background = new SolidColorBrush(Color.Parse("#FF161616"));
+                }
+                else
+                {
+                    // Прозрачность — только в безрамковом режиме: со стандартной системной
+                    // рамкой прозрачный фон и расширение клиентской области конфликтуют и могут
+                    // ронять приложение при открытии диалога на Linux (issue #150). Размытие
+                    // не просим: AcrylicBlur/Blur включает непрерывную перерисовку фона
+                    // (issues #150, #153).
+                    TransparencyLevelHint = new[]
+                    {
+                        WindowTransparencyLevel.Transparent
+                    };
+                    Background = Brushes.Transparent;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Логируем и продолжаем: окно обязано появиться даже в случае сбоя
+                // запроса прозрачности/расширения. Иначе безрамочный диалог «не появляется»
+                // вовсе, а виноват только конфликт свойств окна (issue #177).
+                LogWindowConstructionError(
+                    "Не удалось настроить прозрачность/расширение безрамочного окна", ex);
             }
 
             // Диалоги не показываются в панели задач: в разметке WPF
@@ -102,6 +119,28 @@ namespace Configuration_Management
         /// детектором Services.LinuxRendering — та же логика, что у главного окна.
         /// </summary>
         private static readonly bool ShouldRenderOpaque = Services.LinuxRendering.OpaqueWindow;
+
+        /// <summary>
+        /// Пишет диагностику сбоя построения окна в файловый лог (issue #177). Задача —
+        /// чтобы перехваченные исключения построения безрамочного окна не исчезали молча:
+        /// по журналу можно найти первопричину «окно не появилось» / «чёрное окно» на X11
+        /// без композитора. Логгер берётся из контейнера лениво и безопасно: если сервисы
+        /// ещё не подняты, пишем в трассировку.
+        /// </summary>
+        private static void LogWindowConstructionError(string what, Exception ex)
+        {
+            try
+            {
+                var logger = AppServices.GetRequiredService<Configuration_Management.Services.IAppLogger>();
+                logger.Error($"{what} ({GetTypeName()}). {ex}");
+            }
+            catch
+            {
+                System.Diagnostics.Trace.WriteLine($"[window] {what}: {ex}");
+            }
+
+            static string GetTypeName() => "ModalWindowBase";
+        }
 
         /// <summary>
         /// Читает настройку «Системный заголовок окна» из репозитория. Значение кэшируется
@@ -231,13 +270,16 @@ namespace Configuration_Management
 
                 Dispatcher.UIThread.PushFrame(frame);
             }
-            catch
+            catch (Exception ex)
             {
                 // Первый способ показа сорвался (нативный сбой Avalonia при открытии
                 // диалога, раньше ронявший процесс abort-ом). Не даём окну молча
                 // исчезнуть (issue #168: «не падает, но и не открывается»): пробуем
                 // запасной путь — немодальный показ по центру экрана. Если и он падает,
-                // снимаем кадр и прячем неоткрытое окно.
+                // снимаем кадр и прячем неоткрытое окно. Исключение логируем, чтобы по
+                // журналу было видно, на чём именно рвётся показ безрамочного окна
+                // (issue #177).
+                LogWindowConstructionError("Не удалось открыть модальное окно первым способом", ex);
                 frame.Continue = false;
                 try
                 {
@@ -246,8 +288,9 @@ namespace Configuration_Management
                         Show();
                     Dispatcher.UIThread.PushFrame(frame);
                 }
-                catch
+                catch (Exception fallbackEx)
                 {
+                    LogWindowConstructionError("Запасной показ модального окна тоже не удался", fallbackEx);
                     frame.Continue = false;
                     try { if (IsVisible) Hide(); } catch { /* ignore */ }
                 }

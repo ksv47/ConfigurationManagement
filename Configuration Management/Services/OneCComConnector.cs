@@ -234,6 +234,12 @@ public sealed class OneCComConnector : IOneCComConnector
     /// </summary>
     public string? LastError { get; private set; }
 
+    /// <inheritdoc />
+    public string? LastUsedProgId { get; private set; }
+
+    /// <inheritdoc />
+    public string? LastUsedPlatformVersion { get; private set; }
+
     public OneCComConnector(IAppLogger logger, IInfobaseRepository repository)
     {
         _logger = logger;
@@ -320,6 +326,11 @@ public sealed class OneCComConnector : IOneCComConnector
         // обходим при кастомном шаблоне: он проверяет только KnownProgIds, а перечень кандидатов
         // агент получит явно.
         var progIds = GetProgIds(infobase);
+
+        // Запоминаем фактически использованный ProgID (первый предпочтительный кандидат)
+        // и версию платформы для диагностики в UI (issue #174).
+        LastUsedProgId = progIds.Count > 0 ? progIds[0] : null;
+        LastUsedPlatformVersion = infobase?.PlatformVersion;
 
         if (ReferenceEquals(progIds, KnownProgIds) && !IsComConnectorAvailable())
         {
