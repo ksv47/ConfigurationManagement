@@ -132,6 +132,12 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public bool RememberWindowLayout => _settings.RememberWindowLayout;
 
+    /// <summary>Проверять наличие обновлений приложения при запуске (GitHub Releases).</summary>
+    public bool CheckForUpdatesOnStartup => _settings.CheckForUpdatesOnStartup;
+
+    /// <summary>Автоматически устанавливать новые версии без подтверждения.</summary>
+    public bool AutoUpdateEnabled => _settings.AutoUpdateEnabled;
+
     /// <summary>Сохранённая ширина главного окна; ноль означает «не сохранялась».</summary>
     public double SavedWindowWidth => _settings.WindowWidth;
 
@@ -192,15 +198,23 @@ public class MainViewModel : ViewModelBase
     /// Применяет настройки поведения приложения. Обе лежали в общем с версией
     /// для Windows файле настроек, но в Linux-сборке их нечем было изменить.
     /// </summary>
-    public void ApplyBehaviorSettings(bool allowMultipleInstances, bool rememberWindowLayout)
+    public void ApplyBehaviorSettings(
+        bool allowMultipleInstances,
+        bool rememberWindowLayout,
+        bool checkForUpdatesOnStartup,
+        bool autoUpdateEnabled)
     {
         _settings.AllowMultipleInstances = allowMultipleInstances;
         _settings.RememberWindowLayout = rememberWindowLayout;
+        _settings.CheckForUpdatesOnStartup = checkForUpdatesOnStartup;
+        _settings.AutoUpdateEnabled = autoUpdateEnabled;
         if (!SaveSettingsSafe())
             _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
                 LocalizationManager.T("Settings.Title"));
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(RememberWindowLayout));
+        OnPropertyChanged(nameof(CheckForUpdatesOnStartup));
+        OnPropertyChanged(nameof(AutoUpdateEnabled));
     }
 
     /// <summary>Применяет настройки поведения трея из окна настроек.</summary>
