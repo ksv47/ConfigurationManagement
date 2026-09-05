@@ -289,6 +289,40 @@ namespace Configuration_Management
                 _viewModel.Architecture = architecture;
         }
 
+        /// <summary>
+        /// Определяет имя и версию конфигурации по настройкам подключения
+        /// (COM-коннектор на Windows, эвристика по файлу базы на Linux)
+        /// и заполняет поля (issue #174).
+        /// </summary>
+        private void OnDetectConfiguration_Click(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel.DetermineConfiguration()) return;
+
+            // Детальная диагностика неудачи определения свойств конфигурации (issue #174):
+            // помимо общей фразы показываем текст последней ошибки COM и фактически
+            // использованный ProgID/версию платформы, чтобы было видно, какой именно
+            // COM-коннектор пробовался (например, шаблон имени дал неправильный ProgID).
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(LocalizationManager.T("Connection.DetectConfigFailed"));
+
+            var comError = ConfigurationInfoService.LastComError;
+            if (!string.IsNullOrWhiteSpace(comError))
+                sb.AppendLine().AppendLine(comError);
+
+            var progId = ConfigurationInfoService.LastUsedProgId;
+            if (!string.IsNullOrWhiteSpace(progId))
+                sb.AppendLine().AppendLine($"Использован COM-коннектор: {progId}");
+
+            var platformVersion = ConfigurationInfoService.LastUsedPlatformVersion;
+            if (!string.IsNullOrWhiteSpace(platformVersion))
+                sb.AppendLine().AppendLine($"Версия платформы базы: {platformVersion}");
+
+            MessageBox.Show(
+                sb.ToString().TrimEnd(),
+                LocalizationManager.T("Connection.DetectConfigTitle"),
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
         /// <summary>Синхронизация PasswordBox → ViewModel (пароль не биндится напрямую).</summary>
         private void OnPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
         {

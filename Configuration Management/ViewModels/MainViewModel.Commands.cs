@@ -824,6 +824,23 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Настраиваемый шаблон имени COM-коннектора 1С (issue #175).
+    /// Пустая строка — стандартные ProgID V85/V83/V82/V81.COMConnector; иначе шаблон
+    /// разворачивается по версии платформы каждой базы (плейсхолдеры %V12%/%V3%/%V4%)
+    /// и пробуется первым в переборе. Применяется после перезапуска, как и чтение настройки.
+    /// </summary>
+    public string ComConnectorNameTemplate
+    {
+        get => _comConnectorNameTemplate;
+        set
+        {
+            var normalized = value?.Trim() ?? string.Empty;
+            if (SetProperty(ref _comConnectorNameTemplate, normalized))
+                ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>
     /// Запрос к главному окну выполнить действие после успешного запуска базы/конфигуратора
     /// (свернуть или увести в трей согласно глобальной настройке).
     /// </summary>
@@ -984,6 +1001,17 @@ public string HotkeyEnterprise
         }
     }
 
+    /// <summary>Горячая клавиша переключения подробностей правой панели информации. Пусто — не назначена (issue #172).</summary>
+    public string HotkeyRightPanelDetails
+    {
+        get => _hotkeyRightPanelDetails;
+        set
+        {
+            if (SetProperty(ref _hotkeyRightPanelDetails, NormalizeHotkey(value, "")))
+                ScheduleSaveSettings();
+        }
+    }
+ 
     private static string NormalizeHotkey(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 

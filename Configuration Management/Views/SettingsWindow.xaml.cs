@@ -49,6 +49,9 @@ namespace Configuration_Management
         {
             InitializeComponent();
             _viewModel = viewModel;
+            // Шаблон имени COM-коннектора 1С (issue #175): показываем текущее значение.
+            if (ComConnectorNameTemplateBox != null)
+                ComConnectorNameTemplateBox.Text = viewModel.ComConnectorNameTemplate;
             _settings = new SettingsViewModel(viewModel);
             _installedPlatformVersions = new List<string>(viewModel.InstalledPlatformVersions);
             foreach (var path in viewModel.AdditionalPlatformSearchPaths)
@@ -160,7 +163,8 @@ namespace Configuration_Management
             var hkShowRecent = ReadHotkeyBox(HotkeyShowRecentBox);
             var hkClearSearch = ReadHotkeyBox(HotkeyClearSearchBox);
             var hkClearTags = ReadHotkeyBox(HotkeyClearTagsBox);
-
+            var hkRightPanelDetails = ReadHotkeyBox(HotkeyRightPanelDetailsBox);
+ 
             // Проверка: одна клавиша — одно действие (пустые «Нет» не учитываются).
             var assigned = new (string Name, string Key)[]
             {
@@ -176,7 +180,8 @@ namespace Configuration_Management
                 (LocalizationManager.T("Main.FavoritesTooltip"), hkShowFavorites),
                 (LocalizationManager.T("Main.RecentTooltip"), hkShowRecent),
                 (LocalizationManager.T("Main.ClearSearch"), hkClearSearch),
-                (LocalizationManager.T("Main.ClearTags"), hkClearTags)
+                (LocalizationManager.T("Main.ClearTags"), hkClearTags),
+                (LocalizationManager.T("Main.CollapseRightPanel"), hkRightPanelDetails)
             };
             var duplicates = SettingsViewModel.FindDuplicateHotkeys(assigned).ToList();
             if (duplicates.Count > 0)
@@ -191,6 +196,9 @@ namespace Configuration_Management
                     MessageBoxImage.Warning);
                 return;
             }
+
+            // Имя COM-коннектора 1С по шаблону версии платформы (issue #175).
+            _viewModel.ComConnectorNameTemplate = ComConnectorNameTemplateBox.Text?.Trim() ?? "";
 
             _viewModel.ApplyAppBehaviorSettings(
                 AllowMultipleInstancesCheck.IsChecked ?? false,
@@ -214,7 +222,8 @@ namespace Configuration_Management
                 RememberWindowLayoutCheck.IsChecked ?? true,
                 ReadAfterLaunchAction(),
                 hotkeyClearSearch: hkClearSearch,
-                hotkeyClearTags: hkClearTags);
+                hotkeyClearTags: hkClearTags,
+                hotkeyRightPanelDetails: hkRightPanelDetails);
 
             var templatePaths = TemplatePathsList?.Items.Cast<string>().Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
                 ?? new System.Collections.Generic.List<string>();

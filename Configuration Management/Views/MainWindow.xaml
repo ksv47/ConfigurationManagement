@@ -751,6 +751,12 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center"
                                             HorizontalAlignment="Stretch" Margin="6,0,6,4">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="{loc:Loc Column.HideColumn}" Tag="Version" Click="OnColumnHeaderContextMenu_Hide" Style="{DynamicResource ModernMenuItem}"/>
+                                            <MenuItem Header="{loc:Loc Settings.Columns.OpenSettings}" Click="OnColumnHeaderContextMenu_OpenSettings" Style="{DynamicResource ModernMenuItem}"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
                                     <materialDesign:PackIcon Kind="Information" Width="13" Height="13"
                                                              Foreground="{DynamicResource TextSecondaryBrush}"
                                                              VerticalAlignment="Center"/>
@@ -760,6 +766,12 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="6" Orientation="Horizontal" VerticalAlignment="Center"
                                             HorizontalAlignment="Stretch" Margin="6,0,6,4">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="{loc:Loc Column.HideColumn}" Tag="LaunchMode" Click="OnColumnHeaderContextMenu_Hide" Style="{DynamicResource ModernMenuItem}"/>
+                                            <MenuItem Header="{loc:Loc Settings.Columns.OpenSettings}" Click="OnColumnHeaderContextMenu_OpenSettings" Style="{DynamicResource ModernMenuItem}"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
                                     <materialDesign:PackIcon Kind="Play" Width="13" Height="13"
                                                              Foreground="{DynamicResource TextSecondaryBrush}"
                                                              VerticalAlignment="Center"/>
@@ -770,6 +782,12 @@
                                 <StackPanel Grid.Column="7" Orientation="Horizontal" VerticalAlignment="Center"
                                             HorizontalAlignment="Left" Margin="6,0,6,4"
                                             ToolTip="{loc:Loc Main.Actions}">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="{loc:Loc Column.HideColumn}" Tag="Actions" Click="OnColumnHeaderContextMenu_Hide" Style="{DynamicResource ModernMenuItem}"/>
+                                            <MenuItem Header="{loc:Loc Settings.Columns.OpenSettings}" Click="OnColumnHeaderContextMenu_OpenSettings" Style="{DynamicResource ModernMenuItem}"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
                                     <materialDesign:PackIcon Kind="Cog" Width="13" Height="13"
                                                              Foreground="{DynamicResource TextSecondaryBrush}"
                                                              VerticalAlignment="Center"/>
@@ -779,6 +797,12 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="8" Orientation="Horizontal" VerticalAlignment="Center"
                                             HorizontalAlignment="Stretch" Margin="6,0,6,4">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="{loc:Loc Column.HideColumn}" Tag="ServerBase" Click="OnColumnHeaderContextMenu_Hide" Style="{DynamicResource ModernMenuItem}"/>
+                                            <MenuItem Header="{loc:Loc Settings.Columns.OpenSettings}" Click="OnColumnHeaderContextMenu_OpenSettings" Style="{DynamicResource ModernMenuItem}"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
                                     <materialDesign:PackIcon Kind="Server" Width="13" Height="13"
                                                              Foreground="{DynamicResource TextSecondaryBrush}"
                                                              VerticalAlignment="Center"/>
@@ -790,6 +814,12 @@
                                             HorizontalAlignment="Stretch" Margin="6,0,6,4"
                                             Cursor="Hand" Tag="LastLaunchDate" ToolTip="{loc:Loc Main.ColumnLastLaunchSortTooltip}"
                                             MouseLeftButtonUp="OnColumnHeader_Click">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="{loc:Loc Column.HideColumn}" Tag="LastLaunch" Click="OnColumnHeaderContextMenu_Hide" Style="{DynamicResource ModernMenuItem}"/>
+                                            <MenuItem Header="{loc:Loc Settings.Columns.OpenSettings}" Click="OnColumnHeaderContextMenu_OpenSettings" Style="{DynamicResource ModernMenuItem}"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
                                     <materialDesign:PackIcon Kind="ClockOutline" Width="13" Height="13"
                                                              Foreground="{DynamicResource TextSecondaryBrush}"
                                                              VerticalAlignment="Center"/>
@@ -800,6 +830,12 @@
                                 <StackPanel Grid.Column="10" Orientation="Horizontal" VerticalAlignment="Center"
                                             HorizontalAlignment="Stretch" Margin="6,0,6,4"
                                             ToolTip="{loc:Loc Main.ColumnSizeTooltip}">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="{loc:Loc Column.HideColumn}" Tag="Size" Click="OnColumnHeaderContextMenu_Hide" Style="{DynamicResource ModernMenuItem}"/>
+                                            <MenuItem Header="{loc:Loc Settings.Columns.OpenSettings}" Click="OnColumnHeaderContextMenu_OpenSettings" Style="{DynamicResource ModernMenuItem}"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
                                     <materialDesign:PackIcon Kind="Database" Width="13" Height="13"
                                                              Foreground="{DynamicResource TextSecondaryBrush}"
                                                              VerticalAlignment="Center"/>
@@ -810,6 +846,12 @@
                                 <StackPanel Grid.Column="11" Orientation="Horizontal" VerticalAlignment="Center"
                                             HorizontalAlignment="Stretch" Margin="6,0,6,4"
                                             ToolTip="{loc:Loc Main.ColumnNameTooltip}">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="{loc:Loc Column.HideColumn}" Tag="Configuration" Click="OnColumnHeaderContextMenu_Hide" Style="{DynamicResource ModernMenuItem}"/>
+                                            <MenuItem Header="{loc:Loc Settings.Columns.OpenSettings}" Click="OnColumnHeaderContextMenu_OpenSettings" Style="{DynamicResource ModernMenuItem}"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
                                     <materialDesign:PackIcon Kind="CubeOutline" Width="13" Height="13"
                                                              Foreground="{DynamicResource TextSecondaryBrush}"
                                                              VerticalAlignment="Center"/>

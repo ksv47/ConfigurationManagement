@@ -135,6 +135,20 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Переключает окно настроек сразу на подвкладку «Колонки» (issue #173).
+        /// Используется из контекстного меню заголовка колонки списка баз.
+        /// «Отображение» — вторая вкладка главного контрола; «Колонки» — вторая
+        /// подвкладка раздела (после «Значки и кнопки»).
+        /// </summary>
+        public void SelectColumnsTab()
+        {
+            if (SettingsTabs != null)
+                SettingsTabs.SelectedIndex = 1;
+            if (DisplaySubTabs != null)
+                DisplaySubTabs.SelectedIndex = 1;
+        }
+
+        /// <summary>
         /// Инициализирует вкладку «Отображение»: заполняет флажки текущими
         /// настройками отображения списка баз.
         /// </summary>

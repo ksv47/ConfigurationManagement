@@ -479,7 +479,7 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <TabControl Margin="0,4,0,0" Style="{StaticResource SettingsSubTabControl}">
+                <TabControl x:Name="DisplaySubTabs" Margin="0,4,0,0" Style="{StaticResource SettingsSubTabControl}">
                     <!-- Значки и кнопки -->
                     <TabItem Style="{StaticResource SettingsSubTabItem}">
                         <TabItem.Header>
@@ -1107,6 +1107,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.Enterprise}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -1168,9 +1169,14 @@
                             <controls:HotkeyBox x:Name="HotkeyClearSearchBox" Grid.Row="11" Grid.Column="1"
                                                 Height="34" Margin="0,6,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="12" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ClearTags}" VerticalAlignment="Center"
+                            <TextBlock Grid.Row="12" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ClearTags}" VerticalAlignment="Center" Margin="0,6,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyClearTagsBox" Grid.Row="12" Grid.Column="1"
+                                                Height="34" Margin="0,6,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="13" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.RightPanelDetails}" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HotkeyBox x:Name="HotkeyRightPanelDetailsBox" Grid.Row="13" Grid.Column="1"
                                                 Height="34" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
                         </Grid>
@@ -1310,6 +1316,19 @@
                                 <TextBlock Text="{loc:Loc Settings.CompactMode}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
+
+                        <!-- Имя COM-коннектора 1С по шаблону версии платформы (issue #175) -->
+                        <GroupBox Header="{loc:Loc Settings.General.ComConnectorTemplate}" Padding="8" Margin="0,14,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc Settings.General.ComConnectorTemplateHint}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <TextBox x:Name="ComConnectorNameTemplateBox" Height="32"
+                                         VerticalContentAlignment="Center"
+                                         Style="{StaticResource ModernTextBox}"
+                                         ToolTip="{loc:Loc Settings.General.ComConnectorTemplateTooltip}"/>
+                            </StackPanel>
+                        </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

@@ -101,6 +101,27 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Настраиваемый шаблон имени COM-коннектора 1С (issue #175).
+    /// Пустая строка — стандартные ProgID V85/V83/V82/V81.COMConnector; иначе шаблон
+    /// разворачивается по версии платформы каждой базы (плейсхолдеры %V12%/%V3%/%V4%)
+    /// и пробуется первым в переборе. Применяется после перезапуска, как и чтение настройки.
+    /// На Linux COM отсутствует, но значение сохраняется в общий файл настроек,
+    /// чтобы не теряться при переходе между платформами.
+    /// </summary>
+    public string ComConnectorNameTemplate
+    {
+        get => _settings.ComConnectorNameTemplate ?? "";
+        set
+        {
+            var normalized = value?.Trim() ?? string.Empty;
+            if (string.Equals(_settings.ComConnectorNameTemplate, normalized, StringComparison.Ordinal))
+                return;
+            _settings.ComConnectorNameTemplate = normalized;
+            SaveSettingsSilently();
+        }
+    }
+
+    /// <summary>
     /// Разрешено ли несколько экземпляров: от этого зависит, вернётся ли
     /// спрятанное окно повторным запуском приложения.
     /// </summary>
@@ -305,6 +326,33 @@ public class MainViewModel : ViewModelBase
         // Состав колонок и группировка меняют и строки, и заголовок.
         if (treeAffected)
             RebuildTree();
+    }
+
+    /// <summary>
+    /// Меняет видимость одной колонки списка баз по её ключу (issue #173).
+    /// Прочие параметры отображения берутся из текущих настроек и применяются через
+    /// <see cref="ApplyDisplaySettings"/>, поэтому изменение сохраняется и пересобирает
+    /// дерево/заголовок теми же механизмами, что и правка в окне настроек.
+    /// </summary>
+    public void SetColumnVisible(string key, bool visible)
+    {
+        ApplyDisplaySettings(
+            _settings.ShowFavoritesButton,
+            _settings.ShowPinnedButton,
+            _settings.ShowTags,
+            _showTagFilterPanel,
+            key == "Version" ? visible : _settings.ShowVersionColumn,
+            key == "Configuration" ? visible : _settings.ShowConfigurationColumn,
+            key == "LaunchMode" ? visible : _settings.ShowLaunchModeColumn,
+            key == "ServerBase" ? visible : _settings.ShowServerColumn,
+            key == "LastLaunch" ? visible : _settings.ShowLastLaunchColumn,
+            key == "Size" ? visible : _settings.ShowSizeColumn,
+            key == "Actions" ? visible : _settings.ShowActionsColumn,
+            _showRightPanelDetails,
+            _settings.ShowSessionLaunchPanel,
+            _groupByGroup,
+            _showEmptyGroups,
+            _settings.ColumnOrder);
     }
 
     /// <summary>
@@ -785,7 +833,8 @@ public class MainViewModel : ViewModelBase
     public string HotkeyShowRecent => _settings.HotkeyShowRecent;
     public string HotkeyClearSearch => _settings.HotkeyClearSearch;
     public string HotkeyClearTags => _settings.HotkeyClearTags;
-
+    public string HotkeyRightPanelDetails => _settings.HotkeyRightPanelDetails;
+ 
     /// <summary>
     /// Сохраняет назначенные сочетания и сообщает окну, что их надо
     /// перерегистрировать: подписи в меню и сами привязки берутся отсюда.
@@ -793,7 +842,7 @@ public class MainViewModel : ViewModelBase
     public void ApplyHotkeys(string enterprise, string configurator, string edit, string add,
         string favorite, string pin, string delete, string clearCache,
         string showAll, string showFavorites, string showRecent,
-        string clearSearch, string clearTags)
+        string clearSearch, string clearTags, string rightPanelDetails)
     {
         _settings.HotkeyEnterprise = enterprise ?? string.Empty;
         _settings.HotkeyConfigurator = configurator ?? string.Empty;
@@ -808,7 +857,8 @@ public class MainViewModel : ViewModelBase
         _settings.HotkeyShowRecent = showRecent ?? string.Empty;
         _settings.HotkeyClearSearch = clearSearch ?? string.Empty;
         _settings.HotkeyClearTags = clearTags ?? string.Empty;
-
+        _settings.HotkeyRightPanelDetails = rightPanelDetails ?? string.Empty;
+ 
         SaveSettingsSilently();
 
         OnPropertyChanged(nameof(HotkeyEnterprise));
@@ -824,6 +874,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyShowRecent));
         OnPropertyChanged(nameof(HotkeyClearSearch));
         OnPropertyChanged(nameof(HotkeyClearTags));
+        OnPropertyChanged(nameof(HotkeyRightPanelDetails));
         HotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 

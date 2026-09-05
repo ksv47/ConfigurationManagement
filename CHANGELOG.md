@@ -9,6 +9,149 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.74] — 2026-09-05
+
+Выпуск с исправлениями стабильности на Linux и корректной миграции данных при работе с родным стартером.
+
+### Исправлено
+
+- **Зависание при запуске на VirtualBox/KDE NEON (X11) (issue #153)**: усилен детектор виртуализации и программного рендера, добавлена диагностика окружения при старте. Программа корректно определяет графическое окружение и не зависает при запуске в виртуализированных средах.
+- **Пропадание и невозможность перетаскивания безрамочных модальных окон (issue #177)**: ошибки построения окна теперь логируются, окно больше не пропадает, а его появление и перетаскивание работают корректно на обеих платформах.
+- **Миграция со StartManager (issue #163)**: удалённые вручную авторизации (Хранилище/Предприятие/Конфигуратор) теперь восстанавливаются из родного стартера при миграции; добавлен лог слияния для контроля процесса.
+- **Синхронизация с родным стартером под Windows (issue #165)**: добавлена диагностика количества групп и устранённых дубликатов, чтобы расхождения при синхронизации были видны и объяснимы.
+- **Определение свойств конфигурации (issue #174)**: при ошибке выводится её деталь, использованный ProgID и версия платформы (работает на обеих платформах — Windows/WPF и Linux/Avalonia).
+
+### Добавлено
+
+- **Подсказка для шаблона имени COM-коннектора (issue #175)**: в поле «Имя COM-коннектора 1С» добавлен Watermark с примером шаблона, чтобы пользователю было понятно, как его заполнить.
+
+### Версия
+
+- **Версия поднята до `0.3.6.73` → `0.3.6.74`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.73] — 2026-09-05
+
+Выпуск с исправлением issue #178 «Окно "Очистка кэша 1С": размеры по базам всегда 0, очистка не находит кэш, остатки не удаляются». Платформа 1С называет каталог кеша собственным GUID, а не именем/ID базы, поэтому прежний поиск по ID и имени не находил кеш: в колонках «Программный» и «Пользовательский» у всех баз был 0 Б, очистка сообщала «кеш не найден», а каталоги живых баз попадали в «остатки от удалённых баз». Теперь база сопоставляется с каталогом кеша через карту `IdConnStrMap` из файла `1cv8u.pfl` (строка соединения → GUID каталога), с учётом нескольких записей на базу и вариантов хоста с портом и без. Исправлено и само удаление: перед рекурсивным удалением снимается атрибут `ReadOnly` (платформа кладёт в кеш такие файлы, из-за чего удаление падало и оставляло каталоги `.deleting_*`), а счётчики удалённого считают только реально удалённые каталоги. Верхние суммы размера теперь складываются по каталогам баз, а не по корню кеша целиком (без служебных файлов платформы). Работает на обеих платформах (Windows/WPF и Linux/Avalonia).
+
+### Исправлено
+
+- **Сопоставление базы с каталогом кеша через `IdConnStrMap` (issue #178)**: методы `LoadIdConnStrMap`, `GetGuidCacheNames` и `MatchesBase` в [`Services/OneCCacheCleaner.cs`](Configuration%20Management/Services/OneCCacheCleaner.cs) читают файл `1cv8u.pfl` из корня пользовательского кеша (`%APPDATA%\1C\1cv8` на Windows, `~/.1cv8/1C/1cv8` на Linux) и разбирают пары «строка соединения → GUID». Хост сравнивается без учёта порта, учитываются несколько записей на одну базу; результат кэшируется до изменения файла.
+- **Каталог клиент-серверной базы `Srvr__…__Ref__…__` (issue #178)**: для клиент-серверных баз дополнительно учитывается каталог вида `Srvr__<сервер>__Ref__<база>__` (варианты для сервера с портом и без). Имена, полученные из карты и из клиент-серверного каталога, добавляются в «защищённые» (`BuildProtectedNames`), поэтому каталоги живых баз больше не попадают в «остатки от удалённых баз».
+- **Размеры по каталогам баз (issue #178)**: `GetSize(kind, infobases)` суммирует только каталоги, принадлежащие текущим базам, а не весь корень кеша со служебными файлами платформы (`helpsynt.dat`, логи и т. п.). Окно очистки ([`Views/CacheCleanWindow.xaml.cs`](Configuration%20Management/Views/CacheCleanWindow.xaml.cs) и [`Views/CacheCleanWindow.Avalonia.cs`](Configuration%20Management/Views/CacheCleanWindow.Avalonia.cs)) использует новый перегруженный метод для верхних сумм; размеры по отдельным базам считаются по найденным каталогам.
+- **Удаление с учётом атрибута `ReadOnly` (issue #178)**: `TryDeleteDirectory` рекурсивно снимает атрибут `ReadOnly` со всех файлов и каталогов перед удалением (`ClearReadOnlyAttributes`), после чего `Directory.Delete` не падает с `UnauthorizedAccessException`, и каталоги `.deleting_*` больше не остаются.
+- **Счётчик реально удалённого и исключение `.deleting_*` (issue #178)**: `TryDeleteDirectory` возвращает признак успеха, и счётчики `Clear`/`ClearOrphans` увеличиваются только при фактическом удалении, а не при попытке. Временные каталоги `*.deleting_*` не считаются остатками и не переименовываются повторно (`IsDeletingName` в `EnumerateOrphanDirectories`).
+
+### Версия
+
+- **Версия поднята до `0.3.6.72` → `0.3.6.73`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.72] — 2026-09-05
+
+Выпуск с реализацией issue #175 «Имя КОМ». Добавлена настройка **«Имя COM-коннектора 1С»** в окне настроек (вкладка «Настройки»): заданный шаблон разворачивается по версии платформы каждой базы (плейсхолдеры `%V12%`/`%V3%`/`%V4%`) и пробуется первым в переборе ProgID при подключении через COM. Это позволяет подключаться к разным версиям платформы без ручной перерегистрации COM-коннектора. Пустое значение — стандартные `V85/V83/V82/V81.COMConnector`. Работает на обеих платформах (Windows/WPF и Linux/Avalonia).
+
+### Добавлено
+
+- **Настраиваемый шаблон имени COM-коннектора (issue #175)**: свойство `ComConnectorNameTemplate` в [`Models/AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs). Методы `BuildProgIdCandidates`, `ExpandTemplate` и `Digits` в [`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs) разворачивают шаблон по версии платформы базы (`%V12%` — первые две цифры, `%V3%` — третья, `%V4%` — четвёртая) и ставят полученный ProgID первым в перебор (без дублей со стандартным списком). `Connect`/`ConnectRead`/`ConnectCore` используют список кандидатов с учётом шаблона.
+- **Агентский процесс COM-чтения**: [`Services/ComReadHost.cs`](Configuration%20Management/Services/ComReadHost.cs) принимает опциональное четвёртое поле запроса с кастомным перечнем ProgID; при его отсутствии агент использует стандартный `KnownProgIds`. `ParseResponse`/`DetailAllowed`/`IsKnownProgId` проверяют имя ProgID по фактическому списку перебора.
+- **Настройка в UI**: поле «Имя COM-коннектора 1С» добавлено на вкладку «Настройки» в WPF ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), сохранение в [`Views/SettingsWindow.xaml.cs`](Configuration%20Management/Views/SettingsWindow.xaml.cs)) и в Avalonia ([`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)). Свойства ViewModel `ComConnectorNameTemplate` добавлены в [`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs) (WPF) и [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs); сохранение — в `SaveSettings()` ([`ViewModels/MainViewModel.Launch.cs`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs)). Настройка применяется после перезапуска.
+- **Локализация**: ключи `Settings.General.ComConnectorTemplate`, `Settings.General.ComConnectorTemplateTooltip` и `Settings.General.ComConnectorTemplateHint` добавлены в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.71` → `0.3.6.72`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.71] — 2026-09-04
+
+Выпуск с реализацией issue #174 «Кнопка определения свойств конфигурации». В окне редактирования свойств базы (вкладка «Платформа») под полями «Конфигурация» и «Версия» добавлена кнопка **«Определить»**, которая автоматически определяет наименование и версию конфигурации по настройкам подключения: через COM-коннектор на Windows и эвристикой по файловой базе/конфигуратором на Linux. Найденные значения заполняются в соответствующие поля и сохраняются.
+
+### Добавлено
+
+- **Кнопка «Определить» в свойствах базы (issue #174)**: метод `DetermineConfiguration` ([`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs)) формирует базу из текущих настроек подключения и вызывает `ConfigurationInfoService.ReadAndApply` (COM на Windows / эвристика на Linux), после чего обновляет поля `ConfigurationName` и `ConfigurationVersion`. Кнопка размещена на вкладке «Платформа» рядом с полями конфигурации: в WPF — в [`Views/ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml) с обработчиком `OnDetectConfiguration_Click` ([`Views/ConnectionSettingsWindow.xaml.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml.cs)), в Avalonia — в [`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs). Если определить свойства не удалось, показывается информационное сообщение.
+- **Локализация**: ключи `Connection.DetectConfig`, `Connection.DetectConfigTooltip`, `Connection.DetectConfigFailed` и `Connection.DetectConfigTitle` добавлены в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.70` → `0.3.6.71`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.70] — 2026-09-04
+
+Выпуск с реализацией issue #173 «Пожелание - быстрая настройка колонок». По правому клику на заголовке колонки списка баз появляется контекстное меню с пунктами **«Скрыть колонку»** и **«Открыть настройки колонок»**. Первый сразу скрывает выбранную колонку (как в диспетчере задач Windows), второй открывает окно настроек сразу на подвкладке «Колонки». Работает на обеих платформах (Windows/WPF и Linux/Avalonia).
+
+### Добавлено
+
+- **Контекстное меню заголовков колонок (issue #173)**: правый клик по заголовку любой колонки данных («Версия платформы», «Режим запуска», «Действия», «Сервер/База», «Последний запуск», «Размер», «Конфигурация») открывает меню с пунктом «Скрыть колонку» — колонка скрывается сразу, как галка видимости в настройках. Реализовано в WPF через `ContextMenu` в [`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml) и обработчики в [`Views/MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs); в Avalonia — контекстное меню прикрепляется в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) (`AttachColumnContextMenu`).
+- **Переход к настройкам на вкладку «Колонки» (issue #173)**: пункт «Открыть настройки колонок» открывает окно настроек сразу на подвкладке **Отображение → Колонки**. Добавлен метод `SelectColumnsTab()` в [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs) и в WPF-версии ([`Views/SettingsWindow.Display.cs`](Configuration%20Management/Views/SettingsWindow.Display.cs)); во вложенном `TabControl` раздела «Отображение» задано имя `DisplaySubTabs` ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml)).
+- **Единая команда скрытия колонки в модели**: метод `SetColumnVisible(key, visible)` в [`ViewModels/MainViewModel.Display.cs`](Configuration%20Management/ViewModels/MainViewModel.Display.cs) (WPF) и [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) переиспользует `ApplyDisplaySettings`, поэтому скрытие колонки сохраняется и перестраивает список теми же механизмами, что и правка в настройках.
+- **Локализация**: ключи `Column.HideColumn` и `Settings.Columns.OpenSettings` добавлены в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.69` → `0.3.6.70`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.69] — 2026-09-04
+
+Выпуск с релизом issue #172: добавлен настраиваемый хоткей для переключения подробностей правой панели информации. Заготовка фичи существовала ещё со времён невыпущенной версии 0.3.6.65; в этом выпуске она доведена до релиза — задано значение по умолчанию `Ctrl+D`, комбинация настраивается в **Настройки → Горячие клавиши → «Панель информации (подробности)»** и работает на обеих платформах (Windows/WPF и Linux/Avalonia).
+
+### Добавлено
+
+- **Настраиваемый хоткей для переключения подробностей правой панели информации (issue #172)**: свойство `HotkeyRightPanelDetails` ([`Models/AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs)), команда `ToggleRightPanelDetailsCommand` в [`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs) и регистрация комбинации в [`Views/MainWindow.Hotkeys.cs`](Configuration%20Management/Views/MainWindow.Hotkeys.cs) (WPF) и [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) (Avalonia). По умолчанию — `Ctrl+D`; при желании сочетание меняется в настройках (строка «Панель информации (подробности)»). Хоткей переключает видимость подробных сведений правой панели и работает как в полном, так и в компактном режиме.
+
+### Версия
+
+- **Версия поднята до `0.3.6.68` → `0.3.6.69`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.68] — 2026-09-04
+
+Выпуск с исправлением повторного импорта баз из StartManager (issue #163). Теперь импорт работает в режиме слияния: при повторном запуске записи сопоставляются с уже существующими базами не только по имени, но и по идентификатору (ID) и по строке подключения, поэтому авторизации (хранилище / Предприятие / Конфигуратор) дополняются/перезаписываются в существующих базах, а не только добавляются новые. Так «удалённые вручную» авторизации восстанавливаются из StartManager.
+
+### Исправлено
+
+- **Режим слияния при повторном импорте из StartManager (issue #163)**: метод `FindExisting` ([`Services/StartManagerImporter.cs`](Configuration%20Management/Services/StartManagerImporter.cs)) находит существующую базу для обновления по трём критериям — точное имя, идентификатор (ID), нормализованная строка подключения (путь к файловой базе, сервер+имя базы или URL веб-публикации). Раньше сопоставление шло только по имени, из-за чего при переименованной в приложении базе (или ином имени в StartManager) слияние не выполнялось: вместо обновления создавалась новая база, а авторизации существующей не восстанавливались. Логика `Merge` (дополнение/перезапись хранилища, Предприятия и Конфигуратора без затирания пустых значений) сохранена полностью; первичный импорт и поведение без совпадений (добавление новой базы) не изменены.
+
+### Версия
+
+- **Версия поднята до `0.3.6.67` → `0.3.6.68`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.67] — 2026-09-04
+
+Выпуск с исправлением автообновления на Windows (issue #161): когда приложение установлено в защищённую папку (например `C:\Program Files\ConfigurationManagement\`), где у обычного пользователя нет прав на запись, PowerShell-помощник замены exe теперь запускается с повышением прав через UAC. Раньше `Move-Item` получал «Access to the path is denied» (после 10 попыток — FATAL) и обновление не устанавливалось.
+
+### Исправлено
+
+- **Автообновление при установке в Program Files (issue #161)**: перед запуском помощника проверяется доступность целевого каталога установки на запись; если он защищён, а текущий процесс запущен не от администратора — помощник стартует через `ShellExecute` с глаголом `runas` (запрос UAC). Если каталог доступен или приложение уже работает с правами администратора — поведение прежнее (обычный скрытый запуск). Логика повторных попыток `Move-Item`, ожидания завершения процесса и перезапуска сохранена полностью. Linux-ветка (`UpdateService.Avalonia.cs`) не затрагивается.
+
+### Версия
+
+- **Версия поднята до `0.3.6.66` → `0.3.6.67`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.66] — 2026-09-04
+
+Выпуск с усилением исправления зависания при запуске на Linux/X11 в виртуальных машинах без композитора (issue #153). Непрозрачное окно со сбросом `ExtendClientAreaToDecorationsHint=false` и снятием прозрачности уже включалось детектором `LinuxRendering`; в этом выпуске статичный (не анимированный `IsIndeterminate`) индикатор загрузки и не блокирующий ввод оверлей применяются не только на программном рендере и в виртуализации, но и на любом X11 без композитора, а детектор программного рендера расширен новыми источниками и ручным флагом `CM_FORCE_SOFTWARE_RENDER=1`.
+
+### Изменено
+
+- **Статичный индикатор загрузки и оверлей также на X11 без композитора (issue #153)**: `DisableAnimations` в [`Services/LinuxRendering.cs`](Configuration%20Management/Services/LinuxRendering.cs) теперь учитывает и `NoCompositorAssumed`, поэтому на X11 без подтверждённого композитора (в т.ч. VirtualBox/KDE NEON) оверлей загрузки рисует статичную заполненную полосу вместо бесконечного индетерминантного индикатора и не перехватывает мышь — окно остаётся отзывчивым, без постоянной перерисовки кадра и высокой нагрузки CPU.
+
+### Улучшено
+
+- **Усилен детектор программного рендера (issue #153)**: в [`Services/LinuxRendering.cs`](Configuration%20Management/Services/LinuxRendering.cs) добавлены новые источники `MESA_LOADER_DRIVER_OVERRIDE` (llvmpipe/softpipe), поддержка значения `true` у `LIBGL_ALWAYS_SOFTWARE`, а также явный ручной флаг `CM_FORCE_SOFTWARE_RENDER=1` (аналог `CM_DISABLE_TRANSPARENCY`) для принудительной диагностики в проблемном окружении.
+
+### Версия
+
+- **Версия поднята до `0.3.6.65` → `0.3.6.66`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.6.65] — 2026-09-04
+
+Выпуск с реализацией issue #172: добавлен настраиваемый хоткей `HotkeyRightPanelDetails` для переключения подробностей правой панели информации. По умолчанию не назначен; задаётся в **Настройки → Горячие клавиши → строка «Панель информации (подробности)»**. Добавлена локализация в ru.json/en.json.
+
+### Добавлено
+
+- **Настраиваемый хоткей для переключения подробностей правой панели информации (issue #172)**: добавлен `HotkeyRightPanelDetails`, который по умолчанию не назначен и задаётся пользователем в **Настройки → Горячие клавиши → «Панель информации (подробности)»**. Комбинация позволяет быстро показывать/скрывать подробные сведения правой панели. Локализация добавлена в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.64` → `0.3.6.65`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.64] — 2026-09-04
 
 Выпуск с полным устранением issue #171: исправлено исчезновение группы (вместе с её базами) при изменении наименования. Причина была в том, что базы ссылаются на группу строкой полного пути (`Infobase.Group`): при переименовании через `EditGroup` менялось имя группы, но пути баз не пересчитывались — базы не находили узел, группа становилась «пустой» и скрывалась из дерева. Теперь при переименовании или смене родителя добавляется метод `RemapSubtreeInfobasePaths` ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) и WPF-версия в [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs)), который пересчитывает `Infobase.Group` у всех баз подветки, переносит ключи свёрнутых групп, сохраняет и базы, и группы, а затем экспортирует `ibases.v8i`. Метод вызывается из `EditGroup` в Avalonia ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)) и Windows ([`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs)).

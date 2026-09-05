@@ -236,7 +236,8 @@ namespace Configuration_Management
                     or nameof(MainViewModel.HotkeyPin)
                     or nameof(MainViewModel.HotkeyShowAll)
                     or nameof(MainViewModel.HotkeyShowFavorites)
-                    or nameof(MainViewModel.HotkeyShowRecent))
+                    or nameof(MainViewModel.HotkeyShowRecent)
+                    or nameof(MainViewModel.HotkeyRightPanelDetails))
                 {
                     try { RegisterLaunchHotkeys(); } catch { /* ignore */ }
                 }

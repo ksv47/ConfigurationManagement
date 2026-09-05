@@ -1047,6 +1047,15 @@
                                          Padding="8,6" VerticalContentAlignment="Center"
                                          ToolTip="{loc:Loc Connection.ConfigurationVersionTooltip}"/>
                             </Grid>
+                            <Button HorizontalAlignment="Left" Margin="0,6,0,0" Padding="8,3"
+                                    Style="{DynamicResource SecondaryButton}"
+                                    Click="OnDetectConfiguration_Click"
+                                    ToolTip="{loc:Loc Connection.DetectConfigTooltip}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Connection.DetectConfig}" VerticalAlignment="Center" FontSize="12"/>
+                                </StackPanel>
+                            </Button>
                             <TextBlock Text="{loc:Loc Connection.ConfigurationManualHint}"
                                        FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>

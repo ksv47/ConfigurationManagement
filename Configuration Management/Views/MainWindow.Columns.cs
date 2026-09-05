@@ -39,6 +39,33 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Скрывает колонку списка баз по её ключу (пункт «Скрыть колонку»
+        /// контекстного меню заголовка, issue #173). Ключ колонки лежит в Tag пункта меню.
+        /// </summary>
+        private void OnColumnHeaderContextMenu_Hide(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem { Tag: string key } && !string.IsNullOrEmpty(key))
+                _viewModel?.SetColumnVisible(key, false);
+        }
+
+        /// <summary>
+        /// Открывает настройки сразу на подвкладке «Колонки» (пункт контекстного меню
+        /// заголовка, issue #173).
+        /// </summary>
+        private void OnColumnHeaderContextMenu_OpenSettings(object sender, RoutedEventArgs e)
+        {
+            OpenSettingsOnColumnsTab();
+        }
+
+        /// <summary>Открывает окно настроек сразу на подвкладке «Колонки» (issue #173).</summary>
+        private void OpenSettingsOnColumnsTab()
+        {
+            var dialog = new SettingsWindow(_viewModel) { Owner = this };
+            dialog.SelectColumnsTab();
+            dialog.ShowDialog();
+        }
+
+        /// <summary>
         /// Строит целевую последовательность колонок (логические ключи) по выбранному
         /// пользователем порядку. Первая итерация идёт по пользовательскому порядку
         /// (<see cref="_viewModel.ColumnOrderKeys"/>), отбрасывая незнакомые ключи, — поэтому

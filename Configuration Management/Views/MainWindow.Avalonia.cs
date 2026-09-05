@@ -4236,6 +4236,7 @@ namespace Configuration_Management
                     ToolTip.SetTip(text, LocalizationManager.T(tooltipKey));
                 _columnHeaderRow.Children.Add(text);
                 Grid.SetColumn(text, dataColumn);
+                AttachColumnContextMenu(text, columns[i].Key);
 
                 var grip = BuildResizeGrip(columns[i].Key, dataColumn);
                 _columnHeaderRow.Children.Add(grip);
@@ -4255,12 +4256,40 @@ namespace Configuration_Management
                 ToolTip.SetTip(actionsHeader, LocalizationManager.T("Main.Actions"));
                 _columnHeaderRow.Children.Add(actionsHeader);
                 Grid.SetColumn(actionsHeader, actionsColumn);
+                AttachColumnContextMenu(actionsHeader, "Actions");
                 _columnHeaderRow.Children.Add(BuildResizeGrip("Actions", actionsColumn));
             }
 
             UpdateListMinWidth();
 
             QueueHeaderAlign();
+        }
+
+        /// <summary>
+        /// Прикрепляет к заголовку колонки контекстное меню (issue #173): пункт
+        /// «Скрыть колонку» скрывает колонку по её ключу, пункт «Открыть настройки
+        /// колонок» открывает окно настроек сразу на подвкладке «Колонки».
+        /// </summary>
+        private void AttachColumnContextMenu(Control header, string key)
+        {
+            var hide = new MenuItem { Header = LocalizationManager.T("Column.HideColumn") };
+            hide.Click += (_, _) => _vm?.SetColumnVisible(key, false);
+            var open = new MenuItem { Header = LocalizationManager.T("Settings.Columns.OpenSettings") };
+            open.Click += (_, _) => OpenSettingsOnColumnsTab();
+            var menu = new ContextMenu();
+            menu.Items.Add(hide);
+            menu.Items.Add(open);
+            header.ContextMenu = menu;
+        }
+
+        /// <summary>Открывает окно настроек сразу на подвкладке «Колонки» (issue #173).</summary>
+        private void OpenSettingsOnColumnsTab()
+        {
+            if (_vm is null)
+                return;
+            var settings = new Configuration_Management.SettingsWindow(_vm);
+            settings.SelectColumnsTab();
+            settings.ShowDialog(this);
         }
 
         /// <summary>
@@ -5602,6 +5631,9 @@ namespace Configuration_Management
             // сочетания имели приоритет.
             AddHotkey(_vm.HotkeyClearSearch, _vm.ClearSearchCommand);
             AddHotkey(_vm.HotkeyClearTags, _vm.ClearTagFiltersCommand);
+            // Переключение подробностей правой панели информации — настраиваемый хоткей (issue #172);
+            // значение по умолчанию Ctrl+D задаётся в настройках.
+            AddHotkey(_vm.HotkeyRightPanelDetails, _vm.ToggleRightPanelDetailsCommand);
             // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
             // Регистрируются обе раскладки (основная клавиатура Oem* и цифровой блок Add/Subtract).
             KeyBindings.Add(new KeyBinding

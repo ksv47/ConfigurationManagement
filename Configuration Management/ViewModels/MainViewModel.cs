@@ -56,6 +56,9 @@ public partial class MainViewModel : ViewModelBase
     private bool _allowMultipleInstances;
     private bool _checkForUpdatesOnStartup = true;
     private bool _autoUpdateEnabled = true;
+    // Настраиваемый шаблон имени COM-коннектора 1С (issue #175). Пустая строка —
+    // стандартные ProgID V85/V83/V82/V81.COMConnector.
+    private string _comConnectorNameTemplate = "";
     private readonly ObservableCollection<string> _activeTagFilters = new();
     private ListViewMode _listViewMode = ListViewMode.All;
 
@@ -142,6 +145,7 @@ public partial class MainViewModel : ViewModelBase
     private string _hotkeyShowRecent = "";
     private string _hotkeyClearSearch = "Ctrl+Shift+C";
     private string _hotkeyClearTags = "Ctrl+Shift+T";
+    private string _hotkeyRightPanelDetails = "";
     private string _sortField = "Name";
     private bool _sortAscending = true;
     /// <summary>Направление сортировки подгрупп по имени (true — А→Я, false — Я→А).</summary>
@@ -239,6 +243,7 @@ public partial class MainViewModel : ViewModelBase
         _allowMultipleInstances = settings.AllowMultipleInstances;
         _checkForUpdatesOnStartup = settings.CheckForUpdatesOnStartup;
         _autoUpdateEnabled = settings.AutoUpdateEnabled;
+        _comConnectorNameTemplate = settings.ComConnectorNameTemplate ?? "";
         _showVersionColumn = settings.ShowVersionColumn;
         _showConfigurationColumn = settings.ShowConfigurationColumn;
         _configurationColumnWidth = settings.ConfigurationColumnWidth;
@@ -318,6 +323,7 @@ public partial class MainViewModel : ViewModelBase
         _hotkeyClearTags = string.IsNullOrWhiteSpace(settings.HotkeyClearTags)
             ? "Ctrl+Shift+T"
             : settings.HotkeyClearTags.Trim();
+        _hotkeyRightPanelDetails = settings.HotkeyRightPanelDetails?.Trim() ?? "";
         _sortField = string.IsNullOrWhiteSpace(settings.SortField) ? "Name" : settings.SortField;
         _sortAscending = settings.SortAscending;
         _lastSelectedInfobaseId = settings.LastSelectedInfobaseId ?? string.Empty;

@@ -36,6 +36,27 @@ namespace Configuration_Management
     {
         private readonly MainViewModel _viewModel;
 
+        /// <summary>Главный контрол вкладок окна (полоса слева).</summary>
+        private TabControl? _settingsTabs;
+
+        /// <summary>Вкладка «Отображение» внутри главного контрола вкладок.</summary>
+        private TabItem? _displayTab;
+
+        /// <summary>Контрол вложенных вкладок раздела «Отображение» (Значки/Колонки/…).</summary>
+        private TabControl? _displaySubTabs;
+
+        /// <summary>
+        /// Переключает окно настроек сразу на подвкладку «Колонки» (issue #173).
+        /// Используется из контекстного меню заголовка колонки списка баз.
+        /// </summary>
+        public void SelectColumnsTab()
+        {
+            if (_settingsTabs is not null && _displayTab is not null)
+                _settingsTabs.SelectedItem = _displayTab;
+            if (_displaySubTabs is not null)
+                _displaySubTabs.SelectedIndex = 1;
+        }
+
         /// <summary>
         /// Создаёт диалог настроек приложения.
         /// </summary>
@@ -113,6 +134,7 @@ namespace Configuration_Management
             // отвечало фактическому расположению полосы, как в разметке.
             var tabs = new TabControl { TabStripPlacement = Dock.Left };
             tabs.Styled(ControlThemes.SettingsTabControl);
+            _settingsTabs = tabs;
 
             // ===== Настройки =====
             // Общего зазора у панели нет: в Avalonia он складывается с полями
@@ -282,6 +304,46 @@ namespace Configuration_Management
                 _viewModel.ApplyCompactMode(value);
             };
             settings.Children.Add(compactToggle);
+
+            // Имя COM-коннектора 1С по шаблону версии платформы (issue #175).
+            var comTemplateHint = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorTemplateHint"),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Margin = new Thickness(0, 10, 0, 6)
+            };
+            ThemeBrushes.Bind(comTemplateHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            settings.Children.Add(comTemplateHint);
+
+            var comTemplateRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            comTemplateRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorTemplate"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0)
+            });
+            var comTemplateBox = new TextBox
+            {
+                Text = _viewModel.ComConnectorNameTemplate,
+                Width = 280,
+                Height = 30,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                // Placeholder с примером шаблона по умолчанию (issue #175): при пустом поле
+                // видно, какая строка берётся, если настройка не задана. Пустое значение
+                // означает стандартные ProgID (V85/V83/V82/V81.COMConnector), а развёрнутый
+                // по версии платформы «V%V12%.ComConnector» даёт V83.COMConnector для 8.3.
+                Watermark = "V%V12%.ComConnector"
+            }.Styled(ControlThemes.ModernTextBox);
+            ToolTip.SetTip(comTemplateBox, new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorTemplateTooltip"),
+                MaxWidth = 320,
+                TextWrapping = TextWrapping.Wrap
+            });
+            comTemplateRow.Children.Add(comTemplateBox);
+            settings.Children.Add(comTemplateRow);
 
             // Управление учётными записями (профилями).
             // Кнопка учётных записей: значок и тема из разметки
@@ -1123,6 +1185,7 @@ namespace Configuration_Management
             // подвкладки «Значки», «Колонки», «Панели», «Статус» и «Шрифт».
             var displayTabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
             displayTabs.Styled(ControlThemes.SettingsSubTabControl);
+            _displaySubTabs = displayTabs;
             displayTabs.Items.Add(SubTab("Settings.Subtab.Icons", "Settings.Subtab.IconsTooltip", "IconStarOutline", displayIcons));
             displayTabs.Items.Add(SubTab("Settings.Subtab.Columns", "Settings.Subtab.ColumnsTooltip", "IconViewColumn", displayColumns));
             displayTabs.Items.Add(SubTab("Settings.Subtab.Panels", "Settings.Subtab.PanelsTooltip", "IconPageLayoutSidebarRight", displayPanels));
@@ -1130,6 +1193,7 @@ namespace Configuration_Management
             displayTabs.Items.Add(SubTab("Settings.Subtab.Font", "Settings.Subtab.FontTooltip", "IconFormatFont", displayFont));
 
             var tabDisplay = MainTab("IconEye", "Settings.TabDisplay", displayTabs);
+            _displayTab = tabDisplay;
 
             // ===== Оформление =====
             // Контейнер вкладки — Grid, заполняющий всю доступную высоту, чтобы правая
@@ -2056,6 +2120,7 @@ namespace Configuration_Management
             var hotkeyShowRecent = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ShowRecent"), _viewModel.HotkeyShowRecent);
             var hotkeyClearSearch = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearSearch"), _viewModel.HotkeyClearSearch);
             var hotkeyClearTags = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearTags"), _viewModel.HotkeyClearTags);
+            var hotkeyRightPanelDetails = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.RightPanelDetails"), _viewModel.HotkeyRightPanelDetails);
             // У автора последняя строка идёт без нижнего поля, а весь блок строк
             // несёт низ 12 (SettingsWindow.xaml:957 и 1039). У нас строки лежат
             // в общей панели, поэтому поле снимается у последней и добирается
@@ -2329,6 +2394,9 @@ namespace Configuration_Management
                     _ => _viewModel.AfterLaunchAction
                 };
 
+                // Имя COM-коннектора 1С по шаблону версии платформы (issue #175).
+                _viewModel.ComConnectorNameTemplate = comTemplateBox.Text?.Trim() ?? "";
+
                 _viewModel.ApplyIbasesSyncSettings(
                     syncModeBox.SelectedIndex >= 0 ? syncModes[syncModeBox.SelectedIndex].Mode : IbasesSyncMode.None,
                     fileBox.Text?.Trim() ?? string.Empty,
@@ -2359,7 +2427,7 @@ namespace Configuration_Management
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
                     hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value,
                     hotkeyShowAll.Value, hotkeyShowFavorites.Value, hotkeyShowRecent.Value,
-                    hotkeyClearSearch.Value, hotkeyClearTags.Value);
+                    hotkeyClearSearch.Value, hotkeyClearTags.Value, hotkeyRightPanelDetails.Value);
 
                 // Настройки отображения применяются и сохраняются одним вызовом.
                 // Видимость колонок читается из тех же элементов списка, где
