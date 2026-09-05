@@ -110,6 +110,20 @@ public class AppSettings
     /// </summary>
     public string LastClientServerCreatePlatformVersion { get; set; } = "";
 
+    /// <summary>
+    /// Настраиваемый шаблон имени COM-коннектора 1С (issue #175).
+    /// Пустая строка — использовать стандартные ProgID (<c>V85/V83/V82/V81.COMConnector</c>).
+    /// Если шаблон задан, он разворачивается по версии платформы каждой базы и пробуется
+    /// первым в переборе ProgID. Плейсхолдеры:
+    /// <list type="bullet">
+    /// <item><c>%V12%</c> — первые две цифры версии (например <c>83</c> для 8.3.x);</item>
+    /// <item><c>%V3%</c> — третья цифра версии (например <c>27</c> для 8.3.27.x);</item>
+    /// <item><c>%V4%</c> — четвёртая цифра версии (например <c>1644</c> для 8.3.27.1644).</item>
+    /// </list>
+    /// Пример: <c>V%V12%.ComConnector</c>.
+    /// </summary>
+    public string ComConnectorNameTemplate { get; set; } = "";
+
     /// <summary>Режим синхронизации с файлом ibases.v8i.</summary>
     public IbasesSyncMode IbasesSyncMode { get; set; } = IbasesSyncMode.None;
 

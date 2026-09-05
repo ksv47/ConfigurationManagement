@@ -49,6 +49,9 @@ namespace Configuration_Management
         {
             InitializeComponent();
             _viewModel = viewModel;
+            // Шаблон имени COM-коннектора 1С (issue #175): показываем текущее значение.
+            if (ComConnectorNameTemplateBox != null)
+                ComConnectorNameTemplateBox.Text = viewModel.ComConnectorNameTemplate;
             _settings = new SettingsViewModel(viewModel);
             _installedPlatformVersions = new List<string>(viewModel.InstalledPlatformVersions);
             foreach (var path in viewModel.AdditionalPlatformSearchPaths)
@@ -193,6 +196,9 @@ namespace Configuration_Management
                     MessageBoxImage.Warning);
                 return;
             }
+
+            // Имя COM-коннектора 1С по шаблону версии платформы (issue #175).
+            _viewModel.ComConnectorNameTemplate = ComConnectorNameTemplateBox.Text?.Trim() ?? "";
 
             _viewModel.ApplyAppBehaviorSettings(
                 AllowMultipleInstancesCheck.IsChecked ?? false,

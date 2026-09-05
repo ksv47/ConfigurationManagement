@@ -56,6 +56,9 @@ public partial class MainViewModel : ViewModelBase
     private bool _allowMultipleInstances;
     private bool _checkForUpdatesOnStartup = true;
     private bool _autoUpdateEnabled = true;
+    // Настраиваемый шаблон имени COM-коннектора 1С (issue #175). Пустая строка —
+    // стандартные ProgID V85/V83/V82/V81.COMConnector.
+    private string _comConnectorNameTemplate = "";
     private readonly ObservableCollection<string> _activeTagFilters = new();
     private ListViewMode _listViewMode = ListViewMode.All;
 
@@ -240,6 +243,7 @@ public partial class MainViewModel : ViewModelBase
         _allowMultipleInstances = settings.AllowMultipleInstances;
         _checkForUpdatesOnStartup = settings.CheckForUpdatesOnStartup;
         _autoUpdateEnabled = settings.AutoUpdateEnabled;
+        _comConnectorNameTemplate = settings.ComConnectorNameTemplate ?? "";
         _showVersionColumn = settings.ShowVersionColumn;
         _showConfigurationColumn = settings.ShowConfigurationColumn;
         _configurationColumnWidth = settings.ConfigurationColumnWidth;

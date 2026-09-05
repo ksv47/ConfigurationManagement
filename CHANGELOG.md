@@ -9,6 +9,21 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.72] — 2026-09-05
+
+Выпуск с реализацией issue #175 «Имя КОМ». Добавлена настройка **«Имя COM-коннектора 1С»** в окне настроек (вкладка «Настройки»): заданный шаблон разворачивается по версии платформы каждой базы (плейсхолдеры `%V12%`/`%V3%`/`%V4%`) и пробуется первым в переборе ProgID при подключении через COM. Это позволяет подключаться к разным версиям платформы без ручной перерегистрации COM-коннектора. Пустое значение — стандартные `V85/V83/V82/V81.COMConnector`. Работает на обеих платформах (Windows/WPF и Linux/Avalonia).
+
+### Добавлено
+
+- **Настраиваемый шаблон имени COM-коннектора (issue #175)**: свойство `ComConnectorNameTemplate` в [`Models/AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs). Методы `BuildProgIdCandidates`, `ExpandTemplate` и `Digits` в [`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs) разворачивают шаблон по версии платформы базы (`%V12%` — первые две цифры, `%V3%` — третья, `%V4%` — четвёртая) и ставят полученный ProgID первым в перебор (без дублей со стандартным списком). `Connect`/`ConnectRead`/`ConnectCore` используют список кандидатов с учётом шаблона.
+- **Агентский процесс COM-чтения**: [`Services/ComReadHost.cs`](Configuration%20Management/Services/ComReadHost.cs) принимает опциональное четвёртое поле запроса с кастомным перечнем ProgID; при его отсутствии агент использует стандартный `KnownProgIds`. `ParseResponse`/`DetailAllowed`/`IsKnownProgId` проверяют имя ProgID по фактическому списку перебора.
+- **Настройка в UI**: поле «Имя COM-коннектора 1С» добавлено на вкладку «Настройки» в WPF ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), сохранение в [`Views/SettingsWindow.xaml.cs`](Configuration%20Management/Views/SettingsWindow.xaml.cs)) и в Avalonia ([`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)). Свойства ViewModel `ComConnectorNameTemplate` добавлены в [`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs) (WPF) и [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs); сохранение — в `SaveSettings()` ([`ViewModels/MainViewModel.Launch.cs`](Configuration%20Management/ViewModels/MainViewModel.Launch.cs)). Настройка применяется после перезапуска.
+- **Локализация**: ключи `Settings.General.ComConnectorTemplate`, `Settings.General.ComConnectorTemplateTooltip` и `Settings.General.ComConnectorTemplateHint` добавлены в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.71` → `0.3.6.72`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.71] — 2026-09-04
 
 Выпуск с реализацией issue #174 «Кнопка определения свойств конфигурации». В окне редактирования свойств базы (вкладка «Платформа») под полями «Конфигурация» и «Версия» добавлена кнопка **«Определить»**, которая автоматически определяет наименование и версию конфигурации по настройкам подключения: через COM-коннектор на Windows и эвристикой по файловой базе/конфигуратором на Linux. Найденные значения заполняются в соответствующие поля и сохраняются.

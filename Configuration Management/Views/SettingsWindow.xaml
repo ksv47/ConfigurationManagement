@@ -1316,6 +1316,19 @@
                                 <TextBlock Text="{loc:Loc Settings.CompactMode}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
+
+                        <!-- Имя COM-коннектора 1С по шаблону версии платформы (issue #175) -->
+                        <GroupBox Header="{loc:Loc Settings.General.ComConnectorTemplate}" Padding="8" Margin="0,14,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc Settings.General.ComConnectorTemplateHint}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <TextBox x:Name="ComConnectorNameTemplateBox" Height="32"
+                                         VerticalContentAlignment="Center"
+                                         Style="{StaticResource ModernTextBox}"
+                                         ToolTip="{loc:Loc Settings.General.ComConnectorTemplateTooltip}"/>
+                            </StackPanel>
+                        </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

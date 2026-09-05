@@ -429,6 +429,7 @@ public partial class MainViewModel : ViewModelBase
             AllowMultipleInstances = _allowMultipleInstances,
             CheckForUpdatesOnStartup = _checkForUpdatesOnStartup,
             AutoUpdateEnabled = _autoUpdateEnabled,
+            ComConnectorNameTemplate = _comConnectorNameTemplate,
             ShowVersionColumn = _showVersionColumn,
             ShowConfigurationColumn = _showConfigurationColumn,
             ConfigurationColumnWidth = _configurationColumnWidth,

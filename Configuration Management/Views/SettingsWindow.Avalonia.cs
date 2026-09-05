@@ -305,6 +305,41 @@ namespace Configuration_Management
             };
             settings.Children.Add(compactToggle);
 
+            // Имя COM-коннектора 1С по шаблону версии платформы (issue #175).
+            var comTemplateHint = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorTemplateHint"),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Margin = new Thickness(0, 10, 0, 6)
+            };
+            ThemeBrushes.Bind(comTemplateHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            settings.Children.Add(comTemplateHint);
+
+            var comTemplateRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            comTemplateRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorTemplate"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0)
+            });
+            var comTemplateBox = new TextBox
+            {
+                Text = _viewModel.ComConnectorNameTemplate,
+                Width = 280,
+                Height = 30,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            }.Styled(ControlThemes.ModernTextBox);
+            ToolTip.SetTip(comTemplateBox, new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorTemplateTooltip"),
+                MaxWidth = 320,
+                TextWrapping = TextWrapping.Wrap
+            });
+            comTemplateRow.Children.Add(comTemplateBox);
+            settings.Children.Add(comTemplateRow);
+
             // Управление учётными записями (профилями).
             // Кнопка учётных записей: значок и тема из разметки
             // (SettingsWindow.xaml:1151-1157).
@@ -2353,6 +2388,9 @@ namespace Configuration_Management
                     // Ничего не выбрано: значение остаётся прежним, как в WPF-версии.
                     _ => _viewModel.AfterLaunchAction
                 };
+
+                // Имя COM-коннектора 1С по шаблону версии платформы (issue #175).
+                _viewModel.ComConnectorNameTemplate = comTemplateBox.Text?.Trim() ?? "";
 
                 _viewModel.ApplyIbasesSyncSettings(
                     syncModeBox.SelectedIndex >= 0 ? syncModes[syncModeBox.SelectedIndex].Mode : IbasesSyncMode.None,

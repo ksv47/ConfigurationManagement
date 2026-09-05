@@ -439,6 +439,9 @@
     "Settings.General.AfterLaunchAction.None": "Do nothing",
     "Settings.General.AfterLaunchAction.MinimizeToTray": "Minimize to tray",
     "Settings.General.AfterLaunchAction.Close": "Close the program",
+    "Settings.General.ComConnectorTemplate": "1C COM connector name:",
+    "Settings.General.ComConnectorTemplateTooltip": "COM connector name template for connecting to different platform versions without manual COM re-registration. Placeholders expand from the infobase platform version: %V12% — first two digits (83, 82), %V3% — third digit (27, 5), %V4% — fourth digit (1644, 4). Example: V%V12%.ComConnector. Empty — standard V85/V83/V82/V81.COMConnector.",
+    "Settings.General.ComConnectorTemplateHint": "Example: V%V12%.ComConnector (%V12%/%V3%/%V4% — parts of the infobase platform version). Empty — standard V85/V83/V82/V81.COMConnector.",
 
     "Settings.Ibases.Description": "Synchronization of the application with the standard 1C base list file (ibases.v8i).",
     "Settings.Ibases.HelpText": "Synchronization with the standard 1C base list file ibases.v8i.\n\n• Mode: disabled / load only / export only / two-way (export first, then load).\n• File: path to ibases.v8i (default %APPDATA%\\1C\\1CEStart\\).\n• Synchronization moment: on start, by interval (min) or by schedule (HH:MM).\n• Load from file adds infobases from the file into the application; Export to file does the opposite.\n• It is recommended to enable ibases.v8i backups before synchronization — they can be restored with the Restore from the latest copy button.",

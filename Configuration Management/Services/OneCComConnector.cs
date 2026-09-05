@@ -16,6 +16,14 @@ namespace Configuration_Management.Services;
 public sealed class OneCComConnector : IOneCComConnector
 {
     private readonly IAppLogger _logger;
+    private readonly IInfobaseRepository _repository;
+
+    // Шаблон имени COM-коннектора читается из настроек лениво и кэшируется на сессию:
+    // правка настройки применяется после перезапуска, а повторное чтение settings.json
+    // для каждой базы при стартовом дочитывании списка было бы лишним дисковым вводом.
+    private readonly object _templateLock = new();
+    private string? _templateCache;
+    private bool _templateLoaded;
 
     /// <summary>
     /// ProgID COM-коннекторов 1С в порядке приоритета (от новых версий к старым).
@@ -34,6 +42,114 @@ public sealed class OneCComConnector : IOneCComConnector
         "V82.COMConnector",
         "V81.COMConnector"
     };
+
+    /// <summary>
+    /// Шаблон имени COM-коннектора из настроек (issue #175). Пустая строка означает
+    /// стандартные ProgID (<see cref="KnownProgIds"/>). Разворачивается по версии платформы
+    /// конкретной базы через <see cref="BuildProgIdCandidates"/>.
+    /// </summary>
+    private string? ComConnectorNameTemplate
+    {
+        get
+        {
+            lock (_templateLock)
+            {
+                if (_templateLoaded)
+                    return _templateCache;
+
+                try
+                {
+                    _templateCache = _repository.LoadSettings()?.ComConnectorNameTemplate ?? "";
+                }
+                catch
+                {
+                    // Настройки недоступны — остаёмся на стандартных ProgID.
+                    _templateCache = "";
+                }
+
+                _templateLoaded = true;
+                return _templateCache;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Список ProgID для перебора при подключении к заданной базе (issue #175).
+    /// Если задан шаблон, разворачивает его по версии платформы базы и ставит первым,
+    /// дополняя стандартный список (без дублей). При пустом шаблоне возвращает сам
+    /// <see cref="KnownProgIds"/>, чтобы поведение по умолчанию не менялось.
+    /// </summary>
+    private IReadOnlyList<string> GetProgIds(Infobase infobase)
+        => BuildProgIdCandidates(ComConnectorNameTemplate, infobase?.PlatformVersion);
+
+    /// <summary>
+    /// Строит список ProgID-кандидатов для перебора. <paramref name="template"/> — шаблон
+    /// имени COM-коннектора, <paramref name="platformVersion"/> — версия платформы базы
+    /// (например «8.3.27.1644»). Если шаблон пуст или версию развернуть нельзя, возвращается
+    /// стандартный <see cref="KnownProgIds"/>.
+    /// </summary>
+    internal static IReadOnlyList<string> BuildProgIdCandidates(string? template, string? platformVersion)
+    {
+        var expanded = ExpandTemplate(template, platformVersion);
+        if (expanded is null)
+            return KnownProgIds;
+
+        var list = new List<string>(KnownProgIds.Length + 1) { expanded };
+        foreach (var progId in KnownProgIds)
+        {
+            if (!string.Equals(progId, expanded, StringComparison.OrdinalIgnoreCase))
+                list.Add(progId);
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// Разворачивает шаблон имени COM-коннектора по версии платформы.
+    /// Возвращает null, если шаблон или версия отсутствуют либо версию нельзя разобрать
+    /// (тогда разворачивать нечего и используется стандартный список).
+    /// </summary>
+    internal static string? ExpandTemplate(string? template, string? platformVersion)
+    {
+        if (string.IsNullOrWhiteSpace(template) || string.IsNullOrWhiteSpace(platformVersion))
+            return null;
+
+        var seg = platformVersion.Split('.');
+        if (seg.Length == 0)
+            return null;
+
+        // %V12% — первые две цифры версии (для 8.3.x это «83»), %V3%/%V4% — третья/четвёртая.
+        // Из каждого сегмента берутся только цифры, чтобы чужие символы из строки версии
+        // не попадали в ProgID.
+        var v12 = Digits(seg.Length > 1 ? seg[0] + seg[1] : seg[0]);
+        var v3 = Digits(seg.Length > 2 ? seg[2] : "");
+        var v4 = Digits(seg.Length > 3 ? seg[3] : "");
+
+        // Нет первой части — расшифровать нечего.
+        if (v12.Length == 0)
+            return null;
+
+        return template
+            .Replace("%V12%", v12)
+            .Replace("%V3%", v3)
+            .Replace("%V4%", v4);
+    }
+
+    /// <summary>Оставляет в строке только десятичные цифры.</summary>
+    private static string Digits(string s)
+    {
+        if (s.Length == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder(s.Length);
+        foreach (var ch in s)
+        {
+            if (char.IsAsciiDigit(ch))
+                sb.Append(ch);
+        }
+
+        return sb.ToString();
+    }
 
     // -- Кэш доступности COM-коннекторов 1С ----------------------------------
     // Реестр COM не меняется в течение сеанса (кроме ручной регистрации),
@@ -118,9 +234,10 @@ public sealed class OneCComConnector : IOneCComConnector
     /// </summary>
     public string? LastError { get; private set; }
 
-    public OneCComConnector(IAppLogger logger)
+    public OneCComConnector(IAppLogger logger, IInfobaseRepository repository)
     {
         _logger = logger;
+        _repository = repository;
     }
 
     /// <inheritdoc />
@@ -140,8 +257,13 @@ public sealed class OneCComConnector : IOneCComConnector
     {
         if (infobase is null) return null;
 
-        // Быстрый отказ: коннектор не зарегистрирован — не создаём поток и не ловим COMException.
-        if (!IsComConnectorAvailable())
+        // Список ProgID для перебора с учётом шаблона имени (issue #175). Кэш доступности
+        // ускоряет только стандартный путь: при кастомном шаблоне коннектор может быть
+        // зарегистрирован под именем вне KnownProgIds, и преждевременный отказ по кэшу
+        // съедал бы его. Проверку в этом случае оставляем перебору ConnectCore.
+        var progIds = GetProgIds(infobase);
+
+        if (ReferenceEquals(progIds, KnownProgIds) && !IsComConnectorAvailable())
         {
             SetConnectorUnavailableError(infobase.Name);
             return null;
@@ -154,7 +276,7 @@ public sealed class OneCComConnector : IOneCComConnector
         {
             try
             {
-                result = ConnectCore(infobase);
+                result = ConnectCore(infobase, progIds);
             }
             catch (Exception ex)
             {
@@ -194,8 +316,12 @@ public sealed class OneCComConnector : IOneCComConnector
     {
         if (infobase is null) return null;
 
-        // Быстрый отказ: коннектор не зарегистрирован — не запускаем процесс-агент.
-        if (!IsComConnectorAvailable())
+        // Список ProgID с учётом шаблона имени (issue #175). Как и в Connect, кэш доступности
+        // обходим при кастомном шаблоне: он проверяет только KnownProgIds, а перечень кандидатов
+        // агент получит явно.
+        var progIds = GetProgIds(infobase);
+
+        if (ReferenceEquals(progIds, KnownProgIds) && !IsComConnectorAvailable())
         {
             SetConnectorUnavailableError(infobase.Name);
             return null;
@@ -216,7 +342,7 @@ public sealed class OneCComConnector : IOneCComConnector
         // десятки одинаковых строк подряд на каждом старте.
         var alreadyDisabled = ComReadHost.ComUnavailable;
 
-        var result = ComReadHost.Read(connectString, timeoutMs);
+        var result = ComReadHost.Read(connectString, timeoutMs, progIds);
         if (result.Failure == ComFailureKind.None && result.Info is not null)
         {
             LastError = null;
@@ -328,10 +454,10 @@ public sealed class OneCComConnector : IOneCComConnector
     }
 
     /// <summary>
-    /// Устанавливает подключение в текущем (STA) потоке, перебирая известные ProgID.
+    /// Устанавливает подключение в текущем (STA) потоке, перебирая список ProgID.
     /// При успехе возвращает владеющее COM-объектами соединение.
     /// </summary>
-    private OneCComConnection? ConnectCore(Infobase infobase)
+    private OneCComConnection? ConnectCore(Infobase infobase, IReadOnlyList<string> progIds)
     {
         var connectString = BuildComConnectString(infobase);
         if (string.IsNullOrWhiteSpace(connectString))
@@ -343,7 +469,7 @@ public sealed class OneCComConnector : IOneCComConnector
         // true, если хотя бы один COM-тип 1С удалось получить (зарегистрирован).
         var anyRegistered = false;
 
-        foreach (var progId in KnownProgIds)
+        foreach (var progId in progIds)
         {
             Type? type;
             try

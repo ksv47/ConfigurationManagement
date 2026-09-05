@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.71-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.72-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.71**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.72**
+>
+> ✨ **0.3.6.72:** добавлена настраиваемая **«Имя COM-коннектора 1С»** (issue #175) в **Настройки → Настройки**. Заданный шаблон разворачивается по версии платформы каждой базы (плейсхолдеры `%V12%`/`%V3%`/`%V4%`) и пробуется первым в переборе ProgID при подключении через COM — это позволяет работать с разными версиями платформы без ручной перерегистрации коннектора. Пустое значение — стандартные `V85/V83/V82/V81.COMConnector`. Работает на Windows/WPF и Linux/Avalonia ([`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs), [`Services/ComReadHost.cs`](Configuration%20Management/Services/ComReadHost.cs)).
 >
 > ✨ **0.3.6.71:** в свойствах базы появилась кнопка **«Определить»** (issue #174) — она автоматически определяет наименование и версию конфигурации по настройкам подключения: через COM-коннектор на Windows и эвристикой по файловой базе/конфигуратором на Linux. Кнопка расположена на вкладке **Платформа** окна редактирования базы под полями «Конфигурация» и «Версия»; найденные значения заполняются в поля и сохраняются ([`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs), [`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs), [`Views/ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml)).
 >
@@ -311,7 +313,7 @@
 - Вкладки: **Платформы**, **Отображение**, **Клавиши**, **Настройки**, **ibases.v8i**, **Базы**, **О программе**.
 - Вкладка «Отображение»: подвкладки (Значки и кнопки, Колонки списка, Панели, Нижняя панель) с тумблерами видимости элементов.
 - Вкладка «Клавиши»: горячие клавиши запуска и порядок избранного `Alt+1…9`.
-- Вкладка «Настройки»: поведение приложения (несколько экземпляров, значок в трее, сворачивание, `Esc` → трей).
+- Вкладка «Настройки»: поведение приложения (несколько экземпляров, значок в трее, сворачивание, `Esc` → трей) и **настраиваемое имя COM-коннектора 1С** (шаблон по версии платформы, issue #175).
 - Вкладка «Платформы»: группировка по линии **8.3 / 8.5** и **разрядности** (64/32) с путями установки, **дополнительные пути поиска** платформы.
 - Вкладка «Базы»: каталоги шаблонов, экспорт/загрузка списка баз, обслуживание (удаление отсутствующих баз, завершение процессов 1С).
 - Вкладка «О программе»: автор, Infostart, GitHub.
