@@ -448,15 +448,17 @@ public static class OneCCacheCleaner
     /// <summary>
     /// Перечисляет каталоги кеша, не принадлежащие ни одной текущей информационной базе.
     /// Это «остатки» от удалённых из списка или созданных вне приложения баз: каталоги,
-    /// имя которых узнаётся как имя кеша базы (см. <see cref="IsBaseCacheDirName"/>)
-    /// и не совпадает ни с одним «защищённым» именем (см. <see cref="BuildProtectedNames"/>).
-    /// Каталоги версий платформы (например, «8.3.24.1234») не удаляются — они анализируются,
-    /// и удаляются только их вложенные каталоги-кеши. Временные каталоги *.deleting_*
-    /// не учитываются.
+    /// имя которых не совпадает ни с одним «защищённым» именем (см. <see cref="BuildProtectedNames"/>),
+    /// а в корне профиля (~/.1cv8/1C/1cv8) — каталоги из карты IdConnStrMap без совпадения
+    /// по строке соединения (см. <see cref="EnumerateProfileRootOrphans"/>). Каталоги версий
+    /// платформы (например, «8.3.24.1234») не удаляются — они анализируются, и удаляются
+    /// только их вложенные каталоги-кеши. Временные каталоги *.deleting_* чистятся как
+    /// следы оборванного удаления (issue #178).
     /// </summary>
     private static IEnumerable<string> EnumerateOrphanDirectories(OneCCacheKind kind, IEnumerable<Infobase> allBases)
     {
         var protectedNames = BuildProtectedNames(allBases);
+        var mapGuids = GetMapCacheGuids();
 
         // Без карты IdConnStrMap защита баз неполна: каталог кеша живой базы называется
         // GUID, который взять больше неоткуда, и остатками стали бы каталоги всех баз
@@ -480,6 +482,19 @@ public static class OneCCacheCleaner
             if (!Directory.Exists(root))
                 continue;
 
+            // Корень профиля 1С (~/.1cv8/1C/1cv8 на Linux) рядом с кешем баз содержит
+            // служебные каталоги платформы, поэтому «остатком» здесь считается только
+            // каталог, который есть в карте IdConnStrMap и строка соединения которого
+            // не соответствует ни одной текущей базе (issue #178). Клиент-серверные
+            // каталоги Srvr__…__Ref__…__ разбираются по имени; *.deleting_* чистятся
+            // как следы оборванного удаления.
+            if (IsLinuxProfileCacheRoot(root))
+            {
+                foreach (var dir in EnumerateProfileRootOrphans(root, protectedNames, mapGuids))
+                    yield return dir;
+                continue;
+            }
+
             string[] versionDirs;
             try { versionDirs = Directory.GetDirectories(root); }
             catch { continue; }
@@ -489,7 +504,11 @@ public static class OneCCacheCleaner
                 var versionName = Path.GetFileName(versionDir);
 
                 if (IsDeletingName(versionName))
+                {
+                    // След оборванного удаления — находим и чистим (issue #178).
+                    yield return versionDir;
                     continue;
+                }
 
                 if (IsVersionDirName(versionName))
                 {
@@ -501,8 +520,14 @@ public static class OneCCacheCleaner
                     foreach (var cd in cacheDirs)
                     {
                         var n = Path.GetFileName(cd);
-                        if (IsDeletingName(n) || protectedNames.Contains(n)
-                            || mappedToBase.Contains(n) || !IsBaseCacheDirName(n))
+                        if (IsDeletingName(n))
+                        {
+                            // След оборванного удаления — находим и чистим (issue #178).
+                            yield return cd;
+                            continue;
+                        }
+                        if (protectedNames.Contains(n) || mappedToBase.Contains(n)
+                            || !IsBaseCacheDirName(n))
                             continue;
                         yield return cd;
                     }
@@ -515,6 +540,83 @@ public static class OneCCacheCleaner
                     yield return versionDir;
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Проверяет, является ли путь корнем профиля 1С (~/.1cv8/1C/1cv8 на Linux), где
+    /// рядом с кешем баз лежат служебные каталоги платформы. Для такого корня поиск
+    /// остатков ведётся по карте IdConnStrMap, а не по жёсткому списку исключений.
+    /// </summary>
+    private static bool IsLinuxProfileCacheRoot(string path)
+    {
+#if LINUX
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrEmpty(home))
+            return false;
+        return string.Equals(
+            NormalizePathForCompare(path),
+            NormalizePathForCompare(Path.Combine(home, ".1cv8", "1C", "1cv8")),
+            StringComparison.OrdinalIgnoreCase);
+#else
+        return false;
+#endif
+    }
+
+    /// <summary>
+    /// Возвращает множество GUID каталогов кеша из карты IdConnStrMap (1cv8u.pfl).
+    /// Пустое, если карту прочитать не удалось.
+    /// </summary>
+    private static HashSet<string> GetMapCacheGuids()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var map = LoadIdConnStrMap();
+        if (map is null)
+            return set;
+        foreach (var entry in map)
+            set.Add(entry.CacheGuid);
+        return set;
+    }
+
+    /// <summary>
+    /// Перечисляет «остатки» кеша в корне профиля 1С (~/.1cv8/1C/1cv8 на Linux).
+    /// Остатком считается каталог из карты IdConnStrMap, строка соединения которого не
+    /// соответствует ни одной текущей базе (GUID нет в защищённых), либо клиент-серверный
+    /// каталог Srvr__…__Ref__…__ без совпадения по имени. Служебные каталоги платформы
+    /// (conf, logs, ExtCompT, STT, standalone-server и т. п.) в карте не значатся и под
+    /// очистку не попадают. Каталоги *.deleting_* чистятся как следы оборванного удаления.
+    /// </summary>
+    private static IEnumerable<string> EnumerateProfileRootOrphans(
+        string root, HashSet<string> protectedNames, HashSet<string> mapGuids)
+    {
+        if (!Directory.Exists(root))
+            yield break;
+
+        string[] dirs;
+        try { dirs = Directory.GetDirectories(root); }
+        catch { yield break; }
+
+        foreach (var dir in dirs)
+        {
+            var name = Path.GetFileName(dir);
+
+            if (IsDeletingName(name))
+            {
+                yield return dir;
+                continue;
+            }
+
+            if (IsVersionDirName(name))
+            {
+                foreach (var child in EnumerateProfileRootOrphans(dir, protectedNames, mapGuids))
+                    yield return child;
+                continue;
+            }
+
+            var orphan = (mapGuids.Contains(name) && !protectedNames.Contains(name))
+                         || (name.StartsWith("Srvr__", StringComparison.OrdinalIgnoreCase) && !protectedNames.Contains(name));
+            if (orphan)
+                yield return dir;
         }
     }
 
@@ -681,8 +783,9 @@ public static class OneCCacheCleaner
     /// </summary>
     /// <param name="forOrphanScan">
     /// True, если корни запрашиваются для поиска «осиротевшего» кеша. В этом режиме
-    /// удаляется всё, что не принадлежит известным базам, поэтому корни, где рядом
-    /// с кешем баз лежат служебные каталоги платформы, в него не отдаются.
+    /// корень профиля ~/.1cv8/1C/1cv8 отдаётся всегда, но остатки в нём определяются
+    /// по карте IdConnStrMap (см. <see cref="EnumerateProfileRootOrphans"/>), поэтому
+    /// служебные каталоги платформы под очистку не попадают (issue #178).
     /// </param>
     private static IEnumerable<string> GetCacheRoots(OneCCacheKind kind, bool forOrphanScan = false)
     {
@@ -716,11 +819,13 @@ public static class OneCCacheCleaner
             if (!string.IsNullOrEmpty(home))
             {
                 // В ~/.1cv8/1C/1cv8 рядом с кешем баз платформа держит свои служебные
-                // каталоги (conf, logs, ExtCompT, STT, tmplts, distr). Остатками считаются
-                // только каталоги, названные GUID (см. IsBaseCacheDirName), поэтому
-                // служебные под очистку не попадают и корень отдаётся в обоих режимах.
-                // Каталог автономного сервера здесь не лежит: он уровнем выше,
-                // в ~/.1cv8/standalone-server, а с 8.3.27 в ~/.1cv8/ss-data.
+                // каталоги (conf, logs, ExtCompT, STT, standalone-server), а каталоги
+                // кеша серверных баз называются Srvr__<сервер>__Ref__<база>__. Поиск
+                // осиротевшего кеша в этом корне ведётся не по именам, а по карте
+                // IdConnStrMap (см. EnumerateProfileRootOrphans): остатком считается
+                // только каталог удалённой базы из карты, поэтому корень включается
+                // в скан остатков (issue #178), а служебные каталоги под очистку
+                // не попадают.
                 roots.Add(Path.Combine(home, ".1cv8", "1C", "1cv8"));
                 roots.Add(Path.Combine(home, ".1cv8", "1cv8"));
             }

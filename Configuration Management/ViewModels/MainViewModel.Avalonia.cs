@@ -4854,6 +4854,8 @@ public class MainViewModel : ViewModelBase
 
         try
         {
+            // Объём «остатков» до очистки — для отчёта (issue #178).
+            var orphanSize = cleanOrphans ? OneCCacheCleaner.GetOrphanSize(selectedKind, Infobases) : 0L;
             var removedBases = OneCCacheCleaner.Clear(infobases, selectedKind);
             var removedOrphans = cleanOrphans ? OneCCacheCleaner.ClearOrphans(selectedKind, Infobases) : 0;
 
@@ -4873,7 +4875,7 @@ public class MainViewModel : ViewModelBase
             if (cleanOrphans)
             {
                 if (removedOrphans > 0)
-                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheOrphanRemoved"), removedOrphans));
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheOrphanRemoved"), removedOrphans, Infobase.FormatSize(orphanSize)));
                 else
                     resultParts.Add(LocalizationManager.T("Main.CacheOrphanNone"));
             }

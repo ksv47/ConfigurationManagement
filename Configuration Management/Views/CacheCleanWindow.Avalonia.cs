@@ -90,8 +90,8 @@ namespace Configuration_Management
 
             _programCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.Program);
             _userCacheCheck.IsChecked = initialKind.HasFlag(OneCCacheKind.User);
-            _programCacheCheck.IsCheckedChanged += (_, _) => UpdateCleanEnabled();
-            _userCacheCheck.IsCheckedChanged += (_, _) => UpdateCleanEnabled();
+            _programCacheCheck.IsCheckedChanged += (_, _) => OnCacheKindChanged();
+            _userCacheCheck.IsCheckedChanged += (_, _) => OnCacheKindChanged();
             _orphanCacheCheck.IsCheckedChanged += (_, _) => UpdateCleanEnabled();
             _searchBox.TextChanged += (_, _) => OnSearchTextChanged();
 
@@ -210,7 +210,7 @@ namespace Configuration_Management
 
             var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program, _infobases));
             var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User, _infobases));
-            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(OneCCacheKind.All, _infobases));
+            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(CurrentKind(), _infobases));
 
             _programCacheSizeText.Text = FormatSize(program);
             _userCacheSizeText.Text = FormatSize(user);
@@ -223,6 +223,35 @@ namespace Configuration_Management
                 if (_programSizeTexts.TryGetValue(ib, out var pt)) pt.Text = FormatSize(p);
                 if (_userSizeTexts.TryGetValue(ib, out var ut)) ut.Text = FormatSize(u);
             }
+        }
+
+        /// <summary>Возвращает тип кеша, выбранный в данный момент (по галкам программного/пользовательского).</summary>
+        private OneCCacheKind CurrentKind()
+        {
+            var kind = OneCCacheKind.None;
+            if (_programCacheCheck.IsChecked == true)
+                kind |= OneCCacheKind.Program;
+            if (_userCacheCheck.IsChecked == true)
+                kind |= OneCCacheKind.User;
+            return kind;
+        }
+
+        /// <summary>
+        /// Пересчитывает размер «остатков» кеша по текущему выбору типа кеша, чтобы подпись
+        /// соответствовала тому, что реально будет очищено (issue #178).
+        /// </summary>
+        private async void RefreshOrphanSize()
+        {
+            var kind = CurrentKind();
+            _orphanCacheSizeText.Text = "…";
+            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(kind, _infobases));
+            _orphanCacheSizeText.Text = FormatSize(orphans);
+        }
+
+        private void OnCacheKindChanged()
+        {
+            UpdateCleanEnabled();
+            RefreshOrphanSize();
         }
 
         /// <summary>
@@ -411,10 +440,14 @@ namespace Configuration_Management
 
             var leftPanel = new StackPanel
             {
-                Orientation = Orientation.Horizontal,
+                Orientation = Orientation.Vertical,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            _orphanCacheSizeText.Margin = new Thickness(4, 0, 0, 0);
+            // Размер подписью под флажком, а не рядом: при ширине окна по умолчанию
+            // соседняя строка с размером обрезалась кнопкой очистки (issue #178).
+            _orphanCacheSizeText.Margin = new Thickness(24, 2, 0, 0);
+            _orphanCacheSizeText.TextWrapping = TextWrapping.Wrap;
+            _orphanCacheSizeText.TextTrimming = TextTrimming.CharacterEllipsis;
             leftPanel.Children.Add(_orphanCacheCheck);
             leftPanel.Children.Add(_orphanCacheSizeText);
             Grid.SetColumn(leftPanel, 0);

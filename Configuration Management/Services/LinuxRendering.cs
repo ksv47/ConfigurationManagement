@@ -28,7 +28,7 @@ namespace Configuration_Management.Services
         /// рендере это же даёт высокую нагрузку CPU (issue #153). Прозрачность остаётся только
         /// на Wayland, где композитор обязателен и постоянной перерисовки фона нет.
         /// </summary>
-        public static bool OpaqueWindow { get; } =
+        public static bool OpaqueWindow =>
             ForceOpaqueEnv() || Virtualized || SoftwareRender || NoCompositorAssumed;
 
         /// <summary>
@@ -59,7 +59,7 @@ namespace Configuration_Management.Services
         /// ProgressBar, hover-переходы) держат рендер-цикл постоянно занятым, что
         /// проявляется как ~36% CPU и «зависание» реакции на мышь (issue #153).
         /// </summary>
-        public static bool DisableAnimations { get; } = SoftwareRender || Virtualized || NoCompositorAssumed;
+        public static bool DisableAnimations => SoftwareRender || Virtualized || NoCompositorAssumed;
 
         /// <summary>Программный рендер: нет аппаратного GPU-драйвера либо он задан принудительно.</summary>
         public static bool SoftwareRender { get; } = DetectSoftwareRender();
@@ -215,10 +215,11 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>
-        /// Собирает имена драйверов GPU из <c>/sys/class/drm/*/uevent</c> (поле DRIVER=…)
-        /// через запятую. Используется и для распознавания виртуализации по виртуальным
-        /// GPU, и для диагностики окружения рендеринга. Возвращает пустую строку, если
-        /// данные недоступны.
+        /// Собирает имена драйверов GPU из <c>/sys/class/drm/*/device/uevent</c>
+        /// (поле DRIVER=…; в самом card*N/uevent его нет — там только
+        /// MAJOR/MINOR/DEVNAME/DEVTYPE). Используется и для распознавания виртуализации
+        /// по виртуальным GPU, и для диагностики окружения рендеринга. Возвращает
+        /// пустую строку, если данные недоступны.
         /// </summary>
         private static string ReadDriGpuDrivers()
         {
@@ -231,7 +232,7 @@ namespace Configuration_Management.Services
                     {
                         if (!Path.GetFileName(card).StartsWith("card", StringComparison.OrdinalIgnoreCase))
                             continue;
-                        var uevent = Path.Combine(card, "uevent");
+                        var uevent = Path.Combine(card, "device", "uevent");
                         if (!File.Exists(uevent))
                             continue;
                         foreach (var rawLine in File.ReadAllLines(uevent))

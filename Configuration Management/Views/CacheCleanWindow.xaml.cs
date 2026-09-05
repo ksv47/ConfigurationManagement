@@ -340,6 +340,9 @@ public partial class CacheCleanWindow : Window
     private void OnCacheKindChanged(object sender, RoutedEventArgs e)
     {
         UpdateCleanEnabled();
+        // Подпись «Остатки» должна соответствовать выбранному типу кеша: раньше размер
+        // всегда считался по обоим типам, а очистка шла по отмеченным галкам (issue #178).
+        _ = RefreshOrphanSizeAsync();
     }
 
     /// <summary>
@@ -355,7 +358,7 @@ public partial class CacheCleanWindow : Window
 
         var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program, _infobases));
         var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User, _infobases));
-        var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(OneCCacheKind.All, _infobases));
+        var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(CurrentKind(), _infobases));
 
         ProgramCacheSizeText.Text = FormatSize(program);
         UserCacheSizeText.Text = FormatSize(user);
@@ -368,6 +371,29 @@ public partial class CacheCleanWindow : Window
             if (_programSizeTexts.TryGetValue(ib, out var pt)) pt.Text = FormatSize(p);
             if (_userSizeTexts.TryGetValue(ib, out var ut)) ut.Text = FormatSize(u);
         }
+    }
+
+    /// <summary>Возвращает тип кеша, выбранный в данный момент (по галкам программного/пользовательского).</summary>
+    private OneCCacheKind CurrentKind()
+    {
+        var kind = OneCCacheKind.None;
+        if (ProgramCacheCheck.IsChecked == true)
+            kind |= OneCCacheKind.Program;
+        if (UserCacheCheck.IsChecked == true)
+            kind |= OneCCacheKind.User;
+        return kind;
+    }
+
+    /// <summary>
+    /// Пересчитывает размер «остатков» кеша по текущему выбору типа кеша, чтобы подпись
+    /// соответствовала тому, что реально будет очищено (issue #178).
+    /// </summary>
+    private async Task RefreshOrphanSizeAsync()
+    {
+        var kind = CurrentKind();
+        OrphanCacheSizeText.Text = "…";
+        var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(kind, _infobases));
+        OrphanCacheSizeText.Text = FormatSize(orphans);
     }
 
     /// <summary>

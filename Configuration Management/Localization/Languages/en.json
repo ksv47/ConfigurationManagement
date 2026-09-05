@@ -1263,7 +1263,7 @@
     "Main.CacheKindUser": "user cache",
     "Main.CacheKindAll": "program and user cache",
     "Main.CacheOrphanNote": "— leftover cache from removed infobases",
-    "Main.CacheOrphanRemoved": "Removed leftover cache directories from removed infobases: {0}.",
+    "Main.CacheOrphanRemoved": "Removed leftover cache directories from removed infobases: {0} ({1}).",
     "Main.CacheOrphanNone": "No leftover cache from removed infobases found.",
     "Main.CacheClearAllConfirm": "The entire cache (program and user) of the base \"{0}\" will be cleared.\nIt is recommended to close all 1C sessions for this base before clearing.\nContinue?",
     "Main.CacheCleanOpenDialog": "Open the cache clear window…",
