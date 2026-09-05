@@ -289,6 +289,20 @@ namespace Configuration_Management
                 _viewModel.Architecture = architecture;
         }
 
+        /// <summary>
+        /// Определяет имя и версию конфигурации по настройкам подключения
+        /// (COM-коннектор на Windows, эвристика по файлу базы на Linux)
+        /// и заполняет поля (issue #174).
+        /// </summary>
+        private void OnDetectConfiguration_Click(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel.DetermineConfiguration()) return;
+            MessageBox.Show(
+                LocalizationManager.T("Connection.DetectConfigFailed"),
+                LocalizationManager.T("Connection.DetectConfigTitle"),
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
         /// <summary>Синхронизация PasswordBox → ViewModel (пароль не биндится напрямую).</summary>
         private void OnPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
         {

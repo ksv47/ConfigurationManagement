@@ -819,6 +819,16 @@ namespace Configuration_Management
             Grid.SetColumn(configVersion, 2);
             configRow.Children.Add(configVersion);
             configStack.Children.Add(configRow);
+
+            // Кнопка ручного определения имени/версии конфигурации (issue #174):
+            // COM-коннектор на Windows, эвристика по файлу базы на Linux.
+            var detectConfig = SecondaryButton("IconRefresh", "Connection.DetectConfig",
+                OnDetectConfiguration_Click, "Connection.DetectConfigTooltip");
+            detectConfig.Padding = new Thickness(8, 3);
+            detectConfig.Margin = new Thickness(0, 6, 0, 0);
+            detectConfig.HorizontalAlignment = HorizontalAlignment.Left;
+            configStack.Children.Add(detectConfig);
+
             var configHint = new TextBlock
             {
                 Text = LocalizationManager.T("Connection.ConfigurationManualHint"),
@@ -958,6 +968,19 @@ namespace Configuration_Management
             _viewModel.PlatformVersion = string.IsNullOrWhiteSpace(version) ? result : version;
             if (result.Contains('(') && (architecture == "32" || architecture == "64"))
                 _viewModel.Architecture = architecture;
+        }
+
+        /// <summary>
+        /// Определяет имя и версию конфигурации по настройкам подключения
+        /// (COM-коннектор на Windows, эвристика по файлу базы на Linux)
+        /// и заполняет поля (issue #174).
+        /// </summary>
+        private void OnDetectConfiguration_Click()
+        {
+            if (_viewModel.DetermineConfiguration()) return;
+            _dialogs.ShowInfo(
+                LocalizationManager.T("Connection.DetectConfigFailed"),
+                LocalizationManager.T("Connection.DetectConfigTitle"));
         }
 
         private void OnSave_Click()

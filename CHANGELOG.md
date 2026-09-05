@@ -9,6 +9,19 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.71] — 2026-09-04
+
+Выпуск с реализацией issue #174 «Кнопка определения свойств конфигурации». В окне редактирования свойств базы (вкладка «Платформа») под полями «Конфигурация» и «Версия» добавлена кнопка **«Определить»**, которая автоматически определяет наименование и версию конфигурации по настройкам подключения: через COM-коннектор на Windows и эвристикой по файловой базе/конфигуратором на Linux. Найденные значения заполняются в соответствующие поля и сохраняются.
+
+### Добавлено
+
+- **Кнопка «Определить» в свойствах базы (issue #174)**: метод `DetermineConfiguration` ([`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs)) формирует базу из текущих настроек подключения и вызывает `ConfigurationInfoService.ReadAndApply` (COM на Windows / эвристика на Linux), после чего обновляет поля `ConfigurationName` и `ConfigurationVersion`. Кнопка размещена на вкладке «Платформа» рядом с полями конфигурации: в WPF — в [`Views/ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml) с обработчиком `OnDetectConfiguration_Click` ([`Views/ConnectionSettingsWindow.xaml.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml.cs)), в Avalonia — в [`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs). Если определить свойства не удалось, показывается информационное сообщение.
+- **Локализация**: ключи `Connection.DetectConfig`, `Connection.DetectConfigTooltip`, `Connection.DetectConfigFailed` и `Connection.DetectConfigTitle` добавлены в `ru.json` и `en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.70` → `0.3.6.71`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.70] — 2026-09-04
 
 Выпуск с реализацией issue #173 «Пожелание - быстрая настройка колонок». По правому клику на заголовке колонки списка баз появляется контекстное меню с пунктами **«Скрыть колонку»** и **«Открыть настройки колонок»**. Первый сразу скрывает выбранную колонку (как в диспетчере задач Windows), второй открывает окно настроек сразу на подвкладке «Колонки». Работает на обеих платформах (Windows/WPF и Linux/Avalonia).

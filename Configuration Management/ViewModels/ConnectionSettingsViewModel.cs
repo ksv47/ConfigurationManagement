@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Linq;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
+using Configuration_Management.Services;
 
 namespace Configuration_Management.ViewModels;
 
@@ -724,6 +725,44 @@ public class ConnectionSettingsViewModel : ViewModelBase
                 Name = suggestedName;
             }
         }
+    }
+
+    /// <summary>
+    /// Определяет имя и версию конфигурации по текущим настройкам подключения
+    /// (COM-коннектор на Windows, эвристика/конфигуратор на Linux) и обновляет
+    /// поля <see cref="ConfigurationName"/> / <see cref="ConfigurationVersion"/>
+    /// (issue #174). Возвращает true, если данные удалось получить.
+    /// </summary>
+    public bool DetermineConfiguration(bool overwriteExisting = true)
+    {
+        var ib = new Infobase { Connection = new ConnectionSettings() };
+        var conn = ib.Connection;
+        conn.Type = ConnectionType;
+        conn.Server = Server;
+        conn.DatabaseName = DatabaseName;
+        conn.FilePath = FilePath;
+        conn.WebUrl = WebUrl;
+        conn.User = User;
+        conn.Password = Password;
+        conn.AuthenticationMode = AuthenticationMode;
+        conn.Port = Port;
+
+        var info = ConfigurationInfoService.ReadAndApply(ib, overwriteExisting);
+        if (info is null)
+            return false;
+
+        var changed = false;
+        if (!string.IsNullOrWhiteSpace(info.Value.Name))
+        {
+            ConfigurationName = info.Value.Name.Trim();
+            changed = true;
+        }
+        if (!string.IsNullOrWhiteSpace(info.Value.Version))
+        {
+            ConfigurationVersion = info.Value.Version.Trim();
+            changed = true;
+        }
+        return changed;
     }
 
     /// <summary>
