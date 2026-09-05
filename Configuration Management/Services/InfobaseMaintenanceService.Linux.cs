@@ -90,7 +90,7 @@ namespace Configuration_Management.Services
                     // от пути к файлу он открыл бы сам файл приложением по умолчанию.
                     startInfo.ArgumentList.Add(passFile ? filePath : dir);
 
-                    using var process = Process.Start(startInfo);
+                    using var process = LinuxProcessEnvironment.Start(startInfo);
                     if (process is null)
                         continue;
 
@@ -109,7 +109,7 @@ namespace Configuration_Management.Services
 
             try
             {
-                Process.Start(new ProcessStartInfo
+                LinuxProcessEnvironment.Start(new ProcessStartInfo
                 {
                     FileName = "gio",
                     UseShellExecute = false,
@@ -133,7 +133,7 @@ namespace Configuration_Management.Services
                 return false;
             try
             {
-                Process.Start(new ProcessStartInfo
+                LinuxProcessEnvironment.Start(new ProcessStartInfo
                 {
                     FileName = "xdg-open",
                     UseShellExecute = false,
@@ -315,7 +315,7 @@ namespace Configuration_Management.Services
                 if (string.IsNullOrEmpty(path))
                     return false;
 
-                Process.Start(new ProcessStartInfo
+                LinuxProcessEnvironment.Start(new ProcessStartInfo
                 {
                     FileName = path,
                     UseShellExecute = false,
@@ -373,7 +373,7 @@ namespace Configuration_Management.Services
         {
             try
             {
-                using var p = Process.Start(new ProcessStartInfo
+                using var p = LinuxProcessEnvironment.Start(new ProcessStartInfo
                 {
                     FileName = "xdg-user-dir",
                     UseShellExecute = false,
