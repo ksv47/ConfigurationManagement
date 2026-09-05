@@ -9,6 +9,20 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.75] — 2026-09-05
+
+Выпуск с исправлениями issue #153 «Linux — висит при запуске», #178 «Окно "Очистка кэша 1С"» и #180 «Группа не сворачивается, если внутри неё выделена база».
+
+### Исправлено
+
+- **Зависание при запуске на Linux (issue #153)** ([`Services/LinuxRendering.cs`](Configuration%20Management/Services/LinuxRendering.cs)): свойства `OpaqueWindow` и `DisableAnimations` переведены на вычисляемые свойства, чтобы они учитывали `Virtualized`, `SoftwareRender` и `NoCompositorAssumed`. Раньше из-за порядка инициализации статических полей автоопределение VM/композитора не влияло на непрозрачность окна, и без переменных окружения окно оставалось прозрачным. Также `ReadDriGpuDrivers` теперь читает `/sys/class/drm/card*/device/uevent` (где реально лежит `DRIVER=`), а не `card*/uevent`, поэтому детектор драйверов qxl/vmwgfx/virtio_gpu/bochs/vboxvideo/qemu срабатывает.
+- **Окно «Очистка кэша 1С» — остатки на Linux (issue #178)**: закрыт оставшийся пункт 3 — корень `~/.1cv8/1C/1cv8` теперь включается в скан остатков, но каталог считается остатком только если он найден в `IdConnStrMap` и его строка соединения не совпадает ни с одной базой (служебные каталоги платформы не затрагиваются). Дополнительно исправлены найденные в ходе регрессии проблемы: каталоги `*.deleting_*` теперь находятся и чистятся; размер «остатков» считается по выбранным галкам; в отчёт об очистке добавлен объём; подпись «Остатки от удалённых баз <размер>» больше не обрезается; слово унифицировано на «кэш» ([`Services/OneCCacheCleaner.cs`](Configuration%20Management/Services/OneCCacheCleaner.cs), [`Views/CacheCleanWindow.xaml`](Configuration%20Management/Views/CacheCleanWindow.xaml), [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs)).
+- **Группа не сворачивается, если внутри неё выделена база (issue #180)**: в WPF-части ([`Views/MainWindow.Tree.cs`](Configuration%20Management/Views/MainWindow.Tree.cs)) раскрытие ветки при восстановлении выделения переведено с установки локального значения `IsExpanded` на контейнере (которое блокировало сворачивание из-за приоритета над OneWay-привязкой) на установку на модели. Также ([`Views/MainWindow.Events.cs`](Configuration%20Management/Views/MainWindow.Events.cs)) двойной клик по служебным узлам «Закреплённые»/«Без группы» теперь корректно переключает состояние модели, не оставляя локального значения в контейнере.
+
+### Версия
+
+- **Версия поднята до `0.3.6.74` → `0.3.6.75`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.74] — 2026-09-05
 
 Выпуск с исправлениями стабильности на Linux и корректной миграции данных при работе с родным стартером.

@@ -471,6 +471,17 @@ namespace Configuration_Management
                     break;
                 default:
                     _draggedData = null;
+                    // Служебные узлы («Закреплённые», «Без группы») не имеют модели Group,
+                    // поэтому в ветку выше (Group != null) не попадают. Если двойной клик
+                    // по ним оставить штатному TreeViewItem, он запишет локальное значение
+                    // IsExpanded в контейнер, и узел после этого не будет сворачиваться
+                    // (тот же дефект, что и для обычных групп в issue #180). Переключаем
+                    // развёрнутость на МОДЕЛИ и помечаем клик обработанным.
+                    if (treeViewItem.DataContext is GroupNodeViewModel serviceNode && e.ClickCount >= 2)
+                    {
+                        serviceNode.IsExpanded = !serviceNode.IsExpanded;
+                        e.Handled = true;
+                    }
                     return;
             }
 

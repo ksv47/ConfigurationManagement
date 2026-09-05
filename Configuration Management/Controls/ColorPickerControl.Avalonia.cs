@@ -100,14 +100,13 @@ namespace Configuration_Management.Controls
         /// </summary>
         public ColorPickerControl()
         {
-            // Размеры ползунка шаблон Fluent берёт из своих ресурсов: поля 15
-            // сверху и снизу и круглый бегунок 20 на 20, то есть строка выходит
-            // 50 (ключ SliderHorizontalHeight задаёт не всю высоту, а минимум
-            // сетки шаблона, 32). Четыре такие строки давали лишние сто пикселей,
-            // и ряд кнопок уходил за нижнюю границу окна, высота которого задана
-            // числом из разметки (ColorPickerWindow.xaml:11). Переопределяются
-            // именно ресурсы, а не высота самого ползунка: от голой высоты
-            // шаблон обрезает бегунок снизу и круглым он быть перестаёт.
+            // Размеры строки ползунка шаблон Fluent берёт из своих ресурсов:
+            // поля 15 сверху и снизу и бегунок 20 на 20, строка занимает около
+            // 50. Ключ SliderHorizontalHeight задаёт минимум сетки шаблона (32),
+            // а не всю высоту. В разметке строка занимает 22, и высота окна
+            // (ColorPickerWindow.xaml:11) рассчитана на такие строки, поэтому
+            // размеры задаются ресурсами шаблона. Высота, заданная самому
+            // ползунку, обрезает бегунок по вертикали.
             Resources["SliderHorizontalHeight"] = SliderHeight;
             Resources["SliderPreContentMargin"] = new GridLength((SliderHeight - SliderThumbSize) / 2);
             Resources["SliderPostContentMargin"] = new GridLength((SliderHeight - SliderThumbSize) / 2);
