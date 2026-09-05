@@ -6955,6 +6955,32 @@ Windows-стороны на задание 21: `_port/ответ-win-задан�
 и по нему запрошены свежие снимки Windows заданием 22, потому что разметка
 вкладки переписана после снимка от 29.08.2026.
 
+## Issue 153: почему правки автора не помогают (05.09.2026)
+
+Разбор опубликован комментарием в issue 153 апстрима. Две находки, обе
+доказаны прогоном 0.3.6.74 на нашей виртуалке (VMware, X11, KDE, `vmwgfx`,
+композитор выключен; приложение стартует, в простое 0.3% CPU).
+
+* `Services/LinuxRendering.cs:31`: `OpaqueWindow` собирается из `Virtualized`,
+  `SoftwareRender` и `NoCompositorAssumed`, но эти поля объявлены ниже (52, 65,
+  68). Статические поля инициализируются в порядке объявления, поэтому все три
+  слагаемых на момент вычисления ещё `false`, и значение сводится к
+  `ForceOpaqueEnv()`. Лог старта показывает это прямо: `Virtualized=True`,
+  `NoCompositorAssumed=True`, при этом `OpaqueWindow=False`. С
+  `CM_DISABLE_TRANSPARENCY=1` тот же бинарник даёт `OpaqueWindow=True`.
+  `DisableAnimations` (62) по той же причине видит только
+  `NoCompositorAssumed`.
+* `ReadDriGpuDrivers` читает `/sys/class/drm/card*/uevent`, где строки `DRIVER=`
+  нет вовсе: там `MAJOR`, `MINOR`, `DEVNAME`, `DEVTYPE`. Драйвер лежит в
+  `card*/device/uevent` (`DRIVER=vmwgfx`). Поэтому в логе `DRI-драйверы=[]`, и
+  список `qxl`/`vmwgfx`/`virtio_gpu`/`bochs`/`vboxvideo`/`qemu` из 0.3.6.74 не
+  срабатывает ни на одной машине.
+
+Правка на нашей стороне ещё не сделана: PR 179 в работе, следующий ждёт.
+Когда дойдёт очередь, чинится переводом `OpaqueWindow` и `DisableAnimations`
+в вычисляемые свойства (или переносом объявлений ниже зависимостей) и чтением
+`device/uevent`.
+
 ## Настройка codex для этой папки
 
 В корне лежит `.codex/config.toml`: он гасит для этого проекта все MCP-серверы 1С
