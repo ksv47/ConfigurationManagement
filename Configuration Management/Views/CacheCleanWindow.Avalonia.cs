@@ -208,9 +208,14 @@ namespace Configuration_Management
             foreach (var t in _programSizeTexts.Values) t.Text = "…";
             foreach (var t in _userSizeTexts.Values) t.Text = "…";
 
+            // Тип кеша читается до Task.Run: CurrentKind обращается к IsChecked
+            // переключателей, а свойства элементов Avalonia доступны только из
+            // потока интерфейса, иначе вызов падает с «Call from invalid thread»
+            // и размеры остаются незаполненными. Так же сделано в RefreshOrphanSize.
+            var kind = CurrentKind();
             var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program, _infobases));
             var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User, _infobases));
-            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(CurrentKind(), _infobases));
+            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(kind, _infobases));
 
             _programCacheSizeText.Text = FormatSize(program);
             _userCacheSizeText.Text = FormatSize(user);
