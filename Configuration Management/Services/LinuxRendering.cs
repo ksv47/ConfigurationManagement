@@ -28,7 +28,12 @@ namespace Configuration_Management.Services
         /// рендере это же даёт высокую нагрузку CPU (issue #153). Прозрачность остаётся только
         /// на Wayland, где композитор обязателен и постоянной перерисовки фона нет.
         /// </summary>
-        public static bool OpaqueWindow { get; } =
+        /// <remarks>
+        /// Именно свойство, а не поле с инициализатором: слагаемые объявлены в этом файле
+        /// ниже, а статические поля вычисляются в порядке объявления, поэтому у поля они
+        /// все читались бы как false и признак сводился бы к переменной окружения.
+        /// </remarks>
+        public static bool OpaqueWindow =>
             ForceOpaqueEnv() || Virtualized || SoftwareRender || NoCompositorAssumed;
 
         /// <summary>
@@ -59,7 +64,11 @@ namespace Configuration_Management.Services
         /// ProgressBar, hover-переходы) держат рендер-цикл постоянно занятым, что
         /// проявляется как ~36% CPU и «зависание» реакции на мышь (issue #153).
         /// </summary>
-        public static bool DisableAnimations { get; } = SoftwareRender || Virtualized || NoCompositorAssumed;
+        /// <remarks>
+        /// Свойство по той же причине, что и <see cref="OpaqueWindow"/>: поле читало бы
+        /// ещё не вычисленные слагаемые.
+        /// </remarks>
+        public static bool DisableAnimations => SoftwareRender || Virtualized || NoCompositorAssumed;
 
         /// <summary>Программный рендер: нет аппаратного GPU-драйвера либо он задан принудительно.</summary>
         public static bool SoftwareRender { get; } = DetectSoftwareRender();
@@ -231,7 +240,13 @@ namespace Configuration_Management.Services
                     {
                         if (!Path.GetFileName(card).StartsWith("card", StringComparison.OrdinalIgnoreCase))
                             continue;
-                        var uevent = Path.Combine(card, "uevent");
+                        // Имя драйвера лежит в uevent устройства (card0/device/uevent):
+                        // в uevent самого узла drm только MAJOR, MINOR, DEVNAME и DEVTYPE,
+                        // строки DRIVER= там нет вовсе. Файл узла оставлен запасным
+                        // вариантом на случай другой раскладки sysfs.
+                        var uevent = Path.Combine(card, "device", "uevent");
+                        if (!File.Exists(uevent))
+                            uevent = Path.Combine(card, "uevent");
                         if (!File.Exists(uevent))
                             continue;
                         foreach (var rawLine in File.ReadAllLines(uevent))
