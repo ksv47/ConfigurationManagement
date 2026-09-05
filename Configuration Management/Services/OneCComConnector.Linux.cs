@@ -139,7 +139,7 @@ namespace Configuration_Management.Services
                     psi.ArgumentList.Add("/DisableStartupDialogs");
                     psi.ArgumentList.Add("/DisableStartupMessages");
 
-                    using var p = Process.Start(psi);
+                    using var p = LinuxProcessEnvironment.Start(psi);
                     if (p is null)
                         return null;
 
