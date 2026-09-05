@@ -400,6 +400,25 @@ public static class OneCCacheCleaner
     }
 
     /// <summary>
+    /// Определяет, является ли имя каталога именем кеша информационной базы. Платформа
+    /// называет такой каталог собственным GUID, а для клиент-серверной базы использует
+    /// имя вида Srvr__<сервер>__Ref__<база>__. Служебные каталоги платформы (conf, logs,
+    /// ExtCompT, STT, standalone-server) под эти правила не подходят и остатками
+    /// не считаются.
+    /// </summary>
+    private static bool IsBaseCacheDirName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+
+        if (Guid.TryParseExact(name, "D", out _))
+            return true;
+
+        return name.StartsWith("Srvr__", StringComparison.OrdinalIgnoreCase)
+            && name.Contains("__Ref__", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Определяет, является ли имя каталога временным именем удаления (<c><имя>.deleting_<guid></c>).
     /// Такие каталоги — остатки прерванного удаления; их не нужно ни считать остатками
     /// от удалённых баз, ни переименовывать повторно (иначе имя растёт на 41 символ за раз).
@@ -410,7 +429,8 @@ public static class OneCCacheCleaner
     /// <summary>
     /// Перечисляет каталоги кеша, не принадлежащие ни одной текущей информационной базе.
     /// Это «остатки» от удалённых из списка или созданных вне приложения баз: каталоги,
-    /// имя которых не совпадает ни с одним «защищённым» именем (см. <see cref="BuildProtectedNames"/>).
+    /// имя которых узнаётся как имя кеша базы (см. <see cref="IsBaseCacheDirName"/>)
+    /// и не совпадает ни с одним «защищённым» именем (см. <see cref="BuildProtectedNames"/>).
     /// Каталоги версий платформы (например, «8.3.24.1234») не удаляются — они анализируются,
     /// и удаляются только их вложенные каталоги-кеши. Временные каталоги *.deleting_*
     /// не учитываются.
@@ -445,12 +465,12 @@ public static class OneCCacheCleaner
                     foreach (var cd in cacheDirs)
                     {
                         var n = Path.GetFileName(cd);
-                        if (IsDeletingName(n) || protectedNames.Contains(n))
+                        if (IsDeletingName(n) || protectedNames.Contains(n) || !IsBaseCacheDirName(n))
                             continue;
                         yield return cd;
                     }
                 }
-                else if (!protectedNames.Contains(versionName))
+                else if (!protectedNames.Contains(versionName) && IsBaseCacheDirName(versionName))
                 {
                     // Прямой каталог кеша в корне (без версии).
                     yield return versionDir;
@@ -657,13 +677,11 @@ public static class OneCCacheCleaner
             if (!string.IsNullOrEmpty(home))
             {
                 // В ~/.1cv8/1C/1cv8 рядом с кешем баз платформа держит свои служебные
-                // каталоги (conf, logs, ExtCompT, STT, standalone-server), а каталоги
-                // кеша серверных баз называются Srvr__<сервер>__Ref__<база>__,
-                // то есть не совпадают с именами из BuildProtectedNames. Поиск
-                // осиротевшего кеша принял бы всё это за остатки удалённых баз, поэтому
-                // корень отдаётся только для точечной очистки по конкретной базе.
-                if (!forOrphanScan)
-                    roots.Add(Path.Combine(home, ".1cv8", "1C", "1cv8"));
+                // каталоги (conf, logs, ExtCompT, STT, standalone-server). Остатками
+                // считаются только каталоги, узнаваемые как кеш базы (см.
+                // IsBaseCacheDirName), поэтому служебные под очистку не попадают
+                // и корень отдаётся в обоих режимах.
+                roots.Add(Path.Combine(home, ".1cv8", "1C", "1cv8"));
                 roots.Add(Path.Combine(home, ".1cv8", "1cv8"));
             }
         }
