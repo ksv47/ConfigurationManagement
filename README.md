@@ -1,8 +1,10 @@
 # Управление конфигурациями 1С
 
-![Версия](https://img.shields.io/badge/Версия-0.3.6.72-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
+![Версия](https://img.shields.io/badge/Версия-0.3.6.73-1F6FEB) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Windows/WPF](https://img.shields.io/badge/Windows-WPF-4B8BBE) ![Linux/Avalonia](https://img.shields.io/badge/Linux-Avalonia%2011-8B5CF6) ![Лицензия](https://img.shields.io/badge/Лицензия-Open%20Source-success)
 
-> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.72**
+> Десктопное приложение для управления информационными базами 1С:Предприятие 8.3. **Версия 0.3.6.73**
+>
+> ✨ **0.3.6.73:** исправлено окно **«Очистка кэша 1С»** (issue #178): раньше платформа называет каталог кеша собственным GUID, а поиск шёл по ID/имени базы, поэтому размеры по базам были 0 Б, очистка не находила кеш, а каталоги живых баз попадали в «остатки от удалённых баз». Теперь база сопоставляется с каталогом через карту `IdConnStrMap` из `1cv8u.pfl` (с учётом нескольких записей на базу и хоста с/без порта), для клиент-серверных баз учитывается каталог `Srvr__…__Ref__…__`, перед удалением снимается атрибут `ReadOnly`, а счётчики считают только реально удалённое ([`Services/OneCCacheCleaner.cs`](Configuration%20Management/Services/OneCCacheCleaner.cs), [`Views/CacheCleanWindow.xaml.cs`](Configuration%20Management/Views/CacheCleanWindow.xaml.cs), [`Views/CacheCleanWindow.Avalonia.cs`](Configuration%20Management/Views/CacheCleanWindow.Avalonia.cs)). Работает на Windows/WPF и Linux/Avalonia.
 >
 > ✨ **0.3.6.72:** добавлена настраиваемая **«Имя COM-коннектора 1С»** (issue #175) в **Настройки → Настройки**. Заданный шаблон разворачивается по версии платформы каждой базы (плейсхолдеры `%V12%`/`%V3%`/`%V4%`) и пробуется первым в переборе ProgID при подключении через COM — это позволяет работать с разными версиями платформы без ручной перерегистрации коннектора. Пустое значение — стандартные `V85/V83/V82/V81.COMConnector`. Работает на Windows/WPF и Linux/Avalonia ([`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs), [`Services/ComReadHost.cs`](Configuration%20Management/Services/ComReadHost.cs)).
 >

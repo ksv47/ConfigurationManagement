@@ -208,8 +208,8 @@ namespace Configuration_Management
             foreach (var t in _programSizeTexts.Values) t.Text = "…";
             foreach (var t in _userSizeTexts.Values) t.Text = "…";
 
-            var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program));
-            var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User));
+            var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program, _infobases));
+            var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User, _infobases));
             var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(OneCCacheKind.All, _infobases));
 
             _programCacheSizeText.Text = FormatSize(program);
