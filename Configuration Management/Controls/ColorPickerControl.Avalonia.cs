@@ -48,6 +48,11 @@ namespace Configuration_Management.Controls
         private double _saturation = 100;
         private double _brightness = 100;
 
+        // Строка ползунка как в разметке WPF, где своей высоты у ползунка нет
+        // и строка выходит около 22 пикселей.
+        private const double SliderHeight = 22;
+        private const double SliderThumbSize = 14;
+
         private readonly Slider _redSlider = new() { Minimum = 0, Maximum = 255 };
         private readonly Slider _greenSlider = new() { Minimum = 0, Maximum = 255 };
         private readonly Slider _blueSlider = new() { Minimum = 0, Maximum = 255 };
@@ -95,6 +100,21 @@ namespace Configuration_Management.Controls
         /// </summary>
         public ColorPickerControl()
         {
+            // Размеры ползунка шаблон Fluent берёт из своих ресурсов: поля 15
+            // сверху и снизу и круглый бегунок 20 на 20, то есть строка выходит
+            // 50 (ключ SliderHorizontalHeight задаёт не всю высоту, а минимум
+            // сетки шаблона, 32). Четыре такие строки давали лишние сто пикселей,
+            // и ряд кнопок уходил за нижнюю границу окна, высота которого задана
+            // числом из разметки (ColorPickerWindow.xaml:11). Переопределяются
+            // именно ресурсы, а не высота самого ползунка: от голой высоты
+            // шаблон обрезает бегунок снизу и круглым он быть перестаёт.
+            Resources["SliderHorizontalHeight"] = SliderHeight;
+            Resources["SliderPreContentMargin"] = new GridLength((SliderHeight - SliderThumbSize) / 2);
+            Resources["SliderPostContentMargin"] = new GridLength((SliderHeight - SliderThumbSize) / 2);
+            Resources["SliderHorizontalThumbWidth"] = SliderThumbSize;
+            Resources["SliderHorizontalThumbHeight"] = SliderThumbSize;
+            Resources["SliderThumbCornerRadius"] = new CornerRadius(SliderThumbSize / 2);
+
             _hexBox = new TextBox { Width = 110, Padding = new Thickness(4, 3) };
             _hexBox.TextChanged += OnHex_TextChanged;
 
@@ -127,7 +147,7 @@ namespace Configuration_Management.Controls
             root.Children.Add(_colorPreview);
 
             // Полная палитра (оттенок × насыщенность)
-            var paletteLabel = BuildSectionLabel(LocalizationManager.T("ColorPicker.FullPalette"));
+            var paletteLabel = BuildSectionLabel(LocalizationManager.T("ColorPicker.FullPalette"), 6);
             Grid.SetRow(paletteLabel, 1);
             root.Children.Add(paletteLabel);
 
@@ -169,7 +189,7 @@ namespace Configuration_Management.Controls
             root.Children.Add(brightnessRow);
 
             // Предустановленные цвета
-            var presetsLabel = BuildSectionLabel(LocalizationManager.T("ColorPicker.Palette"));
+            var presetsLabel = BuildSectionLabel(LocalizationManager.T("ColorPicker.Palette"), 4);
             Grid.SetRow(presetsLabel, 4);
             root.Children.Add(presetsLabel);
 
@@ -202,7 +222,8 @@ namespace Configuration_Management.Controls
             var hexRow = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 2, 0, 0),
+                // Поле сверху как в разметке (ColorPickerControl.xaml:120).
+                Margin = new Thickness(0, 4, 0, 0),
                 Spacing = 8
             };
             var hexLabel = new TextBlock
@@ -229,12 +250,22 @@ namespace Configuration_Management.Controls
 
         private Color CurrentColor => HsvColor.ToRgb(_hue, _saturation / 100.0, _brightness / 100.0);
 
-        private static TextBlock BuildSectionLabel(string text) => new()
+        /// <summary>
+        /// Подпись секции: второстепенный цвет и поле снизу как в разметке
+        /// (ColorPickerControl.xaml:49-50 и 80-81), где у первой подписи 6, а
+        /// у второй 4.
+        /// </summary>
+        private static TextBlock BuildSectionLabel(string text, double bottomMargin)
         {
-            Text = text,
-            FontWeight = FontWeight.SemiBold,
-            Margin = new Thickness(0, 0, 0, 4)
-        };
+            var label = new TextBlock
+            {
+                Text = text,
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 0, 0, bottomMargin)
+            };
+            ThemeBrushes.Bind(label, TextBlock.ForegroundProperty, "TextSecondaryColorBrush");
+            return label;
+        }
 
         private Grid BuildBrightnessRow()
         {
@@ -263,7 +294,8 @@ namespace Configuration_Management.Controls
 
         private Grid BuildRgbRow(int row, string label, string accent, Slider slider, TextBlock value)
         {
-            var grid = new Grid { Margin = new Thickness(0, 1) };
+            // Поле строки как в разметке (ColorPickerControl.xaml:85, 96, 107).
+            var grid = new Grid { Margin = new Thickness(0, 2) };
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(20)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
             grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(40)));
