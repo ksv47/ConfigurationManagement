@@ -263,6 +263,33 @@ public static class OneCCacheCleaner
     }
 
     /// <summary>
+    /// Проверяет, принадлежит ли запись карты какой-либо из текущих баз. Кроме точного
+    /// <see cref="MatchesBase"/> клиент-серверная база засчитывается и при совпадении
+    /// одного имени базы: одна и та же база попадает в карту столько раз, сколькими
+    /// написаниями хоста к ней подключались (localhost, короткое имя, FQDN, имя с портом),
+    /// и её кеш не должен становиться «остатком» из-за написания, которого нет в списке.
+    /// </summary>
+    private static bool BelongsToAnyBase(IdConnStrEntry entry, IReadOnlyList<Infobase> bases)
+    {
+        foreach (var ib in bases)
+        {
+            if (MatchesBase(entry, ib))
+                return true;
+
+            if (entry.Settings.Type == ConnectionType.ClientServer
+                && ib.Connection.Type == ConnectionType.ClientServer
+                && !string.IsNullOrWhiteSpace(entry.Settings.DatabaseName)
+                && string.Equals(
+                    entry.Settings.DatabaseName.Trim(),
+                    (ib.Connection.DatabaseName ?? string.Empty).Trim(),
+                    StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Приводит путь к единому виду для сравнения: прямой слэш, без завершающего слэша.
     /// </summary>
     private static string NormalizePathForCompare(string path)
@@ -400,6 +427,17 @@ public static class OneCCacheCleaner
     }
 
     /// <summary>
+    /// Определяет, является ли имя каталога именем кеша информационной базы: платформа
+    /// называет такой каталог собственным GUID. Служебные каталоги платформы (conf, logs,
+    /// ExtCompT, STT, tmplts, distr) названы словами, под правило не подходят и остатками
+    /// не считаются. Имена вида Srvr__<сервер>__Ref__<база>__ здесь намеренно не
+    /// распознаются: как имя каталога, создаваемого платформой, они не подтверждены,
+    /// а такой каталог может принадлежать стороннему инструменту.
+    /// </summary>
+    private static bool IsBaseCacheDirName(string name)
+        => !string.IsNullOrWhiteSpace(name) && Guid.TryParseExact(name, "D", out _);
+
+    /// <summary>
     /// Определяет, является ли имя каталога временным именем удаления (<c><имя>.deleting_<guid></c>).
     /// Такие каталоги — остатки прерванного удаления; их не нужно ни считать остатками
     /// от удалённых баз, ни переименовывать повторно (иначе имя растёт на 41 символ за раз).
@@ -410,7 +448,8 @@ public static class OneCCacheCleaner
     /// <summary>
     /// Перечисляет каталоги кеша, не принадлежащие ни одной текущей информационной базе.
     /// Это «остатки» от удалённых из списка или созданных вне приложения баз: каталоги,
-    /// имя которых не совпадает ни с одним «защищённым» именем (см. <see cref="BuildProtectedNames"/>).
+    /// имя которых узнаётся как имя кеша базы (см. <see cref="IsBaseCacheDirName"/>)
+    /// и не совпадает ни с одним «защищённым» именем (см. <see cref="BuildProtectedNames"/>).
     /// Каталоги версий платформы (например, «8.3.24.1234») не удаляются — они анализируются,
     /// и удаляются только их вложенные каталоги-кеши. Временные каталоги *.deleting_*
     /// не учитываются.
@@ -418,6 +457,23 @@ public static class OneCCacheCleaner
     private static IEnumerable<string> EnumerateOrphanDirectories(OneCCacheKind kind, IEnumerable<Infobase> allBases)
     {
         var protectedNames = BuildProtectedNames(allBases);
+
+        // Без карты IdConnStrMap защита баз неполна: каталог кеша живой базы называется
+        // GUID, который взять больше неоткуда, и остатками стали бы каталоги всех баз
+        // сразу. В этом случае остатки не ищутся вовсе.
+        var map = LoadIdConnStrMap();
+        if (map is null)
+            yield break;
+
+        // Каталоги, которые карта сопоставила базам из списка: они не остатки, даже если
+        // написание хоста в карте и в списке разное.
+        var bases = (allBases ?? Enumerable.Empty<Infobase>()).Where(b => b is not null).ToList();
+        var mappedToBase = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in map)
+        {
+            if (BelongsToAnyBase(entry, bases))
+                mappedToBase.Add(entry.CacheGuid);
+        }
 
         foreach (var root in GetCacheRoots(kind, forOrphanScan: true))
         {
@@ -445,12 +501,15 @@ public static class OneCCacheCleaner
                     foreach (var cd in cacheDirs)
                     {
                         var n = Path.GetFileName(cd);
-                        if (IsDeletingName(n) || protectedNames.Contains(n))
+                        if (IsDeletingName(n) || protectedNames.Contains(n)
+                            || mappedToBase.Contains(n) || !IsBaseCacheDirName(n))
                             continue;
                         yield return cd;
                     }
                 }
-                else if (!protectedNames.Contains(versionName))
+                else if (!protectedNames.Contains(versionName)
+                    && !mappedToBase.Contains(versionName)
+                    && IsBaseCacheDirName(versionName))
                 {
                     // Прямой каталог кеша в корне (без версии).
                     yield return versionDir;
@@ -657,13 +716,12 @@ public static class OneCCacheCleaner
             if (!string.IsNullOrEmpty(home))
             {
                 // В ~/.1cv8/1C/1cv8 рядом с кешем баз платформа держит свои служебные
-                // каталоги (conf, logs, ExtCompT, STT, standalone-server), а каталоги
-                // кеша серверных баз называются Srvr__<сервер>__Ref__<база>__,
-                // то есть не совпадают с именами из BuildProtectedNames. Поиск
-                // осиротевшего кеша принял бы всё это за остатки удалённых баз, поэтому
-                // корень отдаётся только для точечной очистки по конкретной базе.
-                if (!forOrphanScan)
-                    roots.Add(Path.Combine(home, ".1cv8", "1C", "1cv8"));
+                // каталоги (conf, logs, ExtCompT, STT, tmplts, distr). Остатками считаются
+                // только каталоги, названные GUID (см. IsBaseCacheDirName), поэтому
+                // служебные под очистку не попадают и корень отдаётся в обоих режимах.
+                // Каталог автономного сервера здесь не лежит: он уровнем выше,
+                // в ~/.1cv8/standalone-server, а с 8.3.27 в ~/.1cv8/ss-data.
+                roots.Add(Path.Combine(home, ".1cv8", "1C", "1cv8"));
                 roots.Add(Path.Combine(home, ".1cv8", "1cv8"));
             }
         }
