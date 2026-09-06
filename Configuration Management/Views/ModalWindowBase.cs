@@ -74,7 +74,16 @@ namespace Configuration_Management
                     // Пустой список эквивалентен null по поведению Avalonia (системный
                     // уровень прозрачности по умолчанию), но не провоцирует CS8625.
                     TransparencyLevelHint = Array.Empty<WindowTransparencyLevel>();
-                    Background = new SolidColorBrush(Color.Parse("#FF161616"));
+
+                    // Фон берётся из темы, а не фиксированным тёмным цветом. Со включённым
+                    // системным заголовком окна (SystemDecorations.Full) «стеклянной»
+                    // подложки у диалога нет, см. UseGlassChrome, и фон окна виден
+                    // насквозь: в светлой теме диалог выглядел чёрным прямоугольником
+                    // с нечитаемым тёмным текстом. Кисть та же, что у подложки и у
+                    // MaterialMessageWindow, поэтому смена темы и цветовой схемы
+                    // подхватывается сама.
+                    ThemeBrushes.Bind(this, TemplatedControl.BackgroundProperty,
+                        "ContentBackgroundColorBrush");
                 }
                 else
                 {
