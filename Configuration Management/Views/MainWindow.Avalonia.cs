@@ -5251,6 +5251,8 @@ namespace Configuration_Management
         /// если окно работает в непрозрачном режиме (<see cref="_opaqueWindow"/>), чтобы не
         /// провоцировать непрерывную перерисовку фона на X11 с программным рендером.
         /// </summary>
+        private IDisposable? _backgroundBinding;
+
         private void ApplySystemDecorations()
         {
             SystemDecorations = _useSystemTitleBar ? SystemDecorations.Full : SystemDecorations.None;
@@ -5274,11 +5276,11 @@ namespace Configuration_Management
                 // явно, чтобы нативное окно гарантированно было непрозрачным.
                 TransparencyLevelHint = Array.Empty<WindowTransparencyLevel>();
 
-                // Фон берётся из темы, а не фиксированным тёмным цветом: со включённым
-                // системным заголовком подложка окна не рисуется вовсе, а в безрамочном
-                // режиме фон окна виден в углах за скруглением подложки и давал там
-                // тёмные клинья в светлой теме. Кисть та же, что у подложки.
-                ThemeBrushes.Bind(this, TemplatedControl.BackgroundProperty,
+                // Фон берётся из темы, а не фиксированным тёмным цветом: он виден
+                // в углах за скруглением подложки и давал там тёмные клинья в светлой
+                // теме. Кисть та же, что у подложки.
+                _backgroundBinding?.Dispose();
+                _backgroundBinding = ThemeBrushes.Bind(this, TemplatedControl.BackgroundProperty,
                     "ContentBackgroundColorBrush");
             }
             else
@@ -5288,6 +5290,11 @@ namespace Configuration_Management
                 TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
                 // Без прозрачного фона самого окна прозрачность не активируется:
                 // содержимое рисуется поверх, а «стекло» даёт полупрозрачный фон корня.
+                // Привязку фона к теме снимаем: иначе следующая смена темы или схемы
+                // перезапишет прозрачный фон непрозрачной кистью, потому что простое
+                // присваивание живущую привязку не отменяет.
+                _backgroundBinding?.Dispose();
+                _backgroundBinding = null;
                 Background = Brushes.Transparent;
             }
         }
