@@ -245,8 +245,49 @@ namespace Configuration_Management
             if (IsVisible)
                 return DialogResult;
 
-            var frame = new DispatcherFrame();
-            Closed += (_, _) => frame.Continue = false;
+            // Кадр вложенного цикла снимается не только по закрытию окна, но и по
+            // его скрытию. Window.Hide() события Closed не даёт, а прячет окно вместе
+            // с дочерними, а такое скрытие приходит со стороны, пока диалог открыт:
+            // при настройке «после запуска базы уйти в трей» базу можно запустить
+            // из меню трея, и главное окно спрячется вместе с диалогом
+            // (MainWindow.Avalonia.cs, OnAfterLaunchRequested). Раньше кадр в этом
+            // случае оставался крутиться навсегда, и приложение замирало целиком,
+            // оставаясь живым процессом. Кадр пересоздаётся для запасного пути показа,
+            // поэтому обработчики читают текущий, а не захваченный при подписке.
+            // Результат прошлого сеанса не переносится в новый: окно можно показать
+            // повторно, и неотвеченный диалог обязан вернуть отказ, а не прежнее «да».
+            DialogResult = false;
+
+            DispatcherFrame frame = new();
+            var opened = false;
+            var hiddenWithoutClose = false;
+            var closed = false;
+
+            void StopFrame() => frame.Continue = false;
+            void OnOpened(object? sender, EventArgs e) => opened = true;
+            void OnClosedHandler(object? sender, EventArgs e)
+            {
+                closed = true;
+                StopFrame();
+            }
+
+            void OnVisibilityChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+            {
+                if (e.Property != IsVisibleProperty || !Equals(e.NewValue, false) || closed)
+                    return;
+
+                // Скрытое окно остаётся открытым для приложения: оно продолжает
+                // числиться в списке окон, а при ShutdownMode.OnLastWindowClose это
+                // держит процесс живым и не отпускает блокировку единственного
+                // экземпляра. Поэтому скрытие доводится до закрытия, но уже после
+                // выхода из кадра, чтобы не закрывать окно изнутри его же события.
+                hiddenWithoutClose = true;
+                StopFrame();
+            }
+
+            Opened += OnOpened;
+            Closed += OnClosedHandler;
+            PropertyChanged += OnVisibilityChanged;
 
             // Владелец пригоден только видимый и с измеренной геометрией. На Linux/X11
             // модальный показ относительно неотрисованного владельца (нулевая геометрия)
@@ -285,10 +326,20 @@ namespace Configuration_Management
                 frame.Continue = false;
                 try
                 {
+                    // Запасному показу нужен свой кадр: прежний уже остановлен, и
+                    // PushFrame на нём возвращается сразу, то есть окно закрывалось бы,
+                    // едва открывшись, а результат диалога возвращался бы неспрошенным.
+                    frame = new DispatcherFrame();
                     WindowStartupLocation = WindowStartupLocation.CenterScreen;
                     if (!IsVisible)
                         Show();
-                    Dispatcher.UIThread.PushFrame(frame);
+
+                    // Ждать имеет смысл только когда окно действительно открылось.
+                    // IsVisible этого не доказывает: показ выставляет его до разметки
+                    // содержимого, и при исключении в разметке окно остаётся «видимым»,
+                    // ни разу не появившись. Ожидание такого окна не закончится никогда.
+                    if (opened)
+                        Dispatcher.UIThread.PushFrame(frame);
                 }
                 catch (Exception fallbackEx)
                 {
@@ -304,6 +355,19 @@ namespace Configuration_Management
                 // прячем, чтобы повторное открытие не копило висящие окна.
                 frame.Continue = false;
                 try { if (IsVisible) Hide(); } catch { /* ignore */ }
+
+                // Окно, спрятанное со стороны, закрываем: иначе оно остаётся
+                // в списке окон приложения и держит процесс.
+                if (hiddenWithoutClose && !closed)
+                {
+                    try { Close(); } catch { /* ignore */ }
+                }
+
+                // Подписки этого сеанса снимаются: окно может показываться повторно,
+                // а обработчики держат кадр уже закончившегося показа.
+                Opened -= OnOpened;
+                Closed -= OnClosedHandler;
+                PropertyChanged -= OnVisibilityChanged;
             }
 
             return DialogResult;
