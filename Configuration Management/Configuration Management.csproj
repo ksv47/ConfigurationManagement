@@ -112,9 +112,6 @@
   <!-- Пакеты: общие для обеих платформ -->
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
-    <!-- Кодовая страница Windows-1251: нужна для чтения файлов StartManager
-         и для шифра его паролей; в .NET она недоступна без этого провайдера. -->
-    <PackageReference Include="System.Text.Encoding.CodePages" Version="9.0.0" />
   </ItemGroup>
 
   <!-- ======================================================================

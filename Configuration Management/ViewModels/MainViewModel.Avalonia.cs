@@ -2924,7 +2924,9 @@ public class MainViewModel : ViewModelBase
 
             var message = string.Format(
                 LocalizationManager.T("StartManager.Done"),
-                result.Added, result.Updated);
+                result.Added, result.Updated, result.GroupsCreated, result.Skipped);
+            if (result.Skipped > 0)
+                message += "\n\n" + LocalizationManager.T("StartManager.SkippedHint");
             if (platformAdded)
                 message += "\n" + LocalizationManager.T("StartManager.PlatformPathAdded");
             _dialog.ShowInfo(message, LocalizationManager.T("StartManager.Title"));

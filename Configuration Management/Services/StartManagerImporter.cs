@@ -214,7 +214,7 @@ public static class StartManagerImporter
             ? IbasesV8iImporter.FindDefaultPath()
             : ibasesFilePath.Trim();
         result.IbasesPath = ibasesPath;
-        if (string.IsNullOrWhiteSpace(ibasesPath))
+        if (string.IsNullOrWhiteSpace(ibasesPath) || !File.Exists(ibasesPath))
         {
             result.NoIbasesFound = true;
             LogInfo("Импорт из StartManager: список баз 1С (ibases.v8i) не найден, импортировать нечего.");
@@ -292,9 +292,8 @@ public static class StartManagerImporter
         }
 
         LogInfo(
-            $"Импорт из StartManager завершён: добавлено {result.Added}, обновлено {result.Updated}, " +
-            $"пропущено секций без базы в списке 1С {result.Skipped}. " +
-            $"Список баз: {ibasesPath}.");
+            $"Импорт из StartManager: список баз {ibasesPath}, "
+            + $"пропущено секций без базы в нём {result.Skipped}, создано групп {result.GroupsCreated}.");
 
         return result;
     }
