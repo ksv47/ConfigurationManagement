@@ -2855,7 +2855,7 @@ public class MainViewModel : ViewModelBase
             var candidateInfobases = _allInfobases.ToList();
             var candidateGroups = _groups.ToList();
 
-            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups);
+            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups, ResolveIbasesFilePath());
 
             if (result.NoConfigFound)
             {
