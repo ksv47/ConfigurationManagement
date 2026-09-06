@@ -5272,7 +5272,13 @@ namespace Configuration_Management
                 // по поведению Avalonia, но не провоцирует CS8625. Сплошной фон задаём
                 // явно, чтобы нативное окно гарантированно было непрозрачным.
                 TransparencyLevelHint = Array.Empty<WindowTransparencyLevel>();
-                Background = new SolidColorBrush(Color.Parse("#FF161616"));
+
+                // Фон берётся из темы, а не фиксированным тёмным цветом: со включённым
+                // системным заголовком подложка окна не рисуется вовсе, а в безрамочном
+                // режиме фон окна виден в углах за скруглением подложки и давал там
+                // тёмные клинья в светлой теме. Кисть та же, что у подложки.
+                ThemeBrushes.Bind(this, TemplatedControl.BackgroundProperty,
+                    "ContentBackgroundColorBrush");
             }
             else
             {
