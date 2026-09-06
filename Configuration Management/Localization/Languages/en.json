@@ -1214,6 +1214,7 @@
     "StartManager.Title": "Import from StartManager",
     "StartManager.ChooseFolder": "Select the StartManager settings folder (the SMSettings directory)",
     "StartManager.NoConfig": "No StartManager base list file (v8config.smc) found in the selected folder:\n{0}\n\nImport is impossible.",
+    "StartManager.NoIbases": "The 1C infobase list (ibases.v8i) was not found.\n\nStartManager stores only extra settings for infobases, while connection strings live in the platform list, so import is impossible without it.",
     "StartManager.NothingImported": "No new or changed infobases were found in StartManager.",
     "StartManager.Done": "Import finished.\n\nNew bases added: {0}\nBases updated: {1}",
     "StartManager.PlatformPathAdded": "The 1C platform path from StartManager was added to the additional search paths.",

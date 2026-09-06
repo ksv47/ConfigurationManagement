@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml.Linq;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services;
@@ -30,6 +31,18 @@ public class StartManagerImportResult
     /// <summary>Путь к каталогу, из которого выполнен импорт (для сообщений пользователю).</summary>
     public string SourceDirectory { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Путь к списку баз 1С (ibases.v8i), из которого взяты строки подключения,
+    /// или null, если файл не найден.
+    /// </summary>
+    public string? IbasesPath { get; set; }
+
+    /// <summary>
+    /// Признак того, что список баз 1С (ibases.v8i) не найден. Без него импорт
+    /// невозможен: строки подключения StartManager не хранит.
+    /// </summary>
+    public bool NoIbasesFound { get; set; }
+
     /// <summary>Признак того, что файл v8config.smc отсутствует (импорт ничего не сделал).</summary>
     public bool NoConfigFound { get; set; }
 }
@@ -52,20 +65,20 @@ public static class StartManagerImporter
     /// <summary>Ключ шифрования паролей StartManager (метод Виженера по ASCII).</summary>
     private const string VigenereKey = "SLAVKA";
 
+    /// <summary>Код символа «0»: постоянное слагаемое шифра паролей StartManager.</summary>
+    private const int ZeroDigit = '0';
+
     /// <summary>Имя файла списка баз StartManager.</summary>
     private const string ConfigFileName = "v8config.smc";
 
     /// <summary>Имя файла общих настроек StartManager.</summary>
     private const string SettingsFileName = "settings.cnf";
 
-    // Ключи секции базы в v8config.smc (см. описание issue #163).
-    private const string KEnable = "Enable";
-    private const string KFile = "SPath";
-    private const string KServer = "SRVS";
-    private const string KDbName = "DBName";
-    private const string KIbName = "IBName";
-    private const string KName = "Name";
-    private const string KUrl = "WS";
+    // Ключи секции базы в v8config.smc. Набор сверен с файлами StartManager 1.4
+    // (28 ключей, одинаковых во всех секциях): ключей строки подключения среди них нет,
+    // подключение хранится в ibases.v8i платформы (issue #163).
+    private const string KConfigVersion = "ConfigVersion";
+    private const string KNote = "Note";
     private const string KUserStorage = "UserStorage";
     private const string KStorageDir = "StorageDir";
     private const string KStorageUser = "StorageUser";
@@ -76,7 +89,6 @@ public static class StartManagerImporter
     private const string KUserLoginCnf = "UserLoginCnf";
     private const string KCfgUser = "CfgUser";
     private const string KCfgPassword = "CfgPassword";
-    private const string KFolder = "Folder";
 
     /// <summary>Ключ settings.cnf с путём к исполняемому файлу платформы 1С.</summary>
     private const string KV8AppPath = "V8AppPath";
@@ -106,22 +118,21 @@ public static class StartManagerImporter
     /// </summary>
     public static string? FindDefaultSettingsDir()
     {
+        var candidates = new List<string>();
+
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         if (!string.IsNullOrWhiteSpace(appData))
-        {
-            var win = Path.Combine(appData, "StartManager14", "SMSettings");
-            if (Directory.Exists(win) || !OperatingSystem.IsWindows())
-                return win;
-        }
+            candidates.Add(Path.Combine(appData, "StartManager14", "SMSettings"));
 
-#if LINUX
-        // На Linux ApplicationData возвращает ~/.config; также пробуем обычный домашний каталог.
+        // На Linux ApplicationData возвращает ~/.config; каталог, перенесённый с Windows,
+        // обычно лежит прямо в домашнем каталоге, поэтому пробуем и его.
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (!string.IsNullOrWhiteSpace(home))
-            return Path.Combine(home, "StartManager14", "SMSettings");
-#endif
+            candidates.Add(Path.Combine(home, "StartManager14", "SMSettings"));
 
-        return null;
+        // Существующий каталог важнее порядка: иначе на не-Windows возвращался бы
+        // несуществующий путь из ApplicationData, а домашний каталог не проверялся вовсе.
+        return candidates.FirstOrDefault(Directory.Exists) ?? candidates.FirstOrDefault();
     }
 
     /// <summary>
@@ -149,35 +160,64 @@ public static class StartManagerImporter
 
         var sections = ParseSmcFile(configPath);
 
-        // Недостающие группы из импортируемых баз создаём до добавления баз.
-        EnsureGroups(sections, groups, result);
+        // Строки подключения в файлах StartManager нет: имя секции v8config.smc — это
+        // идентификатор базы из списка 1С, а подключение хранит сама платформа
+        // в ibases.v8i. Поэтому список баз читаем оттуда, а из StartManager берём
+        // только его надстройки к базе (issue #163).
+        var ibasesPath = IbasesV8iImporter.FindDefaultPath();
+        result.IbasesPath = ibasesPath;
+        if (string.IsNullOrWhiteSpace(ibasesPath))
+        {
+            result.NoIbasesFound = true;
+            LogInfo("Импорт из StartManager: список баз 1С (ibases.v8i) не найден, импортировать нечего.");
+            return result;
+        }
 
+        var basesById = new Dictionary<string, Infobase>(StringComparer.OrdinalIgnoreCase);
+        foreach (var fromList in IbasesV8iImporter.ReadInfobases(ibasesPath))
+        {
+            var listId = (fromList.Id ?? string.Empty).Trim();
+            if (listId.Length > 0)
+                basesById[listId] = fromList;
+        }
+
+        var imported = new List<Infobase>();
         foreach (var section in sections)
         {
-            // Секция отключена, если ключ Enable задан и не равен истине.
-            var enabled = true;
-            if (section.TryGetValue(KEnable, out var enableRaw))
-                enabled = IsTrue(enableRaw);
-            if (!enabled)
+            var sectionId = SectionName(section).Trim();
+            if (sectionId.Length == 0 || !basesById.TryGetValue(sectionId, out var infobase))
             {
+                // Секция без пары в списке баз: база удалена из 1С, а StartManager
+                // помнит её настройки. Заводить такую базу заново не нужно.
                 result.Skipped++;
                 continue;
             }
 
-            var infobase = ToInfobase(section);
-            if (infobase is null)
-            {
-                // Секция без строки подключения — пропускаем (не является базой).
-                result.Skipped++;
-                continue;
-            }
+            ApplyStartManagerSettings(infobase, section);
+            imported.Add(infobase);
+        }
 
+        // Недостающие группы из импортируемых баз создаём до добавления баз.
+        EnsureGroups(imported, groups, result);
+
+        foreach (var infobase in imported)
+        {
             var existing = FindExisting(infobases, infobase);
 
             if (existing is null)
             {
                 infobases.Add(infobase);
                 result.Added++;
+
+                // Журнал добавления по строке на базу: по нему видно, что именно приехало
+                // из StartManager, без открытия карточки каждой базы (issue #163).
+                LogInfo(
+                    $"Добавлена база «{infobase.Name}» из StartManager: " +
+                    $"подключение=[{infobase.Connection.ToConnectionString()}], " +
+                    $"группа=[{(string.IsNullOrWhiteSpace(infobase.Group) ? "—" : infobase.Group)}], " +
+                    $"хранилище={(infobase.Repository is { HasServer: true } ? "задано" : "—")}, " +
+                    $"Предприятие={(infobase.EnterpriseAuth is { IsDefault: false } ? "задано" : "—")}, " +
+                    $"Конфигуратор={(infobase.ConfiguratorAuth is { IsDefault: false } ? "задано" : "—")}");
             }
             else
             {
@@ -201,8 +241,13 @@ public static class StartManagerImporter
             }
         }
 
-        // Пути платформы 1С из settings.cnf (V8AppPath).
+        // Пути платформы 1С из settings.cnf.
         CollectPlatformPaths(Path.Combine(settingsDir, SettingsFileName), result.PlatformSearchPaths);
+
+        LogInfo(
+            $"Импорт из StartManager завершён: добавлено {result.Added}, обновлено {result.Updated}, " +
+            $"пропущено секций без базы в списке 1С {result.Skipped}. " +
+            $"Список баз: {ibasesPath}.");
 
         return result;
     }
@@ -411,75 +456,24 @@ public static class StartManagerImporter
     }
 
     /// <summary>
-    /// Преобразует секцию v8config.smc в модель <see cref="Infobase"/>.
-    /// Возвращает null, если в секции нет строки подключения (не база).
+    /// Накладывает надстройки StartManager на базу, прочитанную из списка 1С:
+    /// авторизации «Предприятия» и «Конфигуратора», хранилище конфигурации,
+    /// версию конфигурации и заметку. Подключение, имя и группа приходят
+    /// из ibases.v8i и здесь не меняются.
     /// </summary>
-    private static Infobase? ToInfobase(Dictionary<string, string> section)
+    private static void ApplyStartManagerSettings(Infobase infobase, Dictionary<string, string> section)
     {
-        var connection = BuildConnection(section);
-        if (connection is null)
-            return null;
+        infobase.Repository = BuildRepository(section) ?? new RepositorySettings();
+        infobase.EnterpriseAuth = BuildEnterpriseAuth(section);
+        infobase.ConfiguratorAuth = BuildConfiguratorAuth(section);
 
-        var name = FirstValue(section, KName, KIbName)
-                   ?? sectionSectionName(section);
-        if (string.IsNullOrWhiteSpace(name))
-            name = connection.DatabaseName;
-        if (string.IsNullOrWhiteSpace(name))
-            name = connection.FilePath;
+        var configVersion = Get(section, KConfigVersion);
+        if (!string.IsNullOrWhiteSpace(configVersion))
+            infobase.ConfigurationVersion = configVersion.Trim();
 
-        return new Infobase
-        {
-            Name = name.Trim(),
-            Group = NormalizeGroupPath(Get(section, KFolder)),
-            Connection = connection,
-            Repository = BuildRepository(section) ?? new RepositorySettings(),
-            EnterpriseAuth = BuildEnterpriseAuth(section),
-            ConfiguratorAuth = BuildConfiguratorAuth(section),
-            Description = string.Empty,
-            Id = Get(section, "ID") ?? string.Empty
-        };
-    }
-
-    /// <summary>
-    /// Строит строку подключения из секции: файловая база (SPath), клиент-сервер
-    /// (SRVS + DBName) или веб-публикация (WS). Возвращает null, если подключение не задано.
-    /// </summary>
-    private static ConnectionSettings? BuildConnection(Dictionary<string, string> section)
-    {
-        var file = Get(section, KFile);
-        if (!string.IsNullOrWhiteSpace(file))
-        {
-            return new ConnectionSettings
-            {
-                Type = ConnectionType.File,
-                FilePath = file.Trim()
-            };
-        }
-
-        var url = FirstValue(section, KUrl, "URL", "WebUrl");
-        if (!string.IsNullOrWhiteSpace(url))
-        {
-            return new ConnectionSettings
-            {
-                Type = ConnectionType.WebServer,
-                WebUrl = url.Trim()
-            };
-        }
-
-        var server = FirstValue(section, KServer, "Srvr");
-        var db = FirstValue(section, KDbName, "Ref");
-        if (!string.IsNullOrWhiteSpace(server) || !string.IsNullOrWhiteSpace(db))
-        {
-            var settings = new ConnectionSettings
-            {
-                Type = ConnectionType.ClientServer,
-                DatabaseName = (db ?? string.Empty).Trim()
-            };
-            ConnectionSettings.ParseServerAndPort(server, settings);
-            return settings;
-        }
-
-        return null;
+        var note = Get(section, KNote);
+        if (!string.IsNullOrWhiteSpace(note))
+            infobase.Description = note.Trim();
     }
 
     /// <summary>
@@ -567,17 +561,14 @@ public static class StartManagerImporter
     /// выстраивая иерархию (родительские группы до вложенных).
     /// </summary>
     private static void EnsureGroups(
-        IEnumerable<Dictionary<string, string>> sections,
+        IEnumerable<Infobase> importedBases,
         IList<Group> groups,
         StartManagerImportResult result)
     {
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var section in sections)
+        foreach (var infobase in importedBases)
         {
-            var folder = Get(section, KFolder);
-            if (string.IsNullOrWhiteSpace(folder))
-                continue;
-            var normalized = NormalizeGroupPath(folder);
+            var normalized = NormalizeGroupPath(infobase.Group);
             if (!string.IsNullOrWhiteSpace(normalized))
                 paths.Add(normalized);
         }
@@ -622,38 +613,35 @@ public static class StartManagerImporter
     }
 
     /// <summary>
-    /// Извлекает каталоги платформы 1С из settings.cnf (ключ V8AppPath) и добавляет их
-    /// в список <paramref name="target"/>, исключая повторы и несуществующие каталоги.
+    /// Извлекает каталоги платформы 1С из settings.cnf и добавляет их в список
+    /// <paramref name="target"/>, исключая повторы и несуществующие каталоги.
     /// </summary>
     private static void CollectPlatformPaths(string settingsPath, List<string> target)
     {
         if (!File.Exists(settingsPath))
             return;
 
-        var values = ParseIniGlobalValues(settingsPath);
-        if (!values.TryGetValue(KV8AppPath, out var exePath) || string.IsNullOrWhiteSpace(exePath))
-            return;
-
-        var exe = exePath.Trim();
         var candidates = new List<string>();
-
-        // Каталог самого исполняемого файла (…\bin).
-        var bin = Path.GetDirectoryName(exe);
-        if (!string.IsNullOrWhiteSpace(bin))
+        foreach (var exe in ReadPlatformExecutables(settingsPath))
         {
+            // Каталог самого исполняемого файла (…\bin).
+            var bin = Path.GetDirectoryName(exe);
+            if (string.IsNullOrWhiteSpace(bin))
+                continue;
+
             candidates.Add(bin);
             // Родитель каталога bin — это каталог версии (если есть).
             var versionDir = Path.GetDirectoryName(bin);
-            if (!string.IsNullOrWhiteSpace(versionDir))
+            if (string.IsNullOrWhiteSpace(versionDir))
+                continue;
+
+            candidates.Add(versionDir);
+            // Над каталогом версии обычно лежит корень 1cv8.
+            var root = Path.GetDirectoryName(versionDir);
+            if (!string.IsNullOrWhiteSpace(root)
+                && string.Equals(Path.GetFileName(root), "1cv8", StringComparison.OrdinalIgnoreCase))
             {
-                candidates.Add(versionDir);
-                // Над каталогом версии обычно лежит корень 1cv8.
-                var root = Path.GetDirectoryName(versionDir);
-                if (!string.IsNullOrWhiteSpace(root)
-                    && string.Equals(Path.GetFileName(root), "1cv8", StringComparison.OrdinalIgnoreCase))
-                {
-                    candidates.Add(root);
-                }
+                candidates.Add(root);
             }
         }
 
@@ -666,6 +654,63 @@ public static class StartManagerImporter
             if (seen.Add(full) && Directory.Exists(full))
                 target.Add(full);
         }
+    }
+
+    /// <summary>
+    /// Возвращает пути к исполняемым файлам платформы 1С, заданные в settings.cnf.
+    /// StartManager 1.4 хранит этот файл в XML: пути лежат в разделе «Launch»,
+    /// в элементах V81AppFile…V84AppFile. Разбор INI с ключом V8AppPath оставлен
+    /// запасным вариантом для файлов другого вида.
+    /// </summary>
+    private static IEnumerable<string> ReadPlatformExecutables(string settingsPath)
+    {
+        var result = new List<string>();
+
+        if (IsXmlFile(settingsPath))
+        {
+            try
+            {
+                var document = XDocument.Load(settingsPath);
+                result.AddRange(document
+                    .Descendants()
+                    .Where(e => e.Name.LocalName.EndsWith("AppFile", StringComparison.OrdinalIgnoreCase))
+                    .Select(e => e.Value.Trim())
+                    .Where(v => v.Length > 0));
+            }
+            catch (Exception ex)
+            {
+                LogInfo($"Не удалось разобрать {Path.GetFileName(settingsPath)} как XML: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        var values = ParseIniGlobalValues(settingsPath);
+        if (values.TryGetValue(KV8AppPath, out var exePath) && !string.IsNullOrWhiteSpace(exePath))
+            result.Add(exePath.Trim());
+
+        return result;
+    }
+
+    /// <summary>Определяет по первому значимому символу, является ли файл XML-документом.</summary>
+    private static bool IsXmlFile(string path)
+    {
+        try
+        {
+            foreach (var line in ReadLines(path))
+            {
+                var trimmed = line.Trim();
+                if (trimmed.Length == 0)
+                    continue;
+                return trimmed[0] == '<';
+            }
+        }
+        catch (IOException)
+        {
+            // Нечитаемый файл разбираем как INI: там ошибка обрабатывается тише.
+        }
+
+        return false;
     }
 
     // ---------------------------------------------------------------- разбор файлов
@@ -729,11 +774,14 @@ public static class StartManagerImporter
     }
 
     /// <summary>
-    /// Читает все строки файла в кодировке ANSI (Windows-1251) с запасной кодировкой по умолчанию.
+    /// Читает все строки файла настроек StartManager. Кодировка определяется по BOM:
+    /// StartManager 1.4 пишет свои файлы в UTF-8 с BOM, а более старые сборки — в ANSI
+    /// (Windows-1251), поэтому ANSI остаётся кодировкой по умолчанию для файлов без BOM.
     /// </summary>
     private static IEnumerable<string> ReadLines(string path)
     {
-        var text = File.ReadAllText(path, Ansi);
+        using var reader = new StreamReader(path, Ansi, detectEncodingFromByteOrderMarks: true);
+        var text = reader.ReadToEnd();
         return text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
     }
 
@@ -742,7 +790,9 @@ public static class StartManagerImporter
     /// <summary>
     /// Расшифровывает пароль StartManager. Метод Виженера по ASCII-символам с ключом
     /// «SLAVKA»: каждый байт шифротекста смещается назад на код соответствующего символа
-    /// ключа (по модулю 256). Пустые значения возвращаются без изменений.
+    /// ключа и вперёд на код символа «0» (по модулю 256). Пустые значения возвращаются
+    /// без изменений. Смещение на 48 проверено на паролях «123» (шифр «TND») и «Abc-99»
+    /// (шифр «d~tSTJ»): без него расшифровка промахивается ровно на код нуля.
     /// </summary>
     public static string DecryptPassword(string? encrypted)
     {
@@ -756,7 +806,7 @@ public static class StartManagerImporter
         for (var i = 0; i < data.Length; i++)
         {
             var shift = key[i % key.Length];
-            result[i] = (byte)((data[i] - shift) & 0xFF);
+            result[i] = (byte)((data[i] - shift + ZeroDigit) & 0xFF);
         }
 
         return Ansi.GetString(result);
@@ -778,7 +828,7 @@ public static class StartManagerImporter
         for (var i = 0; i < data.Length; i++)
         {
             var shift = key[i % key.Length];
-            result[i] = (byte)((data[i] + shift) & 0xFF);
+            result[i] = (byte)((data[i] + shift - ZeroDigit) & 0xFF);
         }
 
         return Ansi.GetString(result);
@@ -789,18 +839,8 @@ public static class StartManagerImporter
     private static string? Get(Dictionary<string, string> section, string key)
         => section.TryGetValue(key, out var value) ? value : null;
 
-    private static string? FirstValue(Dictionary<string, string> section, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            if (section.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
-                return value;
-        }
-
-        return null;
-    }
-
-    private static string sectionSectionName(Dictionary<string, string> section)
+    /// <summary>Возвращает имя секции: в v8config.smc это идентификатор базы из списка 1С.</summary>
+    private static string SectionName(Dictionary<string, string> section)
         => Get(section, "__section__") ?? string.Empty;
 
     private static bool HasTrue(Dictionary<string, string> section, string key)

@@ -475,6 +475,25 @@ public static class IbasesV8iImporter
     }
 
     /// <summary>
+    /// Читает записи баз из файла ibases.v8i как модели <see cref="Infobase"/>,
+    /// не изменяя коллекции приложения. Группы (секции без строки подключения)
+    /// и отключённые записи пропускаются. Используется импортом из StartManager,
+    /// где строка подключения берётся отсюда, а надстройки — из v8config.smc.
+    /// </summary>
+    /// <param name="filePath">Путь к файлу ibases.v8i.</param>
+    /// <returns>Список баз файла; пустой список, если файл не читается.</returns>
+    public static List<Infobase> ReadInfobases(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return new List<Infobase>();
+
+        return Parse(filePath)
+            .Where(e => !e.IsGroup && e.Enabled)
+            .Select(e => e.ToInfobase())
+            .ToList();
+    }
+
+    /// <summary>
     /// Ищет файл ibases.v8i в стандартных местах хранения списка баз 1С.
     /// Возвращает путь к найденному файлу или null, если файл не найден.
     /// </summary>

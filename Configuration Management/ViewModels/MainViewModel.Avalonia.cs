@@ -2865,6 +2865,14 @@ public class MainViewModel : ViewModelBase
                 return;
             }
 
+            if (result.NoIbasesFound)
+            {
+                _dialog.ShowInfo(
+                    LocalizationManager.T("StartManager.NoIbases"),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
             if (result.Added == 0 && result.Updated == 0)
             {
                 _dialog.ShowInfo(

@@ -1214,6 +1214,7 @@
     "StartManager.Title": "Импорт из StartManager",
     "StartManager.ChooseFolder": "Укажите каталог настроек StartManager (папку SMSettings)",
     "StartManager.NoConfig": "В выбранном каталоге не найден файл списка баз StartManager (v8config.smc):\n{0}\n\nИмпорт невозможен.",
+    "StartManager.NoIbases": "Не найден список информационных баз 1С (ibases.v8i).\n\nStartManager хранит только дополнительные настройки к базам, а строки подключения лежат в списке баз платформы, поэтому импорт без него невозможен.",
     "StartManager.NothingImported": "Новых или изменившихся баз в StartManager не найдено.",
     "StartManager.Done": "Импорт завершён.\n\nДобавлено новых баз: {0}\nОбновлено баз: {1}",
     "StartManager.PlatformPathAdded": "Путь к платформе 1С из StartManager добавлен в дополнительные пути поиска.",

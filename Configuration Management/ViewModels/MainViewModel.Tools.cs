@@ -386,6 +386,14 @@ public partial class MainViewModel : ViewModelBase
                 return;
             }
 
+            if (result.NoIbasesFound)
+            {
+                _dialogs.ShowInfo(
+                    LocalizationManager.T("StartManager.NoIbases"),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
             if (result.Added == 0 && result.Updated == 0)
             {
                 _dialogs.ShowInfo(
