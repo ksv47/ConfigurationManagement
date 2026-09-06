@@ -112,11 +112,35 @@ namespace Configuration_Management.Services
         /// Показывает единый диалог обновления: спрашивает подтверждение скачивания, скачивает
         /// бинарник, затем предлагает применить обновление (перезапустить сейчас или после
         /// закрытия). Все ошибки обрабатываются внутри и не роняют приложение.
+        /// Запуск из пакета AppImage самообновлению не поддаётся: исполняемый файл там лежит
+        /// внутри разового монтирования, поэтому в этом случае показывается только сообщение.
         /// </summary>
         private void ShowUpdateDialog(ReleaseInfo release)
         {
             try
             {
+                var target = ResolveTargetBinary();
+                if (target is null)
+                {
+                    ShowOnUi(() => _dialogs.ShowError(
+                        LocalizationManager.T("Update.InstallFailed"),
+                        LocalizationManager.T("Update.NewVersionAvailable")));
+                    return;
+                }
+
+                // Способ установки проверяется раньше наличия файла в выпуске: если
+                // заменить себя нельзя, пользователю не важно, какие в выпуске файлы.
+                var blocker = GetSelfUpdateBlocker(target);
+                if (blocker is not null)
+                {
+                    var manual = blocker;
+                    if (!string.IsNullOrWhiteSpace(release.HtmlUrl))
+                        manual += Environment.NewLine + Environment.NewLine + release.HtmlUrl;
+                    ShowOnUi(() => _dialogs.ShowInfo(
+                        manual, LocalizationManager.T("Update.NewVersionAvailable")));
+                    return;
+                }
+
                 if (string.IsNullOrWhiteSpace(release.DownloadUrl))
                 {
                     ShowOnUi(() => _dialogs.ShowError(
@@ -124,6 +148,18 @@ namespace Configuration_Management.Services
                         LocalizationManager.T("Update.NewVersionAvailable")));
                     return;
                 }
+
+                // Спрашиваем разрешение до скачивания: отказ прекращает обновление целиком.
+                var current = string.Format(
+                    LocalizationManager.T("Update.CurrentVersion"), VersionInfo.Display());
+                var offered = string.Format(
+                    LocalizationManager.T("Update.NewVersion"), NormalizeTag(release.TagName));
+                var accepted = _dialogs.Confirm(
+                    current + Environment.NewLine + offered + Environment.NewLine + Environment.NewLine
+                        + LocalizationManager.T("Update.DownloadPrompt"),
+                    LocalizationManager.T("Update.NewVersionAvailable"));
+                if (!accepted)
+                    return;
 
                 // Скачиваем новый бинарник в фоне (без UI-прогресса, но надёжно).
                 var newBinary = DownloadNewBinaryAsync(release.DownloadUrl!)
@@ -133,15 +169,6 @@ namespace Configuration_Management.Services
                 {
                     ShowOnUi(() => _dialogs.ShowError(
                         LocalizationManager.T("Update.DownloadFailed"),
-                        LocalizationManager.T("Update.NewVersionAvailable")));
-                    return;
-                }
-
-                var target = ResolveTargetBinary();
-                if (target is null)
-                {
-                    ShowOnUi(() => _dialogs.ShowError(
-                        LocalizationManager.T("Update.InstallFailed"),
                         LocalizationManager.T("Update.NewVersionAvailable")));
                     return;
                 }
@@ -185,6 +212,84 @@ namespace Configuration_Management.Services
                     LocalizationManager.T("Update.NewVersionAvailable")));
             }
         }
+
+        /// <summary>
+        /// Возвращает текст объяснения, почему самозамена невозможна, или <c>null</c>,
+        /// если приложение вправе заменить свой исполняемый файл. Проверяются два
+        /// случая: запуск из пакета AppImage и установка в каталог, недоступный
+        /// пользователю на запись (так лежит бинарник из deb-пакета, в <c>/usr/bin</c>).
+        /// </summary>
+        private static string? GetSelfUpdateBlocker(string target)
+        {
+            if (IsRunningFromAppImage(target))
+                return LocalizationManager.T("Update.PackageManualUpdate");
+
+            return IsDirectoryWritable(Path.GetDirectoryName(target))
+                ? null
+                : LocalizationManager.T("Update.TargetNotWritable");
+        }
+
+        /// <summary>
+        /// Признак запуска из пакета AppImage: переменные <c>APPIMAGE</c> и <c>APPDIR</c>
+        /// выставляет сам пакет, а исполняемый файл лежит внутри разового монтирования,
+        /// доступного только на чтение. Одной переменной мало: её наследует любой
+        /// дочерний процесс, запущенный из пакета, поэтому дополнительно проверяется,
+        /// что текущий исполняемый файл действительно находится внутри <c>APPDIR</c>.
+        /// Заменять сам пакет скачанным бинарником нельзя: обёртка AppImage теряется.
+        /// </summary>
+        private static bool IsRunningFromAppImage(string target)
+        {
+            var appImage = Environment.GetEnvironmentVariable("APPIMAGE");
+            var appDir = Environment.GetEnvironmentVariable("APPDIR");
+            if (string.IsNullOrWhiteSpace(appImage) || string.IsNullOrWhiteSpace(appDir))
+                return false;
+
+            try
+            {
+                if (!File.Exists(appImage))
+                    return false;
+
+                var mount = Path.GetFullPath(appDir);
+                if (!mount.EndsWith(Path.DirectorySeparatorChar))
+                    mount += Path.DirectorySeparatorChar;
+
+                return Path.GetFullPath(target).StartsWith(mount, StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Проверяет каталог на запись созданием и удалением временного файла. Замена
+        /// исполняемого файла идёт переименованием внутри его каталога, поэтому прав
+        /// на сам файл недостаточно, нужны права на каталог.
+        /// </summary>
+        private static bool IsDirectoryWritable(string? directory)
+        {
+            if (string.IsNullOrWhiteSpace(directory))
+                return false;
+
+            var probe = Path.Combine(directory, $".cm-update-probe-{Guid.NewGuid():N}");
+            try
+            {
+                using (File.Create(probe))
+                {
+                }
+                File.Delete(probe);
+                return true;
+            }
+            catch
+            {
+                TryDelete(probe);
+                return false;
+            }
+        }
+
+        /// <summary>Обрезает ведущий символ «v» у тега версии для отображения.</summary>
+        private static string NormalizeTag(string tag) =>
+            !string.IsNullOrEmpty(tag) && (tag[0] == 'v' || tag[0] == 'V') ? tag.Substring(1) : tag;
 
         /// <summary>Возвращает путь к текущему исполняемому файлу приложения или null.</summary>
         internal string? ResolveTargetBinary()
@@ -262,36 +367,62 @@ namespace Configuration_Management.Services
         /// (по PID), заменяет текущий исполняемый файл скачанным (chmod +x) и удаляет сам скрипт.
         /// Если <paramref name="restart"/> равен true — после замены перезапускает приложение.
         /// Возвращает путь к созданному скрипту.
+        /// <para>
+        /// Замена идёт переименованием внутри каталога цели, а не копированием поверх:
+        /// <c>cp</c> при занятом файле удаляет его и создаёт заново, поэтому обрыв на
+        /// середине оставил бы обрезанный исполняемый файл. Ожидание завершения процесса
+        /// в режиме «после закрытия» безусловное, как в версии для Windows: обещание
+        /// «применится при закрытии» не должно нарушаться по истечении таймаута.
+        /// </para>
         /// </summary>
         private static string CreateUpdaterScript(string target, string newBinary, int currentPid, bool restart)
         {
             var scriptPath = Path.Combine(
                 Path.GetTempPath(), UpdateTempDir, $"apply-update-{Guid.NewGuid():N}.sh");
 
+            // Пустое тело if недопустимо в bash, поэтому в режиме «после закрытия»
+            // подставляется команда-заглушка, а не один комментарий.
             var relaunchBlock = restart
                 ? "nohup \"$TARGET\" >/dev/null 2>&1 &"
-                : "# Перезапуск не требуется — обновление применится при следующем закрытии.";
+                : ": # Перезапуск не требуется, обновление применится при следующем закрытии.";
+
+            // Предел ожидания задаётся только режиму «перезапустить сейчас»: там
+            // пользователь ждёт приложение обратно. В режиме «после закрытия» помощник
+            // ждёт столько, сколько работает приложение.
+            var waitCondition = restart
+                ? "kill -0 \"$PID_TARGET\" 2>/dev/null && [ $i -lt 300 ]"
+                : "kill -0 \"$PID_TARGET\" 2>/dev/null";
 
             var script = $@"#!/usr/bin/env bash
 set -u
 TARGET='{Bq(target)}'
 NEW='{Bq(newBinary)}'
+STAGED=""$TARGET.cm-update-$$""
 PID_TARGET={currentPid}
 RESTART={(restart ? 1 : 0)}
 
 # Ожидание завершения основного процесса, чтобы не было гонки при замене файла.
 i=0
-while kill -0 ""$PID_TARGET"" 2>/dev/null && [ $i -lt 300 ]; do
+while {waitCondition}; do
   sleep 1
   i=$((i+1))
 done
 sleep 1
 
-# Заменяем текущий исполняемый файл новым и делаем его исполняемым.
-if ! cp -f ""$NEW"" ""$TARGET"" 2>/dev/null && ! mv -f ""$NEW"" ""$TARGET""; then
+# Замена в два шага: сначала копия рядом с целью, затем атомарное переименование.
+# Так недокачанный или недокопированный файл никогда не окажется на месте рабочего.
+if ! cp -f ""$NEW"" ""$STAGED""; then
+  rm -f ""$STAGED""
   exit 1
 fi
-chmod +x ""$TARGET"" 2>/dev/null || true
+if ! chmod +x ""$STAGED""; then
+  rm -f ""$STAGED""
+  exit 1
+fi
+if ! mv -f ""$STAGED"" ""$TARGET""; then
+  rm -f ""$STAGED""
+  exit 1
+fi
 
 # Перезапуск приложения (только по явному запросу пользователя).
 if [ ""$RESTART"" = ""1"" ]; then

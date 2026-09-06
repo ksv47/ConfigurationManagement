@@ -227,6 +227,17 @@ namespace Configuration_Management
             multipleInstancesCheck.Margin = new Thickness(0, 0, 0, 6);
             settings.Children.Add(multipleInstancesCheck);
 
+            // Обновление приложения: обе настройки учитываются при запуске
+            // (App.axaml.cs), но в Linux-сборке их нечем было изменить. Цвет значка
+            // взят из разметки Windows (SettingsWindow.xaml:1269, 1275); значка
+            // Update в наборе Icons.axaml нет, поэтому стоит ближайший IconRefresh.
+            var checkUpdatesCheck = SettingsSwitch("Settings.General.CheckForUpdatesOnStartup", _viewModel.CheckForUpdatesOnStartup, "IconRefresh", "#22C55E");
+            var autoUpdateCheck = SettingsSwitch("Settings.General.AutoUpdate", _viewModel.AutoUpdateEnabled, "IconRefresh", "#22C55E");
+            checkUpdatesCheck.Margin = new Thickness(0, 0, 0, 6);
+            autoUpdateCheck.Margin = new Thickness(0, 0, 0, 6);
+            settings.Children.Add(checkUpdatesCheck);
+            settings.Children.Add(autoUpdateCheck);
+
             // Поведение значка в области уведомлений. До этого три настройки
             // жили только в файле и в версии для Windows: в Linux-сборке ни
             // флажков, ни учёта не было.
@@ -2377,7 +2388,9 @@ namespace Configuration_Management
                 });
                 _viewModel.ApplyBehaviorSettings(
                     multipleInstancesCheck.IsChecked == true,
-                    rememberLayoutCheck.IsChecked == true);
+                    rememberLayoutCheck.IsChecked == true,
+                    checkUpdatesCheck.IsChecked == true,
+                    autoUpdateCheck.IsChecked == true);
                 _viewModel.ApplyTraySettings(
                     trayIconCheck.IsChecked == true,
                     closeToTrayCheck.IsChecked == true,
