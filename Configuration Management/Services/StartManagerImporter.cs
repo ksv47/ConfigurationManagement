@@ -97,12 +97,16 @@ public static class StartManagerImporter
 
     /// <summary>
     /// Возвращает кодировку ANSI (Windows-1251) для чтения файлов StartManager.
-    /// Если кодовые страницы недоступны (Linux без пакета CodePages) — кодировка по умолчанию.
+    /// Кодовые страницы в .NET доступны только после регистрации провайдера, иначе
+    /// <see cref="Encoding.GetEncoding(int)"/> бросает исключение и кодировкой становится
+    /// UTF-8: тогда пароль с кириллицей не расшифровать, потому что шифр StartManager
+    /// работает по однобайтовым кодам символов.
     /// </summary>
     private static Encoding CreateAnsiEncoding()
     {
         try
         {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             return Encoding.GetEncoding(1251);
         }
         catch
