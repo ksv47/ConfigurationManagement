@@ -441,7 +441,7 @@ namespace Configuration_Management
             versionsTree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
                 (item, _) => BuildPlatformRow(item),
-                item => item is PlatformVersionGroup group && group.Children.Count > 0 ? group.Children : null);
+                item => item is PlatformVersionGroup group && group.Children.Count > 0 ? group.Children : Array.Empty<PlatformVersionGroup>());
             // Дерево раскрыто целиком, как задаёт ItemContainerStyle разметки
             // (SettingsWindow.xaml:386): группировка видна сразу, а свернуть узел
             // вручную по-прежнему можно.
@@ -1547,8 +1547,10 @@ namespace Configuration_Management
                 previewDark = dark;
                 RefreshColors();
             }
-            lightPalette.Checked += (_, _) => SelectPalette(false);
-            darkPalette.Checked += (_, _) => SelectPalette(true);
+            // IsCheckedChanged (вместо устаревшего ToggleButton.Checked) срабатывает и при
+            // снятии отметки; повторная отрисовка гасится внутренней проверкой в SelectPalette.
+            lightPalette.IsCheckedChanged += (_, _) => SelectPalette(false);
+            darkPalette.IsCheckedChanged += (_, _) => SelectPalette(true);
             var paletteSwitch = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 4, 0, 0) };
             paletteSwitch.Children.Add(lightPalette);
             paletteSwitch.Children.Add(darkPalette);
@@ -1679,12 +1681,27 @@ namespace Configuration_Management
             var timestampBox = new AutoCompleteBox
             {
                 MinWidth = 280,
+                MinHeight = 38,
                 ItemsSource = TimestampFormats,
                 FilterMode = AutoCompleteFilterMode.Contains,
                 Text = string.IsNullOrWhiteSpace(_viewModel.ExportTimestampFormat)
                     ? TimestampFormats[0]
                     : _viewModel.ExportTimestampFormat
             };
+            // Вертикальная обрезка текста шаблона: у AutoCompleteBox нет своего
+            // VerticalContentAlignment (в отличие от TextBox), поэтому центрируем
+            // и чуть «дышим» внутреннему редактируемому TextBox, а высоту поля
+            // (MinHeight=38) согласуем с Windows-версией (SettingsWindow.xaml).
+            // Стиль добавляется локально, в Styles самого поля, чтобы не задеть
+            // другие поля ввода окна.
+            timestampBox.Styles.Add(new Style(x => x.OfType<AutoCompleteBox>().Descendant().OfType<TextBox>())
+            {
+                Setters =
+                {
+                    new Setter(TextBox.VerticalContentAlignmentProperty, VerticalAlignment.Center),
+                    new Setter(TextBox.PaddingProperty, new Thickness(6, 4))
+                }
+            });
             ToolTip.SetTip(timestampBox, LocalizationManager.T("Settings.Bases.TimestampFormatTooltip"));
 
             var timestampPreview = new TextBlock { VerticalAlignment = VerticalAlignment.Center };

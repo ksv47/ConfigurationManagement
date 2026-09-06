@@ -1120,7 +1120,7 @@ namespace Configuration_Management
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
                 (item, _) => BuildTreeRow(item),
-                item => item is GroupNodeViewModel g ? g.Items : null);
+                item => item is GroupNodeViewModel g ? g.Items : Array.Empty<object>());
             _tree.SelectionChanged += OnTreeSelectionChanged;
 
             // Перетаскивание баз и групп. Нажатие ловится по туннелю: TreeView
@@ -4443,7 +4443,7 @@ namespace Configuration_Management
 
         private async void OnTreeDragPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (_isDragging || _dragPayload is null)
+            if (_isDragging || _dragPayload is null || _vm is null)
                 return;
 
             var point = e.GetCurrentPoint(this);
@@ -4493,6 +4493,8 @@ namespace Configuration_Management
         private void OnTreeDrop(object? sender, DragEventArgs e)
         {
             e.Handled = true;
+            if (_vm is null)
+                return;
 
             // Отпускание поднимается из насоса сырых событий, а не со стека
             // DoDragDropAsync: исключение отсюда не дало бы завершиться самой
@@ -4510,6 +4512,8 @@ namespace Configuration_Management
 
         private void ApplyDrop(DragEventArgs e)
         {
+            if (_vm is null)
+                return;
             var payload = _dragPayload;
             ResolveDropTarget(e.Source as Visual, out var targetNode, out var insertBefore);
 
@@ -4552,6 +4556,8 @@ namespace Configuration_Management
         /// </summary>
         private bool IsDropAllowed(object? payload, GroupNodeViewModel targetNode)
         {
+            if (_vm is null)
+                return false;
             if (payload is Infobase)
             {
                 return targetNode.Group is not null
@@ -5262,9 +5268,10 @@ namespace Configuration_Management
             if (opaque)
             {
                 // Убираем запрос уровня прозрачности — по умолчанию окно рисуется
-                // непрозрачным прямоугольным фоном. Сплошной фон задаём явно, чтобы
-                // нативное окно гарантированно было непрозрачным.
-                TransparencyLevelHint = null;
+                // непрозрачным прямоугольным фоном. Пустой список эквивалентен null
+                // по поведению Avalonia, но не провоцирует CS8625. Сплошной фон задаём
+                // явно, чтобы нативное окно гарантированно было непрозрачным.
+                TransparencyLevelHint = Array.Empty<WindowTransparencyLevel>();
                 Background = new SolidColorBrush(Color.Parse("#FF161616"));
             }
             else

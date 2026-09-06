@@ -1595,8 +1595,15 @@
                                 <TextBlock Text="{loc:Loc Settings.Bases.TimestampFormat}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            Margin="0,12,0,4"/>
+                                <!-- Вертикальная обрезка текста шаблона: фиксированная
+                                     Height=34 конфликтовала с MinHeight=36 стиля и не давала
+                                     строке формата поместиться по вертикали. Поднимаем MinHeight
+                                     до 38, чуть уменьшаем вертикальный padding и явно центрируем
+                                     содержимое редактируемого поля — соседние элементы (подпись
+                                     выше, предпросмотр ниже) сдвигаются только на эти пару пикселей. -->
                                 <ComboBox x:Name="ExportTimestampFormatComboBox"
-                                          Height="34" FontSize="13" MinWidth="280"
+                                          MinHeight="38" FontSize="13" MinWidth="280"
+                                          Padding="10,5" VerticalContentAlignment="Center"
                                           Style="{StaticResource ModernComboBox}"
                                           IsEditable="True"
                                           IsTextSearchEnabled="True"

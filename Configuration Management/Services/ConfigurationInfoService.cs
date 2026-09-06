@@ -112,6 +112,39 @@ public static class ConfigurationInfoService
     }
 
     /// <summary>
+    /// Проверяет, соответствует ли имя ProgID COM-коннектора версии платформы базы
+    /// (например, «V83.COMConnector» ↔ версия «8.3.x», «V85.COMConnector» ↔ «8.5.x»).
+    /// Используется в диагностике «Определить свойства конфигурации» (issue #174), чтобы
+    /// предупредить о том, что имя коннектора не соответствует реальной платформе базы.
+    /// Возвращает true, если данные для сравнения отсутствуют (настаивать на несовпадении
+    /// не на чем).
+    /// </summary>
+    public static bool ProgIdMatchesPlatform(string? progId, string? platformVersion)
+    {
+        if (string.IsNullOrWhiteSpace(progId) || string.IsNullOrWhiteSpace(platformVersion))
+            return true;
+
+        var ver = ExtractDigits(platformVersion);
+        if (ver.Length < 2)
+            return true;
+
+        // Первые две цифры версии платформы образуют имя ProgID: «8.3…» → V83, «8.5…» → V85.
+        var expected = "V" + ver[0] + ver[1] + ".";
+        return progId.StartsWith(expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ExtractDigits(string s)
+    {
+        var sb = new StringBuilder();
+        foreach (var ch in s)
+        {
+            if (ch >= '0' && ch <= '9')
+                sb.Append(ch);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Читает наименование и версию конфигурации и сразу применяет их к базе
     /// (по умолчанию перезаписывая уже заполненные значения). Возвращает прочитанные
     /// данные, либо null, если чтение не удалось.

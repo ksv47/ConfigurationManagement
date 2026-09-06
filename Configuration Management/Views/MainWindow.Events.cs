@@ -476,10 +476,13 @@ namespace Configuration_Management
                     // по ним оставить штатному TreeViewItem, он запишет локальное значение
                     // IsExpanded в контейнер, и узел после этого не будет сворачиваться
                     // (тот же дефект, что и для обычных групп в issue #180). Переключаем
-                    // развёрнутость на МОДЕЛИ и помечаем клик обработанным.
+                    // развёрнутость на МОДЕЛИ и помечаем клик обработанным. Переключаем через
+                    // ToggleGroupExpandedCommand, чтобы состояние сохранялось через
+                    // SetGroupCollapsed по внутреннему маркеру узла (NodeKey), а не только
+                    // в контейнере TreeViewItem (issue #180).
                     if (treeViewItem.DataContext is GroupNodeViewModel serviceNode && e.ClickCount >= 2)
                     {
-                        serviceNode.IsExpanded = !serviceNode.IsExpanded;
+                        _viewModel.ToggleGroupExpandedCommand.Execute(serviceNode);
                         e.Handled = true;
                     }
                     return;

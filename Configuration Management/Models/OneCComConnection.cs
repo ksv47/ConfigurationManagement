@@ -78,7 +78,9 @@ public sealed class OneCComConnection : IDisposable
 
     private static void Release(object? com)
     {
-        if (com is null) return;
+        // COM-объекты 1С существуют только на Windows; на других ОС вызовы маршаллинга
+        // бессмысленны (и их нет в целевой платформе — CA1416).
+        if (com is null || !OperatingSystem.IsWindows()) return;
         try
         {
             if (Marshal.IsComObject(com))

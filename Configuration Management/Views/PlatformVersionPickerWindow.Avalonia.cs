@@ -184,7 +184,7 @@ namespace Configuration_Management
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
                 (item, _) => BuildTreeRow(item),
-                item => item is PlatformVersionGroup g && g.Children.Count > 0 ? g.Children : null);
+                item => item is PlatformVersionGroup g && g.Children.Count > 0 ? g.Children : Array.Empty<PlatformVersionGroup>());
             // Разрешаем выбор и листьев (полная версия), и узлов линии/группы сборок
             // (частичная версия «8.3» / «8.3.27», issue #142). Разрядность подставляется
             // по активному фильтру или из однотипных листьев узла.
