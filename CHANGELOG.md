@@ -9,6 +9,52 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.78] — 2026-09-06
+
+Технический выпуск: рефакторинг и устранение предупреждений компилятора и статических анализаторов без изменения поведения приложения. Обе сборки (Windows/WPF и Linux/Avalonia) проходят без ошибок и без предупреждений.
+
+### Рефакторинг
+
+- **Устранены предупреждения nullable в чтении сведений о конфигурации (WPF)** ([`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs)): в `ReadConfigurationInfo` после явной проверки `infobase is null` введена локальная ненулевая ссылка `ib` и убран избыточный `?.` — сняты `CS8602`/`CS8604` без изменения логики.
+- **Null-селекторы дерева заменены на пустые коллекции (Linux/Avalonia)**: вместо возврата `null` из `FuncTreeDataTemplate` для листьев теперь возвращается `Array.Empty<T>()` — поведение дерева не меняется, сняты `CS8603` ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs), [`Views/GroupSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/GroupSettingsWindow.Avalonia.cs), [`Views/GroupPickerWindow.Avalonia.cs`](Configuration%20Management/Views/GroupPickerWindow.Avalonia.cs), [`Views/PlatformVersionPickerWindow.Avalonia.cs`](Configuration%20Management/Views/PlatformVersionPickerWindow.Avalonia.cs), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)).
+- **Защита от null-состояния `_vm` в обработчиках перетаскивания (Linux/Avalonia)**: добавлены ранние проверки `if (_vm is null) return;` по уже принятому в файле паттерну — сняты `CS8602` в `OnTreeDragPointerMoved`, `OnTreeDrop`, `ApplyDrop` и `IsDropAllowed` ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)).
+- **Избыточный `?.` при чтении имени/версии конфигурации на Linux**: возврат `new OneCConfigInfo(...)` дополнен `?? string.Empty` — сняты `CS8604` без изменения результата для валидных дампов ([`Services/OneCComConnector.Linux.cs`](Configuration%20Management/Services/OneCComConnector.Linux.cs)).
+
+### Исправлено
+
+- **Устаревший `ToggleButton.Checked` заменён на `IsCheckedChanged` (CS0618)**: переключатель палитры в окне настроек переведён на современное событие; повторная перерисовка при снятии отметки гасится внутренней проверкой в `SelectPalette` ([`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)).
+- **CA1416: платформозависимые вызовы закрыты явными проверками ОС**:
+  - освобождение COM-объектов (`Marshal.FinalReleaseComObject`) теперь выполняется только на Windows (`OperatingSystem.IsWindows()`); на других ОС `Dispose` становится no-op — поведение не меняется ([`Models/OneCComConnection.cs`](Configuration%20Management/Models/OneCComConnection.cs));
+  - установка Unix-прав ярлыка `File.SetUnixFileMode` обёрнута в `OperatingSystem.IsLinux()` ([`Services/InfobaseMaintenanceService.Linux.cs`](Configuration%20Management/Services/InfobaseMaintenanceService.Linux.cs)).
+- **CS8625: `TransparencyLevelHint = null` заменён на `Array.Empty<WindowTransparencyLevel>()`**: пустой список эквивалентен `null` по поведению Avalonia, но не нарушает контракт ненулевого типа ([`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs), [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)).
+
+### Версия
+
+- **Версия поднята до `0.3.6.77` → `0.3.6.78`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок и без предупреждений.
+
+## [0.3.6.77] — 2026-09-06
+
+Технический выпуск: очистка репозитория от временных артефактов анализа и удаление мёртвых конвертеров, не входящих ни в одну сборку. Поведение приложения не изменено — только чистка и согласование версии.
+
+### Удалено
+
+- **Временные артефакты анализа в корне репозитория** (не отслеживаются git): `issue_status.txt`, `issues.json`, `issues_analysis.txt`, `open_issues.json`, `open_issues_summary.txt` — подтверждённый пользователем мусор, удалены.
+- **Мёртвые конвертеры Avalonia** из [`Configuration Management/Converters/Avalonia/`](Configuration%20Management/Converters/Avalonia/), не используемые ни в одной привязке/разметке (`*.xaml`/`*.axaml`/`*.cs`) и не входящие ни в одну сборку:
+  - `BooleanToGridLengthConverter.Avalonia.cs`
+  - `ColumnVisibilityConverter.Avalonia.cs`
+  - `DoubleToGridLengthConverter.Avalonia.cs`
+  - `GroupOffsetConverter.Avalonia.cs`
+  - `IconKeyToGeometryConverter.Avalonia.cs`
+  - `InverseBoolToVisibilityConverter.Avalonia.cs`
+  - `NameColumnWidthConverter.Avalonia.cs`
+- Уже отсутствующие на диске неиспользуемые конвертеры `GroupFullPathConverter.Avalonia.cs`, `NullToBoolConverter.Avalonia.cs`, `MultiValueToArrayConverter.Avalonia.cs` не были включены в состав. Оставлены только используемые Avalonia-конвертеры: `GroupColorConverter`, `GroupTextColorConverter`, `LevelToThicknessConverter` и `IconHelper`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.76` → `0.3.6.77`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок и без новых критических предупреждений.
+
 ## [0.3.6.76] — 2026-09-06
 
 Выпуск после влития веток `linux-fixes` (PR #179, #181, #182) с дополнительными исправлениями issues #183, #174, #163 и устранением остатков регрессии 0.3.6.75 (issues #178, #180).

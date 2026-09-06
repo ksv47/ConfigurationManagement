@@ -71,7 +71,9 @@ namespace Configuration_Management
                     // В непрозрачном режиме прозрачность и расширение не запрашиваем вовсе,
                     // чтобы не провоцировать непрерывную перерисовку фона (issue #153).
                     // Сплошной фон задаём явно, чтобы нативное окно было непрозрачным.
-                    TransparencyLevelHint = null;
+                    // Пустой список эквивалентен null по поведению Avalonia (системный
+                    // уровень прозрачности по умолчанию), но не провоцирует CS8625.
+                    TransparencyLevelHint = Array.Empty<WindowTransparencyLevel>();
                     Background = new SolidColorBrush(Color.Parse("#FF161616"));
                 }
                 else

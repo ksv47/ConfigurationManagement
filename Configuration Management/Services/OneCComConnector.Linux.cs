@@ -153,7 +153,9 @@ namespace Configuration_Management.Services
                     if (p.ExitCode != 0 || !File.Exists(tmp) || new FileInfo(tmp).Length == 0)
                         return null;
 
-                    return new OneCConfigInfo(ReadConfigNameFromDump(tmp), ReadVersionFromDump(tmp));
+                    return new OneCConfigInfo(
+                        ReadConfigNameFromDump(tmp) ?? string.Empty,
+                        ReadVersionFromDump(tmp) ?? string.Empty);
                 }
                 finally
                 {

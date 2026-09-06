@@ -83,7 +83,7 @@ namespace Configuration_Management
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
                 (item, _) => BuildTreeRow(item),
-                item => item is GroupNodeViewModel g ? g.Children : null);
+                item => item is GroupNodeViewModel g ? g.Children : Array.Empty<GroupNodeViewModel>());
 
             var treeBorder = new Border
             {

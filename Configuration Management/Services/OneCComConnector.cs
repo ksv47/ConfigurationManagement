@@ -345,11 +345,15 @@ public sealed class OneCComConnector : IOneCComConnector
     public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000)
     {
         if (infobase is null) return null;
+        // Параметр объявлен ненулевым, а защита выше уже вернула бы раньше. Локальная
+        // ссылка снимает для анализатора сомнение «может быть null» на последующих
+        // обращениях к базе внутри метода (CS8602/CS8604).
+        var ib = infobase!;
 
         // Список ProgID с учётом шаблона имени (issue #175). Как и в Connect, кэш доступности
         // обходим при кастомном шаблоне: он проверяет только KnownProgIds, а перечень кандидатов
         // агент получит явно.
-        var progIds = GetProgIds(infobase);
+        var progIds = GetProgIds(ib);
 
         // Запоминаем фактически использованный ProgID и версию платформы для диагностики
         // в UI (issue #174). Первый кандидат списка (при пустом шаблоне это всегда
@@ -357,18 +361,20 @@ public sealed class OneCComConnector : IOneCComConnector
         // платформе базы — поэтому берём первый реально зарегистрированный в системе
         // коннектор, иначе диагностика вводила бы в заблуждение («V85 точно не по адресу»).
         LastUsedProgId = FirstRegisteredProgId(progIds);
-        LastUsedPlatformVersion = infobase?.PlatformVersion;
+        // ib гарантированно ненулевой (защита выше + null-forgiving), поэтому ?. здесь
+        // избыточен и вдобавок сбивает анализ состояния потока для последующих обращений.
+        LastUsedPlatformVersion = ib.PlatformVersion;
 
         if (ReferenceEquals(progIds, KnownProgIds) && !IsComConnectorAvailable())
         {
-            SetConnectorUnavailableError(infobase.Name);
+            SetConnectorUnavailableError(ib.Name);
             return null;
         }
 
         // Признак пароля берём у того, кто строку собирает: он единственный знает наверняка,
         // положил ли туда Pwd. Разбирать уже собранную строку обратно — лишний источник
         // расхождений: список секретных параметров пришлось бы держать синхронным в двух местах.
-        var connectString = BuildComConnectString(infobase, out var hasSecret);
+        var connectString = BuildComConnectString(ib, out var hasSecret);
         if (string.IsNullOrWhiteSpace(connectString))
         {
             LastError = LocalizationManager.T("Com.ConnStringBuildFailed");
@@ -403,7 +409,7 @@ public sealed class OneCComConnector : IOneCComConnector
             var trace = result.Failure == ComFailureKind.AgentStart && !string.IsNullOrEmpty(result.Detail)
                 ? $" ({result.Detail})"
                 : string.Empty;
-            _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{infobase.Name}»: {LastError}{trace}");
+            _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{ib.Name}»: {LastError}{trace}");
         }
 
         return null;

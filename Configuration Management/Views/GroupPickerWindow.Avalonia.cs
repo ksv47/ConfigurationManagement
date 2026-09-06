@@ -303,7 +303,7 @@ namespace Configuration_Management
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
                 (item, _) => BuildTreeRow(item),
-                item => item is GroupNodeViewModel g && g.HasChildren ? g.Children : null);
+                item => item is GroupNodeViewModel g && g.HasChildren ? g.Children : Array.Empty<GroupNodeViewModel>());
             if (Application.Current?.TryFindResource(ControlThemes.GroupPickerTreeItem, out var treeItemTheme) == true
                 && treeItemTheme is ControlTheme itemTheme)
             {

@@ -284,14 +284,17 @@ namespace Configuration_Management.Services
                 File.WriteAllText(desktopPath, sb.ToString(), new UTF8Encoding(false));
 
                 // На большинстве DE ярлык на рабочем столе должен быть исполняемым.
+                // Файл собирается под #if LINUX, но анализатор видит и другие ОС (CA1416),
+                // поэтому вызов закрыт явной проверкой ОС.
                 try
                 {
-                    File.SetUnixFileMode(desktopPath,
-                        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                    if (OperatingSystem.IsLinux())
+                        File.SetUnixFileMode(desktopPath,
+                            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
                 }
                 catch
                 {
-                    // Linux-only; на не-Unix (не бывает под #if LINUX) — пропускаем.
+                    // Права можно не выставить — ярлык останется, но без флага исполняемости.
                 }
 
                 return File.Exists(desktopPath);

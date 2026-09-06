@@ -441,7 +441,7 @@ namespace Configuration_Management
             versionsTree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
                 (item, _) => BuildPlatformRow(item),
-                item => item is PlatformVersionGroup group && group.Children.Count > 0 ? group.Children : null);
+                item => item is PlatformVersionGroup group && group.Children.Count > 0 ? group.Children : Array.Empty<PlatformVersionGroup>());
             // Дерево раскрыто целиком, как задаёт ItemContainerStyle разметки
             // (SettingsWindow.xaml:386): группировка видна сразу, а свернуть узел
             // вручную по-прежнему можно.
@@ -1547,8 +1547,10 @@ namespace Configuration_Management
                 previewDark = dark;
                 RefreshColors();
             }
-            lightPalette.Checked += (_, _) => SelectPalette(false);
-            darkPalette.Checked += (_, _) => SelectPalette(true);
+            // IsCheckedChanged (вместо устаревшего ToggleButton.Checked) срабатывает и при
+            // снятии отметки; повторная отрисовка гасится внутренней проверкой в SelectPalette.
+            lightPalette.IsCheckedChanged += (_, _) => SelectPalette(false);
+            darkPalette.IsCheckedChanged += (_, _) => SelectPalette(true);
             var paletteSwitch = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 4, 0, 0) };
             paletteSwitch.Children.Add(lightPalette);
             paletteSwitch.Children.Add(darkPalette);
