@@ -1681,12 +1681,27 @@ namespace Configuration_Management
             var timestampBox = new AutoCompleteBox
             {
                 MinWidth = 280,
+                MinHeight = 38,
                 ItemsSource = TimestampFormats,
                 FilterMode = AutoCompleteFilterMode.Contains,
                 Text = string.IsNullOrWhiteSpace(_viewModel.ExportTimestampFormat)
                     ? TimestampFormats[0]
                     : _viewModel.ExportTimestampFormat
             };
+            // Вертикальная обрезка текста шаблона: у AutoCompleteBox нет своего
+            // VerticalContentAlignment (в отличие от TextBox), поэтому центрируем
+            // и чуть «дышим» внутреннему редактируемому TextBox, а высоту поля
+            // (MinHeight=38) согласуем с Windows-версией (SettingsWindow.xaml).
+            // Стиль добавляется локально, в Styles самого поля, чтобы не задеть
+            // другие поля ввода окна.
+            timestampBox.Styles.Add(new Style(x => x.OfType<AutoCompleteBox>().Descendant().OfType<TextBox>())
+            {
+                Setters =
+                {
+                    new Setter(TextBox.VerticalContentAlignmentProperty, VerticalAlignment.Center),
+                    new Setter(TextBox.PaddingProperty, new Thickness(6, 4))
+                }
+            });
             ToolTip.SetTip(timestampBox, LocalizationManager.T("Settings.Bases.TimestampFormatTooltip"));
 
             var timestampPreview = new TextBlock { VerticalAlignment = VerticalAlignment.Center };

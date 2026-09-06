@@ -9,6 +9,21 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.79] — 2026-09-06
+
+Технический микровыпуск с исправлением UI: устранена вертикальная обрезка текста в поле выбора шаблона даты/времени (формат отметки даты и времени) на вкладке «Базы» окна «Настройки». Правка внесена в обе реализации — Windows/WPF и Linux/Avalonia.
+
+### Исправлено
+
+- **Вертикальная обрезка текста в поле шаблона даты/времени** на вкладке «Базы» окна «Настройки»: строка формата отметки даты и времени обрезалась снизу из-за фиксированной высоты поля.
+  - **Windows/WPF** ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml)): у элемента `ComboBox x:Name="ExportTimestampFormatComboBox"` убрана фиксированная `Height="34"` (конфликтовавшая с `MinHeight=36` стиля), вместо неё задано `MinHeight="38"`, добавлены `Padding="10,5"` и `VerticalContentAlignment="Center"` — строка формата снова помещается по вертикали.
+  - **Linux/Avalonia** ([`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)): `AutoCompleteBox timestampBox` получил `MinHeight = 38` (согласовано с Windows-версией), а внутренний редактируемый `TextBox` — локальный стиль с `VerticalContentAlignment = VerticalAlignment.Center` и `Padding = new Thickness(6, 4)`; стиль задан локально в `Styles` самого поля, чтобы не затронуть другие поля ввода окна.
+
+### Версия
+
+- **Версия поднята до `0.3.6.78` → `0.3.6.79`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.6.78] — 2026-09-06
 
 Технический выпуск: рефакторинг и устранение предупреждений компилятора и статических анализаторов без изменения поведения приложения. Обе сборки (Windows/WPF и Linux/Avalonia) проходят без ошибок и без предупреждений.
