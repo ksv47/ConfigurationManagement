@@ -67,7 +67,7 @@ public class StartManagerImportResult
 ///   <item><c>v8config.smc</c> — надстройки StartManager к базам списка 1С:
 ///       авторизации, хранилище, версия конфигурации, флаги запуска.</item>
 /// </list>
-/// Пароли в StartManager зашифрованы методом Виженера по ASCII-символам с ключом «SLAVKA» —
+/// Пароли в StartManager зашифрованы методом Виженера по ASCII-символам с ключом «SLAVKA240601» —
 /// здесь реализована их расшифровка. Кодировка файлов определяется по BOM:
 /// StartManager 1.4 пишет UTF-8, более старые сборки — Windows-1251.
 /// </summary>
@@ -77,7 +77,7 @@ public class StartManagerImportResult
 public static class StartManagerImporter
 {
     /// <summary>Ключ шифрования паролей StartManager (метод Виженера по ASCII).</summary>
-    private const string VigenereKey = "SLAVKA";
+    private const string VigenereKey = "SLAVKA240601";
 
     /// <summary>Код символа «0»: постоянное слагаемое шифра паролей StartManager.</summary>
     private const int ZeroDigit = '0';
@@ -804,7 +804,7 @@ public static class StartManagerImporter
 
     /// <summary>
     /// Расшифровывает пароль StartManager. Метод Виженера по ASCII-символам с ключом
-    /// «SLAVKA»: каждый байт шифротекста смещается назад на код соответствующего символа
+    /// «SLAVKA240601»: каждый байт шифротекста смещается назад на код соответствующего символа
     /// ключа и вперёд на код символа «0» (по модулю 256). Пустые значения возвращаются
     /// без изменений. Смещение на 48 проверено на паролях «123» (шифр «TND») и «Abc-99»
     /// (шифр «d~tSTJ»): без него расшифровка промахивается ровно на код нуля.
@@ -828,7 +828,7 @@ public static class StartManagerImporter
     }
 
     /// <summary>
-    /// Шифрует пароль методом Виженера с ключом «SLAVKA» (обратная операция к
+    /// Шифрует пароль методом Виженера с ключом «SLAVKA240601» (обратная операция к
     /// <see cref="DecryptPassword"/>). Используется для тестов и отладки.
     /// </summary>
     public static string EncryptPassword(string? plain)
