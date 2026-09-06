@@ -31,9 +31,11 @@ namespace Configuration_Management.Services
         private readonly HttpClient _http;
 
         /// <summary>
-        /// Флаг «автоматически обновлять приложение без подтверждения». Как и в Windows-версии,
-        /// при обнаружении новой версии всегда показывается диалог с вопросом о применении;
-        /// значение сохраняется из настроек при старте (в App.OnFrameworkInitializationCompleted).
+        /// Флаг «автоматически обновлять приложение без подтверждения». Если включён —
+        /// при обнаружении новой версии она скачивается и применяется молча (без диалога)
+        /// через <see cref="DownloadAndInstallAutoAsync"/>; если выключен — показывается
+        /// диалог с вопросом о применении. Значение сохраняется из настроек при старте
+        /// (в App.OnFrameworkInitializationCompleted).
         /// </summary>
         public bool AutoUpdateEnabled { get; set; } = true;
 
@@ -65,6 +67,13 @@ namespace Configuration_Management.Services
                 if (!GitHubReleaseService.IsNewerThan(release, VersionInfo.Display()))
                     return;
 
+                if (AutoUpdateEnabled)
+                {
+                    // Автообновление включено — применяем новую версию без вопросов.
+                    await DownloadAndInstallAutoAsync(release).ConfigureAwait(false);
+                    return;
+                }
+
                 await Dispatcher.UIThread.InvokeAsync(() => ShowUpdateDialog(release));
             }
             catch
@@ -95,6 +104,13 @@ namespace Configuration_Management.Services
                     ShowOnUi(() => _dialogs.ShowInfo(
                         LocalizationManager.T("Update.UpToDate"),
                         LocalizationManager.T("Update.NewVersionAvailable")));
+                    return;
+                }
+
+                if (AutoUpdateEnabled)
+                {
+                    // Автообновление включено — применяем новую версию без вопросов.
+                    await DownloadAndInstallAutoAsync(release).ConfigureAwait(false);
                     return;
                 }
 
@@ -210,8 +226,8 @@ namespace Configuration_Management.Services
                 ShowOnUi(() => _dialogs.ShowError(
                     LocalizationManager.T("Update.InstallFailed"),
                     LocalizationManager.T("Update.NewVersionAvailable")));
-            }
         }
+    }
 
         /// <summary>
         /// Возвращает текст объяснения, почему самозамена невозможна, или <c>null</c>,
@@ -290,6 +306,62 @@ namespace Configuration_Management.Services
         /// <summary>Обрезает ведущий символ «v» у тега версии для отображения.</summary>
         private static string NormalizeTag(string tag) =>
             !string.IsNullOrEmpty(tag) && (tag[0] == 'v' || tag[0] == 'V') ? tag.Substring(1) : tag;
+
+    /// <summary>
+    /// Скачивает новый бинарник и сразу применяет обновление режимом «Перезапустить
+    /// сейчас», не задавая пользователю вопросов. Используется, когда включено
+    /// автообновление (<see cref="AutoUpdateEnabled"/>), — аналог <c>DownloadAndInstallAutoAsync</c>
+    /// Windows-версии. Все ошибки обрабатываются внутри и не роняют приложение.
+    /// </summary>
+    public async Task DownloadAndInstallAutoAsync(ReleaseInfo release)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(release.DownloadUrl))
+            {
+                ShowOnUi(() => _dialogs.ShowError(
+                    LocalizationManager.T("Update.NoDownloadUrl"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!);
+            if (newBinary is null)
+            {
+                ShowOnUi(() => _dialogs.ShowError(
+                    LocalizationManager.T("Update.DownloadFailed"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            var target = ResolveTargetBinary();
+            if (target is null)
+            {
+                ShowOnUi(() => _dialogs.ShowError(
+                    LocalizationManager.T("Update.InstallFailed"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            // Автоматический режим всегда применяет обновление с перезапуском «сейчас».
+            if (!ApplyRestartNow(target, newBinary))
+            {
+                ShowOnUi(() => _dialogs.ShowError(
+                    LocalizationManager.T("Update.InstallFailed"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            // Помощник запущен — закрываем приложение, чтобы замена прошла после выхода.
+            ShutdownNow();
+        }
+        catch
+        {
+            ShowOnUi(() => _dialogs.ShowError(
+                LocalizationManager.T("Update.InstallFailed"),
+                LocalizationManager.T("Update.NewVersionAvailable")));
+        }
+    }
 
         /// <summary>Возвращает путь к текущему исполняемому файлу приложения или null.</summary>
         internal string? ResolveTargetBinary()

@@ -33,9 +33,10 @@ public sealed class UpdateService
     private readonly HttpClient _http;
 
     /// <summary>
-    /// Флаг «автоматически обновлять приложение без подтверждения». Хранит настройку
-    /// пользователя, но больше НЕ вызывает молчаливую установку: как фоновая, так и
-    /// ручная проверка при обнаружении новой версии всегда показывают единый диалог
+    /// Флаг «автоматически обновлять приложение без подтверждения». Если включён —
+    /// при обнаружении новой версии файл скачивается и обновление применяется
+    /// молча (без диалога) через <see cref="DownloadAndInstallAutoAsync"/>. Если
+    /// выключен — показывается единый диалог <see cref="UpdateAvailableWindow"/>
     /// с вопросом «Перезапустить сейчас / Обновить после закрытия». Значение
     /// устанавливается из настроек при старте приложения в <c>App.OnStartup</c>.
     /// </summary>
@@ -68,12 +69,12 @@ public sealed class UpdateService
     }
 
     /// <summary>
-    /// Проверяет наличие новой версии приложения. Если версия новее — всегда
-    /// показывает единый диалог обновления (предложение → прогресс скачивания →
-    /// вопрос «Перезапустить сейчас / Обновить после закрытия»), независимо от
-    /// <see cref="AutoUpdateEnabled"/>. Вызывается из фона; переход в UI-поток
-    /// выполняется внутри через Dispatcher, поэтому сам метод не блокирует интерфейс.
-    /// Ошибки сети/парсинга и отображения диалога не всплывают наружу.
+    /// Проверяет наличие новой версии приложения. Если версия новее — при включённом
+    /// <see cref="AutoUpdateEnabled"/> применяет обновление молча (без диалога) через
+    /// <see cref="DownloadAndInstallAutoAsync"/>, иначе показывает единый диалог
+    /// обновления. Вызывается из фона; переход в UI-поток выполняется внутри через
+    /// Dispatcher, поэтому сам метод не блокирует интерфейс. Ошибки сети/парсинга и
+    /// отображения диалога не всплывают наружу.
     /// </summary>
     public async Task CheckForUpdatesAsync()
     {
@@ -87,14 +88,20 @@ public sealed class UpdateService
             if (!GitHubReleaseService.IsNewerThan(release, VersionInfo.Display()))
                 return;
 
+            if (AutoUpdateEnabled)
+            {
+                // Автообновление включено — применяем новую версию без вопросов.
+                await DownloadAndInstallAutoAsync(release).ConfigureAwait(false);
+                return;
+            }
+
             var app = Application.Current;
             if (app is null)
                 return;
 
-            // Всегда показываем единый диалог обновления, независимо от режима
-            // автообновления. Окно само скачивает файл с прогрессом и по завершении
-            // задаёт пользователю вопрос «Перезапустить сейчас / Обновить после
-            // закрытия». Молчаливое применение в фоне исключено.
+            // Автообновление выключено — показываем единый диалог, который сам
+            // скачивает файл и задаёт пользователю вопрос «Перезапустить сейчас /
+            // Обновить после закрытия».
             await app.Dispatcher.InvokeAsync(() => ShowUpdateDialog(release));
         }
         catch
@@ -126,6 +133,13 @@ public sealed class UpdateService
                 ShowOnUi(() => _dialogs.ShowInfo(
                     LocalizationManager.T("Update.UpToDate"),
                     LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            if (AutoUpdateEnabled)
+            {
+                // Автообновление включено — применяем новую версию без вопросов.
+                await DownloadAndInstallAutoAsync(release).ConfigureAwait(false);
                 return;
             }
 

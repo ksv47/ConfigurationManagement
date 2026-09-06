@@ -317,6 +317,16 @@ namespace Configuration_Management
             if (!string.IsNullOrWhiteSpace(platformVersion))
                 sb.AppendLine().AppendLine($"Версия платформы базы: {platformVersion}");
 
+            // Если имя коннектора не соответствует версии платформы базы (например, V85
+            // для базы 8.3.x), поясняем причину и подсказываем решение (issue #174).
+            if (!ConfigurationInfoService.ProgIdMatchesPlatform(progId, platformVersion))
+            {
+                sb.AppendLine().AppendLine(
+                    "Внимание: имя COM-коннектора не соответствует версии платформы базы. " +
+                    "Если определение свойств даёт неверный результат, задайте шаблон имени " +
+                    "COM-коннектора в настройках приложения.");
+            }
+
             MessageBox.Show(
                 sb.ToString().TrimEnd(),
                 LocalizationManager.T("Connection.DetectConfigTitle"),

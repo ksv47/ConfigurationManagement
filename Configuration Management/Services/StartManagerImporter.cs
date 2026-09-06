@@ -208,20 +208,27 @@ public static class StartManagerImporter
     }
 
     /// <summary>
-    /// Переносит настройки импортированной базы в существующую, не затирая заполненные
-    /// значения, но восстанавливая удалённые вручную авторизации (issue #163).
-    /// <para>
-    /// Ключевое правило: если авторизация в приложении пустая (пользователь удалил
-    /// имя/пароль/путь к хранилищу), а в StartManager запись существует — она
-    /// восстанавливается целиком или дополняется по незаполненным полям. Прежняя логика
-    /// отбрасывала запись целиком по <c>HasServer</c>/<c>IsDefault</c>, из-за чего
-    /// «пустые» в приложении, но заполненные в StartManager авторизации не возвращались.
-    /// </para>
+    /// Переносит настройки импортированной базы в существующую. Источник (StartManager)
+    /// считается авторитетным: заполненные значения переносятся/восстанавливаются, а пустые
+    /// в источнике — сбрасывают соответствующие поля у существующей базы (issue #163).
+    /// Это позволяет при повторном импорте синхронизировать базу с текущим состоянием
+    /// StartManager, в т.ч. отразить удаление имени, паролей или пути к хранилищу.
     /// </summary>
     private static void Merge(Infobase target, Infobase imported)
     {
         if (!string.IsNullOrWhiteSpace(imported.Id))
             target.Id = imported.Id;
+
+        // Имя из источника переносим целиком: если в StartManager оно очищено (стало
+        // «по умолчанию» от строки подключения), обновляем его и у существующей базы.
+        var importedName = (imported.Name ?? string.Empty).Trim();
+        if (!string.Equals(target.Name, importedName, StringComparison.Ordinal))
+        {
+            var oldName = target.Name;
+            target.Name = importedName;
+            if (string.IsNullOrWhiteSpace(importedName))
+                LogInfo($"Очищено имя базы «{oldName}»: в StartManager имя не задано.");
+        }
 
         if (!string.IsNullOrWhiteSpace(imported.Group))
             target.Group = imported.Group;
@@ -242,24 +249,43 @@ public static class StartManagerImporter
         }
 
         MergeRepository(target, imported.Repository);
-        target.EnterpriseAuth = MergeAuthSettings(target.EnterpriseAuth, imported.EnterpriseAuth);
-        target.ConfiguratorAuth = MergeAuthSettings(target.ConfiguratorAuth, imported.ConfiguratorAuth);
+        target.EnterpriseAuth = MergeAuthSettings(
+            target.EnterpriseAuth, imported.EnterpriseAuth, "Предприятие", target.Name);
+        target.ConfiguratorAuth = MergeAuthSettings(
+            target.ConfiguratorAuth, imported.ConfiguratorAuth, "Конфигуратор", target.Name);
     }
 
     /// <summary>
-    /// Восстанавливает/дополняет настройки хранилища конфигурации. Если хранилище в
-    /// приложении пустое, а в StartManager задано — берётся целиком; иначе заполняются
-    /// только незаполненные поля.
+    /// Синхронизирует настройки хранилища конфигурации с источником (StartManager).
+    /// Если в источнике хранилище очищено/отключено — сбрасывает его у существующей базы
+    /// (issue #163); иначе восстанавливает из StartManager (если в приложении пустое) либо
+    /// приводит каждое поле к значению источника.
     /// </summary>
     private static void MergeRepository(Infobase target, RepositorySettings? imported)
     {
-        if (imported is null)
-            return; // В StartManager хранилище не задано — ничего не трогаем.
+        // Пустой источник (хранилище в StartManager очищено или не используется) —
+        // сбрасываем хранилище у существующей базы (issue #163).
+        var importedEmpty = imported is null
+            || (!imported.HasServer
+                && string.IsNullOrWhiteSpace(imported.RepositoryName)
+                && string.IsNullOrWhiteSpace(imported.User)
+                && string.IsNullOrWhiteSpace(imported.Password));
+        if (importedEmpty)
+        {
+            if (target.Repository is not null)
+            {
+                LogInfo($"Очистка хранилища базы «{target.Name}»: в StartManager хранилище не задано.");
+                // Свойство не допускает null и само сводит его к пустому объекту — задаём
+                // пустое хранилище явно (это и есть «хранилища нет»).
+                target.Repository = new RepositorySettings();
+            }
+            return;
+        }
 
         var dst = target.Repository;
         if (dst is null)
         {
-            target.Repository = imported;
+            target.Repository = imported!;
             return;
         }
 
@@ -272,34 +298,40 @@ public static class StartManagerImporter
                        && string.IsNullOrWhiteSpace(dst.Password);
         if (dstEmpty)
         {
-            target.Repository = imported;
+            target.Repository = imported!;
             return;
         }
 
-        // Иначе дополняем только те поля, которые в приложении остались пустыми.
-        if (string.IsNullOrWhiteSpace(dst.Server) && !string.IsNullOrWhiteSpace(imported.Server))
-            dst.Server = imported.Server;
-        if (string.IsNullOrWhiteSpace(dst.RepositoryName) && !string.IsNullOrWhiteSpace(imported.RepositoryName))
-            dst.RepositoryName = imported.RepositoryName;
-        if (string.IsNullOrWhiteSpace(dst.User) && !string.IsNullOrWhiteSpace(imported.User))
-            dst.User = imported.User;
-        if (string.IsNullOrWhiteSpace(dst.Password) && !string.IsNullOrWhiteSpace(imported.Password))
-            dst.Password = imported.Password;
+        // Источник авторитетен по каждому полю: пустые в StartManager очищаем, заполненные — переносим.
+        dst.Server = imported!.Server ?? string.Empty;
+        dst.RepositoryName = imported.RepositoryName ?? string.Empty;
+        dst.User = imported.User ?? string.Empty;
+        dst.Password = imported.Password ?? string.Empty;
     }
 
     /// <summary>
-    /// Восстанавливает/дополняет авторизацию («1С:Предприятие» или «Конфигуратор»).
-    /// Если авторизация в приложении по умолчанию (пустая), а в StartManager задана —
-    /// берётся целиком; иначе заполняются только незаполненные поля и режим аутентификации.
-    /// Возвращает итоговую авторизацию для записи в базу.
+    /// Синхронизирует авторизацию («1С:Предприятие» или «Конфигуратор») с источником.
+    /// Если в StartManager авторизация не задана — сбрасывает её у существующей базы
+    /// (issue #163); иначе восстанавливает (если в приложении удалена/пустая) либо приводит
+    /// поля к значениям источника. Возвращает итоговую авторизацию для записи в базу.
     /// </summary>
     private static InfobaseAuthSettings? MergeAuthSettings(
         InfobaseAuthSettings? target,
-        InfobaseAuthSettings? imported)
+        InfobaseAuthSettings? imported,
+        string kind,
+        string baseName)
     {
-        if (imported is null)
+        // Пустой источник — авторизация в StartManager очищена/отключена. Сбрасываем её
+        // у существующей базы, чтобы удаление учётки в StartManager отражалось при импорте
+        // (issue #163).
+        var importedEmpty = imported is null || imported.IsDefault;
+        if (importedEmpty)
         {
-            // В StartManager авторизация не задана — сохраняем текущее состояние.
+            if (target is not null && !target.IsDefault)
+            {
+                LogInfo($"Очистка авторизации «{kind}» базы «{baseName}»: в StartManager она не задана.");
+                return null;
+            }
             return target;
         }
 
@@ -310,14 +342,10 @@ public static class StartManagerImporter
             return imported;
         }
 
-        // Частично заполнена и в приложении, и в StartManager — дополняем незаполненные поля.
-        if (string.IsNullOrWhiteSpace(target.User) && !string.IsNullOrWhiteSpace(imported.User))
-            target.User = imported.User;
-        if (string.IsNullOrWhiteSpace(target.Password) && !string.IsNullOrWhiteSpace(imported.Password))
-            target.Password = imported.Password;
-        if (target.AuthenticationMode == AuthenticationMode.Prompt
-            && imported.AuthenticationMode != AuthenticationMode.Prompt)
-            target.AuthenticationMode = imported.AuthenticationMode;
+        // Источник авторитетен по полям: пустые в StartManager очищаем, заполненные — переносим.
+        target.User = imported!.User ?? string.Empty;
+        target.Password = imported.Password ?? string.Empty;
+        target.AuthenticationMode = imported.AuthenticationMode;
 
         return target;
     }

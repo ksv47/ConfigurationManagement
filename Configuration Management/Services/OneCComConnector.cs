@@ -135,6 +135,30 @@ public sealed class OneCComConnector : IOneCComConnector
             .Replace("%V4%", v4);
     }
 
+    /// <summary>
+    /// Возвращает первый ProgID из списка кандидатов, который реально зарегистрирован
+    /// в системе (issue #174). Стандартный список начинается с V85 независимо от версии
+    /// базы; если V85 не установлен (или не подходит по разрядности), показывать его как
+    /// «использованный» было бы вводящей в заблуждение диагностикой. Возвращает null,
+    /// если ни один из кандидатов не зарегистрирован.
+    /// </summary>
+    internal static string? FirstRegisteredProgId(IReadOnlyList<string> progIds)
+    {
+        foreach (var progId in progIds)
+        {
+            try
+            {
+                if (Type.GetTypeFromProgID(progId) is not null)
+                    return progId;
+            }
+            catch
+            {
+                // Не зарегистрирован / несоответствие разрядности — пробуем следующий.
+            }
+        }
+        return null;
+    }
+
     /// <summary>Оставляет в строке только десятичные цифры.</summary>
     private static string Digits(string s)
     {
@@ -327,9 +351,12 @@ public sealed class OneCComConnector : IOneCComConnector
         // агент получит явно.
         var progIds = GetProgIds(infobase);
 
-        // Запоминаем фактически использованный ProgID (первый предпочтительный кандидат)
-        // и версию платформы для диагностики в UI (issue #174).
-        LastUsedProgId = progIds.Count > 0 ? progIds[0] : null;
+        // Запоминаем фактически использованный ProgID и версию платформы для диагностики
+        // в UI (issue #174). Первый кандидат списка (при пустом шаблоне это всегда
+        // V85.COMConnector) может быть не зарегистрирован или вовсе не соответствовать
+        // платформе базы — поэтому берём первый реально зарегистрированный в системе
+        // коннектор, иначе диагностика вводила бы в заблуждение («V85 точно не по адресу»).
+        LastUsedProgId = FirstRegisteredProgId(progIds);
         LastUsedPlatformVersion = infobase?.PlatformVersion;
 
         if (ReferenceEquals(progIds, KnownProgIds) && !IsComConnectorAvailable())

@@ -9,6 +9,25 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.76] — 2026-09-06
+
+Выпуск после влития веток `linux-fixes` (PR #179, #181, #182) с дополнительными исправлениями issues #183, #174, #163 и устранением остатков регрессии 0.3.6.75 (issues #178, #180).
+
+### Исправлено
+
+- **Настройка «Автоматически обновлять приложение» теперь работает (issue #183)**: при включённом автообновлении новая версия скачивается и применяется молча (без диалога); при выключенном — показывается окно предложения обновления, как раньше. Поведение согласовано на обеих платформах (Windows/WPF и Linux/Avalonia) ([`Services/UpdateService.cs`](Configuration%20Management/Services/UpdateService.cs), [`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs)).
+- **Двойной клик по служебному узлу «Закреплённые»/«Без группы» сохраняет состояние (issue #180, остаток)**: в `OnInfobaseTree_PreviewMouseLeftButtonDown` ([`Views/MainWindow.Events.cs`](Configuration%20Management/Views/MainWindow.Events.cs)) переключение переведено на `ToggleGroupExpandedCommand`, состояние теперь сохраняется через `SetGroupCollapsed` по внутреннему маркеру `Pinned`/`NoGroup`, без записи локального значения в контейнер — после пересборки дерева/перезапуска состояние узла не откатывается.
+- **Окно «Очистка кэша 1С» на Linux/Avalonia: размеры снова отображаются (issue #178, регрессия 0.3.6.75)**: чтение типа кэша (`CurrentKind()`) вынесено из фоновой задачи `Task.Run` в поток интерфейса — устранена `InvalidOperationException "Call from invalid thread"`, из-за которой метод `RefreshCacheSizes` обрывался на третьем замере ([`Views/CacheCleanWindow.Avalonia.cs`](Configuration%20Management/Views/CacheCleanWindow.Avalonia.cs)).
+- **Определение свойств конфигурации: корректный ProgID и версия (issue #174)**: кнопка «Определить» больше не отчитывается первым кандидатом списка вслепую (`V85.COMConnector`), а использует первый реально зарегистрированный COM-коннектор; имя коннектора сверяется с версией платформы базы (`ProgIdMatchesPlatform`); при несовпадении выводится внятное пояснение с советом задать шаблон имени COM-коннектора в настройках ([`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs), [`Services/ConfigurationInfoService.cs`](Configuration%20Management/Services/ConfigurationInfoService.cs), [`Views/ConnectionSettingsWindow.xaml.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml.cs), [`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs)).
+- **Импорт из StartManager: слияние пустых значений (issue #163)**: источник (StartManager) считается авторитетным — если в нём поле пустое (имя базы, хранилище, авторизация «Предприятия»/«Конфигуратора»), соответствующее значение у существующей базы очищается/сбрасывается, а не игнорируется; непустой источник по-прежнему восстанавливает удалённые вручную данные. Изменения логируются ([`Services/StartManagerImporter.cs`](Configuration%20Management/Services/StartManagerImporter.cs)).
+- **Остатки кэша от удалённых баз на Linux (issue #178)** ([PR #181](https://github.com/sivatorov/ConfigurationManagement/pull/181)): каталоги `*.deleting_*` и «остатки» от удалённых баз теперь находятся и очищаются в окне «Очистка кэша 1С»; правки внесены по вердиктам трёх аудитов ([`Services/OneCCacheCleaner.cs`](Configuration%20Management/Services/OneCCacheCleaner.cs)).
+- **Группа не сворачивается, если внутри неё выделена база (issue #180)** ([PR #182](https://github.com/sivatorov/ConfigurationManagement/pull/182)): раскрытие/сворачивание веток переведено с установки локального значения `IsExpanded` на контейнере на установку на модели, поэтому блокирующий приоритет над OneWay-привязкой больше не мешает сворачиванию ([`Views/MainWindow.Tree.cs`](Configuration%20Management/Views/MainWindow.Tree.cs)).
+- **Окно выбора цвета под Linux/Avalonia (PR #179)**: кнопки больше не обрезаются и помещаются в окне, комментарий к ресурсам шаблона переписан описательно.
+
+### Версия
+
+- **Версия поднята до `0.3.6.75` → `0.3.6.76`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.6.75] — 2026-09-05
 
 Выпуск с исправлениями issue #153 «Linux — висит при запуске», #178 «Окно "Очистка кэша 1С"» и #180 «Группа не сворачивается, если внутри неё выделена база».
