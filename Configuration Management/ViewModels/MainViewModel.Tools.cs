@@ -20,6 +20,12 @@ namespace Configuration_Management.ViewModels;
 /// <summary>Main ViewModel (partial class split by feature blocks, see MainViewModel.*.cs).</summary>
 public partial class MainViewModel : ViewModelBase
 {
+    // Базы, чьё чтение свойств конфигурации в этом сеансе уже не удалось (issue #174):
+    // фоновое дочитывание пропускает их, чтобы не тратить время и не «глохнуть» на
+    // недоступном сервере при каждом запуске (по таймауту ~8 с на базу). Явная команда
+    // «Обновить информацию» эти пометки сбрасывает и пробует снова.
+    private readonly HashSet<string> _configInfoFailedKeys = new();
+
     /// <summary>
     /// Нужно ли автоматически разворачивать группы с видимыми базами:
     /// при поиске, фильтре по тегам, режиме «Избранное» или «Недавние».
@@ -855,12 +861,17 @@ public partial class MainViewModel : ViewModelBase
 
     /// <summary>
     /// Фоново считывает имя и версию конфигурации для баз, где они ещё не заполнены.
+    /// Не запускается автоматически при старте и импорте (issue #174): лишнее чтение
+    /// недоступных серверов занимало ~8 с на базу и «глушило» защёлку COM. Используется
+    /// только явно; базы, чьё чтение уже не удалось в этом сеансе, пропускаются, чтобы
+    /// не повторять бесполезные попытки при каждом запуске.
     /// </summary>
     private void RefreshConfigurationInfoAsync()
     {
         var targets = Infobases
-            .Where(ib => string.IsNullOrWhiteSpace(ib.ConfigurationName)
-                         || string.IsNullOrWhiteSpace(ib.ConfigurationVersion))
+            .Where(ib => (string.IsNullOrWhiteSpace(ib.ConfigurationName)
+                          || string.IsNullOrWhiteSpace(ib.ConfigurationVersion))
+                         && !_configInfoFailedKeys.Contains(ConfigInfoKey(ib)))
             .ToList();
         if (targets.Count == 0) return;
 
@@ -873,8 +884,13 @@ public partial class MainViewModel : ViewModelBase
                 {
                     if (ConfigurationInfoService.TryApply(ib, overwriteExisting: false))
                         any = true;
+                    else
+                        _configInfoFailedKeys.Add(ConfigInfoKey(ib));
                 }
-                catch { }
+                catch
+                {
+                    _configInfoFailedKeys.Add(ConfigInfoKey(ib));
+                }
             }
 
             if (!any) return;
@@ -892,6 +908,15 @@ public partial class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Идентификатор базы для пометки «чтение свойств конфигурации не удалось» (issue #174).
+    /// Основан на стабильных полях базы, чтобы пометка переживала пересоздание объектов.
+    /// </summary>
+    private static string ConfigInfoKey(Infobase ib)
+        => !string.IsNullOrWhiteSpace(ib.Id)
+            ? "id:" + ib.Id
+            : "conn:" + (ib.Connection?.ToConnectionString() ?? string.Empty);
+
+    /// <summary>
     /// Точечно запрашивает и заполняет информацию о конфигурации выбранной базы
     /// (из контекстного меню). Выполняется в фоне, чтобы не блокировать UI.
     /// </summary>
@@ -904,7 +929,10 @@ public partial class MainViewModel : ViewModelBase
         // реестра и сессионную защёлку агента. Причина сбоя могла быть разовой (антивирус,
         // нехватка памяти) или уже устранённой (платформу поставили после запуска),
         // а иначе до перезапуска приложения команда молча отвечала бы отказом.
+        // Заодно снимаем пометку о неудаче фонового чтения, чтобы явная команда всегда
+        // пробовала снова (issue #174).
         OneCComConnector.ResetComVerdicts();
+        _configInfoFailedKeys.Remove(ConfigInfoKey(ib));
 
         var baseName = ib.Name;
         _ = Task.Run(() =>
@@ -1146,8 +1174,10 @@ public partial class MainViewModel : ViewModelBase
             // Размеры файловых ИБ считаются в фоне с учётом кеша (не блокирует UI).
             RefreshFileMetadata();
 
-            // Фоново читаем имя и версию конфигурации для баз, где они ещё не заполнены.
-            RefreshConfigurationInfoAsync();
+            // Фоновое дочитывание свойств конфигурации при старте/импорте намеренно НЕ
+            // запускается (issue #174): на недоступном сервере оно занимало ~8 с на базу,
+            // «глушило» защёлку COM и было лишним при импорте. Только явная команда
+            // «Обновить информацию» (RefreshConfigurationInfo) читает свойства.
         }
         catch (Exception ex)
         {
@@ -1845,7 +1875,8 @@ public partial class MainViewModel : ViewModelBase
         string afterLaunchAction = "None",
         string? hotkeyClearSearch = null,
         string? hotkeyClearTags = null,
-        string? hotkeyRightPanelDetails = null)
+        string? hotkeyRightPanelDetails = null,
+        string? hotkeySwitchUser = null)
     {
         _allowMultipleInstances = allowMultipleInstances;
         _checkForUpdatesOnStartup = checkForUpdatesOnStartup;
@@ -1870,6 +1901,7 @@ public partial class MainViewModel : ViewModelBase
         if (hotkeyClearSearch != null) _hotkeyClearSearch = hotkeyClearSearch.Trim();
         if (hotkeyClearTags != null) _hotkeyClearTags = hotkeyClearTags.Trim();
         if (hotkeyRightPanelDetails != null) _hotkeyRightPanelDetails = hotkeyRightPanelDetails.Trim();
+        if (hotkeySwitchUser != null) _hotkeySwitchUser = hotkeySwitchUser.Trim();
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(CheckForUpdatesOnStartup));
         OnPropertyChanged(nameof(AutoUpdateEnabled));
@@ -1892,6 +1924,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyClearSearch));
         OnPropertyChanged(nameof(HotkeyClearTags));
         OnPropertyChanged(nameof(HotkeyRightPanelDetails));
+        OnPropertyChanged(nameof(HotkeySwitchUser));
         OnPropertyChanged(nameof(RememberWindowLayout));
         SaveSettings();
     }

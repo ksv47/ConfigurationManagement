@@ -146,6 +146,7 @@ public partial class MainViewModel : ViewModelBase
     private string _hotkeyClearSearch = "Ctrl+Shift+C";
     private string _hotkeyClearTags = "Ctrl+Shift+T";
     private string _hotkeyRightPanelDetails = "";
+    private string _hotkeySwitchUser = "";
     private string _sortField = "Name";
     private bool _sortAscending = true;
     /// <summary>Направление сортировки подгрупп по имени (true — А→Я, false — Я→А).</summary>
@@ -324,6 +325,7 @@ public partial class MainViewModel : ViewModelBase
             ? "Ctrl+Shift+T"
             : settings.HotkeyClearTags.Trim();
         _hotkeyRightPanelDetails = settings.HotkeyRightPanelDetails?.Trim() ?? "";
+        _hotkeySwitchUser = settings.HotkeySwitchUser?.Trim() ?? "";
         _sortField = string.IsNullOrWhiteSpace(settings.SortField) ? "Name" : settings.SortField;
         _sortAscending = settings.SortAscending;
         _lastSelectedInfobaseId = settings.LastSelectedInfobaseId ?? string.Empty;
@@ -445,10 +447,12 @@ public partial class MainViewModel : ViewModelBase
         TogglePinForCommand = new RelayCommand(TogglePinFor);
         CopyConnectionStringCommand = new RelayCommand(CopyConnectionString, _ => SelectedInfobase != null);
         // Команда очистки кеша верхней панели действует на выбранную базу: если база не
-        // выделена — недоступна (CanExecute=false). В колонке «Действия» строка передаёт
-        // свою базу параметром, поэтому там кнопка включена независимо от глобального выбора.
+        // выделена (например, под курсором папка) — окно открывается без предзаполненных
+        // галок, и пользователь сам отмечает нужные базы (issue #196). В колонке
+        // «Действия» строка передаёт свою базу параметром, поэтому там кнопка включена
+        // независимо от глобального выбора.
         ClearCacheCommand = new RelayCommand(ClearCache,
-            p => p is Infobase ? true : SelectedInfobase != null);
+            p => p is Infobase ? true : Infobases.Count > 0);
         ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program));
         ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User));
         ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));

@@ -290,6 +290,7 @@ namespace Configuration_Management
             afterLaunchBox.ItemsSource = new[]
             {
                 LocalizationManager.T("Settings.General.AfterLaunchAction.None"),
+                LocalizationManager.T("Settings.General.AfterLaunchAction.Minimize"),
                 LocalizationManager.T("Settings.General.AfterLaunchAction.MinimizeToTray"),
                 LocalizationManager.T("Settings.General.AfterLaunchAction.Close")
             };
@@ -2149,6 +2150,7 @@ namespace Configuration_Management
             var hotkeyClearSearch = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearSearch"), _viewModel.HotkeyClearSearch);
             var hotkeyClearTags = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearTags"), _viewModel.HotkeyClearTags);
             var hotkeyRightPanelDetails = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.RightPanelDetails"), _viewModel.HotkeyRightPanelDetails);
+            var hotkeySwitchUser = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.SwitchUser"), _viewModel.HotkeySwitchUser);
             // У автора последняя строка идёт без нижнего поля, а весь блок строк
             // несёт низ 12 (SettingsWindow.xaml:957 и 1039). У нас строки лежат
             // в общей панели, поэтому поле снимается у последней и добирается
@@ -2418,8 +2420,9 @@ namespace Configuration_Management
                 _viewModel.AfterLaunchAction = afterLaunchBox.SelectedIndex switch
                 {
                     0 => Models.AfterLaunchAction.None.ToSettingString(),
-                    1 => Models.AfterLaunchAction.MinimizeToTray.ToSettingString(),
-                    2 => Models.AfterLaunchAction.Close.ToSettingString(),
+                    1 => Models.AfterLaunchAction.Minimize.ToSettingString(),
+                    2 => Models.AfterLaunchAction.MinimizeToTray.ToSettingString(),
+                    3 => Models.AfterLaunchAction.Close.ToSettingString(),
                     // Ничего не выбрано: значение остаётся прежним, как в WPF-версии.
                     _ => _viewModel.AfterLaunchAction
                 };
@@ -2457,7 +2460,8 @@ namespace Configuration_Management
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
                     hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value,
                     hotkeyShowAll.Value, hotkeyShowFavorites.Value, hotkeyShowRecent.Value,
-                    hotkeyClearSearch.Value, hotkeyClearTags.Value, hotkeyRightPanelDetails.Value);
+                    hotkeyClearSearch.Value, hotkeyClearTags.Value, hotkeyRightPanelDetails.Value,
+                    hotkeySwitchUser.Value);
 
                 // Настройки отображения применяются и сохраняются одним вызовом.
                 // Видимость колонок читается из тех же элементов списка, где

@@ -513,6 +513,7 @@ public class MainViewModel : ViewModelBase
     public ICommand RefreshConfigurationInfoCommand { get; private set; } = null!;
     public ICommand ClearUserCacheCommand { get; private set; } = null!;
     public ICommand ClearCacheBothCommand { get; private set; } = null!;
+    public ICommand SwitchUserCommand { get; private set; } = null!;
 
     private void InitializeCommands()
     {
@@ -571,16 +572,20 @@ public class MainViewModel : ViewModelBase
         OpenNativeStarterCommand = new RelayCommand(OpenNativeStarter);
         QuickClearCacheCommand = new RelayCommand(QuickClearCache, _ => SelectedInfobase is not null);
         // Кнопка «Очистить кеш» верхней панели действует на выбранную базу: если база не
-        // выделена — недоступна (CanExecute=false). В колонке «Действия» строка передаёт
-        // свою базу параметром, поэтому там кнопка включена независимо от глобального выбора.
-        ClearCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All),
-            p => p is Infobase ? true : SelectedInfobase is not null);
+        // выделена (например, под курсором папка) — окно открывается без предзаполненных
+        // галок, и пользователь сам отмечает нужные базы (issue #196). В колонке
+        // «Действия» строка передаёт свою базу параметром, поэтому там кнопка включена
+        // независимо от глобального выбора и стартовая галка ставится на базу строки.
+        ClearCacheCommand = new RelayCommand(p => OpenCacheClean(OneCCacheKind.All, p as Infobase),
+            p => p is Infobase ? true : Infobases.Count > 0);
         ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program));
         DumpInfobaseDtCommand = new RelayCommand(DumpInfobaseDt);
         DumpConfigurationCfCommand = new RelayCommand(DumpConfigurationCf);
         RefreshConfigurationInfoCommand = new RelayCommand(RefreshConfigurationInfo);
         ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User));
         ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));
+        // Смена пользователя (issue #200): диалог входа без перезапуска приложения.
+        SwitchUserCommand = new RelayCommand(SwitchUser);
     }
 
     private void Launch(ICommand launchVmCommand, LaunchKind kind) => launchVmCommand.Execute(kind);
@@ -848,7 +853,8 @@ public class MainViewModel : ViewModelBase
     public string HotkeyClearSearch => _settings.HotkeyClearSearch;
     public string HotkeyClearTags => _settings.HotkeyClearTags;
     public string HotkeyRightPanelDetails => _settings.HotkeyRightPanelDetails;
- 
+    public string HotkeySwitchUser => _settings.HotkeySwitchUser;
+
     /// <summary>
     /// Сохраняет назначенные сочетания и сообщает окну, что их надо
     /// перерегистрировать: подписи в меню и сами привязки берутся отсюда.
@@ -856,7 +862,7 @@ public class MainViewModel : ViewModelBase
     public void ApplyHotkeys(string enterprise, string configurator, string edit, string add,
         string favorite, string pin, string delete, string clearCache,
         string showAll, string showFavorites, string showRecent,
-        string clearSearch, string clearTags, string rightPanelDetails)
+        string clearSearch, string clearTags, string rightPanelDetails, string switchUser)
     {
         _settings.HotkeyEnterprise = enterprise ?? string.Empty;
         _settings.HotkeyConfigurator = configurator ?? string.Empty;
@@ -872,7 +878,8 @@ public class MainViewModel : ViewModelBase
         _settings.HotkeyClearSearch = clearSearch ?? string.Empty;
         _settings.HotkeyClearTags = clearTags ?? string.Empty;
         _settings.HotkeyRightPanelDetails = rightPanelDetails ?? string.Empty;
- 
+        _settings.HotkeySwitchUser = switchUser ?? string.Empty;
+
         SaveSettingsSilently();
 
         OnPropertyChanged(nameof(HotkeyEnterprise));
@@ -889,11 +896,96 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyClearSearch));
         OnPropertyChanged(nameof(HotkeyClearTags));
         OnPropertyChanged(nameof(HotkeyRightPanelDetails));
+        OnPropertyChanged(nameof(HotkeySwitchUser));
         HotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Сочетания переназначены: окну надо перерегистрировать привязки и меню.</summary>
     public event EventHandler? HotkeysChanged;
+
+    /// <summary>
+    /// true, если учётных записей больше одной — тогда кнопка «Смена пользователя»
+    /// показывается на верхней панели (при одной записи переключать нечего).
+    /// </summary>
+    public bool SwitchUserVisible
+    {
+        get
+        {
+            try
+            {
+                return AppServices.GetRequiredService<IProfileService>().Profiles.Count > 1;
+            }
+            catch
+            {
+                // Сервис профилей в изолированном/тестовом контексте может отсутствовать.
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Открывает окно выбора учётной записи и, если пользователь вошёл в другую
+    /// запись, переключает активный профиль и перезагружает данные главного окна.
+    /// Отмена или выбор той же записи ничего не меняют.
+    /// </summary>
+    private void SwitchUser()
+    {
+        try
+        {
+            var profileService = AppServices.GetRequiredService<IProfileService>();
+            if (profileService.Profiles.Count <= 1)
+                return;
+
+            var current = profileService.CurrentProfile;
+            var selectedId = LoginWindow.ShowLogin(profileService);
+            if (selectedId == null)
+                return; // Вход отменён — остаёмся как есть.
+
+            if (current != null &&
+                string.Equals(current.Id, selectedId, StringComparison.OrdinalIgnoreCase))
+                return; // Та же запись — перезагрузка не нужна.
+
+            profileService.SetCurrentProfile(selectedId);
+            ReloadAfterProfileSwitch();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка смены пользователя: " + ex.Message);
+            _dialog.ShowError(string.Format(LocalizationManager.T("Auth.LoginError"), ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Перезагружает данные главного окна после смены активного профиля в работающем
+    /// приложении: повторно выполняет <see cref="Initialize"/> (список баз, группы,
+    /// тема, избранное, горячие клавиши), обновляет язык интерфейса профиля и
+    /// сообщает окну о переназначении сочетаний.
+    /// </summary>
+    private void ReloadAfterProfileSwitch()
+    {
+        try
+        {
+            Initialize();
+
+            // Локализация выбранного профиля.
+            try
+            {
+                var s = _repository.LoadSettings();
+                LocalizationManager.Instance.Initialize(s.Language);
+            }
+            catch
+            {
+                // Локализация не должна ломать смену пользователя.
+            }
+
+            OnPropertyChanged(nameof(SwitchUserVisible));
+            HotkeysChanged?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка перезагрузки данных после смены пользователя", ex);
+        }
+    }
 
     // ---- Видимость колонок ----
 
@@ -3927,7 +4019,10 @@ public class MainViewModel : ViewModelBase
     {
         try
         {
-            _favoriteHotkeyIds.RemoveAll(key => !_allInfobases.Any(ib => FavoriteKey(ib) == key));
+            // Слот должен соответствовать только текущим избранным базам, иначе
+            // вкладка, счётчик и список горячих клавиш разъезжаются (issue #194).
+            _favoriteHotkeyIds.RemoveAll(key =>
+                !_allInfobases.Any(ib => ib.IsFavorite && FavoriteKey(ib) == key));
 
             // Избранные без слота получают его в порядке имени, как в версии
             // для Windows. Слотов девять, лишние остаются без номера.
@@ -4838,7 +4933,8 @@ public class MainViewModel : ViewModelBase
     /// Открывает окно выбора типа кеша и информационных баз, после подтверждения выполняет очистку.
     /// </summary>
     /// <param name="kind">Тип кеша, выбранный по умолчанию.</param>
-    private void OpenCacheClean(OneCCacheKind kind)
+    /// <param name="defaultInfobase">База, отмеченная по умолчанию (например, выделенная в главном окне).</param>
+    private void OpenCacheClean(OneCCacheKind kind, Infobase? defaultInfobase = null)
     {
         if (Infobases.Count == 0)
         {
@@ -4850,7 +4946,7 @@ public class MainViewModel : ViewModelBase
         // Список отдаётся копией и окно открывается модально: иначе пока оно
         // открыто, список баз можно очистить из главного окна, и очистка
         // остатков посчитает остатками уже весь кеш.
-        var dialog = new CacheCleanWindow(Infobases.ToList(), kind, SelectedInfobase);
+        var dialog = new CacheCleanWindow(Infobases.ToList(), kind, defaultInfobase ?? SelectedInfobase);
         if (!dialog.ShowSync(OwnerWindow()))
             return;
 

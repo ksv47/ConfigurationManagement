@@ -264,7 +264,7 @@ namespace Configuration_Management
         /// <summary>Читает выбранное в окне настроек действие «после запуска базы/конфигуратора».</summary>
         private string ReadAfterLaunchAction()
         {
-            if (AfterLaunchActionCombo?.SelectedIndex is int idx && idx >= 0 && idx <= 2)
+            if (AfterLaunchActionCombo?.SelectedIndex is int idx && idx >= 0 && idx <= 3)
                 return ((Models.AfterLaunchAction)idx).ToSettingString();
             return _viewModel.AfterLaunchAction;
         }

@@ -809,12 +809,28 @@ public static class StartManagerImporter
     /// без изменений. Смещение на 48 проверено на паролях «123» (шифр «TND») и «Abc-99»
     /// (шифр «d~tSTJ»): без него расшифровка промахивается ровно на код нуля.
     /// </summary>
+    /// <remarks>
+    /// StartManager 1.4 пишет зашифрованный текст в кодовой странице 1251: обычные
+    /// пароли дают однобайтовые коды до 0x7F, а пароли с кириллицей шифруются другим
+    /// способом, и в тексте появляются символы с кодами старше 0x7F. Такой пароль этим
+    /// алгоритмом не расшифровать, поэтому для него возвращается пустая строка — пусть
+    /// пароль лучше останется пустым, чем в поле уедет мусор (issue #163).
+    /// </summary>
     public static string DecryptPassword(string? encrypted)
     {
         if (string.IsNullOrEmpty(encrypted))
             return string.Empty;
 
         var data = Ansi.GetBytes(encrypted);
+
+        // Код старше 0x7F — признак пароля с кириллицей, который шифруется не тем
+        // методом. Не расшифровываем: результат был бы мусором.
+        foreach (var b in data)
+        {
+            if (b > 0x7F)
+                return string.Empty;
+        }
+
         var key = Encoding.ASCII.GetBytes(VigenereKey);
         var result = new byte[data.Length];
 

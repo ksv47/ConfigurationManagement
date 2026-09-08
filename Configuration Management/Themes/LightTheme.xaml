@@ -599,6 +599,11 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="#F1F5F9"/>
                         </Trigger>
+                        <!-- Недоступную кнопку приглушаем сразу, как в контекстном меню,
+                             а не только по наведению (issue #197). Та же величина, что у HeaderIconButton. -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>

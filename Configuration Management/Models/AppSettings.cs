@@ -272,8 +272,8 @@ public class AppSettings
 
     /// <summary>
     /// Действие после успешного запуска информационной базы или конфигуратора 1С:
-    /// "None" (ничего), "MinimizeToTray" (свернуть в трей) или "Close" (закрыть/увести в трей).
-    /// Хранится строкой для обратной совместимости.
+    /// "None" (ничего), "Minimize" (просто свернуть), "MinimizeToTray" (свернуть в трей)
+    /// или "Close" (закрыть/увести в трей). Хранится строкой для обратной совместимости.
     /// </summary>
     public string AfterLaunchAction { get; set; } = "None";
 
@@ -321,7 +321,10 @@ public class AppSettings
 
     /// <summary>Горячая клавиша переключения подробностей правой панели информации (issue #172). Пусто — не назначена.</summary>
     public string HotkeyRightPanelDetails { get; set; } = "Ctrl+D";
- 
+
+    /// <summary>Горячая клавиша «Смена пользователя» (issue #200). Пусто — не назначена.</summary>
+    public string HotkeySwitchUser { get; set; } = "";
+
     /// <summary>
     /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.
     /// </summary>

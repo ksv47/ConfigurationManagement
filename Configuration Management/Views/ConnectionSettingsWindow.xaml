@@ -601,6 +601,10 @@
                                 <TextBlock Text="{loc:Loc Connection.GroupAuthConfigurator}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </StackPanel>
                         </GroupBox.Header>
+                        <StackPanel>
+                        <CheckBox Content="{loc:Loc Connection.ConfiguratorUseEnterpriseAuth}"
+                                  IsChecked="{Binding ConfiguratorUseEnterpriseAuth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  Margin="4,0,0,8" ToolTip="{loc:Loc Connection.ConfiguratorUseEnterpriseAuthHint}"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="120"/>
@@ -612,7 +616,7 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Connection.ModeLabel}" VerticalAlignment="Top" Margin="0,4"/>
-                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0">
+                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0" IsEnabled="{Binding IsConfiguratorAuthEnabled}">
                                 <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6" BorderThickness="1.5" Cursor="Hand" Background="{DynamicResource CardBackgroundBrush}">
                                     <Border.Style>
                                         <Style TargetType="Border">
@@ -675,10 +679,11 @@
                                 </Border>
                             </StackPanel>
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Connection.UserLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
-                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ConfiguratorUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ConfiguratorUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}" IsEnabled="{Binding IsConfiguratorAuthEnabled}"/>
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.PasswordLabel}" VerticalAlignment="Center" Margin="0,3" Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"/>
                             <Grid Grid.Row="2" Grid.Column="1" Margin="0,3"
-                                  Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}">
+                                  Visibility="{Binding IsConfiguratorCredentialsVisible, Converter={StaticResource BoolToVis}}"
+                                  IsEnabled="{Binding IsConfiguratorAuthEnabled}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -704,6 +709,7 @@
                                 </Button>
                             </Grid>
                         </Grid>
+                        </StackPanel>
                     </GroupBox>
                 </StackPanel>
                 </ScrollViewer>
@@ -726,6 +732,9 @@
                         </StackPanel>
                     </GroupBox.Header>
                     <StackPanel>
+                    <TextBlock Text="{loc:Loc Connection.DefaultLaunchModeLabel}" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="DefaultLaunchModeCombo" Width="220" HorizontalAlignment="Left" Margin="0,0,0,8"
+                              SelectionChanged="OnDefaultLaunchModeCombo_SelectionChanged"/>
                     <Border Margin="0,0,0,4" Padding="8,6" CornerRadius="6"
                             BorderThickness="1.5" Cursor="Hand"
                             Background="{DynamicResource CardBackgroundBrush}">

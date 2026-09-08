@@ -50,9 +50,19 @@ public static class IbasesV8iImporter
         // Создаём недостающие группы из импортируемых баз.
         var groupsBefore = groups.Count;
         EnsureGroups(entries, groups, result);
+
+        // Канонические пути групп после импорта — для диагностики дублирования
+        // вложенных папок при синхронизации со штатным стартером (issue #165).
+        var groupPathsAfter = groups
+            .Select(g => NormalizeGroupPath(GroupHierarchyHelper.GetFullPath(g, groups)))
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         LogInfo(
             $"Импорт ibases.v8i: групп было {groupsBefore}, стало {groups.Count}, " +
-            $"создано {result.GroupsCreated}, удалено дубликатов {Math.Max(0, result.GroupsCreated + groupsBefore - groups.Count)}");
+            $"создано {result.GroupsCreated}, удалено дубликатов {Math.Max(0, result.GroupsCreated + groupsBefore - groups.Count)}, " +
+            $"пути групп: [{string.Join("; ", groupPathsAfter)}]");
 
         foreach (var entry in entries)
         {

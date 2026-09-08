@@ -40,8 +40,9 @@ public partial class MainViewModel : ViewModelBase
         RebuildGroupTree();
         RefreshFileMetadata();
 
-        // Фоново читаем имя и версию конфигурации для баз, где они ещё не заполнены.
-        RefreshConfigurationInfoAsync();
+        // Фоновое дочитывание свойств конфигурации здесь НЕ запускается (issue #174):
+        // при импорте/обновлении списка оно было лишним, а на недоступном сервере
+        // занимало ~8 с на базу. Только явная команда «Обновить информацию» читает свойства.
     }
 
     /// <summary>
@@ -264,6 +265,11 @@ public partial class MainViewModel : ViewModelBase
             target.Repository = dialog.Result.Repository;
             if (!string.IsNullOrWhiteSpace(dialog.Result.LaunchMode))
                 target.LaunchMode = dialog.Result.LaunchMode;
+
+            // Правка могла снять или поставить звезду — пересчитываем слоты
+            // Alt+1…9, чтобы вкладка, счётчик и список горячих клавиш не
+            // разъезжались (issue #194). Как в версии для Avalonia.
+            SyncFavoriteHotkeys();
 
             InfobasesView.Refresh();
             Save();
@@ -731,9 +737,11 @@ public partial class MainViewModel : ViewModelBase
             if (Infobases is null)
                 return;
 
-            // Удаляем ключи, которых больше нет в списке баз.
+            // Удаляем ключи, которых больше нет среди избранных: слот должен
+            // соответствовать только текущим избранным базам, иначе вкладка,
+            // счётчик и список горячих клавиш разъезжаются (issue #194).
             _favoriteHotkeyIds.RemoveAll(key =>
-                !Infobases.Any(ib => FavoriteKey(ib) == key));
+                !Infobases.Any(ib => ib.IsFavorite && FavoriteKey(ib) == key));
 
             // Добавляем избранные без слота (в порядке имени).
             foreach (var ib in Infobases.Where(i => i.IsFavorite).OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase))

@@ -599,6 +599,12 @@
                                 <materialDesign:PackIcon Kind="Compress" Width="18" Height="18"
                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                             </ToggleButton>
+                            <Button Command="{Binding SwitchUserCommand}" Style="{DynamicResource IconButton}"
+                                    Margin="0,0,2,0"
+                                    Visibility="{Binding SwitchUserVisible, Converter={StaticResource BoolToVis}}"
+                                    ToolTip="{loc:Loc Main.SwitchUserTooltip}">
+                                <materialDesign:PackIcon Kind="AccountSwitch" Width="18" Height="18" Foreground="#06B6D4"/>
+                            </Button>
                             <Button Command="{Binding OpenSettingsCommand}" Style="{DynamicResource IconButton}"
                                     ToolTip="{loc:Loc Main.SettingsTooltip}">
                                 <materialDesign:PackIcon Kind="Cog" Width="18" Height="18" Foreground="{DynamicResource TextSecondaryBrush}"/>

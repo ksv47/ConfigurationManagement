@@ -87,6 +87,41 @@ namespace Configuration_Management
             };
             LocalizationManager.Instance.LanguageChanged += (_, _) => UpdateOsArchitectureHint();
             UpdateOsArchitectureHint();
+            InitDefaultLaunchModeCombo();
+        }
+
+        /// <summary>
+        /// Заполняет комбобокс «Режим запуска по умолчанию» (issue #201) и выставляет
+        /// текущее значение базы.
+        /// </summary>
+        private void InitDefaultLaunchModeCombo()
+        {
+            if (DefaultLaunchModeCombo is null || _viewModel is null) return;
+            DefaultLaunchModeCombo.ItemsSource = new[]
+            {
+                LocalizationManager.T("Connection.DefaultLaunchAuto"),
+                LocalizationManager.T("Connection.DefaultLaunchEnterprise"),
+                LocalizationManager.T("Connection.DefaultLaunchConfigurator")
+            };
+            DefaultLaunchModeCombo.SelectedIndex = _viewModel.DefaultLaunchMode switch
+            {
+                "Enterprise" => 1,
+                "Configurator" => 2,
+                _ => 0
+            };
+        }
+
+        /// <summary>Обработчик смены «режима запуска по умолчанию»: пишет каноническое значение в ViewModel.</summary>
+        private void OnDefaultLaunchModeCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (_viewModel is null || sender is not System.Windows.Controls.ComboBox combo)
+                return;
+            _viewModel.DefaultLaunchMode = combo.SelectedIndex switch
+            {
+                1 => "Enterprise",
+                2 => "Configurator",
+                _ => ""
+            };
         }
 
         /// <summary>
@@ -292,16 +327,64 @@ namespace Configuration_Management
         /// <summary>
         /// Определяет имя и версию конфигурации по настройкам подключения
         /// (COM-коннектор на Windows, эвристика по файлу базы на Linux)
-        /// и заполняет поля (issue #174).
+        /// и заполняет поля (issue #174). Чтение выполняется в фоновом потоке
+        /// с модальным диалогом прогресса, чтобы недоступный сервер не «замораживал»
+        /// окно настроек на весь таймаут (~8 с).
         /// </summary>
-        private void OnDetectConfiguration_Click(object sender, RoutedEventArgs e)
+        private async void OnDetectConfiguration_Click(object sender, RoutedEventArgs e)
         {
-            if (_viewModel.DetermineConfiguration()) return;
+            // Снимаем оба вердикта о недоступности COM (кэш реестра и сессионную защёлку
+            // процесса-агента): причина сбоя могла быть разовой или уже устранённой, а иначе
+            // кнопка «Определить» до перезапуска приложения молча отвечала бы отказом (issue #174).
+            OneCComConnector.ResetComVerdicts();
 
-            // Детальная диагностика неудачи определения свойств конфигурации (issue #174):
-            // помимо общей фразы показываем текст последней ошибки COM и фактически
-            // использованный ProgID/версию платформы, чтобы было видно, какой именно
-            // COM-коннектор пробовался (например, шаблон имени дал неправильный ProgID).
+            var progress = new DetectConfigProgressWindow { Owner = this };
+            progress.SetStage(BuildDetectConnectStageMessage());
+            progress.Show();
+            IsEnabled = false;
+            try
+            {
+                OneCConfigInfo? info;
+                try
+                {
+                    info = await Task.Run(() => _viewModel.ReadConfiguration(progress.SetStage));
+                }
+                catch
+                {
+                    info = null;
+                }
+
+                if (_viewModel.ApplyConfiguration(info)) return;
+
+                ShowDetectConfigurationFailure();
+            }
+            finally
+            {
+                IsEnabled = true;
+                progress.Close();
+            }
+        }
+
+        /// <summary>
+        /// Строит текст этапа «создание COM-подключения» для диалога прогресса (issue #174):
+        /// с версией платформы базы, чтобы было видно, какой COM-коннектор создаётся.
+        /// </summary>
+        private string BuildDetectConnectStageMessage()
+        {
+            var version = _viewModel.PlatformVersion;
+            return string.IsNullOrWhiteSpace(version)
+                ? LocalizationManager.T("Connection.DetectStageConnectNoVersion")
+                : string.Format(LocalizationManager.T("Connection.DetectStageConnectFormat"), version);
+        }
+
+        /// <summary>
+        /// Детальная диагностика неудачи определения свойств конфигурации (issue #174):
+        /// помимо общей фразы показывает текст последней ошибки COM и фактически
+        /// использованный ProgID/версию платформы, чтобы было видно, какой именно
+        /// COM-коннектор пробовался (например, шаблон имени дал неправильный ProgID).
+        /// </summary>
+        private void ShowDetectConfigurationFailure()
+        {
             var sb = new System.Text.StringBuilder();
             sb.AppendLine(LocalizationManager.T("Connection.DetectConfigFailed"));
 

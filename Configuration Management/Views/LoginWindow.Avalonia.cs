@@ -190,24 +190,33 @@ namespace Configuration_Management
 
         private void TryLogin()
         {
-            var profile = SelectedProfile;
-            if (profile == null)
+            // Любой сбой при входе (например, ошибка проверки пароля) показываем понятным
+            // сообщением в самом окне, а не роняем приложение необработанным исключением.
+            try
             {
-                ShowError(LocalizationManager.T("Auth.EmptySelection"));
-                return;
-            }
+                var profile = SelectedProfile;
+                if (profile == null)
+                {
+                    ShowError(LocalizationManager.T("Auth.EmptySelection"));
+                    return;
+                }
 
-            if (profile.HasPassword && !_profileService.VerifyPassword(profile.Id, _passwordInput.Password))
+                if (profile.HasPassword && !_profileService.VerifyPassword(profile.Id, _passwordInput.Password))
+                {
+                    ShowError(LocalizationManager.T("Auth.WrongPassword"));
+                    _passwordInput.Clear();
+                    _passwordInput.Focus();
+                    return;
+                }
+
+                SelectedProfileId = profile.Id;
+                DialogResult = true;
+                Close();
+            }
+            catch (Exception ex)
             {
-                ShowError(LocalizationManager.T("Auth.WrongPassword"));
-                _passwordInput.Clear();
-                _passwordInput.Focus();
-                return;
+                ShowError(string.Format(LocalizationManager.T("Auth.LoginError"), ex.Message));
             }
-
-            SelectedProfileId = profile.Id;
-            DialogResult = true;
-            Close();
         }
 
         private void ShowError(string message)

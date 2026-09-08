@@ -186,6 +186,7 @@ namespace Configuration_Management
                 AfterLaunchActionCombo.ItemsSource = new[]
                 {
                     LocalizationManager.T("Settings.General.AfterLaunchAction.None"),
+                    LocalizationManager.T("Settings.General.AfterLaunchAction.Minimize"),
                     LocalizationManager.T("Settings.General.AfterLaunchAction.MinimizeToTray"),
                     LocalizationManager.T("Settings.General.AfterLaunchAction.Close")
                 };
@@ -193,8 +194,21 @@ namespace Configuration_Management
             }
             if (RememberWindowLayoutCheck != null)
                 RememberWindowLayoutCheck.IsChecked = _viewModel.RememberWindowLayout;
+            // Начальная установка переключателя компактного режима не должна влечь
+            // повторное масштабирование главного окна («прыжок отступов», issue #199):
+            // событие Checked/Unchecked при открытии настроек подавляем.
             if (CompactModeCheck != null)
-                CompactModeCheck.IsChecked = _viewModel.CompactMode;
+            {
+                _suppressCompactEvent = true;
+                try
+                {
+                    CompactModeCheck.IsChecked = _viewModel.CompactMode;
+                }
+                finally
+                {
+                    _suppressCompactEvent = false;
+                }
+            }
 
             GroupByGroupCheck.IsChecked = _viewModel.GroupByGroup;
             ShowFavoritesOnlyCheck.IsChecked = _viewModel.ShowFavoritesOnly;

@@ -342,7 +342,16 @@ public sealed class OneCComConnector : IOneCComConnector
     /// (0xC0000409) без управляемого исключения — перехватить его в этом процессе нельзя,
     /// поэтому COM изолирован. Подробности и история — в комментарии к ComReadHost.
     /// </remarks>
-    public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000)
+    /// <summary>
+    /// Строит текст этапа «создание COM-подключения» для диалога прогресса (issue #174):
+    /// указывает версию платформы базы, по которой разворачивается COM-коннектор.
+    /// </summary>
+    private static string BuildDetectConnectStageMessage(string? platformVersion)
+        => string.IsNullOrWhiteSpace(platformVersion)
+            ? LocalizationManager.T("Connection.DetectStageConnectNoVersion")
+            : string.Format(LocalizationManager.T("Connection.DetectStageConnectFormat"), platformVersion);
+
+    public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000, Action<string>? onStage = null)
     {
         if (infobase is null) return null;
         // Параметр объявлен ненулевым, а защита выше уже вернула бы раньше. Локальная
@@ -381,12 +390,17 @@ public sealed class OneCComConnector : IOneCComConnector
             return null;
         }
 
+        // Сообщаем этапы в диалог прогресса кнопки «Определить» (issue #174): сначала —
+        // создание COM-подключения с версией платформы базы, затем — чтение свойств.
+        onStage?.Invoke(BuildDetectConnectStageMessage(ib.PlatformVersion));
+
         // Запоминаем состояние до вызова: если COM был отключён ещё раньше, повторно
         // писать об этом в журнал незачем — на списке из десятков баз это дало бы
         // десятки одинаковых строк подряд на каждом старте.
         var alreadyDisabled = ComReadHost.ComUnavailable;
 
         var result = ComReadHost.Read(connectString, timeoutMs, progIds);
+        onStage?.Invoke(LocalizationManager.T("Connection.DetectStageRead"));
         if (result.Failure == ComFailureKind.None && result.Info is not null)
         {
             LastError = null;

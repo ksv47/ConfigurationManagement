@@ -63,6 +63,14 @@ namespace Configuration_Management.Services
         {
         }
 
+        /// <summary>
+        /// No-op: на Linux COM-коннектор отсутствует, сбрасывать вердикты о его недоступности
+        /// нечего. Добавлен для совместимости с общим кодом кнопки «Определить» (issue #174).
+        /// </summary>
+        public static void ResetComVerdicts()
+        {
+        }
+
         /// <inheritdoc />
         public string BuildConnectString(Infobase infobase) => BuildConnectionString(infobase);
 
@@ -75,12 +83,17 @@ namespace Configuration_Management.Services
         }
 
         /// <inheritdoc />
-        public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000)
+        public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000,
+            Action<string>? onStage = null)
         {
             if (infobase is null)
                 return null;
 
             LastError = null;
+
+            // Сообщаем этап в диалог прогресса (issue #174). На Linux COM нет — читаем через
+            // конфигуратор, поэтому текст соответствует способу чтения.
+            onStage?.Invoke(LocalizationManager.T("Connection.DetectStageRead"));
 
             // 1. Файловая база: эвристика по 1Cv8.1CD (версия) + попытка через DESIGNER (имя).
             if (infobase.Connection.Type == ConnectionType.File)

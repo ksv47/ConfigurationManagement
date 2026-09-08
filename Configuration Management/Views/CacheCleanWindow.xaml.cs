@@ -23,6 +23,12 @@ public partial class CacheCleanWindow : Window
     private readonly Dictionary<Infobase, TextBlock> _userSizeTexts = new();
     private readonly List<Grid> _rows = new();
 
+    // Строка и её флажок для базы, отмеченной по умолчанию (issue #198): если окно
+    // открыто для конкретной базы, список прокручивается к ней, чтобы она была видна
+    // и в фокусе; при открытии без предзаполнения (например, по папке) — не заполнены.
+    private Grid? _defaultRow;
+    private CheckBox? _defaultCheck;
+
     // Ширина изменяемых колонок списка.
     private const double DefaultProgramWidth = 130;
     private const double DefaultUserWidth = 130;
@@ -34,6 +40,16 @@ public partial class CacheCleanWindow : Window
     private double _nameColumnWidth;             // 0 — колонка «База» растягивается
     private double _programColumnWidth = DefaultProgramWidth;
     private double _userColumnWidth = DefaultUserWidth;
+
+    // Диагностика и показ ошибок (issues #195, #202): расчёт размера кеша выполняется
+    // в фоновых потоках и может завершиться сбоем доступа к файловой системе или иным
+    // исключением — окно обязано остаться открытым, а сбой — попасть в журнал и на экран.
+    private readonly IAppLogger _logger = AppServices.GetRequiredService<IAppLogger>();
+    private readonly IDialogService _dialogs = AppServices.GetRequiredService<IDialogService>();
+
+    // Показываем сообщение об ошибке расчёта размера только один раз за время жизни
+    // окна, чтобы не спамить модальными окнами при сбое сразу нескольких расчётов.
+    private bool _sizeErrorReported;
 
     // Состояние перетаскивания разделителя (как в главном окне).
     private bool _isResizing;
@@ -59,7 +75,13 @@ public partial class CacheCleanWindow : Window
         UpdateCount();
         UpdateCleanEnabled();
 
-        Loaded += async (_, _) => await RefreshCacheSizesAsync();
+        Loaded += async (_, _) =>
+        {
+            // Прокрутка выполняется после разметки окна: без этого ScrollIntoView
+            // не знает видимую область и ничего не прокрутит (issue #198).
+            ScrollToDefault();
+            await RefreshCacheSizesAsync();
+        };
         Closing += (_, _) => SaveColumnWidths();
     }
 
@@ -95,6 +117,29 @@ public partial class CacheCleanWindow : Window
         catch
         {
             // Игнорируем ошибки сохранения.
+        }
+    }
+
+    /// <summary>
+    /// Сообщает о сбое расчёта размера кеша. Сбой не должен ронять окно (issues #195, #202),
+    /// поэтому здесь — лог в журнал и понятное сообщение пользователю, а не молчаливое
+    /// проглатывание исключения.
+    /// </summary>
+    private void ShowSizeError()
+    {
+        if (_sizeErrorReported)
+            return;
+        _sizeErrorReported = true;
+
+        try
+        {
+            _dialogs.ShowError(
+                LocalizationManager.T("CacheClean.SizeError"),
+                LocalizationManager.T("Main.CacheErrorTitle"));
+        }
+        catch
+        {
+            // Сбой показа диалога тоже не должен уронить окно очистки.
         }
     }
 
@@ -252,6 +297,14 @@ public partial class CacheCleanWindow : Window
             Grid.SetColumn(check, 0);
             row.Children.Add(check);
 
+            // Запоминаем строку базы, предзаполненной по умолчанию, чтобы после
+            // разметки прокрутить к ней список (issue #198).
+            if (ReferenceEquals(ib, defaultSelected))
+            {
+                _defaultRow = row;
+                _defaultCheck = check;
+            }
+
             var programSize = BuildSizeText(secondaryBrush);
             Grid.SetColumn(programSize, 1);
             row.Children.Add(programSize);
@@ -267,6 +320,21 @@ public partial class CacheCleanWindow : Window
             _rows.Add(row);
             BasesPanel.Children.Add(row);
         }
+    }
+
+    /// <summary>
+    /// Прокручивает список к базе, отмеченной по умолчанию, и ставит на неё фокус
+    /// (issue #198). Если конкретная база не задана (например, окно открыто по папке
+    /// без предзаполнения) — ничего не делает, и список остаётся в исходной позиции.
+    /// </summary>
+    private void ScrollToDefault()
+    {
+        if (_defaultRow is null)
+            return;
+        // BringIntoView поднимает строку к видимой области внутри ScrollViewer
+        // списка баз, как это уже делается для групп и строк в других окнах.
+        _defaultRow.BringIntoView();
+        _defaultCheck?.Focus();
     }
 
     /// <summary>Формирует заголовок колонки списка баз.</summary>
@@ -356,20 +424,31 @@ public partial class CacheCleanWindow : Window
         foreach (var t in _programSizeTexts.Values) t.Text = "…";
         foreach (var t in _userSizeTexts.Values) t.Text = "…";
 
-        var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program, _infobases));
-        var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User, _infobases));
-        var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(CurrentKind(), _infobases));
-
-        ProgramCacheSizeText.Text = FormatSize(program);
-        UserCacheSizeText.Text = FormatSize(user);
-        OrphanCacheSizeText.Text = FormatSize(orphans);
-
-        foreach (var ib in _infobases)
+        // Обработчик Loaded, который это вызывает, — async void: любое выброшенное здесь
+        // исключение ушло бы в контекст синхронизации UI и уронило приложение при открытии
+        // окна (issues #195, #202). Ловим, логируем и показываем пользователю.
+        try
         {
-            var p = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.Program));
-            var u = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.User));
-            if (_programSizeTexts.TryGetValue(ib, out var pt)) pt.Text = FormatSize(p);
-            if (_userSizeTexts.TryGetValue(ib, out var ut)) ut.Text = FormatSize(u);
+            var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program, _infobases));
+            var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User, _infobases));
+            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(CurrentKind(), _infobases));
+
+            ProgramCacheSizeText.Text = FormatSize(program);
+            UserCacheSizeText.Text = FormatSize(user);
+            OrphanCacheSizeText.Text = FormatSize(orphans);
+
+            foreach (var ib in _infobases)
+            {
+                var p = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.Program));
+                var u = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.User));
+                if (_programSizeTexts.TryGetValue(ib, out var pt)) pt.Text = FormatSize(p);
+                if (_userSizeTexts.TryGetValue(ib, out var ut)) ut.Text = FormatSize(u);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка расчёта размера кеша при открытии окна очистки", ex);
+            ShowSizeError();
         }
     }
 
@@ -392,8 +471,16 @@ public partial class CacheCleanWindow : Window
     {
         var kind = CurrentKind();
         OrphanCacheSizeText.Text = "…";
-        var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(kind, _infobases));
-        OrphanCacheSizeText.Text = FormatSize(orphans);
+        try
+        {
+            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(kind, _infobases));
+            OrphanCacheSizeText.Text = FormatSize(orphans);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка расчёта размера остатков кеша", ex);
+            ShowSizeError();
+        }
     }
 
     /// <summary>
@@ -401,8 +488,12 @@ public partial class CacheCleanWindow : Window
     /// </summary>
     private static string FormatSize(long bytes)
     {
+        // Единицы из локализации; если ключ пуст или задан мусором, остаёмся на байтах,
+        // чтобы не упасть с IndexOutOfRangeException на units[0].
         var units = LocalizationManager.T("CacheClean.SizeUnits")
             .Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries);
+        if (units.Length == 0)
+            units = new[] { "B" };
 
         double value = bytes;
         var index = 0;

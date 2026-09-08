@@ -255,11 +255,27 @@ public static class OneCCacheCleaner
                         (conn.DatabaseName ?? string.Empty).Trim(),
                         StringComparison.OrdinalIgnoreCase))
                     return false;
+                // Хост сравниваем без учёта порта с обеих сторон: платформа в 1cv8u.pfl
+                // хранит одну и ту же базу и как «host», и как «host:port», а в настройках
+                // приложения порт может быть как вынесен в отдельное поле, так и вписан
+                // прямо в имя сервера (issue #178).
                 return string.Equals(
-                    (entry.Settings.Server ?? string.Empty).Trim(),
-                    (conn.Server ?? string.Empty).Trim(),
+                    NormalizeHost(entry.Settings.Server),
+                    NormalizeHost(conn.Server),
                     StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    /// <summary>
+    /// Приводит имя хоста к единому виду без учёта порта: «host», «host:1541»,
+    /// «[2001:db8::1]:1541» → «host» / «2001:db8::1» соответственно. Пустое значение
+    /// возвращается как есть.
+    /// </summary>
+    private static string NormalizeHost(string? server)
+    {
+        var temp = new ConnectionSettings();
+        ConnectionSettings.ParseServerAndPort(server, temp);
+        return (temp.Server ?? string.Empty).Trim();
     }
 
     /// <summary>

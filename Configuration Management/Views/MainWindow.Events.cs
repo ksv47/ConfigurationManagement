@@ -146,11 +146,14 @@ namespace Configuration_Management
             else if (WindowState == WindowState.Normal)
             {
                 // Сохраняем только в обычном состоянии, чтобы не сохранить развёрнутое окно как размер по умолчанию.
-                _viewModel.SaveWindowLayout(Width, Height, Left, Top, WindowState.ToString());
+                // Берём фактический размер (ActualWidth/ActualHeight): Width/Height равны NaN,
+                // пока размер окна не задан явно (например, на первом запуске нового профиля),
+                // а NaN/бесконечность не сериализуются в JSON и роняли сохранение настроек.
+                SaveValidatedWindowLayout(ActualWidth, ActualHeight, Left, Top, WindowState.ToString());
             }
             else if (WindowState == WindowState.Maximized)
             {
-                _viewModel.SaveWindowLayout(RestoreBounds.Width, RestoreBounds.Height, RestoreBounds.Left, RestoreBounds.Top, WindowState.ToString());
+                SaveValidatedWindowLayout(RestoreBounds.Width, RestoreBounds.Height, RestoreBounds.Left, RestoreBounds.Top, WindowState.ToString());
             }
 
             if (!_forceClose && _viewModel.CloseToTray)
@@ -174,6 +177,25 @@ namespace Configuration_Management
             _viewModel.UnsubscribeLanguageChanged();
 
             base.OnClosing(e);
+        }
+
+        /// <summary>
+        /// Сохраняет геометрию окна, отбрасывая невалидные значения.
+        /// Width/Height (и RestoreBounds на первом запуске профиля) могут быть NaN,
+        /// нулём или бесконечностью — такие числа не сериализуются в JSON и роняли бы
+        /// сохранение настроек. В этом случае раскладку не перезаписываем, оставляя
+        /// прежние значения (прочие настройки сохраняются отдельно через SaveSettings).
+        /// </summary>
+        private void SaveValidatedWindowLayout(double width, double height, double left, double top, string state)
+        {
+            if (double.IsNaN(width) || double.IsInfinity(width) || width <= 0 ||
+                double.IsNaN(height) || double.IsInfinity(height) || height <= 0 ||
+                double.IsNaN(left) || double.IsInfinity(left) ||
+                double.IsNaN(top) || double.IsInfinity(top))
+            {
+                return;
+            }
+            _viewModel.SaveWindowLayout(width, height, left, top, state);
         }
 
         /// <summary>
@@ -344,9 +366,20 @@ namespace Configuration_Management
                 return;
             }
 
-            if (_viewModel.LaunchEnterpriseCommand.CanExecute(null))
+            // Двойной клик по базе запускает её в режиме по умолчанию (issue #201):
+            // «1С:Предприятие» или «Конфигуратор» согласно DefaultLaunchMode базы.
+            var defaultKind = string.Equals(
+                _viewModel.SelectedInfobase?.DefaultLaunchMode,
+                "Configurator",
+                StringComparison.Ordinal)
+                ? Configuration_Management.Models.LaunchKind.Configurator
+                : Configuration_Management.Models.LaunchKind.Enterprise;
+            var launchCommand = defaultKind == Configuration_Management.Models.LaunchKind.Configurator
+                ? _viewModel.LaunchConfiguratorCommand
+                : _viewModel.LaunchEnterpriseCommand;
+            if (launchCommand.CanExecute(null))
             {
-                _viewModel.LaunchEnterpriseCommand.Execute(null);
+                launchCommand.Execute(null);
             }
         }
 

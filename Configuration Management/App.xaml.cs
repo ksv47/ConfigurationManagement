@@ -62,10 +62,34 @@ namespace Configuration_Management
                 var profileService = AppServices.GetRequiredService<IProfileService>();
                 profileService.EnsureInitialized();
 
+                // Окно входа создаётся первым и становится главным окном приложения
+                // (Application.MainWindow). При ShutdownMode=OnLastWindowClose его закрытие
+                // после успешного входа молча гасило бы приложение раньше, чем появится
+                // главное окно (issue #193). Поэтому на время старта завершение только
+                // явное, а прежний режим возвращается после показа главного окна.
+                var shutdownModeBeforeStartup = ShutdownMode;
+                ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
                 // Если в приложении несколько учётных записей — показываем окно авторизации
                 // по аналогии со списком пользователей 1С. При одной записи входим без запроса.
                 if (profileService.Profiles.Count > 1)
                 {
+                    // Локализацию поднимаем до показа окна: настройки профиля читаются
+                    // ниже, а без словаря окно входа показывает ключи (Auth.Title,
+                    // Auth.SelectAccountHint, Auth.Login, Common.Cancel) вместо подписей
+                    // (issue #189). Язык берётся из профиля, активного с прошлого запуска,
+                    // и уточняется после выбора.
+                    try
+                    {
+                        var startupRepository = AppServices.GetRequiredService<IInfobaseRepository>();
+                        var startupSettings = startupRepository.LoadSettings();
+                        LocalizationManager.Instance.Initialize(startupSettings.Language);
+                    }
+                    catch
+                    {
+                        LocalizationManager.Instance.Initialize(null);
+                    }
+
                     var selectedId = LoginWindow.ShowLogin(profileService);
                     if (selectedId == null)
                     {
@@ -117,6 +141,10 @@ namespace Configuration_Management
                 try
                 {
                     LocalizationManager.Instance.Initialize(settings.Language);
+                    // Если словарь уже поднят ради окна входа, Initialize выходит сразу,
+                    // поэтому язык выбранного профиля применяется отдельно и по тем же
+                    // правилам: пустое значение означает язык системы.
+                    LocalizationManager.Instance.ApplyPreferredLanguage(settings.Language);
                 }
                 catch
                 {
@@ -188,6 +216,10 @@ namespace Configuration_Management
                 // окна оно ещё пустое, поэтому масштабирование не сработало бы.
 
                 mainWindow.Show();
+
+                // Прежний режим завершения возвращается: на время старта он переключался
+                // на явный, иначе закрытие окна входа гасило приложение до появления главного.
+                ShutdownMode = shutdownModeBeforeStartup;
 
                 // Фоновая проверка обновлений (Windows/WPF): запускаем после показа
                 // главного окна, чтобы не задерживать старт. Если пользователь отключил

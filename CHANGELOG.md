@@ -9,6 +9,217 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.92] — 2026-09-08
+
+Реализация ISSUE #201 «Пара пожеланий»: новое действие «Свернуть» (не в трей) после запуска базы/конфигуратора, настраиваемый режим запуска базы по умолчанию («1С:Предприятие»/«Конфигуратор») при двойном клике и быстрая авторизация для Конфигуратора «как для 1С:Предприятия».
+
+### Добавлено
+
+- **Действие «Свернуть» (не в трей) после запуска базы/конфигуратора** ([#201](https://github.com/sivatorov/ConfigurationManagement/issues/201)): в настройку «После запуска базы или конфигуратора» добавлен режим «Свернуть» — главное окно сворачивается в панель задач, оставаясь в ней (в отличие от «Свернуть в трей»). Новое значение `Minimize` в [`Models/AfterLaunchAction.cs`](Configuration%20Management/Models/AfterLaunchAction.cs), обработка в [`Views/MainWindow.Tray.cs`](Configuration%20Management/Views/MainWindow.Tray.cs) (WPF) и [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) (Linux), пункт списка в [`Views/SettingsWindow.Display.cs`](Configuration%20Management/Views/SettingsWindow.Display.cs), [`Views/SettingsWindow.Platforms.cs`](Configuration%20Management/Views/SettingsWindow.Platforms.cs) и [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs).
+- **Режим запуска базы по умолчанию** ([#201](https://github.com/sivatorov/ConfigurationManagement/issues/201)): в окне настроек базы появилось поле «Режим запуска по умолчанию» — «Автоматически (1С:Предприятие)», «1С:Предприятие» или «Конфигуратор». При двойном клике на базе она открывается в указанном режиме: WPF — [`Views/MainWindow.Events.cs`](Configuration%20Management/Views/MainWindow.Events.cs) (`OnInfobaseTree_PreviewMouseDoubleClick`), Avalonia — карточка строки в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs). Значение хранится в [`Models/Infobase.cs`](Configuration%20Management/Models/Infobase.cs) (`DefaultLaunchMode`) и переносится через [`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs).
+- **Быстрая авторизация для Конфигуратора «как для 1С:Предприятия»** ([#201](https://github.com/sivatorov/ConfigurationManagement/issues/201)): в окне настроек подключения на вкладке «Авторизация» в группе Конфигуратора появился флаг «Авторизация как для 1С:Предприятия». При включении поля авторизации Конфигуратора блокируются, а в его настройки копируются логин, пароль и режим входа «1С:Предприятия». UI: [`Views/ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml) (WPF) и [`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs); признак хранится в [`Models/Infobase.cs`](Configuration%20Management/Models/Infobase.cs) (`ConfiguratorUseEnterpriseAuth`) и применяется в [`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs) (`ApplyTo`).
+- **Локализация** новых строк в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.6.91` → `0.3.6.92`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.91] — 2026-09-08
+
+Исправление трёх мелких issues интерфейса: согласование счётчика «Избранного» между вкладкой, назначенными хоткеями Alt+1…9 и списком горячих клавиш (#194), затемнение иконок недоступных кнопок панели команд сразу, как в контекстном меню (#197), и стабилизация отступов/компактности главного окна при открытии окна настроек — без непреднамеренных «прыжков» отступов (#199).
+
+### Исправлено
+
+- **Счётчик «Избранного» согласован между вкладкой, счётчиком и хоткеями** ([#194](https://github.com/sivatorov/ConfigurationManagement/issues/194)): слоты Alt+1…9 теперь соответствуют только текущим избранным базам. [`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs) и [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) (`SyncFavoriteHotkeys`) больше не хранят ключи баз, которые есть в списке, но больше не являются избранными, — такие слоты удаляются при пересчёте. После правки базы через диалог подключения WPF-версия тоже вызывает `SyncFavoriteHotkeys` (как уже делала Avalonia), чтобы снятие/установка звезды в окне редактирования не оставляло расхождение числа баз во вкладке «Избранное», в счётчике и в списке горячих клавиш.
+- **Недоступные кнопки панели затемняются сразу, как в контекстном меню** ([#197](https://github.com/sivatorov/ConfigurationManagement/issues/197)): у стиля `IconButton` появился триггер недоступности (`IsEnabled=false` → `Opacity 0.4`) — в [`Themes/LightTheme.xaml`](Configuration%20Management/Themes/LightTheme.xaml), [`Themes/DarkTheme.xaml`](Configuration%20Management/Themes/DarkTheme.xaml) и [`Themes/Controls.axaml`](Configuration%20Management/Themes/Controls.axaml) (Avalonia). Раньше кнопки панели команд гасились только по наведению, а недоступные выглядели как доступные; теперь состояние видно сразу, как в пунктах контекстного меню.
+- **Отступы/компактность главного окна стабильны при открытии настроек** ([#199](https://github.com/sivatorov/ConfigurationManagement/issues/199)): в WPF-версии открытие окна настроек больше не повторно масштабирует главное окно. `SettingsWindow.Display.cs` при установке значения переключателя компактного режима подавляет событие `Checked`/`Unchecked`, и [`Views/SettingsWindow.xaml.cs`](Configuration%20Management/Views/SettingsWindow.xaml.cs) (`OnCompactMode_Toggled`) не вызывает `ApplyCompactMode` на этапе инициализации — «прыжок» отступов исчезает, компактный вид остаётся стабильным и без самопроизвольного возврата.
+
+### Версия
+
+- **Версия поднята до `0.3.6.90` → `0.3.6.91`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.90] — 2026-09-08
+
+Исправление ISSUE #191 «Linux/Avalonia: при скрытой колонке "Действия" пропадают все остальные колонки списка»: при выключении показа колонки «Действия» на Linux шапка и строки строят колонки общим построителем [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) (`AddListColumns`), который всегда добавляет колонку «Действия» в сетку — нулевой ширины, когда колонка скрыта. Так число колонок заголовка и строк (включая строки групп) совпадает независимо от `ShowActionsColumn`, и держатся на нём выравнивание (`QueueHeaderAlign`/`AlignHeaderToRows`), минимальная ширина области (`UpdateListMinWidth`) и применение ширины при перетаскивании (`ApplyColumnWidth`).
+
+### Исправлено
+
+- **Заголовок и строки всегда согласованы по числу колонок** ([#191](https://github.com/sivatorov/ConfigurationManagement/issues/191)): заголовок, строка базы и строка группы строят колонки единым методом `AddListColumns`, который добавляет скрытую колонку «Действия» нулевой ширины (как в строке базы, issue #158). Панель кнопок «Действия» у строки группы теперь, как и у строки базы и в заголовке, не строится, когда колонка выключена: при скрытой «Действия» в нулевую колонку не попадают невидимые кнопки с обработчиками, а все остальные колонки («Версия платформы», «Режим запуска», «Сервер/База» и др.) остаются на своих местах без горизонтального ползунка. Правка только в Linux/Avalonia части.
+
+### Версия
+
+- **Версия поднята до `0.3.6.89` → `0.3.6.90`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.89] — 2026-09-08
+
+Исправление ISSUE #188 «Первый запуск нового профиля: настройки не сохраняются, при закрытии две ошибки интерфейса (NaN в размерах окна)»: на первом запуске профиля, где ещё нет settings.json, размеры окна в WPF (`Width`/`Height`) ещё не заданы и равны `NaN`. Эти значения попадали в сохранение раскладки окна, и сериализация настроек падала на «.NET number values such as positive and negative infinity cannot be written as valid JSON», из-за чего настройки не сохранялись, а при закрытии появлялись два окна «Ошибка интерфейса».
+
+### Исправлено
+
+- **Размеры окна сохраняются фактическими, а не `NaN`** ([#188](https://github.com/sivatorov/ConfigurationManagement/issues/188)): [`Views/MainWindow.Events.cs`](Configuration%20Management/Views/MainWindow.Events.cs) при закрытии берёт `ActualWidth`/`ActualHeight` вместо `Width`/`Height`. Добавлен проверяющий метод `SaveValidatedWindowLayout`, который отбрасывает невалидную геометрию (`NaN`, бесконечность, нулевой или отрицательный размер) и в этом случае **не перезаписывает раскладку**, оставляя прежние значения — так исключается исключение сериализации JSON в [`Services/InfobaseRepository.cs`](Configuration%20Management/Services/InfobaseRepository.cs) (`SaveSettings`). Проверка применяется и к ветке развёрнутого окна (`RestoreBounds`).
+- **На первом запуске нового профиля настройки корректно сохраняются**: прочие настройки пишутся через `SaveSettings` как и раньше, а окно «Ошибка интерфейса» при закрытии больше не появляется. Правка только в WPF-части, Linux/Avalonia не затрагивается.
+
+### Версия
+
+- **Версия поднята до `0.3.6.88` → `0.3.6.89`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.88] — 2026-09-08
+
+Исправление ISSUE #189 «Окно выбора учётной записи показывает ключи локализации вместо подписей»: при наличии нескольких учётных записей окно авторизации на Windows строилось раньше, чем поднималась локализация, поэтому вместо подписей отображались ключи (`Auth.Title`, `Auth.SelectAccountHint`, `Auth.Login`, `Common.Cancel`). Локализация теперь инициализируется до показа окна входа (как это уже сделано для Linux/Avalonia), а язык выбранного профиля применяется после входа.
+
+### Исправлено
+
+- **Окно входа больше не показывает ключи локализации** ([#189](https://github.com/sivatorov/ConfigurationManagement/issues/189)): [`App.xaml.cs`](Configuration%20Management/App.xaml.cs) поднимает локализацию (`LocalizationManager.Instance.Initialize(...)`) **до** `LoginWindow.ShowLogin`, читая стартовые настройки для языка профиля, активного с прошлого запуска. Раньше на Windows окно входа строилось по пустому словарю — `{loc:Loc Auth.Title}` и другие подписи в [`Views/LoginWindow.xaml`](Configuration%20Management/Views/LoginWindow.xaml) отдавали сырые ключи. Порядок приведён в соответствие с Linux/Avalonia ([`App.axaml.cs`](Configuration%20Management/App.axaml.cs)).
+- **Язык выбранного профиля применяется после входа**: после `Initialize` (которая выходит сразу, если словарь уже поднят ради окна входа) вызывается `ApplyPreferredLanguage(settings.Language)` — по тем же правилам, что и на Linux. Это гарантирует корректные подписи на старте и сохранённый язык активного профиля.
+
+### Версия
+
+- **Версия поднята до `0.3.6.87` → `0.3.6.88`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.87] — 2026-09-08
+
+Реализация ISSUE #200 «Смена пользователя»: в работающее приложение добавлена отдельная кнопка «Смена пользователя» на верхней панели рядом с настройками и настраиваемая горячая клавиша. Кнопка видна только при наличии нескольких учётных записей; по ней открывается тот же диалог выбора/входа, что и при запуске, но без перезапуска программы — при успехе активный профиль переключается и данные главного окна (список баз, группы, избранное, тема, язык, горячие клавиши) перезагружаются, при отмене состояние не меняется.
+
+### Добавлено
+
+- **Кнопка «Смена пользователя»** ([#200](https://github.com/sivatorov/ConfigurationManagement/issues/200)): добавлена на верхнюю панель рядом с кнопкой настроек в [`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml) (Windows/WPF) и в сборку панели в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) (Linux/Avalonia). Видна только при `Profiles.Count > 1` (привязка к новому свойству `SwitchUserVisible`).
+- **Смена пользователя без перезапуска** ([#200](https://github.com/sivatorov/ConfigurationManagement/issues/200)): команда `SwitchUserCommand` ([`ViewModels/MainViewModel.SwitchUser.cs`](Configuration%20Management/ViewModels/MainViewModel.SwitchUser.cs) для WPF, команда в [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs) для Avalonia) показывает тот же диалог `LoginWindow.ShowLogin`, что и при запуске; при успехе вызывает `profileService.SetCurrentProfile(...)` и перезагружает данные главного окна (`ReloadAllData` / `ReloadAfterProfileSwitch` — список баз, группы, избранное, свёрнутые группы, тему/схему, язык и горячие клавиши). Отмена или выбор текущей записи ничего не меняют.
+- **Настраиваемый хоткей «Смена пользователя»** ([#200](https://github.com/sivatorov/ConfigurationManagement/issues/200)): новое поле `HotkeySwitchUser` ([`Models/AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs)) и его настройка на вкладке «Клавиши» ([`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml) и [`Views/SettingsWindow.Hotkeys.cs`](Configuration%20Management/Views/SettingsWindow.Hotkeys.cs) — WPF; [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs) — Avalonia). Регистрация привязки — [`Views/MainWindow.Hotkeys.cs`](Configuration%20Management/Views/MainWindow.Hotkeys.cs) и [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs).
+- **Локализация**: ключи `Main.SwitchUser`, `Main.SwitchUserTooltip`, `Settings.Hotkeys.SwitchUser` добавлены в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.6.86` → `0.3.6.87`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.86] — 2026-09-08
+
+Исправление ISSUE #193 «Не входит после ввода пароля от учётки»: при наличии нескольких учётных записей вход через окно авторизации на Windows молча завершал приложение после успешного ввода пароля, а выбор учётки без пароля приводил к падению. Причина — окно входа создавалось первым и становилось главным окном приложения, а его закрытие при `ShutdownMode=OnLastWindowClose` (по умолчанию) гасило приложение до появления главного окна. Дополнительно вход защищён от необработанных исключений с понятным сообщением об ошибке.
+
+### Исправлено
+
+- **Вход перестал молча завершать приложение на Windows** ([#193](https://github.com/sivatorov/ConfigurationManagement/issues/193)): [`App.xaml.cs`](Configuration%20Management/App.xaml.cs) на время показа окна авторизации переключает `ShutdownMode` на `OnExplicitShutdown` и возвращает прежний режим после показа главного окна — как это уже было сделано для Linux/Avalonia в [`App.axaml.cs`](Configuration%20Management/App.axaml.cs). Раньше окно входа, будучи первым созданным окном (`Application.MainWindow`), при закрытии после успешного входа роняло приложение до инициализации главного окна.
+- **Безопасный вход в обеих платформах** ([#193](https://github.com/sivatorov/ConfigurationManagement/issues/193)): [`Views/LoginWindow.xaml.cs`](Configuration%20Management/Views/LoginWindow.xaml.cs) и [`Views/LoginWindow.Avalonia.cs`](Configuration%20Management/Views/LoginWindow.Avalonia.cs) оборачивают проверку пароля и фиксацию входа в `try/catch` — любой сбой (например, при проверке PBKDF2-хэша) показывается понятным сообщением в окне (`Auth.LoginError`) вместо необработанного исключения, роняющего приложение.
+- **Локализация нового сообщения**: ключ `Auth.LoginError` добавлен в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json).
+- Учётка без пароля обрабатывается безопасно: проверка пропускается (`HasPassword == false` → вход без запроса), а корректное хэширование/проверка PBKDF2-SHA256 не изменились ([`Services/ProfileService.cs`](Configuration%20Management/Services/ProfileService.cs)).
+
+### Версия
+
+- **Версия поднята до `0.3.6.85` → `0.3.6.86`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.85] — 2026-09-08
+
+Исправление ISSUE #174 «Определить» свойства конфигурации и лишнее фоновое чтение: кнопка «Определить» в окне настроек подключения держала поток интерфейса весь таймаут (окно не отвечало ~8,3 с на недоступном сервере), после пяти отказов подряд COM-защёлка глушила повторные попытки до перезапуска, а при каждом старте/импорте фоново дочитывались свойства всех баз с пустыми полями — лишняя работа, которая на недоступных серверах «глохла» и не запоминала неудачу.
+
+### Исправлено
+
+- **Кнопка «Определить» больше не блокирует окно настроек** ([#174](https://github.com/sivatorov/ConfigurationManagement/issues/174)): чтение свойств конфигурации вынесено в фоновый поток (`Task.Run`), а поверх показывается модальный диалог прогресса с этапами «Создаём COM-подключение с версией платформы …» → «Подключение к базе для чтения свойств».
+  - **Чтение в фоне с диалогом прогресса** ([`Views/ConnectionSettingsWindow.xaml.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml.cs), [`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs)): обработчик «Определить» стал асинхронным — читает через `ReadConfiguration`, поля обновляются в UI-потоке через `ApplyConfiguration`, интерфейс остаётся отзывчивым.
+  - **Диалог прогресса на обеих платформах** ([`Views/DetectConfigProgressWindow.cs`](Configuration%20Management/Views/DetectConfigProgressWindow.cs), [`Views/DetectConfigProgressWindow.Avalonia.cs`](Configuration%20Management/Views/DetectConfigProgressWindow.Avalonia.cs)): индетерминантный индикатор и строка текущего этапа; этапы приходят из коннектора через обратный вызов `onStage`.
+  - **Этапы из коннектора**: [`Services/ConfigurationInfoService.cs`](Configuration%20Management/Services/ConfigurationInfoService.cs), [`Services/IOneCComConnector.cs`](Configuration%20Management/Services/IOneCComConnector.cs), [`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs) — передают текст этапа в диалог прогресса.
+  - **Рефакторинг ViewModel** ([`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs)): добавлены `BuildProbeInfobase`, `ReadConfiguration` (безопасно в фоне) и `ApplyConfiguration` (в UI-потоке); `DetermineConfiguration` сохранён как комбинация.
+- **COM-защёлка снимается перед повторной попыткой по кнопке** ([#174](https://github.com/sivatorov/ConfigurationManagement/issues/174)): обработчик «Определить» вызывает `OneCComConnector.ResetComVerdicts()` (кэш реестра и сессионную защёлку агента), как соседняя команда меню «Обновить информацию», — после пяти отказов кнопка снова пробует, а не отвечает «другим сообщением» по устаревшей защёлке.
+- **Фоновое дочитывание свойств при старте/импорте отключено** ([#174](https://github.com/sivatorov/ConfigurationManagement/issues/174)): автоматические вызовы убраны из инициализации главного окна и команды обновления списка ([`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs), [`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs)); свойства читаются только по явной команде «Обновить информацию».
+  - **Неудачное чтение запоминается**: `RefreshConfigurationInfoAsync` пропускает базы, чьё чтение уже не удалось в этом сеансе (ключ по ID или строке подключения), чтобы не повторять бесполезные попытки на каждой загрузке; явная команда сбрасывает пометку и пробует снова.
+
+### Версия
+
+- **Версия поднята до `0.3.6.84` → `0.3.6.85`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.84] — 2026-09-08
+
+Исправление ISSUE #165 «Дублирование папок при синхронизации с родным стартером 1С (ibases.v8i)»: повторные синхронизации со штатным стартером под Windows всё ещё порождали дубликаты вложенных папок, хотя лог показывал, что модель групп приложения остаётся дедуплицированной (3 группы → 3). Причина оказалась не в импорте/модели, а в самом файле `ibases.v8i`: одна и та же вложенная папка могла присутствовать в нём как две секции-группы в разных представлениях — с именем-листом (`Name=«Бухгалтерия», Folder=«Учёт»`) и с полным путём в заголовке секции (`Name=«Учёт\Бухгалтерия»`). Экспортёр схлопывал секции только по имени листа, поэтому обе писались в файл, и стартер 1С рисовал их как две отдельные папки. Теперь при экспорте секции-группы приводятся к единому каноническому виду (имя — лист, `Folder` — путь родителя с нативным разделителем) и дедуплицируются по полному пути папки; логирование экспорта и импорта дополнено каноническими путями групп для контроля.
+
+### Исправлено
+
+- **Дубликаты вложенных папок при синхронизации со стартером 1С** ([#165](https://github.com/sivatorov/ConfigurationManagement/issues/165)): лог 0.3.6.83 показывал «групп было 3, стало 3, дубликатов 0», но папки в 1С дублировались — значит, дубли жили в самом `ibases.v8i` как две секции одной папки.
+  - **Канонизация и дедупликация секций-групп по полному пути** ([`Services/IbasesV8iExporter.cs`](Configuration%20Management/Services/IbasesV8iExporter.cs)): новый `NormalizeAndDedupeGroupSections` приводит каждую секцию-группу к единому виду (`Name` — имя листа, `Folder` — путь родителя через нативный разделитель) и устраняет совпадения по полному пути, которые прежний `Deduplicate` по одному имени не видел.
+  - **Помощники канонизации пути**: `BuildGroupPath`, `SplitLeafAndParent`, `NormalizeGroupPath`, `NormalizeGroupName`, `SplitGroupPath` — единый разбор имени и `Folder` секции независимо от того, хранится ли в заголовке лист или полный путь.
+  - **Логирование путей групп**: экспорт теперь пишет число устранённых дубликатов секций-групп и канонический список путей папок в файле; импорт — канонические пути групп после слияния ([`Services/IbasesV8iImporter.cs`](Configuration%20Management/Services/IbasesV8iImporter.cs)). По логу видно, что именно записалось в `ibases.v8i`, и требуется перепроверка пользователем на реальном наборе с дублями.
+
+### Версия
+
+- **Версия поднята до `0.3.6.83` → `0.3.6.84`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.83] — 2026-09-08
+
+Исправление ISSUE #163 «Импорт из StartManager не находит данные»: импортёр `StartManagerImporter` переписан под формат реальных файлов StartManager 1.4, из-за расхождения с которыми он раньше вообще не доходил до слияния. Имя секции `v8config.smc` — это GUID информационной базы, совпадающий с `ID=` в `ibases.v8i`, а строки подключения в файлах StartManager нет вовсе — поэтому теперь секции сводятся со списком баз 1С по GUID, а подключение, имя и группа берутся из `ibases.v8i`, тогда как из StartManager переносятся только его надстройки (авторизации, хранилище, версия конфигурации, описание). Секции без пары в списке баз (следы удалённых баз) пропускаются и заново не создаются.
+
+### Исправлено
+
+- **Импорт из StartManager не находил данные** ([#163](https://github.com/sivatorov/ConfigurationManagement/issues/163)): многолетние правки слияния (0.3.6.68/74/76) не помогали, потому что импортёр искал ключи строки подключения (SPath/SRVS/DBName/Name/WS/URL…), которых в реальных файлах StartManager 1.4 нет.
+  - **Связывание секций `v8config.smc` с `ibases.v8i` по GUID** ([`Services/StartManagerImporter.cs`](Configuration%20Management/Services/StartManagerImporter.cs)): имя секции — это идентификатор базы из списка 1С; по нему ищется пара в `ibases.v8i`. Подключение, имя и группа (раздел `Folder=`) приходят из `ibases.v8i`, надстройки StartManager (логины/пароли/хранилище/версия конфигурации/описание) накладываются поверх.
+  - **Пропуск записей без пары**: секции StartManager, которым нет соответствия в списке баз (база удалена), пропускаются и не создаются заново.
+  - **`settings.cnf` читается как XML**: пути платформы 1С берутся из элементов `V81AppFile…V84AppFile`, а не из отсутствующего ключа `V8AppPath`; разбор INI оставлен запасным вариантом.
+  - **Определение кодировки по BOM**: StartManager 1.4 пишет `v8config.smc` в UTF-8 с BOM; ранее файл читался в Windows-1251, из-за чего ломались русские `Description` и BOM попадал в имя первой секции.
+  - **Расшифровка паролей ключом `SLAVKA240601` через кодовую страницу 1251**: зарегистрирован провайдер кодовых страниц, шифротекст читается по cp1251. Пароли с кириллицей шифруются иным способом и этим алгоритмом не расшифровываются — такие пропускаются и оставляются пустыми, чтобы в поле не попал мусор.
+- **Сохранена рабочая логика слияния**: `Merge`, `MergeRepository`, `MergeAuthSettings` и журнал через `IAppLogger` перенесены без изменений; теперь они достижимы, поскольку импортёр доходит до слияния.
+
+### Версия
+
+- **Версия поднята до `0.3.6.82` → `0.3.6.83`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.82] — 2026-09-08
+
+Исправление ISSUE #196 «Доступность кнопки очистки кеша» и ISSUE #198 «Переход к базе в списке очистки кеша»: кнопка «Очистить кеш» верхней панели становилась недоступной, когда под курсором была папка (группа), хотя список баз в окне всё равно позволял отметить любые базы; кроме того, при открытии окна очистки для конкретной базы список не прокручивался к ней, и отмеченная галкой база могла остаться за пределами видимой области. Теперь кнопка доступна и при выделении папки — в этом случае окно открывается без предустановленных галок, и пользователь сам отмечает нужные базы; при открытии для конкретной базы список прокручивается к ней и ставит её в фокус. Правки внесены в обе реализации — Windows/WPF и Linux/Avalonia.
+
+### Исправлено
+
+- **Кнопка «Очистить кеш» недоступна при выделении папки** ([#196](https://github.com/sivatorov/ConfigurationManagement/issues/196)): `CanExecute` команды `ClearCacheCommand` в верхней панели требовал выделенную базу (`SelectedInfobase != null`), поэтому при выборе группы (папки) кнопка гасла. Теперь команда доступна, пока в списке есть хоть одна база; при открытии по папке окно очистки не предзаполняет ни одной галки — пользователь отмечает базы самостоятельно.
+  - **Windows/WPF** ([`ViewModels/MainViewModel.cs`](Configuration%20Management/ViewModels/MainViewModel.cs)): предикат `CanExecute` заменён на `p => p is Infobase ? true : Infobases.Count > 0`.
+  - **Linux/Avalonia** ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)): предикат заменён аналогично; команда теперь передаёт базу строки параметром в `OpenCacheClean`, что совпадает с поведением Windows-версии.
+- **Список не прокручивался к отмеченной базе** ([#198](https://github.com/sivatorov/ConfigurationManagement/issues/198)): при открытии окна очистки для конкретной базы (например, выделенной в главном окне или базы строки колонки «Действия») отмеченная галка могла находиться за пределами видимой области длинного списка. Теперь после показа окна список прокручивается к этой базе и ставит на неё фокус.
+  - **Windows/WPF** ([`Views/CacheCleanWindow.xaml.cs`](Configuration%20Management/Views/CacheCleanWindow.xaml.cs)): добавлен метод `ScrollToDefault`, вызываемый в обработчике `Loaded` и прокручивающий строку через `BringIntoView` с последующим фокусом на флажке; запоминается строка базы, отмеченной по умолчанию.
+  - **Linux/Avalonia** ([`Views/CacheCleanWindow.Avalonia.cs`](Configuration%20Management/Views/CacheCleanWindow.Avalonia.cs)): поле `_basesScroll` хранит `ScrollViewer`; метод `ScrollToDefault` вызывается в обработчике `Opened` и прокручивает список через `BringIntoView` с последующим фокусом на флажке.
+
+### Версия
+
+- **Версия поднята до `0.3.6.81` → `0.3.6.82`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.81] — 2026-09-08
+
+Исправление ISSUE #195 «Падение при открытии окна очистки кеша» и ISSUE #202 «Ошибка при открытии окна очистки кэша»: окно «Очистка кэша 1С» падало при открытии, когда расчёт размера кеша (выполняемый в фоновом потоке после показа окна) завершался исключением — например, из-за недоступных/занятых каталогов кеша или сбоя доступа к файловой системе. Расчёт размера теперь защищён: при ошибке окно остаётся открытым, сбой пишется в журнал (`IAppLogger`/`FileAppLogger`), а пользователю показывается понятное сообщение. Правка внесена в обе реализации — Windows/WPF и Linux/Avalonia.
+
+### Исправлено
+
+- **Окно «Очистка кэша 1С» падало при открытии** ([#195](https://github.com/sivatorov/ConfigurationManagement/issues/195), [#202](https://github.com/sivatorov/ConfigurationManagement/issues/202)): обработчики `Loaded`/`Opened`, запускающие расчёт размера кеша, являются `async void`, и любое исключение внутри (сбой доступа к каталогам кеша, исключение из `OneCCacheCleaner`, ошибка локализации) уходило в контекст синхронизации UI и роняло приложение.
+  - **Windows/WPF** ([`Views/CacheCleanWindow.xaml.cs`](Configuration%20Management/Views/CacheCleanWindow.xaml.cs)): тело `RefreshCacheSizesAsync` и `RefreshOrphanSizeAsync` обёрнуто в `try/catch`; при ошибке выполняется запись в журнал и показ сообщения, окно не закрывается.
+  - **Linux/Avalonia** ([`Views/CacheCleanWindow.Avalonia.cs`](Configuration%20Management/Views/CacheCleanWindow.Avalonia.cs)): тело `async void RefreshCacheSizes` и `RefreshOrphanSize` обёрнуто в `try/catch` с теми же логом и сообщением пользователю.
+- **Форматирование размера могло падать на пустых единицах измерения** (`FormatSize`): если строка `CacheClean.SizeUnits` из локализации пуста или содержит мусор, обращение к `units[0]` давало `IndexOutOfRangeException`. Теперь при пустом списке единиц используется «B».
+- **Пользователю показывается сообщение об ошибке расчёта размера**: добавлен ключ `CacheClean.SizeError` в [`ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`en.json`](Configuration%20Management/Localization/Languages/en.json); сбой больше не «проглатывается» молча.
+
+### Версия
+
+- **Версия поднята до `0.3.6.80` → `0.3.6.81`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.6.80] — 2026-09-08
+
+Исправление ISSUE #178 «Окно Очистка кэша 1С: размеры по базам всегда 0, очистка не находит кэш, остатки не удаляются». Переписано определение каталогов кэша 1С: теперь каталоги ищутся по карте `IdConnStrMap` из файла `1cv8u.pfl`, которую платформа ведёт в корне пользовательского кэша, а не по имени базы/ID (платформа называет каталог кэша собственным GUID, не связанным с базой). Правка внесена в общий сервис очистки — работает в обеих реализациях (Windows/WPF и Linux/Avalonia).
+
+### Исправлено
+
+- **Размеры кэша по базам показывали 0 Б** ([`Services/OneCCacheCleaner.cs`](Configuration%20Management/Services/OneCCacheCleaner.cs)): каталоги кэша определялись по имени базы/`Infobase.Id`, которое не совпадает с реальным именем каталога (собственный GUID платформы). Теперь каталоги берутся из карты `IdConnStrMap` файла `1cv8u.pfl` (`%APPDATA%\1C\1cv8` на Windows, `~/.1cv8/1C/1cv8` на Linux) как все GUID-каталоги, сопоставленные строке соединения базы. Файл читается с учётом UTF-8 BOM и CRLF, результат кэшируется до изменения файла; отсутствие файла или пустая карта обрабатываются без падения.
+- **Очистка сообщала «кэш не найден», хотя каталог есть на диске**: поиск и удаление выполняются по реальным GUID-каталогам из карты, поэтому найденные для базы каталоги корректно очищаются (в том числе все варианты написания хоста — без порта/с портом).
+- **«Остатки от удалённых баз» не удалялись**: `BuildProtectedNames` теперь защищает каталоги **живых** баз (GUID из карты + имена `Srvr__…__Ref__…__` + ID и имя базы), поэтому каталоги живых баз больше не попадают в «остатки», а настоящие осиротевшие каталоги (из карты, но без совпадения по строке соединения ни с одной текущей базой) удаляются.
+- **Второй каталог клиент-серверной базы на Linux** (`Srvr__<сервер>__Ref__<база>__`, КэшМодулей/КэшРолей/IRSettings.xml) учитывается в расчёте размера и очистке этой базы.
+- **Хост сравнивается без учёта порта с обеих сторон** (`NormalizeHost`): платформа хранит одну базу и как `host`, и как `host:port`, а порт в настройках может быть и отдельным полем, и вписанным в имя сервера.
+
+### Версия
+
+- **Версия поднята до `0.3.6.79` → `0.3.6.80`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.6.79] — 2026-09-06
 
 Технический микровыпуск с исправлением UI: устранена вертикальная обрезка текста в поле выбора шаблона даты/времени (формат отметки даты и времени) на вкладке «Базы» окна «Настройки». Правка внесена в обе реализации — Windows/WPF и Linux/Avalonia.

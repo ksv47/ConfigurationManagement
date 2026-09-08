@@ -215,6 +215,13 @@ namespace Configuration_Management
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
+                // «Свернуть» — просто свернуть окно в панель задач, не уводя его в трей (issue #201).
+                if (action == Models.AfterLaunchAction.Minimize)
+                {
+                    WindowState = WindowState.Minimized;
+                    return;
+                }
+
                 // Спрятанное окно живёт только в трее, поэтому без пути возврата
                 // оно сворачивается: иначе пользователь остался бы с работающим
                 // процессом, который нечем показать.
@@ -531,6 +538,13 @@ namespace Configuration_Management
                 ApplyCompactMode(next);
             };
             panel.Children.Add(_compactToggle);
+
+            // «Смена пользователя» (issue #200): видна только при нескольких учётных записях.
+            var switchUserBtn = TopBarIconButton("IconAccountMultiple", LocalizationManager.T("Main.SwitchUserTooltip"),
+                themeBrushKey: "TextSecondaryColorBrush");
+            switchUserBtn.Bind(Button.CommandProperty, new Binding("SwitchUserCommand"));
+            switchUserBtn.Bind(Control.IsVisibleProperty, new Binding("SwitchUserVisible"));
+            panel.Children.Add(switchUserBtn);
 
             var settingsBtn = TopBarIconButton("IconSettings", LocalizationManager.T("Main.SettingsTooltip"),
                 themeBrushKey: "TextSecondaryColorBrush");
@@ -1619,17 +1633,24 @@ namespace Configuration_Management
             var actionsIndex = AddListColumns(row,
                 _vm?.ShowFavoritesButton ?? true, _vm?.ShowPinnedButton ?? true);
 
-            var actions = new ActionsPanel();
-            actions.Children.Add(GroupRowActionButton(group, "IconEdit", "EditGroupCommand",
-                LocalizationManager.T("Main.EditGroupTooltip"), "TextSecondaryBrush"));
-            // «Удалить» у служебных узлов скрыта: у них нет модели группы.
-            var deleteBtn = GroupRowActionButton(group, "IconDelete", "DeleteGroupCommand",
-                LocalizationManager.T("Main.DeleteGroupTooltip"), colorHex: "#DC2626");
-            deleteBtn.IsVisible = group.Marker != GroupNodeViewModel.PinnedMarker
-                                  && group.Marker != GroupNodeViewModel.NoGroupMarker;
-            actions.Children.Add(deleteBtn);
-            Grid.SetColumn(actions, actionsIndex);
-            row.Children.Add(actions);
+            // Колонка «Действия» всегда есть в сетке (нулевой ширины при выключенной
+            // настройке, AddListColumns), но панель кнопок, как и в строке базы
+            // и в заголовке, строится только когда колонка видима: иначе в нулевую
+            // колонку попадали бы невидимые кнопки с обработчиками (issue #191).
+            if (_vm?.ShowActionsColumn != false)
+            {
+                var actions = new ActionsPanel();
+                actions.Children.Add(GroupRowActionButton(group, "IconEdit", "EditGroupCommand",
+                    LocalizationManager.T("Main.EditGroupTooltip"), "TextSecondaryBrush"));
+                // «Удалить» у служебных узлов скрыта: у них нет модели группы.
+                var deleteBtn = GroupRowActionButton(group, "IconDelete", "DeleteGroupCommand",
+                    LocalizationManager.T("Main.DeleteGroupTooltip"), colorHex: "#DC2626");
+                deleteBtn.IsVisible = group.Marker != GroupNodeViewModel.PinnedMarker
+                                      && group.Marker != GroupNodeViewModel.NoGroupMarker;
+                actions.Children.Add(deleteBtn);
+                Grid.SetColumn(actions, actionsIndex);
+                row.Children.Add(actions);
+            }
 
             Grid.SetColumn(caption, 0);
             Grid.SetColumnSpan(caption, actionsIndex);
@@ -1974,6 +1995,20 @@ namespace Configuration_Management
             }
 
             card.Child = grid;
+
+            // Двойной клик по строке базы запускает её в режиме по умолчанию
+            // (issue #201): «1С:Предприятие» или «Конфигуратор» согласно DefaultLaunchMode.
+            card.DoubleTapped += (_, _) =>
+            {
+                if (_vm is not { } vm)
+                    return;
+                vm.SelectedInfobase = ib;
+                if (string.Equals(ib.DefaultLaunchMode, "Configurator", StringComparison.Ordinal))
+                    vm.LaunchConfiguratorCommand.Execute(null);
+                else
+                    vm.LaunchEnterpriseCommand.Execute(null);
+            };
+
             return card;
         }
 
@@ -5666,6 +5701,8 @@ namespace Configuration_Management
             // Переключение подробностей правой панели информации — настраиваемый хоткей (issue #172);
             // значение по умолчанию Ctrl+D задаётся в настройках.
             AddHotkey(_vm.HotkeyRightPanelDetails, _vm.ToggleRightPanelDetailsCommand);
+            // Смена пользователя — настраиваемый хоткей (issue #200).
+            AddHotkey(_vm.HotkeySwitchUser, _vm.SwitchUserCommand);
             // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
             // Регистрируются обе раскладки (основная клавиатура Oem* и цифровой блок Add/Subtract).
             KeyBindings.Add(new KeyBinding

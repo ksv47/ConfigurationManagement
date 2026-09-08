@@ -1108,6 +1108,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.Enterprise}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -1177,6 +1178,11 @@
                             <TextBlock Grid.Row="13" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.RightPanelDetails}" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyRightPanelDetailsBox" Grid.Row="13" Grid.Column="1"
+                                                Height="34" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="14" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.SwitchUser}" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HotkeyBox x:Name="HotkeySwitchUserBox" Grid.Row="14" Grid.Column="1"
                                                 Height="34" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
                         </Grid>

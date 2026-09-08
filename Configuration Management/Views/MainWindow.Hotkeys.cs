@@ -69,6 +69,10 @@ namespace Configuration_Management
             // Переключение подробностей правой панели информации — настраиваемый
             // хоткей (issue #172); значение по умолчанию Ctrl+D задаётся в настройках.
             Add(_viewModel.HotkeyRightPanelDetails, _viewModel.ToggleRightPanelDetailsCommand);
+
+            // Смена пользователя — настраиваемый хоткей (issue #200);
+            // значение по умолчанию не задано.
+            Add(_viewModel.HotkeySwitchUser, _viewModel.SwitchUserCommand);
  
             // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
             // Регистрируются обе раскладки (основная Oem* и цифровой блок Add/Subtract).

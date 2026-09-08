@@ -34,8 +34,9 @@ public static class ConfigurationInfoService
     /// Сначала используется COM-коннектор (только на Windows; на Linux его заменяет
     /// реализация <c>OneCComConnector.Linux</c>, которая COM не использует — эвристика
     /// по файловой базе и пакетный режим конфигуратора), затем эвристика по файлу 1Cv8.1CD.
+    /// <paramref name="onStage"/> — обратный вызов смены этапа для диалога прогресса (issue #174).
     /// </summary>
-    public static OneCConfigInfo? TryRead(Infobase ib, int timeoutMs = 8000)
+    public static OneCConfigInfo? TryRead(Infobase ib, int timeoutMs = 8000, Action<string>? onStage = null)
     {
         if (ib is null) return null;
 
@@ -45,7 +46,7 @@ public static class ConfigurationInfoService
         try
         {
             var connector = AppServices.GetRequiredService<IOneCComConnector>();
-            var viaCom = connector.ReadConfigurationInfo(ib, timeoutMs);
+            var viaCom = connector.ReadConfigurationInfo(ib, timeoutMs, onStage);
 
             // Фиксируем, какой COM-коннектор/версия платформы фактически использовались
             // при попытке чтения (issue #174): это помогает понять, почему «Определить»
@@ -147,12 +148,14 @@ public static class ConfigurationInfoService
     /// <summary>
     /// Читает наименование и версию конфигурации и сразу применяет их к базе
     /// (по умолчанию перезаписывая уже заполненные значения). Возвращает прочитанные
-    /// данные, либо null, если чтение не удалось.
+    /// данные, либо null, если чтение не удалось. <paramref name="onStage"/> — обратный
+    /// вызов смены этапа для диалога прогресса (issue #174).
     /// </summary>
-    public static OneCConfigInfo? ReadAndApply(Infobase ib, bool overwriteExisting = true, int timeoutMs = 8000)
+    public static OneCConfigInfo? ReadAndApply(Infobase ib, bool overwriteExisting = true, int timeoutMs = 8000,
+        Action<string>? onStage = null)
     {
         if (ib is null) return null;
-        var info = TryRead(ib, timeoutMs);
+        var info = TryRead(ib, timeoutMs, onStage);
         if (info is null) return null;
         TryApply(ib, overwriteExisting);
         return info;

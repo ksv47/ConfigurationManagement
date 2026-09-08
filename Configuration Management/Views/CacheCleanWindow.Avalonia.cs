@@ -54,6 +54,23 @@ namespace Configuration_Management
         private Grid? _headerGrid;
         private readonly List<Grid> _rows = new();
 
+        // Прокрутка списка и строка базы, отмеченной по умолчанию (issue #198): если окно
+        // открыто для конкретной базы, список прокручивается к ней, чтобы она была видна
+        // и в фокусе; при открытии без предзаполнения (например, по папке) — не заполнены.
+        private ScrollViewer? _basesScroll;
+        private Grid? _defaultRow;
+        private CheckBox? _defaultCheck;
+
+        // Диагностика и показ ошибок (issues #195, #202): расчёт размера кеша выполняется
+        // в фоновых потоках и может завершиться сбоем доступа к файловой системе или иным
+        // исключением — окно обязано остаться открытым, а сбой — попасть в журнал и на экран.
+        private readonly Services.IAppLogger _logger = AppServices.GetRequiredService<Services.IAppLogger>();
+        private readonly IDialogService _dialogs = AppServices.GetRequiredService<IDialogService>();
+
+        // Показываем сообщение об ошибке расчёта размера только один раз за время жизни
+        // окна, чтобы не спамить модальными окнами при сбое сразу нескольких расчётов.
+        private bool _sizeErrorReported;
+
         // Состояние перетаскивания разделителя (как в главном окне).
         private bool _isResizing;
         private int _resizeColumn = -1;
@@ -107,7 +124,13 @@ namespace Configuration_Management
             // обрезаться (CacheCleanWindow.xaml:9 и 105).
             Content = BuildRoot();
 
-            Opened += (_, _) => RefreshCacheSizes();
+            Opened += (_, _) =>
+            {
+                // Прокрутка выполняется после показа окна, когда известна видимая
+                // область ScrollViewer: иначе BringIntoView не сдвинет список (issue #198).
+                ScrollToDefault();
+                RefreshCacheSizes();
+            };
             Closing += (_, _) => SaveColumnWidths();
         }
 
@@ -143,6 +166,29 @@ namespace Configuration_Management
             catch
             {
                 // Игнорируем ошибки сохранения.
+            }
+        }
+
+        /// <summary>
+        /// Сообщает о сбое расчёта размера кеша. Сбой не должен ронять окно (issues #195, #202),
+        /// поэтому здесь — лог в журнал и понятное сообщение пользователю, а не молчаливое
+        /// проглатывание исключения.
+        /// </summary>
+        private void ShowSizeError()
+        {
+            if (_sizeErrorReported)
+                return;
+            _sizeErrorReported = true;
+
+            try
+            {
+                _dialogs.ShowError(
+                    LocalizationManager.T("CacheClean.SizeError"),
+                    LocalizationManager.T("Main.CacheErrorTitle"));
+            }
+            catch
+            {
+                // Сбой показа диалога тоже не должен уронить окно очистки.
             }
         }
 
@@ -213,20 +259,32 @@ namespace Configuration_Management
             // потока интерфейса, иначе вызов падает с «Call from invalid thread»
             // и размеры остаются незаполненными. Так же сделано в RefreshOrphanSize.
             var kind = CurrentKind();
-            var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program, _infobases));
-            var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User, _infobases));
-            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(kind, _infobases));
 
-            _programCacheSizeText.Text = FormatSize(program);
-            _userCacheSizeText.Text = FormatSize(user);
-            _orphanCacheSizeText.Text = FormatSize(orphans);
-
-            foreach (var ib in _infobases)
+            // Обработчик Opened, который это вызывает, — async void: любое выброшенное
+            // здесь исключение ушло бы в контекст синхронизации UI и уронило приложение
+            // при открытии окна (issues #195, #202). Ловим, логируем и показываем.
+            try
             {
-                var p = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.Program));
-                var u = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.User));
-                if (_programSizeTexts.TryGetValue(ib, out var pt)) pt.Text = FormatSize(p);
-                if (_userSizeTexts.TryGetValue(ib, out var ut)) ut.Text = FormatSize(u);
+                var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program, _infobases));
+                var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User, _infobases));
+                var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(kind, _infobases));
+
+                _programCacheSizeText.Text = FormatSize(program);
+                _userCacheSizeText.Text = FormatSize(user);
+                _orphanCacheSizeText.Text = FormatSize(orphans);
+
+                foreach (var ib in _infobases)
+                {
+                    var p = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.Program));
+                    var u = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.User));
+                    if (_programSizeTexts.TryGetValue(ib, out var pt)) pt.Text = FormatSize(p);
+                    if (_userSizeTexts.TryGetValue(ib, out var ut)) ut.Text = FormatSize(u);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Ошибка расчёта размера кеша при открытии окна очистки", ex);
+                ShowSizeError();
             }
         }
 
@@ -249,8 +307,16 @@ namespace Configuration_Management
         {
             var kind = CurrentKind();
             _orphanCacheSizeText.Text = "…";
-            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(kind, _infobases));
-            _orphanCacheSizeText.Text = FormatSize(orphans);
+            try
+            {
+                var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(kind, _infobases));
+                _orphanCacheSizeText.Text = FormatSize(orphans);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Ошибка расчёта размера остатков кеша", ex);
+                ShowSizeError();
+            }
         }
 
         private void OnCacheKindChanged()
@@ -264,8 +330,12 @@ namespace Configuration_Management
         /// </summary>
         private static string FormatSize(long bytes)
         {
+            // Единицы из локализации; если ключ пуст или задан мусором, остаёмся на байтах,
+            // чтобы не упасть с IndexOutOfRangeException на units[0].
             var units = LocalizationManager.T("CacheClean.SizeUnits")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (units.Length == 0)
+                units = new[] { "B" };
 
             double value = bytes;
             var index = 0;
@@ -425,14 +495,14 @@ namespace Configuration_Management
             DockPanel.SetDock(_headerGrid, Dock.Top);
             dock.Children.Add(_headerGrid);
 
-            var basesScroll = new ScrollViewer
+            _basesScroll = new ScrollViewer
             {
                 Content = _basesPanel,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 Padding = new Thickness(4)
             };
-            dock.Children.Add(basesScroll);
+            dock.Children.Add(_basesScroll);
 
             basesBorder.Child = dock;
             Grid.SetRow(basesBorder, 4);
@@ -639,6 +709,14 @@ namespace Configuration_Management
                 Grid.SetColumn(check, 0);
                 row.Children.Add(check);
 
+                // Запоминаем строку базы, предзаполненной по умолчанию, чтобы после
+                // показа окна прокрутить к ней список (issue #198).
+                if (ReferenceEquals(ib, defaultSelected))
+                {
+                    _defaultRow = row;
+                    _defaultCheck = check;
+                }
+
                 var programSize = BuildSizeText();
                 Grid.SetColumn(programSize, 1);
                 row.Children.Add(programSize);
@@ -654,6 +732,19 @@ namespace Configuration_Management
                 _rows.Add(row);
                 _basesPanel.Children.Add(row);
             }
+        }
+
+        /// <summary>
+        /// Прокручивает список к базе, отмеченной по умолчанию, и ставит на неё фокус
+        /// (issue #198). Если конкретная база не задана (например, окно открыто по папке
+        /// без предзаполнения) — ничего не делает, и список остаётся в исходной позиции.
+        /// </summary>
+        private void ScrollToDefault()
+        {
+            if (_defaultRow is null)
+                return;
+            _defaultRow.BringIntoView();
+            _defaultCheck?.Focus();
         }
 
         /// <summary>Формирует заголовок колонки списка баз.</summary>

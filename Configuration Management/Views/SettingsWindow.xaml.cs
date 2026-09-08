@@ -41,6 +41,13 @@ namespace Configuration_Management
         private readonly ObservableCollection<ColorItem> _colorItems = new();
         private bool _suppressSchemeEvent;
 
+        // ---- Компактный режим ----
+        // Признак «идёт начальная установка значения переключателя»: пока он стоит,
+        // событие Checked/Unchecked не должно вызывать ApplyCompactMode, иначе простое
+        // открытие окна настроек повторно масштабирует главное окно («прыжок отступов»,
+        // issue #199) и компактный режим не возвращается к прежнему виду.
+        private bool _suppressCompactEvent;
+
         /// <summary>
         /// Создаёт диалог настроек приложения.
         /// </summary>
@@ -74,6 +81,11 @@ namespace Configuration_Management
         /// <summary>Переключатель компактного режима: применяет изменение сразу и сохраняет.</summary>
         private void OnCompactMode_Toggled(object sender, RoutedEventArgs e)
         {
+            // Начальная установка значения переключателя событием не считается:
+            // повторное масштабирование при открытии окна настроек — «прыжок
+            // отступов» (issue #199), компактный режим не возвращается к прежнему.
+            if (_suppressCompactEvent)
+                return;
             if (CompactModeCheck is null)
                 return;
             _viewModel.ApplyCompactMode(CompactModeCheck.IsChecked == true);
@@ -164,6 +176,7 @@ namespace Configuration_Management
             var hkClearSearch = ReadHotkeyBox(HotkeyClearSearchBox);
             var hkClearTags = ReadHotkeyBox(HotkeyClearTagsBox);
             var hkRightPanelDetails = ReadHotkeyBox(HotkeyRightPanelDetailsBox);
+            var hkSwitchUser = ReadHotkeyBox(HotkeySwitchUserBox);
  
             // Проверка: одна клавиша — одно действие (пустые «Нет» не учитываются).
             var assigned = new (string Name, string Key)[]
@@ -181,7 +194,8 @@ namespace Configuration_Management
                 (LocalizationManager.T("Main.RecentTooltip"), hkShowRecent),
                 (LocalizationManager.T("Main.ClearSearch"), hkClearSearch),
                 (LocalizationManager.T("Main.ClearTags"), hkClearTags),
-                (LocalizationManager.T("Main.CollapseRightPanel"), hkRightPanelDetails)
+                (LocalizationManager.T("Main.CollapseRightPanel"), hkRightPanelDetails),
+                (LocalizationManager.T("Main.SwitchUser"), hkSwitchUser)
             };
             var duplicates = SettingsViewModel.FindDuplicateHotkeys(assigned).ToList();
             if (duplicates.Count > 0)
@@ -223,7 +237,8 @@ namespace Configuration_Management
                 ReadAfterLaunchAction(),
                 hotkeyClearSearch: hkClearSearch,
                 hotkeyClearTags: hkClearTags,
-                hotkeyRightPanelDetails: hkRightPanelDetails);
+                hotkeyRightPanelDetails: hkRightPanelDetails,
+                hotkeySwitchUser: hkSwitchUser);
 
             var templatePaths = TemplatePathsList?.Items.Cast<string>().Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
                 ?? new System.Collections.Generic.List<string>();
