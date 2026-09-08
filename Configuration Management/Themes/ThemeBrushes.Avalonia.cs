@@ -28,7 +28,12 @@ namespace Configuration_Management.Themes
         /// в содержимое окна, останется неокрашенным молча. Ловушки такого рода:
         /// ToolTip.Tip и MenuItem.Icon у неоткрытого меню.
         /// </remarks>
-        public static void Bind(StyledElement target, AvaloniaProperty property, string brushKey)
+        /// <returns>
+        /// Подписка на ресурс. Освобождать её нужно только там, где то же свойство
+        /// потом задаётся обычным присваиванием: живая привязка переживает такую
+        /// запись и вернёт своё значение при следующей смене темы или схемы.
+        /// </returns>
+        public static System.IDisposable Bind(StyledElement target, AvaloniaProperty property, string brushKey)
             => target.Bind(property, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(brushKey));
 
         /// <summary>
