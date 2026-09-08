@@ -1412,8 +1412,15 @@ public partial class MainViewModel : ViewModelBase
         if (_addTimestampToExportFileName)
         {
             var format = string.IsNullOrWhiteSpace(_exportTimestampFormat) ? "yyyyMMdd_HHmmss" : _exportTimestampFormat;
-            var ts = DateTime.Now.ToString(format);
-            return $"{baseName}_{ts}{extension}";
+            try
+            {
+                return $"{baseName}_{DateTime.Now.ToString(format)}{extension}";
+            }
+            catch (FormatException)
+            {
+                // Шаблон мог прийти из файла настроек, правленного руками.
+                return $"{baseName}_{DateTime.Now:yyyyMMdd_HHmmss}{extension}";
+            }
         }
         return $"{baseName}{extension}";
     }

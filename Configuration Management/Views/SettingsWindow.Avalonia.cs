@@ -2383,7 +2383,10 @@ namespace Configuration_Management
                     (LocalizationManager.T("Main.FavoritesTooltip"), hotkeyShowFavorites),
                     (LocalizationManager.T("Main.RecentTooltip"), hotkeyShowRecent),
                     (LocalizationManager.T("Main.ClearSearch"), hotkeyClearSearch),
-                    (LocalizationManager.T("Main.ClearTags"), hotkeyClearTags)
+                    (LocalizationManager.T("Main.ClearTags"), hotkeyClearTags),
+                    // Панель информации (Ctrl+D, issue #172) участвует в проверке
+                    // дублей, как и в Windows-версии (SettingsWindow.xaml.cs).
+                    (LocalizationManager.T("Main.CollapseRightPanel"), hotkeyRightPanelDetails)
                 };
 
                 if (!ValidateHotkeys(assignments))

@@ -461,13 +461,22 @@ namespace Configuration_Management
             if (!dialog.Confirm(confirm, LocalizationManager.T("Profiles.Title")))
                 return;
 
-            if (!_profileService.DeleteProfile(profile.Id))
+            try
             {
-                ShowError(LocalizationManager.T("Profiles.CantDeleteLast"));
-                return;
-            }
+                if (!_profileService.DeleteProfile(profile.Id))
+                {
+                    ShowError(LocalizationManager.T("Profiles.CantDeleteLast"));
+                    return;
+                }
 
-            RefreshList();
+                RefreshList();
+            }
+            catch (Exception ex)
+            {
+                // Например, не удалось сохранить реестр profiles.json — удаление откачено
+                // сервисом, показываем причину пользователю.
+                ShowError(ex.Message);
+            }
         }
     }
 }

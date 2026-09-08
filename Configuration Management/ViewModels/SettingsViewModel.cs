@@ -209,15 +209,16 @@ public sealed class SettingsViewModel
         if (IsBuiltInName(oldName))
             return null;
 
-        // Сохраняем под новым именем и удаляем старый файл. Если тема уже открыта
-        // в редакторе с незаконченными правками — переносим её рабочую копию на новое имя.
+        // Сначала сохраняем файл под новым именем и только после успешной записи удаляем
+        // старый файл — если запись не пройдёт, прежняя тема не пропадёт. Если тема уже
+        // открыта в редакторе с незаконченными правками — переносим её рабочую копию на новое имя.
         var toSave = _editingSchemes.TryGetValue(oldName, out var working) ? working : ResolveScheme(oldName);
         if (toSave is null)
             return null;
 
-        _viewModel.DeleteCustomColorScheme(oldName);
         toSave.Name = newName;
         _viewModel.SaveCustomColorScheme(toSave);
+        _viewModel.DeleteCustomColorScheme(oldName);
         _editingSchemes.Remove(oldName);
         _editingSchemes[newName] = toSave;
         if (_dirtySchemes.Remove(oldName))

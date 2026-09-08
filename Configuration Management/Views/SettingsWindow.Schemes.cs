@@ -12,6 +12,7 @@ using Microsoft.Win32;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
+using Configuration_Management.Themes;
 using Configuration_Management.ViewModels;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
@@ -349,6 +350,11 @@ namespace Configuration_Management
                 return;
             }
 
+            if (ThemeManager.FindCustomScheme(name) is not null
+                && MessageBox.Show(string.Format(LocalizationManager.T("Settings.CreateSchemeReplace"), name),
+                    LocalizationManager.T("Settings.CreateTheme"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+
             _settings.CreateCustomScheme(name);
             RefreshSchemeComboBox();
             RefreshColorItems();
@@ -458,6 +464,11 @@ namespace Configuration_Management
                     LocalizationManager.T("Settings.ImportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+
+            if (ThemeManager.FindCustomScheme(scheme.Name) is not null
+                && MessageBox.Show(string.Format(LocalizationManager.T("Settings.ImportReplaceLinux"), scheme.Name),
+                    LocalizationManager.T("Settings.ImportDoneTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
 
             _settings.AdoptImportedScheme(scheme);
             RefreshSchemeComboBox();

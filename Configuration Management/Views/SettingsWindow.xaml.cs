@@ -41,6 +41,11 @@ namespace Configuration_Management
         private readonly ObservableCollection<ColorItem> _colorItems = new();
         private bool _suppressSchemeEvent;
 
+        // ---- Язык интерфейса ----
+        // Выбранный в окне язык. Применяется в обработчике «Сохранить», чтобы
+        // «Отмена» не меняла текущий язык и не перезаписывала settings.json (issue #206).
+        private string? _pendingLanguageCode;
+
         // ---- Компактный режим ----
         // Признак «идёт начальная установка значения переключателя»: пока он стоит,
         // событие Checked/Unchecked не должно вызывать ApplyCompactMode, иначе простое
@@ -103,8 +108,61 @@ namespace Configuration_Management
         public string AboutVersion =>
             string.Format(LocalizationManager.T("Settings.About.Version"), VersionInfo.Display());
 
+        /// <summary>
+        /// Строгий разбор времени суток расписания синхронизации (ЧЧ:ММ или Ч:ММ).
+        /// Обычный TryParse принимает «9» как девять суток и «25:00» как длительность,
+        /// поэтому проверяем явно и не принимаем значения от 24 часов и больше.
+        /// </summary>
+        private static bool IsValidScheduleTime(string value) =>
+            TimeSpan.TryParseExact(value.Trim(), new[] { @"hh\:mm", @"h\:mm" },
+                System.Globalization.CultureInfo.InvariantCulture, out var time)
+            && time >= TimeSpan.Zero && time < TimeSpan.FromDays(1);
+
+        /// <summary>Проверяет, что строка — допустимый шаблон даты-времени .NET.</summary>
+        private static bool IsValidTimestampFormat(string? format)
+        {
+            if (string.IsNullOrWhiteSpace(format))
+                return true;
+            try
+            {
+                _ = DateTime.Now.ToString(format!.Trim());
+                return true;
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+        }
+
         private void OnSave_Click(object sender, RoutedEventArgs e)
         {
+            // Валидация времени расписания синхронизации: обычный TimeSpan.TryParse
+            // принимал «9» как девять суток и «25:00» как длительность, из-за чего
+            // расписание молча не срабатывало (issue #207). Не сохраняем заведомо
+            // неверное значение и показываем пример правильного.
+            if (SyncTriggerComboBox.SelectedIndex == (int)IbasesSyncTrigger.Schedule)
+            {
+                var schedule = SyncScheduleTimePicker.Text?.Trim() ?? string.Empty;
+                if (!IsValidScheduleTime(schedule))
+                {
+                    MessageBox.Show(LocalizationManager.T("Settings.Ibases.ScheduleTimeInvalid"),
+                        LocalizationManager.T("Settings.Ibases.ScheduleTime"),
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+
+            // Валидация шаблона даты-времени для имени файла выгрузки (issue #207):
+            // не сохраняем неверный шаблон, чтобы следующая выгрузка .dt/.cf не падала.
+            if (AddTimestampToExportFileNameCheck.IsChecked == true &&
+                !IsValidTimestampFormat(ExportTimestampFormatComboBox?.Text))
+            {
+                MessageBox.Show(LocalizationManager.T("Settings.TimestampInvalid"),
+                    LocalizationManager.T("Settings.Bases.TimestampFormat"),
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             // Сохраняем версии платформы и дополнительные пути поиска.
             _viewModel.SetAdditionalPlatformSearchPaths(_additionalPlatformPaths);
             _viewModel.SetInstalledPlatformVersions(_installedPlatformVersions);
@@ -264,6 +322,19 @@ namespace Configuration_Management
             // Сохраняем настройки шрифта интерфейса (общий и отдельных областей).
             ReadFontSelection();
             _viewModel.SaveElementFonts(_settings.ElementFonts);
+
+            // Применяем выбранный язык интерфейса только при сохранении (issue #206):
+            // «Отмена» не должна менять язык и перезаписывать settings.json.
+            if (!string.IsNullOrEmpty(_pendingLanguageCode) &&
+                !string.Equals(_pendingLanguageCode, LocalizationManager.Instance.CurrentLanguage,
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                _viewModel.ApplyLanguage(_pendingLanguageCode);
+                // Перестраиваем список тем: отображаемые подписи встроенных тем
+                // локализованы и должны обновиться при смене языка. Сохранённое имя
+                // (канонический ключ «Светлая»/«Тёмная») не меняется.
+                RefreshSchemeComboBox();
+            }
 
             DialogResult = true;
         }

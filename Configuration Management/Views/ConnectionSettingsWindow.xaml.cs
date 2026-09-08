@@ -235,6 +235,18 @@ namespace Configuration_Management
 
         private void OnSave_Click(object sender, RoutedEventArgs e)
         {
+            // Не допускаем значений, которые не могут быть переданы в командную строку 1С
+            // (двойная кавычка / управляющий символ) — иначе запуск молча пропускал бы аргумент
+            // (issue #205).
+            var validationError = _viewModel.ValidateCliArgs();
+            if (validationError is not null)
+            {
+                MessageBox.Show(validationError,
+                    LocalizationManager.T("Connection.InvalidCliCharTitle"),
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             // Применяем значения из ViewModel к результату.
             _viewModel.ApplyTo(Result);
 

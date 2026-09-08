@@ -949,6 +949,67 @@ public class ConnectionSettingsViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Проверяет, что значения полей, которые подставляются в командную строку 1С
+    /// (аргументы /F /S /WS /N /P), безопасны для этой грамматики — не содержат
+    /// символа двойной кавычки и управляющих символов. Иначе они молча отбрасываются
+    /// при запуске (см. <c>OneCLauncher.IsSafeCliValue</c>), и база открывается
+    /// с неверными параметрами или без них (issue #205).
+    /// </summary>
+    /// <returns>
+    /// Локализованное сообщение об ошибке с именем первого недопустимого поля,
+    /// или <c>null</c>, если все проверяемые значения безопасны.
+    /// </returns>
+    public string? ValidateCliArgs()
+    {
+        // Поля подключения, попадающие в аргументы /F /S /WS.
+        string? connectionField = ConnectionType switch
+        {
+            ConnectionType.File => IsUnsafeForCli(FilePath) ? LocalizationManager.T("Connection.FieldFilePath") : null,
+            ConnectionType.WebServer => IsUnsafeForCli(WebUrl) ? LocalizationManager.T("Connection.FieldWebUrl") : null,
+            _ => IsUnsafeForCli(Server) ? LocalizationManager.T("Connection.FieldServer")
+               : IsUnsafeForCli(DatabaseName) ? LocalizationManager.T("Connection.FieldDatabaseName")
+               : null
+        };
+        if (connectionField is not null)
+            return BuildCliInvalidMessage(connectionField);
+
+        // Логин/пароль «1С:Предприятие» используются при автоматическом входе (/N /P).
+        if (AuthenticationMode == AuthenticationMode.Credentials)
+        {
+            if (IsUnsafeForCli(User))
+                return BuildCliInvalidMessage(LocalizationManager.T("Connection.FieldUser"));
+            if (IsUnsafeForCli(Password))
+                return BuildCliInvalidMessage(LocalizationManager.T("Connection.FieldPassword"));
+        }
+
+        // Отдельная авторизация Конфигуратора. При «как для 1С:Предприятия»
+        // используются те же учётные данные, уже проверенные выше.
+        if (!ConfiguratorUseEnterpriseAuth && ConfiguratorAuthenticationMode == AuthenticationMode.Credentials)
+        {
+            if (IsUnsafeForCli(ConfiguratorUser))
+                return BuildCliInvalidMessage(LocalizationManager.T("Connection.FieldConfiguratorUser"));
+            if (IsUnsafeForCli(ConfiguratorPassword))
+                return BuildCliInvalidMessage(LocalizationManager.T("Connection.FieldConfiguratorPassword"));
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// True, если значение непустое и содержит символ, который нельзя передать
+    /// внутри кавычек ключа командной строки 1С: двойную кавычку или управляющий
+    /// символ. Пустое значение безопасно само по себе — оно не порождает
+    /// инъекции, хотя и приводит к отсутствию аргумента.
+    /// </summary>
+    private static bool IsUnsafeForCli(string? value)
+        => !string.IsNullOrEmpty(value) &&
+           (value!.IndexOf('"') >= 0 || value.Any(c => char.IsControl(c)));
+
+    /// <summary>Собирает локализованное сообщение о недопустимом значении поля.</summary>
+    private static string BuildCliInvalidMessage(string fieldName)
+        => string.Format(LocalizationManager.T("Connection.InvalidCliCharFormat"), fieldName);
+
+    /// <summary>
     /// Применяет значения ViewModel к информационной базе.
     /// </summary>
     public void ApplyTo(Infobase infobase)

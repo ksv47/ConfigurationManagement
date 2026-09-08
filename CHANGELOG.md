@@ -9,6 +9,25 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.93] — 2026-09-08
+
+Исправление семи issues #204–#210: ужесточение отбраковки «горячих клавиш», валидация значений с двойной кавычкой в аргументах запуска 1С, корректная «Отмена» при смене языка интерфейса на Windows, строгий разбор расписания синхронизации и защита шаблона даты/времени, подтверждение замены пользовательской темы, безопасный порядок удаления учётной записи и удаление мёртвых окон без точек входа.
+
+### Исправлено
+
+- **Горячие клавиши** ([#204](https://github.com/sivatorov/ConfigurationManagement/issues/204)): нажатие одной клавиши без модификатора теперь отбраковывается (допустимы только F1–F24, Delete, Insert) — в [`Controls/HotkeyBox.cs`](Configuration%20Management/Controls/HotkeyBox.cs) (WPF) и [`Controls/HotkeyBox.Avalonia.cs`](Configuration%20Management/Controls/HotkeyBox.Avalonia.cs). Исправлено имя действия «Сбросить теги» в предупреждении о конфликте — добавлен ключ локализации `Main.ClearTags`. Хоткей панели информации `Ctrl+D` (#172) добавлен в проверку дублей Linux/Avalonia.
+- **Значение с двойной кавычкой больше не выпадает из аргументов запуска 1С** ([#205](https://github.com/sivatorov/ConfigurationManagement/issues/205)): при сохранении базы значения, содержащие `"` или управляющий символ, не принимаются — показывается сообщение. Новая валидация `ValidateCliArgs` в [`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs) для WPF и Avalonia, ключи `Connection.InvalidCliChar*` в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json).
+- **Windows: «Отмена» в настройках не отменяла смену языка интерфейса** ([#206](https://github.com/sivatorov/ConfigurationManagement/issues/206)): язык теперь применяется только при «Сохранить», а не сразу при выборе; «Отмена» ничего не меняет и не записывает. Изменены [`Views/SettingsWindow.Language.cs`](Configuration%20Management/Views/SettingsWindow.Language.cs) и [`Views/SettingsWindow.xaml.cs`](Configuration%20Management/Views/SettingsWindow.xaml.cs).
+- **Windows: расписание синхронизации и шаблон даты времени** ([#207](https://github.com/sivatorov/ConfigurationManagement/issues/207)): строгий разбор времени суток (`TimeSpan.TryParseExact` `hh\:mm`/`h\:mm`, меньше суток) в [`ViewModels/MainViewModel.Sync.cs`](Configuration%20Management/ViewModels/MainViewModel.Sync.cs); защита `DateTime.Now.ToString` от `FormatException` с откатом к `yyyyMMdd_HHmmss` в [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs); валидация полей при сохранении с сообщением `Settings.Ibases.ScheduleTimeInvalid`.
+- **Windows: пользовательская тема перезаписывалась без подтверждения и терялась при сбое переименования** ([#208](https://github.com/sivatorov/ConfigurationManagement/issues/208)): подтверждение замены при создании/импорте темы (`FindCustomScheme`); в `RenameCustomScheme` сначала сохраняется новый файл, старый удаляется только после успешной записи — [`ViewModels/SettingsViewModel.cs`](Configuration%20Management/ViewModels/SettingsViewModel.cs), ключ `Settings.CreateSchemeReplace`.
+- **Удаление учётной записи: каталог данных удалялся до записи реестра профилей** ([#209](https://github.com/sivatorov/ConfigurationManagement/issues/209)): порядок изменён — `profiles.json` сохраняется первым, каталог данных удаляется только после успешной записи; ошибка записи больше не подавляется, [`Services/ProfileService.cs`](Configuration%20Management/Services/ProfileService.cs) возвращает `bool` + лог, профиль возвращается в список при сбое; ключ `Profiles.DeleteFailedSave`.
+- **Три окна остались в сборке без точек входа** ([#210](https://github.com/sivatorov/ConfigurationManagement/issues/210)): удалены мёртвые окна `GroupSettingsWindow`, `TagInputWindow` и WPF-пара `ProfilesWindow` (`ProfilesWindow.Avalonia.cs` сохранён).
+
+### Версия
+
+- **Версия поднята до `0.3.6.92` → `0.3.6.93`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.6.92] — 2026-09-08
 
 Реализация ISSUE #201 «Пара пожеланий»: новое действие «Свернуть» (не в трей) после запуска базы/конфигуратора, настраиваемый режим запуска базы по умолчанию («1С:Предприятие»/«Конфигуратор») при двойном клике и быстрая авторизация для Конфигуратора «как для 1С:Предприятия».

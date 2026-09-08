@@ -1118,6 +1118,16 @@ namespace Configuration_Management
 
         private void OnSave_Click()
         {
+            // Не допускаем значений, которые не могут быть переданы в командную строку 1С
+            // (двойная кавычка / управляющий символ) — иначе запуск молча пропускал бы аргумент
+            // (issue #205).
+            var validationError = _viewModel.ValidateCliArgs();
+            if (validationError is not null)
+            {
+                _dialogs.ShowWarning(validationError, LocalizationManager.T("Connection.InvalidCliCharTitle"));
+                return;
+            }
+
             _viewModel.ApplyTo(Result);
 
             if (string.IsNullOrWhiteSpace(Result.Id))

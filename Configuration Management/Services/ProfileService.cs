@@ -2,6 +2,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Configuration_Management.Localization;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services;
@@ -47,11 +48,17 @@ public class ProfileService : IProfileService
     };
 
     private readonly List<UserProfile> _profiles = new();
+    private readonly IAppLogger _logger;
     private string? _lastProfileId;
     private UserProfile? _currentProfile;
     private bool _initialized;
 
     private string RegistryPath => Path.Combine(PlatformPaths.AppDataDirectory, RegistryFileName);
+
+    public ProfileService(IAppLogger logger)
+    {
+        _logger = logger;
+    }
 
     /// <summary>Каталог данных конкретного профиля.</summary>
     public string GetProfileDataDirectory(string id) =>
@@ -157,9 +164,38 @@ public class ProfileService : IProfileService
         if (profile == null)
             return false;
 
-        _profiles.Remove(profile);
+        var index = _profiles.IndexOf(profile);
+        var wasCurrent = _currentProfile?.Id == id;
+        var wasLast = _lastProfileId == id;
 
-        // Удаляем каталог данных профиля (сбой не должен блокировать удаление из реестра).
+        _profiles.RemoveAt(index);
+        if (wasCurrent)
+            _currentProfile = _profiles.FirstOrDefault();
+        if (wasLast)
+            _lastProfileId = null;
+
+        // Сначала сохраняем реестр — только при успешной записи удаляем каталог данных.
+        // Так запись, исключённая из списка, не «оживёт» на следующем запуске из старого
+        // файла profiles.json, когда её каталог уже удалён (issue #209).
+        if (!SaveRegistry())
+        {
+            // Откатываем удаление, чтобы состояние на диске и в памяти не разошлось молча:
+            // возвращаем профиль в список и восстанавливаем ссылки на текущий/последний.
+            _profiles.Insert(index, profile);
+            if (wasCurrent)
+                _currentProfile = profile;
+            if (wasLast)
+                _lastProfileId = id;
+
+            var message = string.Format(
+                LocalizationManager.T("Profiles.DeleteFailedSave"), RegistryPath);
+            _logger.Error(message);
+            throw new InvalidOperationException(message);
+        }
+
+        // Реестр сохранён успешно — теперь удаляем каталог данных профиля.
+        // Сбой здесь не критичен: запись уже исчезла из реестра, а каталог будет
+        // перезаписан при пересоздании профиля с тем же Id.
         try
         {
             var dir = GetProfileDataDirectory(profile.Id);
@@ -171,12 +207,6 @@ public class ProfileService : IProfileService
             // Оставляем каталог — он будет перезаписан при пересоздании профиля с тем же Id.
         }
 
-        if (_currentProfile?.Id == id)
-            _currentProfile = _profiles.FirstOrDefault();
-        if (_lastProfileId == id)
-            _lastProfileId = null;
-
-        SaveRegistry();
         return true;
     }
 
@@ -278,7 +308,11 @@ public class ProfileService : IProfileService
         }
     }
 
-    private void SaveRegistry()
+    /// <summary>
+    /// Сохраняет реестр профилей в <c>profiles.json</c>.
+    /// </summary>
+    /// <returns>True, если запись выполнена успешно; иначе false.</returns>
+    private bool SaveRegistry()
     {
         try
         {
@@ -290,11 +324,16 @@ public class ProfileService : IProfileService
                 Profiles = _profiles.ToList()
             };
             File.WriteAllText(RegistryPath, JsonSerializer.Serialize(registry, JsonOptions));
+            return true;
         }
-        catch
+        catch (Exception ex)
         {
-            // Сбой записи реестра не должен ронять приложение; профили будут перечитаны
-            // на следующем запуске из прежнего реестра.
+            // Ошибку больше не подавляем молча: фиксируем её в журнале. Возвращаем false,
+            // чтобы вызывающий код (например, удаление профиля) мог откатить изменения
+            // и сообщить пользователю, — иначе расхождение между реестром и диском останется
+            // незамеченным до следующего запуска.
+            _logger.Error($"Не удалось сохранить реестр профилей ({RegistryPath}): {ex.Message}", ex);
+            return false;
         }
     }
 
