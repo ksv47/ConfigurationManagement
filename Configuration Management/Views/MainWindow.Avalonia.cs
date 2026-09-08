@@ -1928,12 +1928,13 @@ namespace Configuration_Management
             ActionsPanel? actions = null;
             if (_vm?.ShowActionsColumn != false)
             {
+                // Три действия, как в разметке WPF (MainWindow.xaml:1497-1517):
+                // запуск, конфигуратор, очистка кеша. Правка настроек и удаление
+                // в строке не показываются, они остаются в контекстном меню.
                 actions = new ActionsPanel { Spacing = 1 };
                 actions.Children.Add(RowActionButton(ib, "IconPlay", "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
                 actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
-                actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
                 actions.Children.Add(RowActionButton(ib, "IconBroom", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
-                actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#DC2626"));
                 // Кнопки живут внутри панели, обрезанной по своей колонке: в узкой
                 // колонке «Действия» лишние значки у автора пропадают, а у нас
                 // рисовались поверх колонки «Сервер/База».
@@ -3996,6 +3997,15 @@ namespace Configuration_Management
         /// <summary>Минимальная ширина колонки при перетаскивании разделителя.</summary>
         private const double MinColumnWidth = 40;
 
+        /// <summary>
+        /// Минимальная ширина колонки «Действия» при перетаскивании разделителя: под общий
+        /// предел в 40 точек в неё не помещаются три кнопки-иконки (запуск, конфигуратор,
+        /// очистка кеша), и часть действий становится недоступна. В WPF тот же предел
+        /// держит обработчик перетаскивания, а не разметка: MinWidth у колонки не задан
+        /// намеренно, чтобы скрытая колонка схлопывалась в ноль.
+        /// </summary>
+        private const double ActionsColumnMinWidth = 120;
+
         /// <summary>Ширина зоны захвата разделителя колонок.</summary>
         private const double ResizeGripWidth = 8;
 
@@ -4663,7 +4673,8 @@ namespace Configuration_Management
             if (sender is not Border grip || !ReferenceEquals(e.Pointer.Captured, grip))
                 return;
 
-            var width = Math.Max(MinColumnWidth, _resizeStartWidth + e.GetPosition(this).X - _resizeStartX);
+            var minWidth = _resizeKey == "Actions" ? ActionsColumnMinWidth : MinColumnWidth;
+            var width = Math.Max(minWidth, _resizeStartWidth + e.GetPosition(this).X - _resizeStartX);
             ApplyColumnWidth(_resizeKey, width);
             _vm?.UpdateColumnWidth(_resizeKey, width, save: false);
         }
