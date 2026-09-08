@@ -475,6 +475,44 @@ public static class IbasesV8iImporter
     }
 
     /// <summary>
+    /// Создаёт в коллекции недостающие группы по файлу ibases.v8i: тем же разбором,
+    /// что и обычный импорт списка баз, включая перенос идентификаторов групп из файла
+    /// и уборку дубликатов (issue #165). Используется импортом из StartManager, где
+    /// группы приходят из этого же файла.
+    /// </summary>
+    /// <param name="filePath">Путь к файлу ibases.v8i.</param>
+    /// <param name="groups">Коллекция групп приложения.</param>
+    /// <returns>Количество созданных групп.</returns>
+    public static int EnsureGroupsFromFile(string filePath, IList<Group> groups)
+    {
+        if (!File.Exists(filePath))
+            return 0;
+
+        var result = new IbasesImportResult();
+        EnsureGroups(Parse(filePath), groups, result);
+        return result.GroupsCreated;
+    }
+
+    /// <summary>
+    /// Читает записи баз из файла ibases.v8i как модели <see cref="Infobase"/>,
+    /// не изменяя коллекции приложения. Группы (секции без строки подключения)
+    /// и отключённые записи пропускаются. Используется импортом из StartManager,
+    /// где строка подключения берётся отсюда, а надстройки — из v8config.smc.
+    /// </summary>
+    /// <param name="filePath">Путь к файлу ibases.v8i.</param>
+    /// <returns>Список баз файла; пустой список, если файла нет.</returns>
+    public static List<Infobase> ReadInfobases(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return new List<Infobase>();
+
+        return Parse(filePath)
+            .Where(e => !e.IsGroup && e.Enabled)
+            .Select(e => e.ToInfobase())
+            .ToList();
+    }
+
+    /// <summary>
     /// Ищет файл ibases.v8i в стандартных местах хранения списка баз 1С.
     /// Возвращает путь к найденному файлу или null, если файл не найден.
     /// </summary>

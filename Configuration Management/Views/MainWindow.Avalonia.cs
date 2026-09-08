@@ -1929,6 +1929,9 @@ namespace Configuration_Management
             ActionsPanel? actions = null;
             if (_vm?.ShowActionsColumn != false)
             {
+                // Три действия, как в разметке WPF (MainWindow.xaml:1497-1517):
+                // запуск, конфигуратор, очистка кеша. Правка настроек и удаление
+                // в строке не показываются, они остаются в контекстном меню.
                 actions = new ActionsPanel { Spacing = 1 };
                 actions.Children.Add(RowActionButton(ib, "IconPlay", "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
                 actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
