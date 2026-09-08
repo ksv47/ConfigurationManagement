@@ -376,12 +376,20 @@ public partial class MainViewModel : ViewModelBase
             var candidateInfobases = Infobases.ToList();
             var candidateGroups = Groups.ToList();
 
-            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups);
+            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups, ResolveIbasesFilePath());
 
             if (result.NoConfigFound)
             {
                 _dialogs.ShowInfo(
                     string.Format(LocalizationManager.T("StartManager.NoConfig"), dir),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            if (result.NoIbasesFound)
+            {
+                _dialogs.ShowInfo(
+                    LocalizationManager.T("StartManager.NoIbases"),
                     LocalizationManager.T("StartManager.Title"));
                 return;
             }
@@ -432,7 +440,9 @@ public partial class MainViewModel : ViewModelBase
 
             var message = string.Format(
                 LocalizationManager.T("StartManager.Done"),
-                result.Added, result.Updated);
+                result.Added, result.Updated, result.GroupsCreated, result.Skipped);
+            if (result.Skipped > 0)
+                message += "\n\n" + LocalizationManager.T("StartManager.SkippedHint");
             if (platformAdded)
                 message += "\n" + LocalizationManager.T("StartManager.PlatformPathAdded");
             _dialogs.ShowInfo(message, LocalizationManager.T("StartManager.Title"));

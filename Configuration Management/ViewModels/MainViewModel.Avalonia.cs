@@ -2855,12 +2855,20 @@ public class MainViewModel : ViewModelBase
             var candidateInfobases = _allInfobases.ToList();
             var candidateGroups = _groups.ToList();
 
-            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups);
+            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups, ResolveIbasesFilePath());
 
             if (result.NoConfigFound)
             {
                 _dialog.ShowInfo(
                     string.Format(LocalizationManager.T("StartManager.NoConfig"), dir),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            if (result.NoIbasesFound)
+            {
+                _dialog.ShowInfo(
+                    LocalizationManager.T("StartManager.NoIbases"),
                     LocalizationManager.T("StartManager.Title"));
                 return;
             }
@@ -2916,7 +2924,9 @@ public class MainViewModel : ViewModelBase
 
             var message = string.Format(
                 LocalizationManager.T("StartManager.Done"),
-                result.Added, result.Updated);
+                result.Added, result.Updated, result.GroupsCreated, result.Skipped);
+            if (result.Skipped > 0)
+                message += "\n\n" + LocalizationManager.T("StartManager.SkippedHint");
             if (platformAdded)
                 message += "\n" + LocalizationManager.T("StartManager.PlatformPathAdded");
             _dialog.ShowInfo(message, LocalizationManager.T("StartManager.Title"));
