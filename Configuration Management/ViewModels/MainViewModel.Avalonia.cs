@@ -283,7 +283,8 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public void ApplyDisplaySettings(
         bool showFavoritesButton, bool showPinnedButton, bool showTags, bool showTagFilterPanel,
-        bool showVersionColumn, bool showConfigurationColumn, bool showLaunchModeColumn,
+        bool showVersionColumn, bool showConfigurationColumn, bool showConfigurationVersionColumn,
+        bool showLaunchModeColumn,
         bool showServerColumn, bool showLastLaunchColumn, bool showSizeColumn,
         bool showActionsColumn,
         bool showRightPanelDetails, bool showSessionLaunchPanel,
@@ -295,6 +296,7 @@ public class MainViewModel : ViewModelBase
         var previousShowTags = _settings.ShowTags;
         var previousShowVersionColumn = _settings.ShowVersionColumn;
         var previousShowConfigurationColumn = _settings.ShowConfigurationColumn;
+        var previousShowConfigurationVersionColumn = _settings.ShowConfigurationVersionColumn;
         var previousShowLaunchModeColumn = _settings.ShowLaunchModeColumn;
         var previousShowServerColumn = _settings.ShowServerColumn;
         var previousShowLastLaunchColumn = _settings.ShowLastLaunchColumn;
@@ -310,6 +312,7 @@ public class MainViewModel : ViewModelBase
         _settings.ShowTagFilterPanel = showTagFilterPanel;
         _settings.ShowVersionColumn = showVersionColumn;
         _settings.ShowConfigurationColumn = showConfigurationColumn;
+        _settings.ShowConfigurationVersionColumn = showConfigurationVersionColumn;
         _settings.ShowLaunchModeColumn = showLaunchModeColumn;
         _settings.ShowServerColumn = showServerColumn;
         _settings.ShowLastLaunchColumn = showLastLaunchColumn;
@@ -335,6 +338,7 @@ public class MainViewModel : ViewModelBase
             || showPinnedButton != previousShowPinnedButton
             || showVersionColumn != previousShowVersionColumn
             || showConfigurationColumn != previousShowConfigurationColumn
+            || showConfigurationVersionColumn != previousShowConfigurationVersionColumn
             || showLaunchModeColumn != previousShowLaunchModeColumn
             || showServerColumn != previousShowServerColumn
             || showLastLaunchColumn != previousShowLastLaunchColumn
@@ -375,6 +379,7 @@ public class MainViewModel : ViewModelBase
             _showTagFilterPanel,
             key == "Version" ? visible : _settings.ShowVersionColumn,
             key == "Configuration" ? visible : _settings.ShowConfigurationColumn,
+            key == "ConfigurationVersion" ? visible : _settings.ShowConfigurationVersionColumn,
             key == "LaunchMode" ? visible : _settings.ShowLaunchModeColumn,
             key == "ServerBase" ? visible : _settings.ShowServerColumn,
             key == "LastLaunch" ? visible : _settings.ShowLastLaunchColumn,
@@ -1017,19 +1022,22 @@ public class MainViewModel : ViewModelBase
     // ---- Видимость колонок ----
 
     /// <summary>
-    /// Порядок колонок списка баз по умолчанию (колонка «Конфигурация» в самом
-    /// конце). Используется, пока пользователь не задал собственный порядок.
+    /// Порядок колонок списка баз по умолчанию (колонки «Конфигурация» и «№
+    /// релиза» в самом конце). Используется, пока пользователь не задал
+    /// собственный порядок.
     /// </summary>
     private static readonly string[] DefaultColumnOrder =
-        { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
+        { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration", "ConfigurationVersion" };
 
     /// <summary>
     /// Порядок колонок списка баз слева направо (кроме фиксированной колонки
     /// «Название», которая всегда первая). Если порядок не задан или пуст —
-    /// возвращается порядок по умолчанию с колонкой «Конфигурация» в конце.
-    /// Колонка «Действия» всегда присутствует в порядке: старые сохранённые
-    /// настройки могли не содержать её вовсе, и тогда колонку нельзя было ни
-    /// показать, ни отключить в окне настроек (issue #158).
+    /// возвращается порядок по умолчанию с колонками «Конфигурация» и «№
+    /// релиза» в конце. Колонка «Действия» всегда присутствует в порядке:
+    /// старые сохранённые настройки могли не содержать её вовсе, и тогда
+    /// колонку нельзя было ни показать, ни отключить в окне настроек
+    /// (issue #158). Колонка «№ релиза» (issue #217) вставляется сразу после
+    /// «Конфигурации», не меняя сам сохранённый список.
     /// </summary>
     public IReadOnlyList<string> ColumnOrderKeys
     {
@@ -1038,12 +1046,25 @@ public class MainViewModel : ViewModelBase
             var order = _settings.ColumnOrder;
             if (order is { Count: 0 })
                 return DefaultColumnOrder;
-            // «Действия» обязана быть в списке: если её нет в пользовательском
-            // порядке (например, порядок сохранён до появления этой колонки),
-            // дописываем в конец, не меняя сам сохранённый список.
-            return order!.Contains("Actions", StringComparer.Ordinal)
-                ? order
-                : order.Concat(new[] { "Actions" }).ToList();
+
+            // «Действия» и «№ релиза» обязаны присутствовать в списке: старые
+            // сохранённые настройки могли не содержать их вовсе, и тогда эти
+            // колонки нельзя было ни показать, ни отключить в окне настроек.
+            var needsActions = !order!.Contains("Actions", StringComparer.Ordinal);
+            var needsConfigurationVersion = !order.Contains("ConfigurationVersion", StringComparer.Ordinal);
+            if (!needsActions && !needsConfigurationVersion)
+                return order;
+
+            var result = new List<string>(order.Count + 2);
+            foreach (var key in order)
+            {
+                if (needsConfigurationVersion && key == "Configuration")
+                    result.Add("ConfigurationVersion");
+                result.Add(key);
+            }
+            if (needsActions)
+                result.Add("Actions");
+            return result;
         }
     }
 
@@ -1052,6 +1073,7 @@ public class MainViewModel : ViewModelBase
     public bool ShowPinnedButton => _settings.ShowPinnedButton;
     public bool ShowVersionColumn => _settings.ShowVersionColumn;
     public bool ShowConfigurationColumn => _settings.ShowConfigurationColumn;
+    public bool ShowConfigurationVersionColumn => _settings.ShowConfigurationVersionColumn;
     public bool ShowLaunchModeColumn => _settings.ShowLaunchModeColumn;
     public bool ShowServerColumn => _settings.ShowServerColumn;
     public bool ShowLastLaunchColumn => _settings.ShowLastLaunchColumn;
@@ -1151,6 +1173,7 @@ public class MainViewModel : ViewModelBase
     public double NameColumnWidth => _settings.NameColumnWidth;
     public double VersionColumnWidth => _settings.VersionColumnWidth;
     public double ConfigurationColumnWidth => _settings.ConfigurationColumnWidth;
+    public double ConfigurationVersionColumnWidth => _settings.ConfigurationVersionColumnWidth;
     public double LaunchModeColumnWidth => _settings.LaunchModeColumnWidth;
     public double ServerColumnWidth => _settings.ServerColumnWidth;
     public double LastLaunchColumnWidth => _settings.LastLaunchColumnWidth;
@@ -1169,6 +1192,7 @@ public class MainViewModel : ViewModelBase
             case "Name": _settings.NameColumnWidth = width; break;
             case "Version": _settings.VersionColumnWidth = width; break;
             case "Configuration": _settings.ConfigurationColumnWidth = width; break;
+            case "ConfigurationVersion": _settings.ConfigurationVersionColumnWidth = width; break;
             case "LaunchMode": _settings.LaunchModeColumnWidth = width; break;
             case "ServerBase": _settings.ServerColumnWidth = width; break;
             case "LastLaunch": _settings.LastLaunchColumnWidth = width; break;
@@ -4885,6 +4909,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowPinnedButton));
         OnPropertyChanged(nameof(ShowVersionColumn));
         OnPropertyChanged(nameof(ShowConfigurationColumn));
+        OnPropertyChanged(nameof(ShowConfigurationVersionColumn));
         OnPropertyChanged(nameof(ShowLaunchModeColumn));
         OnPropertyChanged(nameof(ShowServerColumn));
         OnPropertyChanged(nameof(ShowLastLaunchColumn));
@@ -4893,6 +4918,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(NameColumnWidth));
         OnPropertyChanged(nameof(VersionColumnWidth));
         OnPropertyChanged(nameof(ConfigurationColumnWidth));
+        OnPropertyChanged(nameof(ConfigurationVersionColumnWidth));
         OnPropertyChanged(nameof(LaunchModeColumnWidth));
         OnPropertyChanged(nameof(ServerColumnWidth));
         OnPropertyChanged(nameof(LastLaunchColumnWidth));

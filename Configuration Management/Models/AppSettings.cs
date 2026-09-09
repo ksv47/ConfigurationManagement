@@ -202,11 +202,17 @@ public class AppSettings
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn { get; set; } = true;
 
-    /// <summary>Показывать колонку «Конфигурация» (название и версия) в списке баз.</summary>
+    /// <summary>Показывать колонку «Конфигурация» (только название) в списке баз.</summary>
     public bool ShowConfigurationColumn { get; set; } = true;
 
     /// <summary>Ширина колонки «Конфигурация» (0 — по умолчанию).</summary>
     public double ConfigurationColumnWidth { get; set; }
+
+    /// <summary>Показывать колонку «№ релиза» (версия конфигурации) в списке баз.</summary>
+    public bool ShowConfigurationVersionColumn { get; set; } = true;
+
+    /// <summary>Ширина колонки «№ релиза» (0 — по умолчанию).</summary>
+    public double ConfigurationVersionColumnWidth { get; set; }
 
     /// <summary>Показывать колонку «Действия» (кнопки запуска/конфигуратора/очистки кеша) в списке баз.</summary>
     public bool ShowActionsColumn { get; set; } = true;

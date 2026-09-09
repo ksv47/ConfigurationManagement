@@ -306,7 +306,7 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn => _showVersionColumn;
 
-    /// <summary>Показывать колонку «Конфигурация».</summary>
+    /// <summary>Показывать колонку «Конфигурация» (только название).</summary>
     public bool ShowConfigurationColumn => _showConfigurationColumn;
 
     /// <summary>Ширина колонки «Конфигурация».</summary>
@@ -318,6 +318,24 @@ public partial class MainViewModel : ViewModelBase
             if (_configurationColumnWidth != value)
             {
                 _configurationColumnWidth = value;
+                OnPropertyChanged();
+                ScheduleSaveSettings();
+            }
+        }
+    }
+
+    /// <summary>Показывать колонку «№ релиза» (версия конфигурации).</summary>
+    public bool ShowConfigurationVersionColumn => _showConfigurationVersionColumn;
+
+    /// <summary>Ширина колонки «№ релиза» (0 — по умолчанию).</summary>
+    public double ConfigurationVersionColumnWidth
+    {
+        get => _configurationVersionColumnWidth;
+        set
+        {
+            if (_configurationVersionColumnWidth != value)
+            {
+                _configurationVersionColumnWidth = value;
                 OnPropertyChanged();
                 ScheduleSaveSettings();
             }
@@ -557,7 +575,7 @@ public partial class MainViewModel : ViewModelBase
     /// конце). Используется, пока пользователь не задал собственный порядок.
     /// </summary>
     private static readonly string[] DefaultColumnOrder =
-        { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
+        { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration", "ConfigurationVersion" };
 
     /// <summary>
     /// Порядок колонок списка баз слева направо (кроме фиксированной колонки
@@ -606,7 +624,7 @@ public partial class MainViewModel : ViewModelBase
     public void ApplyDisplaySettings(bool showFavoritesButton, bool showPinnedButton, bool showTags,
         bool showVersionColumn, bool showLaunchModeColumn, bool showServerColumn, bool showLastLaunchColumn,
         bool groupByGroup, bool showFavoritesOnly, bool showSizeColumn = true,
-        bool showConfigurationColumn = true, bool showEmptyGroups = false,
+        bool showConfigurationColumn = true, bool showConfigurationVersionColumn = true, bool showEmptyGroups = false,
         List<string>? columnOrder = null, bool showActionsColumn = true)
     {
         _showFavoritesButton = showFavoritesButton;
@@ -614,6 +632,7 @@ public partial class MainViewModel : ViewModelBase
         _showTags = showTags;
         _showVersionColumn = showVersionColumn;
         _showConfigurationColumn = showConfigurationColumn;
+        _showConfigurationVersionColumn = showConfigurationVersionColumn;
         _showLaunchModeColumn = showLaunchModeColumn;
         _showServerColumn = showServerColumn;
         _showLastLaunchColumn = showLastLaunchColumn;
@@ -625,6 +644,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowTags));
         OnPropertyChanged(nameof(ShowVersionColumn));
         OnPropertyChanged(nameof(ShowConfigurationColumn));
+        OnPropertyChanged(nameof(ShowConfigurationVersionColumn));
         OnPropertyChanged(nameof(ShowLaunchModeColumn));
         OnPropertyChanged(nameof(ShowServerColumn));
         OnPropertyChanged(nameof(ShowLastLaunchColumn));
@@ -660,6 +680,7 @@ public partial class MainViewModel : ViewModelBase
             _groupByGroup, ShowFavoritesOnly,
             showSizeColumn: key == "Size" ? visible : _showSizeColumn,
             showConfigurationColumn: key == "Configuration" ? visible : _showConfigurationColumn,
+            showConfigurationVersionColumn: key == "ConfigurationVersion" ? visible : _showConfigurationVersionColumn,
             showEmptyGroups: _showEmptyGroups,
             columnOrder: _columnOrder,
             showActionsColumn: key == "Actions" ? visible : _showActionsColumn);

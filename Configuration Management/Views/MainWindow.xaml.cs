@@ -395,7 +395,7 @@ namespace Configuration_Management
         // фиксированных колонок слева (кнопки групп, компенсатор, избранное, закрепление,
         // название). Совпадает с порядком по умолчанию: «Действия» сразу после «Режим запуска».
         private static readonly string[] StaticDataColumnKeys =
-            { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
+            { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration", "ConfigurationVersion" };
 
         // Индекс первой колонки данных в сетке заголовка / строки базы.
         // Строка базы и заголовок имеют одинаковый набор ведущих колонок

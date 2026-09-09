@@ -229,6 +229,7 @@ namespace Configuration_Management
                 ShowFavoritesOnlyCheck.IsChecked ?? false,
                 VisibleOf("Size"),
                 VisibleOf("Configuration"),
+                VisibleOf("ConfigurationVersion"),
                 ShowEmptyGroupsCheck?.IsChecked ?? false,
                 _columnOrderItems.Select(i => i.Key).ToList(),
                 VisibleOf("Actions"));

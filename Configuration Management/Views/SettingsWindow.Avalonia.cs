@@ -780,6 +780,7 @@ namespace Configuration_Management
             {
                 "Version" => "Column.Version",
                 "Configuration" => "Column.Configuration",
+                "ConfigurationVersion" => "Column.ConfigurationVersion",
                 "LaunchMode" => "Column.LaunchMode",
                 "ServerBase" => "Column.ServerBase",
                 "LastLaunch" => "Column.LastLaunch",
@@ -792,6 +793,7 @@ namespace Configuration_Management
             {
                 "Version" => _viewModel.ShowVersionColumn,
                 "Configuration" => _viewModel.ShowConfigurationColumn,
+                "ConfigurationVersion" => _viewModel.ShowConfigurationVersionColumn,
                 "LaunchMode" => _viewModel.ShowLaunchModeColumn,
                 "ServerBase" => _viewModel.ShowServerColumn,
                 "LastLaunch" => _viewModel.ShowLastLaunchColumn,
@@ -2570,6 +2572,7 @@ namespace Configuration_Management
                     tagPanelCheck.IsChecked == true,
                     VisibleOf("Version"),
                     VisibleOf("Configuration"),
+                    VisibleOf("ConfigurationVersion"),
                     VisibleOf("LaunchMode"),
                     VisibleOf("ServerBase"),
                     VisibleOf("LastLaunch"),

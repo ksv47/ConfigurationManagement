@@ -75,7 +75,7 @@ namespace Configuration_Management
         /// </summary>
         private List<string> BuildColumnLayout()
         {
-            var known = new[] { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
+            var known = new[] { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration", "ConfigurationVersion" };
             var keys = new List<string>();
             // Идём по ПОЛЬЗОВАТЕЛЬСКОМУ порядку, отбрасывая незнакомые ключи,
             // чтобы фактически применять выбранный порядок (в т.ч. перенос «Действий»).
@@ -510,6 +510,8 @@ namespace Configuration_Management
                 return VersionColumn;
             if (ReferenceEquals(sender, ConfigurationSplitter))
                 return ConfigurationColumn;
+            if (ReferenceEquals(sender, ConfigurationVersionSplitter))
+                return ConfigurationVersionColumn;
             if (ReferenceEquals(sender, LaunchModeSplitter))
                 return LaunchModeColumn;
             if (ReferenceEquals(sender, ActionsSplitter))
@@ -573,6 +575,7 @@ namespace Configuration_Management
                 ReferenceEquals(_resizeColumn, NameColumn) ? newWidth : NameColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, VersionColumn) ? newWidth : VersionColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, ConfigurationColumn) ? newWidth : ConfigurationColumn?.ActualWidth ?? 0,
+                ReferenceEquals(_resizeColumn, ConfigurationVersionColumn) ? newWidth : ConfigurationVersionColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, LaunchModeColumn) ? newWidth : LaunchModeColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, ServerColumn) ? newWidth : ServerColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, LastLaunchColumn) ? newWidth : LastLaunchColumn?.ActualWidth ?? 0,
@@ -593,6 +596,7 @@ namespace Configuration_Management
                     NameColumn?.ActualWidth ?? 0,
                     VersionColumn?.ActualWidth ?? 0,
                     ConfigurationColumn?.ActualWidth ?? 0,
+                    ConfigurationVersionColumn?.ActualWidth ?? 0,
                     LaunchModeColumn?.ActualWidth ?? 0,
                     ServerColumn?.ActualWidth ?? 0,
                     LastLaunchColumn?.ActualWidth ?? 0,

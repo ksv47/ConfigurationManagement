@@ -256,8 +256,9 @@
     "Sync.GroupsCreated": "создано групп: {0}",
 
     "Column.Name": "Название",
-    "Column.Version": "Версия платформы",
+    "Column.Version": "Платформа",
     "Column.Configuration": "Конфигурация",
+    "Column.ConfigurationVersion": "№ релиза",
     "Column.LaunchMode": "Режим запуска",
     "Column.ServerBase": "Сервер/База",
     "Column.LastLaunch": "Последний запуск",
@@ -346,7 +347,8 @@
     "Settings.Icons.TagFilterPanel": "Панель быстрого отбора по тегам",
 
     "Settings.Columns.Description": "Видимые колонки в таблице информационных баз.",
-    "Settings.Columns.Configuration": "Конфигурация (название и версия)",
+    "Settings.Columns.Configuration": "Конфигурация",
+    "Settings.Columns.ConfigurationVersion": "Релиз конфигурации",
     "Settings.Columns.Size": "Размер (файловые ИБ)",
     "Settings.Columns.OrderTitle": "Порядок колонок",
     "Settings.Columns.OrderHint": "Задайте порядок колонок списка баз слева направо (колонка «Название» всегда первая и не перемещается).",

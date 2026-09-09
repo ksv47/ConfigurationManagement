@@ -68,7 +68,9 @@ public partial class MainViewModel : ViewModelBase
     private bool _showTags = true;
     private bool _showVersionColumn = true;
     private bool _showConfigurationColumn = true;
+    private bool _showConfigurationVersionColumn = true;
     private double _configurationColumnWidth;
+    private double _configurationVersionColumnWidth;
     private double _actionsColumnWidth;
     private bool _showRightPanelDetails = true;
     private bool _statusShowConnectionPath = true;
@@ -259,7 +261,9 @@ public partial class MainViewModel : ViewModelBase
         _comDetectTimeoutMs = Math.Max(1000, settings.ComDetectTimeoutMs);
         _showVersionColumn = settings.ShowVersionColumn;
         _showConfigurationColumn = settings.ShowConfigurationColumn;
+        _showConfigurationVersionColumn = settings.ShowConfigurationVersionColumn;
         _configurationColumnWidth = settings.ConfigurationColumnWidth;
+        _configurationVersionColumnWidth = settings.ConfigurationVersionColumnWidth;
         _actionsColumnWidth = settings.ActionsColumnWidth;
         _showRightPanelDetails = settings.ShowRightPanelDetails;
         _showSessionLaunchPanel = settings.ShowSessionLaunchPanel;

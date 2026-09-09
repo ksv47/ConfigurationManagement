@@ -46,6 +46,7 @@ namespace Configuration_Management
         {
             "Version" => "Column.Version",
             "Configuration" => "Column.Configuration",
+            "ConfigurationVersion" => "Column.ConfigurationVersion",
             "LaunchMode" => "Column.LaunchMode",
             "ServerBase" => "Column.ServerBase",
             "LastLaunch" => "Column.LastLaunch",
@@ -59,6 +60,7 @@ namespace Configuration_Management
         {
             "Version" => MaterialDesignThemes.Wpf.PackIconKind.Information,
             "Configuration" => MaterialDesignThemes.Wpf.PackIconKind.CubeOutline,
+            "ConfigurationVersion" => MaterialDesignThemes.Wpf.PackIconKind.Counter,
             "LaunchMode" => MaterialDesignThemes.Wpf.PackIconKind.Play,
             "ServerBase" => MaterialDesignThemes.Wpf.PackIconKind.Server,
             "LastLaunch" => MaterialDesignThemes.Wpf.PackIconKind.ClockOutline,
@@ -72,6 +74,7 @@ namespace Configuration_Management
         {
             "Version" => _viewModel.ShowVersionColumn,
             "Configuration" => _viewModel.ShowConfigurationColumn,
+            "ConfigurationVersion" => _viewModel.ShowConfigurationVersionColumn,
             "LaunchMode" => _viewModel.ShowLaunchModeColumn,
             "ServerBase" => _viewModel.ShowServerColumn,
             "LastLaunch" => _viewModel.ShowLastLaunchColumn,

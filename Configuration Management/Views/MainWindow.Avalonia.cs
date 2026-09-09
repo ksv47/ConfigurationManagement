@@ -4085,6 +4085,9 @@ namespace Configuration_Management
                     case "Configuration":
                         Add(_vm.ShowConfigurationColumn, "Configuration", "Column.Configuration", _vm.ConfigurationColumnWidth, 160);
                         break;
+                    case "ConfigurationVersion":
+                        Add(_vm.ShowConfigurationVersionColumn, "ConfigurationVersion", "Column.ConfigurationVersion", _vm.ConfigurationVersionColumnWidth, 80);
+                        break;
                     case "LaunchMode":
                         Add(_vm.ShowLaunchModeColumn, "LaunchMode", "Column.LaunchMode", _vm.LaunchModeColumnWidth, 120);
                         break;
@@ -4152,7 +4155,8 @@ namespace Configuration_Management
             // (MainWindow.xaml:1249): свойство PlatformVersionDisplay автор
             // добавил в модель, а колонка брала голую версию.
             "Version" => ib.PlatformVersionDisplay ?? string.Empty,
-            "Configuration" => ib.ConfigurationDisplay ?? string.Empty,
+            "Configuration" => ib.ConfigurationName ?? string.Empty,
+            "ConfigurationVersion" => ib.ConfigurationVersion ?? string.Empty,
             // Режим запуска показывается разобранным, а серверная колонка всегда
             // берёт ServerDatabaseDisplay, в том числе у веб-баз: подстановка WebUrl
             // была расхождением с разметкой (MainWindow.xaml:1261 и 1265).

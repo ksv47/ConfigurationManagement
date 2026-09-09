@@ -722,12 +722,21 @@
                                             </MultiBinding>
                                         </ColumnDefinition.Width>
                                     </ColumnDefinition>
-                                    <!-- Колонка «Конфигурация» — всегда в самом конце списка колонок -->
+                                    <!-- Колонка «Конфигурация» (только название) — в самом конце списка колонок -->
                                     <ColumnDefinition x:Name="ConfigurationColumn">
                                         <ColumnDefinition.Width>
                                             <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="160">
                                                 <Binding Path="DataContext.ShowConfigurationColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                 <Binding Path="DataContext.ConfigurationColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                            </MultiBinding>
+                                        </ColumnDefinition.Width>
+                                    </ColumnDefinition>
+                                    <!-- Колонка «№ релиза» (версия конфигурации) — сразу после «Конфигурации» -->
+                                    <ColumnDefinition x:Name="ConfigurationVersionColumn">
+                                        <ColumnDefinition.Width>
+                                            <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="100">
+                                                <Binding Path="DataContext.ShowConfigurationVersionColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                <Binding Path="DataContext.ConfigurationVersionColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                             </MultiBinding>
                                         </ColumnDefinition.Width>
                                     </ColumnDefinition>
@@ -865,6 +874,21 @@
                                                Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
                                 </StackPanel>
+                                <StackPanel Grid.Column="12" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Stretch" Margin="6,0,6,4">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu Style="{DynamicResource ModernContextMenu}">
+                                            <MenuItem Header="{loc:Loc Column.HideColumn}" Tag="ConfigurationVersion" Click="OnColumnHeaderContextMenu_Hide" Style="{DynamicResource ModernMenuItem}"/>
+                                            <MenuItem Header="{loc:Loc Settings.Columns.OpenSettings}" Click="OnColumnHeaderContextMenu_OpenSettings" Style="{DynamicResource ModernMenuItem}"/>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
+                                    <materialDesign:PackIcon Kind="Counter" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc Column.ConfigurationVersion}" FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Margin="4,0,0,0"/>
+                                </StackPanel>
 
                                 <!-- Современные разделители колонок: тонкая линия + широкая зона захвата -->
                                 <Border x:Name="NameSplitter" Grid.Column="4"
@@ -954,6 +978,18 @@
                                         Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
                                         ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
                                         Visibility="{Binding DataContext.ShowConfigurationColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                        MouseLeftButtonDown="OnColumnResize_MouseDown"
+                                        MouseMove="OnColumnResize_MouseMove"
+                                        MouseLeftButtonUp="OnColumnResize_MouseUp">
+                                    <Border Width="1" HorizontalAlignment="Center"
+                                            Background="{DynamicResource BorderBrushColor}" Opacity="0.55"
+                                            Margin="0,2,0,4"/>
+                                </Border>
+                                <Border x:Name="ConfigurationVersionSplitter" Grid.Column="12"
+                                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="8"
+                                        Panel.ZIndex="1" Background="Transparent" Cursor="SizeWE"
+                                        ToolTip="{loc:Loc Main.ResizeColumnTooltip}"
+                                        Visibility="{Binding DataContext.ShowConfigurationVersionColumn, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
                                         MouseLeftButtonDown="OnColumnResize_MouseDown"
                                         MouseMove="OnColumnResize_MouseMove"
                                         MouseLeftButtonUp="OnColumnResize_MouseUp">
@@ -1140,6 +1176,14 @@
                                                     <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="160">
                                                         <Binding Path="DataContext.ShowConfigurationColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                         <Binding Path="DataContext.ConfigurationColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="100">
+                                                        <Binding Path="DataContext.ShowConfigurationVersionColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.ConfigurationVersionColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                     </MultiBinding>
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
@@ -1352,12 +1396,21 @@
                                                     </MultiBinding>
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
-                                            <!-- Колонка «Конфигурация» — всегда в самом конце списка колонок -->
+                                            <!-- Колонка «Конфигурация» (только название) — в самом конце списка колонок -->
                                             <ColumnDefinition>
                                                 <ColumnDefinition.Width>
                                                     <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="160">
                                                         <Binding Path="DataContext.ShowConfigurationColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                         <Binding Path="DataContext.ConfigurationColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                    </MultiBinding>
+                                                </ColumnDefinition.Width>
+                                            </ColumnDefinition>
+                                            <!-- Колонка «№ релиза» (версия конфигурации) — сразу после «Конфигурации» -->
+                                            <ColumnDefinition>
+                                                <ColumnDefinition.Width>
+                                                    <MultiBinding Converter="{StaticResource ColumnVis}" ConverterParameter="100">
+                                                        <Binding Path="DataContext.ShowConfigurationVersionColumn" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                        <Binding Path="DataContext.ConfigurationVersionColumnWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                     </MultiBinding>
                                                 </ColumnDefinition.Width>
                                             </ColumnDefinition>
@@ -1476,10 +1529,15 @@
                                                    Cursor="Hand"
                                                    ToolTip="{loc:Loc Main.PlatformVersionTooltip}"/>
 
-                                        <TextBlock Grid.Column="11" Text="{Binding ConfigurationDisplay}" FontSize="12"
+                                        <TextBlock Grid.Column="11" Text="{Binding ConfigurationName}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"
-                                                   ToolTip="{Binding ConfigurationDisplay}"/>
+                                                   ToolTip="{Binding ConfigurationName}"/>
+
+                                        <TextBlock Grid.Column="12" Text="{Binding ConfigurationVersion}" FontSize="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                                   HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding ConfigurationVersion}"/>
 
                                         <TextBlock Grid.Column="6" Text="{Binding ParsedLaunchMode}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
