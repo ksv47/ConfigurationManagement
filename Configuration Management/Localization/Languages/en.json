@@ -567,7 +567,7 @@
     "CacheClean.ResizeColumnTooltip": "Resize column",
     "CacheClean.OrphanCache": "Leftovers from removed infobases",
     "CacheClean.OrphanCacheTooltip": "Cache directories that do not match any current infobase. They remain after removing infobases from the list or moving them to another application.",
-    "CacheClean.SizeError": "Could not calculate the cache size. Cache directories may be unavailable or locked by a running 1C program.\nThe window remains open - clearing is still available.",
+    "CacheClean.SizeError": "Could not calculate the cache size. See the application log for details.\nThe window remains open - clearing is still available.",
     "ConnectionStringInput.Title": "Paste connection string",
     "ColorPicker.Title": "Choose color",
     "ColorPicker.HexLabel": "HEX:",

@@ -237,10 +237,24 @@ namespace Configuration_Management
             }
             catch (Exception ex)
             {
-                LogFatal(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
-                ShowFatalError(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
+                // issue #213: при раннем сбое локализация может быть ещё не загружена,
+                // тогда T вернёт сам ключ — подставляем встроенный читаемый текст.
+                var fatalTitle = TOr("App.Fatal.StartupFailed", "Не удалось запустить приложение");
+                LogFatal(fatalTitle, ex);
+                ShowFatalError(fatalTitle, ex);
                 Shutdown(1);
             }
+        }
+
+        /// <summary>
+        /// Возвращает перевод ключа, а если ключ не найден (словари ещё пусты из-за
+        /// сбоя до инициализации локализации), — встроенный запасной текст. Так
+        /// фатальное сообщение остаётся читаемым при любом состоянии приложения (issue #213).
+        /// </summary>
+        private static string TOr(string key, string fallback)
+        {
+            var text = LocalizationManager.T(key);
+            return string.Equals(text, key, StringComparison.Ordinal) ? fallback : text;
         }
 
         /// <summary>

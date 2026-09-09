@@ -424,31 +424,69 @@ public partial class CacheCleanWindow : Window
         foreach (var t in _programSizeTexts.Values) t.Text = "…";
         foreach (var t in _userSizeTexts.Values) t.Text = "…";
 
-        // Обработчик Loaded, который это вызывает, — async void: любое выброшенное здесь
-        // исключение ушло бы в контекст синхронизации UI и уронило приложение при открытии
-        // окна (issues #195, #202). Ловим, логируем и показываем пользователю.
+        // Тип кеша читается ДО Task.Run: CurrentKind обращается к IsChecked переключателей,
+        // а свойства элементов WPF доступны только из потока интерфейса. Вызов внутри лямбды
+        // упал бы в потоке пула с InvalidOperationException, и при каждом открытии окна все
+        // размеры оставались бы многоточиями (issue #212). Так же сделано в RefreshOrphanSizeAsync.
+        var kind = CurrentKind();
+
+        // Этапы считаются независимо, и каждый присваивает свой текст сразу по готовности,
+        // чтобы отказ на одном шаге (например, orphan) не стирал уже посчитанные program/user
+        // и не прерывал цикл по базам. Каждый этап логирует собственную ошибку (issue #212).
         try
         {
             var program = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.Program, _infobases));
-            var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User, _infobases));
-            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(CurrentKind(), _infobases));
-
             ProgramCacheSizeText.Text = FormatSize(program);
-            UserCacheSizeText.Text = FormatSize(user);
-            OrphanCacheSizeText.Text = FormatSize(orphans);
-
-            foreach (var ib in _infobases)
-            {
-                var p = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.Program));
-                var u = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.User));
-                if (_programSizeTexts.TryGetValue(ib, out var pt)) pt.Text = FormatSize(p);
-                if (_userSizeTexts.TryGetValue(ib, out var ut)) ut.Text = FormatSize(u);
-            }
         }
         catch (Exception ex)
         {
-            _logger.Error("Ошибка расчёта размера кеша при открытии окна очистки", ex);
+            _logger.Error("Ошибка расчёта размера программного кеша", ex);
             ShowSizeError();
+        }
+
+        try
+        {
+            var user = await Task.Run(() => OneCCacheCleaner.GetSize(OneCCacheKind.User, _infobases));
+            UserCacheSizeText.Text = FormatSize(user);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка расчёта размера пользовательского кеша", ex);
+            ShowSizeError();
+        }
+
+        try
+        {
+            var orphans = await Task.Run(() => OneCCacheCleaner.GetOrphanSize(kind, _infobases));
+            OrphanCacheSizeText.Text = FormatSize(orphans);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка расчёта размера остатков кеша", ex);
+            ShowSizeError();
+        }
+
+        foreach (var ib in _infobases)
+        {
+            try
+            {
+                var p = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.Program));
+                if (_programSizeTexts.TryGetValue(ib, out var pt)) pt.Text = FormatSize(p);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Ошибка расчёта размера программного кеша по базе", ex);
+            }
+
+            try
+            {
+                var u = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.User));
+                if (_userSizeTexts.TryGetValue(ib, out var ut)) ut.Text = FormatSize(u);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Ошибка расчёта размера пользовательского кеша по базе", ex);
+            }
         }
     }
 

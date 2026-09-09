@@ -442,17 +442,31 @@ namespace Configuration_Management
 
         // Флаги показа пароля «глазом» (issue #169). WPF-PasswordBox не умеет снимать
         // маску напрямую, поэтому при показе поверх скрываем PasswordBox и показываем
-        // текстовое поле только для чтения со значением из PasswordBox.
+        // редактируемое текстовое поле; правки в нём синхронизируются обратно (issue #211).
         private bool _isPasswordRevealed;
         private bool _isRepositoryPasswordRevealed;
         private bool _isConfiguratorPasswordRevealed;
 
-        /// <summary>Переключает видимость пароля между PasswordBox и полем для чтения.</summary>
-        private static void ApplyReveal(PasswordBox box, TextBox reveal, bool show)
+        /// <summary>
+        /// Переключает видимость пароля между PasswordBox и редактируемым полем показа (issue #211).
+        /// При показе копируем текущее значение в поле показа; копирование выполняется под флагом
+        /// синхронизации, чтобы не спровоцировать рекурсию из TextChanged-обработчика.
+        /// </summary>
+        private void ApplyReveal(PasswordBox box, TextBox reveal, bool show, ref bool syncingFlag)
         {
-            reveal.Text = box.Password;
             box.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
             reveal.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (!show) return;
+
+            syncingFlag = true;
+            try
+            {
+                reveal.Text = box.Password;
+            }
+            finally
+            {
+                syncingFlag = false;
+            }
         }
 
         /// <summary>Копирует пароль в буфер обмена.</summary>
@@ -531,7 +545,7 @@ namespace Configuration_Management
         private void OnPasswordReveal_Click(object sender, RoutedEventArgs e)
         {
             _isPasswordRevealed = !_isPasswordRevealed;
-            ApplyReveal(PasswordBox, PasswordRevealTextBox, _isPasswordRevealed);
+            ApplyReveal(PasswordBox, PasswordRevealTextBox, _isPasswordRevealed, ref _isSyncingPassword);
         }
 
         private void OnPasswordCopy_Click(object sender, RoutedEventArgs e) => CopyPassword(PasswordBox);
@@ -539,7 +553,7 @@ namespace Configuration_Management
         private void OnRepositoryPasswordReveal_Click(object sender, RoutedEventArgs e)
         {
             _isRepositoryPasswordRevealed = !_isRepositoryPasswordRevealed;
-            ApplyReveal(RepositoryPasswordBox, RepositoryPasswordRevealTextBox, _isRepositoryPasswordRevealed);
+            ApplyReveal(RepositoryPasswordBox, RepositoryPasswordRevealTextBox, _isRepositoryPasswordRevealed, ref _isSyncingRepositoryPassword);
         }
 
         private void OnRepositoryPasswordCopy_Click(object sender, RoutedEventArgs e) => CopyPassword(RepositoryPasswordBox);
@@ -547,10 +561,75 @@ namespace Configuration_Management
         private void OnConfiguratorPasswordReveal_Click(object sender, RoutedEventArgs e)
         {
             _isConfiguratorPasswordRevealed = !_isConfiguratorPasswordRevealed;
-            ApplyReveal(ConfiguratorPasswordBox, ConfiguratorPasswordRevealTextBox, _isConfiguratorPasswordRevealed);
+            ApplyReveal(ConfiguratorPasswordBox, ConfiguratorPasswordRevealTextBox, _isConfiguratorPasswordRevealed, ref _isSyncingConfiguratorPassword);
         }
 
         private void OnConfiguratorPasswordCopy_Click(object sender, RoutedEventArgs e) => CopyPassword(ConfiguratorPasswordBox);
+
+        // ============ Синхронизация правок из поля показа пароля (issue #211) ============
+        // Поле показа редактируемо, поэтому изменения в нём должны попадать и в скрытый
+        // PasswordBox (чтобы значение не терялось при скрытии) и во ViewModel. Выполняется
+        // под флагом _isSyncing*, чтобы исключить рекурсию событий.
+
+        /// <summary>Синхронизация правок в поле показа пароля → PasswordBox и ViewModel (issue #211).</summary>
+        private void OnPasswordReveal_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_viewModel is null || sender is not TextBox tb) return;
+            if (_isSyncingPassword) return;
+            _isSyncingPassword = true;
+            try
+            {
+                var text = tb.Text ?? string.Empty;
+                if (PasswordBox.Password != text)
+                    PasswordBox.Password = text;
+                if (_viewModel.Password != text)
+                    _viewModel.Password = text;
+            }
+            finally
+            {
+                _isSyncingPassword = false;
+            }
+        }
+
+        /// <summary>Синхронизация правок в поле показа пароля хранилища (issue #211).</summary>
+        private void OnRepositoryPasswordReveal_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_viewModel is null || sender is not TextBox tb) return;
+            if (_isSyncingRepositoryPassword) return;
+            _isSyncingRepositoryPassword = true;
+            try
+            {
+                var text = tb.Text ?? string.Empty;
+                if (RepositoryPasswordBox.Password != text)
+                    RepositoryPasswordBox.Password = text;
+                if (_viewModel.RepositoryPassword != text)
+                    _viewModel.RepositoryPassword = text;
+            }
+            finally
+            {
+                _isSyncingRepositoryPassword = false;
+            }
+        }
+
+        /// <summary>Синхронизация правок в поле показа пароля конфигуратора (issue #211).</summary>
+        private void OnConfiguratorPasswordReveal_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_viewModel is null || sender is not TextBox tb) return;
+            if (_isSyncingConfiguratorPassword) return;
+            _isSyncingConfiguratorPassword = true;
+            try
+            {
+                var text = tb.Text ?? string.Empty;
+                if (ConfiguratorPasswordBox.Password != text)
+                    ConfiguratorPasswordBox.Password = text;
+                if (_viewModel.ConfiguratorPassword != text)
+                    _viewModel.ConfiguratorPassword = text;
+            }
+            finally
+            {
+                _isSyncingConfiguratorPassword = false;
+            }
+        }
     }
 }
 #endif

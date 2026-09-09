@@ -449,9 +449,12 @@
                                                  VerticalContentAlignment="Center"
                                                  PasswordChanged="OnRepositoryPasswordBox_PasswordChanged"
                                                  ToolTip="{loc:Loc Connection.RepositoryPasswordTooltip}"/>
+                                    <!-- Поле показа пароля редактируемо (issue #211): правки
+                                         синхронизируются обратно в PasswordBox и ViewModel. -->
                                     <TextBox x:Name="RepositoryPasswordRevealTextBox" Margin="0" Padding="6,4"
                                              VerticalContentAlignment="Center"
-                                             IsReadOnly="True" Visibility="Collapsed"/>
+                                             Visibility="Collapsed"
+                                             TextChanged="OnRepositoryPasswordReveal_TextChanged"/>
                                 </Grid>
                                 <Button x:Name="RepositoryPasswordRevealButton" Grid.Column="1" Width="30" Height="30" Margin="6,0,0,0"
                                         Style="{DynamicResource IconButton}" Click="OnRepositoryPasswordReveal_Click"
@@ -576,9 +579,12 @@
                                     <PasswordBox x:Name="PasswordBox" Padding="6,4"
                                                  VerticalContentAlignment="Center"
                                                  PasswordChanged="OnPasswordBox_PasswordChanged"/>
+                                    <!-- Поле показа пароля редактируемо (issue #211): правки
+                                         синхронизируются обратно в PasswordBox и ViewModel. -->
                                     <TextBox x:Name="PasswordRevealTextBox" Margin="0" Padding="6,4"
                                              VerticalContentAlignment="Center"
-                                             IsReadOnly="True" Visibility="Collapsed"/>
+                                             Visibility="Collapsed"
+                                             TextChanged="OnPasswordReveal_TextChanged"/>
                                 </Grid>
                                 <Button x:Name="PasswordRevealButton" Grid.Column="1" Width="30" Height="30" Margin="6,0,0,0"
                                         Style="{DynamicResource IconButton}" Click="OnPasswordReveal_Click"
@@ -693,9 +699,12 @@
                                     <PasswordBox x:Name="ConfiguratorPasswordBox" Padding="6,4"
                                                  VerticalContentAlignment="Center"
                                                  PasswordChanged="OnConfiguratorPasswordBox_PasswordChanged"/>
+                                    <!-- Поле показа пароля редактируемо (issue #211): правки
+                                         синхронизируются обратно в PasswordBox и ViewModel. -->
                                     <TextBox x:Name="ConfiguratorPasswordRevealTextBox" Margin="0" Padding="6,4"
                                              VerticalContentAlignment="Center"
-                                             IsReadOnly="True" Visibility="Collapsed"/>
+                                             Visibility="Collapsed"
+                                             TextChanged="OnConfiguratorPasswordReveal_TextChanged"/>
                                 </Grid>
                                 <Button x:Name="ConfiguratorPasswordRevealButton" Grid.Column="1" Width="30" Height="30" Margin="6,0,0,0"
                                         Style="{DynamicResource IconButton}" Click="OnConfiguratorPasswordReveal_Click"

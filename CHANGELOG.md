@@ -9,6 +9,22 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.94] — 2026-09-09
+
+Исправление четырёх issues #211, #212, #213, #163: редактируемое поле показа пароля («глаз») в окне свойств базы на Windows (WPF), корректный пересчёт размеров и переписанное сообщение в окне очистки кэша, стабилизация запуска при ошибке назначения `Owner` диалогам и запасной русский текст фатальной ошибки, а также удаление ложного охранника при импорте паролей из StartManager.
+
+### Исправлено
+
+- **Поле показа пароля («глаз») в окне свойств базы стало редактируемым** ([#211](https://github.com/sivatorov/ConfigurationManagement/issues/211)): в WPF-версии [`Views/ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml) поле было только для чтения; теперь оно редактируется с синхронизацией значения в `PasswordBox` и ViewModel — [`Views/ConnectionSettingsWindow.xaml.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml.cs).
+- **Окно очистки кэша: снова считаются размеры, исправлено сообщение об ошибке** ([#212](https://github.com/sivatorov/ConfigurationManagement/issues/212)): `CurrentKind()` вызывался внутри `Task.Run` (чтение WPF-контролов из фонового потока → `InvalidOperationException`), из-за чего размеры не вычислялись. Значение теперь читается до `Task.Run`, добавлена поэтапная обработка ошибок, а текст сообщения переписан — ключ `CacheClean.SizeError` в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json) больше не обвиняет занятость каталогов 1С. Файлы: [`Views/CacheCleanWindow.xaml.cs`](Configuration%20Management/Views/CacheCleanWindow.xaml.cs), [`Views/CacheCleanWindow.Avalonia.cs`](Configuration%20Management/Views/CacheCleanWindow.Avalonia.cs).
+- **Стабилизирован запуск при ошибке назначения `Owner` диалогам** ([#213](https://github.com/sivatorov/ConfigurationManagement/issues/213)): `WpfDialogService` назначал `Owner` самому себе, что вызывало `ArgumentException` («Невозможно указать себя в свойстве Owner»), а фатальная ошибка выводилась ключом локализации (словари ещё пусты до `LocalizationManager.Initialize`). Теперь `Owner` назначается только если `MainWindow` существует и не совпадает с окном; фатальный текст использует встроенный русский запасной вариант (метод `TOr`). Файлы: [`Services/WpfDialogService.cs`](Configuration%20Management/Services/WpfDialogService.cs), [`App.xaml.cs`](Configuration%20Management/App.xaml.cs), [`App.axaml.cs`](Configuration%20Management/App.axaml.cs).
+- **Импорт паролей из StartManager: больше не «обнуляются» пароли с байтом шифротекста > 0x7F** ([#163](https://github.com/sivatorov/ConfigurationManagement/issues/163)): удалён ложный охранник в `DecryptPassword` ([`Services/StartManagerImporter.cs`](Configuration%20Management/Services/StartManagerImporter.cs)), из-за которого любой такой пароль обнулялся (не вставал в поле / «удалялся на нет»).
+
+### Версия
+
+- **Версия поднята до `0.3.6.93` → `0.3.6.94`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.6.93] — 2026-09-08
 
 Исправление семи issues #204–#210: ужесточение отбраковки «горячих клавиш», валидация значений с двойной кавычкой в аргументах запуска 1С, корректная «Отмена» при смене языка интерфейса на Windows, строгий разбор расписания синхронизации и защита шаблона даты/времени, подтверждение замены пользовательской темы, безопасный порядок удаления учётной записи и удаление мёртвых окон без точек входа.

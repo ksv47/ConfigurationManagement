@@ -23,21 +23,29 @@ public sealed class WpfDialogService : IDialogService
 
     public bool Confirm(string message, string title = "")
     {
-        var win = new MaterialMessageWindow(message, DefaultTitle(title, "Common.Confirm"), MaterialMessageKind.Question)
-        {
-            Owner = Application.Current.MainWindow
-        };
+        var win = new MaterialMessageWindow(message, DefaultTitle(title, "Common.Confirm"), MaterialMessageKind.Question);
+        SetOwnerIfAvailable(win);
         win.ShowDialog();
         return win.Confirmed;
     }
 
     private static void Show(string message, string title, MaterialMessageKind kind)
     {
-        var win = new MaterialMessageWindow(message, DefaultTitle(title, "Common.Information"), kind)
-        {
-            Owner = Application.Current.MainWindow
-        };
+        var win = new MaterialMessageWindow(message, DefaultTitle(title, "Common.Information"), kind);
+        SetOwnerIfAvailable(win);
         win.ShowDialog();
+    }
+
+    /// <summary>
+    /// Назначает окну владельца только при реально существующем главном окне,
+    /// отличном от самого диалога. Пока главное окно не создано, WPF считает главным
+    /// первое созданное окно — это и есть только что созданный диалог, и назначение
+    /// Owner самому себе бросает ArgumentException при раннем сбое запуска (issue #213).
+    /// Диалог без владельца показывается нормально.
+    /// </summary>
+    private static void SetOwnerIfAvailable(Window win)
+    {
+        win.Owner = Application.Current.MainWindow is { } owner && !ReferenceEquals(owner, win) ? owner : null;
     }
 
     public string? OpenFileDialog(string title = "", string filter = "", string? initialDirectory = null)
