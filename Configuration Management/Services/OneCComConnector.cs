@@ -435,7 +435,12 @@ public sealed class OneCComConnector : IOneCComConnector
             var trace = result.Failure == ComFailureKind.AgentStart && !string.IsNullOrEmpty(result.Detail)
                 ? $" ({result.Detail})"
                 : string.Empty;
-            _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{ib.Name}»: {LastError}{trace}");
+            // В журнал пишем целиком строку подключения (issue #174): по одной лишь фразе о таймауте
+            // трудно понять, какая именно база/сервер/файл подставлялись и не потерялось ли что-то
+            // при сборке строки. Пароль маскируем тем же правилом, что и для ошибок от 1С.
+            _logger.Error(
+                $"Не удалось прочитать сведения о конфигурации базы «{ib.Name}»: {LastError}{trace}."
+                + $" Строка подключения: {MaskCredentials(connectString)}");
         }
 
         return null;

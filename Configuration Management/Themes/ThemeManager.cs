@@ -367,6 +367,13 @@ namespace Configuration_Management.Themes
                     if (!_compactColumn.TryGetValue(cd, out var origWidth))
                     {
                         origWidth = cd.Width.Value;
+                        // Нулевую колонку-компенсатор (сдвиг вложенности групп) не трогаем:
+                        // она обязана оставаться 0 (в строке базы — всегда, см. MainWindow.xaml;
+                        // в заголовке ширину выставляет AlignHeaderToData), иначе компактизация
+                        // принудительно задавала бы ей минимум 32px и строки «уезжали» по горизонтали
+                        // относительно заголовка (регрессия #214 после введения ApplyRowCompact).
+                        if (origWidth <= 0)
+                            continue;
                         _compactColumn[cd] = origWidth;
                     }
                     cd.Width = new GridLength(Math.Max(origWidth * factor, 32));

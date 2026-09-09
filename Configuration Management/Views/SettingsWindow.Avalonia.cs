@@ -1007,12 +1007,15 @@ namespace Configuration_Management
 
             // Размер можно и выбрать из списка, и набрать руками: в разметке WPF
             // у этого списка стоит IsEditable, и в Avalonia он тоже есть.
+            // Текст редактируемого поля центрируем по вертикали: без этого при
+            // фиксированной высоте число прижимается к верху/низу (issue #216).
             var fontSizeBox = new ComboBox
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Height = 34,
                 Margin = new Thickness(0, 0, 0, 8),
-                IsEditable = true
+                IsEditable = true,
+                VerticalContentAlignment = VerticalAlignment.Center
             };
             foreach (var size in new double[]
             {

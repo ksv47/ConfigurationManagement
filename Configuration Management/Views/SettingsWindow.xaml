@@ -784,7 +784,7 @@
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Settings.Font.Size}" VerticalAlignment="Center" Margin="0,8,0,0"
                                                Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <ComboBox Grid.Row="1" Grid.Column="1" x:Name="FontSizeComboBox" Height="34"
-                                              VerticalAlignment="Center" Margin="0,8,0,0" Style="{StaticResource ModernComboBox}"
+                                              VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="0,8,0,0" Style="{StaticResource ModernComboBox}"
                                               IsEditable="True"
                                               KeyUp="OnFontSize_KeyUp"
                                               SelectionChanged="OnFontCombo_Changed"/>

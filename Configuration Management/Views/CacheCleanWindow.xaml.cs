@@ -41,6 +41,18 @@ public partial class CacheCleanWindow : Window
     private double _programColumnWidth = DefaultProgramWidth;
     private double _userColumnWidth = DefaultUserWidth;
 
+    // Сортировка колонок списка (issue #215): -1 — естественный порядок списка, иначе
+    // индекс активной колонки сортировки (0 — имя, 1 — программный, 2 — пользовательский).
+    private int _sortColumn = -1;
+    private bool _sortDescending;
+    private readonly Dictionary<Infobase, Grid> _rowByBase = new();
+    // Фактические размеры кеша в байтах для корректной сортировки по колонкам размера
+    // (сортируем по байтам, а не по отформатированному тексту «1,2 ГБ»).
+    private readonly Dictionary<Infobase, long> _programBytes = new();
+    private readonly Dictionary<Infobase, long> _userBytes = new();
+    // Заголовки колонок, чтобы обновлять на них стрелку-индикатор направления сортировки.
+    private readonly List<TextBlock> _headerTexts = new();
+
     // Диагностика и показ ошибок (issues #195, #202): расчёт размера кеша выполняется
     // в фоновых потоках и может завершиться сбоем доступа к файловой системе или иным
     // исключением — окно обязано остаться открытым, а сбой — попасть в журнал и на экран.
@@ -183,6 +195,8 @@ public partial class CacheCleanWindow : Window
 
         for (var col = 0; col < 3; col++)
             BasesHeaderGrid.Children.Add(BuildResizeGrip(col));
+
+        UpdateHeaderIndicators();
     }
 
     /// <summary>Создаёт зону захвата на правой границе колонки (как в главном окне).</summary>
@@ -315,6 +329,7 @@ public partial class CacheCleanWindow : Window
 
             _baseChecks[check] = ib;
             _baseRows[check] = row;
+            _rowByBase[ib] = row;
             _programSizeTexts[ib] = programSize;
             _userSizeTexts[ib] = userSize;
             _rows.Add(row);
@@ -337,8 +352,11 @@ public partial class CacheCleanWindow : Window
         _defaultCheck?.Focus();
     }
 
-    /// <summary>Формирует заголовок колонки списка баз.</summary>
-    private static void BuildHeaderText(Grid grid, string text, int column, HorizontalAlignment align, Brush brush)
+    /// <summary>
+    /// Формирует кликабельный заголовок колонки списка баз. Клик по нему сортирует список
+    /// по этой колонке, повторный клик меняет направление (issue #215).
+    /// </summary>
+    private void BuildHeaderText(Grid grid, string text, int column, HorizontalAlignment align, Brush brush)
     {
         var block = new TextBlock
         {
@@ -349,10 +367,96 @@ public partial class CacheCleanWindow : Window
             HorizontalAlignment = align,
             Margin = new Thickness(8, 0, 8, 0),
             VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Cursor = Cursors.Hand
         };
+        block.MouseLeftButtonDown += (_, _) => OnHeaderClick(column);
         Grid.SetColumn(block, column);
         grid.Children.Add(block);
+        _headerTexts.Add(block);
+    }
+
+    /// <summary>Обрабатывает клик по заголовку колонки: задаёт сортировку и направление (issue #215).</summary>
+    private void OnHeaderClick(int column)
+    {
+        if (_sortColumn == column)
+        {
+            // Повторный клик по той же колонке — меняем направление, как в 1С.
+            _sortDescending = !_sortDescending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortDescending = false;
+        }
+        SortRows();
+        UpdateHeaderIndicators();
+    }
+
+    /// <summary>
+    /// Переупорядочивает строки списка по выбранной колонке. Колонки размера сортируются
+    /// по фактическим байтам, а не по отформатированному тексту. Ещё не посчитанные размеры
+    /// уходят в конец независимо от направления (issue #215).
+    /// </summary>
+    private void SortRows()
+    {
+        if (_sortColumn < 0)
+            return;
+
+        var desc = _sortDescending;
+        var ordered = _infobases.ToList();
+        ordered.Sort((a, b) =>
+        {
+            if (_sortColumn == 1)
+                return CompareSize(_programBytes, a, b, desc);
+            if (_sortColumn == 2)
+                return CompareSize(_userBytes, a, b, desc);
+
+            var cmp = string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+            return desc ? -cmp : cmp;
+        });
+
+        var index = 0;
+        foreach (var ib in ordered)
+        {
+            if (_rowByBase.TryGetValue(ib, out var row))
+            {
+                BasesPanel.Children.Remove(row);
+                BasesPanel.Children.Insert(index, row);
+            }
+            index++;
+        }
+    }
+
+    /// <summary>
+    /// Сравнивает две базы по фактическому размеру кеша в байтах. Неизвестный (ещё не
+    /// посчитанный) размер всегда идёт в конец, независимо от направления сортировки.
+    /// </summary>
+    private static int CompareSize(Dictionary<Infobase, long> bytes, Infobase a, Infobase b, bool desc)
+    {
+        var av = bytes.TryGetValue(a, out var ax) ? ax : (long?)null;
+        var bv = bytes.TryGetValue(b, out var bx) ? bx : (long?)null;
+        if (av is null && bv is null) return 0;
+        if (av is null) return 1;
+        if (bv is null) return -1;
+        var cmp = av.Value.CompareTo(bv.Value);
+        return desc ? -cmp : cmp;
+    }
+
+    /// <summary>Обновляет стрелки-индикаторы направления сортировки в заголовках (issue #215).</summary>
+    private void UpdateHeaderIndicators()
+    {
+        var labels = new[]
+        {
+            LocalizationManager.T("CacheClean.ColumnBase"),
+            LocalizationManager.T("CacheClean.ColumnProgramSize"),
+            LocalizationManager.T("CacheClean.ColumnUserSize")
+        };
+        for (var i = 0; i < _headerTexts.Count && i < labels.Length; i++)
+        {
+            var suffix = i == _sortColumn ? (_sortDescending ? " ▼" : " ▲") : string.Empty;
+            _headerTexts[i].Text = labels[i] + suffix;
+        }
     }
 
     /// <summary>Формирует поле отображения размера кеша базы.</summary>
@@ -471,6 +575,7 @@ public partial class CacheCleanWindow : Window
             try
             {
                 var p = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.Program));
+                _programBytes[ib] = p;
                 if (_programSizeTexts.TryGetValue(ib, out var pt)) pt.Text = FormatSize(p);
             }
             catch (Exception ex)
@@ -481,6 +586,7 @@ public partial class CacheCleanWindow : Window
             try
             {
                 var u = await Task.Run(() => OneCCacheCleaner.GetSize(ib, OneCCacheKind.User));
+                _userBytes[ib] = u;
                 if (_userSizeTexts.TryGetValue(ib, out var ut)) ut.Text = FormatSize(u);
             }
             catch (Exception ex)

@@ -2058,6 +2058,7 @@ public class MainViewModel : ViewModelBase
         ib.Architecture = dialog.Result.Architecture;
         ib.LaunchMode = dialog.Result.LaunchMode;
         ib.LaunchParameters = dialog.Result.LaunchParameters;
+        ib.DefaultLaunchMode = dialog.Result.DefaultLaunchMode;
         ib.ClientType = dialog.Result.ClientType;
         ib.IsFavorite = dialog.Result.IsFavorite;
         ib.IsPinned = dialog.Result.IsPinned;

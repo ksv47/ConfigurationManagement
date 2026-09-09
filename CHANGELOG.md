@@ -9,6 +9,25 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.97] — 2026-09-09
+
+Исправление семи issues #216, #215, #214, #201, #174, #165, #153: центрирование текста в поле «Размер» шрифта, сортировка колонок в окне «Очистка кэша», устранение регрессии горизонтального выравнивания компактного режима, сохранение режима запуска по умолчанию при редактировании базы, логирование маскированной строки подключения при ошибке чтения через COM, дедупликация вложенных папок при импорте v8i/StartManager и диагностика этапов запуска на Linux.
+
+### Исправлено
+
+- **Центрирование текста в поле «Размер» шрифта** ([#216](https://github.com/sivatorov/ConfigurationManagement/issues/216)): текст в поле размера шрифта теперь отцентрован. Файлы: [`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs).
+- **Сортировка колонок в окне «Очистка кэша»** ([#215](https://github.com/sivatorov/ConfigurationManagement/issues/215)): добавлена сортировка колонок в окне очистки кэша. Файлы: [`Views/CacheCleanWindow.xaml.cs`](Configuration%20Management/Views/CacheCleanWindow.xaml.cs), [`Views/CacheCleanWindow.Avalonia.cs`](Configuration%20Management/Views/CacheCleanWindow.Avalonia.cs).
+- **Компактный режим: устранена регрессия горизонтального выравнивания** ([#214](https://github.com/sivatorov/ConfigurationManagement/issues/214)): исправлена регрессия горизонтального выравнивания компактного режима в [`Themes/ThemeManager.cs`](Configuration%20Management/Themes/ThemeManager.cs).
+- **Пара пожеланий: сохранение режима запуска по умолчанию при редактировании базы** ([#201](https://github.com/sivatorov/ConfigurationManagement/issues/201)): исправлено сохранение режима запуска по умолчанию при редактировании базы. Файлы: [`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs).
+- **Кнопка определения свойств конфигурации: логирование строки подключения** ([#174](https://github.com/sivatorov/ConfigurationManagement/issues/174)): добавлено логирование строки подключения (маскированной от паролей) при ошибке чтения через COM в [`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs).
+- **Дублирует папки в родном стартере** ([#165](https://github.com/sivatorov/ConfigurationManagement/issues/165)): добавлена дедупликация вложенных папок при импорте v8i/StartManager в [`Services/IbasesV8iImporter.cs`](Configuration%20Management/Services/IbasesV8iImporter.cs).
+- **Linux висит при запуске: диагностика этапов запуска** ([#153](https://github.com/sivatorov/ConfigurationManagement/issues/153)): добавлена диагностика этапов запуска на Linux (`#if LINUX`) в [`App.axaml.cs`](Configuration%20Management/App.axaml.cs).
+
+### Версия
+
+- **Версия поднята до `0.3.6.96` → `0.3.6.97`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.6.96] — 2026-09-09
 
 Исправление семи issues #214, #210, #204, #200, #188, #174, #163: компактный режим больше не «прыгает» при появлении новых строк дерева баз, удалён оставшийся мёртвый файл окна тегов без точки входа, изолированная регистрация горячих клавиш с отбраковкой значений без модификатора, своевременное обновление кнопки «Смена пользователя», защита `settings.json` от одного испорченного числа NaN/∞, понятные сообщения диалога определения свойств конфигурации и корректное разделение адреса хранилища на оба разделителя при миграции со StartManager.

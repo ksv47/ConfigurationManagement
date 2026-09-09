@@ -253,6 +253,7 @@ public partial class MainViewModel : ViewModelBase
             target.Architecture = dialog.Result.Architecture;
             target.LaunchMode = dialog.Result.LaunchMode;
             target.LaunchParameters = dialog.Result.LaunchParameters;
+            target.DefaultLaunchMode = dialog.Result.DefaultLaunchMode;
             target.ClientType = dialog.Result.ClientType;
             target.IsFavorite = dialog.Result.IsFavorite;
             target.IsPinned = dialog.Result.IsPinned;
