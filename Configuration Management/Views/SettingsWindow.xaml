@@ -1333,6 +1333,22 @@
                                          VerticalContentAlignment="Center"
                                          Style="{StaticResource ModernTextBox}"
                                          ToolTip="{loc:Loc Settings.General.ComConnectorTemplateTooltip}"/>
+                                <!-- Интерактивный предпросмотр имени COM-коннектора (issue #175):
+                                     версия + результат разворота шаблона. Поле версии
+                                     исключительно для предпросмотра, в настройки не сохраняется. -->
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="{loc:Loc Settings.General.ComConnectorPreviewVersionLabel}"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBox x:Name="ComConnectorPreviewVersionBox" Text="8.3.45.6789" Height="32" Width="120"
+                                             VerticalContentAlignment="Center"
+                                             Style="{StaticResource ModernTextBox}"/>
+                                    <TextBlock Text="{loc:Loc Settings.General.ComConnectorPreviewResultLabel}"
+                                               VerticalAlignment="Center" Margin="12,0,10,0"/>
+                                    <TextBox x:Name="ComConnectorPreviewResultBox" Height="32" Width="220"
+                                             VerticalContentAlignment="Center" IsReadOnly="True"
+                                             Style="{StaticResource ModernTextBox}"
+                                             Text="{loc:Loc Settings.General.ComConnectorPreviewEmpty}"/>
+                                </StackPanel>
                             </StackPanel>
                         </GroupBox>
 

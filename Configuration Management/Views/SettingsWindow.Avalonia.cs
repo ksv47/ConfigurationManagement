@@ -357,6 +357,51 @@ namespace Configuration_Management
             comTemplateRow.Children.Add(comTemplateBox);
             settings.Children.Add(comTemplateRow);
 
+            // Интерактивный предпросмотр имени COM-коннектора (issue #175):
+            // редактируемая версия + результат разворота шаблона. Поле версии
+            // исключительно для предпросмотра, в настройки не сохраняется.
+            var comPreviewRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            comPreviewRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorPreviewVersionLabel"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0)
+            });
+            var previewVersionBox = new TextBox
+            {
+                Text = "8.3.45.6789",
+                Width = 120,
+                Height = 30,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            }.Styled(ControlThemes.ModernTextBox);
+            comPreviewRow.Children.Add(previewVersionBox);
+            comPreviewRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorPreviewResultLabel"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(12, 0, 10, 0)
+            });
+            var previewResultBox = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorPreviewEmpty"),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap
+            };
+            comPreviewRow.Children.Add(previewResultBox);
+            settings.Children.Add(comPreviewRow);
+
+            void UpdateComConnectorPreview()
+            {
+                var result = ComConnectorTemplate.Expand(comTemplateBox.Text, previewVersionBox.Text);
+                previewResultBox.Text = result ?? LocalizationManager.T("Settings.General.ComConnectorPreviewEmpty");
+            }
+
+            comTemplateBox.TextChanged += (_, _) => UpdateComConnectorPreview();
+            previewVersionBox.TextChanged += (_, _) => UpdateComConnectorPreview();
+            UpdateComConnectorPreview();
+
             // Таймаут определения свойств конфигурации через COM (issue #174).
             var detectTimeoutHint = new TextBlock
             {

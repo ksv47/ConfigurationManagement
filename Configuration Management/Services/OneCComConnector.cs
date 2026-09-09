@@ -105,35 +105,15 @@ public sealed class OneCComConnector : IOneCComConnector
     }
 
     /// <summary>
-    /// Разворачивает шаблон имени COM-коннектора по версии платформы.
+    /// Разворачивает шаблон имени COM-коннектора по версии платформы (issue #175).
+    /// Делегирует общему помощнику <see cref="ComConnectorTemplate.Expand"/>, чтобы
+    /// поведение при подключении совпадало с интерактивным предпросмотром в окне
+    /// настроек (включая обрезку разделителей перед пустыми сегментами версии).
     /// Возвращает null, если шаблон или версия отсутствуют либо версию нельзя разобрать
     /// (тогда разворачивать нечего и используется стандартный список).
     /// </summary>
     internal static string? ExpandTemplate(string? template, string? platformVersion)
-    {
-        if (string.IsNullOrWhiteSpace(template) || string.IsNullOrWhiteSpace(platformVersion))
-            return null;
-
-        var seg = platformVersion.Split('.');
-        if (seg.Length == 0)
-            return null;
-
-        // %V12% — первые две цифры версии (для 8.3.x это «83»), %V3%/%V4% — третья/четвёртая.
-        // Из каждого сегмента берутся только цифры, чтобы чужие символы из строки версии
-        // не попадали в ProgID.
-        var v12 = Digits(seg.Length > 1 ? seg[0] + seg[1] : seg[0]);
-        var v3 = Digits(seg.Length > 2 ? seg[2] : "");
-        var v4 = Digits(seg.Length > 3 ? seg[3] : "");
-
-        // Нет первой части — расшифровать нечего.
-        if (v12.Length == 0)
-            return null;
-
-        return template
-            .Replace("%V12%", v12)
-            .Replace("%V3%", v3)
-            .Replace("%V4%", v4);
-    }
+        => ComConnectorTemplate.Expand(template, platformVersion);
 
     /// <summary>
     /// Возвращает первый ProgID из списка кандидатов, который реально зарегистрирован
@@ -157,22 +137,6 @@ public sealed class OneCComConnector : IOneCComConnector
             }
         }
         return null;
-    }
-
-    /// <summary>Оставляет в строке только десятичные цифры.</summary>
-    private static string Digits(string s)
-    {
-        if (s.Length == 0)
-            return string.Empty;
-
-        var sb = new StringBuilder(s.Length);
-        foreach (var ch in s)
-        {
-            if (char.IsAsciiDigit(ch))
-                sb.Append(ch);
-        }
-
-        return sb.ToString();
     }
 
     // -- Кэш доступности COM-коннекторов 1С ----------------------------------

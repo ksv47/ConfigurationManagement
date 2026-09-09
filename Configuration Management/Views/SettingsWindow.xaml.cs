@@ -64,6 +64,14 @@ namespace Configuration_Management
             // Шаблон имени COM-коннектора 1С (issue #175): показываем текущее значение.
             if (ComConnectorNameTemplateBox != null)
                 ComConnectorNameTemplateBox.Text = viewModel.ComConnectorNameTemplate;
+            // Интерактивный предпросмотр имени COM-коннектора (issue #175): реагирует
+            // на изменение и шаблона, и версии. Поле версии в настройки не сохраняется.
+            if (ComConnectorNameTemplateBox != null && ComConnectorPreviewVersionBox != null)
+            {
+                ComConnectorNameTemplateBox.TextChanged += (_, _) => UpdateComConnectorPreview();
+                ComConnectorPreviewVersionBox.TextChanged += (_, _) => UpdateComConnectorPreview();
+                UpdateComConnectorPreview();
+            }
             // Таймаут определения свойств конфигурации через COM (issue #174).
             if (ComDetectTimeoutMsBox != null)
                 ComDetectTimeoutMsBox.Text = viewModel.ComDetectTimeoutMs.ToString();
@@ -84,6 +92,20 @@ namespace Configuration_Management
             InitializeLanguage();
             InitializeProfileBackupTab();
             InitializeAccountsTab();
+        }
+
+        /// <summary>
+        /// Обновляет интерактивный предпросмотр имени COM-коннектора (issue #175):
+        /// разворачивает шаблон по введённой версии. При null (пустой шаблон/версия или
+        /// неразбираемая версия) выводится placeholder.
+        /// </summary>
+        private void UpdateComConnectorPreview()
+        {
+            if (ComConnectorPreviewResultBox == null || ComConnectorNameTemplateBox == null || ComConnectorPreviewVersionBox == null)
+                return;
+
+            var result = ComConnectorTemplate.Expand(ComConnectorNameTemplateBox.Text, ComConnectorPreviewVersionBox.Text);
+            ComConnectorPreviewResultBox.Text = result ?? LocalizationManager.T("Settings.General.ComConnectorPreviewEmpty");
         }
 
         /// <summary>Переключатель компактного режима: применяет изменение сразу и сохраняет.</summary>
