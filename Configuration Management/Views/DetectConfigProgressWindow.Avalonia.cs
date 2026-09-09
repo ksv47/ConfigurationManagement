@@ -28,9 +28,14 @@ namespace Configuration_Management
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             ShowInTaskbar = false;
 
+            // Индетерминантный индикатор держит рендер-цикл занятым и на программном
+            // рендере/в виртуализации даёт постоянную перерисовку (issue #153). Там
+            // рисуем статичную заполненную полосу, как в главном окне.
+            var disableAnimations = Services.LinuxRendering.DisableAnimations;
             var bar = new ProgressBar
             {
-                IsIndeterminate = true,
+                IsIndeterminate = !disableAnimations,
+                Value = disableAnimations ? 100 : 0,
                 Height = 6,
                 Margin = new Thickness(20, 16, 20, 10)
             };

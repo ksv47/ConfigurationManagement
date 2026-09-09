@@ -9,6 +9,21 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.95] — 2026-09-09
+
+Завершение исправления issue #153 «Linux - висит при запуске»: в окнах создания информационной базы из шаблона и определения свойств конфигурации индетерминантные индикаторы прогресса больше не держат рендер-цикл занятым на программном рендере/в виртуализации.
+
+### Исправлено
+
+- **Окно создания информационной базы из шаблона: статичная полоса загрузки вместо непрерывной анимации** ([#153](https://github.com/sivatorov/ConfigurationManagement/issues/153)): индетерминантный `ProgressBar` в [`Views/CreateInfobaseWindow.Avalonia.cs`](Configuration%20Management/Views/CreateInfobaseWindow.Avalonia.cs) держал постоянный рендер-цикл на программном рендере и в виртуализации, что давало высокую нагрузку CPU и «зависание» реакции на мышь (как при открытии диалога на VirtualBox/X11 без композитора). Теперь в таких окружениях (`LinuxRendering.DisableAnimations`) рисуется статичная заполненная полоса, как в главном окне.
+- **Окно определения свойств конфигурации: то же самое** ([#153](https://github.com/sivatorov/ConfigurationManagement/issues/153)): индетерминантный `ProgressBar` в [`Views/DetectConfigProgressWindow.Avalonia.cs`](Configuration%20Management/Views/DetectConfigProgressWindow.Avalonia.cs) приведён к тому же поведению — при `DisableAnimations` показывается статичная полоса вместо бесконечной анимации.
+- Итоговая логика сведена к единому детектору [`Services/LinuxRendering.cs`](Configuration%20Management/Services/LinuxRendering.cs) (прозрачность окна и непрерывные анимации отключаются в виртуализации, при программном рендере и на X11 без композитора), как уже сделано для главного окна и модальных диалогов.
+
+### Версия
+
+- **Версия поднята до `0.3.6.94` → `0.3.6.95`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.6.94] — 2026-09-09
 
 Исправление четырёх issues #211, #212, #213, #163: редактируемое поле показа пароля («глаз») в окне свойств базы на Windows (WPF), корректный пересчёт размеров и переписанное сообщение в окне очистки кэша, стабилизация запуска при ошибке назначения `Owner` диалогам и запасной русский текст фатальной ошибки, а также удаление ложного охранника при импорте паролей из StartManager.
