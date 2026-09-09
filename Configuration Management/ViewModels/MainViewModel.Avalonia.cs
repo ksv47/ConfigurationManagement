@@ -122,6 +122,24 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Таймаут определения свойств конфигурации через COM-коннектор (issue #174), мс.
+    /// На Linux COM отсутствует, но значение сохраняется в общий файл настроек,
+    /// чтобы не теряться при переходе между платформами. Минимум 1000 мс.
+    /// </summary>
+    public int ComDetectTimeoutMs
+    {
+        get => Math.Max(1000, _settings.ComDetectTimeoutMs);
+        set
+        {
+            var v = Math.Max(1000, value);
+            if (_settings.ComDetectTimeoutMs == v)
+                return;
+            _settings.ComDetectTimeoutMs = v;
+            SaveSettingsSilently();
+        }
+    }
+
+    /// <summary>
     /// Разрешено ли несколько экземпляров: от этого зависит, вернётся ли
     /// спрятанное окно повторным запуском приложения.
     /// </summary>

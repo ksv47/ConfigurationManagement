@@ -124,6 +124,15 @@ public class AppSettings
     /// </summary>
     public string ComConnectorNameTemplate { get; set; } = "";
 
+    /// <summary>
+    /// Таймаут определения свойств конфигурации через COM-коннектор (issue #174), миллисекунды.
+    /// Первое COM-подключение к клиент-серверной базе (особенно localhost с холодным стартом
+    /// сервера, обращением к лицензиям HASP и первичным созданием сеанса) часто превышает 8 секунд.
+    /// Значение по умолчанию 30000 мс — чтение выполняется только по явной команде, поэтому
+    /// длинный таймаут не мешает старту. Минимально допустимое значение — 1000.
+    /// </summary>
+    public int ComDetectTimeoutMs { get; set; } = 30000;
+
     /// <summary>Режим синхронизации с файлом ibases.v8i.</summary>
     public IbasesSyncMode IbasesSyncMode { get; set; } = IbasesSyncMode.None;
 

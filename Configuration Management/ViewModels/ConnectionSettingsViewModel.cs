@@ -783,6 +783,14 @@ public class ConnectionSettingsViewModel : ViewModelBase
         conn.Password = Password;
         conn.AuthenticationMode = AuthenticationMode;
         conn.Port = Port;
+
+        // Имя базы нужно для сообщений об ошибках чтения свойств конфигурации (issue #174):
+        // без него в журнале появляется «...базы «»:», хотя Ref известен. Приоритет — заданное
+        // наименование, затем Ref (DatabaseName), затем имя файла файловой базы.
+        ib.Name = !string.IsNullOrWhiteSpace(Name) ? Name
+            : !string.IsNullOrWhiteSpace(DatabaseName) ? DatabaseName
+            : SuggestNameFromPath(FilePath);
+
         return ib;
     }
 
@@ -795,7 +803,9 @@ public class ConnectionSettingsViewModel : ViewModelBase
     public OneCConfigInfo? ReadConfiguration(Action<string>? onStage = null)
     {
         var ib = BuildProbeInfobase();
-        return ConfigurationInfoService.ReadAndApply(ib, overwriteExisting: true, timeoutMs: 8000, onStage);
+        // Таймаут резолвится внутри (настройка ComDetectTimeoutMs, по умолчанию 30000 мс),
+        // а не жёстко 8000 мс (issue #174): первое COM-подключение часто превышает 8 секунд.
+        return ConfigurationInfoService.ReadAndApply(ib, overwriteExisting: true, timeoutMs: null, onStage);
     }
 
     /// <summary>

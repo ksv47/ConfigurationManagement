@@ -1335,6 +1335,23 @@
                                          ToolTip="{loc:Loc Settings.General.ComConnectorTemplateTooltip}"/>
                             </StackPanel>
                         </GroupBox>
+
+                        <!-- Таймаут определения свойств конфигурации через COM (issue #174) -->
+                        <GroupBox Header="{loc:Loc Settings.General.ComDetectTimeout}" Padding="8" Margin="0,14,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc Settings.General.ComDetectTimeoutHint}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox x:Name="ComDetectTimeoutMsBox" Height="32" Width="120"
+                                             VerticalContentAlignment="Center"
+                                             Style="{StaticResource ModernTextBox}"
+                                             ToolTip="{loc:Loc Settings.General.ComDetectTimeoutTooltip}"/>
+                                    <TextBlock Text="{loc:Loc Settings.General.ComDetectTimeoutUnit}"
+                                               VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

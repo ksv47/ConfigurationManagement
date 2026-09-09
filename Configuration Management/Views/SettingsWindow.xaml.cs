@@ -64,6 +64,9 @@ namespace Configuration_Management
             // Шаблон имени COM-коннектора 1С (issue #175): показываем текущее значение.
             if (ComConnectorNameTemplateBox != null)
                 ComConnectorNameTemplateBox.Text = viewModel.ComConnectorNameTemplate;
+            // Таймаут определения свойств конфигурации через COM (issue #174).
+            if (ComDetectTimeoutMsBox != null)
+                ComDetectTimeoutMsBox.Text = viewModel.ComDetectTimeoutMs.ToString();
             _settings = new SettingsViewModel(viewModel);
             _installedPlatformVersions = new List<string>(viewModel.InstalledPlatformVersions);
             foreach (var path in viewModel.AdditionalPlatformSearchPaths)
@@ -271,6 +274,10 @@ namespace Configuration_Management
 
             // Имя COM-коннектора 1С по шаблону версии платформы (issue #175).
             _viewModel.ComConnectorNameTemplate = ComConnectorNameTemplateBox.Text?.Trim() ?? "";
+            // Таймаут определения свойств конфигурации через COM (issue #174).
+            if (ComDetectTimeoutMsBox != null
+                && int.TryParse(ComDetectTimeoutMsBox.Text, out var detectTimeout))
+                _viewModel.ComDetectTimeoutMs = detectTimeout;
 
             _viewModel.ApplyAppBehaviorSettings(
                 AllowMultipleInstancesCheck.IsChecked ?? false,

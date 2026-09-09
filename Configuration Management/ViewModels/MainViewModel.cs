@@ -59,6 +59,9 @@ public partial class MainViewModel : ViewModelBase
     // Настраиваемый шаблон имени COM-коннектора 1С (issue #175). Пустая строка —
     // стандартные ProgID V85/V83/V82/V81.COMConnector.
     private string _comConnectorNameTemplate = "";
+    // Таймаут определения свойств конфигурации через COM (issue #174), мс. Первое
+    // COM-подключение часто превышает прежние 8000 мс; по умолчанию — 30000.
+    private int _comDetectTimeoutMs = 30000;
     private readonly ObservableCollection<string> _activeTagFilters = new();
     private ListViewMode _listViewMode = ListViewMode.All;
 
@@ -253,6 +256,7 @@ public partial class MainViewModel : ViewModelBase
         _checkForUpdatesOnStartup = settings.CheckForUpdatesOnStartup;
         _autoUpdateEnabled = settings.AutoUpdateEnabled;
         _comConnectorNameTemplate = settings.ComConnectorNameTemplate ?? "";
+        _comDetectTimeoutMs = Math.Max(1000, settings.ComDetectTimeoutMs);
         _showVersionColumn = settings.ShowVersionColumn;
         _showConfigurationColumn = settings.ShowConfigurationColumn;
         _configurationColumnWidth = settings.ConfigurationColumnWidth;

@@ -357,6 +357,47 @@ namespace Configuration_Management
             comTemplateRow.Children.Add(comTemplateBox);
             settings.Children.Add(comTemplateRow);
 
+            // Таймаут определения свойств конфигурации через COM (issue #174).
+            var detectTimeoutHint = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComDetectTimeoutHint"),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Margin = new Thickness(0, 10, 0, 6)
+            };
+            ThemeBrushes.Bind(detectTimeoutHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            settings.Children.Add(detectTimeoutHint);
+
+            var detectTimeoutRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            detectTimeoutRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComDetectTimeout"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0)
+            });
+            var detectTimeoutBox = new TextBox
+            {
+                Text = _viewModel.ComDetectTimeoutMs.ToString(),
+                Width = 120,
+                Height = 30,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            }.Styled(ControlThemes.ModernTextBox);
+            ToolTip.SetTip(detectTimeoutBox, new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComDetectTimeoutTooltip"),
+                MaxWidth = 320,
+                TextWrapping = TextWrapping.Wrap
+            });
+            detectTimeoutRow.Children.Add(detectTimeoutBox);
+            detectTimeoutRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComDetectTimeoutUnit"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
+            });
+            settings.Children.Add(detectTimeoutRow);
+
             // Управление учётными записями (профилями).
             // Кнопка учётных записей: значок и тема из разметки
             // (SettingsWindow.xaml:1151-1157).
@@ -2435,6 +2476,9 @@ namespace Configuration_Management
 
                 // Имя COM-коннектора 1С по шаблону версии платформы (issue #175).
                 _viewModel.ComConnectorNameTemplate = comTemplateBox.Text?.Trim() ?? "";
+                // Таймаут определения свойств конфигурации через COM (issue #174).
+                if (int.TryParse(detectTimeoutBox.Text, out var detectTimeout))
+                    _viewModel.ComDetectTimeoutMs = detectTimeout;
 
                 _viewModel.ApplyIbasesSyncSettings(
                     syncModeBox.SelectedIndex >= 0 ? syncModes[syncModeBox.SelectedIndex].Mode : IbasesSyncMode.None,

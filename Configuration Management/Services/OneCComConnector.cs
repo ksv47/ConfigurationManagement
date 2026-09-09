@@ -326,7 +326,7 @@ public sealed class OneCComConnector : IOneCComConnector
         if (!thread.Join(timeoutMs))
         {
             LastError ??= string.Format(LocalizationManager.T("Com.TimeoutConnectFormat"), timeoutMs);
-            _logger.Error($"Превышен таймаут COM-подключения к базе «{infobase.Name}».");
+            _logger.Error($"Превышен таймаут COM-подключения к базе «{DisplayName(infobase)}».");
             return null;
         }
         if (error is not null)
@@ -439,8 +439,8 @@ public sealed class OneCComConnector : IOneCComConnector
             // трудно понять, какая именно база/сервер/файл подставлялись и не потерялось ли что-то
             // при сборке строки. Пароль маскируем тем же правилом, что и для ошибок от 1С.
             _logger.Error(
-                $"Не удалось прочитать сведения о конфигурации базы «{ib.Name}»: {LastError}{trace}."
-                + $" Строка подключения: {MaskCredentials(connectString)}");
+                $"Не удалось прочитать сведения о конфигурации базы «{DisplayName(ib)}»: {LastError}{trace}."
+                + $" Строка подключения: {MaskCredentials(connectString)}. Таймаут: {timeoutMs} мс.");
         }
 
         return null;
@@ -903,5 +903,24 @@ public sealed class OneCComConnector : IOneCComConnector
     private static void AppendParameter(StringBuilder sb, string name, string value)
     {
         sb.Append(name).Append("=\"").Append(value.Replace("\"", "\"\"")).Append("\";");
+    }
+
+    /// <summary>
+    /// Имя базы для сообщений об ошибках (issue #174): вместо пустого имени «» подставляет
+    /// осмысленное значение — заданное наименование, затем Ref (DatabaseName), затем путь
+    /// файловой базы, а иначе явный маркер. Закрывает случай, когда имя не заполнено у баз
+    /// списка (например, после импорта) и диагностика по журналу теряет привязку к базе.
+    /// </summary>
+    private static string DisplayName(Infobase ib)
+    {
+        if (ib is null) return "<без имени>";
+        if (!string.IsNullOrWhiteSpace(ib.Name))
+            return ib.Name;
+        var conn = ib.Connection;
+        if (conn is not null && !string.IsNullOrWhiteSpace(conn.DatabaseName))
+            return conn.DatabaseName;
+        if (conn is not null && !string.IsNullOrWhiteSpace(conn.FilePath))
+            return System.IO.Path.GetFileName(conn.FilePath.Trim().Trim('"').TrimEnd('\\', '/'));
+        return "<без имени>";
     }
 }

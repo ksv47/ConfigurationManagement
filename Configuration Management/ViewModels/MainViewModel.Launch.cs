@@ -430,6 +430,7 @@ public partial class MainViewModel : ViewModelBase
             CheckForUpdatesOnStartup = _checkForUpdatesOnStartup,
             AutoUpdateEnabled = _autoUpdateEnabled,
             ComConnectorNameTemplate = _comConnectorNameTemplate,
+            ComDetectTimeoutMs = _comDetectTimeoutMs,
             ShowVersionColumn = _showVersionColumn,
             ShowConfigurationColumn = _showConfigurationColumn,
             ConfigurationColumnWidth = _configurationColumnWidth,

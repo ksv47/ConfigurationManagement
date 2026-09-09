@@ -9,6 +9,22 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.98] — 2026-09-09
+
+Исправление issue #174 «Кнопка определения свойств конфигурации» по замечаниям пользователя: в сообщении об ошибке чтения через COM больше не пустое имя базы («» вместо реального имени), таймаут определения свойств стал настраиваемым (по умолчанию 30000 мс вместо жёстких 8000 мс), а при определении свойств база с непустым именем корректно попадает в журнал.
+
+### Исправлено
+
+- **Пустое имя базы в сообщении об ошибке** ([#174](https://github.com/sivatorov/ConfigurationManagement/issues/174)): `BuildProbeInfobase` в [`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs) теперь заполняет имя базы (приоритет: заданное наименование → `Ref`/`DatabaseName` → имя файла), а в [`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs) добавлен защитный `DisplayName`, подставляющий осмысленное имя вместо пустой строки «» во всех сообщениях и записях журнала.
+- **Настраиваемый таймаут определения свойств конфигурации** ([#174](https://github.com/sivatorov/ConfigurationManagement/issues/174)): таймаут вынесен из жёстких 8000 мс в настройку `ComDetectTimeoutMs` ([`Models/AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs), по умолчанию **30000 мс**, минимум 1000). Значение резолвится в [`Services/ConfigurationInfoService.cs`](Configuration%20Management/Services/ConfigurationInfoService.cs) и доходит до агента `ComReadHost`, поэтому первое COM-подключение к клиент-серверной базе (холодный старт сервера, лицензии, создание сеанса) больше не обрывается на 8-й секунде. В журнал при ошибке дополнительно пишется применённый таймаут.
+- **Настройка таймаута в окне настроек** ([#174](https://github.com/sivatorov/ConfigurationManagement/issues/174)): поле «Таймаут определения свойств конфигурации (мс)» добавлено в [`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml) и [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs); значение сохраняется через `MainViewModel.ComDetectTimeoutMs` (Windows/WPF и Linux/Avalonia).
+- **Удалён мёртвый код фонового автодочитывания** ([#174](https://github.com/sivatorov/ConfigurationManagement/issues/174)): удалён неиспользуемый `RefreshConfigurationInfoAsync` и связанное поле `_configInfoFailedKeys` в [`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs) — чтение свойств выполняется только по явной команде («Обновить информацию» или кнопка «Определить»), а не при старте/импорте.
+
+### Версия
+
+- **Версия поднята до `0.3.6.97` → `0.3.6.98`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.6.97] — 2026-09-09
 
 Исправление семи issues #216, #215, #214, #201, #174, #165, #153: центрирование текста в поле «Размер» шрифта, сортировка колонок в окне «Очистка кэша», устранение регрессии горизонтального выравнивания компактного режима, сохранение режима запуска по умолчанию при редактировании базы, логирование маскированной строки подключения при ошибке чтения через COM, дедупликация вложенных папок при импорте v8i/StartManager и диагностика этапов запуска на Linux.
