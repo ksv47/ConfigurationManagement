@@ -268,6 +268,7 @@ namespace Configuration_Management
                 return;
             ReorderGridColumns(grid, RowFirstDataColumn);
             grid.Tag = RowGridMarker;
+            ApplyRowCompact(grid);
         }
 
         /// <summary>
@@ -280,6 +281,22 @@ namespace Configuration_Management
                 return;
             ReorderGridColumns(grid, RowFirstDataColumn);
             grid.Tag = GroupGridMarker;
+            ApplyRowCompact(grid);
+        }
+
+        /// <summary>
+        /// Применяет компактный режим к вновь созданной строке (базы или группы). Строки
+        /// дерева появляются позже первичного применения компактного режима — при фоновой
+        /// инициализации, виртуализации/прокрутке и пересборке дерева (сохранение свойств
+        /// базы) — и без этого вызова оставались бы полной плотности, «разъезжаясь» с
+        /// заголовком (issue #214). Компактизация идемпотентна: повторные вызовы для той же
+        /// строки (переработка контейнера) используют сохранённые исходные значения.
+        /// </summary>
+        private void ApplyRowCompact(Grid grid)
+        {
+            if (_viewModel?.CompactMode != true)
+                return;
+            ThemeManager.ApplyCompactTree(grid, true);
         }
 
         /// <summary>

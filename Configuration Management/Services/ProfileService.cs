@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -52,6 +53,13 @@ public class ProfileService : IProfileService
     private string? _lastProfileId;
     private UserProfile? _currentProfile;
     private bool _initialized;
+
+    /// <summary>
+    /// Оповещает подписчиков об изменении реестра учётных записей (создание/переименование/
+    /// удаление профиля, смена пароля или активной записи). Используется для актуализации
+    /// видимости кнопки «Смена пользователя» без перезапуска (issue #200).
+    /// </summary>
+    public event EventHandler? ProfilesChanged;
 
     private string RegistryPath => Path.Combine(PlatformPaths.AppDataDirectory, RegistryFileName);
 
@@ -133,6 +141,7 @@ public class ProfileService : IProfileService
 
         _profiles.Add(profile);
         SaveRegistry();
+        NotifyProfilesChanged();
         return profile;
     }
 
@@ -150,6 +159,7 @@ public class ProfileService : IProfileService
 
         profile.Name = trimmed;
         SaveRegistry();
+        NotifyProfilesChanged();
     }
 
     public bool DeleteProfile(string id)
@@ -207,6 +217,7 @@ public class ProfileService : IProfileService
             // Оставляем каталог — он будет перезаписан при пересоздании профиля с тем же Id.
         }
 
+        NotifyProfilesChanged();
         return true;
     }
 
@@ -217,6 +228,7 @@ public class ProfileService : IProfileService
         var profile = FindProfile(id) ?? throw new InvalidOperationException("Профиль не найден.");
         profile.PasswordHash = string.IsNullOrEmpty(password) ? string.Empty : HashPassword(password);
         SaveRegistry();
+        NotifyProfilesChanged();
     }
 
     public bool VerifyPassword(string id, string password)
@@ -241,12 +253,16 @@ public class ProfileService : IProfileService
         _currentProfile = profile;
         _lastProfileId = profile.Id;
         SaveRegistry();
+        NotifyProfilesChanged();
     }
 
     // ---------------------------------------------------------------- internals
 
     private UserProfile? FindProfile(string id) =>
         _profiles.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Оповещает подписчиков об изменении реестра учётных записей.</summary>
+    private void NotifyProfilesChanged() => ProfilesChanged?.Invoke(this, EventArgs.Empty);
 
     /// <summary>
     /// Миграция легаси-данных: если реестра профилей нет, а в корне каталога данных есть

@@ -44,6 +44,10 @@ public partial class MainViewModel
     /// true, если учётных записей больше одной — тогда кнопка «Смена пользователя»
     /// показывается на верхней панели (при одной записи переключать нечего).
     /// </summary>
+    /// <summary>Реестр учётных записей изменился: пересчитываем видимость кнопки.</summary>
+    private void OnProfilesChanged(object? sender, EventArgs e) =>
+        OnPropertyChanged(nameof(SwitchUserVisible));
+
     public bool SwitchUserVisible
     {
         get

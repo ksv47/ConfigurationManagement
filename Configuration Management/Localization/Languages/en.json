@@ -691,6 +691,8 @@
     "Connection.DetectConfigTitle": "Configuration detection",
     "Connection.DetectStageConnectFormat": "Creating a COM connection with platform version {0}",
     "Connection.DetectStageConnectNoVersion": "Creating a COM connection",
+    "Connection.DetectStageConnectWithProgIdFormat": "Creating a COM connection via {0} (platform {1})",
+    "Connection.DetectStageConnectWithProgIdNoVersion": "Creating a COM connection via {0}",
     "Connection.DetectStageRead": "Connecting to the infobase to read properties",
     "Connection.ParametersLabel": "Parameters:",
     "Connection.Parameters": "Parameters",

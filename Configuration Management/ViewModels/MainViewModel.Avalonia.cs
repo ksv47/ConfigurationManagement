@@ -443,6 +443,15 @@ public class MainViewModel : ViewModelBase
         };
 
         InitializeCommands();
+
+        // При изменении реестра учётных записей (создание/переименование/удаление в окне
+        // настроек) обновляем видимость кнопки «Смена пользователя» (issue #200).
+        try
+        {
+            AppServices.GetRequiredService<IProfileService>().ProfilesChanged += (_, _) =>
+                OnPropertyChanged(nameof(SwitchUserVisible));
+        }
+        catch { /* сервис профилей может отсутствовать в изолированном контексте */ }
     }
 
     // ======================= Коллекции =======================

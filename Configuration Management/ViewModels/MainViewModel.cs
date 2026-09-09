@@ -190,6 +190,14 @@ public partial class MainViewModel : ViewModelBase
         _ibasesSync = ibasesSync ?? new IbasesSyncService();
         _logger.Info("MainViewModel инициализирован");
 
+        // При изменении реестра учётных записей (создание/переименование/удаление в окне
+        // настроек) обновляем видимость кнопки «Смена пользователя» (issue #200).
+        try
+        {
+            AppServices.GetRequiredService<IProfileService>().ProfilesChanged += OnProfilesChanged;
+        }
+        catch { /* сервис профилей может отсутствовать в изолированном контексте */ }
+
         // Отслеживание выгрузок .dt/.cf для анимированного индикатора в верхней панели.
         OneCLauncher.DesignerBatchStarted += OnDesignerBatchStarted;
         OneCLauncher.DesignerBatchCompleted += OnDesignerBatchCompleted;

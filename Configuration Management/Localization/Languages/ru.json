@@ -691,6 +691,8 @@
     "Connection.DetectConfigTitle": "Определение свойств конфигурации",
     "Connection.DetectStageConnectFormat": "Создаём COM-подключение с версией платформы {0}",
     "Connection.DetectStageConnectNoVersion": "Создаём COM-подключение",
+    "Connection.DetectStageConnectWithProgIdFormat": "Создаём COM-подключение через {0} (платформа {1})",
+    "Connection.DetectStageConnectWithProgIdNoVersion": "Создаём COM-подключение через {0}",
     "Connection.DetectStageRead": "Подключение к базе для чтения свойств",
     "Connection.ParametersLabel": "Параметры:",
     "Connection.Parameters": "Параметры",

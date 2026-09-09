@@ -9,6 +9,25 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.6.96] — 2026-09-09
+
+Исправление семи issues #214, #210, #204, #200, #188, #174, #163: компактный режим больше не «прыгает» при появлении новых строк дерева баз, удалён оставшийся мёртвый файл окна тегов без точки входа, изолированная регистрация горячих клавиш с отбраковкой значений без модификатора, своевременное обновление кнопки «Смена пользователя», защита `settings.json` от одного испорченного числа NaN/∞, понятные сообщения диалога определения свойств конфигурации и корректное разделение адреса хранилища на оба разделителя при миграции со StartManager.
+
+### Исправлено
+
+- **Компактный режим больше не «прыгает»** ([#214](https://github.com/sivatorov/ConfigurationManagement/issues/214)): строки дерева баз, появляющиеся после первичного применения компакт-режима (фоновая инициализация, виртуализация/прокрутка, пересборка после сохранения свойств базы), теперь тоже компактизируются. В [`Themes/ThemeManager.cs`](Configuration%20Management/Themes/ThemeManager.cs) добавлен `ApplyCompactTree`, в [`Views/MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs) строки базы/группы применяют компакт-режим, а в [`Views/MainWindow.xaml.cs`](Configuration%20Management/Views/MainWindow.xaml.cs) пересчитывается выравнивание колонок после пересборки дерева.
+- **Удалён оставшийся мёртвый файл окна тегов** ([#210](https://github.com/sivatorov/ConfigurationManagement/issues/210)): разметка `TagInputWindow` была удалена ранее, поэтому класс стал неработоспособен; удалён `Views/TagInputWindow.Avalonia.cs`.
+- **Горячие клавиши: значения без модификатора отбраковываются, регистрация изолирована** ([#204](https://github.com/sivatorov/ConfigurationManagement/issues/204)): при чтении настроек буквы/цифры без модификатора отклоняются (`TryParseKeyGesture`, `IsAllowedWithoutModifier`); каждая привязка регистрируется изолированно, регистрация хоткеев вынесена из общего `try` — старое значение больше не отключает Alt+1…9, восстановление последней базы и выравнивание заголовка.
+- **Кнопка «Смена пользователя» обновляется после изменения списка профилей** ([#200](https://github.com/sivatorov/ConfigurationManagement/issues/200)): видимость кнопки пересчитывается по событию `ProfilesChanged` в `IProfileService`/`ProfileService`; окно выбора учётной записи ([`Views/LoginWindow.xaml.cs`](Configuration%20Management/Views/LoginWindow.xaml.cs)) применяет активную тему/скин.
+- **Одно испорченное число больше не роняет весь settings.json** ([#188](https://github.com/sivatorov/ConfigurationManagement/issues/188)): в [`Services/InfobaseRepository.cs`](Configuration%20Management/Services/InfobaseRepository.cs) добавлен `NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals`, чтобы значение NaN/∞ в одном поле не ломало весь файл; чтение настроек согласовано с этим.
+- **Понятные сообщения при определении свойств конфигурации** ([#174](https://github.com/sivatorov/ConfigurationManagement/issues/174)): диалог прогресса и сообщение об ошибке теперь показывают конкретный КОМ-коннектор (ProgID) и версию платформы; подтверждено, что при импорте баз определение свойств запускается только по явной команде, а не автоматически.
+- **Импорт из StartManager: адрес хранилища делится на сервер и имя хранилища по обоим разделителям** ([#163](https://github.com/sivatorov/ConfigurationManagement/issues/163)): `StartManagerImporter.BuildRepository` учитывает и `/`, и `\`.
+
+### Версия
+
+- **Версия поднята до `0.3.6.95` → `0.3.6.96`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.6.95] — 2026-09-09
 
 Завершение исправления issue #153 «Linux - висит при запуске»: в окнах создания информационной базы из шаблона и определения свойств конфигурации индетерминантные индикаторы прогресса больше не держат рендер-цикл занятым на программном рендере/в виртуализации.

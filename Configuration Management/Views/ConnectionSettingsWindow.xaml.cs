@@ -379,14 +379,23 @@ namespace Configuration_Management
 
         /// <summary>
         /// Строит текст этапа «создание COM-подключения» для диалога прогресса (issue #174):
-        /// с версией платформы базы, чтобы было видно, какой COM-коннектор создаётся.
+        /// с фактическим ProgID (например, «V83.COMConnector») и версией платформы базы,
+        /// чтобы было видно, какой именно COM-коннектор создаётся.
         /// </summary>
         private string BuildDetectConnectStageMessage()
         {
             var version = _viewModel.PlatformVersion;
-            return string.IsNullOrWhiteSpace(version)
-                ? LocalizationManager.T("Connection.DetectStageConnectNoVersion")
-                : string.Format(LocalizationManager.T("Connection.DetectStageConnectFormat"), version);
+            var progId = ConfigurationInfoService.LastUsedProgId;
+            var hasProgId = !string.IsNullOrWhiteSpace(progId);
+            var hasVersion = !string.IsNullOrWhiteSpace(version);
+
+            if (hasProgId && hasVersion)
+                return string.Format(LocalizationManager.T("Connection.DetectStageConnectWithProgIdFormat"), progId, version);
+            if (hasProgId)
+                return string.Format(LocalizationManager.T("Connection.DetectStageConnectWithProgIdNoVersion"), progId);
+            if (hasVersion)
+                return string.Format(LocalizationManager.T("Connection.DetectStageConnectFormat"), version);
+            return LocalizationManager.T("Connection.DetectStageConnectNoVersion");
         }
 
         /// <summary>

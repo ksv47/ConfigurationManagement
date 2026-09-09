@@ -36,9 +36,36 @@ namespace Configuration_Management
         /// </summary>
         public static string? ShowLogin(IProfileService profileService)
         {
+            ApplyActiveTheme();
+
             var window = new LoginWindow(profileService);
             window.ShowDialogSync();
             return window.SelectedProfileId;
+        }
+
+        /// <summary>
+        /// Применяет сохранённую цветовую схему и вариант темы, чтобы окно входа выглядело так же,
+        /// как остальные окна приложения. При запуске тема ещё не применена (она загружается позже,
+        /// после выбора профиля), поэтому скиним её здесь (issue #200). При смене пользователя в
+        /// работающем приложении повторное применение безвредно — схема уже актуальна.
+        /// </summary>
+        private static void ApplyActiveTheme()
+        {
+            try
+            {
+                var settings = AppServices.GetRequiredService<IInfobaseRepository>().LoadSettings();
+                var mergedScheme = Models.ColorScheme.FromLegacy(
+                    settings.ActiveColorScheme, settings.LightColorScheme, settings.DarkColorScheme);
+                var themeName = string.IsNullOrWhiteSpace(settings.Theme)
+                    ? ThemeManager.LightThemeName
+                    : settings.Theme;
+                ThemeManager.ApplyScheme(mergedScheme);
+                ThemeManager.ApplyTheme(themeName == ThemeManager.DarkThemeName);
+            }
+            catch
+            {
+                // Тема не должна блокировать вход: без неё используется тема по умолчанию.
+            }
         }
 
         public LoginWindow(IProfileService profileService)

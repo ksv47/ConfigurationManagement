@@ -37,7 +37,11 @@ public class InfobaseRepository : IInfobaseRepository
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
         // Не экранировать кириллицу и прочие не-ASCII символы в \uXXXX-последовательности,
         // а записывать их читаемыми UTF-8 (issue #170). Влияет только на запись.
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        // NaN и ±Infinity (например, ширина колонки скрытого/незамеренного элемента = NaN)
+        // сериализуем как именованные литералы, чтобы одно испорченное число не роняло
+        // запись всего файла настроек (issue #188). На чтение JsonOptions (базы) не влияет.
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals
     };
 
     /// <summary>
@@ -258,7 +262,10 @@ public class InfobaseRepository : IInfobaseRepository
         try
         {
             var json = File.ReadAllText(SettingsPath);
-            var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            // Читаем настройки теми же опциями, что и пишем (SettingsJsonOptions):
+            // так литералы NaN/±Infinity из сохранённого файла корректно разбираются
+            // обратно (issue #188). JsonOptions для баз остаётся без этого флага.
+            var loaded = JsonSerializer.Deserialize<AppSettings>(json, SettingsJsonOptions) ?? new AppSettings();
 
             // Восстанавливаем null-поля, которые могли прийти из легаси/повреждённого файла,
             // чтобы конструкторы не спотыкались о них при старте (issue #64).

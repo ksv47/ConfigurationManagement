@@ -295,6 +295,23 @@ namespace Configuration_Management.Themes
             ApplyCompactElement(window, factor, fontFactor);
         }
 
+        /// <summary>
+        /// Применяет компактный режим к поддереву визуального дерева — например, к строке
+        /// списка баз или заголовку группы. WPF-вариант компактности применяется обходом
+        /// визуального дерева (<see cref="ApplyCompact"/>), поэтому элементы, создаваемые
+        /// уже после первичного применения (виртуализация/прокрутка дерева, пересборка при
+        /// сохранении свойств базы), иначе оставались бы полной плотности и «разъезжались»
+        /// относительно заголовка. Вызывается из обработчиков реализации строк дерева.
+        /// </summary>
+        public static void ApplyCompactTree(DependencyObject root, bool compact)
+        {
+            if (root is null)
+                return;
+            var factor = compact ? 0.7 : 1.0;
+            var fontFactor = compact ? 0.9 : 1.0;
+            ApplyCompactElement(root, factor, fontFactor);
+        }
+
         private static void ApplyCompactElement(DependencyObject d, double factor, double fontFactor)
         {
             if (d is null)

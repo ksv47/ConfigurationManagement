@@ -544,15 +544,33 @@ public static class StartManagerImporter
             Password = password
         };
 
-        // StorageDir вида «tcp://server:1542\ИмяХранилища» — выделяем имя хранилища.
+        // StorageDir вида «tcp://server:1542/ИмяХранилища» или «tcp://server:1542\ИмяХранилища»
+        // — выделяем имя хранилища, отделяя последний разделитель пути («/» или «\»).
         var dirValue = dir?.Trim();
         if (!string.IsNullOrEmpty(dirValue))
         {
-            var idx = dirValue.LastIndexOf('\\');
-            if (idx >= 0 && idx < dirValue.Length - 1)
+            // Отделяем префикс схемы «tcp://», «file://» и т.п. до «://»,
+            // чтобы его слеши не считались разделителями пути (issue #163).
+            var schemePrefix = string.Empty;
+            var body = dirValue;
+            var schemeIdx = dirValue.IndexOf("://", StringComparison.Ordinal);
+            if (schemeIdx >= 0)
             {
-                repo.RepositoryName = dirValue.Substring(idx + 1).Trim();
-                repo.Server = dirValue.Substring(0, idx).Trim();
+                schemePrefix = dirValue[..(schemeIdx + 3)];
+                body = dirValue[(schemeIdx + 3)..];
+            }
+
+            // Ищем позицию последнего из двух разделителей пути.
+            var slashIdx = body.LastIndexOf('/');
+            var backslashIdx = body.LastIndexOf('\\');
+            var idx = Math.Max(slashIdx, backslashIdx);
+
+            // Разделяем, только если после разделителя есть непустой сегмент
+            // (иначе имя хранилища не заполняем, Server оставляем без изменений).
+            if (idx >= 0 && idx < body.Length - 1)
+            {
+                repo.RepositoryName = body.Substring(idx + 1).Trim();
+                repo.Server = (schemePrefix + body.Substring(0, idx)).Trim();
             }
         }
 

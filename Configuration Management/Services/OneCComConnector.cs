@@ -344,12 +344,23 @@ public sealed class OneCComConnector : IOneCComConnector
     /// </remarks>
     /// <summary>
     /// Строит текст этапа «создание COM-подключения» для диалога прогресса (issue #174):
-    /// указывает версию платформы базы, по которой разворачивается COM-коннектор.
+    /// указывает фактический ProgID (например, «V83.COMConnector»), которым идёт подключение,
+    /// и версию платформы базы. ProgID может быть null (COM недоступен, Linux-сборка),
+    /// тогда текст деградирует до варианта без него.
     /// </summary>
-    private static string BuildDetectConnectStageMessage(string? platformVersion)
-        => string.IsNullOrWhiteSpace(platformVersion)
-            ? LocalizationManager.T("Connection.DetectStageConnectNoVersion")
-            : string.Format(LocalizationManager.T("Connection.DetectStageConnectFormat"), platformVersion);
+    private static string BuildDetectConnectStageMessage(string? platformVersion, string? progId)
+    {
+        var hasProgId = !string.IsNullOrWhiteSpace(progId);
+        var hasVersion = !string.IsNullOrWhiteSpace(platformVersion);
+
+        if (hasProgId && hasVersion)
+            return string.Format(LocalizationManager.T("Connection.DetectStageConnectWithProgIdFormat"), progId, platformVersion);
+        if (hasProgId)
+            return string.Format(LocalizationManager.T("Connection.DetectStageConnectWithProgIdNoVersion"), progId);
+        if (hasVersion)
+            return string.Format(LocalizationManager.T("Connection.DetectStageConnectFormat"), platformVersion);
+        return LocalizationManager.T("Connection.DetectStageConnectNoVersion");
+    }
 
     public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000, Action<string>? onStage = null)
     {
@@ -391,8 +402,9 @@ public sealed class OneCComConnector : IOneCComConnector
         }
 
         // Сообщаем этапы в диалог прогресса кнопки «Определить» (issue #174): сначала —
-        // создание COM-подключения с версией платформы базы, затем — чтение свойств.
-        onStage?.Invoke(BuildDetectConnectStageMessage(ib.PlatformVersion));
+        // создание COM-подключения с фактическим ProgID и версией платформы базы,
+        // затем — чтение свойств.
+        onStage?.Invoke(BuildDetectConnectStageMessage(ib.PlatformVersion, LastUsedProgId));
 
         // Запоминаем состояние до вызова: если COM был отключён ещё раньше, повторно
         // писать об этом в журнал незачем — на списке из десятков баз это дало бы
