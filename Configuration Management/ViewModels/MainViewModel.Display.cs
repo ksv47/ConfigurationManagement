@@ -582,9 +582,36 @@ public partial class MainViewModel : ViewModelBase
     /// «Название», которая всегда первая). Если порядок не задан или пуст —
     /// возвращается порядок по умолчанию: «Режим запуска» сразу после названия,
     /// колонка «Действия» — за ним, «Конфигурация» — в конце.
+    /// В уже сохранённый пользовательский порядок при отсутствии подставляются
+    /// новые колонки: «№ релиза» (ConfigurationVersion) сразу после
+    /// «Конфигурации», а «Действия» (Actions) — в конец (как в Avalonia-сборке,
+    /// issue #217).
     /// </summary>
-    public IReadOnlyList<string> ColumnOrderKeys =>
-        _columnOrder is { Count: > 0 } ? _columnOrder : DefaultColumnOrder;
+    public IReadOnlyList<string> ColumnOrderKeys
+    {
+        get
+        {
+            var order = _columnOrder;
+            if (order is { Count: 0 })
+                return DefaultColumnOrder;
+
+            var needsActions = !order!.Contains("Actions", StringComparer.Ordinal);
+            var needsConfigurationVersion = !order.Contains("ConfigurationVersion", StringComparer.Ordinal);
+            if (!needsActions && !needsConfigurationVersion)
+                return order;
+
+            var result = new List<string>(order.Count + 1);
+            foreach (var key in order)
+            {
+                if (needsConfigurationVersion && key == "Configuration")
+                    result.Add("ConfigurationVersion");
+                result.Add(key);
+            }
+            if (needsActions)
+                result.Add("Actions");
+            return result;
+        }
+    }
 
     /// <summary>
     /// Применяет настройки содержимого нижней панели (строки состояния).
