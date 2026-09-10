@@ -31,23 +31,28 @@ namespace Configuration_Management
             // ни WPF, ни ресурсные словари тем. См. ComReadHost.
 
             // Показываем любые необработанные ошибки — иначе окно просто не появляется.
+            // Заголовки берутся через TOr: обработчики регистрируются до инициализации
+            // локализации и срабатывают в том числе на самом раннем сбое, когда словари
+            // ещё пусты и T вернул бы сам ключ (issue #213).
             DispatcherUnhandledException += (_, args) =>
             {
-                LogFatal(LocalizationManager.T("App.Fatal.Interface"), args.Exception);
-                ShowFatalError(LocalizationManager.T("App.Fatal.Interface"), args.Exception);
+                var title = TOr("App.Fatal.Interface", "Ошибка интерфейса");
+                LogFatal(title, args.Exception);
+                ShowFatalError(title, args.Exception);
                 args.Handled = true;
             };
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             {
                 if (args.ExceptionObject is Exception ex)
                 {
-                    LogFatal(LocalizationManager.T("App.Fatal.Critical"), ex);
-                    ShowFatalError(LocalizationManager.T("App.Fatal.Critical"), ex);
+                    var title = TOr("App.Fatal.Critical", "Критическая ошибка");
+                    LogFatal(title, ex);
+                    ShowFatalError(title, ex);
                 }
             };
             TaskScheduler.UnobservedTaskException += (_, args) =>
             {
-                ShowFatalError(LocalizationManager.T("App.Fatal.BackgroundTask"), args.Exception);
+                ShowFatalError(TOr("App.Fatal.BackgroundTask", "Ошибка фоновой задачи"), args.Exception);
                 args.SetObserved();
             };
 
@@ -326,7 +331,7 @@ namespace Configuration_Management
                 if (ex.InnerException != null)
                 {
                     sb.AppendLine();
-                    sb.AppendLine(LocalizationManager.T("App.Fatal.InternalError"));
+                    sb.AppendLine(TOr("App.Fatal.InternalError", "Внутренняя ошибка:"));
                     sb.AppendLine(ex.InnerException.Message);
                 }
                 sb.AppendLine();
@@ -337,7 +342,7 @@ namespace Configuration_Management
                     stack = stack[..1200] + "…";
                 sb.AppendLine(stack);
 
-                MessageBox.Show(sb.ToString(), LocalizationManager.T("App.Fatal.Title"),
+                MessageBox.Show(sb.ToString(), TOr("App.Fatal.Title", "Управление конфигурациями 1С — ошибка"),
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch

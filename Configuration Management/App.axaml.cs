@@ -66,10 +66,13 @@ namespace Configuration_Management
         public override void OnFrameworkInitializationCompleted()
         {
             // Показываем любые необработанные ошибки — иначе окно просто не появляется.
+            // Заголовки берутся через TOr: обработчики регистрируются до инициализации
+            // локализации и срабатывают в том числе на самом раннем сбое, когда словари
+            // ещё пусты и T вернул бы сам ключ (issue #213).
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             {
                 if (args.ExceptionObject is Exception ex)
-                    ShowFatalError(LocalizationManager.T("App.Fatal.Critical"), ex);
+                    ShowFatalError(TOr("App.Fatal.Critical", "Критическая ошибка"), ex);
             };
 
             // Необработанные исключения на UI-потоке (команды, построение и показ модальных
@@ -80,13 +83,13 @@ namespace Configuration_Management
             // которое строится в момент сбоя, не откроется, но приложение продолжит работу.
             Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (_, args) =>
             {
-                ShowFatalError(LocalizationManager.T("App.Fatal.Interface"), args.Exception);
+                ShowFatalError(TOr("App.Fatal.Interface", "Ошибка интерфейса"), args.Exception);
                 args.Handled = true;
             };
 
             TaskScheduler.UnobservedTaskException += (_, args) =>
             {
-                ShowFatalError(LocalizationManager.T("App.Fatal.BackgroundTask"), args.Exception);
+                ShowFatalError(TOr("App.Fatal.BackgroundTask", "Ошибка фоновой задачи"), args.Exception);
                 args.SetObserved();
             };
 
