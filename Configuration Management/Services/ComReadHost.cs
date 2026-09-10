@@ -704,8 +704,13 @@ internal static class ComReadHost
         // Промежуточный кадр отличается только меткой: поля те же, что у ошибки.
         var partialFrame = parts.Length == 5
             && string.Equals(parts[1], "PARTIAL", StringComparison.Ordinal);
+        var isErr = string.Equals(parts[1], "ERR", StringComparison.Ordinal);
 
-        if (parts.Length == 5 && (partialFrame || string.Equals(parts[1], "ERR", StringComparison.Ordinal)))
+        // Ошибка приходит кадром из 5 полей (старый формат) или из 6 — шестым полем уезжает
+        // последний перебранный ProgID (issue #175). PARTIAL остаётся в 5 полей: имя текущего
+        // ProgID уже есть в его подробности.
+        if (partialFrame && parts.Length == 5
+            || isErr && (parts.Length == 5 || parts.Length == 6))
         {
             isPartial = partialFrame;
 
@@ -715,6 +720,21 @@ internal static class ComReadHost
             {
                 desynchronized = true;
                 return ComReadResult.Fail(ComFailureKind.Transport);
+            }
+
+            // Шестое поле — последний перебранный ProgID. Принимаем только известный из
+            // фактического списка перебора: иначе подделанный кадр внёс бы произвольный
+            // текст в диагностику мимо решения о показе пароля (та же дисциплина, что
+            // у подробностей InstanceFailed/NoConnection).
+            string? lastProgId = null;
+            if (parts.Length == 6)
+            {
+                if (!TryDecode(parts[5], out var decodedProgId) || !IsKnownProgId(decodedProgId, progIds))
+                {
+                    desynchronized = true;
+                    return ComReadResult.Fail(ComFailureKind.Transport);
+                }
+                lastProgId = decodedProgId;
             }
 
             // Неопознанный разряд не отображаем в Transport с сохранением текста: подробность
@@ -745,8 +765,11 @@ internal static class ComReadHost
             }
 
             // Код и текст приходят раздельно: текст может быть отброшен родителем,
-            // если у базы есть пароль, а код останется в любом случае.
-            return ComReadResult.Fail(kind, errText, errCode);
+            // если у базы есть пароль, а код останется в любом случае. Последний перебранный
+            // ProgID уезжает в UsedProgId, чтобы диагностика показала его и при неуспехе.
+            return lastProgId is null
+                ? ComReadResult.Fail(kind, errText, errCode)
+                : new ComReadResult(null, kind, errText, errCode, lastProgId);
         }
 
         // Кадр разобрать не удалось. Это тоже рассинхронизация: продолжать с таким агентом
@@ -945,7 +968,7 @@ internal static class ComReadHost
         // В кадре успеха уезжает и фактически использованный ProgID (issue #175): родитель
         // показывает и логирует именно тот коннектор, который реально подключился.
         return info is null
-            ? Error(seq, KindToToken(kind), code, detail)
+            ? Error(seq, KindToToken(kind), code, detail, usedProgId)
             : ResultPrefix + seq + "\tOK\t" + Encode(info.Value.Name)
               + "\t" + Encode(info.Value.Version) + "\t" + Encode(usedProgId);
     }
@@ -953,9 +976,12 @@ internal static class ComReadHost
     /// <summary>
     /// Ответ об ошибке: код и текст идут раздельными полями. Родитель может отбросить текст,
     /// если найдёт в нём пароль, и всё равно сказать пользователю что-то определённое по коду.
+    /// <paramref name="lastProgId"/> — последний перебранный ProgID (issue #175): дописывается
+    /// шестым полем, только когда известен, иначе формат старого кадра в 5 полей сохраняется.
     /// </summary>
-    private static string Error(string seq, string token, string? code, string? text) =>
-        ResultPrefix + seq + "\tERR\t" + token + "\t" + Encode(code) + "\t" + Encode(text);
+    private static string Error(string seq, string token, string? code, string? text, string? lastProgId = null) =>
+        ResultPrefix + seq + "\tERR\t" + token + "\t" + Encode(code) + "\t" + Encode(text)
+        + (string.IsNullOrEmpty(lastProgId) ? string.Empty : "\t" + Encode(lastProgId));
 
     /// <summary>Самое глубокое вложенное исключение — настоящая причина, а не обёртка.</summary>
     private static Exception Deepest(Exception ex)
@@ -1174,6 +1200,13 @@ internal static class ComReadHost
                     continue;
                 }
 
+                // Фактически попробованный коннектор (issue #175): дошли до вызова Connect —
+                // значит этот ProgID реально использовался, и о нём надо сообщить родителю,
+                // даже если подключение завершится неудачей. Прогнутые мимо кандидаты
+                // (не зарегистрированы, экземпляр не создался) в диагностику не попадают,
+                // иначе последний из них вводил бы в заблуждение («V81» при пустом списке).
+                localUsedProgId = progId;
+
                 object? connection = null;
                 object? metadata = null;
                 try
@@ -1217,7 +1250,7 @@ internal static class ComReadHost
 
                     result = new OneCConfigInfo(name, version);
                     localKind = ComFailureKind.None;
-                    localUsedProgId = progId; // фактически подключившийся коннектор (issue #175)
+                    // localUsedProgId уже равен текущему progId (установлен перед вызовом Connect).
                     return;
                 }
                 catch (Exception ex)

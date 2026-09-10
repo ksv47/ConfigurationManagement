@@ -860,9 +860,14 @@ namespace Configuration_Management
                 : HorizontalAlignment.Left;
             if (_rightPanelContent is not null)
             {
+                // Верхний отступ правой панели приведён к стандартному (12), как у левой
+                // колонки и как в Windows-версии (issue #167). Прежний большой зазор 56
+                // «отодвигал» блок запуска вниз и выглядел лишним отступом перед кнопками
+                // справа (issue #221). Правая панель и так лежит ниже строки заголовка,
+                // поэтому значение не зависит от режима системной рамки окна.
                 _rightPanelContent.Margin = details
-                    ? new Thickness(12, 56)
-                    : new Thickness(2, 56, 4, 6);
+                    ? new Thickness(12, 12)
+                    : new Thickness(2, 12, 4, 6);
                 _rightPanelContent.HorizontalAlignment = details
                     ? HorizontalAlignment.Stretch
                     : HorizontalAlignment.Left;
@@ -5231,6 +5236,20 @@ namespace Configuration_Management
             // (импорт/восстановление конфига), и внутри отложенного колбэка их вложенный
             // цикл сообщений приводил к зависанию приложения.
             _vm?.Initialize();
+            // Декор главного окна строился в конструкторе по значению по умолчанию:
+            // на этом этапе _settings во вьюмодели ещё не загружены (Initialize читает
+            // их только сейчас), поэтому UseSystemTitleBar всегда возвращал false, и
+            // сохранённая «Системная рамка окна» после перезапуска не применялась
+            // (issue #222; у дополнительных окон настройки к моменту их создания уже
+            // были загружены, поэтому там всё работало). После загрузки настроек
+            // применяем сохранённое значение повторно: если оно отличается от того,
+            // что выбрано при построении, обновляем декор и пересобираем содержимое
+            // под нужный режим до привязки прокрутки/горячих клавиш. Прозрачность и
+            // непрозрачность окна согласуются внутри ApplySystemDecorations через
+            // _opaqueWindow, повторное применение их не ломает.
+            var savedSystemTitleBar = _vm?.UseSystemTitleBar ?? false;
+            if (savedSystemTitleBar != _useSystemTitleBar)
+                ApplySystemTitleBar(savedSystemTitleBar);
             // Настройки читаются здесь, уже после построения содержимого, поэтому
             // переключатели верхней панели строились по значениям по умолчанию
             // и не показывали сохранённое состояние до первого щелчка.
@@ -6007,6 +6026,10 @@ namespace Configuration_Management
                     ToolTipText = LocalizationManager.T("App.Title"),
                     Menu = menu
                 };
+                // Одиночный клик левой кнопкой по иконке трея показывает и
+                // фокусирует главное окно, как в WPF-версии (issue #224).
+                // Правый клик открывает меню (Menu выше), левый — нет.
+                tray.Clicked += (_, _) => ShowAndActivate();
                 _trayIcon = tray;
                 if (Application.Current is { } app)
                 {

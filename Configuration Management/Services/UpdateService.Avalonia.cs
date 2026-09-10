@@ -149,11 +149,10 @@ namespace Configuration_Management.Services
                 var blocker = GetSelfUpdateBlocker(target);
                 if (blocker is not null)
                 {
-                    var manual = blocker;
-                    if (!string.IsNullOrWhiteSpace(release.HtmlUrl))
-                        manual += Environment.NewLine + Environment.NewLine + release.HtmlUrl;
-                    ShowOnUi(() => _dialogs.ShowInfo(
-                        manual, LocalizationManager.T("Update.NewVersionAvailable")));
+                    // Самообновление недоступно (deb в /usr/bin, AppImage): вместо
+                    // бесполезного закрытия показываем понятный диалог с кликабельной
+                    // ссылкой на страницу выпуска (issue #225).
+                    ShowManualUpdateDialog(blocker, release.HtmlUrl);
                     return;
                 }
 
@@ -343,11 +342,9 @@ namespace Configuration_Management.Services
             var autoBlocker = GetSelfUpdateBlocker(target);
             if (autoBlocker is not null)
             {
-                var manual = autoBlocker;
-                if (!string.IsNullOrWhiteSpace(release.HtmlUrl))
-                    manual += Environment.NewLine + Environment.NewLine + release.HtmlUrl;
-                ShowOnUi(() => _dialogs.ShowInfo(
-                    manual, LocalizationManager.T("Update.NewVersionAvailable")));
+                // Самообновление недоступно: показываем понятный диалог с кликабельной
+                // ссылкой на страницу выпуска вместо молчаливого завершения (issue #225).
+                ShowManualUpdateDialog(autoBlocker, release.HtmlUrl);
                 return;
             }
 
@@ -574,6 +571,30 @@ rm -f ""$0""
 
         /// <summary>Экранирует строку для одинарных кавычек bash: ' → '\''.</summary>
         private static string Bq(string value) => value.Replace("'", "'\\''");
+
+        /// <summary>
+        /// Показывает диалог «самообновление недоступно» с кликабельной ссылкой на
+        /// страницу выпуска (issue #225). Ссылка открывается в браузере по умолчанию.
+        /// Запасной путь для диалоговой службы без поддержки ссылок — обычное сообщение
+        /// с текстовым адресом страницы.
+        /// </summary>
+        private void ShowManualUpdateDialog(string message, string? releaseUrl)
+        {
+            ShowOnUi(() =>
+            {
+                if (_dialogs is AvaloniaDialogService avalonia)
+                {
+                    avalonia.ShowManualUpdate(
+                        message, releaseUrl ?? string.Empty,
+                        LocalizationManager.T("Update.NewVersionAvailable"));
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(releaseUrl))
+                    message += Environment.NewLine + Environment.NewLine + releaseUrl;
+                _dialogs.ShowInfo(message, LocalizationManager.T("Update.NewVersionAvailable"));
+            });
+        }
 
         /// <summary>Выполняет действие в UI-потоке, если вызывающий поток — не UI.</summary>
         private static void ShowOnUi(Action action)

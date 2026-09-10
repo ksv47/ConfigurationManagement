@@ -235,6 +235,15 @@ namespace Configuration_Management
             {
                 Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
             }
+            else if (e.PropertyName == nameof(MainViewModel.SearchText))
+            {
+                // Изменение текста поиска/очистка через крестик приводит к пересборке дерева
+                // (плоский список <-> группы), при которой меняется глубина первой видимой
+                // базы. Чтобы компенсатор заголовка не оставался в значении от предыдущего
+                // состояния, ставим выравнивание в очередь; окончательную коррекцию выполняет
+                // пересчёт по мере материализации новых строк (issue #214).
+                QueueHeaderAlign();
+            }
             else if (e.PropertyName == nameof(MainViewModel.ColumnOrderKeys))
             {
                 // Пользователь поменял порядок колонок в настройках: пересобираем

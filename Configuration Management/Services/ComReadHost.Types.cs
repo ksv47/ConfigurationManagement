@@ -46,6 +46,12 @@ internal enum ComFailureKind
 /// пришлось скрыть. <paramref name="Code"/> — код ошибки COM: он остаётся даже тогда, когда
 /// текст скрыт, и позволяет сказать пользователю хоть что-то определённое.
 /// </para>
+/// <para>
+/// <paramref name="UsedProgId"/> — при успехе фактически подключившийся ProgID, а при отказе —
+/// последний ProgID, который агент реально попробовал вызвать через Connect (issue #175).
+/// Это позволяет диагностике показывать задействованный коннектор и тогда, когда соединение
+/// установить не удалось (например, имя из кастомного шаблона, которое не зарегистрировано).
+/// </para>
 /// </summary>
 internal readonly record struct ComReadResult(
     OneCConfigInfo? Info, ComFailureKind Failure, string? Detail, string? Code = null, string? UsedProgId = null)

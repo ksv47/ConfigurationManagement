@@ -9,6 +9,29 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.7.10] — 2026-09-10
+
+Сводные исправления по шести issues (#175, #214, #221, #222, #224, #225): пакетное автообновление на Linux показывает понятный диалог с кликабельной ссылкой, одиночный клик по трею открывает главное окно, восстановлена «Системная рамка окна», убран лишний верхний отступ правой панели, компактный режим больше не разъезжается при поиске, а диагностика кастомного COM-коннектора стала полезной.
+
+### Исправлено
+
+- **Linux: автообновление в пакетной установке (deb в `/usr/bin`, AppImage) показывает понятный диалог с кликабельной ссылкой** ([#225](https://github.com/sivatorov/ConfigurationManagement/issues/225)): при невозможности заменить исполняемый файл без прав приложение больше не показывает бесполезное сообщение с текстом адреса, а открывает новый диалог [`Services/ManualUpdateWindow.Avalonia.cs`](Configuration%20Management/Services/ManualUpdateWindow.Avalonia.cs) с кликабельной гиперссылкой «Открыть страницу выпуска». Если браузер не открылся — адрес копируется в буфер обмена. Диалог с помощником установки сохранён для случая, когда файл можно заменить без прав. Правка только в Linux/Avalonia ([`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs), [`Services/AvaloniaDialogService.cs`](Configuration%20Management/Services/AvaloniaDialogService.cs), новый `Services/ManualUpdateWindow.Avalonia.cs`, ключи локализации `Update.OpenReleasePage`); Windows/WPF не затрагивается.
+
+- **Linux: одиночный клик по иконке трея показывает и фокусирует главное окно** ([#224](https://github.com/sivatorov/ConfigurationManagement/issues/224)): добавлен обработчик `Clicked` для `TrayIcon` в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) — поведение приведено к Windows (первый клик открывает окно). Правая кнопка по-прежнему открывает меню.
+
+- **Linux: исправлено восстановление настройки «Системная рамка окна» для главного окна** ([#222](https://github.com/sivatorov/ConfigurationManagement/issues/222)): сохранённое значение применяется к главному окну после загрузки настроек при запуске (раньше главное окно строилось до загрузки настроек и всегда получало обычную рамку; доп. окна работали). Правка в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs).
+
+- **Linux: убран «конский отступ» над блоком запуска в правой панели** ([#221](https://github.com/sivatorov/ConfigurationManagement/issues/221)): верхний отступ правой панели приведён к стандартному значению (12), как в Windows-версии (issue #167). Правка в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) (`UpdateRightPanelWidth`).
+
+- **Компактный режим больше не «разъезжается» по горизонтали при поиске и очистке поиска** ([#214](https://github.com/sivatorov/ConfigurationManagement/issues/214)): компенсатор заголовка (`HeaderOffsetColumn`) теперь пересчитывается после полной материализации строк виртуализацией WPF. Добавлен `QueueHeaderAlign()` в [`Views/MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs), вызывается при загрузке каждой строки (`OnInfobaseRowGrid_Loaded`) и при изменении текста поиска/очистке через крестик (`SearchText` в [`Views/MainWindow.Events.cs`](Configuration%20Management/Views/MainWindow.Events.cs)). Фиксы 0.3.7.6 сохранены.
+
+- **Диагностика подключения через кастомный шаблон COM-коннектора стала полезной** ([#175](https://github.com/sivatorov/ConfigurationManagement/issues/175)): при неуспешном подключении в журнал пишутся все перебранные ProgID в порядке перебора и строка подключения; процесс-агент ([`Services/ComReadHost.cs`](Configuration%20Management/Services/ComReadHost.cs)) сообщает родителю последний реально использованный ProgID и при отказе; диагностика в окне свойств базы показывает фактическое имя, развёрнутое по шаблону (например `V83.COMConnector_27`), даже если оно не зарегистрировано. Развёртывание шаблонов с суффиксами после версии (`V%V12%.COMConnector_%V3%_%V4%` → `V83.COMConnector_27`) проверено и совпадает с предпросмотром. Поведение стандартного перебора при пустом шаблоне не изменено.
+
+### Версия
+
+- **Версия поднята до `0.3.7.10`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.7.9] — 2026-09-10
 
 Исправление по issue #153 (пакетная установка): автообновление в пакетной сборке (deb в `/usr/bin`, AppImage) больше не закрывает приложение, если заменить исполняемый файл нельзя.

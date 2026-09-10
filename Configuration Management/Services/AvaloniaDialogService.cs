@@ -38,6 +38,23 @@ namespace Configuration_Management.Services
             return ShowModalSync(win);
         }
 
+        /// <summary>
+        /// Показывает модальное окно с пояснением и кликабельной ссылкой на страницу
+        /// выпуска. Используется автообновлением, когда самообновление недоступно
+        /// (запуск из пакета AppImage или установка в системный каталог) — вместо
+        /// обычного сообщения с текстом ссылки показывается гиперссылка, открывающая
+        /// страницу в браузере по умолчанию (issue #225).
+        /// </summary>
+        /// <param name="message">Пояснение, почему самообновление недоступно.</param>
+        /// <param name="linkUrl">Адрес страницы выпуска GitHub. Пустая строка скрывает ссылку.</param>
+        /// <param name="title">Заголовок окна.</param>
+        public void ShowManualUpdate(string message, string linkUrl, string title = "")
+        {
+            var win = new ManualUpdateWindowAvalonia(
+                message, linkUrl, DefaultTitle(title, "Update.NewVersionAvailable"));
+            ShowModalSync(win);
+        }
+
         public string? OpenFileDialog(string title = "", string filter = "", string? initialDirectory = null)
             => RunSync(() => PickFileAsync(DefaultTitle(title, "Dialog.OpenFile"), filter, initialDirectory));
 

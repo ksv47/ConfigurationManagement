@@ -260,7 +260,14 @@ namespace Configuration_Management
         /// <summary>
         /// Обработчик Loaded сетки строки базы в шаблоне: применяет выбранный порядок
         /// колонок к каждой вновь созданной строке (включая строки, появляющиеся при
-        /// виртуализации/прокрутке дерева).
+        /// виртуализации/прокрутке дерева) и пересчитывает выравнивание заголовка.
+        /// Пересчёт здесь обязателен: строки реализуются виртуализацией в проходе
+        /// разметки ПОСЛЕ события Loaded дерева и пересборки (поиск, крестик поиска,
+        /// сохранение свойств базы), поэтому пересчёт на ApplicationIdle, стартовавший
+        /// сразу после пересборки, может выполниться до появления первой строки и
+        /// оставить компенсатор заголовка в устаревшем значении (issue #214) — так же,
+        /// как в Linux/Avalonia выравнивание пересчитывается на событии подготовки
+        /// контейнера строки.
         /// </summary>
         private void OnInfobaseRowGrid_Loaded(object sender, RoutedEventArgs e)
         {
@@ -269,6 +276,7 @@ namespace Configuration_Management
             ReorderGridColumns(grid, RowFirstDataColumn);
             grid.Tag = RowGridMarker;
             ApplyRowCompact(grid);
+            QueueHeaderAlign();
         }
 
         /// <summary>
@@ -308,6 +316,30 @@ namespace Configuration_Management
         private void OnMainTree_GroupExpansionChanged(object sender, RoutedEventArgs e)
         {
             Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        // Признак того, что в очереди диспетчера уже стоит пересчёт выравнивания заголовка.
+        // Нужен, чтобы многие события за короткое время (материализация/рециклинг десятков
+        // строк дерева при пересборке, прокрутке и поиске) склеивались в один пересчёт за
+        // проход — как в Linux/Avalonia (QueueHeaderAlign).
+        private bool _headerAlignQueued;
+
+        /// <summary>
+        /// Ставит пересчёт выравнивания заголовка (<see cref="AlignHeaderToData"/>) в очередь
+        /// диспетчера на приоритет Loaded. Повторные вызовы до выполнения объединяются в один:
+        /// положение строки известно только после раскладки, а частые события (появление
+        /// каждой строки дерева) не должны вызывать лишние полные пересчёты компенсатора.
+        /// </summary>
+        private void QueueHeaderAlign()
+        {
+            if (_headerAlignQueued)
+                return;
+            _headerAlignQueued = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _headerAlignQueued = false;
+                AlignHeaderToData();
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         /// <summary>

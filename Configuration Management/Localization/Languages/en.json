@@ -43,6 +43,7 @@
     "Update.DownloadPrompt": "Download and install the update?",
     "Update.PackageManualUpdate": "The application is running from an AppImage package, so self-update is not available. Download the new version from the releases page and replace the package.",
     "Update.TargetNotWritable": "The application is installed in a system directory, so self-update is not available. Update it the same way it was installed, for example through a package.",
+    "Update.OpenReleasePage": "Open the release page",
     "Update.Cancel": "Cancel",
     "Update.Failed": "Failed to open the download page.",
     "Update.CheckFailed": "Failed to check for updates.",
