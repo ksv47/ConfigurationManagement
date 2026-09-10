@@ -4859,11 +4859,13 @@ namespace Configuration_Management
                 || _columnHeaderRow.ColumnDefinitions.Count <= NameHeaderColumn)
                 return;
 
-            // Арифметика авторская (MainWindow.Columns.cs:265): компенсатор равен
-            // разнице между началом первой колонки значений строки и началом той же
-            // колонки заголовка, посчитанным без самого компенсатора. Ведущие колонки
-            // у обеих сеток одинаковы, поэтому разницу даёт только сдвиг строки
-            // деревом, и после подгонки значения стоят ровно под заголовками.
+            // Арифметика авторская (AlignHeaderToData, MainWindow.Columns.cs), с одним
+            // отличием: там в суммы входит и колонка имени, здесь она исключена
+            // (issue #191, см. ниже). Компенсатор равен разнице между началом колонки
+            // имени строки и началом той же колонки заголовка, посчитанным без самого
+            // компенсатора. Ведущие колонки у обеих сеток одинаковы, поэтому разницу
+            // даёт только сдвиг строки деревом, и после подгонки значения стоят ровно
+            // под заголовками.
             Grid? rowGrid = null;
             double rowOrigin = 0;
             foreach (var card in _tree.GetVisualDescendants().OfType<InfobaseRowCard>())
@@ -4883,12 +4885,20 @@ namespace Configuration_Management
             double offset = 0;
             if (rowGrid is not null && rowGrid.ColumnDefinitions.Count > NameRowColumn)
             {
+                // Звёздная колонка имени в сумму не входит (issue #191). Компенсатор
+                // отнимает ширину именно у неё, поэтому при её учёте следующий расчёт
+                // получает уменьшенную ширину заголовка и увеличивает компенсатор на
+                // ту же величину: ширина списка росла до десятков тысяч точек, и все
+                // колонки, кроме «Названия», уезжали за правый край. Ведущие колонки
+                // у заголовка и строки одинаковы, а общая ширина у них общая, поэтому
+                // после совмещения ведущих колонок имя занимает одинаковое место
+                // в обеих сетках и колонки данных встают под своими заголовками.
                 double rowLead = 0;
-                for (var i = 0; i <= NameRowColumn; i++)
+                for (var i = 0; i < NameRowColumn; i++)
                     rowLead += rowGrid.ColumnDefinitions[i].ActualWidth;
 
                 double headerLead = 0;
-                for (var i = 0; i <= NameHeaderColumn; i++)
+                for (var i = 0; i < NameHeaderColumn; i++)
                 {
                     if (!ReferenceEquals(_columnHeaderRow.ColumnDefinitions[i], _headerOffsetColumn))
                         headerLead += _columnHeaderRow.ColumnDefinitions[i].ActualWidth;
