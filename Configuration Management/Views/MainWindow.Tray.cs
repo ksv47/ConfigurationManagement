@@ -496,7 +496,12 @@ namespace Configuration_Management
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                if (action == Models.AfterLaunchAction.MinimizeToTray)
+                if (action == Models.AfterLaunchAction.Minimize)
+                {
+                    // Просто свернуть окно, оставив его в панели задач (issue #201).
+                    WindowState = WindowState.Minimized;
+                }
+                else if (action == Models.AfterLaunchAction.MinimizeToTray)
                     MinimizeToTray();
                 else if (action == Models.AfterLaunchAction.Close)
                 {

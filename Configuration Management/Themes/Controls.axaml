@@ -824,6 +824,11 @@
         <Style Selector="^:pointerover /template/ Border#PART_Surface">
             <Setter Property="Background" Value="{DynamicResource IconButtonHoverBrush}"/>
         </Style>
+        <!-- Недоступную кнопку приглушаем сразу, как в контекстном меню, а не
+             только по наведению (issue #197). Та же величина, что у HeaderIconButton. -->
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
     </ControlTheme>
 
     <ControlTheme x:Key="HeaderIconButton" TargetType="Button" BasedOn="{StaticResource IconButton}">

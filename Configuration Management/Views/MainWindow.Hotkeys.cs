@@ -45,7 +45,15 @@ namespace Configuration_Management
             {
                 if (command is null) return;
                 if (!TryParseKeyGesture(gesture, out var key, out var mods)) return;
-                InputBindings.Add(new KeyBinding(command, key, mods));
+                try
+                {
+                    InputBindings.Add(new KeyBinding(command, key, mods));
+                }
+                catch
+                {
+                    // Одно неверное значение (например, записанное до правки issue #204
+                    // сочетание без модификатора) не должно обрывать регистрацию остальных.
+                }
             }
 
             Add(_viewModel.HotkeyEnterprise, _viewModel.LaunchEnterpriseCommand);
@@ -69,6 +77,10 @@ namespace Configuration_Management
             // Переключение подробностей правой панели информации — настраиваемый
             // хоткей (issue #172); значение по умолчанию Ctrl+D задаётся в настройках.
             Add(_viewModel.HotkeyRightPanelDetails, _viewModel.ToggleRightPanelDetailsCommand);
+
+            // Смена пользователя — настраиваемый хоткей (issue #200);
+            // значение по умолчанию не задано.
+            Add(_viewModel.HotkeySwitchUser, _viewModel.SwitchUserCommand);
  
             // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
             // Регистрируются обе раскладки (основная Oem* и цифровой блок Add/Subtract).
@@ -124,9 +136,28 @@ namespace Configuration_Management
             if (!Enum.TryParse<Key>(keyPart, true, out var parsed) || parsed == Key.None)
                 return false;
 
+            // Сочетание без модификатора WPF не принимает в KeyBinding для букв/цифр
+            // (NotSupportedException). Такие значения могли сохраниться в settings.json
+            // до правки поля ввода (issue #204) — отбраковываем их при чтении, чтобы
+            // они не ломали регистрацию остальных горячих клавиш. Без модификатора
+            // допустимы только функциональные клавиши и Delete/Insert — как в HotkeyBox.
+            if (modifiers == ModifierKeys.None && !IsAllowedWithoutModifier(parsed))
+                return false;
+
             key = parsed;
             return true;
         }
+
+        /// <summary>
+        /// Допустима ли клавиша в сочетании без модификатора: функциональные
+        /// клавиши F1…F24, а также Delete и Insert. Буквы и цифры без модификатора
+        /// WPF не принимает в KeyBinding, поэтому требуют хотя бы одного модификатора.
+        /// Набор совпадает с реализацией в Controls/HotkeyBox.cs.
+        /// </summary>
+        private static bool IsAllowedWithoutModifier(Key key) =>
+            (key >= Key.F1 && key <= Key.F24)
+            || key == Key.Delete
+            || key == Key.Insert;
 
         /// <summary>
         /// Регистрирует KeyBinding Alt+1…Alt+9 для быстрого запуска избранных баз.

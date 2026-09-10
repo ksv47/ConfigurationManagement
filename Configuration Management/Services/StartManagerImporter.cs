@@ -544,15 +544,33 @@ public static class StartManagerImporter
             Password = password
         };
 
-        // StorageDir вида «tcp://server:1542\ИмяХранилища» — выделяем имя хранилища.
+        // StorageDir вида «tcp://server:1542/ИмяХранилища» или «tcp://server:1542\ИмяХранилища»
+        // — выделяем имя хранилища, отделяя последний разделитель пути («/» или «\»).
         var dirValue = dir?.Trim();
         if (!string.IsNullOrEmpty(dirValue))
         {
-            var idx = dirValue.LastIndexOf('\\');
-            if (idx >= 0 && idx < dirValue.Length - 1)
+            // Отделяем префикс схемы «tcp://», «file://» и т.п. до «://»,
+            // чтобы его слеши не считались разделителями пути (issue #163).
+            var schemePrefix = string.Empty;
+            var body = dirValue;
+            var schemeIdx = dirValue.IndexOf("://", StringComparison.Ordinal);
+            if (schemeIdx >= 0)
             {
-                repo.RepositoryName = dirValue.Substring(idx + 1).Trim();
-                repo.Server = dirValue.Substring(0, idx).Trim();
+                schemePrefix = dirValue[..(schemeIdx + 3)];
+                body = dirValue[(schemeIdx + 3)..];
+            }
+
+            // Ищем позицию последнего из двух разделителей пути.
+            var slashIdx = body.LastIndexOf('/');
+            var backslashIdx = body.LastIndexOf('\\');
+            var idx = Math.Max(slashIdx, backslashIdx);
+
+            // Разделяем, только если после разделителя есть непустой сегмент
+            // (иначе имя хранилища не заполняем, Server оставляем без изменений).
+            if (idx >= 0 && idx < body.Length - 1)
+            {
+                repo.RepositoryName = body.Substring(idx + 1).Trim();
+                repo.Server = (schemePrefix + body.Substring(0, idx)).Trim();
             }
         }
 
@@ -803,18 +821,29 @@ public static class StartManagerImporter
     // ---------------------------------------------------------------- расшифровка пароля
 
     /// <summary>
-    /// Расшифровывает пароль StartManager. Метод Виженера по ASCII-символам с ключом
-    /// «SLAVKA240601»: каждый байт шифротекста смещается назад на код соответствующего символа
-    /// ключа и вперёд на код символа «0» (по модулю 256). Пустые значения возвращаются
-    /// без изменений. Смещение на 48 проверено на паролях «123» (шифр «TND») и «Abc-99»
-    /// (шифр «d~tSTJ»): без него расшифровка промахивается ровно на код нуля.
+    /// Расшифровывает пароль StartManager. Метод Виженера по однобайтовым кодам
+    /// Windows-1251 с ключом «SLAVKA240601»: каждый байт шифротекста смещается назад
+    /// на код соответствующего символа ключа и вперёд на код символа «0» (по модулю 256).
+    /// Пустые значения возвращаются без изменений. Смещение на 48 проверено на паролях
+    /// «123» (шифр «TND») и «Abc-99» (шифр «d~tSTJ»): без него расшифровка промахивается
+    /// ровно на код нуля.
     /// </summary>
+    /// <remarks>
+    /// Шифр работает по однобайтовым кодам независимо от того, ASCII ли это или кириллица
+    /// (в Windows-1251 кириллица — тоже один байт). Поэтому байты шифротекста старше 0x7F —
+    /// нормальное следствие сдвига и у обычных паролей (например, пароль «abcdefghijklmnop»
+    /// даёт шифробайты до 0x96, см. правку ключа шифра), а не признак другого метода.
+    /// Раньше такие пароли здесь отвергались и после импорта получались пустыми
+    /// (issue #163); теперь расшифровываются всегда. Корректность кириллицы подтверждена
+    /// сквозной проверкой шифрования/расшифровки «Пароль1» при кодировке 1251 (issue #163).
+    /// </remarks>
     public static string DecryptPassword(string? encrypted)
     {
         if (string.IsNullOrEmpty(encrypted))
             return string.Empty;
 
         var data = Ansi.GetBytes(encrypted);
+
         var key = Encoding.ASCII.GetBytes(VigenereKey);
         var result = new byte[data.Length];
 

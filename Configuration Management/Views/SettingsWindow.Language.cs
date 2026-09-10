@@ -40,15 +40,11 @@ namespace Configuration_Management
 
         private void OnLanguage_Changed(object sender, SelectionChangedEventArgs e)
         {
-            if (LanguageComboBox?.SelectedItem is LanguageInfo li &&
-                !string.Equals(li.Code, LocalizationManager.Instance.CurrentLanguage, StringComparison.OrdinalIgnoreCase))
-            {
-                _viewModel.ApplyLanguage(li.Code);
-                // Перестраиваем список тем: отображаемые подписи встроенных тем
-                // локализованы и должны обновиться при смене языка. Сохранённое имя
-                // (канонический ключ «Светлая»/«Тёмная») не меняется.
-                RefreshSchemeComboBox();
-            }
+            // Не применяем язык сразу при выборе: он запоминается и применяется
+            // только в обработчике «Сохранить», чтобы «Отмена» не меняла текущий
+            // язык и не перезаписывала settings.json (issue #206).
+            if (LanguageComboBox?.SelectedItem is LanguageInfo li)
+                _pendingLanguageCode = li.Code;
         }
     }
 }

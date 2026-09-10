@@ -124,8 +124,15 @@ namespace Configuration_Management
             _viewModel.AfterLaunchRequested += OnAfterLaunchRequested;
 
             // После пересборки дерева (например, сохранения настроек базы) возвращаем
-            // клавиатурный фокус на выбранную строку — прежний контейнер уничтожен.
-            _viewModel.TreeRebuilt += RestoreTreeKeyboardFocus;
+            // клавиатурный фокус на выбранную строку — прежний контейнер уничтожен —
+            // и пересчитываем выравнивание колонок заголовка с данными: контейнеры строк
+            // созданы заново (и заново компактизированы обработчиками реализации), поэтому
+            // прежний сдвиг заголовка устарел (issue #214).
+            _viewModel.TreeRebuilt += () =>
+            {
+                RestoreTreeKeyboardFocus();
+                Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+            };
 
             // Пересчитываем выравнивание колонок заголовка после переключения компактного
             // режима: ApplyCompact масштабирует отступы/шрифты/компенсатор заголовка,
@@ -167,29 +174,45 @@ namespace Configuration_Management
             // Трей и хоткеи — после загрузки окна (STA/иконка безопаснее на Loaded).
             Loaded += (_, _) =>
             {
+                // Шапка сразу окрашивается по текущему состоянию активности окна.
                 try
                 {
-                    // Шапка сразу окрашивается по текущему состоянию активности окна.
                     UpdateTitleBarAppearance(_isActive);
                     InitializeTrayIcon();
-                    RegisterLaunchHotkeys();
-                    RegisterFavoriteHotkeys();
-                    // Раскрытие/сворачивание группы меняет глубину первой видимой базы,
-                    // из-за чего выравнивание заголовка с данными устаревает и колонки
-                    // «разъезжаются» отдельно от содержимого (issue #119). Пересчитываем
-                    // компенсатор сдвига заголовка при каждом изменении состояния узла.
+                }
+                catch
+                {
+                    // не блокируем запуск из‑за трея
+                }
+
+                // Хоткеи — в отдельных try/catch (issue #204): неверное сохранённое
+                // сочетание (например, значение без модификатора, записанное до правки
+                // поля ввода) не должно обрывать регистрацию остальных клавиш и
+                // блокировать подписки на разворот/сворачивание узлов и восстановление
+                // выделения.
+                try { RegisterLaunchHotkeys(); } catch { /* ignore */ }
+                try { RegisterFavoriteHotkeys(); } catch { /* ignore */ }
+
+                // Раскрытие/сворачивание группы меняет глубину первой видимой базы,
+                // из-за чего выравнивание заголовка с данными устаревает и колонки
+                // «разъезжаются» отдельно от содержимого (issue #119). Пересчитываем
+                // компенсатор сдвига заголовка при каждом изменении состояния узла.
+                try
+                {
                     MainTree.AddHandler(
                         TreeViewItem.ExpandedEvent,
                         new RoutedEventHandler(OnMainTree_GroupExpansionChanged));
                     MainTree.AddHandler(
                         TreeViewItem.CollapsedEvent,
                         new RoutedEventHandler(OnMainTree_GroupExpansionChanged));
-                    RestoreLastSelection();
                 }
                 catch
                 {
-                    // не блокируем запуск из‑за трея/хоткеев
+                    // не блокируем запуск из‑за подписок
                 }
+
+                try { RestoreLastSelection(); }
+                catch { /* не блокируем запуск из‑за восстановления выделения */ }
             };
             _viewModel.FavoriteHotkeysChanged += (_, _) =>
             {
@@ -237,7 +260,8 @@ namespace Configuration_Management
                     or nameof(MainViewModel.HotkeyShowAll)
                     or nameof(MainViewModel.HotkeyShowFavorites)
                     or nameof(MainViewModel.HotkeyShowRecent)
-                    or nameof(MainViewModel.HotkeyRightPanelDetails))
+                    or nameof(MainViewModel.HotkeyRightPanelDetails)
+                    or nameof(MainViewModel.HotkeySwitchUser))
                 {
                     try { RegisterLaunchHotkeys(); } catch { /* ignore */ }
                 }
@@ -371,7 +395,7 @@ namespace Configuration_Management
         // фиксированных колонок слева (кнопки групп, компенсатор, избранное, закрепление,
         // название). Совпадает с порядком по умолчанию: «Действия» сразу после «Режим запуска».
         private static readonly string[] StaticDataColumnKeys =
-            { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
+            { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration", "ConfigurationVersion" };
 
         // Индекс первой колонки данных в сетке заголовка / строки базы.
         // Строка базы и заголовок имеют одинаковый набор ведущих колонок

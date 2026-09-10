@@ -709,28 +709,44 @@ namespace Configuration_Management
             };
             Place(enterprise, 2, "Connection.PasswordLabel", BuildPasswordField(_passwordBox), "IsCredentialsVisible");
 
-            var configurator = FieldsGrid(3);
-            Place(configurator, 0, "Connection.ModeLabel", new StackPanel
+            // Признак «Авторизация как для 1С:Предприятия» для Конфигуратора (issue #201):
+            // при включении поля авторизации Конфигуратора блокируются, а учётные данные
+            // копируются из «1С:Предприятия» (см. ApplyTo в ConnectionSettingsViewModel).
+            var cfgUseEntCheck = new CheckBox
+            {
+                Content = LocalizationManager.T("Connection.ConfiguratorUseEnterpriseAuth"),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            cfgUseEntCheck.Bind(CheckBox.IsCheckedProperty,
+                new Binding(nameof(ConnectionSettingsViewModel.ConfiguratorUseEnterpriseAuth)) { Mode = BindingMode.TwoWay });
+
+            var configuratorFields = FieldsGrid(3);
+            Place(configuratorFields, 0, "Connection.ModeLabel", new StackPanel
             {
                 Children =
                 {
-                    OptionCard("ConfigAuth", "IsConfiguratorAuthPrompt", "Connection.AuthPrompt", "Connection.AuthConfiguratorPromptHint"),
-                    OptionCard("ConfigAuth", "IsConfiguratorAuthCredentials", "Connection.AuthAuto", "Connection.AuthAutoHint"),
-                    OptionCard("ConfigAuth", "IsConfiguratorAuthWindows", "Connection.AuthOs", "Connection.AuthOsHint")
+                    OptionCard("ConfigAuth", "IsConfiguratorAuthPrompt", "Connection.AuthPrompt", "Connection.AuthConfiguratorPromptHint", enabledPath: "IsConfiguratorAuthEnabled"),
+                    OptionCard("ConfigAuth", "IsConfiguratorAuthCredentials", "Connection.AuthAuto", "Connection.AuthAutoHint", enabledPath: "IsConfiguratorAuthEnabled"),
+                    OptionCard("ConfigAuth", "IsConfiguratorAuthWindows", "Connection.AuthOs", "Connection.AuthOsHint", enabledPath: "IsConfiguratorAuthEnabled")
                 }
             }, labelAlignment: VerticalAlignment.Top);
 
-            Place(configurator, 1, "Connection.UserLabel", Tb("ConfiguratorUser"), "IsConfiguratorCredentialsVisible");
+            var cfgUser = Tb("ConfiguratorUser");
+            cfgUser.Bind(InputElement.IsEnabledProperty, new Binding(nameof(ConnectionSettingsViewModel.IsConfiguratorAuthEnabled)));
+            Place(configuratorFields, 1, "Connection.UserLabel", cfgUser, "IsConfiguratorCredentialsVisible");
 
             _configuratorPasswordBox.Margin = new Thickness(0, 3);
             _configuratorPasswordBox.Padding = new Thickness(6, 4);
             _configuratorPasswordBox.VerticalContentAlignment = VerticalAlignment.Center;
+            _configuratorPasswordBox.Bind(InputElement.IsEnabledProperty, new Binding(nameof(ConnectionSettingsViewModel.IsConfiguratorAuthEnabled)));
             _configuratorPasswordBox.PasswordChanged += (_, _) =>
             {
                 if (_isSyncingConfiguratorPassword) return;
                 _viewModel.ConfiguratorPassword = _configuratorPasswordBox.Password;
             };
-            Place(configurator, 2, "Connection.PasswordLabel", BuildPasswordField(_configuratorPasswordBox), "IsConfiguratorCredentialsVisible");
+            Place(configuratorFields, 2, "Connection.PasswordLabel", BuildPasswordField(_configuratorPasswordBox), "IsConfiguratorCredentialsVisible");
+
+            var configurator = new StackPanel { Children = { cfgUseEntCheck, configuratorFields } };
 
             return new StackPanel
             {
@@ -744,10 +760,49 @@ namespace Configuration_Management
 
         private Control BuildLaunchTab()
         {
+            // Режим запуска базы по умолчанию при двойном клике (issue #201):
+            // пусто — автоматически (1С:Предприятие), либо явно Конфигуратор.
+            var defaultModeLabel = new TextBlock
+            {
+                Text = LocalizationManager.T("Connection.DefaultLaunchModeLabel"),
+                FontSize = 12,
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            var defaultModeBox = new ComboBox
+            {
+                Width = 220,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            defaultModeBox.ItemsSource = new[]
+            {
+                LocalizationManager.T("Connection.DefaultLaunchAuto"),
+                LocalizationManager.T("Connection.DefaultLaunchEnterprise"),
+                LocalizationManager.T("Connection.DefaultLaunchConfigurator")
+            };
+            defaultModeBox.SelectedIndex = _viewModel.DefaultLaunchMode switch
+            {
+                "Enterprise" => 1,
+                "Configurator" => 2,
+                _ => 0
+            };
+            defaultModeBox.SelectionChanged += (_, _) =>
+            {
+                _viewModel.DefaultLaunchMode = defaultModeBox.SelectedIndex switch
+                {
+                    1 => "Enterprise",
+                    2 => "Configurator",
+                    _ => ""
+                };
+            };
+
             var content = new StackPanel
             {
                 Children =
                 {
+                    defaultModeLabel,
+                    defaultModeBox,
                     OptionCard("LaunchMode", "IsAutoMode", "Connection.LaunchAuto", "Connection.LaunchAutoHint", wrapHint: true),
                     OptionCard("LaunchMode", "IsThinClient", "Connection.LaunchThin", "Connection.LaunchThinHint", wrapHint: true),
                     OptionCard("LaunchMode", "IsThickClient", "Connection.LaunchThickManaged", "Connection.LaunchThickManagedHint", wrapHint: true),
@@ -973,16 +1028,73 @@ namespace Configuration_Management
         /// <summary>
         /// Определяет имя и версию конфигурации по настройкам подключения
         /// (COM-коннектор на Windows, эвристика по файлу базы на Linux)
-        /// и заполняет поля (issue #174).
+        /// и заполняет поля (issue #174). Чтение выполняется в фоновом потоке
+        /// с модальным диалогом прогресса, чтобы недоступный сервер не «замораживал»
+        /// окно настроек на весь таймаут (~8 с).
         /// </summary>
-        private void OnDetectConfiguration_Click()
+        private async void OnDetectConfiguration_Click()
         {
-            if (_viewModel.DetermineConfiguration()) return;
+            // Снимаем оба вердикта о недоступности COM (кэш реестра и сессионную защёлку
+            // процесса-агента): причина сбоя могла быть разовой или уже устранённой, а иначе
+            // кнопка «Определить» до перезапуска приложения молча отвечала бы отказом (issue #174).
+            OneCComConnector.ResetComVerdicts();
 
-            // Детальная диагностика неудачи определения свойств конфигурации (issue #174):
-            // помимо общей фразы показываем текст последней ошибки COM и фактически
-            // использованный ProgID/версию платформы, чтобы было видно, какой именно
-            // COM-коннектор пробовался (например, шаблон имени дал неправильный ProgID).
+            var progress = new DetectConfigProgressWindow();
+            progress.SetStage(BuildDetectConnectStageMessage());
+            progress.Show();
+            IsEnabled = false;
+            try
+            {
+                OneCConfigInfo? info;
+                try
+                {
+                    info = await Task.Run(() => _viewModel.ReadConfiguration(progress.SetStage));
+                }
+                catch
+                {
+                    info = null;
+                }
+
+                if (_viewModel.ApplyConfiguration(info)) return;
+
+                ShowDetectConfigurationFailure();
+            }
+            finally
+            {
+                IsEnabled = true;
+                progress.Close();
+            }
+        }
+
+        /// <summary>
+        /// Строит текст этапа «создание COM-подключения» для диалога прогресса (issue #174):
+        /// с фактическим ProgID (например, «V83.COMConnector») и версией платформы базы,
+        /// чтобы было видно, какой именно COM-коннектор создаётся.
+        /// </summary>
+        private string BuildDetectConnectStageMessage()
+        {
+            var version = _viewModel.PlatformVersion;
+            var progId = ConfigurationInfoService.LastUsedProgId;
+            var hasProgId = !string.IsNullOrWhiteSpace(progId);
+            var hasVersion = !string.IsNullOrWhiteSpace(version);
+
+            if (hasProgId && hasVersion)
+                return string.Format(LocalizationManager.T("Connection.DetectStageConnectWithProgIdFormat"), progId, version);
+            if (hasProgId)
+                return string.Format(LocalizationManager.T("Connection.DetectStageConnectWithProgIdNoVersion"), progId);
+            if (hasVersion)
+                return string.Format(LocalizationManager.T("Connection.DetectStageConnectFormat"), version);
+            return LocalizationManager.T("Connection.DetectStageConnectNoVersion");
+        }
+
+        /// <summary>
+        /// Детальная диагностика неудачи определения свойств конфигурации (issue #174):
+        /// помимо общей фразы показывает текст последней ошибки COM и фактически
+        /// использованный ProgID/версию платформы, чтобы было видно, какой именно
+        /// COM-коннектор пробовался (например, шаблон имени дал неправильный ProgID).
+        /// </summary>
+        private void ShowDetectConfigurationFailure()
+        {
             var sb = new System.Text.StringBuilder();
             sb.AppendLine(LocalizationManager.T("Connection.DetectConfigFailed"));
 
@@ -1015,6 +1127,16 @@ namespace Configuration_Management
 
         private void OnSave_Click()
         {
+            // Не допускаем значений, которые не могут быть переданы в командную строку 1С
+            // (двойная кавычка / управляющий символ) — иначе запуск молча пропускал бы аргумент
+            // (issue #205).
+            var validationError = _viewModel.ValidateCliArgs();
+            if (validationError is not null)
+            {
+                _dialogs.ShowWarning(validationError, LocalizationManager.T("Connection.InvalidCliCharTitle"));
+                return;
+            }
+
             _viewModel.ApplyTo(Result);
 
             if (string.IsNullOrWhiteSpace(Result.Id))

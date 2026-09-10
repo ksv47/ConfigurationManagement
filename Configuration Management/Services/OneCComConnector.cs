@@ -105,35 +105,15 @@ public sealed class OneCComConnector : IOneCComConnector
     }
 
     /// <summary>
-    /// Разворачивает шаблон имени COM-коннектора по версии платформы.
+    /// Разворачивает шаблон имени COM-коннектора по версии платформы (issue #175).
+    /// Делегирует общему помощнику <see cref="ComConnectorTemplate.Expand"/>, чтобы
+    /// поведение при подключении совпадало с интерактивным предпросмотром в окне
+    /// настроек (включая обрезку разделителей перед пустыми сегментами версии).
     /// Возвращает null, если шаблон или версия отсутствуют либо версию нельзя разобрать
     /// (тогда разворачивать нечего и используется стандартный список).
     /// </summary>
     internal static string? ExpandTemplate(string? template, string? platformVersion)
-    {
-        if (string.IsNullOrWhiteSpace(template) || string.IsNullOrWhiteSpace(platformVersion))
-            return null;
-
-        var seg = platformVersion.Split('.');
-        if (seg.Length == 0)
-            return null;
-
-        // %V12% — первые две цифры версии (для 8.3.x это «83»), %V3%/%V4% — третья/четвёртая.
-        // Из каждого сегмента берутся только цифры, чтобы чужие символы из строки версии
-        // не попадали в ProgID.
-        var v12 = Digits(seg.Length > 1 ? seg[0] + seg[1] : seg[0]);
-        var v3 = Digits(seg.Length > 2 ? seg[2] : "");
-        var v4 = Digits(seg.Length > 3 ? seg[3] : "");
-
-        // Нет первой части — расшифровать нечего.
-        if (v12.Length == 0)
-            return null;
-
-        return template
-            .Replace("%V12%", v12)
-            .Replace("%V3%", v3)
-            .Replace("%V4%", v4);
-    }
+        => ComConnectorTemplate.Expand(template, platformVersion);
 
     /// <summary>
     /// Возвращает первый ProgID из списка кандидатов, который реально зарегистрирован
@@ -157,22 +137,6 @@ public sealed class OneCComConnector : IOneCComConnector
             }
         }
         return null;
-    }
-
-    /// <summary>Оставляет в строке только десятичные цифры.</summary>
-    private static string Digits(string s)
-    {
-        if (s.Length == 0)
-            return string.Empty;
-
-        var sb = new StringBuilder(s.Length);
-        foreach (var ch in s)
-        {
-            if (char.IsAsciiDigit(ch))
-                sb.Append(ch);
-        }
-
-        return sb.ToString();
     }
 
     // -- Кэш доступности COM-коннекторов 1С ----------------------------------
@@ -326,7 +290,7 @@ public sealed class OneCComConnector : IOneCComConnector
         if (!thread.Join(timeoutMs))
         {
             LastError ??= string.Format(LocalizationManager.T("Com.TimeoutConnectFormat"), timeoutMs);
-            _logger.Error($"Превышен таймаут COM-подключения к базе «{infobase.Name}».");
+            _logger.Error($"Превышен таймаут COM-подключения к базе «{DisplayName(infobase)}».");
             return null;
         }
         if (error is not null)
@@ -342,7 +306,27 @@ public sealed class OneCComConnector : IOneCComConnector
     /// (0xC0000409) без управляемого исключения — перехватить его в этом процессе нельзя,
     /// поэтому COM изолирован. Подробности и история — в комментарии к ComReadHost.
     /// </remarks>
-    public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000)
+    /// <summary>
+    /// Строит текст этапа «создание COM-подключения» для диалога прогресса (issue #174):
+    /// указывает фактический ProgID (например, «V83.COMConnector»), которым идёт подключение,
+    /// и версию платформы базы. ProgID может быть null (COM недоступен, Linux-сборка),
+    /// тогда текст деградирует до варианта без него.
+    /// </summary>
+    private static string BuildDetectConnectStageMessage(string? platformVersion, string? progId)
+    {
+        var hasProgId = !string.IsNullOrWhiteSpace(progId);
+        var hasVersion = !string.IsNullOrWhiteSpace(platformVersion);
+
+        if (hasProgId && hasVersion)
+            return string.Format(LocalizationManager.T("Connection.DetectStageConnectWithProgIdFormat"), progId, platformVersion);
+        if (hasProgId)
+            return string.Format(LocalizationManager.T("Connection.DetectStageConnectWithProgIdNoVersion"), progId);
+        if (hasVersion)
+            return string.Format(LocalizationManager.T("Connection.DetectStageConnectFormat"), platformVersion);
+        return LocalizationManager.T("Connection.DetectStageConnectNoVersion");
+    }
+
+    public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000, Action<string>? onStage = null)
     {
         if (infobase is null) return null;
         // Параметр объявлен ненулевым, а защита выше уже вернула бы раньше. Локальная
@@ -381,12 +365,18 @@ public sealed class OneCComConnector : IOneCComConnector
             return null;
         }
 
+        // Сообщаем этапы в диалог прогресса кнопки «Определить» (issue #174): сначала —
+        // создание COM-подключения с фактическим ProgID и версией платформы базы,
+        // затем — чтение свойств.
+        onStage?.Invoke(BuildDetectConnectStageMessage(ib.PlatformVersion, LastUsedProgId));
+
         // Запоминаем состояние до вызова: если COM был отключён ещё раньше, повторно
         // писать об этом в журнал незачем — на списке из десятков баз это дало бы
         // десятки одинаковых строк подряд на каждом старте.
         var alreadyDisabled = ComReadHost.ComUnavailable;
 
         var result = ComReadHost.Read(connectString, timeoutMs, progIds);
+        onStage?.Invoke(LocalizationManager.T("Connection.DetectStageRead"));
         if (result.Failure == ComFailureKind.None && result.Info is not null)
         {
             LastError = null;
@@ -409,7 +399,12 @@ public sealed class OneCComConnector : IOneCComConnector
             var trace = result.Failure == ComFailureKind.AgentStart && !string.IsNullOrEmpty(result.Detail)
                 ? $" ({result.Detail})"
                 : string.Empty;
-            _logger.Error($"Не удалось прочитать сведения о конфигурации базы «{ib.Name}»: {LastError}{trace}");
+            // В журнал пишем целиком строку подключения (issue #174): по одной лишь фразе о таймауте
+            // трудно понять, какая именно база/сервер/файл подставлялись и не потерялось ли что-то
+            // при сборке строки. Пароль маскируем тем же правилом, что и для ошибок от 1С.
+            _logger.Error(
+                $"Не удалось прочитать сведения о конфигурации базы «{DisplayName(ib)}»: {LastError}{trace}."
+                + $" Строка подключения: {MaskCredentials(connectString)}. Таймаут: {timeoutMs} мс.");
         }
 
         return null;
@@ -872,5 +867,24 @@ public sealed class OneCComConnector : IOneCComConnector
     private static void AppendParameter(StringBuilder sb, string name, string value)
     {
         sb.Append(name).Append("=\"").Append(value.Replace("\"", "\"\"")).Append("\";");
+    }
+
+    /// <summary>
+    /// Имя базы для сообщений об ошибках (issue #174): вместо пустого имени «» подставляет
+    /// осмысленное значение — заданное наименование, затем Ref (DatabaseName), затем путь
+    /// файловой базы, а иначе явный маркер. Закрывает случай, когда имя не заполнено у баз
+    /// списка (например, после импорта) и диагностика по журналу теряет привязку к базе.
+    /// </summary>
+    private static string DisplayName(Infobase ib)
+    {
+        if (ib is null) return "<без имени>";
+        if (!string.IsNullOrWhiteSpace(ib.Name))
+            return ib.Name;
+        var conn = ib.Connection;
+        if (conn is not null && !string.IsNullOrWhiteSpace(conn.DatabaseName))
+            return conn.DatabaseName;
+        if (conn is not null && !string.IsNullOrWhiteSpace(conn.FilePath))
+            return System.IO.Path.GetFileName(conn.FilePath.Trim().Trim('"').TrimEnd('\\', '/'));
+        return "<без имени>";
     }
 }

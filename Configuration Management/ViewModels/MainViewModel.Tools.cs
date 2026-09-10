@@ -854,44 +854,6 @@ public partial class MainViewModel : ViewModelBase
 
 
     /// <summary>
-    /// Фоново считывает имя и версию конфигурации для баз, где они ещё не заполнены.
-    /// </summary>
-    private void RefreshConfigurationInfoAsync()
-    {
-        var targets = Infobases
-            .Where(ib => string.IsNullOrWhiteSpace(ib.ConfigurationName)
-                         || string.IsNullOrWhiteSpace(ib.ConfigurationVersion))
-            .ToList();
-        if (targets.Count == 0) return;
-
-        _ = Task.Run(() =>
-        {
-            var any = false;
-            foreach (var ib in targets)
-            {
-                try
-                {
-                    if (ConfigurationInfoService.TryApply(ib, overwriteExisting: false))
-                        any = true;
-                }
-                catch { }
-            }
-
-            if (!any) return;
-
-            try
-            {
-                Application.Current?.Dispatcher.Invoke(() =>
-                {
-                    InfobasesView?.Refresh();
-                    Save();
-                });
-            }
-            catch { }
-        });
-    }
-
-    /// <summary>
     /// Точечно запрашивает и заполняет информацию о конфигурации выбранной базы
     /// (из контекстного меню). Выполняется в фоне, чтобы не блокировать UI.
     /// </summary>
@@ -1146,8 +1108,10 @@ public partial class MainViewModel : ViewModelBase
             // Размеры файловых ИБ считаются в фоне с учётом кеша (не блокирует UI).
             RefreshFileMetadata();
 
-            // Фоново читаем имя и версию конфигурации для баз, где они ещё не заполнены.
-            RefreshConfigurationInfoAsync();
+            // Фоновое дочитывание свойств конфигурации при старте/импорте намеренно НЕ
+            // запускается (issue #174): на недоступном сервере оно занимало ~8 с на базу,
+            // «глушило» защёлку COM и было лишним при импорте. Только явная команда
+            // «Обновить информацию» (RefreshConfigurationInfo) читает свойства.
         }
         catch (Exception ex)
         {
@@ -1382,8 +1346,15 @@ public partial class MainViewModel : ViewModelBase
         if (_addTimestampToExportFileName)
         {
             var format = string.IsNullOrWhiteSpace(_exportTimestampFormat) ? "yyyyMMdd_HHmmss" : _exportTimestampFormat;
-            var ts = DateTime.Now.ToString(format);
-            return $"{baseName}_{ts}{extension}";
+            try
+            {
+                return $"{baseName}_{DateTime.Now.ToString(format)}{extension}";
+            }
+            catch (FormatException)
+            {
+                // Шаблон мог прийти из файла настроек, правленного руками.
+                return $"{baseName}_{DateTime.Now:yyyyMMdd_HHmmss}{extension}";
+            }
         }
         return $"{baseName}{extension}";
     }
@@ -1845,7 +1816,8 @@ public partial class MainViewModel : ViewModelBase
         string afterLaunchAction = "None",
         string? hotkeyClearSearch = null,
         string? hotkeyClearTags = null,
-        string? hotkeyRightPanelDetails = null)
+        string? hotkeyRightPanelDetails = null,
+        string? hotkeySwitchUser = null)
     {
         _allowMultipleInstances = allowMultipleInstances;
         _checkForUpdatesOnStartup = checkForUpdatesOnStartup;
@@ -1870,6 +1842,7 @@ public partial class MainViewModel : ViewModelBase
         if (hotkeyClearSearch != null) _hotkeyClearSearch = hotkeyClearSearch.Trim();
         if (hotkeyClearTags != null) _hotkeyClearTags = hotkeyClearTags.Trim();
         if (hotkeyRightPanelDetails != null) _hotkeyRightPanelDetails = hotkeyRightPanelDetails.Trim();
+        if (hotkeySwitchUser != null) _hotkeySwitchUser = hotkeySwitchUser.Trim();
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(CheckForUpdatesOnStartup));
         OnPropertyChanged(nameof(AutoUpdateEnabled));
@@ -1892,6 +1865,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyClearSearch));
         OnPropertyChanged(nameof(HotkeyClearTags));
         OnPropertyChanged(nameof(HotkeyRightPanelDetails));
+        OnPropertyChanged(nameof(HotkeySwitchUser));
         OnPropertyChanged(nameof(RememberWindowLayout));
         SaveSettings();
     }

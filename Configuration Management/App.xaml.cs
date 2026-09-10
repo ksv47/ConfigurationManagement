@@ -62,31 +62,34 @@ namespace Configuration_Management
                 var profileService = AppServices.GetRequiredService<IProfileService>();
                 profileService.EnsureInitialized();
 
-                // Любое окно, закрытое до создания главного, гасит приложение: режим
-                // завершения по умолчанию OnLastWindowClose считает его последним,
-                // и главное окно уже не открывается. Поэтому до показа главного
-                // окна завершение только явное, прежний режим возвращается после.
+                // Окно входа создаётся первым и становится главным окном приложения
+                // (Application.MainWindow). При ShutdownMode=OnLastWindowClose его закрытие
+                // после успешного входа молча гасило бы приложение раньше, чем появится
+                // главное окно (issue #193). Поэтому на время старта завершение только
+                // явное, а прежний режим возвращается после показа главного окна.
                 var shutdownModeBeforeStartup = ShutdownMode;
                 ShutdownMode = ShutdownMode.OnExplicitShutdown;
-
-                // Локализацию поднимаем до окна входа и ранних окон ошибок: настройки
-                // выбранного профиля читаются ниже, а без словаря окно показывает
-                // ключи (Auth.Title, Auth.Login) вместо подписей. Язык берётся из
-                // профиля, активного с прошлого запуска, и уточняется после входа.
-                try
-                {
-                    var startupSettings = AppServices.GetRequiredService<IInfobaseRepository>().LoadSettings();
-                    LocalizationManager.Instance.Initialize(startupSettings.Language);
-                }
-                catch
-                {
-                    LocalizationManager.Instance.Initialize();
-                }
 
                 // Если в приложении несколько учётных записей — показываем окно авторизации
                 // по аналогии со списком пользователей 1С. При одной записи входим без запроса.
                 if (profileService.Profiles.Count > 1)
                 {
+                    // Локализацию поднимаем до показа окна: настройки профиля читаются
+                    // ниже, а без словаря окно входа показывает ключи (Auth.Title,
+                    // Auth.SelectAccountHint, Auth.Login, Common.Cancel) вместо подписей
+                    // (issue #189). Язык берётся из профиля, активного с прошлого запуска,
+                    // и уточняется после выбора.
+                    try
+                    {
+                        var startupRepository = AppServices.GetRequiredService<IInfobaseRepository>();
+                        var startupSettings = startupRepository.LoadSettings();
+                        LocalizationManager.Instance.Initialize(startupSettings.Language);
+                    }
+                    catch
+                    {
+                        LocalizationManager.Instance.Initialize(null);
+                    }
+
                     var selectedId = LoginWindow.ShowLogin(profileService);
                     if (selectedId == null)
                     {
@@ -214,9 +217,8 @@ namespace Configuration_Management
 
                 mainWindow.Show();
 
-                // Прежний режим завершения возвращается: на время старта он
-                // переключался на явный, иначе закрытие окна входа гасило
-                // приложение до появления главного.
+                // Прежний режим завершения возвращается: на время старта он переключался
+                // на явный, иначе закрытие окна входа гасило приложение до появления главного.
                 ShutdownMode = shutdownModeBeforeStartup;
 
                 // Фоновая проверка обновлений (Windows/WPF): запускаем после показа
@@ -235,10 +237,24 @@ namespace Configuration_Management
             }
             catch (Exception ex)
             {
-                LogFatal(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
-                ShowFatalError(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
+                // issue #213: при раннем сбое локализация может быть ещё не загружена,
+                // тогда T вернёт сам ключ — подставляем встроенный читаемый текст.
+                var fatalTitle = TOr("App.Fatal.StartupFailed", "Не удалось запустить приложение");
+                LogFatal(fatalTitle, ex);
+                ShowFatalError(fatalTitle, ex);
                 Shutdown(1);
             }
+        }
+
+        /// <summary>
+        /// Возвращает перевод ключа, а если ключ не найден (словари ещё пусты из-за
+        /// сбоя до инициализации локализации), — встроенный запасной текст. Так
+        /// фатальное сообщение остаётся читаемым при любом состоянии приложения (issue #213).
+        /// </summary>
+        private static string TOr(string key, string fallback)
+        {
+            var text = LocalizationManager.T(key);
+            return string.Equals(text, key, StringComparison.Ordinal) ? fallback : text;
         }
 
         /// <summary>

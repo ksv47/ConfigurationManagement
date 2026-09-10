@@ -34,10 +34,12 @@ public static class ConfigurationInfoService
     /// Сначала используется COM-коннектор (только на Windows; на Linux его заменяет
     /// реализация <c>OneCComConnector.Linux</c>, которая COM не использует — эвристика
     /// по файловой базе и пакетный режим конфигуратора), затем эвристика по файлу 1Cv8.1CD.
+    /// <paramref name="onStage"/> — обратный вызов смены этапа для диалога прогресса (issue #174).
     /// </summary>
-    public static OneCConfigInfo? TryRead(Infobase ib, int timeoutMs = 8000)
+    public static OneCConfigInfo? TryRead(Infobase ib, int? timeoutMs = null, Action<string>? onStage = null)
     {
         if (ib is null) return null;
+        var effectiveTimeout = ResolveTimeoutMs(timeoutMs);
 
         LastComError = null;
         LastUsedProgId = null;
@@ -45,7 +47,7 @@ public static class ConfigurationInfoService
         try
         {
             var connector = AppServices.GetRequiredService<IOneCComConnector>();
-            var viaCom = connector.ReadConfigurationInfo(ib, timeoutMs);
+            var viaCom = connector.ReadConfigurationInfo(ib, effectiveTimeout, onStage);
 
             // Фиксируем, какой COM-коннектор/версия платформы фактически использовались
             // при попытке чтения (issue #174): это помогает понять, почему «Определить»
@@ -147,15 +149,44 @@ public static class ConfigurationInfoService
     /// <summary>
     /// Читает наименование и версию конфигурации и сразу применяет их к базе
     /// (по умолчанию перезаписывая уже заполненные значения). Возвращает прочитанные
-    /// данные, либо null, если чтение не удалось.
+    /// данные, либо null, если чтение не удалось. <paramref name="onStage"/> — обратный
+    /// вызов смены этапа для диалога прогресса (issue #174).
     /// </summary>
-    public static OneCConfigInfo? ReadAndApply(Infobase ib, bool overwriteExisting = true, int timeoutMs = 8000)
+    public static OneCConfigInfo? ReadAndApply(Infobase ib, bool overwriteExisting = true, int? timeoutMs = null,
+        Action<string>? onStage = null)
     {
         if (ib is null) return null;
-        var info = TryRead(ib, timeoutMs);
+        var info = TryRead(ib, timeoutMs, onStage);
         if (info is null) return null;
         TryApply(ib, overwriteExisting);
         return info;
+    }
+
+    /// <summary>
+    /// Возвращает фактический таймаут чтения свойств конфигурации через COM (issue #174).
+    /// Если вызывающий не задал значение явно — берётся настройка <see cref="AppSettings.ComDetectTimeoutMs"/>
+    /// (по умолчанию 30000 мс), минимум 1000. Раньше 8000 мс было зашито в каждый уровень чтения,
+    /// и первое COM-подключение к клиент-серверной базе на localhost (холодный старт сервера,
+    /// лицензии HASP, создание сеанса пользователя) регулярно не укладывалось в этот срок, хотя
+    /// в конфигураторе 1С то же подключение работало.
+    /// </summary>
+    private static int ResolveTimeoutMs(int? requested)
+    {
+        if (requested is { } v && v >= 1000)
+            return v;
+
+        try
+        {
+            var settings = AppServices.GetRequiredService<IInfobaseRepository>().LoadSettings();
+            if (settings?.ComDetectTimeoutMs >= 1000)
+                return settings.ComDetectTimeoutMs;
+        }
+        catch
+        {
+            // Настройки недоступны — остаёмся на значении по умолчанию.
+        }
+
+        return 30000;
     }
 
     /// <summary>

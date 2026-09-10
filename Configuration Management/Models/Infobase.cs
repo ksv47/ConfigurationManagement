@@ -150,6 +150,14 @@ public class Infobase : INotifyPropertyChanged
     /// </summary>
     public InfobaseAuthSettings? ConfiguratorAuth { get; set; }
 
+    /// <summary>
+    /// Признак «Авторизация как для 1С:Предприятия» для Конфигуратора (issue #201).
+    /// При включении авторизация Конфигуратора копирует учётные данные «1С:Предприятия»
+    /// (логин/пароль/режим входа). Хранится отдельно, чтобы флаг переживал повторное
+    /// редактирование базы без эвристики сравнения значений.
+    /// </summary>
+    public bool ConfiguratorUseEnterpriseAuth { get; set; }
+
     /// <summary>Версия платформы 1С.</summary>
     private string _platformVersion = string.Empty;
     /// <summary>Версия платформы 1С (например 8.3.27.1644).</summary>
@@ -218,6 +226,13 @@ public class Infobase : INotifyPropertyChanged
 
     /// <summary>Дополнительные параметры запуска платформы 1С (например, /UC, /DisableStartupMessages и др.).</summary>
     public string LaunchParameters { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Режим запуска базы по умолчанию (при двойном клике на базе): пусто — автоматически
+    /// (1С:Предприятие), "Enterprise" — 1С:Предприятие, "Configurator" — Конфигуратор.
+    /// Каноническое строковое значение, не локализуется.
+    /// </summary>
+    public string DefaultLaunchMode { get; set; } = string.Empty;
 
     private string _architecture = "32-priority";
 

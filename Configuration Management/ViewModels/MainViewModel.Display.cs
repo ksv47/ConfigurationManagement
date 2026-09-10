@@ -306,7 +306,7 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn => _showVersionColumn;
 
-    /// <summary>Показывать колонку «Конфигурация».</summary>
+    /// <summary>Показывать колонку «Конфигурация» (только название).</summary>
     public bool ShowConfigurationColumn => _showConfigurationColumn;
 
     /// <summary>Ширина колонки «Конфигурация».</summary>
@@ -318,6 +318,24 @@ public partial class MainViewModel : ViewModelBase
             if (_configurationColumnWidth != value)
             {
                 _configurationColumnWidth = value;
+                OnPropertyChanged();
+                ScheduleSaveSettings();
+            }
+        }
+    }
+
+    /// <summary>Показывать колонку «№ релиза» (версия конфигурации).</summary>
+    public bool ShowConfigurationVersionColumn => _showConfigurationVersionColumn;
+
+    /// <summary>Ширина колонки «№ релиза» (0 — по умолчанию).</summary>
+    public double ConfigurationVersionColumnWidth
+    {
+        get => _configurationVersionColumnWidth;
+        set
+        {
+            if (_configurationVersionColumnWidth != value)
+            {
+                _configurationVersionColumnWidth = value;
                 OnPropertyChanged();
                 ScheduleSaveSettings();
             }
@@ -557,16 +575,43 @@ public partial class MainViewModel : ViewModelBase
     /// конце). Используется, пока пользователь не задал собственный порядок.
     /// </summary>
     private static readonly string[] DefaultColumnOrder =
-        { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
+        { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration", "ConfigurationVersion" };
 
     /// <summary>
     /// Порядок колонок списка баз слева направо (кроме фиксированной колонки
     /// «Название», которая всегда первая). Если порядок не задан или пуст —
     /// возвращается порядок по умолчанию: «Режим запуска» сразу после названия,
     /// колонка «Действия» — за ним, «Конфигурация» — в конце.
+    /// В уже сохранённый пользовательский порядок при отсутствии подставляются
+    /// новые колонки: «№ релиза» (ConfigurationVersion) сразу после
+    /// «Конфигурации», а «Действия» (Actions) — в конец (как в Avalonia-сборке,
+    /// issue #217).
     /// </summary>
-    public IReadOnlyList<string> ColumnOrderKeys =>
-        _columnOrder is { Count: > 0 } ? _columnOrder : DefaultColumnOrder;
+    public IReadOnlyList<string> ColumnOrderKeys
+    {
+        get
+        {
+            var order = _columnOrder;
+            if (order is { Count: 0 })
+                return DefaultColumnOrder;
+
+            var needsActions = !order!.Contains("Actions", StringComparer.Ordinal);
+            var needsConfigurationVersion = !order.Contains("ConfigurationVersion", StringComparer.Ordinal);
+            if (!needsActions && !needsConfigurationVersion)
+                return order;
+
+            var result = new List<string>(order.Count + 1);
+            foreach (var key in order)
+            {
+                if (needsConfigurationVersion && key == "Configuration")
+                    result.Add("ConfigurationVersion");
+                result.Add(key);
+            }
+            if (needsActions)
+                result.Add("Actions");
+            return result;
+        }
+    }
 
     /// <summary>
     /// Применяет настройки содержимого нижней панели (строки состояния).
@@ -606,7 +651,7 @@ public partial class MainViewModel : ViewModelBase
     public void ApplyDisplaySettings(bool showFavoritesButton, bool showPinnedButton, bool showTags,
         bool showVersionColumn, bool showLaunchModeColumn, bool showServerColumn, bool showLastLaunchColumn,
         bool groupByGroup, bool showFavoritesOnly, bool showSizeColumn = true,
-        bool showConfigurationColumn = true, bool showEmptyGroups = false,
+        bool showConfigurationColumn = true, bool showConfigurationVersionColumn = true, bool showEmptyGroups = false,
         List<string>? columnOrder = null, bool showActionsColumn = true)
     {
         _showFavoritesButton = showFavoritesButton;
@@ -614,6 +659,7 @@ public partial class MainViewModel : ViewModelBase
         _showTags = showTags;
         _showVersionColumn = showVersionColumn;
         _showConfigurationColumn = showConfigurationColumn;
+        _showConfigurationVersionColumn = showConfigurationVersionColumn;
         _showLaunchModeColumn = showLaunchModeColumn;
         _showServerColumn = showServerColumn;
         _showLastLaunchColumn = showLastLaunchColumn;
@@ -625,6 +671,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowTags));
         OnPropertyChanged(nameof(ShowVersionColumn));
         OnPropertyChanged(nameof(ShowConfigurationColumn));
+        OnPropertyChanged(nameof(ShowConfigurationVersionColumn));
         OnPropertyChanged(nameof(ShowLaunchModeColumn));
         OnPropertyChanged(nameof(ShowServerColumn));
         OnPropertyChanged(nameof(ShowLastLaunchColumn));
@@ -660,6 +707,7 @@ public partial class MainViewModel : ViewModelBase
             _groupByGroup, ShowFavoritesOnly,
             showSizeColumn: key == "Size" ? visible : _showSizeColumn,
             showConfigurationColumn: key == "Configuration" ? visible : _showConfigurationColumn,
+            showConfigurationVersionColumn: key == "ConfigurationVersion" ? visible : _showConfigurationVersionColumn,
             showEmptyGroups: _showEmptyGroups,
             columnOrder: _columnOrder,
             showActionsColumn: key == "Actions" ? visible : _showActionsColumn);

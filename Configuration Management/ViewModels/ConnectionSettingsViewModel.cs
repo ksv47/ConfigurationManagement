@@ -43,6 +43,8 @@ public class ConnectionSettingsViewModel : ViewModelBase
     private AuthenticationMode _configuratorAuthenticationMode = AuthenticationMode.Prompt;
     private string _configuratorUser = string.Empty;
     private string _configuratorPassword = string.Empty;
+    private bool _configuratorUseEnterpriseAuth;
+    private string _defaultLaunchMode = string.Empty;
 
     /// <summary>
     /// Создаёт ViewModel с указанным списком доступных групп.
@@ -594,6 +596,43 @@ public class ConnectionSettingsViewModel : ViewModelBase
         set => SetProperty(ref _configuratorPassword, value);
     }
 
+    /// <summary>
+    /// Признак «Авторизация как для 1С:Предприятия» для Конфигуратора (issue #201).
+    /// При включении Конфигуратор использует те же учётные данные, что и «1С:Предприятие».
+    /// </summary>
+    public bool ConfiguratorUseEnterpriseAuth
+    {
+        get => _configuratorUseEnterpriseAuth;
+        set
+        {
+            if (SetProperty(ref _configuratorUseEnterpriseAuth, value))
+            {
+                OnPropertyChanged(nameof(IsConfiguratorAuthEnabled));
+                // При включении сразу копируем учётные данные «1С:Предприятия»
+                // в поля Конфигуратора, чтобы они отображались согласованно.
+                if (value)
+                {
+                    ConfiguratorAuthenticationMode = AuthenticationMode;
+                    ConfiguratorUser = User;
+                    ConfiguratorPassword = Password;
+                }
+            }
+        }
+    }
+
+    /// <summary>Редактируемы ли поля авторизации Конфигуратора (выключено при «как для 1С:Предприятия»).</summary>
+    public bool IsConfiguratorAuthEnabled => !_configuratorUseEnterpriseAuth;
+
+    /// <summary>
+    /// Режим запуска базы по умолчанию (при двойном клике на базе): пусто — автоматически
+    /// (1С:Предприятие), "Enterprise" — 1С:Предприятие, "Configurator" — Конфигуратор.
+    /// </summary>
+    public string DefaultLaunchMode
+    {
+        get => _defaultLaunchMode;
+        set => SetProperty(ref _defaultLaunchMode, value ?? string.Empty);
+    }
+
     /// <summary>Режим аутентификации.</summary>
     public AuthenticationMode AuthenticationMode
     {
@@ -728,12 +767,10 @@ public class ConnectionSettingsViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Определяет имя и версию конфигурации по текущим настройкам подключения
-    /// (COM-коннектор на Windows, эвристика/конфигуратор на Linux) и обновляет
-    /// поля <see cref="ConfigurationName"/> / <see cref="ConfigurationVersion"/>
-    /// (issue #174). Возвращает true, если данные удалось получить.
+    /// Строит информационную базу по текущим настройкам подключения для зондирования
+    /// свойств конфигурации. База не сохраняется — используется только чтением.
     /// </summary>
-    public bool DetermineConfiguration(bool overwriteExisting = true)
+    private Infobase BuildProbeInfobase()
     {
         var ib = new Infobase { Connection = new ConnectionSettings() };
         var conn = ib.Connection;
@@ -747,7 +784,37 @@ public class ConnectionSettingsViewModel : ViewModelBase
         conn.AuthenticationMode = AuthenticationMode;
         conn.Port = Port;
 
-        var info = ConfigurationInfoService.ReadAndApply(ib, overwriteExisting);
+        // Имя базы нужно для сообщений об ошибках чтения свойств конфигурации (issue #174):
+        // без него в журнале появляется «...базы «»:», хотя Ref известен. Приоритет — заданное
+        // наименование, затем Ref (DatabaseName), затем имя файла файловой базы.
+        ib.Name = !string.IsNullOrWhiteSpace(Name) ? Name
+            : !string.IsNullOrWhiteSpace(DatabaseName) ? DatabaseName
+            : SuggestNameFromPath(FilePath);
+
+        return ib;
+    }
+
+    /// <summary>
+    /// Читает имя и версию конфигурации по текущим настройкам подключения, не изменяя
+    /// привязанных свойств ViewModel. Безопасен для вызова из фонового потока. Возвращает
+    /// прочитанные данные или null. <paramref name="onStage"/> — обратный вызов смены этапа
+    /// для диалога прогресса (issue #174).
+    /// </summary>
+    public OneCConfigInfo? ReadConfiguration(Action<string>? onStage = null)
+    {
+        var ib = BuildProbeInfobase();
+        // Таймаут резолвится внутри (настройка ComDetectTimeoutMs, по умолчанию 30000 мс),
+        // а не жёстко 8000 мс (issue #174): первое COM-подключение часто превышает 8 секунд.
+        return ConfigurationInfoService.ReadAndApply(ib, overwriteExisting: true, timeoutMs: null, onStage);
+    }
+
+    /// <summary>
+    /// Применяет прочитанные данные к полям <see cref="ConfigurationName"/> /
+    /// <see cref="ConfigurationVersion"/>. Вызывать только в UI-потоке. Возвращает true,
+    /// если хотя бы одно поле обновлено.
+    /// </summary>
+    public bool ApplyConfiguration(OneCConfigInfo? info)
+    {
         if (info is null)
             return false;
 
@@ -763,6 +830,18 @@ public class ConnectionSettingsViewModel : ViewModelBase
             changed = true;
         }
         return changed;
+    }
+
+    /// <summary>
+    /// Определяет имя и версию конфигурации по текущим настройкам подключения
+    /// (COM-коннектор на Windows, эвристика/конфигуратор на Linux) и обновляет
+    /// поля <see cref="ConfigurationName"/> / <see cref="ConfigurationVersion"/>
+    /// (issue #174). Возвращает true, если данные удалось получить.
+    /// </summary>
+    public bool DetermineConfiguration(bool overwriteExisting = true)
+    {
+        var info = ReadConfiguration();
+        return ApplyConfiguration(info);
     }
 
     /// <summary>
@@ -797,6 +876,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
             Architecture = NormalizeArchitecture(infobase.Architecture);
             LaunchMode = infobase.LaunchMode;
             LaunchParameters = infobase.LaunchParameters;
+            DefaultLaunchMode = infobase.DefaultLaunchMode ?? string.Empty;
 
             var conn = infobase.Connection;
             ConnectionType = conn.Type;
@@ -864,6 +944,10 @@ public class ConnectionSettingsViewModel : ViewModelBase
                 ConfiguratorUser = cfgAuth.User;
                 ConfiguratorPassword = cfgAuth.Password;
             }
+            // Признак «Авторизация как для 1С:Предприятия» читается отдельно от самих
+            // учётных данных: при включении сеттер скопирует в поля Конфигуратора
+            // значения «1С:Предприятия» уже из загруженных выше полей.
+            ConfiguratorUseEnterpriseAuth = infobase.ConfiguratorUseEnterpriseAuth;
         }
         finally
         {
@@ -873,6 +957,67 @@ public class ConnectionSettingsViewModel : ViewModelBase
         _hasChanges = false;
         OnPropertyChanged(nameof(HasChanges));
     }
+
+    /// <summary>
+    /// Проверяет, что значения полей, которые подставляются в командную строку 1С
+    /// (аргументы /F /S /WS /N /P), безопасны для этой грамматики — не содержат
+    /// символа двойной кавычки и управляющих символов. Иначе они молча отбрасываются
+    /// при запуске (см. <c>OneCLauncher.IsSafeCliValue</c>), и база открывается
+    /// с неверными параметрами или без них (issue #205).
+    /// </summary>
+    /// <returns>
+    /// Локализованное сообщение об ошибке с именем первого недопустимого поля,
+    /// или <c>null</c>, если все проверяемые значения безопасны.
+    /// </returns>
+    public string? ValidateCliArgs()
+    {
+        // Поля подключения, попадающие в аргументы /F /S /WS.
+        string? connectionField = ConnectionType switch
+        {
+            ConnectionType.File => IsUnsafeForCli(FilePath) ? LocalizationManager.T("Connection.FieldFilePath") : null,
+            ConnectionType.WebServer => IsUnsafeForCli(WebUrl) ? LocalizationManager.T("Connection.FieldWebUrl") : null,
+            _ => IsUnsafeForCli(Server) ? LocalizationManager.T("Connection.FieldServer")
+               : IsUnsafeForCli(DatabaseName) ? LocalizationManager.T("Connection.FieldDatabaseName")
+               : null
+        };
+        if (connectionField is not null)
+            return BuildCliInvalidMessage(connectionField);
+
+        // Логин/пароль «1С:Предприятие» используются при автоматическом входе (/N /P).
+        if (AuthenticationMode == AuthenticationMode.Credentials)
+        {
+            if (IsUnsafeForCli(User))
+                return BuildCliInvalidMessage(LocalizationManager.T("Connection.FieldUser"));
+            if (IsUnsafeForCli(Password))
+                return BuildCliInvalidMessage(LocalizationManager.T("Connection.FieldPassword"));
+        }
+
+        // Отдельная авторизация Конфигуратора. При «как для 1С:Предприятия»
+        // используются те же учётные данные, уже проверенные выше.
+        if (!ConfiguratorUseEnterpriseAuth && ConfiguratorAuthenticationMode == AuthenticationMode.Credentials)
+        {
+            if (IsUnsafeForCli(ConfiguratorUser))
+                return BuildCliInvalidMessage(LocalizationManager.T("Connection.FieldConfiguratorUser"));
+            if (IsUnsafeForCli(ConfiguratorPassword))
+                return BuildCliInvalidMessage(LocalizationManager.T("Connection.FieldConfiguratorPassword"));
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// True, если значение непустое и содержит символ, который нельзя передать
+    /// внутри кавычек ключа командной строки 1С: двойную кавычку или управляющий
+    /// символ. Пустое значение безопасно само по себе — оно не порождает
+    /// инъекции, хотя и приводит к отсутствию аргумента.
+    /// </summary>
+    private static bool IsUnsafeForCli(string? value)
+        => !string.IsNullOrEmpty(value) &&
+           (value!.IndexOf('"') >= 0 || value.Any(c => char.IsControl(c)));
+
+    /// <summary>Собирает локализованное сообщение о недопустимом значении поля.</summary>
+    private static string BuildCliInvalidMessage(string fieldName)
+        => string.Format(LocalizationManager.T("Connection.InvalidCliCharFormat"), fieldName);
 
     /// <summary>
     /// Применяет значения ViewModel к информационной базе.
@@ -890,6 +1035,7 @@ public class ConnectionSettingsViewModel : ViewModelBase
         infobase.Architecture = NormalizeArchitecture(Architecture);
         infobase.LaunchMode = string.IsNullOrWhiteSpace(LaunchMode) ? "Автоматический" : LaunchMode;
         infobase.LaunchParameters = LaunchParameters ?? string.Empty;
+        infobase.DefaultLaunchMode = (DefaultLaunchMode ?? string.Empty).Trim();
 
         if (infobase.Connection is null)
             infobase.Connection = new ConnectionSettings();
@@ -923,12 +1069,27 @@ public class ConnectionSettingsViewModel : ViewModelBase
 
         // Авторизация Конфигуратора всегда сохраняется отдельно (независимо от
         // авторизации «1С:Предприятие»), чтобы при изменении одной из них другая
-        // не подстраивалась автоматически.
-        infobase.ConfiguratorAuth = new InfobaseAuthSettings
+        // не подстраивалась автоматически. При включённом признаке «как для
+        // 1С:Предприятия» в авторизацию Конфигуратора копируются учётные данные
+        // «1С:Предприятия» (логин, пароль и режим входа).
+        infobase.ConfiguratorUseEnterpriseAuth = ConfiguratorUseEnterpriseAuth;
+        if (ConfiguratorUseEnterpriseAuth)
         {
-            AuthenticationMode = ConfiguratorAuthenticationMode,
-            User = ConfiguratorUser,
-            Password = ConfiguratorPassword
-        };
+            infobase.ConfiguratorAuth = new InfobaseAuthSettings
+            {
+                AuthenticationMode = AuthenticationMode,
+                User = User,
+                Password = Password
+            };
+        }
+        else
+        {
+            infobase.ConfiguratorAuth = new InfobaseAuthSettings
+            {
+                AuthenticationMode = ConfiguratorAuthenticationMode,
+                User = ConfiguratorUser,
+                Password = ConfiguratorPassword
+            };
+        }
     }
 }

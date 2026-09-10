@@ -87,6 +87,41 @@ namespace Configuration_Management
             };
             LocalizationManager.Instance.LanguageChanged += (_, _) => UpdateOsArchitectureHint();
             UpdateOsArchitectureHint();
+            InitDefaultLaunchModeCombo();
+        }
+
+        /// <summary>
+        /// Заполняет комбобокс «Режим запуска по умолчанию» (issue #201) и выставляет
+        /// текущее значение базы.
+        /// </summary>
+        private void InitDefaultLaunchModeCombo()
+        {
+            if (DefaultLaunchModeCombo is null || _viewModel is null) return;
+            DefaultLaunchModeCombo.ItemsSource = new[]
+            {
+                LocalizationManager.T("Connection.DefaultLaunchAuto"),
+                LocalizationManager.T("Connection.DefaultLaunchEnterprise"),
+                LocalizationManager.T("Connection.DefaultLaunchConfigurator")
+            };
+            DefaultLaunchModeCombo.SelectedIndex = _viewModel.DefaultLaunchMode switch
+            {
+                "Enterprise" => 1,
+                "Configurator" => 2,
+                _ => 0
+            };
+        }
+
+        /// <summary>Обработчик смены «режима запуска по умолчанию»: пишет каноническое значение в ViewModel.</summary>
+        private void OnDefaultLaunchModeCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (_viewModel is null || sender is not System.Windows.Controls.ComboBox combo)
+                return;
+            _viewModel.DefaultLaunchMode = combo.SelectedIndex switch
+            {
+                1 => "Enterprise",
+                2 => "Configurator",
+                _ => ""
+            };
         }
 
         /// <summary>
@@ -200,6 +235,18 @@ namespace Configuration_Management
 
         private void OnSave_Click(object sender, RoutedEventArgs e)
         {
+            // Не допускаем значений, которые не могут быть переданы в командную строку 1С
+            // (двойная кавычка / управляющий символ) — иначе запуск молча пропускал бы аргумент
+            // (issue #205).
+            var validationError = _viewModel.ValidateCliArgs();
+            if (validationError is not null)
+            {
+                MessageBox.Show(validationError,
+                    LocalizationManager.T("Connection.InvalidCliCharTitle"),
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             // Применяем значения из ViewModel к результату.
             _viewModel.ApplyTo(Result);
 
@@ -292,16 +339,73 @@ namespace Configuration_Management
         /// <summary>
         /// Определяет имя и версию конфигурации по настройкам подключения
         /// (COM-коннектор на Windows, эвристика по файлу базы на Linux)
-        /// и заполняет поля (issue #174).
+        /// и заполняет поля (issue #174). Чтение выполняется в фоновом потоке
+        /// с модальным диалогом прогресса, чтобы недоступный сервер не «замораживал»
+        /// окно настроек на весь таймаут (~8 с).
         /// </summary>
-        private void OnDetectConfiguration_Click(object sender, RoutedEventArgs e)
+        private async void OnDetectConfiguration_Click(object sender, RoutedEventArgs e)
         {
-            if (_viewModel.DetermineConfiguration()) return;
+            // Снимаем оба вердикта о недоступности COM (кэш реестра и сессионную защёлку
+            // процесса-агента): причина сбоя могла быть разовой или уже устранённой, а иначе
+            // кнопка «Определить» до перезапуска приложения молча отвечала бы отказом (issue #174).
+            OneCComConnector.ResetComVerdicts();
 
-            // Детальная диагностика неудачи определения свойств конфигурации (issue #174):
-            // помимо общей фразы показываем текст последней ошибки COM и фактически
-            // использованный ProgID/версию платформы, чтобы было видно, какой именно
-            // COM-коннектор пробовался (например, шаблон имени дал неправильный ProgID).
+            var progress = new DetectConfigProgressWindow { Owner = this };
+            progress.SetStage(BuildDetectConnectStageMessage());
+            progress.Show();
+            IsEnabled = false;
+            try
+            {
+                OneCConfigInfo? info;
+                try
+                {
+                    info = await Task.Run(() => _viewModel.ReadConfiguration(progress.SetStage));
+                }
+                catch
+                {
+                    info = null;
+                }
+
+                if (_viewModel.ApplyConfiguration(info)) return;
+
+                ShowDetectConfigurationFailure();
+            }
+            finally
+            {
+                IsEnabled = true;
+                progress.Close();
+            }
+        }
+
+        /// <summary>
+        /// Строит текст этапа «создание COM-подключения» для диалога прогресса (issue #174):
+        /// с фактическим ProgID (например, «V83.COMConnector») и версией платформы базы,
+        /// чтобы было видно, какой именно COM-коннектор создаётся.
+        /// </summary>
+        private string BuildDetectConnectStageMessage()
+        {
+            var version = _viewModel.PlatformVersion;
+            var progId = ConfigurationInfoService.LastUsedProgId;
+            var hasProgId = !string.IsNullOrWhiteSpace(progId);
+            var hasVersion = !string.IsNullOrWhiteSpace(version);
+
+            if (hasProgId && hasVersion)
+                return string.Format(LocalizationManager.T("Connection.DetectStageConnectWithProgIdFormat"), progId, version);
+            if (hasProgId)
+                return string.Format(LocalizationManager.T("Connection.DetectStageConnectWithProgIdNoVersion"), progId);
+            if (hasVersion)
+                return string.Format(LocalizationManager.T("Connection.DetectStageConnectFormat"), version);
+            return LocalizationManager.T("Connection.DetectStageConnectNoVersion");
+        }
+
+        /// <summary>
+        /// Детальная диагностика неудачи определения свойств конфигурации (issue #174):
+        /// помимо общей фразы показывает текст последней ошибки COM и фактически
+        /// использованный ProgID/версию платформы, чтобы было видно, какой именно
+        /// COM-коннектор пробовался (например, шаблон имени дал неправильный ProgID).
+        /// </summary>
+        private void ShowDetectConfigurationFailure()
+        {
             var sb = new System.Text.StringBuilder();
             sb.AppendLine(LocalizationManager.T("Connection.DetectConfigFailed"));
 
@@ -347,17 +451,31 @@ namespace Configuration_Management
 
         // Флаги показа пароля «глазом» (issue #169). WPF-PasswordBox не умеет снимать
         // маску напрямую, поэтому при показе поверх скрываем PasswordBox и показываем
-        // текстовое поле только для чтения со значением из PasswordBox.
+        // редактируемое текстовое поле; правки в нём синхронизируются обратно (issue #211).
         private bool _isPasswordRevealed;
         private bool _isRepositoryPasswordRevealed;
         private bool _isConfiguratorPasswordRevealed;
 
-        /// <summary>Переключает видимость пароля между PasswordBox и полем для чтения.</summary>
-        private static void ApplyReveal(PasswordBox box, TextBox reveal, bool show)
+        /// <summary>
+        /// Переключает видимость пароля между PasswordBox и редактируемым полем показа (issue #211).
+        /// При показе копируем текущее значение в поле показа; копирование выполняется под флагом
+        /// синхронизации, чтобы не спровоцировать рекурсию из TextChanged-обработчика.
+        /// </summary>
+        private void ApplyReveal(PasswordBox box, TextBox reveal, bool show, ref bool syncingFlag)
         {
-            reveal.Text = box.Password;
             box.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
             reveal.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (!show) return;
+
+            syncingFlag = true;
+            try
+            {
+                reveal.Text = box.Password;
+            }
+            finally
+            {
+                syncingFlag = false;
+            }
         }
 
         /// <summary>Копирует пароль в буфер обмена.</summary>
@@ -436,7 +554,7 @@ namespace Configuration_Management
         private void OnPasswordReveal_Click(object sender, RoutedEventArgs e)
         {
             _isPasswordRevealed = !_isPasswordRevealed;
-            ApplyReveal(PasswordBox, PasswordRevealTextBox, _isPasswordRevealed);
+            ApplyReveal(PasswordBox, PasswordRevealTextBox, _isPasswordRevealed, ref _isSyncingPassword);
         }
 
         private void OnPasswordCopy_Click(object sender, RoutedEventArgs e) => CopyPassword(PasswordBox);
@@ -444,7 +562,7 @@ namespace Configuration_Management
         private void OnRepositoryPasswordReveal_Click(object sender, RoutedEventArgs e)
         {
             _isRepositoryPasswordRevealed = !_isRepositoryPasswordRevealed;
-            ApplyReveal(RepositoryPasswordBox, RepositoryPasswordRevealTextBox, _isRepositoryPasswordRevealed);
+            ApplyReveal(RepositoryPasswordBox, RepositoryPasswordRevealTextBox, _isRepositoryPasswordRevealed, ref _isSyncingRepositoryPassword);
         }
 
         private void OnRepositoryPasswordCopy_Click(object sender, RoutedEventArgs e) => CopyPassword(RepositoryPasswordBox);
@@ -452,10 +570,75 @@ namespace Configuration_Management
         private void OnConfiguratorPasswordReveal_Click(object sender, RoutedEventArgs e)
         {
             _isConfiguratorPasswordRevealed = !_isConfiguratorPasswordRevealed;
-            ApplyReveal(ConfiguratorPasswordBox, ConfiguratorPasswordRevealTextBox, _isConfiguratorPasswordRevealed);
+            ApplyReveal(ConfiguratorPasswordBox, ConfiguratorPasswordRevealTextBox, _isConfiguratorPasswordRevealed, ref _isSyncingConfiguratorPassword);
         }
 
         private void OnConfiguratorPasswordCopy_Click(object sender, RoutedEventArgs e) => CopyPassword(ConfiguratorPasswordBox);
+
+        // ============ Синхронизация правок из поля показа пароля (issue #211) ============
+        // Поле показа редактируемо, поэтому изменения в нём должны попадать и в скрытый
+        // PasswordBox (чтобы значение не терялось при скрытии) и во ViewModel. Выполняется
+        // под флагом _isSyncing*, чтобы исключить рекурсию событий.
+
+        /// <summary>Синхронизация правок в поле показа пароля → PasswordBox и ViewModel (issue #211).</summary>
+        private void OnPasswordReveal_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_viewModel is null || sender is not TextBox tb) return;
+            if (_isSyncingPassword) return;
+            _isSyncingPassword = true;
+            try
+            {
+                var text = tb.Text ?? string.Empty;
+                if (PasswordBox.Password != text)
+                    PasswordBox.Password = text;
+                if (_viewModel.Password != text)
+                    _viewModel.Password = text;
+            }
+            finally
+            {
+                _isSyncingPassword = false;
+            }
+        }
+
+        /// <summary>Синхронизация правок в поле показа пароля хранилища (issue #211).</summary>
+        private void OnRepositoryPasswordReveal_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_viewModel is null || sender is not TextBox tb) return;
+            if (_isSyncingRepositoryPassword) return;
+            _isSyncingRepositoryPassword = true;
+            try
+            {
+                var text = tb.Text ?? string.Empty;
+                if (RepositoryPasswordBox.Password != text)
+                    RepositoryPasswordBox.Password = text;
+                if (_viewModel.RepositoryPassword != text)
+                    _viewModel.RepositoryPassword = text;
+            }
+            finally
+            {
+                _isSyncingRepositoryPassword = false;
+            }
+        }
+
+        /// <summary>Синхронизация правок в поле показа пароля конфигуратора (issue #211).</summary>
+        private void OnConfiguratorPasswordReveal_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_viewModel is null || sender is not TextBox tb) return;
+            if (_isSyncingConfiguratorPassword) return;
+            _isSyncingConfiguratorPassword = true;
+            try
+            {
+                var text = tb.Text ?? string.Empty;
+                if (ConfiguratorPasswordBox.Password != text)
+                    ConfiguratorPasswordBox.Password = text;
+                if (_viewModel.ConfiguratorPassword != text)
+                    _viewModel.ConfiguratorPassword = text;
+            }
+            finally
+            {
+                _isSyncingConfiguratorPassword = false;
+            }
+        }
     }
 }
 #endif

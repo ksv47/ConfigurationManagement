@@ -290,6 +290,7 @@ namespace Configuration_Management
             afterLaunchBox.ItemsSource = new[]
             {
                 LocalizationManager.T("Settings.General.AfterLaunchAction.None"),
+                LocalizationManager.T("Settings.General.AfterLaunchAction.Minimize"),
                 LocalizationManager.T("Settings.General.AfterLaunchAction.MinimizeToTray"),
                 LocalizationManager.T("Settings.General.AfterLaunchAction.Close")
             };
@@ -355,6 +356,92 @@ namespace Configuration_Management
             });
             comTemplateRow.Children.Add(comTemplateBox);
             settings.Children.Add(comTemplateRow);
+
+            // Интерактивный предпросмотр имени COM-коннектора (issue #175):
+            // редактируемая версия + результат разворота шаблона. Поле версии
+            // исключительно для предпросмотра, в настройки не сохраняется.
+            var comPreviewRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            comPreviewRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorPreviewVersionLabel"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0)
+            });
+            var previewVersionBox = new TextBox
+            {
+                Text = "8.3.45.6789",
+                Width = 120,
+                Height = 30,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            }.Styled(ControlThemes.ModernTextBox);
+            comPreviewRow.Children.Add(previewVersionBox);
+            comPreviewRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorPreviewResultLabel"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(12, 0, 10, 0)
+            });
+            var previewResultBox = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComConnectorPreviewEmpty"),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap
+            };
+            comPreviewRow.Children.Add(previewResultBox);
+            settings.Children.Add(comPreviewRow);
+
+            void UpdateComConnectorPreview()
+            {
+                var result = ComConnectorTemplate.Expand(comTemplateBox.Text, previewVersionBox.Text);
+                previewResultBox.Text = result ?? LocalizationManager.T("Settings.General.ComConnectorPreviewEmpty");
+            }
+
+            comTemplateBox.TextChanged += (_, _) => UpdateComConnectorPreview();
+            previewVersionBox.TextChanged += (_, _) => UpdateComConnectorPreview();
+            UpdateComConnectorPreview();
+
+            // Таймаут определения свойств конфигурации через COM (issue #174).
+            var detectTimeoutHint = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComDetectTimeoutHint"),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Margin = new Thickness(0, 10, 0, 6)
+            };
+            ThemeBrushes.Bind(detectTimeoutHint, TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            settings.Children.Add(detectTimeoutHint);
+
+            var detectTimeoutRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            detectTimeoutRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComDetectTimeout"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0)
+            });
+            var detectTimeoutBox = new TextBox
+            {
+                Text = _viewModel.ComDetectTimeoutMs.ToString(),
+                Width = 120,
+                Height = 30,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            }.Styled(ControlThemes.ModernTextBox);
+            ToolTip.SetTip(detectTimeoutBox, new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComDetectTimeoutTooltip"),
+                MaxWidth = 320,
+                TextWrapping = TextWrapping.Wrap
+            });
+            detectTimeoutRow.Children.Add(detectTimeoutBox);
+            detectTimeoutRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.General.ComDetectTimeoutUnit"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
+            });
+            settings.Children.Add(detectTimeoutRow);
 
             // Управление учётными записями (профилями).
             // Кнопка учётных записей: значок и тема из разметки
@@ -693,6 +780,7 @@ namespace Configuration_Management
             {
                 "Version" => "Column.Version",
                 "Configuration" => "Column.Configuration",
+                "ConfigurationVersion" => "Column.ConfigurationVersion",
                 "LaunchMode" => "Column.LaunchMode",
                 "ServerBase" => "Column.ServerBase",
                 "LastLaunch" => "Column.LastLaunch",
@@ -705,6 +793,7 @@ namespace Configuration_Management
             {
                 "Version" => _viewModel.ShowVersionColumn,
                 "Configuration" => _viewModel.ShowConfigurationColumn,
+                "ConfigurationVersion" => _viewModel.ShowConfigurationVersionColumn,
                 "LaunchMode" => _viewModel.ShowLaunchModeColumn,
                 "ServerBase" => _viewModel.ShowServerColumn,
                 "LastLaunch" => _viewModel.ShowLastLaunchColumn,
@@ -1006,12 +1095,15 @@ namespace Configuration_Management
 
             // Размер можно и выбрать из списка, и набрать руками: в разметке WPF
             // у этого списка стоит IsEditable, и в Avalonia он тоже есть.
+            // Текст редактируемого поля центрируем по вертикали: без этого при
+            // фиксированной высоте число прижимается к верху/низу (issue #216).
             var fontSizeBox = new ComboBox
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Height = 34,
                 Margin = new Thickness(0, 0, 0, 8),
-                IsEditable = true
+                IsEditable = true,
+                VerticalContentAlignment = VerticalAlignment.Center
             };
             foreach (var size in new double[]
             {
@@ -2149,6 +2241,7 @@ namespace Configuration_Management
             var hotkeyClearSearch = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearSearch"), _viewModel.HotkeyClearSearch);
             var hotkeyClearTags = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.ClearTags"), _viewModel.HotkeyClearTags);
             var hotkeyRightPanelDetails = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.RightPanelDetails"), _viewModel.HotkeyRightPanelDetails);
+            var hotkeySwitchUser = HotkeyRow(hotkeys, LocalizationManager.T("Settings.Hotkeys.SwitchUser"), _viewModel.HotkeySwitchUser);
             // У автора последняя строка идёт без нижнего поля, а весь блок строк
             // несёт низ 12 (SettingsWindow.xaml:957 и 1039). У нас строки лежат
             // в общей панели, поэтому поле снимается у последней и добирается
@@ -2381,7 +2474,10 @@ namespace Configuration_Management
                     (LocalizationManager.T("Main.FavoritesTooltip"), hotkeyShowFavorites),
                     (LocalizationManager.T("Main.RecentTooltip"), hotkeyShowRecent),
                     (LocalizationManager.T("Main.ClearSearch"), hotkeyClearSearch),
-                    (LocalizationManager.T("Main.ClearTags"), hotkeyClearTags)
+                    (LocalizationManager.T("Main.ClearTags"), hotkeyClearTags),
+                    // Панель информации (Ctrl+D, issue #172) участвует в проверке
+                    // дублей, как и в Windows-версии (SettingsWindow.xaml.cs).
+                    (LocalizationManager.T("Main.CollapseRightPanel"), hotkeyRightPanelDetails)
                 };
 
                 if (!ValidateHotkeys(assignments))
@@ -2418,14 +2514,18 @@ namespace Configuration_Management
                 _viewModel.AfterLaunchAction = afterLaunchBox.SelectedIndex switch
                 {
                     0 => Models.AfterLaunchAction.None.ToSettingString(),
-                    1 => Models.AfterLaunchAction.MinimizeToTray.ToSettingString(),
-                    2 => Models.AfterLaunchAction.Close.ToSettingString(),
+                    1 => Models.AfterLaunchAction.Minimize.ToSettingString(),
+                    2 => Models.AfterLaunchAction.MinimizeToTray.ToSettingString(),
+                    3 => Models.AfterLaunchAction.Close.ToSettingString(),
                     // Ничего не выбрано: значение остаётся прежним, как в WPF-версии.
                     _ => _viewModel.AfterLaunchAction
                 };
 
                 // Имя COM-коннектора 1С по шаблону версии платформы (issue #175).
                 _viewModel.ComConnectorNameTemplate = comTemplateBox.Text?.Trim() ?? "";
+                // Таймаут определения свойств конфигурации через COM (issue #174).
+                if (int.TryParse(detectTimeoutBox.Text, out var detectTimeout))
+                    _viewModel.ComDetectTimeoutMs = detectTimeout;
 
                 _viewModel.ApplyIbasesSyncSettings(
                     syncModeBox.SelectedIndex >= 0 ? syncModes[syncModeBox.SelectedIndex].Mode : IbasesSyncMode.None,
@@ -2457,7 +2557,8 @@ namespace Configuration_Management
                     hotkeyEnterprise.Value, hotkeyConfigurator.Value, hotkeyEdit.Value, hotkeyAdd.Value,
                     hotkeyFavorite.Value, hotkeyPin.Value, hotkeyDelete.Value, hotkeyClearCache.Value,
                     hotkeyShowAll.Value, hotkeyShowFavorites.Value, hotkeyShowRecent.Value,
-                    hotkeyClearSearch.Value, hotkeyClearTags.Value, hotkeyRightPanelDetails.Value);
+                    hotkeyClearSearch.Value, hotkeyClearTags.Value, hotkeyRightPanelDetails.Value,
+                    hotkeySwitchUser.Value);
 
                 // Настройки отображения применяются и сохраняются одним вызовом.
                 // Видимость колонок читается из тех же элементов списка, где
@@ -2471,6 +2572,7 @@ namespace Configuration_Management
                     tagPanelCheck.IsChecked == true,
                     VisibleOf("Version"),
                     VisibleOf("Configuration"),
+                    VisibleOf("ConfigurationVersion"),
                     VisibleOf("LaunchMode"),
                     VisibleOf("ServerBase"),
                     VisibleOf("LastLaunch"),

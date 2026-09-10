@@ -124,6 +124,15 @@ public class AppSettings
     /// </summary>
     public string ComConnectorNameTemplate { get; set; } = "";
 
+    /// <summary>
+    /// Таймаут определения свойств конфигурации через COM-коннектор (issue #174), миллисекунды.
+    /// Первое COM-подключение к клиент-серверной базе (особенно localhost с холодным стартом
+    /// сервера, обращением к лицензиям HASP и первичным созданием сеанса) часто превышает 8 секунд.
+    /// Значение по умолчанию 30000 мс — чтение выполняется только по явной команде, поэтому
+    /// длинный таймаут не мешает старту. Минимально допустимое значение — 1000.
+    /// </summary>
+    public int ComDetectTimeoutMs { get; set; } = 30000;
+
     /// <summary>Режим синхронизации с файлом ibases.v8i.</summary>
     public IbasesSyncMode IbasesSyncMode { get; set; } = IbasesSyncMode.None;
 
@@ -193,11 +202,17 @@ public class AppSettings
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn { get; set; } = true;
 
-    /// <summary>Показывать колонку «Конфигурация» (название и версия) в списке баз.</summary>
+    /// <summary>Показывать колонку «Конфигурация» (только название) в списке баз.</summary>
     public bool ShowConfigurationColumn { get; set; } = true;
 
     /// <summary>Ширина колонки «Конфигурация» (0 — по умолчанию).</summary>
     public double ConfigurationColumnWidth { get; set; }
+
+    /// <summary>Показывать колонку «№ релиза» (версия конфигурации) в списке баз.</summary>
+    public bool ShowConfigurationVersionColumn { get; set; } = true;
+
+    /// <summary>Ширина колонки «№ релиза» (0 — по умолчанию).</summary>
+    public double ConfigurationVersionColumnWidth { get; set; }
 
     /// <summary>Показывать колонку «Действия» (кнопки запуска/конфигуратора/очистки кеша) в списке баз.</summary>
     public bool ShowActionsColumn { get; set; } = true;
@@ -272,8 +287,8 @@ public class AppSettings
 
     /// <summary>
     /// Действие после успешного запуска информационной базы или конфигуратора 1С:
-    /// "None" (ничего), "MinimizeToTray" (свернуть в трей) или "Close" (закрыть/увести в трей).
-    /// Хранится строкой для обратной совместимости.
+    /// "None" (ничего), "Minimize" (просто свернуть), "MinimizeToTray" (свернуть в трей)
+    /// или "Close" (закрыть/увести в трей). Хранится строкой для обратной совместимости.
     /// </summary>
     public string AfterLaunchAction { get; set; } = "None";
 
@@ -321,7 +336,10 @@ public class AppSettings
 
     /// <summary>Горячая клавиша переключения подробностей правой панели информации (issue #172). Пусто — не назначена.</summary>
     public string HotkeyRightPanelDetails { get; set; } = "Ctrl+D";
- 
+
+    /// <summary>Горячая клавиша «Смена пользователя» (issue #200). Пусто — не назначена.</summary>
+    public string HotkeySwitchUser { get; set; } = "";
+
     /// <summary>
     /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.
     /// </summary>

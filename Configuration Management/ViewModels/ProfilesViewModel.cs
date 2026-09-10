@@ -313,13 +313,22 @@ public sealed class ProfilesViewModel : ViewModelBase
         if (!_dialogService.Confirm(confirm, LocalizationManager.T("Profiles.Title")))
             return;
 
-        if (!_profileService.DeleteProfile(profile.Id))
+        try
         {
-            ErrorMessage = LocalizationManager.T("Profiles.CantDeleteLast");
-            return;
-        }
+            if (!_profileService.DeleteProfile(profile.Id))
+            {
+                ErrorMessage = LocalizationManager.T("Profiles.CantDeleteLast");
+                return;
+            }
 
-        RefreshList();
+            RefreshList();
+        }
+        catch (Exception ex)
+        {
+            // Например, не удалось сохранить реестр profiles.json — удаление откачено
+            // сервисом, показываем причину пользователю.
+            ErrorMessage = ex.Message;
+        }
     }
 }
 #endif

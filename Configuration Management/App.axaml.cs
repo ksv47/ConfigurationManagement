@@ -29,6 +29,14 @@ namespace Configuration_Management
         private static IClassicDesktopStyleApplicationLifetime? _desktopLifetime;
 
         /// <summary>
+        /// Хронометр запуска (issue #153): по нему пишутся метки этапов старта Linux/Avalonia,
+        /// чтобы на машине пользователя (VirtualBox/KDE NEON X11) было видно, до какого этапа
+        /// дошёл запуск и где именно он останавливается или начинает «молотить» CPU.
+        /// </summary>
+        private static readonly System.Diagnostics.Stopwatch _startupWatch =
+            System.Diagnostics.Stopwatch.StartNew();
+
+        /// <summary>
         /// Работает ли режим единственного экземпляра: блокировка взята и сигнал
         /// от повторного запуска слушается. Значение относится к текущему
         /// процессу и после старта не меняется, даже если настройку переключат:
@@ -94,27 +102,34 @@ namespace Configuration_Management
                 // Загружаем настройки до показа окна, чтобы проверить запрет второго экземпляра.
                 AppServices.Configure();
 
+                // Логгер доступен только после настройки контейнера. Метки этапов запуска
+                // (issue #153) пишутся в журнал приложения и в консоль, чтобы на виртуальной
+                // машине пользователя (VirtualBox/KDE NEON X11) было видно, до какого этапа
+                // старт дошёл и где именно он останавливается или начинает «молотить» CPU.
+                var startupLogger = AppServices.GetRequiredService<Services.IAppLogger>();
+                LogStartupStage(startupLogger, "Контейнер настроен");
+
                 // Диагностика окружения рендеринга (issue #153): флаги непрозрачности/анимаций
                 // и переменные сессии пишутся в файловый лог один раз при старте, чтобы на
                 // машине пользователя (VirtualBox/KDE NEON X11) было видно, какой режим выбран
                 // и почему окно «висит» или рисуется чёрным (связано с #177).
-#if LINUX
                 try
                 {
-                    Services.LinuxRendering.LogStartupDiagnostics(
-                        AppServices.GetRequiredService<Services.IAppLogger>());
+                    Services.LinuxRendering.LogStartupDiagnostics(startupLogger);
+                    LogStartupStage(startupLogger, "Диагностика окружения рендеринга выполнена");
                 }
                 catch
                 {
                     // Диагностика не должна блокировать запуск.
+                    LogStartupStage(startupLogger, "Диагностика окружения рендеринга пропущена");
                 }
-#endif
 
                 // Инициализируем учётные записи (профили): загружаем реестр, при первом
                 // запуске мигрируем легаси-данные в профиль по умолчанию. Репозиторий
                 // читает/пишет файлы данных в каталог активного профиля.
                 var profileService = AppServices.GetRequiredService<IProfileService>();
                 profileService.EnsureInitialized();
+                LogStartupStage(startupLogger, "Профили инициализированы");
 
                 // Любое окно, закрытое до создания главного, гасит приложение: режим
                 // завершения по умолчанию OnLastWindowClose считает его последним,
@@ -133,6 +148,8 @@ namespace Configuration_Management
                 // по аналогии со списком пользователей 1С. При одной записи входим без запроса.
                 if (profileService.Profiles.Count > 1)
                 {
+                    LogStartupStage(startupLogger, "Окно авторизации: профилей более одного");
+
                     // Локализацию поднимаем до показа окна: настройки выбранного профиля
                     // читаются ниже, а без словаря окно входа показывает ключи
                     // (Auth.Title, Auth.Login) вместо подписей. Язык берётся из профиля,
@@ -156,6 +173,10 @@ namespace Configuration_Management
                     }
                     profileService.SetCurrentProfile(selectedId);
                 }
+                else
+                {
+                    LogStartupStage(startupLogger, "Окно авторизации не требуется");
+                }
 
                 ProfileBackupService.DataDirectoryResolver = () => profileService.CurrentProfileDataDirectory;
 
@@ -163,6 +184,7 @@ namespace Configuration_Management
                 AppSettings settings;
                 try { settings = repository.LoadSettings(); }
                 catch { settings = new AppSettings(); }
+                LogStartupStage(startupLogger, "Настройки загружены");
 
                 // Восстановление профиля из указанного каталога резервной копии
                 // (например, после переустановки системы): настройки, список баз
@@ -202,6 +224,7 @@ namespace Configuration_Management
                 {
                     // Локализация не должна блокировать запуск приложения.
                 }
+                LogStartupStage(startupLogger, "Локализация инициализирована");
 
                 if (!settings.AllowMultipleInstances)
                 {
@@ -216,6 +239,7 @@ namespace Configuration_Management
                     StartActivationListener();
                     SingleInstanceActive = true;
                 }
+                LogStartupStage(startupLogger, "Проверка единственного экземпляра завершена");
 
                 if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 {
@@ -235,8 +259,10 @@ namespace Configuration_Management
                     // Компактный режим интерфейса (влияет на метрики отступов/иконок,
                     // должен быть установлен до построения главного окна).
                     UiMetrics.Compact = settings.CompactMode;
+                    LogStartupStage(startupLogger, "Тема применена");
 
                     var mainWindow = AppServices.GetRequiredService<MainWindow>();
+                    LogStartupStage(startupLogger, "Главное окно построено");
 
                     // Версия в заголовке (информационная версия, напр. «0.3.1.1»).
                     // Из InformationalVersion отбрасываем возможный суффикс «+<sha>».
@@ -256,6 +282,7 @@ namespace Configuration_Management
 
                     desktop.MainWindow = mainWindow;
                     mainWindow.Show();
+                    LogStartupStage(startupLogger, "Главное окно показано");
 
                     // Фоновая проверка обновлений (Linux/Avalonia): запускаем после показа
                     // главного окна, чтобы не задерживать старт. Если пользователь отключил
@@ -272,15 +299,29 @@ namespace Configuration_Management
                     // переключался на явный, иначе закрытие окна входа гасило
                     // приложение до появления главного.
                     desktop.ShutdownMode = shutdownModeBeforeStartup;
+                    LogStartupStage(startupLogger, "Запуск завершён");
                 }
             }
             catch (Exception ex)
             {
-                ShowFatalError(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
+                // issue #213: при раннем сбое локализация может быть ещё не загружена,
+                // тогда T вернёт сам ключ — подставляем встроенный читаемый текст.
+                ShowFatalError(TOr("App.Fatal.StartupFailed", "Не удалось запустить приложение"), ex);
                 Shutdown(1);
             }
 
             base.OnFrameworkInitializationCompleted();
+        }
+
+        /// <summary>
+        /// Возвращает перевод ключа, а если ключ не найден (словари ещё пусты из-за
+        /// сбоя до инициализации локализации), — встроенный запасной текст. Так
+        /// фатальное сообщение остаётся читаемым при любом состоянии приложения (issue #213).
+        /// </summary>
+        private static string TOr(string key, string fallback)
+        {
+            var text = LocalizationManager.T(key);
+            return string.Equals(text, key, StringComparison.Ordinal) ? fallback : text;
         }
 
         /// <summary>
@@ -308,6 +349,26 @@ namespace Configuration_Management
         /// «Cannot perform requested operation because the Dispatcher shut down».
         /// </summary>
         private static void Shutdown(int exitCode = 0) => Environment.Exit(exitCode);
+
+        /// <summary>
+        /// Пишет метку этапа запуска в журнал приложения и в консоль (issue #153).
+        /// Диагностическая сборка Linux: по времени нарастающим итогом видно, до какого
+        /// этапа дошёл старт и где он остановился или начал циклически «молотить» CPU.
+        /// Безопасен на любом этапе — при недоступном логгере просто молча пропускается.
+        /// </summary>
+        private static void LogStartupStage(IAppLogger? logger, string stage)
+        {
+            try
+            {
+                var elapsed = _startupWatch.ElapsedMilliseconds;
+                var message = $"[startup {elapsed} мс] {stage}";
+                if (logger is not null)
+                    logger.Info(message);
+                else
+                    Console.WriteLine(message);
+            }
+            catch { /* диагностика не должна блокировать запуск */ }
+        }
 
         /// <summary>
         /// Захватывает исключительный файловый lock (один экземпляр на Linux).

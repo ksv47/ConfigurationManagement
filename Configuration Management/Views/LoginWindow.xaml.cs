@@ -5,6 +5,7 @@ using System.Windows.Input;
 using Configuration_Management.Localization;
 using Configuration_Management.Models;
 using Configuration_Management.Services;
+using Configuration_Management.Themes;
 
 namespace Configuration_Management
 {
@@ -26,6 +27,8 @@ namespace Configuration_Management
         /// </summary>
         public static string? ShowLogin(IProfileService profileService)
         {
+            ApplyActiveTheme();
+
             var window = new LoginWindow(profileService);
 
             // На старте главного окна ещё нет, и первым MainWindow приложения
@@ -38,6 +41,32 @@ namespace Configuration_Management
 
             window.ShowDialog();
             return window.SelectedProfileId;
+        }
+
+        /// <summary>
+        /// Применяет сохранённую цветовую схему и вариант темы, чтобы окно входа выглядело так же,
+        /// как остальные окна приложения. При запуске тема ещё не применена (она загружается позже,
+        /// после выбора профиля), поэтому скиним её здесь (issue #200). При смене пользователя в
+        /// работающем приложении повторное применение безвредно — схема уже актуальна.
+        /// </summary>
+        private static void ApplyActiveTheme()
+        {
+            try
+            {
+                var repository = AppServices.GetRequiredService<IInfobaseRepository>();
+                var settings = repository.LoadSettings();
+                var mergedScheme = Models.ColorScheme.FromLegacy(
+                    settings.ActiveColorScheme, settings.LightColorScheme, settings.DarkColorScheme);
+                var themeName = string.IsNullOrWhiteSpace(settings.Theme)
+                    ? Themes.ThemeManager.LightThemeName
+                    : settings.Theme;
+                Themes.ThemeManager.ApplyScheme(mergedScheme);
+                Themes.ThemeManager.ApplyTheme(themeName == Themes.ThemeManager.DarkThemeName);
+            }
+            catch
+            {
+                // Тема не должна блокировать вход: без неё используется тема по умолчанию.
+            }
         }
 
         public LoginWindow(IProfileService profileService)
@@ -87,23 +116,32 @@ namespace Configuration_Management
 
         private void TryLogin()
         {
-            var profile = SelectedProfile;
-            if (profile == null)
+            // Любой сбой при входе (например, ошибка проверки пароля) показываем понятным
+            // сообщением в самом окне, а не роняем приложение необработанным исключением.
+            try
             {
-                ShowError(LocalizationManager.T("Auth.EmptySelection"));
-                return;
-            }
+                var profile = SelectedProfile;
+                if (profile == null)
+                {
+                    ShowError(LocalizationManager.T("Auth.EmptySelection"));
+                    return;
+                }
 
-            if (profile.HasPassword && !_profileService.VerifyPassword(profile.Id, PasswordInput.Password))
+                if (profile.HasPassword && !_profileService.VerifyPassword(profile.Id, PasswordInput.Password))
+                {
+                    ShowError(LocalizationManager.T("Auth.WrongPassword"));
+                    PasswordInput.Clear();
+                    PasswordInput.Focus();
+                    return;
+                }
+
+                SelectedProfileId = profile.Id;
+                DialogResult = true;
+            }
+            catch (Exception ex)
             {
-                ShowError(LocalizationManager.T("Auth.WrongPassword"));
-                PasswordInput.Clear();
-                PasswordInput.Focus();
-                return;
+                ShowError(string.Format(LocalizationManager.T("Auth.LoginError"), ex.Message));
             }
-
-            SelectedProfileId = profile.Id;
-            DialogResult = true;
         }
 
         private void ShowError(string message)

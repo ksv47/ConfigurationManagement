@@ -56,6 +56,9 @@ public interface IOneCComConnector
     /// <summary>
     /// Считывает наименование и версию конфигурации базы через COM-коннектор.
     /// Возвращает null, если чтение не удалось или превышен таймаут.
+    /// <paramref name="onStage"/> — обратный вызов смены этапа (например, для диалога
+    /// прогресса кнопки «Определить», issue #174). Вызывается из рабочего потока, поэтому
+    /// подписчик должен сам перейти в UI-поток.
     /// </summary>
-    OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000);
+    OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000, Action<string>? onStage = null);
 }
