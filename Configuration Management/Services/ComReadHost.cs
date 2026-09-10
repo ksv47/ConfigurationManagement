@@ -672,9 +672,11 @@ internal static class ComReadHost
             return ComReadResult.Fail(ComFailureKind.Transport);
         }
 
-        // Ровно столько полей, сколько предусмотрено: лишние означают, что мы читаем
-        // не то, что думаем.
-        if (parts.Length == 4 && string.Equals(parts[1], "OK", StringComparison.Ordinal))
+        // Поле фактически использованного ProgID появилось в 0.3.7.7 (issue #175). Принимаем
+        // и старые кадры без него (4 поля), и новые (5 полей): обе стороны поставляются вместе,
+        // но строгий разбор не должен ломаться на уже записанном/присланном формате.
+        if ((parts.Length == 4 || parts.Length == 5)
+            && string.Equals(parts[1], "OK", StringComparison.Ordinal))
         {
             if (!TryDecode(parts[2], out var name) || !TryDecode(parts[3], out var version))
             {
@@ -685,7 +687,18 @@ internal static class ComReadHost
                 return ComReadResult.Fail(ComFailureKind.Transport);
             }
 
-            return ComReadResult.Ok(new OneCConfigInfo(name, version));
+            string? usedProgId = null;
+            if (parts.Length == 5)
+            {
+                if (!TryDecode(parts[4], out var decodedProgId))
+                {
+                    desynchronized = true;
+                    return ComReadResult.Fail(ComFailureKind.Transport);
+                }
+                usedProgId = decodedProgId;
+            }
+
+            return ComReadResult.Ok(new OneCConfigInfo(name, version), usedProgId);
         }
 
         // Промежуточный кадр отличается только меткой: поля те же, что у ошибки.
@@ -912,10 +925,12 @@ internal static class ComReadHost
         ComFailureKind kind;
         string? detail;
         string? code;
+        string? usedProgId;
         try
         {
             info = ReadInProcess(
-                connectString, timeoutMs, progIds, SendPartial, out kind, out detail, out code);
+                connectString, timeoutMs, progIds, SendPartial, out kind, out detail, out code,
+                out usedProgId);
         }
         finally
         {
@@ -927,10 +942,12 @@ internal static class ComReadHost
 
         // Имя и версия конфигурации приходят из Metadata и строку подключения содержать
         // не могут — их отдаём как есть.
+        // В кадре успеха уезжает и фактически использованный ProgID (issue #175): родитель
+        // показывает и логирует именно тот коннектор, который реально подключился.
         return info is null
             ? Error(seq, KindToToken(kind), code, detail)
             : ResultPrefix + seq + "\tOK\t" + Encode(info.Value.Name)
-              + "\t" + Encode(info.Value.Version);
+              + "\t" + Encode(info.Value.Version) + "\t" + Encode(usedProgId);
     }
 
     /// <summary>
@@ -1092,12 +1109,13 @@ internal static class ComReadHost
     private static OneCConfigInfo? ReadInProcess(
         string connectString, int timeoutMs, IReadOnlyList<string> progIds,
         Action<string, string, string>? onPartial,
-        out ComFailureKind kind, out string? detail, out string? code)
+        out ComFailureKind kind, out string? detail, out string? code, out string? usedProgId)
     {
         OneCConfigInfo? result = null;
         var localKind = ComFailureKind.NotRegistered;
         string? localDetail = null;
         string? localCode = null;
+        string? localUsedProgId = null;
 
         // Диагноз держим самый осмысленный, а не первый попавшийся. Прежде было наоборот:
         // битая регистрация V83 закрепляла вердикт «не удалось создать экземпляр», и
@@ -1199,6 +1217,7 @@ internal static class ComReadHost
 
                     result = new OneCConfigInfo(name, version);
                     localKind = ComFailureKind.None;
+                    localUsedProgId = progId; // фактически подключившийся коннектор (issue #175)
                     return;
                 }
                 catch (Exception ex)
@@ -1263,12 +1282,14 @@ internal static class ComReadHost
             kind = ComFailureKind.Timeout;
             detail = timeoutMs.ToString(CultureInfo.InvariantCulture);
             code = null;
+            usedProgId = null;
             return null;
         }
 
         kind = localKind;
         detail = localDetail;
         code = localCode;
+        usedProgId = localUsedProgId;
         return result;
     }
 

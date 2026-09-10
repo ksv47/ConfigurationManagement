@@ -312,6 +312,21 @@ namespace Configuration_Management.Themes
             ApplyCompactElement(root, factor, fontFactor);
         }
 
+        /// <summary>
+        /// Исключает колонку из компактизации ширины. Используется для колонки-компенсатора
+        /// заголовка (<c>HeaderOffsetColumn</c>), ширина которой целиком управляется
+        /// <c>AlignHeaderToData</c>: она не является колонкой данных и не должна масштабироваться
+        /// коэффициентом компактности — иначе после первичного применения компакт-режима (когда
+        /// компенсатор уже получил ненулевую ширину) строки «разъезжаются» по горизонтали и
+        /// выравнивание восстанавливается лишь повторным переключением тумблера (issue #214).
+        /// </summary>
+        public static void ForgetCompactWidth(ColumnDefinition column)
+        {
+            if (column is null)
+                return;
+            _compactColumn.Remove(column);
+        }
+
         private static void ApplyCompactElement(DependencyObject d, double factor, double fontFactor)
         {
             if (d is null)

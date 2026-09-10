@@ -275,6 +275,15 @@ namespace Configuration_Management
                 Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
             }
 
+            // Финальное выравнивание после полной материализации строк дерева. Виртуализация
+            // достраивает контейнеры строк в проходе разметки ПОСЛЕ события Loaded, поэтому
+            // выравнивание на Loaded-приоритете может выполниться до появления первой строки,
+            // и колонка-компенсатор заголовка остаётся в значении по умолчанию — компактность
+            // «разъезжается» сразу после запуска, пока пользователь не переключит тумблер
+            // (issue #214). ApplicationIdle гарантирует, что строки уже реализованы и замер
+            // выравнивания корректен (тот же приём, что в RevealAndSelectAfterRebuild).
+            Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
             // Запускаем автоматическую синхронизацию с файлом ibases.v8i.
             _viewModel.StartAutoSync();
         }

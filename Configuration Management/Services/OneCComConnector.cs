@@ -380,6 +380,18 @@ public sealed class OneCComConnector : IOneCComConnector
         if (result.Failure == ComFailureKind.None && result.Info is not null)
         {
             LastError = null;
+
+            // Агент сообщает фактически подключившийся ProgID (issue #175): родительская
+            // оценка FirstRegisteredProgId лишь предсказывала, какой кандидат зарегистрирован,
+            // а тут — тот, который реально установил соединение. Обновляем диагностику
+            // и пишем в журнал, чтобы было видно, какой именно COM-коннектор использовался.
+            if (!string.IsNullOrWhiteSpace(result.UsedProgId))
+                LastUsedProgId = result.UsedProgId;
+
+            _logger.Info(
+                $"Подключение к базе «{DisplayName(ib)}» через COM-коннектор "
+                + $"{LastUsedProgId ?? "(не определён)"} успешно."
+                + $" Версия платформы: {LastUsedPlatformVersion ?? "(не указана)"}.");
             return result.Info;
         }
 
@@ -404,6 +416,7 @@ public sealed class OneCComConnector : IOneCComConnector
             // при сборке строки. Пароль маскируем тем же правилом, что и для ошибок от 1С.
             _logger.Error(
                 $"Не удалось прочитать сведения о конфигурации базы «{DisplayName(ib)}»: {LastError}{trace}."
+                + $" Использованный COM-коннектор: {LastUsedProgId ?? "(не определён)"}."
                 + $" Строка подключения: {MaskCredentials(connectString)}. Таймаут: {timeoutMs} мс.");
         }
 

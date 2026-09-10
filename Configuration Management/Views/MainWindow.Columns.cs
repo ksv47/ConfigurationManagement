@@ -347,7 +347,13 @@ namespace Configuration_Management
 
             var offset = Math.Max(0, (rowOrigin + rowStart) - (headerOrigin + headerStart));
             if (Math.Abs(offset - HeaderOffsetColumn.Width.Value) > 0.5)
+            {
+                // Компенсатор управляется только этим методом — исключаем его из компактизации,
+                // чтобы повторное применение компакт-режима не масштабировало уже выставленную
+                // ширину и не «разъезжало» строки по горизонтали (issue #214).
+                Themes.ThemeManager.ForgetCompactWidth(HeaderOffsetColumn);
                 HeaderOffsetColumn.Width = new GridLength(offset);
+            }
 
             SyncHeaderWidthWithList();
         }

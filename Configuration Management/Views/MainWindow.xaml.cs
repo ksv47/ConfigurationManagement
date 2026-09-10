@@ -132,6 +132,12 @@ namespace Configuration_Management
             {
                 RestoreTreeKeyboardFocus();
                 Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+                // Виртуализация создаёт новые контейнеры строк в проходе разметки ПОСЛЕ события
+                // Loaded, поэтому выравнивание на Loaded-приоритете может выполниться до их
+                // появления — компактность снова «разъезжается» (issue #214) до ручного
+                // переключения тумблера. ApplicationIdle добирает такие строки (тот же приём,
+                // что в RevealAndSelectAfterRebuild).
+                Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             };
 
             // Пересчитываем выравнивание колонок заголовка после переключения компактного

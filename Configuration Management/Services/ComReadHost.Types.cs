@@ -48,9 +48,10 @@ internal enum ComFailureKind
 /// </para>
 /// </summary>
 internal readonly record struct ComReadResult(
-    OneCConfigInfo? Info, ComFailureKind Failure, string? Detail, string? Code = null)
+    OneCConfigInfo? Info, ComFailureKind Failure, string? Detail, string? Code = null, string? UsedProgId = null)
 {
-    public static ComReadResult Ok(OneCConfigInfo info) => new(info, ComFailureKind.None, null);
+    public static ComReadResult Ok(OneCConfigInfo info, string? usedProgId = null) =>
+        new(info, ComFailureKind.None, null, UsedProgId: usedProgId);
     public static ComReadResult Fail(ComFailureKind kind, string? detail = null, string? code = null) =>
         new(null, kind, detail, code);
 }

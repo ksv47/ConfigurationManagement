@@ -419,6 +419,20 @@ namespace Configuration_Management.Services
         /// <summary>Закрывает текущее приложение (вызывается после успешного запуска помощника).</summary>
         internal void ShutdownNow()
         {
+            // Диагностика issue #153: фиксируем, что закрытие окна — это применение обновления,
+            // а не сбой. Если в логе появилась эта запись и следом managed exit из App — значит
+            // «самозакрытие» вызвано автообновлением, а не рендером/вводом окружения.
+            try
+            {
+                var note =
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Обновление: помощник запущен, закрываем приложение для перезапуска.";
+                Console.WriteLine(note);
+                var dataDir = Configuration_Management.Services.PlatformPaths.AppDataDirectory;
+                Directory.CreateDirectory(dataDir);
+                File.AppendAllText(Path.Combine(dataDir, "errors.log"), note + Environment.NewLine);
+            }
+            catch { /* логирование не должно мешать закрытию */ }
+
             Dispatcher.UIThread.Post(() =>
             {
                 try
