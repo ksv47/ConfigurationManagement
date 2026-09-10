@@ -9,6 +9,43 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.7.4] — 2026-09-10
+
+Исправления по issue #191 и PR #218: при скрытой колонке «Действия» список больше не уезжает вправо на узком окне — компенсатор выравнивания заголовка перестал зависеть от собственного прошлого значения.
+
+### Исправлено
+
+- **Список уезжал вправо при скрытой колонке «Действия» на узком окне** ([#191](https://github.com/sivatorov/ConfigurationManagement/issues/191)): в методе `AlignHeaderToRows` (`MainWindow.Avalonia.cs`) звёздная колонка имени исключена из обеих сумм ведущих колонок при расчёте компенсатора выравнивания заголовка со строками (`i <= NameRowColumn` → `i < NameRowColumn`, `i <= NameHeaderColumn` → `i < NameHeaderColumn`). Раньше компенсатор зависел от собственного прошлого значения, из-за чего ширина списка росла до десятков тысяч точек, и все колонки, кроме «Названия», уезжали за правый край окна. Ведущие колонки у заголовка и строки одинаковы, а общая ширина общая, поэтому после совмещения имя занимает одинаковое место в обеих сетках. Только Linux/Avalonia-сборка ([`MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)).
+
+### Версия
+
+- **Версия поднята до `0.3.7.3` → `0.3.7.4`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.7.3] — 2026-09-10
+
+Исправления по issue #213 и PR #219: заголовки фатальных сообщений во всех обработчиках необработанных исключений выводятся через хелпер `TOr(ключ, запасной текст)`, поэтому при сбое до инициализации локализации вместо ключа (`App.Fatal.*`) показывается встроенный читаемый русский текст.
+
+### Исправлено
+
+- **Запасной текст вместо ключа локализации в фатальных сообщениях** ([#213](https://github.com/sivatorov/ConfigurationManagement/issues/213)): все заголовки фатальных сообщений переведены на `TOr(ключ, запасной текст)`, чтобы при сбое до инициализации локализации (когда `LocalizationManager.T` возвращает сам ключ) пользователь видел читаемый текст, а не ключ вида `App.Fatal.Interface`. Переведены обработчики `App.Fatal.Interface` («Ошибка интерфейса»), `App.Fatal.Critical` («Критическая ошибка»), `App.Fatal.BackgroundTask` («Ошибка фоновой задачи»), а также тексты `App.Fatal.InternalError` («Внутренняя ошибка:») и `App.Fatal.Title` («Управление конфигурациями 1С — ошибка»). Реализовано в обеих сборках — Windows/WPF ([`App.xaml.cs`](Configuration%20Management/App.xaml.cs)) и Linux/Avalonia ([`App.axaml.cs`](Configuration%20Management/App.axaml.cs)).
+
+### Версия
+
+- **Версия поднята до `0.3.7.2` → `0.3.7.3`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
+## [0.3.7.2] — 2026-09-10
+
+Исправления по issue #178 и PR #220: в отчёте об очистке кэша по базам теперь указывается объём освобождённого места, а написание «кэш» в подсказке про остатки от удалённых баз унифицировано.
+
+### Исправлено
+
+- **Объём освобождённого места в отчёте очистки кэша по базам** ([#178](https://github.com/sivatorov/ConfigurationManagement/issues/178)): при очистке кэша выбранных баз в сообщении `Main.CacheCleaned` теперь дополнительно выводится суммарный объём удалённых каталогов (`{3}`). Размер вычисляется до очистки через `OneCCacheCleaner.GetSize` и форматируется `Infobase.FormatSize`. Реализовано в обеих сборках — Windows/WPF ([`MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs)) и Linux/Avalonia ([`MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)); в Avalonia-сборке объём добавлен и в быструю очистку (`QuickClearCache`).
+- **Унифицировано написание «кэш» в подсказке `OrphanCacheTooltip`** ([#178](https://github.com/sivatorov/ConfigurationManagement/issues/178)): в русской локализации ([`ru.json`](Configuration%20Management/Localization/Languages/ru.json)) слово «кеша» заменено на «кэша» («Каталоги кэша, не соответствующие...»).
+
+### Версия
+
+- **Версия поднята до `0.3.7.1` → `0.3.7.2`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+
 ## [0.3.7.1] — 2026-09-09
 
 Доработка выпуска 0.3.6.100 по issue #217: новая колонка **«№ релиза»** теперь корректно показывается в настройках отображения, в том числе у пользователей, у которых порядок колонок был сохранён до её появления.
