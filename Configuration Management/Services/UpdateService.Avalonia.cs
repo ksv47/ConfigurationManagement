@@ -325,20 +325,37 @@ namespace Configuration_Management.Services
                 return;
             }
 
-            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!);
-            if (newBinary is null)
-            {
-                ShowOnUi(() => _dialogs.ShowError(
-                    LocalizationManager.T("Update.DownloadFailed"),
-                    LocalizationManager.T("Update.NewVersionAvailable")));
-                return;
-            }
-
             var target = ResolveTargetBinary();
             if (target is null)
             {
                 ShowOnUi(() => _dialogs.ShowError(
                     LocalizationManager.T("Update.InstallFailed"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            // Способ установки проверяется до скачивания, как и в режиме с вопросом
+            // (issue #153). Без этой проверки автообновление в пакетной установке
+            // (deb в /usr/bin, AppImage) доходило до запуска помощника и закрывало
+            // приложение, а заменить файл помощник не мог: каталог не на запись.
+            // Со стороны пользователя это выглядело как самопроизвольный выход
+            // через несколько секунд после запуска.
+            var autoBlocker = GetSelfUpdateBlocker(target);
+            if (autoBlocker is not null)
+            {
+                var manual = autoBlocker;
+                if (!string.IsNullOrWhiteSpace(release.HtmlUrl))
+                    manual += Environment.NewLine + Environment.NewLine + release.HtmlUrl;
+                ShowOnUi(() => _dialogs.ShowInfo(
+                    manual, LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!);
+            if (newBinary is null)
+            {
+                ShowOnUi(() => _dialogs.ShowError(
+                    LocalizationManager.T("Update.DownloadFailed"),
                     LocalizationManager.T("Update.NewVersionAvailable")));
                 return;
             }
