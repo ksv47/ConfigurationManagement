@@ -93,9 +93,14 @@ namespace Configuration_Management
                 args.SetObserved();
             };
 
-            // Освобождаем файловый lock при завершении процесса.
+            // Освобождаем файловый lock при завершении процесса и фиксируем факт выхода.
             AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             {
+                // Диагностика issue #153: запись о штатном (managed) выходе с кодом возврата.
+                // Если окно закрылось «само», а этой строки в логе нет — процесс завершился
+                // нативным сбоем (SIGSEGV/SIGABRT в рендере/вводе) до какого-либо управляемого
+                // обработчика, и причина не в логике приложения, а в окружении (vmwgfx/GL).
+                try { LogProcessExit(); } catch { /* ignore */ }
                 try { _activateCts?.Cancel(); _activateCts?.Dispose(); } catch { /* ignore */ }
                 try { _instanceLock?.Dispose(); } catch { /* ignore */ }
             };
@@ -294,7 +299,14 @@ namespace Configuration_Management
                     if (settings.CheckForUpdatesOnStartup)
                     {
                         var updateService = AppServices.GetRequiredService<UpdateService>();
-                        updateService.AutoUpdateEnabled = settings.AutoUpdateEnabled;
+                        // На виртуализации и при программном рендере молчаливый авто-рестарт
+                        // в фоне выглядит как «окно закрывается само через несколько секунд»
+                        // после успешного запуска (issue #153): скачивание и замена бинарника
+                        // с перезапуском здесь переносятся на явный выбор пользователя
+                        // (показывается стандартный диалог), чтобы окно не пропадало само.
+                        // На реальном железе с рабочим GPU поведение не меняется.
+                        updateService.AutoUpdateEnabled = settings.AutoUpdateEnabled
+                            && !(Services.LinuxRendering.Virtualized || Services.LinuxRendering.SoftwareRender);
                         CheckForUpdatesInBackground(updateService);
                     }
 
@@ -483,6 +495,30 @@ namespace Configuration_Management
                 {
                     var logger = AppServices.Services?.GetService<IAppLogger>();
                     logger?.Error($"{title}: {ex.Message}", ex);
+                }
+                catch { /* ignore */ }
+            }
+            catch { /* ignore */ }
+        }
+
+        /// <summary>
+        /// Фиксирует факт штатного (managed) завершения процесса с кодом возврата
+        /// в консоль и errors.log. Диагностика issue #153: если окно закрылось «само»,
+        /// а этой записи в логе нет, значит процесс упал нативно (SIGSEGV/SIGABRT)
+        /// до какого-либо управляемого обработчика — причина не в логике приложения,
+        /// а в рендере/вводе окружения (например, GL на vmwgfx).
+        /// </summary>
+        private static void LogProcessExit()
+        {
+            try
+            {
+                var text =
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Процесс завершается (managed exit), код возврата {Environment.ExitCode}.";
+                Console.WriteLine(text);
+                try
+                {
+                    Directory.CreateDirectory(DataDirectory);
+                    File.AppendAllText(Path.Combine(DataDirectory, "errors.log"), text + Environment.NewLine);
                 }
                 catch { /* ignore */ }
             }

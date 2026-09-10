@@ -9,6 +9,130 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.7.11] — 2026-09-10
+
+Сводные исправления по шести issues (#226, #225, #221, #216, #214, #175): Esc на Linux закрывает только диалог, а не всё приложение; автообновление в пакетной установке deb теперь реально обновляет бинарник (через pkexec/sudo с подтверждением), а single-file — без прав заменой файла; правая панель начинается вровень с верхней панелью поиска; текст в поле «Размер» шрифта отцентрован и на Linux; компактный режим окончательно стабилизирован (компенсатор исключён из компактизации навсегда); функционал кастомного COM-коннектора (#175) дополнительно верифицирован.
+
+### Исправлено
+
+- **Linux: Esc больше не закрывает всё приложение, а закрывает только активный диалог** ([#226](https://github.com/sivatorov/ConfigurationManagement/issues/226)): обработка клавиши Esc в главном окне теперь проверяет, открыт ли какой-либо модальный диалог, через новый метод `HasOpenModalDialog()` в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs). Если диалог открыт — Esc закрывает его, а главное окно остаётся живым; закрытие приложения по Esc возможно только когда нет открытых модальных окон. Правка только в Linux/Avalonia; Windows/WPF не затрагивается.
+
+- **Linux: автообновление теперь действительно обновляет программу в пакетной установке** ([#225](https://github.com/sivatorov/ConfigurationManagement/issues/225)): раньше в пакетной установке (deb в `/usr/bin`, AppImage) обновление лишь показывало диалог с ссылкой на страницу выпуска, но не заменяло исполняемый файл. Теперь в single-file сборке (без прав на запись) обновление выполняется реальной заменой файла, а для deb-установки запрашивает повышение прав через `pkexec`/`sudo` с явным подтверждением пользователя. Реализовано в [`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs); добавлены ключи локализации `Update.AdminPromptDeb`/`Update.AdminPromptGeneric` в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json). Правка только в Linux/Avalonia; Windows/WPF не затрагивается.
+
+- **Linux: правая панель начинается вровень с верхней панелью поиска** ([#221](https://github.com/sivatorov/ConfigurationManagement/issues/221)): панель поиска перенесена внутрь левой колонки, а правая панель выровнена по её верхнему краю — исчез «конский отступ» над блоком запуска. Правка в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs). Только Linux/Avalonia-сборка.
+
+- **Текст в поле «Размер» шрифта отцентрован по вертикали и на Linux** ([#216](https://github.com/sivatorov/ConfigurationManagement/issues/216)): исправлен селектор центровки в [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs) — вместо `PART_EditableText` теперь используется потомок `OfType<ComboBox>().Descendant().OfType<TextBox>()`, чтобы внутреннее поле ввода редактируемого списка корректно центрировало текст. В WPF-сборке центровка уже была обеспечена шаблоном, поэтому правка внесена точечно только в Avalonia-код.
+
+- **Компактный режим окончательно стабилизирован** ([#214](https://github.com/sivatorov/ConfigurationManagement/issues/214)): колонка-компенсатор заголовка (`HeaderOffsetColumn`) навсегда исключена из компактизации ширины в [`Themes/ThemeManager.cs`](Configuration%20Management/Themes/ThemeManager.cs), метод `QueueHeaderAlign()` переведён на стабилизирующий цикл на приоритете `ApplicationIdle` в [`Views/MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs), все разрозненные пересчёты выравнивания объединены в единый механизм и добавлен пересчёт по `MainTree.SizeChanged`. Компактный режим больше не «разъезжается» при поиске, очистке поиска и изменении размера окна.
+
+- **Имя кастомного COM-коннектора: функционал подтверждён, правки не требовались** ([#175](https://github.com/sivatorov/ConfigurationManagement/issues/175)): диагностика фактически использованного COM-коннектора уже была реализована в `0.3.7.10` ([`Services/ComReadHost.cs`](Configuration%20Management/Services/ComReadHost.cs) и связанные сервисы). Дополнительно верифицировано без новых изменений кода: развёртывание шаблонов с суффиксами после версии (`V%V12%.COMConnector_%V3%_%V4%` → `V83.COMConnector_27`) совпадает с предпросмотром, поведение стандартного перебора при пустом шаблоне не изменено.
+
+### Версия
+
+- **Версия поднята до `0.3.7.11`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.10] — 2026-09-10
+
+Сводные исправления по шести issues (#175, #214, #221, #222, #224, #225): пакетное автообновление на Linux показывает понятный диалог с кликабельной ссылкой, одиночный клик по трею открывает главное окно, восстановлена «Системная рамка окна», убран лишний верхний отступ правой панели, компактный режим больше не разъезжается при поиске, а диагностика кастомного COM-коннектора стала полезной.
+
+### Исправлено
+
+- **Linux: автообновление в пакетной установке (deb в `/usr/bin`, AppImage) показывает понятный диалог с кликабельной ссылкой** ([#225](https://github.com/sivatorov/ConfigurationManagement/issues/225)): при невозможности заменить исполняемый файл без прав приложение больше не показывает бесполезное сообщение с текстом адреса, а открывает новый диалог [`Services/ManualUpdateWindow.Avalonia.cs`](Configuration%20Management/Services/ManualUpdateWindow.Avalonia.cs) с кликабельной гиперссылкой «Открыть страницу выпуска». Если браузер не открылся — адрес копируется в буфер обмена. Диалог с помощником установки сохранён для случая, когда файл можно заменить без прав. Правка только в Linux/Avalonia ([`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs), [`Services/AvaloniaDialogService.cs`](Configuration%20Management/Services/AvaloniaDialogService.cs), новый `Services/ManualUpdateWindow.Avalonia.cs`, ключи локализации `Update.OpenReleasePage`); Windows/WPF не затрагивается.
+
+- **Linux: одиночный клик по иконке трея показывает и фокусирует главное окно** ([#224](https://github.com/sivatorov/ConfigurationManagement/issues/224)): добавлен обработчик `Clicked` для `TrayIcon` в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) — поведение приведено к Windows (первый клик открывает окно). Правая кнопка по-прежнему открывает меню.
+
+- **Linux: исправлено восстановление настройки «Системная рамка окна» для главного окна** ([#222](https://github.com/sivatorov/ConfigurationManagement/issues/222)): сохранённое значение применяется к главному окну после загрузки настроек при запуске (раньше главное окно строилось до загрузки настроек и всегда получало обычную рамку; доп. окна работали). Правка в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs).
+
+- **Linux: убран «конский отступ» над блоком запуска в правой панели** ([#221](https://github.com/sivatorov/ConfigurationManagement/issues/221)): верхний отступ правой панели приведён к стандартному значению (12), как в Windows-версии (issue #167). Правка в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) (`UpdateRightPanelWidth`).
+
+- **Компактный режим больше не «разъезжается» по горизонтали при поиске и очистке поиска** ([#214](https://github.com/sivatorov/ConfigurationManagement/issues/214)): компенсатор заголовка (`HeaderOffsetColumn`) теперь пересчитывается после полной материализации строк виртуализацией WPF. Добавлен `QueueHeaderAlign()` в [`Views/MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs), вызывается при загрузке каждой строки (`OnInfobaseRowGrid_Loaded`) и при изменении текста поиска/очистке через крестик (`SearchText` в [`Views/MainWindow.Events.cs`](Configuration%20Management/Views/MainWindow.Events.cs)). Фиксы 0.3.7.6 сохранены.
+
+- **Диагностика подключения через кастомный шаблон COM-коннектора стала полезной** ([#175](https://github.com/sivatorov/ConfigurationManagement/issues/175)): при неуспешном подключении в журнал пишутся все перебранные ProgID в порядке перебора и строка подключения; процесс-агент ([`Services/ComReadHost.cs`](Configuration%20Management/Services/ComReadHost.cs)) сообщает родителю последний реально использованный ProgID и при отказе; диагностика в окне свойств базы показывает фактическое имя, развёрнутое по шаблону (например `V83.COMConnector_27`), даже если оно не зарегистрировано. Развёртывание шаблонов с суффиксами после версии (`V%V12%.COMConnector_%V3%_%V4%` → `V83.COMConnector_27`) проверено и совпадает с предпросмотром. Поведение стандартного перебора при пустом шаблоне не изменено.
+
+### Версия
+
+- **Версия поднята до `0.3.7.10`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.9] — 2026-09-10
+
+Исправление по issue #153 (пакетная установка): автообновление в пакетной сборке (deb в `/usr/bin`, AppImage) больше не закрывает приложение, если заменить исполняемый файл нельзя.
+
+### Исправлено
+
+- **Автообновление больше не закрывает приложение в пакетной установке deb/AppImage** ([#153](https://github.com/sivatorov/ConfigurationManagement/issues/153)): в режиме автообновления цель установки теперь определяется и проверяется через `GetSelfUpdateBlocker` **до** скачивания бинарника — так же, как в интерактивном режиме с вопросом. Раньше автоматический режим в пакетной установке (deb в `/usr/bin`, AppImage) доходил до запуска помощника и закрывал приложение, но заменить файл помощник не мог: каталог не на запись. Со стороны это выглядело как самопроизвольный выход через несколько секунд после запуска. Теперь в такой ситуации вместо закрытия окна показывается информационный диалог с ручной инструкцией. Правка только в Linux/Avalonia-ветке ([`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs)); Windows/WPF не затрагивается.
+
+### Версия
+
+- **Версия поднята до `0.3.7.9`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.8] — 2026-09-10
+
+Исправление по issue #153 «Linux — висит при запуске в виртуалке» (новый симптом): на сборке в виртуальной машине (VirtualBox/VMware, X11 без композитора, vmwgfx) окно появлялось и даже открывало настройки, но через несколько секунд приложение закрывалось само. Запуск при этом проходил успешно (журнал доходит до «Запуск завершён»), то есть это не старое зависание, а самостоятельное завершение процесса уже после показа главного окна.
+
+### Исправлено
+
+- **В виртуализации и на программном рендере молчаливый авто-рестарт обновления больше не «закрывает» окно** ([#153](https://github.com/sivatorov/ConfigurationManagement/issues/153)): при старте фоновая проверка обновлений могла найти более новую версию, автоматически скачать её и выполнить перезапуск с заменой бинарника — со стороны это выглядело как самозакрытие приложения через несколько секунд после успешного запуска. В окружениях, где такой авто-рестарт ненадёжен (виртуализация или программный рендер, `Services/LinuxRendering.cs`), фоновое автообновление теперь не применяется молча: вместо закрытия окна показывается стандартный диалог, и решение о замене/перезапуске остаётся за пользователем. На реальном железе с рабочим GPU поведение не меняется. Правка только в Linux/Avalonia-ветке ([`App.axaml.cs`](Configuration%20Management/App.axaml.cs)); Windows/WPF не затрагивается.
+
+### Добавлено
+
+- **Диагностика выхода процесса** ([#153](https://github.com/sivatorov/ConfigurationManagement/issues/153)): при штатном (managed) завершении приложение теперь пишет в консоль и `errors.log` строку «Процесс завершается (managed exit), код возврата N» ([`App.axaml.cs`](Configuration%20Management/App.axaml.cs)). Если окно закрылось, а такой записи в логе нет — процесс завершился нативным сбоем (SIGSEGV/SIGABRT) до управляемых обработчиков, что указывает на рендер/ввод окружения, а не на логику приложения.
+- **Пометка закрытия обновлением**: перед перезапуском после применения обновления в `errors.log` добавляется запись «Обновление: помощник запущен, закрываем приложение для перезапуска» ([`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs)), чтобы по журналу было однозначно видно, что закрытие вызвано автообновлением.
+
+### Версия
+
+- **Версия поднята до `0.3.7.8`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.7] — 2026-09-10
+
+Доработка по issue #175 «Имя COM-коннектора 1С»: теперь видно, какой именно COM-коннектор фактически использовался при определении свойств базы (в логах и диагностике), шаблон имени поддерживает скобочные группы с автообрезкой, а пустое поле шаблона гарантированно использует стандартный список ProgID.
+
+### Добавлено
+
+- **В журнал и диагностику выводится фактически использованный COM-коннектор** ([#175](https://github.com/sivatorov/ConfigurationManagement/issues/175)): процесс-агент чтения сведений через COM ([`Services/ComReadHost.cs`](Configuration%20Management/Services/ComReadHost.cs)) теперь сообщает родителю ProgID коннектора, который реально установил соединение (а не только первый зарегистрированный кандидат). [`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs) логирует успешное подключение с этим ProgID и версией платформы, а при неудаче включает его в запись об ошибке рядом со строкой подключения. Диагностика на форме (диалог прогресса и окно свойств базы) показывает тот же фактический коннектор.
+
+### Изменено
+
+- **Поддержка скобочных групп в шаблоне имени COM-коннектора** ([#175](https://github.com/sivatorov/ConfigurationManagement/issues/175)): в общем [`Services/ComConnectorTemplate.cs`](Configuration%20Management/Services/ComConnectorTemplate.cs) развёртывание теперь понимает скобки вокруг сегментов. Если внутри пары скобок есть плейсхолдер версии — при его наличии остаётся содержимое без скобок, а если часть версии не указана (плейсхолдер пуст) — удаляется вся группа целиком вместе со скобками и разделителями. Например, для шаблона `V%V12%(вася_%V3%)(пупкин_%V4%)` и версии `8.3.27` получится `V83вася_27`. Единообразно и для подключения, и для интерактивного предпросмотра в окне настроек.
+- **Пустой шаблон использует стандартный список ProgID**: предпросмотр при пустом поле показывает «—», а в работе `BuildProgIdCandidates` возвращает стандартные `V85/V83/V82/V81.COMConnector`, поэтому подключение не ломается из-за пустого шаблона.
+
+### Версия
+
+- **Версия поднята до `0.3.7.6` → `0.3.7.7`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.6] — 2026-09-10
+
+Исправление по issue #214 «Компактный режим 2»: компактный режим теперь применяется корректно сразу при запуске и не «разъезжается» после открытия/сохранения свойств базы — горизонтальное выравнивание больше не требует повторного переключения тумблера.
+
+### Исправлено
+
+- **Компактный режим больше не «прыгает» по горизонтали после запуска и после сохранения свойств базы** ([#214](https://github.com/sivatorov/ConfigurationManagement/issues/214)): сразу после запуска при включённом компактном режиме иконки/колонки списка уезжали влево, а корректное положение восстанавливалось только двойным переключением тумблера; разъезд повторялся после открытия/сохранения свойств базы. Причина — порядок применения компактности и выравнивания заголовка до полной материализации строк дерева: виртуализация WPF достраивает контейнеры строк в проходе разметки уже после события `Loaded`, поэтому пересчёт компенсатора заголовка на `Loaded`-приоритете выполнялся до появления первой строки и колонка-компенсатор (`HeaderOffsetColumn`) оставалась в значении по умолчанию. Доработано:
+  - В [`Views/MainWindow.Events.cs`](Configuration%20Management/Views/MainWindow.Events.cs) при старте добавлен финальный пересчёт выравнивания заголовка на приоритете `ApplicationIdle` — он выполняется после того, как виртуализация реализовала строки, поэтому компенсатор получает корректную ширину без ручного переключения тумблера (тот же приём, что в `RevealAndSelectAfterRebuild`).
+  - В [`Views/MainWindow.xaml.cs`](Configuration%20Management/Views/MainWindow.xaml.cs) после каждой пересборки дерева (включая сохранение свойств базы) добавлен такой же финальный пересчёт на `ApplicationIdle`, чтобы новые контейнеры строк, созданные виртуализацией после события `Loaded`, тоже учитывались при выравнивании.
+  - В [`Themes/ThemeManager.cs`](Configuration%20Management/Themes/ThemeManager.cs) добавлен `ForgetCompactWidth`, а в [`Views/MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs) метод `AlignHeaderToData` исключает колонку-компенсатор заголовка из компактизации ширины: её ширина целиком управляется выравниванием и не должна масштабироваться коэффициентом компактности — иначе после первичного применения компакт-режима (когда компенсатор уже получил ненулевую ширину) строки снова разъезжались по горизонтали.
+
+### Версия
+
+- **Версия поднята до `0.3.7.5` → `0.3.7.6`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.5] — 2026-09-10
+
+Исправление по issue #216: текст в поле «Размер» шрифта (Настройки → Отображение → Шрифт) теперь отцентрован по вертикали и в WPF, и в Linux/Avalonia-сборке.
+
+### Исправлено
+
+- **Текст в поле «Размер» шрифта отцентрован по вертикали** ([#216](https://github.com/sivatorov/ConfigurationManagement/issues/216)): на Linux/Avalonia число в редактируемом списке размера шрифта прижималось к верху/низу. Причина — `VerticalContentAlignment` у `ComboBox` задаёт только позицию внутреннего поля ввода (`PART_EditableTextBox`), а не выравнивание самого текста; выравнивание текста берётся из `VerticalContentAlignment` этого `TextBox`, который по умолчанию не центрировал. Для списка размера шрифта ([`SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs)) добавлено явное центрирование текста внутреннего поля ввода (`VerticalContentAlignment = Center`) — ровно как в шаблоне WPF (`ModernComboBox`, [`LightTheme.xaml`](Configuration%20Management/Themes/LightTheme.xaml) / [`DarkTheme.xaml`](Configuration%20Management/Themes/DarkTheme.xaml)). В WPF-сборке текст уже был отцентрован шаблоном `ModernComboBox`, поэтому правка внесена точечно только в Avalonia-код и не затрагивает другие поля вкладки «Отображение».
+
+### Версия
+
+- **Версия поднята до `0.3.7.4` → `0.3.7.5`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.7.4] — 2026-09-10
 
 Исправления по issue #191 и PR #218: при скрытой колонке «Действия» список больше не уезжает вправо на узком окне — компенсатор выравнивания заголовка перестал зависеть от собственного прошлого значения.

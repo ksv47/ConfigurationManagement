@@ -340,11 +340,15 @@ public sealed class OneCComConnector : IOneCComConnector
         var progIds = GetProgIds(ib);
 
         // Запоминаем фактически использованный ProgID и версию платформы для диагностики
-        // в UI (issue #174). Первый кандидат списка (при пустом шаблоне это всегда
-        // V85.COMConnector) может быть не зарегистрирован или вовсе не соответствовать
-        // платформе базы — поэтому берём первый реально зарегистрированный в системе
-        // коннектор, иначе диагностика вводила бы в заблуждение («V85 точно не по адресу»).
-        LastUsedProgId = FirstRegisteredProgId(progIds);
+        // в UI (issue #174/#175). При кастомном шаблоне первым кандидатом всегда идёт
+        // развёрнутое по версии имя (например, V83.COMConnector_27 для базы 8.3.27): его и
+        // показываем в предпросмотре и при неуспехе, даже если оно не зарегистрировано —
+        // пользователю важно увидеть, что именно дал его шаблон. При пустом шаблоне поведение
+        // прежнее: берём первый реально зарегистрированный стандартный коннектор, иначе
+        // диагностика объявляла бы «использованным» V85, которого на машине нет.
+        LastUsedProgId = ReferenceEquals(progIds, KnownProgIds)
+            ? FirstRegisteredProgId(progIds)
+            : progIds[0];
         // ib гарантированно ненулевой (защита выше + null-forgiving), поэтому ?. здесь
         // избыточен и вдобавок сбивает анализ состояния потока для последующих обращений.
         LastUsedPlatformVersion = ib.PlatformVersion;
@@ -380,8 +384,26 @@ public sealed class OneCComConnector : IOneCComConnector
         if (result.Failure == ComFailureKind.None && result.Info is not null)
         {
             LastError = null;
+
+            // Агент сообщает фактически подключившийся ProgID (issue #175): родительская
+            // оценка FirstRegisteredProgId лишь предсказывала, какой кандидат зарегистрирован,
+            // а тут — тот, который реально установил соединение. Обновляем диагностику
+            // и пишем в журнал, чтобы было видно, какой именно COM-коннектор использовался.
+            if (!string.IsNullOrWhiteSpace(result.UsedProgId))
+                LastUsedProgId = result.UsedProgId;
+
+            _logger.Info(
+                $"Подключение к базе «{DisplayName(ib)}» через COM-коннектор "
+                + $"{LastUsedProgId ?? "(не определён)"} успешно."
+                + $" Версия платформы: {LastUsedPlatformVersion ?? "(не указана)"}.");
             return result.Info;
         }
+
+        // При неуспехе агент сообщает последний перебранный ProgID (issue #175): даже если
+        // соединение не установилось, диагностика показывает, до какого коннектора дошёл
+        // перебор (например, имя из кастомного шаблона, которое не зарегистрировано в системе).
+        if (!string.IsNullOrWhiteSpace(result.UsedProgId))
+            LastUsedProgId = result.UsedProgId;
 
         // Решение о тексте ошибки принимаем здесь, и принимаем его по тому, что сами
         // положили в строку подключения, а не по тексту ответа: если пароля в строке нет,
@@ -404,7 +426,9 @@ public sealed class OneCComConnector : IOneCComConnector
             // при сборке строки. Пароль маскируем тем же правилом, что и для ошибок от 1С.
             _logger.Error(
                 $"Не удалось прочитать сведения о конфигурации базы «{DisplayName(ib)}»: {LastError}{trace}."
-                + $" Строка подключения: {MaskCredentials(connectString)}. Таймаут: {timeoutMs} мс.");
+                + $" Использованный COM-коннектор: {LastUsedProgId ?? "(не определён)"}."
+                + $" Строка подключения: {MaskCredentials(connectString)}. Таймаут: {timeoutMs} мс."
+                + $" Кандидаты COM-коннекторов (в порядке перебора): {string.Join(", ", progIds)}.");
         }
 
         return null;

@@ -39,82 +39,238 @@ public static class ComConnectorTemplate
     }
 
     /// <summary>
-    /// Применяет значения плейсхолдеров с обрезкой разделителей перед пустыми
-    /// сегментами (issue #175). Пример: "V%V12%_%V3%_%V4%.ComConnector" + 8.3.27
-    /// → "V83_27.ComConnector" (а не "V83_27_.ComConnector").
+    /// Применяет значения плейсхолдеров (issue #175):
+    /// <list type="bullet">
+    /// <item>пустой (отсутствующий) сегмент вне скобок удаляется вместе с разделителем перед ним;</item>
+    /// <item>скобки вокруг сегмента вырезаются всегда: при наличии значения остаётся содержимое,
+    /// а если внутри группы хоть один плейсхолдер пуст — удаляется вся группа целиком со скобками.</item>
+    /// </list>
+    /// Примеры: "V%V12%_%V3%_%V4%.ComConnector" + 8.3.27 → "V83_27.ComConnector";
+    /// "V%V12%(вася_%V3%)(пупкин_%V4%)" + 8.3.27 → "V83вася_27".
     /// </summary>
     private static string Apply(string template, string v12, string v3, string v4)
     {
-        // Токенизация: литералы между плейсхолдерами + значения плейсхолдеров.
-        // lit[i] — литерал ПЕРЕД плейсхолдером ph[i]; tail — литерал ПОСЛЕ последнего.
-        var ph = new List<string>();
-        var lit = new List<string>();
-        ParseTokens(template, lit, ph, out var tail);
-
         // Шаблон без плейсхолдеров — вернуть как есть (эквивалент прежнего поведения).
-        if (ph.Count == 0)
+        if (!ContainsPlaceholder(template))
             return template;
 
+        var elements = ParseElements(template);
+
+        // Склеиваем верхний уровень. Текст, идущий перед плейсхолдером, держим отдельно,
+        // чтобы при пустом значении убрать вместе с ним и предшествующий разделитель.
         var sb = new StringBuilder();
-        for (int i = 0; i < ph.Count; i++)
+        var pending = new StringBuilder();
+        foreach (var el in elements)
         {
-            var value = ph[i] switch { "%V12%" => v12, "%V3%" => v3, _ => v4 };
-            if (value.Length > 0)
+            switch (el)
             {
-                sb.Append(lit[i]);  // разделитель перед текущим плейсхолдером
-                sb.Append(value);
+                case TextElement text:
+                    pending.Append(text.Value);
+                    break;
+                case PlaceholderElement ph:
+                    var value = ValueOf(ph.Name, v12, v3, v4);
+                    if (value.Length > 0)
+                    {
+                        // Разделитель перед сегментом добавляем только вместе с ним.
+                        sb.Append(pending);
+                        sb.Append(value);
+                    }
+                    // Пустой сегмент: его значение и накопленный разделитель (pending)
+                    // отбрасываются — хвост `_` перед отсутствующей частью версии не остаётся.
+                    pending.Clear();
+                    break;
+                case GroupElement group:
+                    sb.Append(pending);
+                    pending.Clear();
+                    sb.Append(EvaluateGroup(group, v12, v3, v4));
+                    break;
             }
-            // пустой сегмент: его значение и разделитель lit[i] опускаются
         }
 
-        sb.Append(tail); // суффикс ProgID (.ComConnector) сохраняется всегда
+        // Хвостовой текст после последнего плейсхолдера/группы (.ComConnector и т.п.).
+        sb.Append(pending);
         return sb.ToString();
     }
 
+    /// <summary>Есть ли в шаблоне хотя бы один плейсхолдер.</summary>
+    private static bool ContainsPlaceholder(string template) =>
+        template.Contains("%V12%", StringComparison.Ordinal)
+        || template.Contains("%V3%", StringComparison.Ordinal)
+        || template.Contains("%V4%", StringComparison.Ordinal);
+
     /// <summary>
-    /// Разбивает шаблон по плейсхолдерам %V12%/%V3%/%V4% в порядке появления:
-    /// lit[0] — текст до первого плейсхолдера, lit[i] — текст между ph[i-1] и ph[i],
-    /// tail — текст после последнего плейсхолдера.
+    /// Группа в скобках оценивается целиком: если внутри есть хоть один пустой плейсхолдер —
+    /// возвращается пустая строка (группа удаляется со скобками); иначе возвращается
+    /// содержимое без скобок.
     /// </summary>
-    private static void ParseTokens(string template, List<string> lit, List<string> ph, out string tail)
+    private static string EvaluateGroup(GroupElement group, string v12, string v3, string v4)
     {
-        var pos = 0;
-        while (pos < template.Length)
+        if (HasEmptyPlaceholder(group, v12, v3, v4))
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        foreach (var el in group.Children)
+            sb.Append(EvaluateValue(el, v12, v3, v4));
+        return sb.ToString();
+    }
+
+    private static bool HasEmptyPlaceholder(GroupElement group, string v12, string v3, string v4)
+    {
+        foreach (var el in group.Children)
         {
-            var next = FindNextPlaceholder(template, pos, out var name);
-            if (next < 0)
-                break;
-
-            lit.Add(template.Substring(pos, next - pos));
-            ph.Add(name);
-            pos = next + name.Length;
+            switch (el)
+            {
+                case PlaceholderElement ph when ValueOf(ph.Name, v12, v3, v4).Length == 0:
+                    return true;
+                case GroupElement nested when HasEmptyPlaceholder(nested, v12, v3, v4):
+                    return true;
+            }
         }
+        return false;
+    }
 
-        tail = template.Substring(pos);
+    private static string EvaluateValue(Element el, string v12, string v3, string v4) => el switch
+    {
+        TextElement text => text.Value,
+        PlaceholderElement ph => ValueOf(ph.Name, v12, v3, v4),
+        GroupElement group => EvaluateGroup(group, v12, v3, v4),
+        _ => string.Empty
+    };
+
+    private static string ValueOf(string name, string v12, string v3, string v4) => name switch
+    {
+        "%V12%" => v12,
+        "%V3%" => v3,
+        _ => v4
+    };
+
+    // ---- элементарный разбор шаблона в дерево: текст / плейсхолдер / скобочная группа ----
+
+    private abstract class Element
+    {
+    }
+
+    private sealed class TextElement : Element
+    {
+        public TextElement(string value) => Value = value;
+        public string Value { get; }
+    }
+
+    private sealed class PlaceholderElement : Element
+    {
+        public PlaceholderElement(string name) => Name = name;
+        public string Name { get; }
+    }
+
+    private sealed class GroupElement : Element
+    {
+        public GroupElement(List<Element> children) => Children = children;
+        public List<Element> Children { get; }
+    }
+
+    private static List<Element> ParseElements(string template)
+    {
+        var elements = new List<Element>();
+        var i = 0;
+        while (i < template.Length)
+        {
+            var c = template[i];
+            if (c == '(')
+            {
+                elements.Add(new GroupElement(ParseGroup(template, i + 1, out i)));
+            }
+            else if (c == '%')
+            {
+                var name = TryParsePlaceholder(template, i);
+                if (name is not null)
+                {
+                    elements.Add(new PlaceholderElement(name));
+                    i += name.Length;
+                }
+                else
+                {
+                    elements.Add(new TextElement("%"));
+                    i++;
+                }
+            }
+            else
+            {
+                var start = i;
+                while (i < template.Length
+                       && template[i] != '(' && template[i] != ')' && template[i] != '%')
+                    i++;
+                if (i > start)
+                    elements.Add(new TextElement(template.Substring(start, i - start)));
+                else
+                    i++; // защита от зацикливания
+            }
+        }
+        return elements;
     }
 
     /// <summary>
-    /// Ищет ближайший плейсхолдер начиная с <paramref name="start"/>.
-    /// Возвращает индекс начала плейсхолдера или -1, если плейсхолдеров больше нет.
+    /// Разбирает содержимое скобочной группы до ближайшей закрывающей скобки.
+    /// По завершении <paramref name="end"/> указывает на позицию сразу после «)».
+    /// Незакрытая скобка трактуется как открытая до конца шаблона.
     /// </summary>
-    private static int FindNextPlaceholder(string template, int start, out string name)
+    private static List<Element> ParseGroup(string template, int pos, out int end)
     {
-        const string v12 = "%V12%";
-        const string v3 = "%V3%";
-        const string v4 = "%V4%";
+        var elements = new List<Element>();
+        var i = pos;
+        while (i < template.Length)
+        {
+            var c = template[i];
+            if (c == ')')
+            {
+                end = i + 1;
+                return elements;
+            }
+            if (c == '(')
+            {
+                elements.Add(new GroupElement(ParseGroup(template, i + 1, out i)));
+                continue;
+            }
+            if (c == '%')
+            {
+                var name = TryParsePlaceholder(template, i);
+                if (name is not null)
+                {
+                    elements.Add(new PlaceholderElement(name));
+                    i += name.Length;
+                    continue;
+                }
+                elements.Add(new TextElement("%"));
+                i++;
+                continue;
+            }
 
-        var i12 = template.IndexOf(v12, start, StringComparison.Ordinal);
-        var i3 = template.IndexOf(v3, start, StringComparison.Ordinal);
-        var i4 = template.IndexOf(v4, start, StringComparison.Ordinal);
+            var start = i;
+            while (i < template.Length
+                   && template[i] != '(' && template[i] != ')' && template[i] != '%')
+                i++;
+            if (i > start)
+                elements.Add(new TextElement(template.Substring(start, i - start)));
+            else
+                i++;
+        }
 
-        // Выбираем самый ранний из найденных.
-        var best = -1;
-        name = "";
-        if (i12 >= 0 && (best < 0 || i12 < best)) { best = i12; name = v12; }
-        if (i3 >= 0 && (best < 0 || i3 < best)) { best = i3; name = v3; }
-        if (i4 >= 0 && (best < 0 || i4 < best)) { best = i4; name = v4; }
+        end = i;
+        return elements;
+    }
 
-        return best;
+    /// <summary>
+    /// Пытается прочитать плейсхолдер на позиции <paramref name="pos"/>.
+    /// Возвращает имя («%V12%»/«%V3%»/«%V4%») или null, если это не плейсхолдер.
+    /// </summary>
+    private static string? TryParsePlaceholder(string template, int pos)
+    {
+        foreach (var name in new[] { "%V12%", "%V3%", "%V4%" })
+        {
+            if (pos + name.Length <= template.Length
+                && string.CompareOrdinal(template, pos, name, 0, name.Length) == 0)
+                return name;
+        }
+        return null;
     }
 
     /// <summary>Оставляет в строке только десятичные цифры.</summary>

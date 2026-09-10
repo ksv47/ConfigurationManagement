@@ -248,10 +248,12 @@ namespace Configuration_Management
             // строкой окна (MainWindow.xaml:341-372): иначе при её показе вниз
             // уезжала и правая панель, чего в версии для Windows не происходит.
             var grid = new Grid();
-            // Строка заголовка окна, панель команд, содержимое, строка состояния.
-            // У автора строк окна три (MainWindow.xaml:173-175): панель команд лежит
-            // внутри левой колонки, а у нас она отдельной строкой ещё с прошлых кусков.
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            // Строка заголовка окна, содержимое, строка состояния. Верхняя панель
+            // поиска не выделяется отдельной полноширинной строкой: она живёт только
+            // над левой колонкой внутри основной области (см. BuildMainArea), как
+            // в WPF (MainWindow.xaml:264). Раньше она тянулась на всю ширину окна
+            // и опускала правую панель вниз лишним отступом сверху, которого нет
+            // в Windows-версии (issue #221).
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -261,15 +263,12 @@ namespace Configuration_Management
             // (issue #159). Соответственно, строка 0 остаётся пустой нулевой высоты.
             if (!_useSystemTitleBar)
                 grid.Children.Add(BuildTitleBar());
-            var topBar = BuildTopBar();
             var mainArea = BuildMainArea();
             var statusBar = BuildStatusBar();
 
-            Grid.SetRow(topBar, 1);
-            Grid.SetRow(mainArea, 2);
-            Grid.SetRow(statusBar, 3);
+            Grid.SetRow(mainArea, 1);
+            Grid.SetRow(statusBar, 2);
 
-            grid.Children.Add(topBar);
             grid.Children.Add(mainArea);
             grid.Children.Add(statusBar);
 
@@ -860,9 +859,14 @@ namespace Configuration_Management
                 : HorizontalAlignment.Left;
             if (_rightPanelContent is not null)
             {
+                // Верхний отступ правой панели приведён к стандартному (12), как у левой
+                // колонки и как в Windows-версии (issue #167). Прежний большой зазор 56
+                // «отодвигал» блок запуска вниз и выглядел лишним отступом перед кнопками
+                // справа (issue #221). Правая панель и так лежит ниже строки заголовка,
+                // поэтому значение не зависит от режима системной рамки окна.
                 _rightPanelContent.Margin = details
-                    ? new Thickness(12, 56)
-                    : new Thickness(2, 56, 4, 6);
+                    ? new Thickness(12, 12)
+                    : new Thickness(2, 12, 4, 6);
                 _rightPanelContent.HorizontalAlignment = details
                     ? HorizontalAlignment.Stretch
                     : HorizontalAlignment.Left;
@@ -1273,10 +1277,12 @@ namespace Configuration_Management
             listWithBar.Children.Add(_listVerticalBar);
 
             // Левая колонка: свой фон и правая граница, внутреннее поле 12,0,0,12.
-            // Верхнего отступа нет: над левой колонкой стоит полноширинная панель поиска
-            // (BuildTopBar), и лишний зазор между ней и панелью тегов выглядел «большим
-            // непонятным отступом» (issue #167). В WPF-версии панель поиска лежит внутри
-            // левой колонки, а панель тегов прижата к ней без промежутка — здесь так же.
+            // Верхнего отступа нет: панель поиска (BuildTopBar) лежит внутри левой
+            // колонки сразу над панелью тегов, и лишний зазор между ней и панелью тегов
+            // выглядел «большим непонятным отступом» (issue #167). В WPF-версии панель
+            // поиска тоже лежит внутри левой колонки (MainWindow.xaml:264), а панель
+            // тегов прижата к ней без промежутка — здесь так же. Панель поиска не тянется
+            // на правую панель, чтобы не опускать её вниз лишним отступом (issue #221).
             // В WPF (MainWindow.xaml:347-350) отступ справа 8 был нужен полосе дерева,
             // которая жила внутри области прокрутки. Здесь вертикальная полоса вынесена
             // отдельным столбцом (listWithBar), и правый отступ оставлял бы между ней и
@@ -1298,9 +1304,25 @@ namespace Configuration_Management
             leftContent.Children.Add(commandPanel);
             leftContent.Children.Add(listWithBar);
 
+            // Верхняя панель поиска живёт только над левой колонкой, как в WPF
+            // (MainWindow.xaml:264), и не тянется на правую панель. Раньше она была
+            // полноширинной строкой окна, и из-за неё правая панель начиналась ниже
+            // и у неё оставался лишний верхний отступ, которого нет в Windows-версии
+            // (issue #221). Левая колонка выглядит так же, как раньше: панель стоит
+            // ровно там, где была полноширинная строка, а правая панель теперь
+            // поднимается вверх и встаёт вровень с верхней панелью поиска.
+            var leftStack = new Grid();
+            leftStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            leftStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
+            var topBar = BuildTopBar();
+            Grid.SetRow(topBar, 0);
+            Grid.SetRow(leftContent, 1);
+            leftStack.Children.Add(topBar);
+            leftStack.Children.Add(leftContent);
+
             var leftPanel = new Border
             {
-                Child = leftContent,
+                Child = leftStack,
                 BorderThickness = new Thickness(0, 0, 1, 0)
             };
             ThemeBrushes.Bind(leftPanel, Border.BackgroundProperty, "CardBackgroundBrush");
@@ -5231,6 +5253,20 @@ namespace Configuration_Management
             // (импорт/восстановление конфига), и внутри отложенного колбэка их вложенный
             // цикл сообщений приводил к зависанию приложения.
             _vm?.Initialize();
+            // Декор главного окна строился в конструкторе по значению по умолчанию:
+            // на этом этапе _settings во вьюмодели ещё не загружены (Initialize читает
+            // их только сейчас), поэтому UseSystemTitleBar всегда возвращал false, и
+            // сохранённая «Системная рамка окна» после перезапуска не применялась
+            // (issue #222; у дополнительных окон настройки к моменту их создания уже
+            // были загружены, поэтому там всё работало). После загрузки настроек
+            // применяем сохранённое значение повторно: если оно отличается от того,
+            // что выбрано при построении, обновляем декор и пересобираем содержимое
+            // под нужный режим до привязки прокрутки/горячих клавиш. Прозрачность и
+            // непрозрачность окна согласуются внутри ApplySystemDecorations через
+            // _opaqueWindow, повторное применение их не ломает.
+            var savedSystemTitleBar = _vm?.UseSystemTitleBar ?? false;
+            if (savedSystemTitleBar != _useSystemTitleBar)
+                ApplySystemTitleBar(savedSystemTitleBar);
             // Настройки читаются здесь, уже после построения содержимого, поэтому
             // переключатели верхней панели строились по значениям по умолчанию
             // и не показывали сохранённое состояние до первого щелчка.
@@ -5774,7 +5810,11 @@ namespace Configuration_Management
             // клавиша остаётся своей: там ей отменяют правку.
             if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None
                 && _vm.EscapeToTray && _vm.ShowTrayIcon && CanRestoreHiddenWindow
-                && FocusManager?.GetFocusedElement() is not TextBox)
+                && FocusManager?.GetFocusedElement() is not TextBox
+                // При открытом модальном диалоге (свойства базы, настройки) Esc
+                // должен закрывать только сам диалог, а не уводить главное окно
+                // в трей (issue #226).
+                && !HasOpenModalDialog())
             {
                 SaveWindowLayout();
                 _vm.PersistSettings();
@@ -5798,6 +5838,28 @@ namespace Configuration_Management
             if (_vm.DeleteInfobaseCommand.CanExecute(null))
                 _vm.DeleteInfobaseCommand.Execute(null);
             e.Handled = true;
+        }
+
+        /// <summary>
+        /// Есть ли открытый модальный дочерний диалог (свойства базы, настройки и т.п.).
+        /// Все дополнительные окна в приложении показываются модально (ShowDialog/
+        /// ShowDialogSync), а модальное окно при показе становится активным. Поэтому
+        /// об открытом диалоге можно судить по флагу IsActive: если активно любое окно,
+        /// кроме главного, Esc должен обработать сам диалог, а не главное окно.
+        /// </summary>
+        private bool HasOpenModalDialog()
+        {
+            if (Avalonia.Application.Current?.ApplicationLifetime
+                    is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                return false;
+
+            foreach (var window in desktop.Windows)
+            {
+                if (!ReferenceEquals(window, this) && window.IsActive)
+                    return true;
+            }
+
+            return false;
         }
 
         private void AddHotkey(string? gesture, System.Windows.Input.ICommand? command)
@@ -6007,6 +6069,10 @@ namespace Configuration_Management
                     ToolTipText = LocalizationManager.T("App.Title"),
                     Menu = menu
                 };
+                // Одиночный клик левой кнопкой по иконке трея показывает и
+                // фокусирует главное окно, как в WPF-версии (issue #224).
+                // Правый клик открывает меню (Menu выше), левый — нет.
+                tray.Clicked += (_, _) => ShowAndActivate();
                 _trayIcon = tray;
                 if (Application.Current is { } app)
                 {

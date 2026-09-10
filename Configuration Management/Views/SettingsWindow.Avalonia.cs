@@ -1105,6 +1105,23 @@ namespace Configuration_Management
                 IsEditable = true,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
+            // VerticalContentAlignment у ComboBox задаёт только позицию внутреннего
+            // поля ввода, а не выравнивание самого текста: оно берётся из
+            // VerticalContentAlignment редактируемого TextBox, которое по умолчанию
+            // прижимает число к верхнему/нижнему краю (issue #216).
+            // Прежний стиль цеплялся по имени PART_EditableTextBox — это имя части
+            // из WPF-шаблона ModernComboBox (LightTheme.xaml:377 / DarkTheme.xaml:383),
+            // а в Avalonia редактируемое поле ComboBox называется PART_EditableText,
+            // поэтому стиль не срабатывал и фикс 0.3.7.5 не помог на Linux.
+            // Центрируем текст через descendant-селектор (как для поля шаблона
+            // экспорта, AutoCompleteBox выше), чтобы не зависеть от точного имени части.
+            fontSizeBox.Styles.Add(new Style(x => x.OfType<ComboBox>().Descendant().OfType<TextBox>())
+            {
+                Setters =
+                {
+                    new Setter(TextBox.VerticalContentAlignmentProperty, VerticalAlignment.Center)
+                }
+            });
             foreach (var size in new double[]
             {
                 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24,

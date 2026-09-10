@@ -233,7 +233,16 @@ namespace Configuration_Management
         {
             if (e.PropertyName == nameof(MainViewModel.CompactMode))
             {
-                Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+                QueueHeaderAlign();
+            }
+            else if (e.PropertyName == nameof(MainViewModel.SearchText))
+            {
+                // Изменение текста поиска/очистка через крестик приводит к пересборке дерева
+                // (плоский список <-> группы), при которой меняется глубина первой видимой
+                // базы. Чтобы компенсатор заголовка не оставался в значении от предыдущего
+                // состояния, ставим выравнивание в очередь; окончательную коррекцию выполняет
+                // пересчёт по мере материализации новых строк (issue #214).
+                QueueHeaderAlign();
             }
             else if (e.PropertyName == nameof(MainViewModel.ColumnOrderKeys))
             {
@@ -255,12 +264,17 @@ namespace Configuration_Management
             if (MainTree is not null)
             {
                 MainTree.Loaded += (_, __) => AttachTreeScrollHandler();
+                // Изменение области списка (например, появление/исчезновение полосы прокрутки
+                // или смещение после клика в поле поиска) сдвигает колонки строк относительно
+                // заголовка — пересчитываем выравнивание (issue #214).
+                MainTree.SizeChanged += (_, _) => QueueHeaderAlign();
             }
 
             AlignHeaderToData();
-            // Повторное выравнивание после завершения первичной компоновки,
-            // когда уже известны реальные размеры контейнеров дерева.
-            Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+            // Повторное выравнивание после завершения первичной компоновки: стабилизирующий
+            // цикл на ApplicationIdle добирает строки, которые виртуализация создаёт уже после
+            // этого события (см. QueueHeaderAlign).
+            QueueHeaderAlign();
 
             // Применяем сохранённый пользователем порядок колонок списка баз.
             Dispatcher.BeginInvoke(new Action(ApplyColumnOrder), System.Windows.Threading.DispatcherPriority.Loaded);
@@ -272,8 +286,14 @@ namespace Configuration_Management
             if (_viewModel.CompactMode)
             {
                 ThemeManager.ApplyCompact(true);
-                Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+                QueueHeaderAlign();
             }
+
+            // Финальная стабилизация после полной материализации строк дерева: ApplicationIdle
+            // (и повторные проходы стабилизирующего цикла) гарантируют, что строки уже
+            // реализованы и замер выравнивания корректен (тот же приём, что в
+            // RevealAndSelectAfterRebuild), а не зафиксирован в промежуточном значении (issue #214).
+            QueueHeaderAlign();
 
             // Запускаем автоматическую синхронизацию с файлом ibases.v8i.
             _viewModel.StartAutoSync();
@@ -285,7 +305,7 @@ namespace Configuration_Management
         /// </summary>
         private void OnGroupByToggle_Click(object sender, RoutedEventArgs e)
         {
-            Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+            QueueHeaderAlign();
         }
 
         /// <summary>
