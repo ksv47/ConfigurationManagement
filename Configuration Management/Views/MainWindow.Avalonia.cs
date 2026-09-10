@@ -4860,9 +4860,13 @@ namespace Configuration_Management
 
             // Арифметика авторская (MainWindow.Columns.cs:265): компенсатор равен
             // разнице между началом первой колонки значений строки и началом той же
-            // колонки заголовка, посчитанным без самого компенсатора. Ведущие колонки
-            // у обеих сеток одинаковы, поэтому разницу даёт только сдвиг строки
-            // деревом, и после подгонки значения стоят ровно под заголовками.
+            // колонки заголовка, посчитанным без самого компенсатора. Звёздная колонка
+            // имени исключена из обеих сумм ведущих колонок (issue #191): иначе компенсатор
+            // зависит от собственного прошлого значения и ширина списка растёт до десятков
+            // тысяч точек, из-за чего колонки, кроме «Названия», уезжают за правый край.
+            // Ведущие колонки у заголовка и строки одинаковы, а общая ширина общая, поэтому
+            // после совмещения имя занимает одинаковое место в обеих сетках, и разницу даёт
+            // только сдвиг строки деревом, после чего значения стоят ровно под заголовками.
             Grid? rowGrid = null;
             double rowOrigin = 0;
             foreach (var card in _tree.GetVisualDescendants().OfType<InfobaseRowCard>())
@@ -4883,11 +4887,11 @@ namespace Configuration_Management
             if (rowGrid is not null && rowGrid.ColumnDefinitions.Count > NameRowColumn)
             {
                 double rowLead = 0;
-                for (var i = 0; i <= NameRowColumn; i++)
+                for (var i = 0; i < NameRowColumn; i++)
                     rowLead += rowGrid.ColumnDefinitions[i].ActualWidth;
 
                 double headerLead = 0;
-                for (var i = 0; i <= NameHeaderColumn; i++)
+                for (var i = 0; i < NameHeaderColumn; i++)
                 {
                     if (!ReferenceEquals(_columnHeaderRow.ColumnDefinitions[i], _headerOffsetColumn))
                         headerLead += _columnHeaderRow.ColumnDefinitions[i].ActualWidth;

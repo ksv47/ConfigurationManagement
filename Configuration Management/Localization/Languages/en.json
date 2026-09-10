@@ -1300,7 +1300,7 @@
     "Main.CacheConfirm": "Clear {0} for the bases:\n\n{1}\n\nIt is recommended to close all 1C sessions for these bases before clearing.",
     "Main.CacheBaseOne": "base \"{0}\"",
     "Main.CacheBaseMany": "bases: {0}",
-    "Main.CacheCleaned": "Cache ({0}) for {1} cleared.\nDirectories removed: {2}.",
+    "Main.CacheCleaned": "Cache ({0}) for {1} cleared.\nDirectories removed: {2} ({3}).",
     "Main.CacheNotFound": "Cache directories ({0}) for {1} were not found.",
     "Main.ErrCacheClear": "Failed to clear the cache.\n{0}",
     "Main.CacheErrorTitle": "Cache clear error",

@@ -710,6 +710,8 @@ public partial class MainViewModel : ViewModelBase
         {
             // Объём «остатков» до очистки — для отчёта (issue #178).
             var orphanSize = cleanOrphans ? OneCCacheCleaner.GetOrphanSize(selectedKind, Infobases) : 0L;
+            // Объём кэша баз до очистки — для отчёта (issue #178).
+            var basesSize = infobases.Count > 0 ? OneCCacheCleaner.GetSize(selectedKind, infobases) : 0L;
             var removedBases = OneCCacheCleaner.Clear(infobases, selectedKind);
             var removedOrphans = cleanOrphans ? OneCCacheCleaner.ClearOrphans(selectedKind, Infobases) : 0;
 
@@ -721,7 +723,7 @@ public partial class MainViewModel : ViewModelBase
                     : string.Format(LocalizationManager.T("Main.CacheBaseMany"), infobases.Count);
 
                 if (removedBases > 0)
-                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removedBases));
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removedBases, Infobase.FormatSize(basesSize)));
                 else
                     resultParts.Add(string.Format(LocalizationManager.T("Main.CacheNotFound"), kindLabel, baseLabel));
             }
