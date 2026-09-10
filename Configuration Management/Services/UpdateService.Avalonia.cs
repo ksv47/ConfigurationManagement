@@ -125,11 +125,17 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>
-        /// Показывает единый диалог обновления: спрашивает подтверждение скачивания, скачивает
-        /// бинарник, затем предлагает применить обновление (перезапустить сейчас или после
-        /// закрытия). Все ошибки обрабатываются внутри и не роняют приложение.
-        /// Запуск из пакета AppImage самообновлению не поддаётся: исполняемый файл там лежит
-        /// внутри разового монтирования, поэтому в этом случае показывается только сообщение.
+        /// Показывает единый диалог обновления. Выбирает способ установки и ведёт
+        /// пользователя по нему (issue #225):
+        /// <list type="bullet">
+        /// <item>запуск из пакета AppImage — обновление невозможно, показывается диалог
+        /// с кликабельной ссылкой на страницу выпуска;</item>
+        /// <item>single-file в каталоге пользователя (есть права записи) — обновление
+        /// прямой заменой исполняемого файла;</item>
+        /// <item>установка в системный каталог (например deb в /usr/bin) — запрос прав
+        /// администратора через pkexec после явного согласия пользователя.</item>
+        /// </list>
+        /// Все ошибки обрабатываются внутри и не роняют приложение.
         /// </summary>
         private void ShowUpdateDialog(ReleaseInfo release)
         {
@@ -144,89 +150,163 @@ namespace Configuration_Management.Services
                     return;
                 }
 
-                // Способ установки проверяется раньше наличия файла в выпуске: если
-                // заменить себя нельзя, пользователю не важно, какие в выпуске файлы.
-                var blocker = GetSelfUpdateBlocker(target);
-                if (blocker is not null)
+                // Запуск из пакета AppImage самообновлению не поддаётся: исполняемый файл
+                // лежит внутри разового монтирования, доступного только на чтение.
+                if (IsRunningFromAppImage(target))
                 {
-                    // Самообновление недоступно (deb в /usr/bin, AppImage): вместо
-                    // бесполезного закрытия показываем понятный диалог с кликабельной
-                    // ссылкой на страницу выпуска (issue #225).
-                    ShowManualUpdateDialog(blocker, release.HtmlUrl);
+                    ShowManualUpdateDialog(
+                        LocalizationManager.T("Update.PackageManualUpdate"), release.HtmlUrl);
                     return;
                 }
 
-                if (string.IsNullOrWhiteSpace(release.DownloadUrl))
+                // Single-file в каталоге пользователя — прав на запись достаточно,
+                // обновляем заменой исполняемого файла напрямую.
+                if (IsDirectoryWritable(Path.GetDirectoryName(target)))
                 {
-                    ShowOnUi(() => _dialogs.ShowError(
-                        LocalizationManager.T("Update.NoDownloadUrl"),
-                        LocalizationManager.T("Update.NewVersionAvailable")));
+                    ShowSelfUpdateDialog(release, target);
                     return;
                 }
 
-                // Спрашиваем разрешение до скачивания: отказ прекращает обновление целиком.
-                var current = string.Format(
-                    LocalizationManager.T("Update.CurrentVersion"), VersionInfo.Display());
-                var offered = string.Format(
-                    LocalizationManager.T("Update.NewVersion"), NormalizeTag(release.TagName));
-                var accepted = _dialogs.Confirm(
-                    current + Environment.NewLine + offered + Environment.NewLine + Environment.NewLine
-                        + LocalizationManager.T("Update.DownloadPrompt"),
-                    LocalizationManager.T("Update.NewVersionAvailable"));
-                if (!accepted)
-                    return;
-
-                // Скачиваем новый бинарник в фоне (без UI-прогресса, но надёжно).
-                var newBinary = DownloadNewBinaryAsync(release.DownloadUrl!)
-                    .GetAwaiter()
-                    .GetResult();
-                if (newBinary is null)
-                {
-                    ShowOnUi(() => _dialogs.ShowError(
-                        LocalizationManager.T("Update.DownloadFailed"),
-                        LocalizationManager.T("Update.NewVersionAvailable")));
-                    return;
-                }
-
-                // Спрашиваем, как применить обновление: перезапустить сейчас или после закрытия.
-                var restartNow = _dialogs.Confirm(
-                    LocalizationManager.T("Update.RestartNowPrompt"),
-                    LocalizationManager.T("Update.NewVersionAvailable"));
-
-                if (restartNow)
-                {
-                    if (!ApplyRestartNow(target, newBinary))
-                    {
-                        ShowOnUi(() => _dialogs.ShowError(
-                            LocalizationManager.T("Update.InstallFailed"),
-                            LocalizationManager.T("Update.NewVersionAvailable")));
-                        return;
-                    }
-                    // Помощник запущен — закрываем приложение, чтобы замена прошла после выхода.
-                    ShutdownNow();
-                }
-                else
-                {
-                    // Обновление применится при следующем естественном закрытии приложения.
-                    if (!ApplyAfterClose(target, newBinary))
-                    {
-                        ShowOnUi(() => _dialogs.ShowError(
-                            LocalizationManager.T("Update.InstallFailed"),
-                            LocalizationManager.T("Update.NewVersionAvailable")));
-                        return;
-                    }
-                    ShowOnUi(() => _dialogs.ShowInfo(
-                        LocalizationManager.T("Update.WillApplyOnExit"),
-                        LocalizationManager.T("Update.NewVersionAvailable")));
-                }
+                // Каталог не на запись: вероятно, установка через deb в системный каталог.
+                // Для замены нужны права администратора — предлагаем обновление через pkexec.
+                ShowPrivilegedUpdateDialog(release, target);
             }
             catch
             {
                 ShowOnUi(() => _dialogs.ShowError(
                     LocalizationManager.T("Update.InstallFailed"),
                     LocalizationManager.T("Update.NewVersionAvailable")));
+            }
         }
-    }
+
+        /// <summary>
+        /// Проводит обновление single-file в каталоге пользователя: спрашивает подтверждение
+        /// скачивания, скачивает бинарник, затем предлагает применить обновление
+        /// (перезапустить сейчас или после закрытия).
+        /// </summary>
+        private void ShowSelfUpdateDialog(ReleaseInfo release, string target)
+        {
+            if (string.IsNullOrWhiteSpace(release.DownloadUrl))
+            {
+                ShowOnUi(() => _dialogs.ShowError(
+                    LocalizationManager.T("Update.NoDownloadUrl"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            // Спрашиваем разрешение до скачивания: отказ прекращает обновление целиком.
+            var current = string.Format(
+                LocalizationManager.T("Update.CurrentVersion"), VersionInfo.Display());
+            var offered = string.Format(
+                LocalizationManager.T("Update.NewVersion"), NormalizeTag(release.TagName));
+            var accepted = _dialogs.Confirm(
+                current + Environment.NewLine + offered + Environment.NewLine + Environment.NewLine
+                    + LocalizationManager.T("Update.DownloadPrompt"),
+                LocalizationManager.T("Update.NewVersionAvailable"));
+            if (!accepted)
+                return;
+
+            // Скачиваем новый бинарник в фоне (без UI-прогресса, но надёжно).
+            var newBinary = DownloadNewBinaryAsync(release.DownloadUrl!)
+                .GetAwaiter()
+                .GetResult();
+            if (newBinary is null)
+            {
+                ShowOnUi(() => _dialogs.ShowError(
+                    LocalizationManager.T("Update.DownloadFailed"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            // Спрашиваем, как применить обновление: перезапустить сейчас или после закрытия.
+            var restartNow = _dialogs.Confirm(
+                LocalizationManager.T("Update.RestartNowPrompt"),
+                LocalizationManager.T("Update.NewVersionAvailable"));
+
+            if (restartNow)
+            {
+                if (!ApplyRestartNow(target, newBinary))
+                {
+                    ShowOnUi(() => _dialogs.ShowError(
+                        LocalizationManager.T("Update.InstallFailed"),
+                        LocalizationManager.T("Update.NewVersionAvailable")));
+                    return;
+                }
+                // Помощник запущен — закрываем приложение, чтобы замена прошла после выхода.
+                ShutdownNow();
+            }
+            else
+            {
+                // Обновление применится при следующем естественном закрытии приложения.
+                if (!ApplyAfterClose(target, newBinary))
+                {
+                    ShowOnUi(() => _dialogs.ShowError(
+                        LocalizationManager.T("Update.InstallFailed"),
+                        LocalizationManager.T("Update.NewVersionAvailable")));
+                    return;
+                }
+                ShowOnUi(() => _dialogs.ShowInfo(
+                    LocalizationManager.T("Update.WillApplyOnExit"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+            }
+        }
+
+        /// <summary>
+        /// Обновляет установку в системном каталоге (например deb в /usr/bin), где без прав
+        /// администратора заменить исполняемый файл нельзя. Сначала запрашивает явное согласие
+        /// пользователя на повышение прав (пароль в терминале из GUI не запрашивается без
+        /// согласия), затем скачивает бинарник и запускает замену через pkexec. При отказе
+        /// от повышения прав показывается запасной диалог с кликабельной ссылкой на страницу
+        /// выпуска (issue #225).
+        /// </summary>
+        private void ShowPrivilegedUpdateDialog(ReleaseInfo release, string target)
+        {
+            if (string.IsNullOrWhiteSpace(release.DownloadUrl))
+            {
+                ShowOnUi(() => _dialogs.ShowError(
+                    LocalizationManager.T("Update.NoDownloadUrl"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            var isDeb = IsDebPackage(target);
+            var prompt = isDeb
+                ? LocalizationManager.T("Update.AdminPromptDeb")
+                : LocalizationManager.T("Update.AdminPromptGeneric");
+
+            // Повышение прав запускаем только после явного согласия пользователя.
+            var accepted = _dialogs.Confirm(
+                prompt, LocalizationManager.T("Update.NewVersionAvailable"));
+            if (!accepted)
+            {
+                // Отказ — запасной вариант: ссылка на страницу выпуска для ручного обновления.
+                ShowManualUpdateDialog(
+                    LocalizationManager.T("Update.TargetNotWritable"), release.HtmlUrl);
+                return;
+            }
+
+            var newBinary = DownloadNewBinaryAsync(release.DownloadUrl!)
+                .GetAwaiter()
+                .GetResult();
+            if (newBinary is null)
+            {
+                ShowOnUi(() => _dialogs.ShowError(
+                    LocalizationManager.T("Update.DownloadFailed"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            if (!ApplyPrivilegedUpdate(target, newBinary))
+            {
+                ShowOnUi(() => _dialogs.ShowError(
+                    LocalizationManager.T("Update.InstallFailed"),
+                    LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            // Повышение прав запущено — закрываем приложение, чтобы скрипт смог заменить бинарник.
+            ShutdownNow();
+        }
 
         /// <summary>
         /// Возвращает текст объяснения, почему самозамена невозможна, или <c>null</c>,
@@ -430,6 +510,17 @@ namespace Configuration_Management.Services
             return LaunchUpdater(script);
         }
 
+        /// <summary>
+        /// Применяет обновление установки в системном каталоге с повышением прав: создаёт
+        /// временный bash-сценарий и запускает его через <c>pkexec</c>. Возвращает true,
+        /// если процесс повышения прав удалось запустить (graphical PolicyKit-диалог).
+        /// </summary>
+        internal bool ApplyPrivilegedUpdate(string target, string newBinary)
+        {
+            var script = CreatePrivilegedUpdaterScript(target, newBinary, Environment.ProcessId);
+            return LaunchPrivilegedUpdater(script);
+        }
+
         /// <summary>Закрывает текущее приложение (вызывается после успешного запуска помощника).</summary>
         internal void ShutdownNow()
         {
@@ -558,6 +649,141 @@ rm -f ""$0""
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 };
+                psi.ArgumentList.Add("bash");
+                psi.ArgumentList.Add(scriptPath);
+                Process.Start(psi);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Определяет, установлен ли текущий исполняемый файл из deb-пакета. Спрашивает у
+        /// <c>dpkg -S</c>, какому пакету принадлежит файл: exit code 0 означает, что файл
+        /// отслеживается системным пакетным менеджером. Если dpkg недоступен или файл не
+        /// принадлежит пакету — возвращает false.
+        /// </summary>
+        private static bool IsDebPackage(string target)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "dpkg",
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                psi.ArgumentList.Add("-S");
+                psi.ArgumentList.Add(target);
+
+                using var process = Process.Start(psi);
+                if (process is null)
+                    return false;
+
+                // dpkg -S завершается нулём только если файл принадлежит установленному пакету.
+                if (!process.WaitForExit(15000))
+                {
+                    try { process.Kill(); } catch { /* процесс мог завершиться сам */ }
+                    return false;
+                }
+                return process.ExitCode == 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Создаёт временный bash-сценарий для обновления установки в системном каталоге с
+        /// повышением прав. Дожидается завершения основного процесса (по PID), заменяет
+        /// исполняемый файл скачанным и перезапускает приложение. В отличие от
+        /// <see cref="CreateUpdaterScript"/>, запускается через pkexec (root), поэтому
+        /// перезапуск выполняется от имени обычного пользователя через <c>runuser</c>,
+        /// чтобы приложение не осталось работать под правами администратора.
+        /// </summary>
+        private static string CreatePrivilegedUpdaterScript(string target, string newBinary, int currentPid)
+        {
+            var scriptPath = Path.Combine(
+                Path.GetTempPath(), UpdateTempDir, $"apply-update-priv-{Guid.NewGuid():N}.sh");
+
+            // Имя обычного пользователя для перезапуска после замены под root.
+            var userName = Bq(Environment.UserName);
+
+            var script = $@"#!/usr/bin/env bash
+set -u
+TARGET='{Bq(target)}'
+NEW='{Bq(newBinary)}'
+STAGED=""$TARGET.cm-update-$$""
+PID_TARGET={currentPid}
+USER_NAME='{userName}'
+
+# Ожидание завершения основного процесса, чтобы не было гонки при замене файла.
+i=0
+while kill -0 ""$PID_TARGET"" 2>/dev/null && [ $i -lt 300 ]; do
+  sleep 1
+  i=$((i+1))
+done
+sleep 1
+
+# Замена в два шага: сначала копия рядом с целью, затем атомарное переименование.
+if ! cp -f ""$NEW"" ""$STAGED""; then
+  rm -f ""$STAGED""
+  exit 1
+fi
+if ! chmod +x ""$STAGED""; then
+  rm -f ""$STAGED""
+  exit 1
+fi
+if ! mv -f ""$STAGED"" ""$TARGET""; then
+  rm -f ""$STAGED""
+  exit 1
+fi
+
+# Перезапуск приложения от имени обычного пользователя, а не root: скрипт работает
+# с правами администратора, а приложение должно вернуться к обычным пользователям.
+if [ -n ""$USER_NAME"" ] && command -v runuser >/dev/null 2>&1; then
+  runuser -u ""$USER_NAME"" -- nohup ""$TARGET"" >/dev/null 2>&1 &
+else
+  nohup ""$TARGET"" >/dev/null 2>&1 &
+fi
+
+# Убираем временный бинарник и сам скрипт.
+rm -f ""$NEW""
+rm -f ""$0""
+";
+
+            Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
+            File.WriteAllText(scriptPath, script);
+            return scriptPath;
+        }
+
+        /// <summary>
+        /// Запускает сценарий обновления с повышением прав через <c>pkexec env bash</c>.
+        /// pkexec показывает графический диалог PolicyKit для ввода пароля администратора;
+        /// пароль в терминале из GUI не запрашивается. Возвращает true, если процесс удалось
+        /// запустить. Если pkexec недоступен — возвращает false (обновление недоступно).
+        /// </summary>
+        private static bool LaunchPrivilegedUpdater(string scriptPath)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
+                // «env» обязателен: политика pkexec по умолчанию разрешает выполнение
+                // только /usr/bin/env, что и используется как обходной путь для запуска
+                // произвольной команды с правами администратора.
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "pkexec",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                psi.ArgumentList.Add("env");
                 psi.ArgumentList.Add("bash");
                 psi.ArgumentList.Add(scriptPath);
                 Process.Start(psi);

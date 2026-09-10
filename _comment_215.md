@@ -1,0 +1,1 @@
+Исправлено в 0.3.6.97: в окне «Очистка кэша 1С» добавлена сортировка колонок (и в WPF, и в Avalonia). Подробнее — раздел CHANGELOG [0.3.6.97](https://github.com/sivatorov/ConfigurationManagement/blob/main/CHANGELOG.md#03697---2026-09-09).

@@ -9,6 +9,29 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.7.11] — 2026-09-10
+
+Сводные исправления по шести issues (#226, #225, #221, #216, #214, #175): Esc на Linux закрывает только диалог, а не всё приложение; автообновление в пакетной установке deb теперь реально обновляет бинарник (через pkexec/sudo с подтверждением), а single-file — без прав заменой файла; правая панель начинается вровень с верхней панелью поиска; текст в поле «Размер» шрифта отцентрован и на Linux; компактный режим окончательно стабилизирован (компенсатор исключён из компактизации навсегда); функционал кастомного COM-коннектора (#175) дополнительно верифицирован.
+
+### Исправлено
+
+- **Linux: Esc больше не закрывает всё приложение, а закрывает только активный диалог** ([#226](https://github.com/sivatorov/ConfigurationManagement/issues/226)): обработка клавиши Esc в главном окне теперь проверяет, открыт ли какой-либо модальный диалог, через новый метод `HasOpenModalDialog()` в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs). Если диалог открыт — Esc закрывает его, а главное окно остаётся живым; закрытие приложения по Esc возможно только когда нет открытых модальных окон. Правка только в Linux/Avalonia; Windows/WPF не затрагивается.
+
+- **Linux: автообновление теперь действительно обновляет программу в пакетной установке** ([#225](https://github.com/sivatorov/ConfigurationManagement/issues/225)): раньше в пакетной установке (deb в `/usr/bin`, AppImage) обновление лишь показывало диалог с ссылкой на страницу выпуска, но не заменяло исполняемый файл. Теперь в single-file сборке (без прав на запись) обновление выполняется реальной заменой файла, а для deb-установки запрашивает повышение прав через `pkexec`/`sudo` с явным подтверждением пользователя. Реализовано в [`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs); добавлены ключи локализации `Update.AdminPromptDeb`/`Update.AdminPromptGeneric` в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json). Правка только в Linux/Avalonia; Windows/WPF не затрагивается.
+
+- **Linux: правая панель начинается вровень с верхней панелью поиска** ([#221](https://github.com/sivatorov/ConfigurationManagement/issues/221)): панель поиска перенесена внутрь левой колонки, а правая панель выровнена по её верхнему краю — исчез «конский отступ» над блоком запуска. Правка в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs). Только Linux/Avalonia-сборка.
+
+- **Текст в поле «Размер» шрифта отцентрован по вертикали и на Linux** ([#216](https://github.com/sivatorov/ConfigurationManagement/issues/216)): исправлен селектор центровки в [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs) — вместо `PART_EditableText` теперь используется потомок `OfType<ComboBox>().Descendant().OfType<TextBox>()`, чтобы внутреннее поле ввода редактируемого списка корректно центрировало текст. В WPF-сборке центровка уже была обеспечена шаблоном, поэтому правка внесена точечно только в Avalonia-код.
+
+- **Компактный режим окончательно стабилизирован** ([#214](https://github.com/sivatorov/ConfigurationManagement/issues/214)): колонка-компенсатор заголовка (`HeaderOffsetColumn`) навсегда исключена из компактизации ширины в [`Themes/ThemeManager.cs`](Configuration%20Management/Themes/ThemeManager.cs), метод `QueueHeaderAlign()` переведён на стабилизирующий цикл на приоритете `ApplicationIdle` в [`Views/MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs), все разрозненные пересчёты выравнивания объединены в единый механизм и добавлен пересчёт по `MainTree.SizeChanged`. Компактный режим больше не «разъезжается» при поиске, очистке поиска и изменении размера окна.
+
+- **Имя кастомного COM-коннектора: функционал подтверждён, правки не требовались** ([#175](https://github.com/sivatorov/ConfigurationManagement/issues/175)): диагностика фактически использованного COM-коннектора уже была реализована в `0.3.7.10` ([`Services/ComReadHost.cs`](Configuration%20Management/Services/ComReadHost.cs) и связанные сервисы). Дополнительно верифицировано без новых изменений кода: развёртывание шаблонов с суффиксами после версии (`V%V12%.COMConnector_%V3%_%V4%` → `V83.COMConnector_27`) совпадает с предпросмотром, поведение стандартного перебора при пустом шаблоне не изменено.
+
+### Версия
+
+- **Версия поднята до `0.3.7.11`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.7.10] — 2026-09-10
 
 Сводные исправления по шести issues (#175, #214, #221, #222, #224, #225): пакетное автообновление на Linux показывает понятный диалог с кликабельной ссылкой, одиночный клик по трею открывает главное окно, восстановлена «Системная рамка окна», убран лишний верхний отступ правой панели, компактный режим больше не разъезжается при поиске, а диагностика кастомного COM-коннектора стала полезной.

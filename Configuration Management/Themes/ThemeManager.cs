@@ -275,6 +275,13 @@ namespace Configuration_Management.Themes
         private static readonly Dictionary<DependencyObject, double> _compactFont = new();
         private static readonly Dictionary<ColumnDefinition, double> _compactColumn = new();
 
+        // Колонки, навсегда исключённые из компактизации ширины (колонка-компенсатор
+        // заголовка, ширина которой целиком управляется AlignHeaderToData). В отличие от
+        // удаления из _compactColumn, добавление сюда переживает последующие проходы
+        // ApplyCompact, поэтому повторное применение компакт-режима не масштабирует уже
+        // выставленную ширину и заголовок не «уезжает» влево относительно строк (issue #214).
+        private static readonly HashSet<ColumnDefinition> _excludedCompactColumns = new();
+
         /// <summary>
         /// Применяет компактный режим к главному окну: уменьшает отступы, внутренние поля
         /// и ширины фиксированных колонок на коэффициент 0.7, а шрифты (в т.ч. унаследованные —
@@ -313,17 +320,20 @@ namespace Configuration_Management.Themes
         }
 
         /// <summary>
-        /// Исключает колонку из компактизации ширины. Используется для колонки-компенсатора
+        /// Навсегда исключает колонку из компактизации ширины. Используется для колонки-компенсатора
         /// заголовка (<c>HeaderOffsetColumn</c>), ширина которой целиком управляется
         /// <c>AlignHeaderToData</c>: она не является колонкой данных и не должна масштабироваться
         /// коэффициентом компактности — иначе после первичного применения компакт-режима (когда
         /// компенсатор уже получил ненулевую ширину) строки «разъезжаются» по горизонтали и
         /// выравнивание восстанавливается лишь повторным переключением тумблера (issue #214).
+        /// Пометка хранится в <see cref="_excludedCompactColumns"/> и потому действует на все
+        /// последующие проходы <c>ApplyCompact</c>/<c>ApplyCompactTree</c>, а не только на текущий.
         /// </summary>
         public static void ForgetCompactWidth(ColumnDefinition column)
         {
             if (column is null)
                 return;
+            _excludedCompactColumns.Add(column);
             _compactColumn.Remove(column);
         }
 
@@ -374,6 +384,13 @@ namespace Configuration_Management.Themes
             {
                 foreach (var cd in grid.ColumnDefinitions)
                 {
+                    // Колонка-компенсатор заголовка навсегда исключена из компактизации
+                    // (см. ForgetCompactWidth): даже получив ненулевую ширину, она не должна
+                    // масштабироваться коэффициентом компактности, иначе заголовок «уезжает»
+                    // влево относительно строк и выравнивание требует повторного переключения
+                    // тумблера (issue #214).
+                    if (_excludedCompactColumns.Contains(cd))
+                        continue;
                     if (cd.Width.IsStar || cd.Width.IsAuto)
                         continue;
                     // Ширина задана привязкой — не трогаем (иначе теряется живое обновление).

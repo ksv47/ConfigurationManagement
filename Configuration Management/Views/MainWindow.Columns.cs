@@ -315,7 +315,7 @@ namespace Configuration_Management
         /// </summary>
         private void OnMainTree_GroupExpansionChanged(object sender, RoutedEventArgs e)
         {
-            Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+            QueueHeaderAlign();
         }
 
         // Признак того, что в очереди диспетчера уже стоит пересчёт выравнивания заголовка.
@@ -323,23 +323,54 @@ namespace Configuration_Management
         // строк дерева при пересборке, прокрутке и поиске) склеивались в один пересчёт за
         // проход — как в Linux/Avalonia (QueueHeaderAlign).
         private bool _headerAlignQueued;
+        // Счётчик итераций стабилизации текущего пересчёта (защита от бесконечного цикла).
+        private int _headerAlignStabilizeCount;
+        // Максимум итераций стабилизации, пока компенсатор не перестанет меняться.
+        private const int HeaderAlignMaxStabilize = 8;
 
         /// <summary>
         /// Ставит пересчёт выравнивания заголовка (<see cref="AlignHeaderToData"/>) в очередь
-        /// диспетчера на приоритет Loaded. Повторные вызовы до выполнения объединяются в один:
-        /// положение строки известно только после раскладки, а частые события (появление
-        /// каждой строки дерева) не должны вызывать лишние полные пересчёты компенсатора.
+        /// диспетчера на приоритет ApplicationIdle и зацикливает его до стабилизации значения
+        /// колонки-компенсатора (см. <see cref="HeaderAlignStabilizeStep"/>). Повторные вызовы
+        /// до выполнения объединяются в один пересчёт, чтобы частые события (появление каждой
+        /// строки дерева, изменение размера списка) не вызывали лишние полные пересчёты.
+        /// Выполнение на ApplicationIdle гарантирует, что раскладка уже завершена и
+        /// виртуализированные контейнеры строк материализованы, — в отличие от Loaded, на
+        /// котором они достраиваются уже после (issue #214).
         /// </summary>
         private void QueueHeaderAlign()
         {
             if (_headerAlignQueued)
                 return;
             _headerAlignQueued = true;
-            Dispatcher.BeginInvoke(new Action(() =>
+            _headerAlignStabilizeCount = 0;
+            Dispatcher.BeginInvoke(new Action(HeaderAlignStabilizeStep),
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+
+        /// <summary>
+        /// Один шаг стабилизации выравнивания заголовка: выполняет <see cref="AlignHeaderToData"/>
+        /// и, пока значение компенсатора продолжает меняться либо строки ещё не материализованы
+        /// (виртуализация достраивает их в проходе разметки после события), повторяет проверку
+        /// на ApplicationIdle. Так фиксируется итоговое положение, а не промежуточное, по которому
+        /// иконки заголовка «разъезжаются» относительно строк и требуют повторного переключения
+        /// тумблера (issue #214). Число итераций ограничено как защита от бесконечного цикла.
+        /// </summary>
+        private void HeaderAlignStabilizeStep()
+        {
+            _headerAlignQueued = false;
+            var before = HeaderOffsetColumn?.Width.Value ?? 0;
+            var hadRows = FindFirstInfobaseItem(MainTree) is not null;
+            AlignHeaderToData();
+            var after = HeaderOffsetColumn?.Width.Value ?? 0;
+
+            var changed = Math.Abs(after - before) > 0.5;
+            if ((changed || !hadRows) && _headerAlignStabilizeCount++ < HeaderAlignMaxStabilize)
             {
-                _headerAlignQueued = false;
-                AlignHeaderToData();
-            }), System.Windows.Threading.DispatcherPriority.Loaded);
+                _headerAlignQueued = true;
+                Dispatcher.BeginInvoke(new Action(HeaderAlignStabilizeStep),
+                    System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }
         }
 
         /// <summary>

@@ -131,13 +131,12 @@ namespace Configuration_Management
             _viewModel.TreeRebuilt += () =>
             {
                 RestoreTreeKeyboardFocus();
-                Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
                 // Виртуализация создаёт новые контейнеры строк в проходе разметки ПОСЛЕ события
-                // Loaded, поэтому выравнивание на Loaded-приоритете может выполниться до их
-                // появления — компактность снова «разъезжается» (issue #214) до ручного
-                // переключения тумблера. ApplicationIdle добирает такие строки (тот же приём,
-                // что в RevealAndSelectAfterRebuild).
-                Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                // Loaded, поэтому выравнивание на Loaded-приоритете выполняется до их появления —
+                // компактность снова «разъезжается» (issue #214). QueueHeaderAlign ставит
+                // стабилизирующий цикл на ApplicationIdle, который добирает строки после полной
+                // раскладки (тот же приём, что в RevealAndSelectAfterRebuild).
+                QueueHeaderAlign();
             };
 
             // Пересчитываем выравнивание колонок заголовка после переключения компактного
@@ -156,7 +155,7 @@ namespace Configuration_Management
                     try
                     {
                         RestoreLastSelection();
-                        AlignHeaderToData();
+                        QueueHeaderAlign();
                     }
                     catch { /* не блокируем запуск из-за восстановления выделения */ }
                 }), System.Windows.Threading.DispatcherPriority.Loaded);
@@ -252,7 +251,7 @@ namespace Configuration_Management
                     or nameof(MainViewModel.ShowFavoritesButton)
                     or nameof(MainViewModel.ShowPinnedButton))
                 {
-                    Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+                    QueueHeaderAlign();
                 }
 
                 if (e.PropertyName is nameof(MainViewModel.HotkeyEnterprise)
