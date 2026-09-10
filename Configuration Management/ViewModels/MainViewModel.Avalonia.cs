@@ -4967,11 +4967,15 @@ public class MainViewModel : ViewModelBase
 
         try
         {
+            // Объём считается до удаления: после него мерить нечего, а в отчёте
+            // объём был только у остатков от удалённых баз (issue #178).
+            var size = OneCCacheCleaner.GetSize(ib, OneCCacheKind.All);
             var removed = OneCCacheCleaner.Clear(ib, OneCCacheKind.All);
             var kindLabel = CacheKindLabel(OneCCacheKind.All);
             var baseLabel = string.Format(LocalizationManager.T("Main.CacheBaseOne"), ib.Name);
             var message = removed > 0
-                ? string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removed)
+                ? string.Format(LocalizationManager.T("Main.CacheCleaned"),
+                    kindLabel, baseLabel, removed, Infobase.FormatSize(size))
                 : string.Format(LocalizationManager.T("Main.CacheNotFound"), kindLabel, baseLabel);
             _dialog.ShowInfo(message, LocalizationManager.T("Main.ClearCacheDlgTitle"));
         }
@@ -5030,6 +5034,8 @@ public class MainViewModel : ViewModelBase
         {
             // Объём «остатков» до очистки — для отчёта (issue #178).
             var orphanSize = cleanOrphans ? OneCCacheCleaner.GetOrphanSize(selectedKind, Infobases) : 0L;
+            // Объём кеша выбранных баз считается там же и по той же причине.
+            var basesSize = infobases.Count > 0 ? OneCCacheCleaner.GetSize(selectedKind, infobases) : 0L;
             var removedBases = OneCCacheCleaner.Clear(infobases, selectedKind);
             var removedOrphans = cleanOrphans ? OneCCacheCleaner.ClearOrphans(selectedKind, Infobases) : 0;
 
@@ -5041,7 +5047,8 @@ public class MainViewModel : ViewModelBase
                     : string.Format(LocalizationManager.T("Main.CacheBaseMany"), infobases.Count);
 
                 if (removedBases > 0)
-                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removedBases));
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheCleaned"),
+                        kindLabel, baseLabel, removedBases, Infobase.FormatSize(basesSize)));
                 else
                     resultParts.Add(string.Format(LocalizationManager.T("Main.CacheNotFound"), kindLabel, baseLabel));
             }
