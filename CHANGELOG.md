@@ -9,6 +9,33 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.7.14] — 2026-09-11
+
+Выпуск сфокусирован на надёжности обновления на Linux (группа issues #225–#231): появление индикатора хода скачивания, журналирование работы сценария-помощника, исправление дефекта, из-за которого обновление не срабатывало из сборок, собранных на Windows. Дополнительно влиты три новых PR: правка редактируемого ComboBox в WPF, восстановление Linux updater log после merge-конфликта и стабилизация компактного режима Windows.
+
+### Добавлено
+
+- **Linux: индикатор хода скачивания обновления** (fix #225): добавлено окно [`Services/UpdateProgressWindow.Avalonia.cs`](Configuration%20Management/Services/UpdateProgressWindow.Avalonia.cs:21) — показывается только во время загрузки, без владельца (вне панели задач), отражает прогресс по байтам принятого файла; интеграция в [`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs:562).
+
+### Исправлено
+
+- **Linux: сценарий-помощник обновления пишет журнал** (fix #225): в [`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs:508) добавлен `EnsureUpdaterLogPath` — весь вывод помощника уходит в `update-helper.log` рядом с `errors.log` (цель, размер файла, свободное место, время ожидания процесса, результат копирования/смены прав/переименования, код запуска новой версии); журнал подрезается при превышении 512 КБ.
+
+- **Журнал помощника: не умирать без журнала, честный код перезапуска, отметка таймаута** (fix #225): в [`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs:842) помощник продолжает работать, если журнал недоступен, корректно передаёт код перезапуска приложения и фиксирует факт достижения таймаута ожидания завершения основного процесса.
+
+- **Linux: обновление не срабатывало из сборок, собранных на Windows** (fix [#225](https://github.com/sivatorov/ConfigurationManagement/issues/225)): запись сценария вынесена в [`WriteShellScript`](Configuration%20Management/Services/UpdateService.Avalonia.cs:541), которая приводит переводы строк к виду, понятному bash (`\r\n → \n`). Рабочая копия, выгруженная на Windows (autocrlf), давала сценарий с CRLF, и bash отвергал `set -u` — обновление закрывало приложение, не заменяя файл. Обе ветки замены (обычная и с повышением прав) теперь идут через этот метод.
+
+- **Linux: восстановлен метод `EnsureUpdaterLogPath`** (PR [#233](https://github.com/sivatorov/ConfigurationManagement/pull/233)): при ручном разрешении merge-конфликта из [`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs:508) пропало объявление метода, а вызов остался — Linux-цель перестала собираться (CS0103). Объявление возвращено в исходном виде.
+
+- **Windows: текст редактируемого списка уезжал под нижний край** (issue [#216](https://github.com/sivatorov/ConfigurationManagement/issues/216), PR [#232](https://github.com/sivatorov/ConfigurationManagement/pull/232)): в шаблоне `ModernComboBox` в [`Themes/DarkTheme.xaml`](Configuration%20Management/Themes/DarkTheme.xaml:375) и [`Themes/LightTheme.xaml`](Configuration%20Management/Themes/LightTheme.xaml) полю `PART_EditableTextBox` задан `Style="{x:Null}"` (чтобы не применялся неявный стиль `ModernTextBox` с `MinHeight=36`, растягивавший поле и смещавший текст на 7,5 точки ниже центра) и `HorizontalScrollBarVisibility=Hidden`. Текст снова центрирован, высота редактируемых списков совпадает с соседними полями.
+
+- **Windows: компактный режим давал разную раскладку в зависимости от пути** (issue [#214](https://github.com/sivatorov/ConfigurationManagement/issues/214), PR [#234](https://github.com/sivatorov/ConfigurationManagement/pull/234)): в [`Themes/ThemeManager.cs`](Configuration%20Management/Themes/ThemeManager.cs) и [`Views/MainWindow.Columns.cs`](Configuration%20Management/Views/MainWindow.Columns.cs) устранены четыре источника расхождения раскладки — масштабирование отступов, заданных привязкой (снимавших Binding), захват метрик поддерева отдельным проходом, обход строки от корня шаблона и корректный возврат в обычный режим через `ClearValue`. Раскладка больше не зависит от того, каким путём применена компактность (запуск/тумблер/поиск).
+
+### Версия
+
+- **Версия поднята до `0.3.7.14`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок (0 предупреждений, 0 ошибок).
+
 ## [0.3.7.13] — 2026-09-11
 
 Сводные исправления по шести issues (#228, #226, #221, #216, #214, #175): на Linux добавлена ручная кнопка «Проверить обновления» на вкладке «О программе»; Esc снова закрывает активный модальный диалог, а не главное окно; устранён остаточный верхний отступ правой панели — левая колонка выровнена по верхнему краю; текст в поле «Размер» шрифта корректно отцентрован по вертикали; компактный режим стабилизирован при старте/тумблере/поиске; кастомный шаблон COM-коннектора разворачивается с корректными суффиксами при неполной версии.
