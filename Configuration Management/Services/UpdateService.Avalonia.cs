@@ -499,6 +499,35 @@ namespace Configuration_Management.Services
     }
 
         /// <summary>
+        /// Путь к журналу сценария-помощника. Лежит рядом с <c>errors.log</c>, потому что
+        /// помощник работает уже после выхода приложения: свой вывод он отдать некому,
+        /// его каналы закрыты вместе с родительским процессом, и при неудачной замене
+        /// от него не остаётся ни строки (issue #225). Журнал подрезается, когда
+        /// перерастает порог очистки: запись ведётся при каждом обновлении.
+        /// </summary>
+        private static string EnsureUpdaterLogPath()
+        {
+            const long maxLogBytes = 512 * 1024;
+            var dir = Configuration_Management.Services.PlatformPaths.AppDataDirectory;
+
+            try
+            {
+                Directory.CreateDirectory(dir);
+                var path = Path.Combine(dir, "update-helper.log");
+                var info = new FileInfo(path);
+                if (info.Exists && info.Length > maxLogBytes)
+                    TryDelete(path);
+
+                return path;
+            }
+            catch
+            {
+                // Каталог данных недоступен: пишем рядом со сценарием, лишь бы не молча.
+                return Path.Combine(EnsureUpdateDirectory(), "update-helper.log");
+            }
+        }
+
+        /// <summary>
         /// Записывает текст сценария-помощника, приводя переводы строк к виду, который
         /// понимает <c>bash</c>. Текст сценария лежит в исходнике буквальной строкой,
         /// поэтому переводы строк попадают в него прямо из файла исходного кода: если
