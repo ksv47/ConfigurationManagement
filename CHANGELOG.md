@@ -9,6 +9,29 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.7.13] — 2026-09-11
+
+Сводные исправления по шести issues (#228, #226, #221, #216, #214, #175): на Linux добавлена ручная кнопка «Проверить обновления» на вкладке «О программе»; Esc снова закрывает активный модальный диалог, а не главное окно; устранён остаточный верхний отступ правой панели — левая колонка выровнена по верхнему краю; текст в поле «Размер» шрифта корректно отцентрован по вертикали; компактный режим стабилизирован при старте/тумблере/поиске; кастомный шаблон COM-коннектора разворачивается с корректными суффиксами при неполной версии.
+
+### Исправлено
+
+- **Linux: добавлена кнопка «Проверить обновления» на вкладке «О программе»** ([#228](https://github.com/sivatorov/ConfigurationManagement/issues/228)): в [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs) рядом с переключателями автоматической проверки добавлена ручная кнопка, вызывающая `CheckForUpdatesManualAsync()` из [`Services/UpdateService.Avalonia.cs`](Configuration%20Management/Services/UpdateService.Avalonia.cs) и явно сообщающая результат («актуальная версия» / «ошибка» / «доступно обновление»), как в WPF-версии. Правка только в Linux/Avalonia; Windows/WPF не затрагивается.
+
+- **Linux: Esc закрывает активный модальный диалог, не закрывая главное окно** ([#226](https://github.com/sivatorov/ConfigurationManagement/issues/226)): обработчик клавиши Esc перенесён в базу всех диалогов [`Views/ModalWindowBase.cs`](Configuration%20Management/Views/ModalWindowBase.cs) (`OnKeyDown`) — по Esc закрывается именно открытый модальный диалог, а главное окно по-прежнему уходит в трей/закрывается только когда диалогов нет. Правка только в Linux/Avalonia; Windows/WPF не затрагивается.
+
+- **Linux: устранён остаточный верхний отступ правой панели** ([#221](https://github.com/sivatorov/ConfigurationManagement/issues/221)): в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) левая колонка выровнена по верхнему краю (`leftStack.Margin=12`), как в Windows-версии — блок запуска правой панели начинается вровень с верхней панелью/левой колонкой. Правка только в Linux/Avalonia; Windows/WPF не затрагивается.
+
+- **Текст в поле «Размер» шрифта корректно отцентрован по вертикали** ([#216](https://github.com/sivatorov/ConfigurationManagement/issues/216)): в [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs) центровка применяется после материализации шаблона (`TemplateApplied`) к внутреннему полю `PART_EditableText` через `VerticalContentAlignment=Center`, чтобы текст редактируемого ComboBox совпадал с поведением Windows. Правка только в Linux/Avalonia; Windows/WPF не затрагивается.
+
+- **Компактный режим больше не «разъезжается» при старте/тумблере/поиске** ([#214](https://github.com/sivatorov/ConfigurationManagement/issues/214)): в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs) пересчёт выравнивания через `QueueHeaderAlign` гарантированно запускается после пересборки дерева и смены состояния — по `SearchText`, `ShowRightPanelDetails` и `ApplyCompactMode`. Компенсатор заголовка считается от актуальной ширины строк после раскладки, поэтому выравнивание не расходится при двойном переключении тумблера, клике в поиск и его очистке. Правка только в Linux/Avalonia; Windows/WPF не затрагивается.
+
+- **Кастомный шаблон COM-коннектора корректно разворачивается с суффиксами при неполной версии** ([#175](https://github.com/sivatorov/ConfigurationManagement/issues/175)): в [`Services/ComConnectorTemplate.cs`](Configuration%20Management/Services/ComConnectorTemplate.cs) метод `TrimTrailingSeparators` корректно обрабатывает суффиксы после версии — например `V%V12%.COMConnector` для `8.3` даёт `V83.COMConnector` вместо усечённого `V83`. Развёртывание совпадает с интерактивным предпросмотром в окне настроек и используется и при подключении, и в диагностике.
+
+### Версия
+
+- **Версия поднята до `0.3.7.13`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** (`dotnet build "Configuration Management/Configuration Management.csproj"`) и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок (0 предупреждений, 0 ошибок).
+
 ## [0.3.7.12] — 2026-09-11
 
 Исправление по PR #227 (Linux): обновление с повышением прав через `pkexec` больше не закрывает приложение до ответа PolicyKit — окно остаётся отзывчивым, а при отказе или недоступности прав приложение продолжает работать и показывает запасной диалог со ссылкой на страницу выпуска.
