@@ -498,6 +498,35 @@ namespace Configuration_Management.Services
         }
     }
 
+        /// <summary>
+        /// Путь к журналу сценария-помощника. Лежит рядом с <c>errors.log</c>, потому что
+        /// помощник работает уже после выхода приложения: свой вывод он отдать некому,
+        /// его каналы закрыты вместе с родительским процессом, и при неудачной замене
+        /// от него не остаётся ни строки (issue #225). Журнал подрезается, когда
+        /// перерастает предел: запись ведётся при каждом обновлении.
+        /// </summary>
+        private static string EnsureUpdaterLogPath()
+        {
+            const long maxLogBytes = 512 * 1024;
+            var dir = Configuration_Management.Services.PlatformPaths.AppDataDirectory;
+
+            try
+            {
+                Directory.CreateDirectory(dir);
+                var path = Path.Combine(dir, "update-helper.log");
+                var info = new FileInfo(path);
+                if (info.Exists && info.Length > maxLogBytes)
+                    TryDelete(path);
+
+                return path;
+            }
+            catch
+            {
+                // Каталог данных недоступен: пишем рядом со сценарием, лишь бы не молча.
+                return Path.Combine(EnsureUpdateDirectory(), "update-helper.log");
+            }
+        }
+
         /// <summary>Возвращает путь к текущему исполняемому файлу приложения или null.</summary>
         internal string? ResolveTargetBinary()
         {
@@ -796,6 +825,7 @@ namespace Configuration_Management.Services
         /// </summary>
         private static string CreateUpdaterScript(string target, string newBinary, int currentPid, bool restart)
         {
+            var logPath = EnsureUpdaterLogPath();
             var scriptPath = Path.Combine(
                 EnsureUpdateDirectory(), $"apply-update-{Guid.NewGuid():N}.sh");
 
@@ -819,6 +849,15 @@ NEW='{Bq(newBinary)}'
 STAGED=""$TARGET.cm-update-$$""
 PID_TARGET={currentPid}
 RESTART={(restart ? 1 : 0)}
+LOG='{Bq(logPath)}'
+
+# Весь вывод уходит в журнал: приложение к этому моменту закрыто, его каналы
+# закрыты вместе с ним, и без журнала неудачная замена не оставляет следов.
+exec >>""$LOG"" 2>&1
+echo ""=== $(date '+%Y-%m-%d %H:%M:%S') помощник обновления, pid $$, RESTART=$RESTART""
+echo ""цель: $TARGET""
+echo ""новый файл: $NEW, размер $(stat -c%s ""$NEW"" 2>/dev/null || echo '?') байт""
+echo ""свободно в каталоге цели: $(df -Pk ""$(dirname ""$TARGET"")"" 2>/dev/null | awk 'NR==2 {{print $4}}') КБ""
 
 # Ожидание завершения основного процесса, чтобы не было гонки при замене файла.
 i=0
@@ -827,30 +866,37 @@ while {waitCondition}; do
   i=$((i+1))
 done
 sleep 1
+echo ""ожидание процесса $PID_TARGET заняло $i с""
 
 # Замена в два шага: сначала копия рядом с целью, затем атомарное переименование.
 # Так недокачанный или недокопированный файл никогда не окажется на месте рабочего.
 if ! cp -f ""$NEW"" ""$STAGED""; then
+  echo ""ошибка: не удалось скопировать новый файл в $STAGED""
   rm -f ""$STAGED""
   exit 1
 fi
 if ! chmod +x ""$STAGED""; then
+  echo ""ошибка: не удалось выставить признак исполняемого для $STAGED""
   rm -f ""$STAGED""
   exit 1
 fi
 if ! mv -f ""$STAGED"" ""$TARGET""; then
+  echo ""ошибка: не удалось переименовать $STAGED в $TARGET""
   rm -f ""$STAGED""
   exit 1
 fi
+echo ""замена файла выполнена""
 
 # Перезапуск приложения (только по явному запросу пользователя).
 if [ ""$RESTART"" = ""1"" ]; then
   {relaunchBlock}
+  echo ""перезапуск запрошен, код запуска $?""
 fi
 
 # Убираем временный бинарник, сам скрипт и опустевший каталог обновления.
 WORK_DIR=""$(dirname ""$0"")""
 rm -f ""$NEW""
+echo ""=== $(date '+%Y-%m-%d %H:%M:%S') помощник закончил работу""
 rm -f ""$0""
 rmdir ""$WORK_DIR"" 2>/dev/null || true
 ";
