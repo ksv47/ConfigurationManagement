@@ -247,7 +247,7 @@ namespace Configuration_Management.Services
             // Скачиваем новый бинарник, не блокируя поток интерфейса: диалог показан
             // из UI-потока, и синхронное ожидание здесь замораживало окно на всё время
             // загрузки (десятки МБ).
-            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!)
+            var newBinary = await DownloadWithProgressAsync(release.DownloadUrl!)
                 .ConfigureAwait(true);
             if (newBinary is null)
             {
@@ -325,7 +325,7 @@ namespace Configuration_Management.Services
                 return;
             }
 
-            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!)
+            var newBinary = await DownloadWithProgressAsync(release.DownloadUrl!)
                 .ConfigureAwait(true);
             if (newBinary is null)
             {
@@ -469,7 +469,7 @@ namespace Configuration_Management.Services
                 return;
             }
 
-            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!);
+            var newBinary = await DownloadWithProgressAsync(release.DownloadUrl!);
             if (newBinary is null)
             {
                 ShowOnUi(() => _dialogs.ShowError(
@@ -507,10 +507,71 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>
+        /// Скачивает новый бинарник, показывая на это время окно хода загрузки. Размер
+        /// файла — десятки МБ, и без индикатора отрезок между согласием на обновление и
+        /// вопросом о перезапуске выглядит как зависание приложения (issue #225).
+        /// В Windows-версии тот же этап показан полосой прогресса в едином диалоге
+        /// обновления (<c>UpdateAvailableWindow</c>).
+        /// </summary>
+        private async Task<string?> DownloadWithProgressAsync(string url)
+        {
+            UpdateProgressWindowAvalonia? window = null;
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    window = new UpdateProgressWindowAvalonia();
+                    ShowProgressWindow(window);
+                });
+            }
+            catch
+            {
+                // Окно индикатора не должно мешать самому обновлению.
+                window = null;
+            }
+
+            try
+            {
+                return await DownloadNewBinaryAsync(url, window).ConfigureAwait(true);
+            }
+            finally
+            {
+                if (window is not null)
+                {
+                    try
+                    {
+                        await Dispatcher.UIThread.InvokeAsync(() => window.Close());
+                    }
+                    catch { /* окно могли закрыть вместе с приложением */ }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Показывает окно хода загрузки поверх главного окна, не блокируя вызывающий код:
+        /// модальный показ остановил бы цепочку обновления до закрытия окна пользователем.
+        /// </summary>
+        private static void ShowProgressWindow(Avalonia.Controls.Window window)
+        {
+            var owner = Avalonia.Application.Current?.ApplicationLifetime
+                is IClassicDesktopStyleApplicationLifetime desktop
+                && desktop.MainWindow is { IsVisible: true } main
+                    ? main
+                    : null;
+
+            if (owner is not null)
+                window.Show(owner);
+            else
+                window.Show();
+        }
+
+        /// <summary>
         /// Скачивает новый бинарник по прямой ссылке во временный каталог. Возвращает путь
         /// к файлу или null при сетевой ошибке / пустом файле. Временный файл удаляется при неудаче.
+        /// О ходе загрузки сообщается окну <paramref name="progress"/>, если оно показано.
         /// </summary>
-        private async Task<string?> DownloadNewBinaryAsync(string url)
+        private async Task<string?> DownloadNewBinaryAsync(
+            string url, UpdateProgressWindowAvalonia? progress = null)
         {
             var dir = EnsureUpdateDirectory();
             var dest = Path.Combine(dir, "ConfigurationManagement.new");
@@ -530,9 +591,36 @@ namespace Configuration_Management.Services
                 await using var source = await response.Content
                     .ReadAsStreamAsync(cancellation.Token)
                     .ConfigureAwait(false);
+                // Общий размер сервер сообщает не всегда: без него доля неизвестна,
+                // и окно показывает бегущую полосу вместо процентов.
+                var totalBytes = response.Content.Headers.ContentLength ?? -1;
                 await using (var target = new FileStream(dest, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
-                    await source.CopyToAsync(target, cancellation.Token).ConfigureAwait(false);
+                    var buffer = new byte[81920];
+                    long readTotal = 0;
+                    var lastPercent = -1;
+                    progress?.SetProgress(totalBytes > 0 ? 0 : -1);
+
+                    int read;
+                    while ((read = await source.ReadAsync(buffer, cancellation.Token).ConfigureAwait(false)) > 0)
+                    {
+                        await target.WriteAsync(buffer.AsMemory(0, read), cancellation.Token)
+                            .ConfigureAwait(false);
+                        readTotal += read;
+
+                        if (progress is null || totalBytes <= 0)
+                            continue;
+
+                        // Отчёт только на смене целого процента: иначе на каждый блок
+                        // в 80 КБ приходилась бы отправка в поток интерфейса.
+                        var percent = (int)(readTotal * 100 / totalBytes);
+                        if (percent == lastPercent)
+                            continue;
+
+                        lastPercent = percent;
+                        progress.SetProgress(percent);
+                    }
+
                     await target.FlushAsync(cancellation.Token).ConfigureAwait(false);
                 }
 

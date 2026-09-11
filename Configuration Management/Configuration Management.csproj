@@ -90,6 +90,7 @@
          исключаем из Windows-сборки, чтобы она не попадала в компиляцию WPF. -->
     <Compile Remove="Services\UpdateService.Avalonia.cs" />
     <Compile Remove="Services\ManualUpdateWindow.Avalonia.cs" />
+    <Compile Remove="Services\UpdateProgressWindow.Avalonia.cs" />
   </ItemGroup>
 
   <!-- WPF-ресурсы иконок (embedded, только Windows) -->
