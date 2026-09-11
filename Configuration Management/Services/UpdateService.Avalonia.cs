@@ -724,6 +724,7 @@ namespace Configuration_Management.Services
         /// </summary>
         private static string CreateUpdaterScript(string target, string newBinary, int currentPid, bool restart)
         {
+            var logPath = EnsureUpdaterLogPath();
             var scriptPath = Path.Combine(
                 EnsureUpdateDirectory(), $"apply-update-{Guid.NewGuid():N}.sh");
 
@@ -747,6 +748,27 @@ NEW='{Bq(newBinary)}'
 STAGED=""$TARGET.cm-update-$$""
 PID_TARGET={currentPid}
 RESTART={(restart ? 1 : 0)}
+LOG='{Bq(logPath)}'
+
+# Весь вывод уходит в журнал: приложение к этому моменту закрыто, его каналы
+# закрыты вместе с ним, и без журнала неудачная замена не оставляет следов.
+# Если журнал открыть не удалось, вывод уводится в никуда, и это обязательно:
+# унаследованные потоки ведут в трубу закрывшегося приложения, и первая же
+# запись в неё убила бы помощника сигналом PIPE до замены файла.
+if ! exec >>""$LOG"" 2>&1; then
+  exec >/dev/null 2>&1
+else
+  # Права журнала не должны зависеть от umask сборки: в нём пути пользователя.
+  chmod 600 ""$LOG"" 2>/dev/null || true
+fi
+
+log() {{ echo ""[$(date '+%Y-%m-%d %H:%M:%S')] $*""; }}
+
+log ""=== помощник обновления, pid $$, режим RESTART=$RESTART""
+log ""цель: $TARGET""
+log ""новый файл: $NEW, размер $(stat -c%s ""$NEW"" 2>/dev/null || echo '?') байт""
+FREE_KB=$(df -Pk ""$(dirname ""$TARGET"")"" 2>/dev/null | awk 'NR==2 {{print $4}}')
+log ""свободно в каталоге цели: ${{FREE_KB:-?}} КБ""
 
 # Ожидание завершения основного процесса, чтобы не было гонки при замене файла.
 i=0
@@ -754,32 +776,55 @@ while {waitCondition}; do
   sleep 1
   i=$((i+1))
 done
+if kill -0 ""$PID_TARGET"" 2>/dev/null; then
+  log ""предупреждение: процесс $PID_TARGET всё ещё работает после $i с, продолжаем замену""
+else
+  log ""процесс $PID_TARGET завершился, ожидание заняло $i с""
+fi
 sleep 1
 
 # Замена в два шага: сначала копия рядом с целью, затем атомарное переименование.
 # Так недокачанный или недокопированный файл никогда не окажется на месте рабочего.
 if ! cp -f ""$NEW"" ""$STAGED""; then
+  log ""ошибка: не удалось скопировать новый файл в $STAGED""
   rm -f ""$STAGED""
   exit 1
 fi
 if ! chmod +x ""$STAGED""; then
+  log ""ошибка: не удалось выставить признак исполняемого для $STAGED""
   rm -f ""$STAGED""
   exit 1
 fi
 if ! mv -f ""$STAGED"" ""$TARGET""; then
+  log ""ошибка: не удалось переименовать $STAGED в $TARGET""
   rm -f ""$STAGED""
   exit 1
 fi
+log ""замена файла выполнена""
 
 # Перезапуск приложения (только по явному запросу пользователя).
 if [ ""$RESTART"" = ""1"" ]; then
   {relaunchBlock}
+  NEW_PID=$!
+  sleep 1
+  if kill -0 ""$NEW_PID"" 2>/dev/null; then
+    log ""перезапуск: процесс $NEW_PID работает""
+  else
+    wait ""$NEW_PID""
+    log ""ошибка: перезапущенный процесс завершился с кодом $?""
+  fi
 fi
 
 # Убираем временный бинарник, сам скрипт и опустевший каталог обновления.
 WORK_DIR=""$(dirname ""$0"")""
 rm -f ""$NEW""
+log ""=== помощник закончил работу""
 rm -f ""$0""
+# Запасной журнал лежит в рабочем каталоге и после успеха не нужен: иначе
+# каталог не удаляется и копится по одному на каждое обновление.
+case ""$LOG"" in
+  ""$WORK_DIR""/*) rm -f ""$LOG"" ;;
+esac
 rmdir ""$WORK_DIR"" 2>/dev/null || true
 ";
 
