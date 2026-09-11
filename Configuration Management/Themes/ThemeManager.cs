@@ -270,8 +270,19 @@ namespace Configuration_Management.Themes
         // ---- Компактный режим (уменьшенная плотность интерфейса) ----
         // Исходные значения метрик сохраняются при первом применении, чтобы
         // переключение компактного режима обратно восстанавливало обычные размеры.
-        private static readonly Dictionary<FrameworkElement, Thickness> _compactMargin = new();
-        private static readonly Dictionary<Control, Thickness> _compactPadding = new();
+        // Вместе со значением запоминаем, откуда оно взялось. Локальное значение при возврате
+        // в обычный режим надо записать обратно, а значение, пришедшее из стиля, его триггера
+        // или шаблона, — наоборот, снять (ClearValue): запись локального значения гасит стиль
+        // навсегда, потому что локальное значение в WPF сильнее. В нынешней разметке отступы
+        // кнопок панели команд заданы стилями простыми константами, поэтому разницы не видно;
+        // она появится, как только у такого отступа окажется триггер или другая тема
+        // (issue #214). Оговорка: значение из DynamicResource тоже считается локальным,
+        // и запись обратно оборвала бы связь с ресурсом; в разметке приложения отступов
+        // из ресурсов нет, но при их появлении правило надо уточнить.
+        private readonly record struct CompactMetric(Thickness Value, bool WasLocal);
+
+        private static readonly Dictionary<FrameworkElement, CompactMetric> _compactMargin = new();
+        private static readonly Dictionary<Control, CompactMetric> _compactPadding = new();
         private static readonly Dictionary<DependencyObject, double> _compactFont = new();
         private static readonly Dictionary<ColumnDefinition, double> _compactColumn = new();
 
@@ -337,88 +348,218 @@ namespace Configuration_Management.Themes
             _compactColumn.Remove(column);
         }
 
+        /// <summary>
+        /// Запомнены ли метрики хоть одного элемента. Пока ничего не запомнено, возвращать
+        /// в обычный режим нечего, и обход поддерева строки можно не делать вовсе.
+        /// </summary>
+        public static bool HasCompactMetrics
+            => _compactMargin.Count > 0 || _compactPadding.Count > 0
+               || _compactFont.Count > 0 || _compactColumn.Count > 0;
+
+        /// <summary>
+        /// Применяет метрики компактного режима к поддереву в два прохода: сначала по всему
+        /// поддереву запоминаются исходные значения, и только потом они масштабируются.
+        /// Один проход не годится: WPF (TextBoxBase) копирует Padding поля ввода на внутренний
+        /// хост содержимого (PART_ContentHost) локальным значением, поэтому обход сверху вниз
+        /// успевал сжать Padding самого поля, копия уходила на хост, и «исходным» у хоста
+        /// запоминалось уже сжатое значение. При возврате в обычный режим оно писалось
+        /// обратно, поле поиска оставалось ниже на 3,6 точки по высоте, а всё, что под ним,
+        /// поднималось выше, чем при чистом запуске (замер: y шапки списка 336 против 342).
+        /// Замерено на отдельном стенде; отступ хоста, заданный в шаблоне через
+        /// TemplateBinding, возвращается сам — ломалась именно локальная копия Padding
+        /// (issue #214).
+        /// </summary>
         private static void ApplyCompactElement(DependencyObject d, double factor, double fontFactor)
         {
             if (d is null)
                 return;
+            // Захват нужен только при сжатии: возврат по построению касается лишь тех
+            // элементов, которые уже запомнены. Лишний захват при возврате не только
+            // делал бы двойную работу, но и был бы опасен — локальное значение-выражение
+            // (DynamicResource) он записал бы константой, оборвав связь с ресурсом.
+            if (factor < 1.0)
+                CaptureCompactMetrics(d);
+            WriteCompactMetrics(d, factor, fontFactor);
+        }
 
-            if (d is FrameworkElement fe)
+        /// <summary>
+        /// Первый проход: запоминает исходные метрики поддерева, ничего не меняя.
+        /// </summary>
+        private static void CaptureCompactMetrics(DependencyObject d)
+        {
+            if (d is FrameworkElement fe && IsCompactable(fe, FrameworkElement.MarginProperty)
+                && !_compactMargin.ContainsKey(fe))
             {
-                if (!_compactMargin.TryGetValue(fe, out var origMargin))
-                {
-                    origMargin = fe.Margin;
-                    _compactMargin[fe] = origMargin;
-                }
-                fe.Margin = ScaleThickness(origMargin, factor);
+                _compactMargin[fe] = new CompactMetric(fe.Margin, IsLocalValue(fe, FrameworkElement.MarginProperty));
             }
 
-            if (d is Control c)
+            if (d is Control c && IsCompactable(c, Control.PaddingProperty)
+                && !_compactPadding.ContainsKey(c))
             {
-                if (!_compactPadding.TryGetValue(c, out var origPadding))
-                {
-                    origPadding = c.Padding;
-                    _compactPadding[c] = origPadding;
-                }
-                c.Padding = ScaleThickness(origPadding, factor);
+                _compactPadding[c] = new CompactMetric(c.Padding, IsLocalValue(c, Control.PaddingProperty));
             }
 
-            // Шрифт: масштабируем только явно заданные значения (включая базовый шрифт
-            // окна и заголовки). Унаследованные элементы автоматически следуют за предком,
-            // поэтому после масштабирования базы все заголовки/строки уменьшаются.
-            var localFont = d.ReadLocalValue(TextElement.FontSizeProperty);
-            if (localFont is double fontVal && fontVal > 0)
+            if (d.ReadLocalValue(TextElement.FontSizeProperty) is double fontVal && fontVal > 0
+                && !_compactFont.ContainsKey(d))
             {
-                if (!_compactFont.TryGetValue(d, out var origFont))
-                {
-                    origFont = fontVal;
-                    _compactFont[d] = origFont;
-                }
-                d.SetValue(TextElement.FontSizeProperty, Math.Max(origFont * fontFactor, 8));
+                _compactFont[d] = fontVal;
             }
 
-            // Уменьшаем фиксированные ширины колонок Grid (заголовки колонок идут за содержимым).
-            // Колонки, ширина которых привязана к модели (например, через ColumnVisibilityConverter /
-            // NameColumnWidthConverter в главном окне), пропускаем: прямая установка Width здесь
-            // перебивала бы binding и «ломала» изменение ширины колонок перетаскиванием разделителя.
             if (d is Grid grid)
             {
                 foreach (var cd in grid.ColumnDefinitions)
                 {
-                    // Колонка-компенсатор заголовка навсегда исключена из компактизации
-                    // (см. ForgetCompactWidth): даже получив ненулевую ширину, она не должна
-                    // масштабироваться коэффициентом компактности, иначе заголовок «уезжает»
-                    // влево относительно строк и выравнивание требует повторного переключения
-                    // тумблера (issue #214).
-                    if (_excludedCompactColumns.Contains(cd))
+                    if (!IsCompactableColumn(cd) || _compactColumn.ContainsKey(cd))
                         continue;
-                    if (cd.Width.IsStar || cd.Width.IsAuto)
+                    // Нулевую колонку-компенсатор (сдвиг вложенности групп) не трогаем:
+                    // она обязана оставаться 0 (в строке базы — всегда, см. MainWindow.xaml;
+                    // в заголовке ширину выставляет AlignHeaderToData), иначе компактизация
+                    // принудительно задавала бы ей минимум 32 точки и строки «уезжали» бы
+                    // по горизонтали относительно заголовка (issue #214).
+                    var width = cd.Width.Value;
+                    if (width <= 0)
                         continue;
-                    // Ширина задана привязкой — не трогаем (иначе теряется живое обновление).
-                    if (BindingOperations.GetBindingExpressionBase(cd, ColumnDefinition.WidthProperty) != null)
-                        continue;
-                    if (!_compactColumn.TryGetValue(cd, out var origWidth))
-                    {
-                        origWidth = cd.Width.Value;
-                        // Нулевую колонку-компенсатор (сдвиг вложенности групп) не трогаем:
-                        // она обязана оставаться 0 (в строке базы — всегда, см. MainWindow.xaml;
-                        // в заголовке ширину выставляет AlignHeaderToData), иначе компактизация
-                        // принудительно задавала бы ей минимум 32px и строки «уезжали» по горизонтали
-                        // относительно заголовка (регрессия #214 после введения ApplyRowCompact).
-                        if (origWidth <= 0)
-                            continue;
-                        _compactColumn[cd] = origWidth;
-                    }
-                    cd.Width = new GridLength(Math.Max(origWidth * factor, 32));
+                    _compactColumn[cd] = width;
                 }
             }
 
             int count = VisualTreeHelper.GetChildrenCount(d);
             for (int i = 0; i < count; i++)
-                ApplyCompactElement(VisualTreeHelper.GetChild(d, i), factor, fontFactor);
+                CaptureCompactMetrics(VisualTreeHelper.GetChild(d, i));
+        }
+
+        /// <summary>
+        /// Второй проход: масштабирует запомненные метрики (коэффициент меньше единицы)
+        /// либо возвращает их в обычный режим (коэффициент равен единице).
+        /// </summary>
+        private static void WriteCompactMetrics(DependencyObject d, double factor, double fontFactor)
+        {
+            var compacting = factor < 1.0;
+
+            if (d is FrameworkElement fe && _compactMargin.TryGetValue(fe, out var margin))
+            {
+                if (compacting)
+                {
+                    fe.Margin = ScaleThickness(margin.Value, factor);
+                }
+                else
+                {
+                    RestoreThickness(fe, FrameworkElement.MarginProperty, margin);
+                    _compactMargin.Remove(fe);
+                }
+            }
+
+            if (d is Control c && _compactPadding.TryGetValue(c, out var padding))
+            {
+                if (compacting)
+                {
+                    c.Padding = ScaleThickness(padding.Value, factor);
+                }
+                else
+                {
+                    RestoreThickness(c, Control.PaddingProperty, padding);
+                    _compactPadding.Remove(c);
+                }
+            }
+
+            // Шрифт: масштабируем только явно заданные значения (включая базовый шрифт
+            // окна и заголовки). Унаследованные элементы автоматически следуют за предком,
+            // поэтому после масштабирования базы все заголовки и строки уменьшаются.
+            if (_compactFont.TryGetValue(d, out var origFont))
+            {
+                // Минимум 8 — ограничение сжатия, а не восстановления: при возврате размер
+                // должен стать ровно исходным, даже если пользователь выставил меньше.
+                d.SetValue(TextElement.FontSizeProperty,
+                    compacting ? Math.Max(origFont * fontFactor, 8) : origFont);
+                if (!compacting)
+                    _compactFont.Remove(d);
+            }
+
+            if (d is Grid grid)
+            {
+                foreach (var cd in grid.ColumnDefinitions)
+                {
+                    if (!_compactColumn.TryGetValue(cd, out var origWidth))
+                        continue;
+                    // Минимум 32 точки — ограничение сжатия, а не восстановления: при возврате
+                    // в обычный режим колонка должна получить ровно своё исходное значение,
+                    // иначе колонка уже 32 точек возвращается шире, чем была (issue #214).
+                    cd.Width = new GridLength(compacting ? Math.Max(origWidth * factor, 32) : origWidth);
+                    if (!compacting)
+                        _compactColumn.Remove(cd);
+                }
+            }
+
+            int count = VisualTreeHelper.GetChildrenCount(d);
+            for (int i = 0; i < count; i++)
+                WriteCompactMetrics(VisualTreeHelper.GetChild(d, i), factor, fontFactor);
+        }
+
+        /// <summary>
+        /// Можно ли масштабировать отступ этого элемента. Значение, заданное привязкой
+        /// (Binding, MultiBinding), не трогаем — то же правило, что и для ширины колонки.
+        /// Причин две, обе проверены замером на живом окне (issue #214).
+        ///
+        /// Во-первых, запись отступа локальным значением снимает привязку: компенсаторы
+        /// вложенности (GroupOffsetConverter у заголовка группы, LevelToThicknessConverter
+        /// у подсветки, названия базы и кнопки разворота) замирают в том значении, которое
+        /// было снято при первом проходе, и перестают отвечать на смену уровня, HasItems
+        /// и самого компактного режима. Отсюда и зависимость от пути: строки, созданные
+        /// до прохода, и строки, созданные после (виртуализация, пересборка дерева при
+        /// поиске, запуск с уже включённым компактным режимом), получали разные отступы.
+        ///
+        /// Во-вторых, масштабировать эти компенсаторы и не нужно: они считаются от ширины
+        /// кнопки разворота (Width="26" в MainWindow.xaml), которая коэффициентом
+        /// компактности не масштабируется. Сжатый компенсатор переставал с ней совпадать,
+        /// и заголовок группы уезжал относительно строки базы. Цена решения: шаг вложенности
+        /// (18 точек на уровень) и зазор подсветки (8 точек) в компактном режиме тоже
+        /// остаются обычного размера — плотность по горизонтали не меняется, зато все
+        /// формулы согласованы между собой.
+        ///
+        /// Правило не покрывает TemplateBinding: у него не BindingExpressionBase, и
+        /// GetBindingExpressionBase возвращает null. Такие отступы по-прежнему
+        /// масштабируются, а возвращаются через ClearValue (источник значения —
+        /// ParentTemplate), то есть от пути не зависят.
+        /// </summary>
+        private static bool IsCompactable(DependencyObject d, DependencyProperty property)
+            => BindingOperations.GetBindingExpressionBase(d, property) is null;
+
+        /// <summary>
+        /// Можно ли масштабировать ширину колонки: звёздочку и Auto не трогаем, привязанную —
+        /// тоже (иначе теряется живое обновление при перетаскивании разделителя), а колонка-
+        /// компенсатор заголовка исключена навсегда через <see cref="ForgetCompactWidth"/>.
+        /// </summary>
+        private static bool IsCompactableColumn(ColumnDefinition cd)
+        {
+            if (_excludedCompactColumns.Contains(cd))
+                return false;
+            if (cd.Width.IsStar || cd.Width.IsAuto)
+                return false;
+            return BindingOperations.GetBindingExpressionBase(cd, ColumnDefinition.WidthProperty) is null;
         }
 
         private static Thickness ScaleThickness(Thickness t, double factor)
             => new(t.Left * factor, t.Top * factor, t.Right * factor, t.Bottom * factor);
+
+        /// <summary>
+        /// Было ли значение свойства задано локально (в разметке элемента), а не стилем,
+        /// его триггером или шаблоном. От этого зависит, как возвращать обычный режим.
+        /// </summary>
+        private static bool IsLocalValue(DependencyObject d, DependencyProperty property)
+            => DependencyPropertyHelper.GetValueSource(d, property).BaseValueSource
+               == BaseValueSource.Local;
+
+        /// <summary>
+        /// Возвращает отступ в обычный режим: локальное значение пишем обратно, значение
+        /// из стиля или триггера снимаем, чтобы стиль снова стал хозяином свойства.
+        /// </summary>
+        private static void RestoreThickness(DependencyObject d, DependencyProperty property, CompactMetric metric)
+        {
+            if (metric.WasLocal)
+                d.SetValue(property, metric.Value);
+            else
+                d.ClearValue(property);
+        }
 
         /// <summary>Возвращает встроенную схему по имени темы («Light»/«Dark») или null.</summary>
         public static ColorScheme? GetBuiltInScheme(string themeName)
