@@ -41,11 +41,15 @@ public static class ComConnectorTemplate
     /// <summary>
     /// Применяет значения плейсхолдеров (issue #175):
     /// <list type="bullet">
-    /// <item>пустой (отсутствующий) сегмент вне скобок удаляется вместе с разделителем перед ним;</item>
+    /// <item>пустой (отсутствующий) сегмент вне скобок: из накопленного перед ним текста
+    /// удаляются только хвостовые разделители (<c>_</c>/<c>-</c>/<c>.</c>/пробел), а его
+    /// содержательная часть (например <c>.COMConnector</c>) сохраняется — иначе неполная
+    /// версия базы (скажем «8.3») «обрезала» бы имя до ближайшей слева, теряя суффикс;</item>
     /// <item>скобки вокруг сегмента вырезаются всегда: при наличии значения остаётся содержимое,
     /// а если внутри группы хоть один плейсхолдер пуст — удаляется вся группа целиком со скобками.</item>
     /// </list>
     /// Примеры: "V%V12%_%V3%_%V4%.ComConnector" + 8.3.27 → "V83_27.ComConnector";
+    /// "V%V12%.COMConnector_%V3%_%V4%" + 8.3 → "V83.COMConnector"; + 8.3.27 → "V83.COMConnector_27";
     /// "V%V12%(вася_%V3%)(пупкин_%V4%)" + 8.3.27 → "V83вася_27".
     /// </summary>
     private static string Apply(string template, string v12, string v3, string v4)
@@ -57,7 +61,7 @@ public static class ComConnectorTemplate
         var elements = ParseElements(template);
 
         // Склеиваем верхний уровень. Текст, идущий перед плейсхолдером, держим отдельно,
-        // чтобы при пустом значении убрать вместе с ним и предшествующий разделитель.
+        // чтобы при пустом значении не потерять содержательную часть имени (issue #175).
         var sb = new StringBuilder();
         var pending = new StringBuilder();
         foreach (var el in elements)
@@ -74,10 +78,16 @@ public static class ComConnectorTemplate
                         // Разделитель перед сегментом добавляем только вместе с ним.
                         sb.Append(pending);
                         sb.Append(value);
+                        pending.Clear();
                     }
-                    // Пустой сегмент: его значение и накопленный разделитель (pending)
-                    // отбрасываются — хвост `_` перед отсутствующей частью версии не остаётся.
-                    pending.Clear();
+                    else
+                    {
+                        // Пустой сегмент: убираем лишь хвостовые разделители накопленного
+                        // текста (.COMConnector_ → .COMConnector), остальное сохраняем.
+                        TrimTrailingSeparators(pending);
+                        sb.Append(pending);
+                        pending.Clear();
+                    }
                     break;
                 case GroupElement group:
                     sb.Append(pending);
@@ -272,6 +282,25 @@ public static class ComConnectorTemplate
         }
         return null;
     }
+
+    /// <summary>
+    /// Удаляет из хвоста буфера только разделители (<c>_</c>/<c>-</c>/<c>.</c>/пробел),
+    /// сохраняя содержательную часть (issue #175). Пустая строка не меняется.
+    /// </summary>
+    private static void TrimTrailingSeparators(StringBuilder sb)
+    {
+        var end = sb.Length;
+        while (end > 0 && IsSeparator(sb[end - 1]))
+            end--;
+        if (end < sb.Length)
+            sb.Length = end;
+    }
+
+    private static bool IsSeparator(char c) => c switch
+    {
+        '_' or '-' or '.' or ' ' => true,
+        _ => false
+    };
 
     /// <summary>Оставляет в строке только десятичные цифры.</summary>
     private static string Digits(string s)

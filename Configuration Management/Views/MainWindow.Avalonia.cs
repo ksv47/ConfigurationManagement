@@ -1311,7 +1311,18 @@ namespace Configuration_Management
             // (issue #221). Левая колонка выглядит так же, как раньше: панель стоит
             // ровно там, где была полноширинная строка, а правая панель теперь
             // поднимается вверх и встаёт вровень с верхней панелью поиска.
-            var leftStack = new Grid();
+            //
+            // Верхний отступ 12 у левой колонки повторяет внутреннее поле сетки
+            // WPF-версии (MainWindow.xaml:248, Margin="12,12,8,12"): там и панель
+            // поиска, и правая панель (её ScrollViewer Padding="12,12") начинаются
+            // с одной высоты 12, поэтому край запуска справа стоит вровень со строкой
+            // поиска. Без этого отступа левая панель начиналась с y=0, а содержимое
+            // правой панели (Margin сверху 12) оказывалось на 12px ниже строки поиска
+            // и создавало «остаточный верхний отступ» в правой панели (issue #221).
+            var leftStack = new Grid
+            {
+                Margin = new Thickness(0, 12, 0, 0)
+            };
             leftStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             leftStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             var topBar = BuildTopBar();
@@ -1347,7 +1358,14 @@ namespace Configuration_Management
                 _vmPropertyChanged = (_, e) =>
                 {
                     if (e.PropertyName == nameof(MainViewModel.SearchText))
+                    {
+                        // Клик в поле поиска и очистка крестиком меняют фильтр и пересобирают
+                        // дерево: глубина первой видимой базы может измениться, а с ней и нужный
+                        // компенсатор заголовка. Ставим выравнивание в очередь, чтобы оно
+                        // выполнилось после материализации новых строк (issue #214).
                         UpdateEmptyState();
+                        QueueHeaderAlign();
+                    }
                     // Меню трея показывает выбранную базу и недавние: без этого
                     // оно осталось бы таким, каким было собрано при запуске.
                     if (e.PropertyName == nameof(MainViewModel.SelectedInfobase)
@@ -1392,7 +1410,13 @@ namespace Configuration_Management
                     // и меняет его на живом окне. Без пересчёта панель застывала
                     // в ширине, снятой при построении.
                     if (e.PropertyName == nameof(MainViewModel.ShowRightPanelDetails))
+                    {
+                        // Смена ширины правой панели меняет ширину области списка, а значит и
+                        // общую ширину сеток заголовка/строк, от равенства которой зависит
+                        // совпадение колонок — пересчитываем выравнивание (issue #214).
                         UpdateRightPanelWidth();
+                        QueueHeaderAlign();
+                    }
                     if (e.PropertyName == nameof(MainViewModel.ShowTagFilterPanel)
                         || e.PropertyName == nameof(MainViewModel.HasActiveTagFilter))
                     {
@@ -5332,6 +5356,11 @@ namespace Configuration_Management
         {
             UiMetrics.Compact = compact;
             Content = BuildRoot();
+            // После пересборки корня дерево, строки и заголовок — новые объекты, и их события
+            // (BoundsProperty/ContainerPrepared) могут не сработать при прежней ширине окна.
+            // Ставим выравнивание в очередь явно, чтобы компенсатор заголовка был пересчитан
+            // от фактической ширины уже раскладённых строк (issue #214).
+            QueueHeaderAlign();
         }
 
         /// <summary>

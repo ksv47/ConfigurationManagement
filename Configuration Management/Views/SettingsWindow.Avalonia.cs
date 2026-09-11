@@ -1105,23 +1105,28 @@ namespace Configuration_Management
                 IsEditable = true,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
-            // VerticalContentAlignment у ComboBox задаёт только позицию внутреннего
-            // поля ввода, а не выравнивание самого текста: оно берётся из
-            // VerticalContentAlignment редактируемого TextBox, которое по умолчанию
-            // прижимает число к верхнему/нижнему краю (issue #216).
-            // Прежний стиль цеплялся по имени PART_EditableTextBox — это имя части
-            // из WPF-шаблона ModernComboBox (LightTheme.xaml:377 / DarkTheme.xaml:383),
-            // а в Avalonia редактируемое поле ComboBox называется PART_EditableText,
-            // поэтому стиль не срабатывал и фикс 0.3.7.5 не помог на Linux.
-            // Центрируем текст через descendant-селектор (как для поля шаблона
-            // экспорта, AutoCompleteBox выше), чтобы не зависеть от точного имени части.
-            fontSizeBox.Styles.Add(new Style(x => x.OfType<ComboBox>().Descendant().OfType<TextBox>())
+            // VerticalContentAlignment у ComboBox выравнивает только содержимое
+            // в режиме «выбранное значение» (SelectionBoxItem). В редактируемом
+            // режиме число рисует вложенный TextBox — часть шаблона
+            // PART_EditableText, и у него собственное вертикальное выравнивание,
+            // которое по умолчанию прижимает текст к краю (issue #216).
+            // Стили-селекторы здесь не помогают: шаблонная часть не является
+            // логическим потомком ComboBox, поэтому ни OfType/Descendant,
+            // ни прежний селектор по WPF-имени PART_EditableTextBox не сработали
+            // (фиксы 0.3.7.5 и 0.3.7.11). Надёжный способ — дождаться материализации
+            // шаблона (TemplateApplied) и выставить выравнивание прямо на найденной
+            // части как локальное значение: приоритет локального значения выше,
+            // чем у темы и стилей, поэтому тема его не перекроет.
+            fontSizeBox.TemplateApplied += (_, e) =>
             {
-                Setters =
+                if (e.NameScope.Find("PART_EditableText") is TextBox edit)
                 {
-                    new Setter(TextBox.VerticalContentAlignmentProperty, VerticalAlignment.Center)
+                    edit.VerticalContentAlignment = VerticalAlignment.Center;
+                    // Вертикальный отступ Fluent-шаблона уводит число вниз при
+                    // фиксированной высоте поля: обнуляем его, сохраняя боковые.
+                    edit.Padding = new Thickness(edit.Padding.Left, 0, edit.Padding.Right, 0);
                 }
-            });
+            };
             foreach (var size in new double[]
             {
                 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24,
@@ -3636,12 +3641,56 @@ namespace Configuration_Management
             });
             panel.Children.Add(titleRow);
 
-            panel.Children.Add(new TextBlock
+            // Версия и кнопка ручной проверки обновлений в одной строке, как в
+            // разметке WPF (SettingsWindow.xaml:1725-1738). Раньше кнопки здесь
+            // не было (issue #228) — проверка была доступна только при запуске.
+            var versionRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            versionRow.Children.Add(new TextBlock
             {
                 Text = string.Format(LocalizationManager.T("Settings.About.Version"), infoVersion),
                 FontSize = 14,
-                Margin = new Thickness(0, 0, 0, 4)
+                VerticalAlignment = VerticalAlignment.Center
             });
+            var checkCaption = new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.About.CheckForUpdates"),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 12
+            };
+            var checkIcon = IconHelper.MakeIcon("IconRefresh", 14,
+                new SolidColorBrush(Color.Parse("#3B82F6")));
+            checkIcon.VerticalAlignment = VerticalAlignment.Center;
+            checkIcon.Margin = new Thickness(0, 0, 5, 0);
+            var checkButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Children = { checkIcon, checkCaption }
+                },
+                Margin = new Thickness(8, 0, 0, 0),
+                Padding = new Thickness(6, 2),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            checkButton.Styled(ControlThemes.SecondaryButton);
+            checkButton.Click += async (_, _) =>
+            {
+                try
+                {
+                    var updateService = AppServices.GetRequiredService<UpdateService>();
+                    await updateService.CheckForUpdatesManualAsync();
+                }
+                catch
+                {
+                    // Внутренние ошибки уже показаны в UpdateService; здесь только страхуемся.
+                }
+            };
+            versionRow.Children.Add(checkButton);
+            panel.Children.Add(versionRow);
 
             var authorBlock = new TextBlock
             {

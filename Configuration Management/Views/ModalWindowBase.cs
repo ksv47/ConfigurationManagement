@@ -614,6 +614,28 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Esc закрывает активный модальный диалог (issue #226). Обработка живёт на
+        /// уровне самой базы, чтобы диалог закрывался сам, а не полагался на главное
+        /// окно (которое при открытом диалоге по Esc лишь уходит в трей, см.
+        /// MainWindow.Avalonia.cs). Не перехватываем Esc, если его уже обработал
+        /// вложенный элемент и пометил событие обработанным: редактируемый ComboBox
+        /// с раскрытым списком и HotkeyBox отменяют по Esc свой ввод — такое закрывать
+        /// диалог не должно. Закрытие равносильно нажатию «Отмена»: положительный
+        /// результат (<see cref="DialogResult"/>) не выставляется.
+        /// </summary>
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && !e.Handled)
+            {
+                DialogResult = false;
+                Close();
+                e.Handled = true;
+                return;
+            }
+            base.OnKeyDown(e);
+        }
+
+        /// <summary>
         /// Невидимые зоны изменения размера по краям и углам окна (системной рамки
         /// больше нет): нажатие в такой зоне вызывает BeginResizeDrag нужного края.
         /// </summary>
