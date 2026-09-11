@@ -3,6 +3,17 @@
 Дата среза: 22.08.2026. Форк проекта `sivatorov/ConfigurationManagement`.
 Всё, что относится к сборке, лежит в этой папке.
 
+## 11.09.2026: пакеты 0.3.7.13 выложены релизом pr229-build
+
+https://github.com/ksv47/ConfigurationManagement/releases/tag/pr229-build:
+AppImage 44,4 МБ и deb 42,7 МБ, собраны из `linux-port` (апстрим 0.3.7.13 плюс
+непринятые правки форка, включая PR 229). Прошлый релиз был pr223-build
+от 10.09 со сборкой 0.3.7.4.
+
+AppImage проверен запуском с изолированным `XDG_CONFIG_HOME`: окно открывается,
+заголовок 0.3.7.13. Локальная копия владельца в `~/.local/bin/` обновлена,
+прежняя сохранена как `ConfigurationManagement.AppImage.backup-1109-2`.
+
 ## 11.09.2026: PR 229, индикатор загрузки обновления (заявка 225)
 
 https://github.com/sivatorov/ConfigurationManagement/pull/229, ветка
