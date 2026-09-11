@@ -247,7 +247,7 @@ namespace Configuration_Management.Services
             // Скачиваем новый бинарник, не блокируя поток интерфейса: диалог показан
             // из UI-потока, и синхронное ожидание здесь замораживало окно на всё время
             // загрузки (десятки МБ).
-            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!)
+            var newBinary = await DownloadWithProgressAsync(release.DownloadUrl!)
                 .ConfigureAwait(true);
             if (newBinary is null)
             {
@@ -325,7 +325,7 @@ namespace Configuration_Management.Services
                 return;
             }
 
-            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!)
+            var newBinary = await DownloadWithProgressAsync(release.DownloadUrl!)
                 .ConfigureAwait(true);
             if (newBinary is null)
             {
@@ -469,7 +469,7 @@ namespace Configuration_Management.Services
                 return;
             }
 
-            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!);
+            var newBinary = await DownloadWithProgressAsync(release.DownloadUrl!);
             if (newBinary is null)
             {
                 ShowOnUi(() => _dialogs.ShowError(
@@ -498,6 +498,22 @@ namespace Configuration_Management.Services
         }
     }
 
+        /// <summary>
+        /// Записывает текст сценария-помощника, приводя переводы строк к виду, который
+        /// понимает <c>bash</c>. Текст сценария лежит в исходнике буквальной строкой,
+        /// поэтому переводы строк попадают в него прямо из файла исходного кода: если
+        /// рабочая копия выгружена на Windows (autocrlf), сценарий получает CRLF, и
+        /// каждая строка кончается лишним символом. Bash принимает его за часть команды:
+        /// <c>set -u</c> отвергается с подсказкой по использованию, следующая команда
+        /// не находится, сценарий выходит с кодом 2 и не заменяет исполняемый файл.
+        /// Со стороны пользователя это выглядит так, что приложение закрылось и ничего
+        /// не произошло (issue #225).
+        /// </summary>
+        private static void WriteShellScript(string scriptPath, string script)
+        {
+            File.WriteAllText(scriptPath, script.Replace("\r\n", "\n"));
+        }
+
         /// <summary>Возвращает путь к текущему исполняемому файлу приложения или null.</summary>
         internal string? ResolveTargetBinary()
         {
@@ -507,10 +523,61 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>
+        /// Скачивает новый бинарник, показывая на это время окно хода загрузки. Размер
+        /// файла составляет десятки МБ, и без индикатора отрезок между согласием на
+        /// обновление и вопросом о перезапуске выглядит как зависание приложения
+        /// (issue #225). В Windows-версии тот же этап показан полосой прогресса
+        /// в едином диалоге обновления (<c>UpdateAvailableWindow</c>).
+        /// </summary>
+        private async Task<string?> DownloadWithProgressAsync(string url)
+        {
+            UpdateProgressWindowAvalonia? window = null;
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    window = new UpdateProgressWindowAvalonia();
+                    window.Show();
+                });
+            }
+            catch
+            {
+                // Окно индикатора не должно мешать самому обновлению, но закрыть его
+                // всё равно нужно: платформенное окно создаётся конструктором, и сбой
+                // мог прийти уже из показа.
+            }
+
+            try
+            {
+                return await DownloadNewBinaryAsync(url, window).ConfigureAwait(true);
+            }
+            finally
+            {
+                var closing = window;
+                if (closing is not null)
+                {
+                    // С потока интерфейса окно закрывается сразу, а не отложенно: иначе
+                    // следующий за загрузкой вопрос успевает открыться поверх ещё живого
+                    // окна прогресса, становится его дочерним, и закрытие прогресса гасит
+                    // вопрос вместо пользователя (ответ читается как отказ). Проверено
+                    // прогоном: вопрос о перезапуске снимался сам.
+                    if (Dispatcher.UIThread.CheckAccess())
+                        closing.Close();
+                    else
+                        // С фонового потока ждать нельзя: при закрытии приложения во время
+                        // загрузки цикл сообщений уже остановлен, и ожидание не завершится.
+                        Dispatcher.UIThread.Post(() => closing.Close());
+                }
+            }
+        }
+
+        /// <summary>
         /// Скачивает новый бинарник по прямой ссылке во временный каталог. Возвращает путь
         /// к файлу или null при сетевой ошибке / пустом файле. Временный файл удаляется при неудаче.
+        /// О ходе загрузки сообщается окну <paramref name="progress"/>, если оно показано.
         /// </summary>
-        private async Task<string?> DownloadNewBinaryAsync(string url)
+        private async Task<string?> DownloadNewBinaryAsync(
+            string url, UpdateProgressWindowAvalonia? progress = null)
         {
             var dir = EnsureUpdateDirectory();
             var dest = Path.Combine(dir, "ConfigurationManagement.new");
@@ -530,13 +597,50 @@ namespace Configuration_Management.Services
                 await using var source = await response.Content
                     .ReadAsStreamAsync(cancellation.Token)
                     .ConfigureAwait(false);
+                // Общий размер сервер сообщает не всегда: без него доля неизвестна,
+                // и окно показывает бегущую полосу вместо процентов.
+                var totalBytes = response.Content.Headers.ContentLength ?? -1;
                 await using (var target = new FileStream(dest, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
-                    await source.CopyToAsync(target, cancellation.Token).ConfigureAwait(false);
+                    var buffer = new byte[81920];
+                    long readTotal = 0;
+                    var lastPercent = -1;
+                    progress?.SetProgress(totalBytes > 0 ? 0 : -1);
+
+                    int read;
+                    while ((read = await source.ReadAsync(buffer, cancellation.Token).ConfigureAwait(false)) > 0)
+                    {
+                        await target.WriteAsync(buffer.AsMemory(0, read), cancellation.Token)
+                            .ConfigureAwait(false);
+                        readTotal += read;
+
+                        if (progress is null || totalBytes <= 0)
+                            continue;
+
+                        // Отчёт только на смене целого процента: иначе на каждый блок
+                        // в 80 КБ приходилась бы отправка в поток интерфейса.
+                        var percent = (int)Math.Min(100, readTotal * 100 / totalBytes);
+                        if (percent == lastPercent)
+                            continue;
+
+                        lastPercent = percent;
+                        progress.SetProgress(percent);
+                    }
+
                     await target.FlushAsync(cancellation.Token).ConfigureAwait(false);
                 }
 
-                return new FileInfo(dest).Length > 0 ? dest : null;
+                // Размер теперь известен, поэтому обрыв, не бросивший исключение, ловится
+                // здесь: недокачанный бинарник не должен подставляться вместо рабочего.
+                // Так же принимает файл Windows-версия (size >= totalBytes).
+                var size = new FileInfo(dest).Length;
+                if (size <= 0 || (totalBytes > 0 && size < totalBytes))
+                {
+                    TryDelete(dest);
+                    return null;
+                }
+
+                return dest;
             }
             catch
             {
@@ -708,6 +812,7 @@ namespace Configuration_Management.Services
         /// </summary>
         private static string CreateUpdaterScript(string target, string newBinary, int currentPid, bool restart)
         {
+            var logPath = EnsureUpdaterLogPath();
             var scriptPath = Path.Combine(
                 EnsureUpdateDirectory(), $"apply-update-{Guid.NewGuid():N}.sh");
 
@@ -731,6 +836,27 @@ NEW='{Bq(newBinary)}'
 STAGED=""$TARGET.cm-update-$$""
 PID_TARGET={currentPid}
 RESTART={(restart ? 1 : 0)}
+LOG='{Bq(logPath)}'
+
+# Весь вывод уходит в журнал: приложение к этому моменту закрыто, его каналы
+# закрыты вместе с ним, и без журнала неудачная замена не оставляет следов.
+# Если журнал открыть не удалось, вывод уводится в никуда, и это обязательно:
+# унаследованные потоки ведут в трубу закрывшегося приложения, и первая же
+# запись в неё убила бы помощника сигналом PIPE до замены файла.
+if ! exec >>""$LOG"" 2>&1; then
+  exec >/dev/null 2>&1
+else
+  # Права журнала не должны зависеть от umask сборки: в нём пути пользователя.
+  chmod 600 ""$LOG"" 2>/dev/null || true
+fi
+
+log() {{ echo ""[$(date '+%Y-%m-%d %H:%M:%S')] $*""; }}
+
+log ""=== помощник обновления, pid $$, режим RESTART=$RESTART""
+log ""цель: $TARGET""
+log ""новый файл: $NEW, размер $(stat -c%s ""$NEW"" 2>/dev/null || echo '?') байт""
+FREE_KB=$(df -Pk ""$(dirname ""$TARGET"")"" 2>/dev/null | awk 'NR==2 {{print $4}}')
+log ""свободно в каталоге цели: ${{FREE_KB:-?}} КБ""
 
 # Ожидание завершения основного процесса, чтобы не было гонки при замене файла.
 i=0
@@ -738,37 +864,60 @@ while {waitCondition}; do
   sleep 1
   i=$((i+1))
 done
+if kill -0 ""$PID_TARGET"" 2>/dev/null; then
+  log ""предупреждение: процесс $PID_TARGET всё ещё работает после $i с, продолжаем замену""
+else
+  log ""процесс $PID_TARGET завершился, ожидание заняло $i с""
+fi
 sleep 1
 
 # Замена в два шага: сначала копия рядом с целью, затем атомарное переименование.
 # Так недокачанный или недокопированный файл никогда не окажется на месте рабочего.
 if ! cp -f ""$NEW"" ""$STAGED""; then
+  log ""ошибка: не удалось скопировать новый файл в $STAGED""
   rm -f ""$STAGED""
   exit 1
 fi
 if ! chmod +x ""$STAGED""; then
+  log ""ошибка: не удалось выставить признак исполняемого для $STAGED""
   rm -f ""$STAGED""
   exit 1
 fi
 if ! mv -f ""$STAGED"" ""$TARGET""; then
+  log ""ошибка: не удалось переименовать $STAGED в $TARGET""
   rm -f ""$STAGED""
   exit 1
 fi
+log ""замена файла выполнена""
 
 # Перезапуск приложения (только по явному запросу пользователя).
 if [ ""$RESTART"" = ""1"" ]; then
   {relaunchBlock}
+  NEW_PID=$!
+  sleep 1
+  if kill -0 ""$NEW_PID"" 2>/dev/null; then
+    log ""перезапуск: процесс $NEW_PID работает""
+  else
+    wait ""$NEW_PID""
+    log ""ошибка: перезапущенный процесс завершился с кодом $?""
+  fi
 fi
 
 # Убираем временный бинарник, сам скрипт и опустевший каталог обновления.
 WORK_DIR=""$(dirname ""$0"")""
 rm -f ""$NEW""
+log ""=== помощник закончил работу""
 rm -f ""$0""
+# Запасной журнал лежит в рабочем каталоге и после успеха не нужен: иначе
+# каталог не удаляется и копится по одному на каждое обновление.
+case ""$LOG"" in
+  ""$WORK_DIR""/*) rm -f ""$LOG"" ;;
+esac
 rmdir ""$WORK_DIR"" 2>/dev/null || true
 ";
 
             Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
-            File.WriteAllText(scriptPath, script);
+            WriteShellScript(scriptPath, script);
             return scriptPath;
         }
 
@@ -919,7 +1068,7 @@ rmdir ""$WORK_DIR"" 2>/dev/null || true
 ";
 
             Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
-            File.WriteAllText(scriptPath, script);
+            WriteShellScript(scriptPath, script);
             return scriptPath;
         }
 
