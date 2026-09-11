@@ -499,32 +499,19 @@ namespace Configuration_Management.Services
     }
 
         /// <summary>
-        /// Путь к журналу сценария-помощника. Лежит рядом с <c>errors.log</c>, потому что
-        /// помощник работает уже после выхода приложения: свой вывод он отдать некому,
-        /// его каналы закрыты вместе с родительским процессом, и при неудачной замене
-        /// от него не остаётся ни строки (issue #225). Журнал подрезается, когда
-        /// перерастает порог очистки: запись ведётся при каждом обновлении.
+        /// Записывает текст сценария-помощника, приводя переводы строк к виду, который
+        /// понимает <c>bash</c>. Текст сценария лежит в исходнике буквальной строкой,
+        /// поэтому переводы строк попадают в него прямо из файла исходного кода: если
+        /// рабочая копия выгружена на Windows (autocrlf), сценарий получает CRLF, и
+        /// каждая строка кончается лишним символом. Bash принимает его за часть команды:
+        /// <c>set -u</c> отвергается с подсказкой по использованию, следующая команда
+        /// не находится, сценарий выходит с кодом 2 и не заменяет исполняемый файл.
+        /// Со стороны пользователя это выглядит так, что приложение закрылось и ничего
+        /// не произошло (issue #225).
         /// </summary>
-        private static string EnsureUpdaterLogPath()
+        private static void WriteShellScript(string scriptPath, string script)
         {
-            const long maxLogBytes = 512 * 1024;
-            var dir = Configuration_Management.Services.PlatformPaths.AppDataDirectory;
-
-            try
-            {
-                Directory.CreateDirectory(dir);
-                var path = Path.Combine(dir, "update-helper.log");
-                var info = new FileInfo(path);
-                if (info.Exists && info.Length > maxLogBytes)
-                    TryDelete(path);
-
-                return path;
-            }
-            catch
-            {
-                // Каталог данных недоступен: пишем рядом со сценарием, лишь бы не молча.
-                return Path.Combine(EnsureUpdateDirectory(), "update-helper.log");
-            }
+            File.WriteAllText(scriptPath, script.Replace("\r\n", "\n"));
         }
 
         /// <summary>Возвращает путь к текущему исполняемому файлу приложения или null.</summary>
@@ -842,7 +829,7 @@ rmdir ""$WORK_DIR"" 2>/dev/null || true
 ";
 
             Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
-            File.WriteAllText(scriptPath, script);
+            WriteShellScript(scriptPath, script);
             return scriptPath;
         }
 
@@ -993,7 +980,7 @@ rmdir ""$WORK_DIR"" 2>/dev/null || true
 ";
 
             Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
-            File.WriteAllText(scriptPath, script);
+            WriteShellScript(scriptPath, script);
             return scriptPath;
         }
 
