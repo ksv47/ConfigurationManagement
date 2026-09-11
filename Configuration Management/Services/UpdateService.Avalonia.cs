@@ -1,10 +1,13 @@
 #if LINUX
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
@@ -23,8 +26,34 @@ namespace Configuration_Management.Services
     /// </summary>
     public sealed class UpdateService
     {
-        /// <summary>Каталог (относительно %TEMP%) для загрузки и временных скриптов обновления.</summary>
-        private const string UpdateTempDir = "ConfigurationManagement/update";
+        /// <summary>Сколько ждать ответа на запрос прав администратора (PolicyKit).</summary>
+        private static readonly TimeSpan PrivilegedUpdateTimeout = TimeSpan.FromMinutes(3);
+
+        /// <summary>Каталог этого запуска для загрузки и временных сценариев обновления.</summary>
+        private static string? _updateDirectory;
+
+        /// <summary>Признак того, что цепочка диалогов обновления уже идёт.</summary>
+        private int _updateInProgress;
+
+        /// <summary>
+        /// Возвращает каталог для скачанного бинарника и сценариев обновления, один на запуск
+        /// приложения. Сценарий обновления установки в системном каталоге исполняется от имени
+        /// root через pkexec, поэтому путь к нему не должен быть предсказуем и доступен на
+        /// запись другим пользователям машины: иначе содержимое можно подменить между записью
+        /// и запуском. <see cref="Directory.CreateTempSubdirectory"/> создаёт каталог со
+        /// случайным именем и правами 0700 сразу, без промежуточного состояния и без
+        /// переиспользования чужого каталога с известным именем.
+        /// </summary>
+        private static string EnsureUpdateDirectory()
+        {
+            var existing = _updateDirectory;
+            if (existing is not null && Directory.Exists(existing))
+                return existing;
+
+            var dir = Directory.CreateTempSubdirectory("cm-update-").FullName;
+            _updateDirectory = dir;
+            return dir;
+        }
 
         private readonly GitHubReleaseService _gitHub;
         private readonly IDialogService _dialogs;
@@ -74,7 +103,7 @@ namespace Configuration_Management.Services
                     return;
                 }
 
-                await Dispatcher.UIThread.InvokeAsync(() => ShowUpdateDialog(release));
+                await Dispatcher.UIThread.InvokeAsync(() => ShowUpdateDialogAsync(release));
             }
             catch
             {
@@ -114,7 +143,7 @@ namespace Configuration_Management.Services
                     return;
                 }
 
-                await Dispatcher.UIThread.InvokeAsync(() => ShowUpdateDialog(release));
+                await Dispatcher.UIThread.InvokeAsync(() => ShowUpdateDialogAsync(release));
             }
             catch
             {
@@ -137,8 +166,13 @@ namespace Configuration_Management.Services
         /// </list>
         /// Все ошибки обрабатываются внутри и не роняют приложение.
         /// </summary>
-        private void ShowUpdateDialog(ReleaseInfo release)
+        private async Task ShowUpdateDialogAsync(ReleaseInfo release)
         {
+            // Пока цепочка идёт, окно остаётся отзывчивым, поэтому вторую проверку
+            // обновлений нужно отсекать: обе писали бы в один и тот же файл загрузки.
+            if (Interlocked.CompareExchange(ref _updateInProgress, 1, 0) != 0)
+                return;
+
             try
             {
                 var target = ResolveTargetBinary();
@@ -163,19 +197,23 @@ namespace Configuration_Management.Services
                 // обновляем заменой исполняемого файла напрямую.
                 if (IsDirectoryWritable(Path.GetDirectoryName(target)))
                 {
-                    ShowSelfUpdateDialog(release, target);
+                    await ShowSelfUpdateDialogAsync(release, target);
                     return;
                 }
 
                 // Каталог не на запись: вероятно, установка через deb в системный каталог.
                 // Для замены нужны права администратора — предлагаем обновление через pkexec.
-                ShowPrivilegedUpdateDialog(release, target);
+                await ShowPrivilegedUpdateDialogAsync(release, target);
             }
             catch
             {
                 ShowOnUi(() => _dialogs.ShowError(
                     LocalizationManager.T("Update.InstallFailed"),
                     LocalizationManager.T("Update.NewVersionAvailable")));
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _updateInProgress, 0);
             }
         }
 
@@ -184,7 +222,7 @@ namespace Configuration_Management.Services
         /// скачивания, скачивает бинарник, затем предлагает применить обновление
         /// (перезапустить сейчас или после закрытия).
         /// </summary>
-        private void ShowSelfUpdateDialog(ReleaseInfo release, string target)
+        private async Task ShowSelfUpdateDialogAsync(ReleaseInfo release, string target)
         {
             if (string.IsNullOrWhiteSpace(release.DownloadUrl))
             {
@@ -206,10 +244,11 @@ namespace Configuration_Management.Services
             if (!accepted)
                 return;
 
-            // Скачиваем новый бинарник в фоне (без UI-прогресса, но надёжно).
-            var newBinary = DownloadNewBinaryAsync(release.DownloadUrl!)
-                .GetAwaiter()
-                .GetResult();
+            // Скачиваем новый бинарник, не блокируя поток интерфейса: диалог показан
+            // из UI-потока, и синхронное ожидание здесь замораживало окно на всё время
+            // загрузки (десятки МБ).
+            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!)
+                .ConfigureAwait(true);
             if (newBinary is null)
             {
                 ShowOnUi(() => _dialogs.ShowError(
@@ -259,7 +298,7 @@ namespace Configuration_Management.Services
         /// от повышения прав показывается запасной диалог с кликабельной ссылкой на страницу
         /// выпуска (issue #225).
         /// </summary>
-        private void ShowPrivilegedUpdateDialog(ReleaseInfo release, string target)
+        private async Task ShowPrivilegedUpdateDialogAsync(ReleaseInfo release, string target)
         {
             if (string.IsNullOrWhiteSpace(release.DownloadUrl))
             {
@@ -269,7 +308,8 @@ namespace Configuration_Management.Services
                 return;
             }
 
-            var isDeb = IsDebPackage(target);
+            // dpkg -S ждёт до 15 секунд, поэтому спрашиваем не на потоке интерфейса.
+            var isDeb = await Task.Run(() => IsDebPackage(target)).ConfigureAwait(true);
             var prompt = isDeb
                 ? LocalizationManager.T("Update.AdminPromptDeb")
                 : LocalizationManager.T("Update.AdminPromptGeneric");
@@ -285,9 +325,8 @@ namespace Configuration_Management.Services
                 return;
             }
 
-            var newBinary = DownloadNewBinaryAsync(release.DownloadUrl!)
-                .GetAwaiter()
-                .GetResult();
+            var newBinary = await DownloadNewBinaryAsync(release.DownloadUrl!)
+                .ConfigureAwait(true);
             if (newBinary is null)
             {
                 ShowOnUi(() => _dialogs.ShowError(
@@ -296,15 +335,17 @@ namespace Configuration_Management.Services
                 return;
             }
 
-            if (!ApplyPrivilegedUpdate(target, newBinary))
+            // Ждём, пока помощник действительно получит права: пока пользователь не ответил
+            // на запрос PolicyKit, закрывать приложение нельзя. При отказе или недоступности
+            // pkexec приложение остаётся работать и показывает ручной путь обновления.
+            if (!await ApplyPrivilegedUpdateAsync(target, newBinary).ConfigureAwait(true))
             {
-                ShowOnUi(() => _dialogs.ShowError(
-                    LocalizationManager.T("Update.InstallFailed"),
-                    LocalizationManager.T("Update.NewVersionAvailable")));
+                ShowManualUpdateDialog(
+                    LocalizationManager.T("Update.TargetNotWritable"), release.HtmlUrl);
                 return;
             }
 
-            // Повышение прав запущено — закрываем приложение, чтобы скрипт смог заменить бинарник.
+            // Помощник получил права и ждёт нашего выхода — закрываемся, чтобы он заменил бинарник.
             ShutdownNow();
         }
 
@@ -471,20 +512,28 @@ namespace Configuration_Management.Services
         /// </summary>
         private async Task<string?> DownloadNewBinaryAsync(string url)
         {
-            var dir = Path.Combine(Path.GetTempPath(), UpdateTempDir);
-            Directory.CreateDirectory(dir);
+            var dir = EnsureUpdateDirectory();
             var dest = Path.Combine(dir, "ConfigurationManagement.new");
 
             try
             {
-                using var response = await _http.GetAsync(url).ConfigureAwait(false);
+                // ResponseHeadersRead: тело пишется на диск потоком, а не буферизуется
+                // целиком в памяти (бинарник весит десятки МБ). При этом HttpClient.Timeout
+                // перестаёт покрывать чтение тела, поэтому срок задаётся здесь явно, иначе
+                // залипшее соединение висело бы вместо честной ошибки загрузки.
+                using var cancellation = new CancellationTokenSource(_http.Timeout);
+                using var response = await _http
+                    .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellation.Token)
+                    .ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();
 
-                await using var source = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                await using var source = await response.Content
+                    .ReadAsStreamAsync(cancellation.Token)
+                    .ConfigureAwait(false);
                 await using (var target = new FileStream(dest, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
-                    await source.CopyToAsync(target).ConfigureAwait(false);
-                    await target.FlushAsync().ConfigureAwait(false);
+                    await source.CopyToAsync(target, cancellation.Token).ConfigureAwait(false);
+                    await target.FlushAsync(cancellation.Token).ConfigureAwait(false);
                 }
 
                 return new FileInfo(dest).Length > 0 ? dest : null;
@@ -515,10 +564,101 @@ namespace Configuration_Management.Services
         /// временный bash-сценарий и запускает его через <c>pkexec</c>. Возвращает true,
         /// если процесс повышения прав удалось запустить (graphical PolicyKit-диалог).
         /// </summary>
-        internal bool ApplyPrivilegedUpdate(string target, string newBinary)
+        internal async Task<bool> ApplyPrivilegedUpdateAsync(string target, string newBinary)
         {
-            var script = CreatePrivilegedUpdaterScript(target, newBinary, Environment.ProcessId);
-            return LaunchPrivilegedUpdater(script);
+            var readyMarker = Path.Combine(
+                EnsureUpdateDirectory(), $"priv-ready-{Guid.NewGuid():N}");
+            var script = CreatePrivilegedUpdaterScript(
+                target, newBinary, Environment.ProcessId, readyMarker);
+
+            using var process = LaunchPrivilegedUpdater(script);
+            if (process is null)
+            {
+                CleanUpdateLeftovers(script, newBinary);
+                return false;
+            }
+
+            try
+            {
+                var granted = await WaitForPrivilegedUpdaterAsync(process, readyMarker)
+                    .ConfigureAwait(true);
+                if (!granted)
+                    CleanUpdateLeftovers(script, newBinary);
+                return granted;
+            }
+            finally
+            {
+                TryDelete(readyMarker);
+            }
+        }
+
+        /// <summary>Удаляет временные файлы обновления, если помощник до них не добрался.</summary>
+        private static void CleanUpdateLeftovers(string script, string newBinary)
+        {
+            TryDelete(script);
+            TryDelete(newBinary);
+
+            try
+            {
+                // Каталог этого запуска убирается, только если в нём больше ничего нет.
+                var dir = Path.GetDirectoryName(script);
+                if (dir is not null && Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
+                {
+                    Directory.Delete(dir);
+                    if (string.Equals(dir, _updateDirectory, StringComparison.Ordinal))
+                        _updateDirectory = null;
+                }
+            }
+            catch
+            {
+                // Пустой каталог в %TEMP% не мешает работе.
+            }
+        }
+
+        /// <summary>
+        /// Дожидается ответа пользователя на запрос PolicyKit. Помощник, получив права,
+        /// первым делом создаёт файл-маркер: его появление означает, что пароль принят
+        /// и сценарий работает. Дальше помощник ждёт нашего выхода, поэтому дожидаться
+        /// завершения самого <c>pkexec</c> нельзя — это взаимная блокировка. Возвращает
+        /// false, если пользователь отказался (pkexec вышел с ненулевым кодом) или ответа
+        /// не было дольше <see cref="PrivilegedUpdateTimeout"/>.
+        /// </summary>
+        private static async Task<bool> WaitForPrivilegedUpdaterAsync(Process process, string readyMarker)
+        {
+            // Отсчёт по Stopwatch, а не по часам: перевод системного времени не должен
+            // ни обрывать ожидание, ни продлевать его.
+            var waited = Stopwatch.StartNew();
+            while (waited.Elapsed < PrivilegedUpdateTimeout)
+            {
+                if (File.Exists(readyMarker))
+                    return true;
+
+                if (process.HasExited)
+                {
+                    // Помощник, получивший права, живёт до нашего выхода. Ранний выход —
+                    // это отказ в PolicyKit (код 126), сбой запуска (127) или ошибка сценария.
+                    return File.Exists(readyMarker);
+                }
+
+                await Task.Delay(200).ConfigureAwait(true);
+            }
+
+            // Маркер мог появиться в последнюю паузу: проверяем ещё раз, иначе снятый запрос
+            // разошёлся бы с уже работающим помощником.
+            if (File.Exists(readyMarker))
+                return true;
+
+            // Ответа так и не было: снимаем запрос, чтобы диалог пароля не остался висеть,
+            // и дожидаемся конца, потому что Kill возвращается раньше завершения процесса.
+            try
+            {
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync(new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token)
+                    .ConfigureAwait(true);
+            }
+            catch { /* процесс мог завершиться сам, ждать больше нечего */ }
+
+            return File.Exists(readyMarker);
         }
 
         /// <summary>Закрывает текущее приложение (вызывается после успешного запуска помощника).</summary>
@@ -569,7 +709,7 @@ namespace Configuration_Management.Services
         private static string CreateUpdaterScript(string target, string newBinary, int currentPid, bool restart)
         {
             var scriptPath = Path.Combine(
-                Path.GetTempPath(), UpdateTempDir, $"apply-update-{Guid.NewGuid():N}.sh");
+                EnsureUpdateDirectory(), $"apply-update-{Guid.NewGuid():N}.sh");
 
             // Пустое тело if недопустимо в bash, поэтому в режиме «после закрытия»
             // подставляется команда-заглушка, а не один комментарий.
@@ -620,9 +760,11 @@ if [ ""$RESTART"" = ""1"" ]; then
   {relaunchBlock}
 fi
 
-# Убираем временный бинарник и сам скрипт.
+# Убираем временный бинарник, сам скрипт и опустевший каталог обновления.
+WORK_DIR=""$(dirname ""$0"")""
 rm -f ""$NEW""
 rm -f ""$0""
+rmdir ""$WORK_DIR"" 2>/dev/null || true
 ";
 
             Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
@@ -707,13 +849,19 @@ rm -f ""$0""
         /// перезапуск выполняется от имени обычного пользователя через <c>runuser</c>,
         /// чтобы приложение не осталось работать под правами администратора.
         /// </summary>
-        private static string CreatePrivilegedUpdaterScript(string target, string newBinary, int currentPid)
+        private static string CreatePrivilegedUpdaterScript(
+            string target, string newBinary, int currentPid, string readyMarker)
         {
             var scriptPath = Path.Combine(
-                Path.GetTempPath(), UpdateTempDir, $"apply-update-priv-{Guid.NewGuid():N}.sh");
+                EnsureUpdateDirectory(), $"apply-update-priv-{Guid.NewGuid():N}.sh");
 
             // Имя обычного пользователя для перезапуска после замены под root.
             var userName = Bq(Environment.UserName);
+
+            // Сценарий работает от root, а runuser не наследует окружение сеанса.
+            // Без переменных графического сеанса перезапущенное приложение не найдёт
+            // дисплей и молча закроется, то есть обновление пройдёт, а окно не вернётся.
+            var sessionEnvironment = BuildRestartEnvironment();
 
             var script = $@"#!/usr/bin/env bash
 set -u
@@ -722,6 +870,24 @@ NEW='{Bq(newBinary)}'
 STAGED=""$TARGET.cm-update-$$""
 PID_TARGET={currentPid}
 USER_NAME='{userName}'
+RESTART_ENV=({sessionEnvironment})
+READY='{Bq(readyMarker)}'
+
+# Замена готовится до отметки: копия рядом с целью доказывает, что права получены
+# и записать в целевой каталог удалось. Только после этого приложению разрешается
+# закрыться, иначе оно закрывалось бы навстречу обновлению, которое не состоится.
+if ! cp -f ""$NEW"" ""$STAGED""; then
+  rm -f ""$STAGED""
+  exit 1
+fi
+if ! chmod +x ""$STAGED""; then
+  rm -f ""$STAGED""
+  exit 1
+fi
+if ! : > ""$READY""; then
+  rm -f ""$STAGED""
+  exit 1
+fi
 
 # Ожидание завершения основного процесса, чтобы не было гонки при замене файла.
 i=0
@@ -731,15 +897,7 @@ while kill -0 ""$PID_TARGET"" 2>/dev/null && [ $i -lt 300 ]; do
 done
 sleep 1
 
-# Замена в два шага: сначала копия рядом с целью, затем атомарное переименование.
-if ! cp -f ""$NEW"" ""$STAGED""; then
-  rm -f ""$STAGED""
-  exit 1
-fi
-if ! chmod +x ""$STAGED""; then
-  rm -f ""$STAGED""
-  exit 1
-fi
+# Приложение вышло — остаётся атомарное переименование подготовленной копии.
 if ! mv -f ""$STAGED"" ""$TARGET""; then
   rm -f ""$STAGED""
   exit 1
@@ -748,14 +906,16 @@ fi
 # Перезапуск приложения от имени обычного пользователя, а не root: скрипт работает
 # с правами администратора, а приложение должно вернуться к обычным пользователям.
 if [ -n ""$USER_NAME"" ] && command -v runuser >/dev/null 2>&1; then
-  runuser -u ""$USER_NAME"" -- nohup ""$TARGET"" >/dev/null 2>&1 &
+  runuser -u ""$USER_NAME"" -- env ""${{RESTART_ENV[@]}}"" nohup ""$TARGET"" >/dev/null 2>&1 &
 else
   nohup ""$TARGET"" >/dev/null 2>&1 &
 fi
 
-# Убираем временный бинарник и сам скрипт.
+# Убираем временный бинарник, сам скрипт и опустевший каталог обновления.
+WORK_DIR=""$(dirname ""$0"")""
 rm -f ""$NEW""
 rm -f ""$0""
+rmdir ""$WORK_DIR"" 2>/dev/null || true
 ";
 
             Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
@@ -769,7 +929,7 @@ rm -f ""$0""
         /// пароль в терминале из GUI не запрашивается. Возвращает true, если процесс удалось
         /// запустить. Если pkexec недоступен — возвращает false (обновление недоступно).
         /// </summary>
-        private static bool LaunchPrivilegedUpdater(string scriptPath)
+        private static Process? LaunchPrivilegedUpdater(string scriptPath)
         {
             try
             {
@@ -786,13 +946,35 @@ rm -f ""$0""
                 psi.ArgumentList.Add("env");
                 psi.ArgumentList.Add("bash");
                 psi.ArgumentList.Add(scriptPath);
-                Process.Start(psi);
-                return true;
+                return Process.Start(psi);
             }
             catch
             {
-                return false;
+                return null;
             }
+        }
+
+        /// <summary>
+        /// Собирает присваивания переменных графического сеанса для перезапуска приложения
+        /// после обновления с правами администратора. Пустые значения пропускаются.
+        /// </summary>
+        private static string BuildRestartEnvironment()
+        {
+            string[] names =
+            [
+                "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY",
+                "XDG_RUNTIME_DIR", "XDG_SESSION_TYPE", "DBUS_SESSION_BUS_ADDRESS"
+            ];
+
+            var assignments = new List<string>();
+            foreach (var name in names)
+            {
+                var value = Environment.GetEnvironmentVariable(name);
+                if (!string.IsNullOrEmpty(value))
+                    assignments.Add($"{name}='{Bq(value)}'");
+            }
+
+            return string.Join(' ', assignments);
         }
 
         /// <summary>Экранирует строку для одинарных кавычек bash: ' → '\''.</summary>
