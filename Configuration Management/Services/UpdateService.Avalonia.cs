@@ -527,6 +527,22 @@ namespace Configuration_Management.Services
             }
         }
 
+        /// <summary>
+        /// Записывает текст сценария-помощника, приводя переводы строк к виду, который
+        /// понимает <c>bash</c>. Текст сценария лежит в исходнике буквальной строкой,
+        /// поэтому переводы строк попадают в него прямо из файла исходного кода: если
+        /// рабочая копия выгружена на Windows (autocrlf), сценарий получает CRLF, и
+        /// каждая строка кончается лишним символом. Bash принимает его за часть команды:
+        /// <c>set -u</c> отвергается с подсказкой по использованию, следующая команда
+        /// не находится, сценарий выходит с кодом 2 и не заменяет исполняемый файл.
+        /// Со стороны пользователя это выглядит так, что приложение закрылось и ничего
+        /// не произошло (issue #225).
+        /// </summary>
+        private static void WriteShellScript(string scriptPath, string script)
+        {
+            File.WriteAllText(scriptPath, script.Replace("\r\n", "\n"));
+        }
+
         /// <summary>Возвращает путь к текущему исполняемому файлу приложения или null.</summary>
         internal string? ResolveTargetBinary()
         {
@@ -930,7 +946,7 @@ rmdir ""$WORK_DIR"" 2>/dev/null || true
 ";
 
             Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
-            File.WriteAllText(scriptPath, script);
+            WriteShellScript(scriptPath, script);
             return scriptPath;
         }
 
@@ -1081,7 +1097,7 @@ rmdir ""$WORK_DIR"" 2>/dev/null || true
 ";
 
             Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
-            File.WriteAllText(scriptPath, script);
+            WriteShellScript(scriptPath, script);
             return scriptPath;
         }
 
