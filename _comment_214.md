@@ -1,1 +1,0 @@
-Исправлено в 0.3.6.97: устранена регрессия горизонтального выравнивания компактного режима (в Themes/ThemeManager.cs). Подробнее — раздел CHANGELOG [0.3.6.97](https://github.com/sivatorov/ConfigurationManagement/blob/main/CHANGELOG.md#03697---2026-09-09).
