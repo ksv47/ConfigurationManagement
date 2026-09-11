@@ -508,10 +508,10 @@ namespace Configuration_Management.Services
 
         /// <summary>
         /// Скачивает новый бинарник, показывая на это время окно хода загрузки. Размер
-        /// файла — десятки МБ, и без индикатора отрезок между согласием на обновление и
-        /// вопросом о перезапуске выглядит как зависание приложения (issue #225).
-        /// В Windows-версии тот же этап показан полосой прогресса в едином диалоге
-        /// обновления (<c>UpdateAvailableWindow</c>).
+        /// файла составляет десятки МБ, и без индикатора отрезок между согласием на
+        /// обновление и вопросом о перезапуске выглядит как зависание приложения
+        /// (issue #225). В Windows-версии тот же этап показан полосой прогресса
+        /// в едином диалоге обновления (<c>UpdateAvailableWindow</c>).
         /// </summary>
         private async Task<string?> DownloadWithProgressAsync(string url)
         {
@@ -521,13 +521,14 @@ namespace Configuration_Management.Services
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     window = new UpdateProgressWindowAvalonia();
-                    ShowProgressWindow(window);
+                    window.Show();
                 });
             }
             catch
             {
-                // Окно индикатора не должно мешать самому обновлению.
-                window = null;
+                // Окно индикатора не должно мешать самому обновлению, но закрыть его
+                // всё равно нужно: платформенное окно создаётся конструктором, и сбой
+                // мог прийти уже из показа.
             }
 
             try
@@ -536,33 +537,22 @@ namespace Configuration_Management.Services
             }
             finally
             {
-                if (window is not null)
+                var closing = window;
+                if (closing is not null)
                 {
-                    try
-                    {
-                        await Dispatcher.UIThread.InvokeAsync(() => window.Close());
-                    }
-                    catch { /* окно могли закрыть вместе с приложением */ }
+                    // С потока интерфейса окно закрывается сразу, а не отложенно: иначе
+                    // следующий за загрузкой вопрос успевает открыться поверх ещё живого
+                    // окна прогресса, становится его дочерним, и закрытие прогресса гасит
+                    // вопрос вместо пользователя (ответ читается как отказ). Проверено
+                    // прогоном: вопрос о перезапуске снимался сам.
+                    if (Dispatcher.UIThread.CheckAccess())
+                        closing.Close();
+                    else
+                        // С фонового потока ждать нельзя: при закрытии приложения во время
+                        // загрузки цикл сообщений уже остановлен, и ожидание не завершится.
+                        Dispatcher.UIThread.Post(() => closing.Close());
                 }
             }
-        }
-
-        /// <summary>
-        /// Показывает окно хода загрузки поверх главного окна, не блокируя вызывающий код:
-        /// модальный показ остановил бы цепочку обновления до закрытия окна пользователем.
-        /// </summary>
-        private static void ShowProgressWindow(Avalonia.Controls.Window window)
-        {
-            var owner = Avalonia.Application.Current?.ApplicationLifetime
-                is IClassicDesktopStyleApplicationLifetime desktop
-                && desktop.MainWindow is { IsVisible: true } main
-                    ? main
-                    : null;
-
-            if (owner is not null)
-                window.Show(owner);
-            else
-                window.Show();
         }
 
         /// <summary>
@@ -613,7 +603,7 @@ namespace Configuration_Management.Services
 
                         // Отчёт только на смене целого процента: иначе на каждый блок
                         // в 80 КБ приходилась бы отправка в поток интерфейса.
-                        var percent = (int)(readTotal * 100 / totalBytes);
+                        var percent = (int)Math.Min(100, readTotal * 100 / totalBytes);
                         if (percent == lastPercent)
                             continue;
 
@@ -624,7 +614,17 @@ namespace Configuration_Management.Services
                     await target.FlushAsync(cancellation.Token).ConfigureAwait(false);
                 }
 
-                return new FileInfo(dest).Length > 0 ? dest : null;
+                // Размер теперь известен, поэтому обрыв, не бросивший исключение, ловится
+                // здесь: недокачанный бинарник не должен подставляться вместо рабочего.
+                // Так же принимает файл Windows-версия (size >= totalBytes).
+                var size = new FileInfo(dest).Length;
+                if (size <= 0 || (totalBytes > 0 && size < totalBytes))
+                {
+                    TryDelete(dest);
+                    return null;
+                }
+
+                return dest;
             }
             catch
             {

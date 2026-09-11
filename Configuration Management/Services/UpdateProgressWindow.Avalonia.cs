@@ -1,4 +1,5 @@
 #if LINUX
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -28,7 +29,12 @@ internal sealed class UpdateProgressWindowAvalonia : Window
         Width = 440;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        // Владельца окну не назначают намеренно: дочернее окно уходит в трей вместе
+        // с главным (Window.Hide прячет детей и снимает владельца) и обратно уже
+        // не возвращается, то есть загрузка снова шла бы без единого признака работы.
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        // Отдельной кнопки в панели задач нет ни у одного окна продукта.
+        ShowInTaskbar = false;
         SystemDecorations = SystemDecorations.Full;
 
         ThemeBrushes.Bind(this, TemplatedControl.BackgroundProperty, "ContentBackgroundColorBrush");
@@ -75,10 +81,11 @@ internal sealed class UpdateProgressWindowAvalonia : Window
                 return;
             }
 
+            var shown = Math.Clamp(percent, 0, 100);
             _bar.IsIndeterminate = false;
-            _bar.Value = percent;
+            _bar.Value = shown;
             _caption.Text = string.Format(
-                LocalizationManager.T("Update.DownloadProgressFormat"), (int)percent);
+                LocalizationManager.T("Update.DownloadProgressFormat"), (int)shown);
         });
     }
 }
