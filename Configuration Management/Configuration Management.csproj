@@ -59,10 +59,10 @@
          поэтому AssemblyVersion/FileVersion/Version ограничены 4 частями, а точная
          пользовательская версия «0.3.1.1» задаётся через InformationalVersion
          и выводится в заголовок окна. -->
-    <Version>0.3.7.18</Version>
-    <AssemblyVersion>0.3.7.18</AssemblyVersion>
-    <FileVersion>0.3.7.18</FileVersion>
-    <InformationalVersion>0.3.7.18</InformationalVersion>
+    <Version>0.3.7.19</Version>
+    <AssemblyVersion>0.3.7.19</AssemblyVersion>
+    <FileVersion>0.3.7.19</FileVersion>
+    <InformationalVersion>0.3.7.19</InformationalVersion>
     <!-- RID/SelfContained только при publish, чтобы обычный dotnet run/build не ломался -->
     <PublishReadyToRun>false</PublishReadyToRun>
     <DebugType>embedded</DebugType>
@@ -222,6 +222,9 @@
     <Compile Remove="ViewModels\**\*.cs" />
     <Compile Include="ViewModels\*.Avalonia.cs" />
     <Compile Include="ViewModels\ConnectionSettingsViewModel.cs" />
+    <!-- Общая модель строки диалога «Определение конфигураций всех баз» (issue #236):
+         чистый .NET без WPF-зависимостей, используется и Windows, и Linux. -->
+    <Compile Include="ViewModels\DetectConfigRowViewModel.cs" />
     <!-- Windows-only сервисы — Этап 5 -->
     <Compile Remove="Services\WpfDialogService.cs" />
     <!-- Проверка обновлений из GitHub Releases кроссплатформенная: на Linux тоже используется

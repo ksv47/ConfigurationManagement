@@ -1617,6 +1617,16 @@
                                         <TextBlock Text="{loc:Loc Settings.Bases.ImportV8i}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
+                                <!-- Определение/обновление конфигураций всех баз (issue #236). -->
+                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                        HorizontalAlignment="Stretch"
+                                        Click="OnDetectAllConfigurations_Click"
+                                        ToolTip="{loc:Loc Settings.Bases.DetectAllConfigsTooltip}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="MagnifyScan" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Bases.DetectAllConfigs}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                                 <!-- Импорт баз и настроек платформы из программы StartManager (issue #163). -->
                                 <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
                                         HorizontalAlignment="Stretch"
