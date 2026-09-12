@@ -1873,10 +1873,23 @@ namespace Configuration_Management
             ToolTip.SetTip(importStartManager, LocalizationManager.T("Settings.Bases.ImportStartManagerTooltip"));
             importStartManager.Click += (_, _) => _viewModel.ImportFromStartManager();
 
+            // Определение/обновление конфигураций всех баз (issue #236). Правки вносятся
+            // прямо в объекты Infobase, поэтому после закрытия сохраняем список.
+            var detectAll = new Button { Content = LocalizationManager.T("Settings.Bases.DetectAllConfigs") };
+            ToolTip.SetTip(detectAll, LocalizationManager.T("Settings.Bases.DetectAllConfigsTooltip"));
+            detectAll.Click += (_, _) =>
+            {
+                var dialog = new DetectConfigurationsWindow(_viewModel.Infobases.ToList());
+                dialog.ShowDialogSync(this);
+                if (dialog.DataChanged)
+                    _viewModel.PersistInfobasesAfterInlineEdit();
+            };
+
             listButtons.Children.Add(exportList);
             listButtons.Children.Add(importList);
             listButtons.Children.Add(importV8i);
             listButtons.Children.Add(importStartManager);
+            listButtons.Children.Add(detectAll);
             bases.Children.Add(listButtons);
             bases.Children.Add(timestampCheck);
 

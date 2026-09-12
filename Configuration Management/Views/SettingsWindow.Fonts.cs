@@ -117,12 +117,19 @@ namespace Configuration_Management
             UpdateFontPreview();
         }
 
-        /// <summary>Возвращает введённый/выбранный размер шрифта (по умолчанию 13).</summary>
+        /// <summary>
+        /// Возвращает введённый/выбранный размер шрифта (по умолчанию 13),
+        /// ограниченный диапазоном 8..72 (как в Microsoft Word).
+        /// </summary>
         private double ReadFontSize()
         {
             var text = FontSizeComboBox?.Text;
-            return double.TryParse(text, System.Globalization.NumberStyles.Number,
-                System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 13;
+            if (!double.TryParse(text, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out var s))
+                return 13;
+            // Защита от краша WPF: FontRenderingEmSize ограничен значением ~35791,
+            // поэтому любое значение вне диапазона 8..72 обрезается до границ.
+            return Math.Clamp(s, 8, 72);
         }
 
         /// <summary>Обновляет текстовый предпросмотр выбранного шрифта.</summary>

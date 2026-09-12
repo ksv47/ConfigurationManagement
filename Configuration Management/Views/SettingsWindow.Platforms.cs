@@ -201,6 +201,22 @@ namespace Configuration_Management
             RefreshGroupsAfterDataChange();
         }
 
+        /// <summary>
+        /// Открывает диалог «Определение конфигураций всех баз» (issue #236). После закрытия
+        /// сохраняет список, если хотя бы одна база была изменена (правки вносятся прямо
+        /// в объекты <see cref="Infobase"/>).
+        /// </summary>
+        private void OnDetectAllConfigurations_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new DetectConfigurationsWindow(_viewModel.Infobases.ToList())
+            {
+                Owner = this
+            };
+            dialog.ShowDialog();
+            if (dialog.DataChanged)
+                _viewModel.PersistInfobasesAfterInlineEdit();
+        }
+
         private void OnClearAllInfobases_Click(object sender, RoutedEventArgs e)
         {
             _viewModel.ClearAllInfobasesCommand.Execute(null);

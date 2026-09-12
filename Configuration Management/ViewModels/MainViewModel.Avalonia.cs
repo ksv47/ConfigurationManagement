@@ -3117,6 +3117,17 @@ public class MainViewModel : ViewModelBase
         catch (Exception ex) { _logger.Error("Не удалось сохранить список баз", ex); return false; }
     }
 
+    /// <summary>
+    /// Сохраняет список баз и перестраивает дерево после точечного изменения отдельных баз
+    /// (например, определения конфигураций всех баз, issue #236). Аналог
+    /// <see cref="MainViewModel.PersistInfobasesAfterInlineEdit"/> для Windows.
+    /// </summary>
+    public void PersistInfobasesAfterInlineEdit()
+    {
+        SaveSilently();
+        RebuildTree();
+    }
+
     private bool SaveGroupList(List<Group> groups)
     {
         try { _repository.SaveGroups(groups); return true; }

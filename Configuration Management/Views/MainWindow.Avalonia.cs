@@ -5872,9 +5872,12 @@ namespace Configuration_Management
         /// <summary>
         /// Есть ли открытый модальный дочерний диалог (свойства базы, настройки и т.п.).
         /// Все дополнительные окна в приложении показываются модально (ShowDialog/
-        /// ShowDialogSync), а модальное окно при показе становится активным. Поэтому
-        /// об открытом диалоге можно судить по флагу IsActive: если активно любое окно,
-        /// кроме главного, Esc должен обработать сам диалог, а не главное окно.
+        /// ShowDialogSync). Проверяем флаг IsVisible, а не IsActive: на Linux/X11 окно
+        /// после открытия не всегда сразу получает активацию (issue #226), и по одному
+        /// лишь IsActive мы бы не распознали открытый диалог — тогда Esc уводил бы главное
+        /// окно в трей, не закрыв диалог. Если видимо любое окно, кроме главного, Esc
+        /// должен обработать сам диалог (см. ModalWindowBase.OnKeyDown), а не главное окно.
+        /// Закрытые окна в списке имеют IsVisible == false и на результат не влияют.
         /// </summary>
         private bool HasOpenModalDialog()
         {
@@ -5884,7 +5887,7 @@ namespace Configuration_Management
 
             foreach (var window in desktop.Windows)
             {
-                if (!ReferenceEquals(window, this) && window.IsActive)
+                if (!ReferenceEquals(window, this) && window.IsVisible)
                     return true;
             }
 

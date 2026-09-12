@@ -375,14 +375,32 @@
                                      что и у обычного поля ввода / нередактируемого списка, без
                                      двойного отступа. Клик по полю ставит курсор и позволяет ввод;
                                      область вне поля (и стрелка) уходит кнопке DropDownToggle
-                                     и открывает список. -->
+                                     и открывает список.
+
+                                     Style="{x:Null}" обязателен: иначе к полю применяется
+                                     неявный стиль TextBox из ресурсов окна, а в окне настроек
+                                     это ModernTextBox с MinHeight=36. Список «Размер» шрифта
+                                     фактически 36 точек (MinHeight стиля сильнее локальной
+                                     Height=34), полю в нём остаётся 36 - 3 (рамка)
+                                     - 12 (Margin) = 21 точка, MinHeight растягивает поле
+                                     до 36 вниз, и текст уходит на 7,5 точки ниже центра,
+                                     под нижний край списка (issue #216). Замер: ActualHeight
+                                     поля 36 до правки и 21 после.
+
+                                     HorizontalScrollBarVisibility=Hidden (как в штатном
+                                     ComboBoxEditableTextBox WPF): у поля высотой 21 полоса
+                                     прокрутки съедала бы 15 точек из 21, а у списков без
+                                     заданной высоты растила бы и поле, и сам список прямо
+                                     при наборе. Текст при Hidden по-прежнему прокручивается
+                                     кареткой. -->
                                 <TextBox x:Name="PART_EditableTextBox"
+                                         Style="{x:Null}"
                                          Grid.Column="0"
                                          Margin="{TemplateBinding Padding}"
                                          Padding="0"
                                          VerticalContentAlignment="Center"
                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                         HorizontalScrollBarVisibility="Auto"
+                                         HorizontalScrollBarVisibility="Hidden"
                                          TextWrapping="NoWrap"
                                          Background="Transparent"
                                          BorderThickness="0"

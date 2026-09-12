@@ -74,6 +74,16 @@ public sealed class OneCComConnector : IOneCComConnector
     }
 
     /// <summary>
+    /// true, если задан непустой шаблон имени COM-коннектора (issue #175). От этого признака
+    /// зависит, допустим ли быстрый отказ по «кэшу доступности»: тот проверяет только
+    /// стандартные ProgID (<see cref="KnownProgIds"/>), а при кастомном шаблоне коннектор
+    /// может быть зарегистрирован под именем вне этого списка, поэтому путь кэша нельзя
+    /// применять даже тогда, когда версию платформы развернуть не удалось (иначе шаблон
+    /// не подхватывался бы и до перебора кандидатов не доходило).
+    /// </summary>
+    private bool HasTemplate => !string.IsNullOrWhiteSpace(ComConnectorNameTemplate);
+
+    /// <summary>
     /// Список ProgID для перебора при подключении к заданной базе (issue #175).
     /// Если задан шаблон, разворачивает его по версии платформы базы и ставит первым,
     /// дополняя стандартный список (без дублей). При пустом шаблоне возвращает сам
@@ -257,7 +267,13 @@ public sealed class OneCComConnector : IOneCComConnector
         // съедал бы его. Проверку в этом случае оставляем перебору ConnectCore.
         var progIds = GetProgIds(infobase);
 
-        if (ReferenceEquals(progIds, KnownProgIds) && !IsComConnectorAvailable())
+        // Быстрый отказ по кэшу доступности допустим только без кастомного шаблона: он
+        // проверяет лишь стандартные ProgID, а при заданном шаблоне (даже если версию
+        // платформы развернуть не удалось) нужно дойти до перебора кандидатов и зафиксировать
+        // это в журнале. Гейт держим на самом признаке шаблона, а не на ReferenceEquals:
+        // при неудавшемся разворачивании BuildProgIdCandidates возвращает KnownProgIds,
+        // и сравнение ссылок ложно считало бы шаблон отсутствующим.
+        if (!HasTemplate && !IsComConnectorAvailable())
         {
             SetConnectorUnavailableError(infobase.Name);
             return null;
@@ -353,7 +369,10 @@ public sealed class OneCComConnector : IOneCComConnector
         // избыточен и вдобавок сбивает анализ состояния потока для последующих обращений.
         LastUsedPlatformVersion = ib.PlatformVersion;
 
-        if (ReferenceEquals(progIds, KnownProgIds) && !IsComConnectorAvailable())
+        // Быстрый отказ по кэшу доступности — только без кастомного шаблона (см. комментарий
+        // в Connect): при заданном шаблоне даже неудавшееся разворачивание версии не должно
+        // блокировать перебор кандидатов и запись попыток в журнал.
+        if (!HasTemplate && !IsComConnectorAvailable())
         {
             SetConnectorUnavailableError(ib.Name);
             return null;
