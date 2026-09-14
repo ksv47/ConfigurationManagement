@@ -90,9 +90,20 @@ namespace Configuration_Management.Controls
                 return;
             }
 
+            // Буквы и цифры без модификатора WPF не принимает в KeyBinding
+            // (NotSupportedException), а такое назначение ломает и другие
+            // сочетания после перезапуска. Без модификатора допустимы только
+            // функциональные клавиши и Delete/Insert.
+            var mods = Keyboard.Modifiers;
+            if (mods == ModifierKeys.None && !IsAllowedWithoutModifier(key))
+            {
+                e.Handled = true;
+                return; // не фиксируем значение и не меняем текст
+            }
+
             // Зафиксирована полноценная комбинация.
             e.Handled = true;
-            Value = FormatCombo(Keyboard.Modifiers, key);
+            Value = FormatCombo(mods, key);
             Text = FormatValue(Value);
         }
 
@@ -106,6 +117,16 @@ namespace Configuration_Management.Controls
             key is Key.Left or Key.Right or Key.Up or Key.Down
                 or Key.Home or Key.End or Key.PageUp or Key.PageDown
                 or Key.CapsLock or Key.NumLock or Key.Scroll;
+
+        /// <summary>
+        /// Допустима ли клавиша в сочетании без модификатора. WPF принимает
+        /// в KeyBinding такие клавиши, как F1…F24, Delete и Insert; буквы и
+        /// цифры — нет, поэтому они требуют хотя бы одного модификатора.
+        /// </summary>
+        private static bool IsAllowedWithoutModifier(Key key) =>
+            (key >= Key.F1 && key <= Key.F24)
+            || key == Key.Delete
+            || key == Key.Insert;
 
         private static string BuildPendingText(Key key)
         {

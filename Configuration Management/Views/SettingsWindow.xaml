@@ -479,7 +479,7 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <TabControl Margin="0,4,0,0" Style="{StaticResource SettingsSubTabControl}">
+                <TabControl x:Name="DisplaySubTabs" Margin="0,4,0,0" Style="{StaticResource SettingsSubTabControl}">
                     <!-- Значки и кнопки -->
                     <TabItem Style="{StaticResource SettingsSubTabItem}">
                         <TabItem.Header>
@@ -784,7 +784,7 @@
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Settings.Font.Size}" VerticalAlignment="Center" Margin="0,8,0,0"
                                                Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <ComboBox Grid.Row="1" Grid.Column="1" x:Name="FontSizeComboBox" Height="34"
-                                              VerticalAlignment="Center" Margin="0,8,0,0" Style="{StaticResource ModernComboBox}"
+                                              VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="0,8,0,0" Style="{StaticResource ModernComboBox}"
                                               IsEditable="True"
                                               KeyUp="OnFontSize_KeyUp"
                                               SelectionChanged="OnFontCombo_Changed"/>
@@ -1107,6 +1107,8 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.Enterprise}" VerticalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -1168,9 +1170,19 @@
                             <controls:HotkeyBox x:Name="HotkeyClearSearchBox" Grid.Row="11" Grid.Column="1"
                                                 Height="34" Margin="0,6,0,6" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
-                            <TextBlock Grid.Row="12" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ClearTags}" VerticalAlignment="Center"
+                            <TextBlock Grid.Row="12" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.ClearTags}" VerticalAlignment="Center" Margin="0,6,0,6"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <controls:HotkeyBox x:Name="HotkeyClearTagsBox" Grid.Row="12" Grid.Column="1"
+                                                Height="34" Margin="0,6,0,6" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="13" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.RightPanelDetails}" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HotkeyBox x:Name="HotkeyRightPanelDetailsBox" Grid.Row="13" Grid.Column="1"
+                                                Height="34" FontSize="13"
+                                                Style="{StaticResource ModernTextBox}"/>
+                            <TextBlock Grid.Row="14" Grid.Column="0" Text="{loc:Loc Settings.Hotkeys.SwitchUser}" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <controls:HotkeyBox x:Name="HotkeySwitchUserBox" Grid.Row="14" Grid.Column="1"
                                                 Height="34" FontSize="13"
                                                 Style="{StaticResource ModernTextBox}"/>
                         </Grid>
@@ -1310,6 +1322,52 @@
                                 <TextBlock Text="{loc:Loc Settings.CompactMode}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </ToggleButton>
+
+                        <!-- Имя COM-коннектора 1С по шаблону версии платформы (issue #175) -->
+                        <GroupBox Header="{loc:Loc Settings.General.ComConnectorTemplate}" Padding="8" Margin="0,14,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc Settings.General.ComConnectorTemplateHint}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <TextBox x:Name="ComConnectorNameTemplateBox" Height="32"
+                                         VerticalContentAlignment="Center"
+                                         Style="{StaticResource ModernTextBox}"
+                                         ToolTip="{loc:Loc Settings.General.ComConnectorTemplateTooltip}"/>
+                                <!-- Интерактивный предпросмотр имени COM-коннектора (issue #175):
+                                     версия + результат разворота шаблона. Поле версии
+                                     исключительно для предпросмотра, в настройки не сохраняется. -->
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="{loc:Loc Settings.General.ComConnectorPreviewVersionLabel}"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBox x:Name="ComConnectorPreviewVersionBox" Text="8.3.45.6789" Height="32" Width="120"
+                                             VerticalContentAlignment="Center"
+                                             Style="{StaticResource ModernTextBox}"/>
+                                    <TextBlock Text="{loc:Loc Settings.General.ComConnectorPreviewResultLabel}"
+                                               VerticalAlignment="Center" Margin="12,0,10,0"/>
+                                    <TextBox x:Name="ComConnectorPreviewResultBox" Height="32" Width="220"
+                                             VerticalContentAlignment="Center" IsReadOnly="True"
+                                             Style="{StaticResource ModernTextBox}"
+                                             Text="{loc:Loc Settings.General.ComConnectorPreviewEmpty}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Таймаут определения свойств конфигурации через COM (issue #174) -->
+                        <GroupBox Header="{loc:Loc Settings.General.ComDetectTimeout}" Padding="8" Margin="0,14,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc Settings.General.ComDetectTimeoutHint}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox x:Name="ComDetectTimeoutMsBox" Height="32" Width="120"
+                                             VerticalContentAlignment="Center"
+                                             Style="{StaticResource ModernTextBox}"
+                                             ToolTip="{loc:Loc Settings.General.ComDetectTimeoutTooltip}"/>
+                                    <TextBlock Text="{loc:Loc Settings.General.ComDetectTimeoutUnit}"
+                                               VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -1559,6 +1617,16 @@
                                         <TextBlock Text="{loc:Loc Settings.Bases.ImportV8i}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
+                                <!-- Определение/обновление конфигураций всех баз (issue #236). -->
+                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                        HorizontalAlignment="Stretch"
+                                        Click="OnDetectAllConfigurations_Click"
+                                        ToolTip="{loc:Loc Settings.Bases.DetectAllConfigsTooltip}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="MagnifyScan" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc Settings.Bases.DetectAllConfigs}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                                 <!-- Импорт баз и настроек платформы из программы StartManager (issue #163). -->
                                 <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
                                         HorizontalAlignment="Stretch"
@@ -1576,8 +1644,15 @@
                                 <TextBlock Text="{loc:Loc Settings.Bases.TimestampFormat}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                            Margin="0,12,0,4"/>
+                                <!-- Вертикальная обрезка текста шаблона: фиксированная
+                                     Height=34 конфликтовала с MinHeight=36 стиля и не давала
+                                     строке формата поместиться по вертикали. Поднимаем MinHeight
+                                     до 38, чуть уменьшаем вертикальный padding и явно центрируем
+                                     содержимое редактируемого поля — соседние элементы (подпись
+                                     выше, предпросмотр ниже) сдвигаются только на эти пару пикселей. -->
                                 <ComboBox x:Name="ExportTimestampFormatComboBox"
-                                          Height="34" FontSize="13" MinWidth="280"
+                                          MinHeight="38" FontSize="13" MinWidth="280"
+                                          Padding="10,5" VerticalContentAlignment="Center"
                                           Style="{StaticResource ModernComboBox}"
                                           IsEditable="True"
                                           IsTextSearchEnabled="True"

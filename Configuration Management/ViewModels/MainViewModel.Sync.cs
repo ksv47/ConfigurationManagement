@@ -151,9 +151,17 @@ public partial class MainViewModel : ViewModelBase
 
         if (_ibasesSyncTrigger == IbasesSyncTrigger.Schedule)
         {
+            // Строгий разбор времени суток: обычный TryParse принимает и локальные
+            // форматы, и длительности вроде 25:00, и «9» как девять суток.
+            // Час допускается с ведущим нулём и без: поле свободного ввода,
+            // и «9:00» пользователь набирает не реже, чем «09:00».
             if (string.IsNullOrWhiteSpace(_ibasesSyncScheduleTime) ||
-                !TimeSpan.TryParse(_ibasesSyncScheduleTime, out var time))
+                !TimeSpan.TryParseExact(_ibasesSyncScheduleTime.Trim(),
+                    new[] { @"hh\:mm", @"h\:mm" },
+                    System.Globalization.CultureInfo.InvariantCulture, out var time)
+                || time < TimeSpan.Zero || time >= TimeSpan.FromDays(1))
             {
+                _logger.Warn($"Автосинхронизация выключена: время расписания «{_ibasesSyncScheduleTime}» не распознано, ожидается ЧЧ:ММ");
                 return false;
             }
 

@@ -376,12 +376,20 @@ public partial class MainViewModel : ViewModelBase
             var candidateInfobases = Infobases.ToList();
             var candidateGroups = Groups.ToList();
 
-            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups);
+            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups, ResolveIbasesFilePath());
 
             if (result.NoConfigFound)
             {
                 _dialogs.ShowInfo(
                     string.Format(LocalizationManager.T("StartManager.NoConfig"), dir),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            if (result.NoIbasesFound)
+            {
+                _dialogs.ShowInfo(
+                    LocalizationManager.T("StartManager.NoIbases"),
                     LocalizationManager.T("StartManager.Title"));
                 return;
             }
@@ -432,7 +440,9 @@ public partial class MainViewModel : ViewModelBase
 
             var message = string.Format(
                 LocalizationManager.T("StartManager.Done"),
-                result.Added, result.Updated);
+                result.Added, result.Updated, result.GroupsCreated, result.Skipped);
+            if (result.Skipped > 0)
+                message += "\n\n" + LocalizationManager.T("StartManager.SkippedHint");
             if (platformAdded)
                 message += "\n" + LocalizationManager.T("StartManager.PlatformPathAdded");
             _dialogs.ShowInfo(message, LocalizationManager.T("StartManager.Title"));
@@ -698,6 +708,10 @@ public partial class MainViewModel : ViewModelBase
 
         try
         {
+            // Объём «остатков» до очистки — для отчёта (issue #178).
+            var orphanSize = cleanOrphans ? OneCCacheCleaner.GetOrphanSize(selectedKind, Infobases) : 0L;
+            // Объём кэша баз до очистки — для отчёта (issue #178).
+            var basesSize = infobases.Count > 0 ? OneCCacheCleaner.GetSize(selectedKind, infobases) : 0L;
             var removedBases = OneCCacheCleaner.Clear(infobases, selectedKind);
             var removedOrphans = cleanOrphans ? OneCCacheCleaner.ClearOrphans(selectedKind, Infobases) : 0;
 
@@ -709,7 +723,7 @@ public partial class MainViewModel : ViewModelBase
                     : string.Format(LocalizationManager.T("Main.CacheBaseMany"), infobases.Count);
 
                 if (removedBases > 0)
-                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removedBases));
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removedBases, Infobase.FormatSize(basesSize)));
                 else
                     resultParts.Add(string.Format(LocalizationManager.T("Main.CacheNotFound"), kindLabel, baseLabel));
             }
@@ -717,7 +731,7 @@ public partial class MainViewModel : ViewModelBase
             if (cleanOrphans)
             {
                 if (removedOrphans > 0)
-                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheOrphanRemoved"), removedOrphans));
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheOrphanRemoved"), removedOrphans, Infobase.FormatSize(orphanSize)));
                 else
                     resultParts.Add(LocalizationManager.T("Main.CacheOrphanNone"));
             }
@@ -840,44 +854,6 @@ public partial class MainViewModel : ViewModelBase
             LocalizationManager.T("Main.OneCProcessesTitle"));
     }
 
-
-    /// <summary>
-    /// Фоново считывает имя и версию конфигурации для баз, где они ещё не заполнены.
-    /// </summary>
-    private void RefreshConfigurationInfoAsync()
-    {
-        var targets = Infobases
-            .Where(ib => string.IsNullOrWhiteSpace(ib.ConfigurationName)
-                         || string.IsNullOrWhiteSpace(ib.ConfigurationVersion))
-            .ToList();
-        if (targets.Count == 0) return;
-
-        _ = Task.Run(() =>
-        {
-            var any = false;
-            foreach (var ib in targets)
-            {
-                try
-                {
-                    if (ConfigurationInfoService.TryApply(ib, overwriteExisting: false))
-                        any = true;
-                }
-                catch { }
-            }
-
-            if (!any) return;
-
-            try
-            {
-                Application.Current?.Dispatcher.Invoke(() =>
-                {
-                    InfobasesView?.Refresh();
-                    Save();
-                });
-            }
-            catch { }
-        });
-    }
 
     /// <summary>
     /// Точечно запрашивает и заполняет информацию о конфигурации выбранной базы
@@ -1134,8 +1110,10 @@ public partial class MainViewModel : ViewModelBase
             // Размеры файловых ИБ считаются в фоне с учётом кеша (не блокирует UI).
             RefreshFileMetadata();
 
-            // Фоново читаем имя и версию конфигурации для баз, где они ещё не заполнены.
-            RefreshConfigurationInfoAsync();
+            // Фоновое дочитывание свойств конфигурации при старте/импорте намеренно НЕ
+            // запускается (issue #174): на недоступном сервере оно занимало ~8 с на базу,
+            // «глушило» защёлку COM и было лишним при импорте. Только явная команда
+            // «Обновить информацию» (RefreshConfigurationInfo) читает свойства.
         }
         catch (Exception ex)
         {
@@ -1370,8 +1348,15 @@ public partial class MainViewModel : ViewModelBase
         if (_addTimestampToExportFileName)
         {
             var format = string.IsNullOrWhiteSpace(_exportTimestampFormat) ? "yyyyMMdd_HHmmss" : _exportTimestampFormat;
-            var ts = DateTime.Now.ToString(format);
-            return $"{baseName}_{ts}{extension}";
+            try
+            {
+                return $"{baseName}_{DateTime.Now.ToString(format)}{extension}";
+            }
+            catch (FormatException)
+            {
+                // Шаблон мог прийти из файла настроек, правленного руками.
+                return $"{baseName}_{DateTime.Now:yyyyMMdd_HHmmss}{extension}";
+            }
         }
         return $"{baseName}{extension}";
     }
@@ -1832,7 +1817,9 @@ public partial class MainViewModel : ViewModelBase
         bool rememberWindowLayout = true,
         string afterLaunchAction = "None",
         string? hotkeyClearSearch = null,
-        string? hotkeyClearTags = null)
+        string? hotkeyClearTags = null,
+        string? hotkeyRightPanelDetails = null,
+        string? hotkeySwitchUser = null)
     {
         _allowMultipleInstances = allowMultipleInstances;
         _checkForUpdatesOnStartup = checkForUpdatesOnStartup;
@@ -1856,6 +1843,8 @@ public partial class MainViewModel : ViewModelBase
         if (hotkeyShowRecent != null) _hotkeyShowRecent = hotkeyShowRecent.Trim();
         if (hotkeyClearSearch != null) _hotkeyClearSearch = hotkeyClearSearch.Trim();
         if (hotkeyClearTags != null) _hotkeyClearTags = hotkeyClearTags.Trim();
+        if (hotkeyRightPanelDetails != null) _hotkeyRightPanelDetails = hotkeyRightPanelDetails.Trim();
+        if (hotkeySwitchUser != null) _hotkeySwitchUser = hotkeySwitchUser.Trim();
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(CheckForUpdatesOnStartup));
         OnPropertyChanged(nameof(AutoUpdateEnabled));
@@ -1877,6 +1866,8 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyShowRecent));
         OnPropertyChanged(nameof(HotkeyClearSearch));
         OnPropertyChanged(nameof(HotkeyClearTags));
+        OnPropertyChanged(nameof(HotkeyRightPanelDetails));
+        OnPropertyChanged(nameof(HotkeySwitchUser));
         OnPropertyChanged(nameof(RememberWindowLayout));
         SaveSettings();
     }

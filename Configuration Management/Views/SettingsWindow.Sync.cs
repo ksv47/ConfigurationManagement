@@ -121,7 +121,7 @@ namespace Configuration_Management
         private void OnSyncScheduleTime_TextChanged(object sender, TextChangedEventArgs e)
         {
             var value = SyncScheduleTimePicker.Text?.Trim() ?? string.Empty;
-            if (TimeSpan.TryParse(value, out _))
+            if (IsValidScheduleTime(value))
             {
                 _settings.Sync.ScheduleTime = value;
                 UpdateSyncControls();

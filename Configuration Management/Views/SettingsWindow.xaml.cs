@@ -41,6 +41,18 @@ namespace Configuration_Management
         private readonly ObservableCollection<ColorItem> _colorItems = new();
         private bool _suppressSchemeEvent;
 
+        // ---- Язык интерфейса ----
+        // Выбранный в окне язык. Применяется в обработчике «Сохранить», чтобы
+        // «Отмена» не меняла текущий язык и не перезаписывала settings.json (issue #206).
+        private string? _pendingLanguageCode;
+
+        // ---- Компактный режим ----
+        // Признак «идёт начальная установка значения переключателя»: пока он стоит,
+        // событие Checked/Unchecked не должно вызывать ApplyCompactMode, иначе простое
+        // открытие окна настроек повторно масштабирует главное окно («прыжок отступов»,
+        // issue #199) и компактный режим не возвращается к прежнему виду.
+        private bool _suppressCompactEvent;
+
         /// <summary>
         /// Создаёт диалог настроек приложения.
         /// </summary>
@@ -49,6 +61,20 @@ namespace Configuration_Management
         {
             InitializeComponent();
             _viewModel = viewModel;
+            // Шаблон имени COM-коннектора 1С (issue #175): показываем текущее значение.
+            if (ComConnectorNameTemplateBox != null)
+                ComConnectorNameTemplateBox.Text = viewModel.ComConnectorNameTemplate;
+            // Интерактивный предпросмотр имени COM-коннектора (issue #175): реагирует
+            // на изменение и шаблона, и версии. Поле версии в настройки не сохраняется.
+            if (ComConnectorNameTemplateBox != null && ComConnectorPreviewVersionBox != null)
+            {
+                ComConnectorNameTemplateBox.TextChanged += (_, _) => UpdateComConnectorPreview();
+                ComConnectorPreviewVersionBox.TextChanged += (_, _) => UpdateComConnectorPreview();
+                UpdateComConnectorPreview();
+            }
+            // Таймаут определения свойств конфигурации через COM (issue #174).
+            if (ComDetectTimeoutMsBox != null)
+                ComDetectTimeoutMsBox.Text = viewModel.ComDetectTimeoutMs.ToString();
             _settings = new SettingsViewModel(viewModel);
             _installedPlatformVersions = new List<string>(viewModel.InstalledPlatformVersions);
             foreach (var path in viewModel.AdditionalPlatformSearchPaths)
@@ -68,9 +94,30 @@ namespace Configuration_Management
             InitializeAccountsTab();
         }
 
+        /// <summary>
+        /// Обновляет интерактивный предпросмотр имени COM-коннектора (issue #175):
+        /// разворачивает шаблон по введённой версии. Имя без плейсхолдеров показывается
+        /// как есть, даже если поле версии пусто (issue #175). При null (пустой шаблон
+        /// либо шаблон с плейсхолдерами, который по этой версии развернуть нельзя)
+        /// выводится placeholder.
+        /// </summary>
+        private void UpdateComConnectorPreview()
+        {
+            if (ComConnectorPreviewResultBox == null || ComConnectorNameTemplateBox == null || ComConnectorPreviewVersionBox == null)
+                return;
+
+            var result = ComConnectorTemplate.Expand(ComConnectorNameTemplateBox.Text, ComConnectorPreviewVersionBox.Text);
+            ComConnectorPreviewResultBox.Text = result ?? LocalizationManager.T("Settings.General.ComConnectorPreviewEmpty");
+        }
+
         /// <summary>Переключатель компактного режима: применяет изменение сразу и сохраняет.</summary>
         private void OnCompactMode_Toggled(object sender, RoutedEventArgs e)
         {
+            // Начальная установка значения переключателя событием не считается:
+            // повторное масштабирование при открытии окна настроек — «прыжок
+            // отступов» (issue #199), компактный режим не возвращается к прежнему.
+            if (_suppressCompactEvent)
+                return;
             if (CompactModeCheck is null)
                 return;
             _viewModel.ApplyCompactMode(CompactModeCheck.IsChecked == true);
@@ -88,8 +135,61 @@ namespace Configuration_Management
         public string AboutVersion =>
             string.Format(LocalizationManager.T("Settings.About.Version"), VersionInfo.Display());
 
+        /// <summary>
+        /// Строгий разбор времени суток расписания синхронизации (ЧЧ:ММ или Ч:ММ).
+        /// Обычный TryParse принимает «9» как девять суток и «25:00» как длительность,
+        /// поэтому проверяем явно и не принимаем значения от 24 часов и больше.
+        /// </summary>
+        private static bool IsValidScheduleTime(string value) =>
+            TimeSpan.TryParseExact(value.Trim(), new[] { @"hh\:mm", @"h\:mm" },
+                System.Globalization.CultureInfo.InvariantCulture, out var time)
+            && time >= TimeSpan.Zero && time < TimeSpan.FromDays(1);
+
+        /// <summary>Проверяет, что строка — допустимый шаблон даты-времени .NET.</summary>
+        private static bool IsValidTimestampFormat(string? format)
+        {
+            if (string.IsNullOrWhiteSpace(format))
+                return true;
+            try
+            {
+                _ = DateTime.Now.ToString(format!.Trim());
+                return true;
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+        }
+
         private void OnSave_Click(object sender, RoutedEventArgs e)
         {
+            // Валидация времени расписания синхронизации: обычный TimeSpan.TryParse
+            // принимал «9» как девять суток и «25:00» как длительность, из-за чего
+            // расписание молча не срабатывало (issue #207). Не сохраняем заведомо
+            // неверное значение и показываем пример правильного.
+            if (SyncTriggerComboBox.SelectedIndex == (int)IbasesSyncTrigger.Schedule)
+            {
+                var schedule = SyncScheduleTimePicker.Text?.Trim() ?? string.Empty;
+                if (!IsValidScheduleTime(schedule))
+                {
+                    MessageBox.Show(LocalizationManager.T("Settings.Ibases.ScheduleTimeInvalid"),
+                        LocalizationManager.T("Settings.Ibases.ScheduleTime"),
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+
+            // Валидация шаблона даты-времени для имени файла выгрузки (issue #207):
+            // не сохраняем неверный шаблон, чтобы следующая выгрузка .dt/.cf не падала.
+            if (AddTimestampToExportFileNameCheck.IsChecked == true &&
+                !IsValidTimestampFormat(ExportTimestampFormatComboBox?.Text))
+            {
+                MessageBox.Show(LocalizationManager.T("Settings.TimestampInvalid"),
+                    LocalizationManager.T("Settings.Bases.TimestampFormat"),
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             // Сохраняем версии платформы и дополнительные пути поиска.
             _viewModel.SetAdditionalPlatformSearchPaths(_additionalPlatformPaths);
             _viewModel.SetInstalledPlatformVersions(_installedPlatformVersions);
@@ -131,6 +231,7 @@ namespace Configuration_Management
                 ShowFavoritesOnlyCheck.IsChecked ?? false,
                 VisibleOf("Size"),
                 VisibleOf("Configuration"),
+                VisibleOf("ConfigurationVersion"),
                 ShowEmptyGroupsCheck?.IsChecked ?? false,
                 _columnOrderItems.Select(i => i.Key).ToList(),
                 VisibleOf("Actions"));
@@ -160,7 +261,9 @@ namespace Configuration_Management
             var hkShowRecent = ReadHotkeyBox(HotkeyShowRecentBox);
             var hkClearSearch = ReadHotkeyBox(HotkeyClearSearchBox);
             var hkClearTags = ReadHotkeyBox(HotkeyClearTagsBox);
-
+            var hkRightPanelDetails = ReadHotkeyBox(HotkeyRightPanelDetailsBox);
+            var hkSwitchUser = ReadHotkeyBox(HotkeySwitchUserBox);
+ 
             // Проверка: одна клавиша — одно действие (пустые «Нет» не учитываются).
             var assigned = new (string Name, string Key)[]
             {
@@ -176,7 +279,9 @@ namespace Configuration_Management
                 (LocalizationManager.T("Main.FavoritesTooltip"), hkShowFavorites),
                 (LocalizationManager.T("Main.RecentTooltip"), hkShowRecent),
                 (LocalizationManager.T("Main.ClearSearch"), hkClearSearch),
-                (LocalizationManager.T("Main.ClearTags"), hkClearTags)
+                (LocalizationManager.T("Main.ClearTags"), hkClearTags),
+                (LocalizationManager.T("Main.CollapseRightPanel"), hkRightPanelDetails),
+                (LocalizationManager.T("Main.SwitchUser"), hkSwitchUser)
             };
             var duplicates = SettingsViewModel.FindDuplicateHotkeys(assigned).ToList();
             if (duplicates.Count > 0)
@@ -191,6 +296,13 @@ namespace Configuration_Management
                     MessageBoxImage.Warning);
                 return;
             }
+
+            // Имя COM-коннектора 1С по шаблону версии платформы (issue #175).
+            _viewModel.ComConnectorNameTemplate = ComConnectorNameTemplateBox.Text?.Trim() ?? "";
+            // Таймаут определения свойств конфигурации через COM (issue #174).
+            if (ComDetectTimeoutMsBox != null
+                && int.TryParse(ComDetectTimeoutMsBox.Text, out var detectTimeout))
+                _viewModel.ComDetectTimeoutMs = detectTimeout;
 
             _viewModel.ApplyAppBehaviorSettings(
                 AllowMultipleInstancesCheck.IsChecked ?? false,
@@ -214,7 +326,9 @@ namespace Configuration_Management
                 RememberWindowLayoutCheck.IsChecked ?? true,
                 ReadAfterLaunchAction(),
                 hotkeyClearSearch: hkClearSearch,
-                hotkeyClearTags: hkClearTags);
+                hotkeyClearTags: hkClearTags,
+                hotkeyRightPanelDetails: hkRightPanelDetails,
+                hotkeySwitchUser: hkSwitchUser);
 
             var templatePaths = TemplatePathsList?.Items.Cast<string>().Where(s => !string.IsNullOrWhiteSpace(s)).ToList()
                 ?? new System.Collections.Generic.List<string>();
@@ -240,6 +354,19 @@ namespace Configuration_Management
             // Сохраняем настройки шрифта интерфейса (общий и отдельных областей).
             ReadFontSelection();
             _viewModel.SaveElementFonts(_settings.ElementFonts);
+
+            // Применяем выбранный язык интерфейса только при сохранении (issue #206):
+            // «Отмена» не должна менять язык и перезаписывать settings.json.
+            if (!string.IsNullOrEmpty(_pendingLanguageCode) &&
+                !string.Equals(_pendingLanguageCode, LocalizationManager.Instance.CurrentLanguage,
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                _viewModel.ApplyLanguage(_pendingLanguageCode);
+                // Перестраиваем список тем: отображаемые подписи встроенных тем
+                // локализованы и должны обновиться при смене языка. Сохранённое имя
+                // (канонический ключ «Светлая»/«Тёмная») не меняется.
+                RefreshSchemeComboBox();
+            }
 
             DialogResult = true;
         }

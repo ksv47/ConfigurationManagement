@@ -39,6 +39,33 @@ namespace Configuration_Management
         }
 
         /// <summary>
+        /// Скрывает колонку списка баз по её ключу (пункт «Скрыть колонку»
+        /// контекстного меню заголовка, issue #173). Ключ колонки лежит в Tag пункта меню.
+        /// </summary>
+        private void OnColumnHeaderContextMenu_Hide(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem { Tag: string key } && !string.IsNullOrEmpty(key))
+                _viewModel?.SetColumnVisible(key, false);
+        }
+
+        /// <summary>
+        /// Открывает настройки сразу на подвкладке «Колонки» (пункт контекстного меню
+        /// заголовка, issue #173).
+        /// </summary>
+        private void OnColumnHeaderContextMenu_OpenSettings(object sender, RoutedEventArgs e)
+        {
+            OpenSettingsOnColumnsTab();
+        }
+
+        /// <summary>Открывает окно настроек сразу на подвкладке «Колонки» (issue #173).</summary>
+        private void OpenSettingsOnColumnsTab()
+        {
+            var dialog = new SettingsWindow(_viewModel) { Owner = this };
+            dialog.SelectColumnsTab();
+            dialog.ShowDialog();
+        }
+
+        /// <summary>
         /// Строит целевую последовательность колонок (логические ключи) по выбранному
         /// пользователем порядку. Первая итерация идёт по пользовательскому порядку
         /// (<see cref="_viewModel.ColumnOrderKeys"/>), отбрасывая незнакомые ключи, — поэтому
@@ -48,7 +75,7 @@ namespace Configuration_Management
         /// </summary>
         private List<string> BuildColumnLayout()
         {
-            var known = new[] { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
+            var known = new[] { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration", "ConfigurationVersion" };
             var keys = new List<string>();
             // Идём по ПОЛЬЗОВАТЕЛЬСКОМУ порядку, отбрасывая незнакомые ключи,
             // чтобы фактически применять выбранный порядок (в т.ч. перенос «Действий»).
@@ -233,7 +260,14 @@ namespace Configuration_Management
         /// <summary>
         /// Обработчик Loaded сетки строки базы в шаблоне: применяет выбранный порядок
         /// колонок к каждой вновь созданной строке (включая строки, появляющиеся при
-        /// виртуализации/прокрутке дерева).
+        /// виртуализации/прокрутке дерева) и пересчитывает выравнивание заголовка.
+        /// Пересчёт здесь обязателен: строки реализуются виртуализацией в проходе
+        /// разметки ПОСЛЕ события Loaded дерева и пересборки (поиск, крестик поиска,
+        /// сохранение свойств базы), поэтому пересчёт на ApplicationIdle, стартовавший
+        /// сразу после пересборки, может выполниться до появления первой строки и
+        /// оставить компенсатор заголовка в устаревшем значении (issue #214) — так же,
+        /// как в Linux/Avalonia выравнивание пересчитывается на событии подготовки
+        /// контейнера строки.
         /// </summary>
         private void OnInfobaseRowGrid_Loaded(object sender, RoutedEventArgs e)
         {
@@ -241,6 +275,8 @@ namespace Configuration_Management
                 return;
             ReorderGridColumns(grid, RowFirstDataColumn);
             grid.Tag = RowGridMarker;
+            ApplyRowCompact(grid);
+            QueueHeaderAlign();
         }
 
         /// <summary>
@@ -253,6 +289,64 @@ namespace Configuration_Management
                 return;
             ReorderGridColumns(grid, RowFirstDataColumn);
             grid.Tag = GroupGridMarker;
+            ApplyRowCompact(grid);
+        }
+
+        /// <summary>
+        /// Приводит вновь созданную строку (базы или группы) к текущей плотности. Строки
+        /// дерева появляются позже применения режима к окну — при фоновой инициализации,
+        /// виртуализации, прокрутке и пересборке дерева (поиск, сохранение свойств базы) —
+        /// и без этого вызова оставались бы прежней плотности, «разъезжаясь» с заголовком
+        /// (issue #214). Метод и сжимает, и разжимает: строку могло сжать, пока режим был
+        /// включён, а потом её отсоединила виртуализация, и вернуться она могла уже после
+        /// выключения. Повторные вызовы для той же строки безопасны: масштабирование идёт
+        /// от сохранённых исходных значений, а не от текущих.
+        /// </summary>
+        private void ApplyRowCompact(Grid grid)
+        {
+            if (_viewModel is null)
+                return;
+            // В обычном режиме, пока ничего не сжималось, возвращать нечего — не ходим
+            // по строке вовсе, чтобы не платить обходом на каждой прокрутке списка.
+            if (!_viewModel.CompactMode && !ThemeManager.HasCompactMetrics)
+                return;
+            // Проходим по строке и в обычном режиме тоже. Строку могло сжать, пока режим был
+            // включён, а потом её отсоединила виртуализация или пересборка дерева: обход окна
+            // при выключении компактности такую строку не видит, и, вернувшись в видимую
+            // область, она приходила сжатой (issue #214).
+            // Сжимать надо строку целиком, от корня её шаблона, а не только внутреннюю
+            // сетку: вертикальный отступ строки базы (Border Margin="0,1" в MainWindow.xaml)
+            // задан на элементе, который сетке предок. Глобальный проход ApplyCompact его
+            // сжимает, а обход от сетки не доставал, и строки, созданные позже (запуск с уже
+            // включённым компактным режимом, пересборка дерева поиском), отличались
+            // от строк после переключения тумблера (issue #214).
+            ThemeManager.ApplyCompactTree(RowTemplateRoot(grid), _viewModel.CompactMode);
+        }
+
+        /// <summary>
+        /// Возвращает корень шаблона строки: поднимается от сетки строки до элемента,
+        /// который лежит непосредственно в <see cref="ContentPresenter"/> заголовка узла.
+        /// Выше подниматься нельзя: там начинается шаблон контейнера с кнопкой разворота
+        /// и <c>ItemsPresenter</c> дочерних строк, и обход захватывал бы соседние строки.
+        /// Остановка на <see cref="TreeViewItem"/> — только страховка от бесконечного
+        /// подъёма, если шаблон контейнера когда-нибудь останется без
+        /// <see cref="ContentPresenter"/>; в нынешней разметке она недостижима.
+        ///
+        /// Метрики самого шаблона контейнера (кнопка разворота, обёртки строки) достаются
+        /// только обходу всего окна. Сегодня это безразлично: отступы там либо нулевые,
+        /// либо привязанные. Если в шаблон контейнера добавят ненулевой отступ константой,
+        /// расхождение между путями вернётся, и его придётся учесть здесь.
+        /// </summary>
+        private static DependencyObject RowTemplateRoot(Grid grid)
+        {
+            DependencyObject current = grid;
+            while (true)
+            {
+                var parent = VisualTreeHelper.GetParent(current);
+                if (parent is null or ContentPresenter or TreeViewItem)
+                    return current;
+                current = parent;
+            }
         }
 
         /// <summary>
@@ -263,7 +357,62 @@ namespace Configuration_Management
         /// </summary>
         private void OnMainTree_GroupExpansionChanged(object sender, RoutedEventArgs e)
         {
-            Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+            QueueHeaderAlign();
+        }
+
+        // Признак того, что в очереди диспетчера уже стоит пересчёт выравнивания заголовка.
+        // Нужен, чтобы многие события за короткое время (материализация/рециклинг десятков
+        // строк дерева при пересборке, прокрутке и поиске) склеивались в один пересчёт за
+        // проход — как в Linux/Avalonia (QueueHeaderAlign).
+        private bool _headerAlignQueued;
+        // Счётчик итераций стабилизации текущего пересчёта (защита от бесконечного цикла).
+        private int _headerAlignStabilizeCount;
+        // Максимум итераций стабилизации, пока компенсатор не перестанет меняться.
+        private const int HeaderAlignMaxStabilize = 8;
+
+        /// <summary>
+        /// Ставит пересчёт выравнивания заголовка (<see cref="AlignHeaderToData"/>) в очередь
+        /// диспетчера на приоритет ApplicationIdle и зацикливает его до стабилизации значения
+        /// колонки-компенсатора (см. <see cref="HeaderAlignStabilizeStep"/>). Повторные вызовы
+        /// до выполнения объединяются в один пересчёт, чтобы частые события (появление каждой
+        /// строки дерева, изменение размера списка) не вызывали лишние полные пересчёты.
+        /// Выполнение на ApplicationIdle гарантирует, что раскладка уже завершена и
+        /// виртуализированные контейнеры строк материализованы, — в отличие от Loaded, на
+        /// котором они достраиваются уже после (issue #214).
+        /// </summary>
+        private void QueueHeaderAlign()
+        {
+            if (_headerAlignQueued)
+                return;
+            _headerAlignQueued = true;
+            _headerAlignStabilizeCount = 0;
+            Dispatcher.BeginInvoke(new Action(HeaderAlignStabilizeStep),
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+
+        /// <summary>
+        /// Один шаг стабилизации выравнивания заголовка: выполняет <see cref="AlignHeaderToData"/>
+        /// и, пока значение компенсатора продолжает меняться либо строки ещё не материализованы
+        /// (виртуализация достраивает их в проходе разметки после события), повторяет проверку
+        /// на ApplicationIdle. Так фиксируется итоговое положение, а не промежуточное, по которому
+        /// иконки заголовка «разъезжаются» относительно строк и требуют повторного переключения
+        /// тумблера (issue #214). Число итераций ограничено как защита от бесконечного цикла.
+        /// </summary>
+        private void HeaderAlignStabilizeStep()
+        {
+            _headerAlignQueued = false;
+            var before = HeaderOffsetColumn?.Width.Value ?? 0;
+            var hadRows = FindFirstInfobaseItem(MainTree) is not null;
+            AlignHeaderToData();
+            var after = HeaderOffsetColumn?.Width.Value ?? 0;
+
+            var changed = Math.Abs(after - before) > 0.5;
+            if ((changed || !hadRows) && _headerAlignStabilizeCount++ < HeaderAlignMaxStabilize)
+            {
+                _headerAlignQueued = true;
+                Dispatcher.BeginInvoke(new Action(HeaderAlignStabilizeStep),
+                    System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }
         }
 
         /// <summary>
@@ -303,7 +452,13 @@ namespace Configuration_Management
 
             var offset = Math.Max(0, (rowOrigin + rowStart) - (headerOrigin + headerStart));
             if (Math.Abs(offset - HeaderOffsetColumn.Width.Value) > 0.5)
+            {
+                // Компенсатор управляется только этим методом — исключаем его из компактизации,
+                // чтобы повторное применение компакт-режима не масштабировало уже выставленную
+                // ширину и не «разъезжало» строки по горизонтали (issue #214).
+                Themes.ThemeManager.ForgetCompactWidth(HeaderOffsetColumn);
                 HeaderOffsetColumn.Width = new GridLength(offset);
+            }
 
             SyncHeaderWidthWithList();
         }
@@ -466,6 +621,8 @@ namespace Configuration_Management
                 return VersionColumn;
             if (ReferenceEquals(sender, ConfigurationSplitter))
                 return ConfigurationColumn;
+            if (ReferenceEquals(sender, ConfigurationVersionSplitter))
+                return ConfigurationVersionColumn;
             if (ReferenceEquals(sender, LaunchModeSplitter))
                 return LaunchModeColumn;
             if (ReferenceEquals(sender, ActionsSplitter))
@@ -529,6 +686,7 @@ namespace Configuration_Management
                 ReferenceEquals(_resizeColumn, NameColumn) ? newWidth : NameColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, VersionColumn) ? newWidth : VersionColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, ConfigurationColumn) ? newWidth : ConfigurationColumn?.ActualWidth ?? 0,
+                ReferenceEquals(_resizeColumn, ConfigurationVersionColumn) ? newWidth : ConfigurationVersionColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, LaunchModeColumn) ? newWidth : LaunchModeColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, ServerColumn) ? newWidth : ServerColumn?.ActualWidth ?? 0,
                 ReferenceEquals(_resizeColumn, LastLaunchColumn) ? newWidth : LastLaunchColumn?.ActualWidth ?? 0,
@@ -549,6 +707,7 @@ namespace Configuration_Management
                     NameColumn?.ActualWidth ?? 0,
                     VersionColumn?.ActualWidth ?? 0,
                     ConfigurationColumn?.ActualWidth ?? 0,
+                    ConfigurationVersionColumn?.ActualWidth ?? 0,
                     LaunchModeColumn?.ActualWidth ?? 0,
                     ServerColumn?.ActualWidth ?? 0,
                     LastLaunchColumn?.ActualWidth ?? 0,

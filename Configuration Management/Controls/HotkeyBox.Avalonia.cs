@@ -79,6 +79,16 @@ namespace Configuration_Management.Controls
             if (key == Key.Tab || key == Key.Enter || IsNavigationKey(key))
                 return;
 
+            // Буквы и цифры без модификатора в качестве хоткея бессмысленны
+            // (отберут обычный ввод) и в WPF их отбраковывает KeyBinding.
+            // Без модификатора допустимы только функциональные клавиши
+            // и Delete/Insert — как в Windows-версии.
+            if (e.KeyModifiers == KeyModifiers.None && !IsAllowedWithoutModifier(key))
+            {
+                e.Handled = true;
+                return; // не фиксируем значение и не меняем текст
+            }
+
             // Зафиксирована полноценная комбинация.
             e.Handled = true;
             Value = FormatCombo(e.KeyModifiers, key);
@@ -162,6 +172,16 @@ namespace Configuration_Management.Controls
             key is Key.Left or Key.Right or Key.Up or Key.Down
                 or Key.Home or Key.End or Key.PageUp or Key.PageDown
                 or Key.CapsLock or Key.NumLock or Key.Scroll;
+
+        /// <summary>
+        /// Допустима ли клавиша в сочетании без модификатора: функциональные
+        /// клавиши F1…F24, а также Delete и Insert. Буквы и цифры без
+        /// модификатора отбраковываются, как и в Windows-версии контрола.
+        /// </summary>
+        private static bool IsAllowedWithoutModifier(Key key) =>
+            (key >= Key.F1 && key <= Key.F24)
+            || key == Key.Delete
+            || key == Key.Insert;
 
         private static string BuildPendingText(Key key) =>
             key switch

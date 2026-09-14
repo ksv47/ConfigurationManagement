@@ -48,7 +48,21 @@ public static class IbasesV8iImporter
         var entries = Parse(filePath);
 
         // Создаём недостающие группы из импортируемых баз.
+        var groupsBefore = groups.Count;
         EnsureGroups(entries, groups, result);
+
+        // Канонические пути групп после импорта — для диагностики дублирования
+        // вложенных папок при синхронизации со штатным стартером (issue #165).
+        var groupPathsAfter = groups
+            .Select(g => NormalizeGroupPath(GroupHierarchyHelper.GetFullPath(g, groups)))
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        LogInfo(
+            $"Импорт ibases.v8i: групп было {groupsBefore}, стало {groups.Count}, " +
+            $"создано {result.GroupsCreated}, удалено дубликатов {Math.Max(0, result.GroupsCreated + groupsBefore - groups.Count)}, " +
+            $"пути групп: [{string.Join("; ", groupPathsAfter)}]");
 
         foreach (var entry in entries)
         {
@@ -157,53 +171,40 @@ public static class IbasesV8iImporter
             .Where(e => e.IsGroup && e.Enabled)
             .ToList();
 
-        // Собираем полные пути групп: из секций-групп (по Name и Folder) и из ссылок баз (по Folder).
+        // Канонизируем и дедуплицируем секции-группы по ПОЛНОМУ пути (issue #165).
+        // Файл ibases.v8i, переписанный штатным стартером 1С, может содержать одну и ту же
+        // вложенную папку в двух представлениях: с именем-листом (Name=«Бухгалтерия»,
+        // Folder=«Учёт») и с полным путём в заголовке секции (Name=«Учёт\Бухгалтерия»).
+        // Сопоставление по одному имени такие пары не склеивает, поэтому без дедупликации
+        // по полному пути папка при импорте могла бы создаваться несколько раз, а штатный
+        // стартер показывал бы дубли. Здесь каждая секция приводится к единому каноническому
+        // виду (Name — имя листа, Folder — путь родителя), а совпавшие по полному пути —
+        // устраняются (сохраняется первая встреченная вместе с её ID). Тот же канонический
+        // список используется для подбора идентификаторов групп из файла
+        // (<see cref="ResolveGroupIdFromFile"/>), поэтому на каждую папку приходится ровно
+        // один источник пути и ID.
+        groupEntries = NormalizeAndDedupeGroupSections(groupEntries);
+
+        // Собираем полные пути групп: из ссылок баз (по Folder) и из канонизированных
+        // секций-групп (по Name и Folder).
         var groupPaths = new List<string>();
+
+        // Группы, на которые ссылаются базы через Folder (путь «Родитель\Дочерняя»).
         foreach (var entry in entries)
         {
-            if (!entry.Enabled)
+            if (entry.IsGroup || !entry.Enabled)
                 continue;
+            var groupPath = NormalizeGroupPath(entry.Group);
+            if (!string.IsNullOrWhiteSpace(groupPath))
+                groupPaths.Add(groupPath);
+        }
 
-            if (entry.IsGroup)
-            {
-                // Секция-группа: Name — имя (или полный путь), Folder — путь родителя (\ или /).
-                // Примеры 1С: Name=«Бухгалтерия», Folder=«Учёт»
-                //            Name=«Учёт\Бухгалтерия», Folder пустой
-                var folderPath = NormalizeGroupPath(entry.Group);
-                var namePath = NormalizeGroupPath(entry.Name);
-                string groupPath;
-                if (string.IsNullOrWhiteSpace(folderPath))
-                {
-                    groupPath = namePath;
-                }
-                else if (string.IsNullOrWhiteSpace(namePath))
-                {
-                    groupPath = folderPath;
-                }
-                else if (namePath.StartsWith(folderPath + GroupHierarchyHelper.PathSeparator, StringComparison.OrdinalIgnoreCase)
-                         || string.Equals(namePath, folderPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    // Name уже содержит путь родителя — не дублируем.
-                    groupPath = namePath;
-                }
-                else
-                {
-                    // Folder + листовое имя (или относительный путь Name).
-                    var leaf = NormalizeGroupName(entry.Name);
-                    groupPath = string.IsNullOrWhiteSpace(leaf)
-                        ? folderPath
-                        : folderPath + GroupHierarchyHelper.PathSeparator + leaf;
-                }
-                if (!string.IsNullOrWhiteSpace(groupPath))
-                    groupPaths.Add(groupPath);
-            }
-            else
-            {
-                // Группа, на которую ссылается база через Folder (путь «Родитель\Дочерняя»).
-                var groupPath = NormalizeGroupPath(entry.Group);
-                if (!string.IsNullOrWhiteSpace(groupPath))
-                    groupPaths.Add(groupPath);
-            }
+        // Группы-секции из канонизированного списка.
+        foreach (var groupEntry in groupEntries)
+        {
+            var groupPath = BuildGroupEntryPath(groupEntry);
+            if (!string.IsNullOrWhiteSpace(groupPath))
+                groupPaths.Add(groupPath);
         }
 
         // Создаём группы для каждого уникального пути, выстраивая иерархию.
@@ -434,6 +435,59 @@ public static class IbasesV8iImporter
     }
 
     /// <summary>
+    /// Приводит секции-группы файла ibases.v8i к единому каноническому виду и устраняет
+    /// дубликаты по ПОЛНОМУ пути папки. Файл, переписанный штатным стартером 1С, может
+    /// содержать одну и ту же вложенную папку в двух представлениях: с именем-листом
+    /// (Name=«Бухгалтерия», Folder=«Учёт») и с полным путём в заголовке секции
+    /// (Name=«Учёт\Бухгалтерия»). Сопоставление по одному имени (см. <see cref="Parse"/>)
+    /// такие пары не склеивает, из-за чего папка могла бы создаваться при импорте дважды,
+    /// а штатный стартер показывал бы дубли (issue #165). Здесь каждая секция приводится
+    /// к каноническому виду (Name — имя листа, Folder — путь родителя), а совпавшие по
+    /// полному пути устраняются; сохраняется первая встреченная секция и её ID.
+    /// </summary>
+    private static List<IbaseEntry> NormalizeAndDedupeGroupSections(List<IbaseEntry> groupEntries)
+    {
+        var byPath = new Dictionary<string, IbaseEntry>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<IbaseEntry>(groupEntries.Count);
+
+        foreach (var entry in groupEntries)
+        {
+            var canonicalPath = BuildGroupEntryPath(entry);
+            if (string.IsNullOrWhiteSpace(canonicalPath))
+            {
+                // Секция-группа без пути — сохраняем как есть.
+                result.Add(entry);
+                continue;
+            }
+
+            if (byPath.ContainsKey(canonicalPath))
+                continue; // Дубликат папки по полному пути — пропускаем.
+
+            var (leaf, parentPath) = SplitLeafAndParent(canonicalPath);
+            // Приводим к каноническому виду: имя — лист, Folder — путь родителя.
+            entry.Name = leaf;
+            entry.Group = string.IsNullOrWhiteSpace(parentPath) ? string.Empty : parentPath;
+            byPath[canonicalPath] = entry;
+            result.Add(entry);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Разделяет канонический путь группы на имя листа и путь родителя.
+    /// </summary>
+    private static (string Leaf, string ParentPath) SplitLeafAndParent(string canonicalPath)
+    {
+        var idx = canonicalPath.LastIndexOf(GroupHierarchyHelper.PathSeparator, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+            return (canonicalPath.Trim(), string.Empty);
+        return (
+            canonicalPath.Substring(idx + GroupHierarchyHelper.PathSeparator.Length).Trim(),
+            canonicalPath.Substring(0, idx).Trim());
+    }
+
+    /// <summary>
     /// Строит полный путь группы-секции из Name и Folder.
     /// </summary>
     private static string BuildGroupEntryPath(IbaseEntry entry)
@@ -467,6 +521,44 @@ public static class IbasesV8iImporter
             .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(s => s.Trim())
             .Where(s => s.Length > 0)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Создаёт в коллекции недостающие группы по файлу ibases.v8i: тем же разбором,
+    /// что и обычный импорт списка баз, включая перенос идентификаторов групп из файла
+    /// и уборку дубликатов (issue #165). Используется импортом из StartManager, где
+    /// группы приходят из этого же файла.
+    /// </summary>
+    /// <param name="filePath">Путь к файлу ibases.v8i.</param>
+    /// <param name="groups">Коллекция групп приложения.</param>
+    /// <returns>Количество созданных групп.</returns>
+    public static int EnsureGroupsFromFile(string filePath, IList<Group> groups)
+    {
+        if (!File.Exists(filePath))
+            return 0;
+
+        var result = new IbasesImportResult();
+        EnsureGroups(Parse(filePath), groups, result);
+        return result.GroupsCreated;
+    }
+
+    /// <summary>
+    /// Читает записи баз из файла ibases.v8i как модели <see cref="Infobase"/>,
+    /// не изменяя коллекции приложения. Группы (секции без строки подключения)
+    /// и отключённые записи пропускаются. Используется импортом из StartManager,
+    /// где строка подключения берётся отсюда, а надстройки — из v8config.smc.
+    /// </summary>
+    /// <param name="filePath">Путь к файлу ibases.v8i.</param>
+    /// <returns>Список баз файла; пустой список, если файла нет.</returns>
+    public static List<Infobase> ReadInfobases(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return new List<Infobase>();
+
+        return Parse(filePath)
+            .Where(e => !e.IsGroup && e.Enabled)
+            .Select(e => e.ToInfobase())
             .ToList();
     }
 
@@ -666,14 +758,24 @@ public static class IbasesV8iImporter
         return string.Join(GroupHierarchyHelper.PathSeparator, segments);
     }
 
-    /// <summary>
-    /// Нормализует одиночное имя группы (без учёта пути): убирает разделители.
-    /// Используется для сопоставления имён секций-групп.
-    /// </summary>
+    /// <summary>Нормализует одиночное имя группы (без учёта пути): убирает разделители.</summary>
     private static string NormalizeGroupName(string name)
     {
         var segments = SplitGroupPath(name);
         return segments.Count > 0 ? segments[^1] : string.Empty;
+    }
+
+    /// <summary>Пишет информационное сообщение импорта в файловый лог (issue #165).</summary>
+    private static void LogInfo(string message)
+    {
+        try
+        {
+            AppServices.GetRequiredService<IAppLogger>().Info(message);
+        }
+        catch
+        {
+            // Логирование не должно ломать импорт.
+        }
     }
 
     /// <summary>

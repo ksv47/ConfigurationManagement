@@ -69,6 +69,14 @@ namespace Configuration_Management.Controls
             PaletteArea.MouseMove += OnPalette_MouseMove;
             PaletteArea.MouseLeftButtonUp += OnPalette_MouseUp;
 
+            // Маркер позиционируется по фактическим размерам области, которые
+            // появляются только после компоновки. Цвет может быть задан свойством
+            // SelectedColor до показа окна (например, ColorPickerWindow передаёт
+            // начальный цвет в конструкторе), когда размеры ещё нулевые и маркер
+            // не выставляется. После изменения размеров маркер перепозиционируется,
+            // чтобы открытая палитра показывала текущий выбранный цвет (issue #239).
+            MarkerLayer.SizeChanged += (_, _) => UpdateMarker();
+
             SetColor(ParseColor(SelectedColor));
         }
 

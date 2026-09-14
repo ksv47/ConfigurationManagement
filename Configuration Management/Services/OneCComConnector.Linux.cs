@@ -46,6 +46,12 @@ namespace Configuration_Management.Services
         /// <inheritdoc />
         public string? LastError { get; private set; }
 
+        /// <inheritdoc />
+        public string? LastUsedProgId { get; private set; } = null;
+
+        /// <inheritdoc />
+        public string? LastUsedPlatformVersion { get; private set; } = null;
+
         /// <summary>
         /// Доступность COM-коннектора на Linux всегда равна false (COM отсутствует).
         /// Метод добавлен для совместимости с общим кодом.
@@ -54,6 +60,23 @@ namespace Configuration_Management.Services
 
         /// <summary>No-op: на Linux нечего сбрасывать (кэш доступности отсутствует).</summary>
         public static void ResetAvailabilityCache()
+        {
+        }
+
+        /// <summary>
+        /// No-op: на Linux шаблон имени COM-коннектора не используется (COM отсутствует),
+        /// кэшировать нечего. Добавлен для совместимости с общим кодом настройки
+        /// шаблона (issue #175).
+        /// </summary>
+        public static void ApplyTemplate(string? template)
+        {
+        }
+
+        /// <summary>
+        /// No-op: на Linux COM-коннектор отсутствует, сбрасывать вердикты о его недоступности
+        /// нечего. Добавлен для совместимости с общим кодом кнопки «Определить» (issue #174).
+        /// </summary>
+        public static void ResetComVerdicts()
         {
         }
 
@@ -69,12 +92,17 @@ namespace Configuration_Management.Services
         }
 
         /// <inheritdoc />
-        public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000)
+        public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000,
+            Action<string>? onStage = null)
         {
             if (infobase is null)
                 return null;
 
             LastError = null;
+
+            // Сообщаем этап в диалог прогресса (issue #174). На Linux COM нет — читаем через
+            // конфигуратор, поэтому текст соответствует способу чтения.
+            onStage?.Invoke(LocalizationManager.T("Connection.DetectStageRead"));
 
             // 1. Файловая база: эвристика по 1Cv8.1CD (версия) + попытка через DESIGNER (имя).
             if (infobase.Connection.Type == ConnectionType.File)
@@ -133,7 +161,7 @@ namespace Configuration_Management.Services
                     psi.ArgumentList.Add("/DisableStartupDialogs");
                     psi.ArgumentList.Add("/DisableStartupMessages");
 
-                    using var p = Process.Start(psi);
+                    using var p = LinuxProcessEnvironment.Start(psi);
                     if (p is null)
                         return null;
 
@@ -147,7 +175,9 @@ namespace Configuration_Management.Services
                     if (p.ExitCode != 0 || !File.Exists(tmp) || new FileInfo(tmp).Length == 0)
                         return null;
 
-                    return new OneCConfigInfo(ReadConfigNameFromDump(tmp), ReadVersionFromDump(tmp));
+                    return new OneCConfigInfo(
+                        ReadConfigNameFromDump(tmp) ?? string.Empty,
+                        ReadVersionFromDump(tmp) ?? string.Empty);
                 }
                 finally
                 {

@@ -429,9 +429,13 @@ public partial class MainViewModel : ViewModelBase
             AllowMultipleInstances = _allowMultipleInstances,
             CheckForUpdatesOnStartup = _checkForUpdatesOnStartup,
             AutoUpdateEnabled = _autoUpdateEnabled,
+            ComConnectorNameTemplate = _comConnectorNameTemplate,
+            ComDetectTimeoutMs = _comDetectTimeoutMs,
             ShowVersionColumn = _showVersionColumn,
             ShowConfigurationColumn = _showConfigurationColumn,
+            ShowConfigurationVersionColumn = _showConfigurationVersionColumn,
             ConfigurationColumnWidth = _configurationColumnWidth,
+            ConfigurationVersionColumnWidth = _configurationVersionColumnWidth,
             ActionsColumnWidth = _actionsColumnWidth,
             ShowRightPanelDetails = _showRightPanelDetails,
             ShowSessionLaunchPanel = _showSessionLaunchPanel,
@@ -488,6 +492,8 @@ public partial class MainViewModel : ViewModelBase
             HotkeyShowRecent = _hotkeyShowRecent,
             HotkeyClearSearch = _hotkeyClearSearch,
             HotkeyClearTags = _hotkeyClearTags,
+            HotkeyRightPanelDetails = _hotkeyRightPanelDetails,
+            HotkeySwitchUser = _hotkeySwitchUser,
             SortField = _sortField,
             SortAscending = _sortAscending,
             FavoriteHotkeyIds = _favoriteHotkeyIds.ToList(),
@@ -514,11 +520,12 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>
     /// Сохраняет ширины колонок списка баз в настройках.
     /// </summary>
-    public void SaveColumnWidths(double nameWidth, double versionWidth, double configurationWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth, double actionsWidth)
+    public void SaveColumnWidths(double nameWidth, double versionWidth, double configurationWidth, double configurationVersionWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth, double actionsWidth)
     {
         NameColumnWidth = nameWidth;
         VersionColumnWidth = versionWidth;
         ConfigurationColumnWidth = configurationWidth;
+        ConfigurationVersionColumnWidth = configurationVersionWidth;
         LaunchModeColumnWidth = launchModeWidth;
         ServerColumnWidth = serverWidth;
         LastLaunchColumnWidth = lastLaunchWidth;
@@ -530,11 +537,12 @@ public partial class MainViewModel : ViewModelBase
     /// Обновляет ширины колонок в памяти (без сохранения в файл).
     /// Используется для синхронизации колонок строк во время перетаскивания разделителя.
     /// </summary>
-    public void UpdateColumnWidths(double nameWidth, double versionWidth, double configurationWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth, double actionsWidth)
+    public void UpdateColumnWidths(double nameWidth, double versionWidth, double configurationWidth, double configurationVersionWidth, double launchModeWidth, double serverWidth, double lastLaunchWidth, double actionsWidth)
     {
         NameColumnWidth = nameWidth;
         VersionColumnWidth = versionWidth;
         ConfigurationColumnWidth = configurationWidth;
+        ConfigurationVersionColumnWidth = configurationVersionWidth;
         LaunchModeColumnWidth = launchModeWidth;
         ServerColumnWidth = serverWidth;
         LastLaunchColumnWidth = lastLaunchWidth;

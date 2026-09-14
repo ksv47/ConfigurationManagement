@@ -36,9 +36,36 @@ namespace Configuration_Management
         /// </summary>
         public static string? ShowLogin(IProfileService profileService)
         {
+            ApplyActiveTheme();
+
             var window = new LoginWindow(profileService);
             window.ShowDialogSync();
             return window.SelectedProfileId;
+        }
+
+        /// <summary>
+        /// Применяет сохранённую цветовую схему и вариант темы, чтобы окно входа выглядело так же,
+        /// как остальные окна приложения. При запуске тема ещё не применена (она загружается позже,
+        /// после выбора профиля), поэтому скиним её здесь (issue #200). При смене пользователя в
+        /// работающем приложении повторное применение безвредно — схема уже актуальна.
+        /// </summary>
+        private static void ApplyActiveTheme()
+        {
+            try
+            {
+                var settings = AppServices.GetRequiredService<IInfobaseRepository>().LoadSettings();
+                var mergedScheme = Models.ColorScheme.FromLegacy(
+                    settings.ActiveColorScheme, settings.LightColorScheme, settings.DarkColorScheme);
+                var themeName = string.IsNullOrWhiteSpace(settings.Theme)
+                    ? ThemeManager.LightThemeName
+                    : settings.Theme;
+                ThemeManager.ApplyScheme(mergedScheme);
+                ThemeManager.ApplyTheme(themeName == ThemeManager.DarkThemeName);
+            }
+            catch
+            {
+                // Тема не должна блокировать вход: без неё используется тема по умолчанию.
+            }
         }
 
         public LoginWindow(IProfileService profileService)
@@ -190,24 +217,33 @@ namespace Configuration_Management
 
         private void TryLogin()
         {
-            var profile = SelectedProfile;
-            if (profile == null)
+            // Любой сбой при входе (например, ошибка проверки пароля) показываем понятным
+            // сообщением в самом окне, а не роняем приложение необработанным исключением.
+            try
             {
-                ShowError(LocalizationManager.T("Auth.EmptySelection"));
-                return;
-            }
+                var profile = SelectedProfile;
+                if (profile == null)
+                {
+                    ShowError(LocalizationManager.T("Auth.EmptySelection"));
+                    return;
+                }
 
-            if (profile.HasPassword && !_profileService.VerifyPassword(profile.Id, _passwordInput.Password))
+                if (profile.HasPassword && !_profileService.VerifyPassword(profile.Id, _passwordInput.Password))
+                {
+                    ShowError(LocalizationManager.T("Auth.WrongPassword"));
+                    _passwordInput.Clear();
+                    _passwordInput.Focus();
+                    return;
+                }
+
+                SelectedProfileId = profile.Id;
+                DialogResult = true;
+                Close();
+            }
+            catch (Exception ex)
             {
-                ShowError(LocalizationManager.T("Auth.WrongPassword"));
-                _passwordInput.Clear();
-                _passwordInput.Focus();
-                return;
+                ShowError(string.Format(LocalizationManager.T("Auth.LoginError"), ex.Message));
             }
-
-            SelectedProfileId = profile.Id;
-            DialogResult = true;
-            Close();
         }
 
         private void ShowError(string message)

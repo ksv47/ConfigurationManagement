@@ -33,21 +33,23 @@ namespace Configuration_Management
             // Показываем любые необработанные ошибки — иначе окно просто не появляется.
             DispatcherUnhandledException += (_, args) =>
             {
-                LogFatal(LocalizationManager.T("App.Fatal.Interface"), args.Exception);
-                ShowFatalError(LocalizationManager.T("App.Fatal.Interface"), args.Exception);
+                var title = TOr("App.Fatal.Interface", "Ошибка интерфейса");
+                LogFatal(title, args.Exception);
+                ShowFatalError(title, args.Exception);
                 args.Handled = true;
             };
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             {
                 if (args.ExceptionObject is Exception ex)
                 {
-                    LogFatal(LocalizationManager.T("App.Fatal.Critical"), ex);
-                    ShowFatalError(LocalizationManager.T("App.Fatal.Critical"), ex);
+                    var title = TOr("App.Fatal.Critical", "Критическая ошибка");
+                    LogFatal(title, ex);
+                    ShowFatalError(title, ex);
                 }
             };
             TaskScheduler.UnobservedTaskException += (_, args) =>
             {
-                ShowFatalError(LocalizationManager.T("App.Fatal.BackgroundTask"), args.Exception);
+                ShowFatalError(TOr("App.Fatal.BackgroundTask", "Ошибка фоновой задачи"), args.Exception);
                 args.SetObserved();
             };
 
@@ -62,10 +64,34 @@ namespace Configuration_Management
                 var profileService = AppServices.GetRequiredService<IProfileService>();
                 profileService.EnsureInitialized();
 
+                // Окно входа создаётся первым и становится главным окном приложения
+                // (Application.MainWindow). При ShutdownMode=OnLastWindowClose его закрытие
+                // после успешного входа молча гасило бы приложение раньше, чем появится
+                // главное окно (issue #193). Поэтому на время старта завершение только
+                // явное, а прежний режим возвращается после показа главного окна.
+                var shutdownModeBeforeStartup = ShutdownMode;
+                ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
                 // Если в приложении несколько учётных записей — показываем окно авторизации
                 // по аналогии со списком пользователей 1С. При одной записи входим без запроса.
                 if (profileService.Profiles.Count > 1)
                 {
+                    // Локализацию поднимаем до показа окна: настройки профиля читаются
+                    // ниже, а без словаря окно входа показывает ключи (Auth.Title,
+                    // Auth.SelectAccountHint, Auth.Login, Common.Cancel) вместо подписей
+                    // (issue #189). Язык берётся из профиля, активного с прошлого запуска,
+                    // и уточняется после выбора.
+                    try
+                    {
+                        var startupRepository = AppServices.GetRequiredService<IInfobaseRepository>();
+                        var startupSettings = startupRepository.LoadSettings();
+                        LocalizationManager.Instance.Initialize(startupSettings.Language);
+                    }
+                    catch
+                    {
+                        LocalizationManager.Instance.Initialize(null);
+                    }
+
                     var selectedId = LoginWindow.ShowLogin(profileService);
                     if (selectedId == null)
                     {
@@ -117,6 +143,10 @@ namespace Configuration_Management
                 try
                 {
                     LocalizationManager.Instance.Initialize(settings.Language);
+                    // Если словарь уже поднят ради окна входа, Initialize выходит сразу,
+                    // поэтому язык выбранного профиля применяется отдельно и по тем же
+                    // правилам: пустое значение означает язык системы.
+                    LocalizationManager.Instance.ApplyPreferredLanguage(settings.Language);
                 }
                 catch
                 {
@@ -189,6 +219,10 @@ namespace Configuration_Management
 
                 mainWindow.Show();
 
+                // Прежний режим завершения возвращается: на время старта он переключался
+                // на явный, иначе закрытие окна входа гасило приложение до появления главного.
+                ShutdownMode = shutdownModeBeforeStartup;
+
                 // Фоновая проверка обновлений (Windows/WPF): запускаем после показа
                 // главного окна, чтобы не задерживать старт. Если пользователь отключил
                 // проверку в настройках — пропускаем. Работа выполняется асинхронно,
@@ -205,10 +239,24 @@ namespace Configuration_Management
             }
             catch (Exception ex)
             {
-                LogFatal(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
-                ShowFatalError(LocalizationManager.T("App.Fatal.StartupFailed"), ex);
+                // issue #213: при раннем сбое локализация может быть ещё не загружена,
+                // тогда T вернёт сам ключ — подставляем встроенный читаемый текст.
+                var fatalTitle = TOr("App.Fatal.StartupFailed", "Не удалось запустить приложение");
+                LogFatal(fatalTitle, ex);
+                ShowFatalError(fatalTitle, ex);
                 Shutdown(1);
             }
+        }
+
+        /// <summary>
+        /// Возвращает перевод ключа, а если ключ не найден (словари ещё пусты из-за
+        /// сбоя до инициализации локализации), — встроенный запасной текст. Так
+        /// фатальное сообщение остаётся читаемым при любом состоянии приложения (issue #213).
+        /// </summary>
+        private static string TOr(string key, string fallback)
+        {
+            var text = LocalizationManager.T(key);
+            return string.Equals(text, key, StringComparison.Ordinal) ? fallback : text;
         }
 
         /// <summary>
@@ -280,7 +328,7 @@ namespace Configuration_Management
                 if (ex.InnerException != null)
                 {
                     sb.AppendLine();
-                    sb.AppendLine(LocalizationManager.T("App.Fatal.InternalError"));
+                    sb.AppendLine(TOr("App.Fatal.InternalError", "Внутренняя ошибка:"));
                     sb.AppendLine(ex.InnerException.Message);
                 }
                 sb.AppendLine();
@@ -291,7 +339,7 @@ namespace Configuration_Management
                     stack = stack[..1200] + "…";
                 sb.AppendLine(stack);
 
-                MessageBox.Show(sb.ToString(), LocalizationManager.T("App.Fatal.Title"),
+                MessageBox.Show(sb.ToString(), TOr("App.Fatal.Title", "Управление конфигурациями 1С — ошибка"),
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch

@@ -110,6 +110,29 @@ public class AppSettings
     /// </summary>
     public string LastClientServerCreatePlatformVersion { get; set; } = "";
 
+    /// <summary>
+    /// Настраиваемый шаблон имени COM-коннектора 1С (issue #175).
+    /// Пустая строка — использовать стандартные ProgID (<c>V85/V83/V82/V81.COMConnector</c>).
+    /// Если шаблон задан, он разворачивается по версии платформы каждой базы и пробуется
+    /// первым в переборе ProgID. Плейсхолдеры:
+    /// <list type="bullet">
+    /// <item><c>%V12%</c> — первые две цифры версии (например <c>83</c> для 8.3.x);</item>
+    /// <item><c>%V3%</c> — третья цифра версии (например <c>27</c> для 8.3.27.x);</item>
+    /// <item><c>%V4%</c> — четвёртая цифра версии (например <c>1644</c> для 8.3.27.1644).</item>
+    /// </list>
+    /// Пример: <c>V%V12%.ComConnector</c>.
+    /// </summary>
+    public string ComConnectorNameTemplate { get; set; } = "";
+
+    /// <summary>
+    /// Таймаут определения свойств конфигурации через COM-коннектор (issue #174), миллисекунды.
+    /// Первое COM-подключение к клиент-серверной базе (особенно localhost с холодным стартом
+    /// сервера, обращением к лицензиям HASP и первичным созданием сеанса) часто превышает 8 секунд.
+    /// Значение по умолчанию 30000 мс — чтение выполняется только по явной команде, поэтому
+    /// длинный таймаут не мешает старту. Минимально допустимое значение — 1000.
+    /// </summary>
+    public int ComDetectTimeoutMs { get; set; } = 30000;
+
     /// <summary>Режим синхронизации с файлом ibases.v8i.</summary>
     public IbasesSyncMode IbasesSyncMode { get; set; } = IbasesSyncMode.None;
 
@@ -179,11 +202,17 @@ public class AppSettings
     /// <summary>Показывать колонку «Версия платформы» в списке баз.</summary>
     public bool ShowVersionColumn { get; set; } = true;
 
-    /// <summary>Показывать колонку «Конфигурация» (название и версия) в списке баз.</summary>
+    /// <summary>Показывать колонку «Конфигурация» (только название) в списке баз.</summary>
     public bool ShowConfigurationColumn { get; set; } = true;
 
     /// <summary>Ширина колонки «Конфигурация» (0 — по умолчанию).</summary>
     public double ConfigurationColumnWidth { get; set; }
+
+    /// <summary>Показывать колонку «№ релиза» (версия конфигурации) в списке баз.</summary>
+    public bool ShowConfigurationVersionColumn { get; set; } = true;
+
+    /// <summary>Ширина колонки «№ релиза» (0 — по умолчанию).</summary>
+    public double ConfigurationVersionColumnWidth { get; set; }
 
     /// <summary>Показывать колонку «Действия» (кнопки запуска/конфигуратора/очистки кеша) в списке баз.</summary>
     public bool ShowActionsColumn { get; set; } = true;
@@ -258,8 +287,8 @@ public class AppSettings
 
     /// <summary>
     /// Действие после успешного запуска информационной базы или конфигуратора 1С:
-    /// "None" (ничего), "MinimizeToTray" (свернуть в трей) или "Close" (закрыть/увести в трей).
-    /// Хранится строкой для обратной совместимости.
+    /// "None" (ничего), "Minimize" (просто свернуть), "MinimizeToTray" (свернуть в трей)
+    /// или "Close" (закрыть/увести в трей). Хранится строкой для обратной совместимости.
     /// </summary>
     public string AfterLaunchAction { get; set; } = "None";
 
@@ -304,6 +333,12 @@ public class AppSettings
 
     /// <summary>Горячая клавиша сброса фильтра по тегам. Пусто — не назначена (issue #160).</summary>
     public string HotkeyClearTags { get; set; } = "Ctrl+Shift+T";
+
+    /// <summary>Горячая клавиша переключения подробностей правой панели информации (issue #172). Пусто — не назначена.</summary>
+    public string HotkeyRightPanelDetails { get; set; } = "Ctrl+D";
+
+    /// <summary>Горячая клавиша «Смена пользователя» (issue #200). Пусто — не назначена.</summary>
+    public string HotkeySwitchUser { get; set; } = "";
 
     /// <summary>
     /// Поле сортировки списка баз: Name (по умолчанию), LastLaunchDate, SortOrder.

@@ -38,6 +38,23 @@ namespace Configuration_Management.Services
             return ShowModalSync(win);
         }
 
+        /// <summary>
+        /// Показывает модальное окно с пояснением и кликабельной ссылкой на страницу
+        /// выпуска. Используется автообновлением, когда самообновление недоступно
+        /// (запуск из пакета AppImage или установка в системный каталог) — вместо
+        /// обычного сообщения с текстом ссылки показывается гиперссылка, открывающая
+        /// страницу в браузере по умолчанию (issue #225).
+        /// </summary>
+        /// <param name="message">Пояснение, почему самообновление недоступно.</param>
+        /// <param name="linkUrl">Адрес страницы выпуска GitHub. Пустая строка скрывает ссылку.</param>
+        /// <param name="title">Заголовок окна.</param>
+        public void ShowManualUpdate(string message, string linkUrl, string title = "")
+        {
+            var win = new ManualUpdateWindowAvalonia(
+                message, linkUrl, DefaultTitle(title, "Update.NewVersionAvailable"));
+            ShowModalSync(win);
+        }
+
         public string? OpenFileDialog(string title = "", string filter = "", string? initialDirectory = null)
             => RunSync(() => PickFileAsync(DefaultTitle(title, "Dialog.OpenFile"), filter, initialDirectory));
 
@@ -201,12 +218,44 @@ namespace Configuration_Management.Services
         {
             var owner = CurrentOwner();
             bool result = true;
-            var frame = new DispatcherFrame();
-            window.Closed += (_, _) =>
+            // Кадр снимается и по скрытию окна, а не только по закрытию: Window.Hide()
+            // события Closed не даёт, а прячет окно вместе с дочерними. Пока диалог
+            // открыт, такое скрытие приходит со стороны: базу запускают из меню трея,
+            // и при настройке «после запуска уйти в трей» главное окно прячется вместе
+            // с диалогом. Раньше кадр в этом случае крутился бы вечно, и приложение
+            // замирало целиком.
+            DispatcherFrame frame = new();
+            var opened = false;
+            var hiddenWithoutClose = false;
+            var closed = false;
+
+            void StopFrame() => frame.Continue = false;
+            void OnOpened(object? sender, EventArgs e) => opened = true;
+            void OnClosed(object? sender, EventArgs e)
             {
+                closed = true;
                 result = window is MaterialMessageWindowAvalonia mw ? mw.Confirmed : true;
-                frame.Continue = false;
-            };
+                StopFrame();
+            }
+
+            void OnVisibilityChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+            {
+                if (e.Property != Visual.IsVisibleProperty || !Equals(e.NewValue, false) || closed)
+                    return;
+
+                // Окно спрятали со стороны, ответа пользователь не давал. Возвращаем
+                // отказ: положительный ответ здесь означал бы согласие на удаление базы
+                // или снятие сеансов, которого никто не подтверждал. Скрытое окно потом
+                // закрывается, иначе оно остаётся в списке окон приложения и держит
+                // процесс живым при ShutdownMode.OnLastWindowClose.
+                result = false;
+                hiddenWithoutClose = true;
+                StopFrame();
+            }
+
+            window.Opened += OnOpened;
+            window.Closed += OnClosed;
+            window.PropertyChanged += OnVisibilityChanged;
 
             // Владелец пригоден только видимый и с измеренной геометрией. На Linux/X11
             // модальный показ относительно неотрисованного владельца (нулевая геометрия)
@@ -241,10 +290,18 @@ namespace Configuration_Management.Services
                 frame.Continue = false;
                 try
                 {
+                    // Запасному показу нужен свой кадр: прежний уже остановлен, и
+                    // PushFrame на нём вернулся бы сразу, не дождавшись ответа.
+                    frame = new DispatcherFrame();
                     window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
                     if (!window.IsVisible)
                         window.Show();
-                    Dispatcher.UIThread.PushFrame(frame);
+
+                    // Ждать имеет смысл только когда окно действительно открылось:
+                    // IsVisible выставляется до разметки содержимого, и окно, упавшее
+                    // на разметке, ожиданием уже не дождаться.
+                    if (opened)
+                        Dispatcher.UIThread.PushFrame(frame);
                 }
                 catch
                 {
@@ -258,6 +315,15 @@ namespace Configuration_Management.Services
                 // не должен оставлять висящий вложенный цикл сообщений.
                 frame.Continue = false;
                 try { if (window.IsVisible) window.Hide(); } catch { /* ignore */ }
+
+                if (hiddenWithoutClose && !closed)
+                {
+                    try { window.Close(); } catch { /* ignore */ }
+                }
+
+                window.Opened -= OnOpened;
+                window.Closed -= OnClosed;
+                window.PropertyChanged -= OnVisibilityChanged;
             }
 
             return result;

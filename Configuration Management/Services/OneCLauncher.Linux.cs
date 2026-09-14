@@ -155,7 +155,7 @@ namespace Configuration_Management.Services
                     UseShellExecute = false,
                     WorkingDirectory = Path.GetDirectoryName(exePath) ?? ""
                 };
-                Process.Start(psi);
+                LinuxProcessEnvironment.Start(psi);
                 infobase.LastLaunchDate = DateTime.Now;
                 return true;
             }
@@ -435,7 +435,7 @@ namespace Configuration_Management.Services
 
             try
             {
-                Process.Start(new ProcessStartInfo { FileName = "xdg-open", UseShellExecute = false, ArgumentList = { url } });
+                LinuxProcessEnvironment.Start(new ProcessStartInfo { FileName = "xdg-open", UseShellExecute = false, ArgumentList = { url } });
                 infobase.LastLaunchDate = DateTime.Now;
                 return true;
             }
@@ -651,7 +651,7 @@ namespace Configuration_Management.Services
                     UseShellExecute = false,
                     WorkingDirectory = Path.GetDirectoryName(exePath) ?? ""
                 };
-                var process = Process.Start(psi);
+                var process = LinuxProcessEnvironment.Start(psi);
                 var info = new DesignerBatchInfo(operation, infobase.Name, outputPath, outLog, $"{exePath} {arguments}");
                 RegisterBatchProcess(infobase, process, info);
                 DesignerBatchStarted?.Invoke(null, info);
@@ -931,7 +931,7 @@ namespace Configuration_Management.Services
 
             try
             {
-                Process.Start(new ProcessStartInfo
+                LinuxProcessEnvironment.Start(new ProcessStartInfo
                 {
                     FileName = exe,
                     Arguments = $"ENTERPRISE {args}",
@@ -953,7 +953,7 @@ namespace Configuration_Management.Services
                 return false;
             try
             {
-                Process.Start(new ProcessStartInfo
+                LinuxProcessEnvironment.Start(new ProcessStartInfo
                 {
                     FileName = "xdg-open",
                     UseShellExecute = false,
@@ -1181,7 +1181,7 @@ namespace Configuration_Management.Services
                 foreach (var a in args)
                     psi.ArgumentList.Add(a);
 
-                using var proc = Process.Start(psi);
+                using var proc = LinuxProcessEnvironment.Start(psi);
                 if (proc is null)
                 {
                     CleanupCreatedDir(createdDirPath);

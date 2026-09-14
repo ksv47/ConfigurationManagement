@@ -56,28 +56,56 @@ namespace Configuration_Management
             // Расширение и прозрачность остаются только для «стекла» на Wayland, где
             // композитор обязателен и постоянной перерисовки фона нет.
             var opaque = useSystemTitleBar || ShouldRenderOpaque;
-            ExtendClientAreaToDecorationsHint = !opaque;
 
-            if (opaque)
+            // Установка «расширения» клиентской области и прозрачности на X11 без
+            // композитора способна бросать исключение или ронять отрисовку безрамочного
+            // окна (issue #177: «после правки окно вообще не появилось»). Оборачиваем
+            // в try/catch с диагностическим логом, чтобы по журналу видеть первопричину,
+            // а не молча получать «чёрное окно» или отсутствие окна на превью.
+            try
             {
-                // В непрозрачном режиме прозрачность и расширение не запрашиваем вовсе,
-                // чтобы не провоцировать непрерывную перерисовку фона (issue #153).
-                // Сплошной фон задаём явно, чтобы нативное окно было непрозрачным.
-                TransparencyLevelHint = null;
-                Background = new SolidColorBrush(Color.Parse("#FF161616"));
-            }
-            else
-            {
-                // Прозрачность — только в безрамковом режиме: со стандартной системной
-                // рамкой прозрачный фон и расширение клиентской области конфликтуют и могут
-                // ронять приложение при открытии диалога на Linux (issue #150). Размытие
-                // не просим: AcrylicBlur/Blur включает непрерывную перерисовку фона
-                // (issues #150, #153).
-                TransparencyLevelHint = new[]
+                ExtendClientAreaToDecorationsHint = !opaque;
+
+                if (opaque)
                 {
-                    WindowTransparencyLevel.Transparent
-                };
-                Background = Brushes.Transparent;
+                    // В непрозрачном режиме прозрачность и расширение не запрашиваем вовсе,
+                    // чтобы не провоцировать непрерывную перерисовку фона (issue #153).
+                    // Сплошной фон задаём явно, чтобы нативное окно было непрозрачным.
+                    // Пустой список эквивалентен null по поведению Avalonia (системный
+                    // уровень прозрачности по умолчанию), но не провоцирует CS8625.
+                    TransparencyLevelHint = Array.Empty<WindowTransparencyLevel>();
+
+                    // Фон берётся из темы, а не фиксированным тёмным цветом. Со включённым
+                    // системным заголовком окна (SystemDecorations.Full) «стеклянной»
+                    // подложки у диалога нет, см. UseGlassChrome, и фон окна виден
+                    // насквозь: в светлой теме диалог выглядел чёрным прямоугольником
+                    // с нечитаемым тёмным текстом. Кисть та же, что у подложки и у
+                    // MaterialMessageWindow, поэтому смена темы и цветовой схемы
+                    // подхватывается сама.
+                    ThemeBrushes.Bind(this, TemplatedControl.BackgroundProperty,
+                        "ContentBackgroundColorBrush");
+                }
+                else
+                {
+                    // Прозрачность — только в безрамковом режиме: со стандартной системной
+                    // рамкой прозрачный фон и расширение клиентской области конфликтуют и могут
+                    // ронять приложение при открытии диалога на Linux (issue #150). Размытие
+                    // не просим: AcrylicBlur/Blur включает непрерывную перерисовку фона
+                    // (issues #150, #153).
+                    TransparencyLevelHint = new[]
+                    {
+                        WindowTransparencyLevel.Transparent
+                    };
+                    Background = Brushes.Transparent;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Логируем и продолжаем: окно обязано появиться даже в случае сбоя
+                // запроса прозрачности/расширения. Иначе безрамочный диалог «не появляется»
+                // вовсе, а виноват только конфликт свойств окна (issue #177).
+                LogWindowConstructionError(
+                    "Не удалось настроить прозрачность/расширение безрамочного окна", ex);
             }
 
             // Диалоги не показываются в панели задач: в разметке WPF
@@ -102,6 +130,28 @@ namespace Configuration_Management
         /// детектором Services.LinuxRendering — та же логика, что у главного окна.
         /// </summary>
         private static readonly bool ShouldRenderOpaque = Services.LinuxRendering.OpaqueWindow;
+
+        /// <summary>
+        /// Пишет диагностику сбоя построения окна в файловый лог (issue #177). Задача —
+        /// чтобы перехваченные исключения построения безрамочного окна не исчезали молча:
+        /// по журналу можно найти первопричину «окно не появилось» / «чёрное окно» на X11
+        /// без композитора. Логгер берётся из контейнера лениво и безопасно: если сервисы
+        /// ещё не подняты, пишем в трассировку.
+        /// </summary>
+        private static void LogWindowConstructionError(string what, Exception ex)
+        {
+            try
+            {
+                var logger = AppServices.GetRequiredService<Configuration_Management.Services.IAppLogger>();
+                logger.Error($"{what} ({GetTypeName()}). {ex}");
+            }
+            catch
+            {
+                System.Diagnostics.Trace.WriteLine($"[window] {what}: {ex}");
+            }
+
+            static string GetTypeName() => "ModalWindowBase";
+        }
 
         /// <summary>
         /// Читает настройку «Системный заголовок окна» из репозитория. Значение кэшируется
@@ -204,8 +254,49 @@ namespace Configuration_Management
             if (IsVisible)
                 return DialogResult;
 
-            var frame = new DispatcherFrame();
-            Closed += (_, _) => frame.Continue = false;
+            // Кадр вложенного цикла снимается не только по закрытию окна, но и по
+            // его скрытию. Window.Hide() события Closed не даёт, а прячет окно вместе
+            // с дочерними, а такое скрытие приходит со стороны, пока диалог открыт:
+            // при настройке «после запуска базы уйти в трей» базу можно запустить
+            // из меню трея, и главное окно спрячется вместе с диалогом
+            // (MainWindow.Avalonia.cs, OnAfterLaunchRequested). Раньше кадр в этом
+            // случае оставался крутиться навсегда, и приложение замирало целиком,
+            // оставаясь живым процессом. Кадр пересоздаётся для запасного пути показа,
+            // поэтому обработчики читают текущий, а не захваченный при подписке.
+            // Результат прошлого сеанса не переносится в новый: окно можно показать
+            // повторно, и неотвеченный диалог обязан вернуть отказ, а не прежнее «да».
+            DialogResult = false;
+
+            DispatcherFrame frame = new();
+            var opened = false;
+            var hiddenWithoutClose = false;
+            var closed = false;
+
+            void StopFrame() => frame.Continue = false;
+            void OnOpened(object? sender, EventArgs e) => opened = true;
+            void OnClosedHandler(object? sender, EventArgs e)
+            {
+                closed = true;
+                StopFrame();
+            }
+
+            void OnVisibilityChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+            {
+                if (e.Property != IsVisibleProperty || !Equals(e.NewValue, false) || closed)
+                    return;
+
+                // Скрытое окно остаётся открытым для приложения: оно продолжает
+                // числиться в списке окон, а при ShutdownMode.OnLastWindowClose это
+                // держит процесс живым и не отпускает блокировку единственного
+                // экземпляра. Поэтому скрытие доводится до закрытия, но уже после
+                // выхода из кадра, чтобы не закрывать окно изнутри его же события.
+                hiddenWithoutClose = true;
+                StopFrame();
+            }
+
+            Opened += OnOpened;
+            Closed += OnClosedHandler;
+            PropertyChanged += OnVisibilityChanged;
 
             // Владелец пригоден только видимый и с измеренной геометрией. На Linux/X11
             // модальный показ относительно неотрисованного владельца (нулевая геометрия)
@@ -231,23 +322,37 @@ namespace Configuration_Management
 
                 Dispatcher.UIThread.PushFrame(frame);
             }
-            catch
+            catch (Exception ex)
             {
                 // Первый способ показа сорвался (нативный сбой Avalonia при открытии
                 // диалога, раньше ронявший процесс abort-ом). Не даём окну молча
                 // исчезнуть (issue #168: «не падает, но и не открывается»): пробуем
                 // запасной путь — немодальный показ по центру экрана. Если и он падает,
-                // снимаем кадр и прячем неоткрытое окно.
+                // снимаем кадр и прячем неоткрытое окно. Исключение логируем, чтобы по
+                // журналу было видно, на чём именно рвётся показ безрамочного окна
+                // (issue #177).
+                LogWindowConstructionError("Не удалось открыть модальное окно первым способом", ex);
                 frame.Continue = false;
                 try
                 {
+                    // Запасному показу нужен свой кадр: прежний уже остановлен, и
+                    // PushFrame на нём возвращается сразу, то есть окно закрывалось бы,
+                    // едва открывшись, а результат диалога возвращался бы неспрошенным.
+                    frame = new DispatcherFrame();
                     WindowStartupLocation = WindowStartupLocation.CenterScreen;
                     if (!IsVisible)
                         Show();
-                    Dispatcher.UIThread.PushFrame(frame);
+
+                    // Ждать имеет смысл только когда окно действительно открылось.
+                    // IsVisible этого не доказывает: показ выставляет его до разметки
+                    // содержимого, и при исключении в разметке окно остаётся «видимым»,
+                    // ни разу не появившись. Ожидание такого окна не закончится никогда.
+                    if (opened)
+                        Dispatcher.UIThread.PushFrame(frame);
                 }
-                catch
+                catch (Exception fallbackEx)
                 {
+                    LogWindowConstructionError("Запасной показ модального окна тоже не удался", fallbackEx);
                     frame.Continue = false;
                     try { if (IsVisible) Hide(); } catch { /* ignore */ }
                 }
@@ -259,6 +364,19 @@ namespace Configuration_Management
                 // прячем, чтобы повторное открытие не копило висящие окна.
                 frame.Continue = false;
                 try { if (IsVisible) Hide(); } catch { /* ignore */ }
+
+                // Окно, спрятанное со стороны, закрываем: иначе оно остаётся
+                // в списке окон приложения и держит процесс.
+                if (hiddenWithoutClose && !closed)
+                {
+                    try { Close(); } catch { /* ignore */ }
+                }
+
+                // Подписки этого сеанса снимаются: окно может показываться повторно,
+                // а обработчики держат кадр уже закончившегося показа.
+                Opened -= OnOpened;
+                Closed -= OnClosedHandler;
+                PropertyChanged -= OnVisibilityChanged;
             }
 
             return DialogResult;
@@ -316,8 +434,21 @@ namespace Configuration_Management
             if (change.GetNewValue<object?>() is Control inner)
             {
                 _wrappingContent = true;
-                Content = BuildChrome(inner);
-                _wrappingContent = false;
+                try
+                {
+                    // Обёртка ставит Content второй раз, пока inner уже числится
+                    // логическим ребёнком окна: при замене ContentControl снимает
+                    // у него логического родителя, а inner к этому моменту лежит
+                    // внутри нового Grid, и обход дерева обёртки падает с
+                    // AttachedToLogicalTreeCore ... has no logical parent.
+                    // Сброс в null отпускает inner заранее.
+                    Content = null;
+                    Content = BuildChrome(inner);
+                }
+                finally
+                {
+                    _wrappingContent = false;
+                }
             }
         }
 
@@ -394,7 +525,10 @@ namespace Configuration_Management
         /// </summary>
         private Control BuildTitleStrip()
         {
-            var strip = new Border();
+            // Прозрачная заливка обязательна: Border без Background не участвует
+            // в проверке попадания, нажатие уходит мимо и окно не таскается
+            // (issue #177). Внешний вид от неё не меняется.
+            var strip = new Border { Background = Brushes.Transparent };
             strip.PointerPressed += OnTitleStripPointerPressed;
 
             var grid = new Grid();
@@ -477,6 +611,50 @@ namespace Configuration_Management
                 AddResizeZones(grid);
                 _resizeZonesAdded = true;
             }
+
+            // На Linux/X11 окно после показа не всегда сразу получает клавиатурный
+            // фокус, пока пользователь не кликнул по какому-нибудь элементу (issue #226):
+            // Esc, нажатый сразу после открытия, уходил в главное окно или в никуда,
+            // а кнопка «Отмена» (IsCancel) срабатывала только после получения фокуса.
+            // Запрашиваем активацию/фокус окна при каждом открытии, чтобы Esc
+            // обрабатывался самим диалогом (см. OnKeyDown) с первого нажатия и при
+            // повторном открытии, а не был «одноразовым». Активация выставляется через
+            // Dispatcher, чтобы не делать её изнутри события показа окна. Флаг IsActive
+            // при этом становится истинным, и главное окно по Esc не уходит в трей
+            // (MainWindow.Avalonia.cs, HasOpenModalDialog).
+            Dispatcher.UIThread.Post(Activate, DispatcherPriority.Input);
+        }
+
+        /// <summary>
+        /// Esc закрывает активный модальный диалог (issue #226). Обработка живёт на
+        /// уровне самой базы, чтобы диалог закрывался сам, а не полагался на главное
+        /// окно (которое при открытом диалоге по Esc лишь уходит в трей, см.
+        /// MainWindow.Avalonia.cs). Не перехватываем Esc, если его уже обработал
+        /// вложенный элемент и пометил событие обработанным: редактируемый ComboBox
+        /// с раскрытым списком и HotkeyBox отменяют по Esc свой ввод — такое закрывать
+        /// диалог не должно. Закрытие равносильно нажатию «Отмена»: положительный
+        /// результат (<see cref="DialogResult"/>) не выставляется.
+        /// </summary>
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && !e.Handled)
+            {
+                CloseAsCancel();
+                e.Handled = true;
+                return;
+            }
+            base.OnKeyDown(e);
+        }
+
+        /// <summary>
+        /// Закрывает диалог так же, как кнопка «Отмена»: без положительного
+        /// результата. Вызывается и из <see cref="OnKeyDown"/>, и из главного окна,
+        /// когда Esc пришёл туда (см. MainWindow.Avalonia.cs, OnWindowKeyDown).
+        /// </summary>
+        internal void CloseAsCancel()
+        {
+            DialogResult = false;
+            Close();
         }
 
         /// <summary>
@@ -530,10 +708,10 @@ namespace Configuration_Management
                 if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
                     BeginResizeDrag(edge, e);
             };
-            Grid.SetRow(zone, 0);
-            Grid.SetColumn(zone, 0);
-            Grid.SetRowSpan(zone, host.RowDefinitions.Count);
-            Grid.SetColumnSpan(zone, host.ColumnDefinitions.Count);
+            // host это overlay, созданный как new Grid() без строк и колонок,
+            // поэтому span из его счётчиков равен нулю, а Avalonia такой span
+            // не принимает: ArgumentException прямо в OnOpened. Зона и без
+            // привязок занимает единственную ячейку целиком.
             host.Children.Add(zone);
         }
 

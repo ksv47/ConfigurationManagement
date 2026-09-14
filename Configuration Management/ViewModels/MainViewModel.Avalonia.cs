@@ -101,6 +101,48 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Настраиваемый шаблон имени COM-коннектора 1С (issue #175).
+    /// Пустая строка — стандартные ProgID V85/V83/V82/V81.COMConnector; иначе шаблон
+    /// разворачивается по версии платформы каждой базы (плейсхолдеры %V12%/%V3%/%V4%)
+    /// и пробуется первым в переборе. Применяется сразу: новое значение передаётся коннектору
+    /// (issue #175). На Linux COM отсутствует, но значение сохраняется в общий файл настроек,
+    /// чтобы не теряться при переходе между платформами.
+    /// </summary>
+    public string ComConnectorNameTemplate
+    {
+        get => _settings.ComConnectorNameTemplate ?? "";
+        set
+        {
+            var normalized = value?.Trim() ?? string.Empty;
+            if (string.Equals(_settings.ComConnectorNameTemplate, normalized, StringComparison.Ordinal))
+                return;
+            _settings.ComConnectorNameTemplate = normalized;
+            // Симметрично Windows-сборке (issue #175). На Linux вызов — no-op: COM
+            // отсутствует, кэшировать нечего, но ветки держим одинаковыми.
+            OneCComConnector.ApplyTemplate(normalized);
+            SaveSettingsSilently();
+        }
+    }
+
+    /// <summary>
+    /// Таймаут определения свойств конфигурации через COM-коннектор (issue #174), мс.
+    /// На Linux COM отсутствует, но значение сохраняется в общий файл настроек,
+    /// чтобы не теряться при переходе между платформами. Минимум 1000 мс.
+    /// </summary>
+    public int ComDetectTimeoutMs
+    {
+        get => Math.Max(1000, _settings.ComDetectTimeoutMs);
+        set
+        {
+            var v = Math.Max(1000, value);
+            if (_settings.ComDetectTimeoutMs == v)
+                return;
+            _settings.ComDetectTimeoutMs = v;
+            SaveSettingsSilently();
+        }
+    }
+
+    /// <summary>
     /// Разрешено ли несколько экземпляров: от этого зависит, вернётся ли
     /// спрятанное окно повторным запуском приложения.
     /// </summary>
@@ -110,6 +152,12 @@ public class MainViewModel : ViewModelBase
     /// Запоминать ли размер, положение и состояние главного окна между запусками.
     /// </summary>
     public bool RememberWindowLayout => _settings.RememberWindowLayout;
+
+    /// <summary>Проверять наличие обновлений приложения при запуске (GitHub Releases).</summary>
+    public bool CheckForUpdatesOnStartup => _settings.CheckForUpdatesOnStartup;
+
+    /// <summary>Автоматически устанавливать новые версии без подтверждения.</summary>
+    public bool AutoUpdateEnabled => _settings.AutoUpdateEnabled;
 
     /// <summary>Сохранённая ширина главного окна; ноль означает «не сохранялась».</summary>
     public double SavedWindowWidth => _settings.WindowWidth;
@@ -171,15 +219,23 @@ public class MainViewModel : ViewModelBase
     /// Применяет настройки поведения приложения. Обе лежали в общем с версией
     /// для Windows файле настроек, но в Linux-сборке их нечем было изменить.
     /// </summary>
-    public void ApplyBehaviorSettings(bool allowMultipleInstances, bool rememberWindowLayout)
+    public void ApplyBehaviorSettings(
+        bool allowMultipleInstances,
+        bool rememberWindowLayout,
+        bool checkForUpdatesOnStartup,
+        bool autoUpdateEnabled)
     {
         _settings.AllowMultipleInstances = allowMultipleInstances;
         _settings.RememberWindowLayout = rememberWindowLayout;
+        _settings.CheckForUpdatesOnStartup = checkForUpdatesOnStartup;
+        _settings.AutoUpdateEnabled = autoUpdateEnabled;
         if (!SaveSettingsSafe())
             _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
                 LocalizationManager.T("Settings.Title"));
         OnPropertyChanged(nameof(AllowMultipleInstances));
         OnPropertyChanged(nameof(RememberWindowLayout));
+        OnPropertyChanged(nameof(CheckForUpdatesOnStartup));
+        OnPropertyChanged(nameof(AutoUpdateEnabled));
     }
 
     /// <summary>Применяет настройки поведения трея из окна настроек.</summary>
@@ -230,7 +286,8 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public void ApplyDisplaySettings(
         bool showFavoritesButton, bool showPinnedButton, bool showTags, bool showTagFilterPanel,
-        bool showVersionColumn, bool showConfigurationColumn, bool showLaunchModeColumn,
+        bool showVersionColumn, bool showConfigurationColumn, bool showConfigurationVersionColumn,
+        bool showLaunchModeColumn,
         bool showServerColumn, bool showLastLaunchColumn, bool showSizeColumn,
         bool showActionsColumn,
         bool showRightPanelDetails, bool showSessionLaunchPanel,
@@ -242,6 +299,7 @@ public class MainViewModel : ViewModelBase
         var previousShowTags = _settings.ShowTags;
         var previousShowVersionColumn = _settings.ShowVersionColumn;
         var previousShowConfigurationColumn = _settings.ShowConfigurationColumn;
+        var previousShowConfigurationVersionColumn = _settings.ShowConfigurationVersionColumn;
         var previousShowLaunchModeColumn = _settings.ShowLaunchModeColumn;
         var previousShowServerColumn = _settings.ShowServerColumn;
         var previousShowLastLaunchColumn = _settings.ShowLastLaunchColumn;
@@ -257,6 +315,7 @@ public class MainViewModel : ViewModelBase
         _settings.ShowTagFilterPanel = showTagFilterPanel;
         _settings.ShowVersionColumn = showVersionColumn;
         _settings.ShowConfigurationColumn = showConfigurationColumn;
+        _settings.ShowConfigurationVersionColumn = showConfigurationVersionColumn;
         _settings.ShowLaunchModeColumn = showLaunchModeColumn;
         _settings.ShowServerColumn = showServerColumn;
         _settings.ShowLastLaunchColumn = showLastLaunchColumn;
@@ -282,6 +341,7 @@ public class MainViewModel : ViewModelBase
             || showPinnedButton != previousShowPinnedButton
             || showVersionColumn != previousShowVersionColumn
             || showConfigurationColumn != previousShowConfigurationColumn
+            || showConfigurationVersionColumn != previousShowConfigurationVersionColumn
             || showLaunchModeColumn != previousShowLaunchModeColumn
             || showServerColumn != previousShowServerColumn
             || showLastLaunchColumn != previousShowLastLaunchColumn
@@ -305,6 +365,34 @@ public class MainViewModel : ViewModelBase
         // Состав колонок и группировка меняют и строки, и заголовок.
         if (treeAffected)
             RebuildTree();
+    }
+
+    /// <summary>
+    /// Меняет видимость одной колонки списка баз по её ключу (issue #173).
+    /// Прочие параметры отображения берутся из текущих настроек и применяются через
+    /// <see cref="ApplyDisplaySettings"/>, поэтому изменение сохраняется и пересобирает
+    /// дерево/заголовок теми же механизмами, что и правка в окне настроек.
+    /// </summary>
+    public void SetColumnVisible(string key, bool visible)
+    {
+        ApplyDisplaySettings(
+            _settings.ShowFavoritesButton,
+            _settings.ShowPinnedButton,
+            _settings.ShowTags,
+            _showTagFilterPanel,
+            key == "Version" ? visible : _settings.ShowVersionColumn,
+            key == "Configuration" ? visible : _settings.ShowConfigurationColumn,
+            key == "ConfigurationVersion" ? visible : _settings.ShowConfigurationVersionColumn,
+            key == "LaunchMode" ? visible : _settings.ShowLaunchModeColumn,
+            key == "ServerBase" ? visible : _settings.ShowServerColumn,
+            key == "LastLaunch" ? visible : _settings.ShowLastLaunchColumn,
+            key == "Size" ? visible : _settings.ShowSizeColumn,
+            key == "Actions" ? visible : _settings.ShowActionsColumn,
+            _showRightPanelDetails,
+            _settings.ShowSessionLaunchPanel,
+            _groupByGroup,
+            _showEmptyGroups,
+            _settings.ColumnOrder);
     }
 
     /// <summary>
@@ -381,6 +469,15 @@ public class MainViewModel : ViewModelBase
         };
 
         InitializeCommands();
+
+        // При изменении реестра учётных записей (создание/переименование/удаление в окне
+        // настроек) обновляем видимость кнопки «Смена пользователя» (issue #200).
+        try
+        {
+            AppServices.GetRequiredService<IProfileService>().ProfilesChanged += (_, _) =>
+                OnPropertyChanged(nameof(SwitchUserVisible));
+        }
+        catch { /* сервис профилей может отсутствовать в изолированном контексте */ }
     }
 
     // ======================= Коллекции =======================
@@ -451,6 +548,7 @@ public class MainViewModel : ViewModelBase
     public ICommand RefreshConfigurationInfoCommand { get; private set; } = null!;
     public ICommand ClearUserCacheCommand { get; private set; } = null!;
     public ICommand ClearCacheBothCommand { get; private set; } = null!;
+    public ICommand SwitchUserCommand { get; private set; } = null!;
 
     private void InitializeCommands()
     {
@@ -478,7 +576,21 @@ public class MainViewModel : ViewModelBase
         {
             var group = ResolveGroup(p);
             if (group is not null)
+            {
                 EditGroup(group);
+                return;
+            }
+
+            // Служебные узлы «Без группы» / «Закреплённые» (без модели Group)
+            // редактируются тем же окном, но только по оформлению (цвет и иконка),
+            // как в Windows-версии (issue #240).
+            if (p is GroupNodeViewModel node && node.Marker is { } marker)
+            {
+                if (string.Equals(marker, GroupNodeViewModel.NoGroupMarker, StringComparison.Ordinal))
+                    EditNoGroupNode();
+                else if (string.Equals(marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal))
+                    EditPinnedNode();
+            }
         });
         DeleteGroupCommand = new RelayCommand(p =>
         {
@@ -509,16 +621,20 @@ public class MainViewModel : ViewModelBase
         OpenNativeStarterCommand = new RelayCommand(OpenNativeStarter);
         QuickClearCacheCommand = new RelayCommand(QuickClearCache, _ => SelectedInfobase is not null);
         // Кнопка «Очистить кеш» верхней панели действует на выбранную базу: если база не
-        // выделена — недоступна (CanExecute=false). В колонке «Действия» строка передаёт
-        // свою базу параметром, поэтому там кнопка включена независимо от глобального выбора.
-        ClearCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All),
-            p => p is Infobase ? true : SelectedInfobase is not null);
+        // выделена (например, под курсором папка) — окно открывается без предзаполненных
+        // галок, и пользователь сам отмечает нужные базы (issue #196). В колонке
+        // «Действия» строка передаёт свою базу параметром, поэтому там кнопка включена
+        // независимо от глобального выбора и стартовая галка ставится на базу строки.
+        ClearCacheCommand = new RelayCommand(p => OpenCacheClean(OneCCacheKind.All, p as Infobase),
+            p => p is Infobase ? true : Infobases.Count > 0);
         ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program));
         DumpInfobaseDtCommand = new RelayCommand(DumpInfobaseDt);
         DumpConfigurationCfCommand = new RelayCommand(DumpConfigurationCf);
         RefreshConfigurationInfoCommand = new RelayCommand(RefreshConfigurationInfo);
         ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User));
         ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));
+        // Смена пользователя (issue #200): диалог входа без перезапуска приложения.
+        SwitchUserCommand = new RelayCommand(SwitchUser);
     }
 
     private void Launch(ICommand launchVmCommand, LaunchKind kind) => launchVmCommand.Execute(kind);
@@ -785,6 +901,8 @@ public class MainViewModel : ViewModelBase
     public string HotkeyShowRecent => _settings.HotkeyShowRecent;
     public string HotkeyClearSearch => _settings.HotkeyClearSearch;
     public string HotkeyClearTags => _settings.HotkeyClearTags;
+    public string HotkeyRightPanelDetails => _settings.HotkeyRightPanelDetails;
+    public string HotkeySwitchUser => _settings.HotkeySwitchUser;
 
     /// <summary>
     /// Сохраняет назначенные сочетания и сообщает окну, что их надо
@@ -793,7 +911,7 @@ public class MainViewModel : ViewModelBase
     public void ApplyHotkeys(string enterprise, string configurator, string edit, string add,
         string favorite, string pin, string delete, string clearCache,
         string showAll, string showFavorites, string showRecent,
-        string clearSearch, string clearTags)
+        string clearSearch, string clearTags, string rightPanelDetails, string switchUser)
     {
         _settings.HotkeyEnterprise = enterprise ?? string.Empty;
         _settings.HotkeyConfigurator = configurator ?? string.Empty;
@@ -808,6 +926,8 @@ public class MainViewModel : ViewModelBase
         _settings.HotkeyShowRecent = showRecent ?? string.Empty;
         _settings.HotkeyClearSearch = clearSearch ?? string.Empty;
         _settings.HotkeyClearTags = clearTags ?? string.Empty;
+        _settings.HotkeyRightPanelDetails = rightPanelDetails ?? string.Empty;
+        _settings.HotkeySwitchUser = switchUser ?? string.Empty;
 
         SaveSettingsSilently();
 
@@ -824,28 +944,117 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HotkeyShowRecent));
         OnPropertyChanged(nameof(HotkeyClearSearch));
         OnPropertyChanged(nameof(HotkeyClearTags));
+        OnPropertyChanged(nameof(HotkeyRightPanelDetails));
+        OnPropertyChanged(nameof(HotkeySwitchUser));
         HotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Сочетания переназначены: окну надо перерегистрировать привязки и меню.</summary>
     public event EventHandler? HotkeysChanged;
 
+    /// <summary>
+    /// true, если учётных записей больше одной — тогда кнопка «Смена пользователя»
+    /// показывается на верхней панели (при одной записи переключать нечего).
+    /// </summary>
+    public bool SwitchUserVisible
+    {
+        get
+        {
+            try
+            {
+                return AppServices.GetRequiredService<IProfileService>().Profiles.Count > 1;
+            }
+            catch
+            {
+                // Сервис профилей в изолированном/тестовом контексте может отсутствовать.
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Открывает окно выбора учётной записи и, если пользователь вошёл в другую
+    /// запись, переключает активный профиль и перезагружает данные главного окна.
+    /// Отмена или выбор той же записи ничего не меняют.
+    /// </summary>
+    private void SwitchUser()
+    {
+        try
+        {
+            var profileService = AppServices.GetRequiredService<IProfileService>();
+            if (profileService.Profiles.Count <= 1)
+                return;
+
+            var current = profileService.CurrentProfile;
+            var selectedId = LoginWindow.ShowLogin(profileService);
+            if (selectedId == null)
+                return; // Вход отменён — остаёмся как есть.
+
+            if (current != null &&
+                string.Equals(current.Id, selectedId, StringComparison.OrdinalIgnoreCase))
+                return; // Та же запись — перезагрузка не нужна.
+
+            profileService.SetCurrentProfile(selectedId);
+            ReloadAfterProfileSwitch();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка смены пользователя: " + ex.Message);
+            _dialog.ShowError(string.Format(LocalizationManager.T("Auth.LoginError"), ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Перезагружает данные главного окна после смены активного профиля в работающем
+    /// приложении: повторно выполняет <see cref="Initialize"/> (список баз, группы,
+    /// тема, избранное, горячие клавиши), обновляет язык интерфейса профиля и
+    /// сообщает окну о переназначении сочетаний.
+    /// </summary>
+    private void ReloadAfterProfileSwitch()
+    {
+        try
+        {
+            Initialize();
+
+            // Локализация выбранного профиля.
+            try
+            {
+                var s = _repository.LoadSettings();
+                LocalizationManager.Instance.Initialize(s.Language);
+            }
+            catch
+            {
+                // Локализация не должна ломать смену пользователя.
+            }
+
+            OnPropertyChanged(nameof(SwitchUserVisible));
+            HotkeysChanged?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Ошибка перезагрузки данных после смены пользователя", ex);
+        }
+    }
+
     // ---- Видимость колонок ----
 
     /// <summary>
-    /// Порядок колонок списка баз по умолчанию (колонка «Конфигурация» в самом
-    /// конце). Используется, пока пользователь не задал собственный порядок.
+    /// Порядок колонок списка баз по умолчанию (колонки «Конфигурация» и «№
+    /// релиза» в самом конце). Используется, пока пользователь не задал
+    /// собственный порядок.
     /// </summary>
     private static readonly string[] DefaultColumnOrder =
-        { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration" };
+        { "Version", "LaunchMode", "Actions", "ServerBase", "LastLaunch", "Size", "Configuration", "ConfigurationVersion" };
 
     /// <summary>
     /// Порядок колонок списка баз слева направо (кроме фиксированной колонки
     /// «Название», которая всегда первая). Если порядок не задан или пуст —
-    /// возвращается порядок по умолчанию с колонкой «Конфигурация» в конце.
-    /// Колонка «Действия» всегда присутствует в порядке: старые сохранённые
-    /// настройки могли не содержать её вовсе, и тогда колонку нельзя было ни
-    /// показать, ни отключить в окне настроек (issue #158).
+    /// возвращается порядок по умолчанию с колонками «Конфигурация» и «№
+    /// релиза» в конце. Колонка «Действия» всегда присутствует в порядке:
+    /// старые сохранённые настройки могли не содержать её вовсе, и тогда
+    /// колонку нельзя было ни показать, ни отключить в окне настроек
+    /// (issue #158). Колонка «№ релиза» (issue #217) вставляется сразу после
+    /// «Конфигурации», не меняя сам сохранённый список.
     /// </summary>
     public IReadOnlyList<string> ColumnOrderKeys
     {
@@ -854,12 +1063,25 @@ public class MainViewModel : ViewModelBase
             var order = _settings.ColumnOrder;
             if (order is { Count: 0 })
                 return DefaultColumnOrder;
-            // «Действия» обязана быть в списке: если её нет в пользовательском
-            // порядке (например, порядок сохранён до появления этой колонки),
-            // дописываем в конец, не меняя сам сохранённый список.
-            return order!.Contains("Actions", StringComparer.Ordinal)
-                ? order
-                : order.Concat(new[] { "Actions" }).ToList();
+
+            // «Действия» и «№ релиза» обязаны присутствовать в списке: старые
+            // сохранённые настройки могли не содержать их вовсе, и тогда эти
+            // колонки нельзя было ни показать, ни отключить в окне настроек.
+            var needsActions = !order!.Contains("Actions", StringComparer.Ordinal);
+            var needsConfigurationVersion = !order.Contains("ConfigurationVersion", StringComparer.Ordinal);
+            if (!needsActions && !needsConfigurationVersion)
+                return order;
+
+            var result = new List<string>(order.Count + 2);
+            foreach (var key in order)
+            {
+                if (needsConfigurationVersion && key == "Configuration")
+                    result.Add("ConfigurationVersion");
+                result.Add(key);
+            }
+            if (needsActions)
+                result.Add("Actions");
+            return result;
         }
     }
 
@@ -868,6 +1090,7 @@ public class MainViewModel : ViewModelBase
     public bool ShowPinnedButton => _settings.ShowPinnedButton;
     public bool ShowVersionColumn => _settings.ShowVersionColumn;
     public bool ShowConfigurationColumn => _settings.ShowConfigurationColumn;
+    public bool ShowConfigurationVersionColumn => _settings.ShowConfigurationVersionColumn;
     public bool ShowLaunchModeColumn => _settings.ShowLaunchModeColumn;
     public bool ShowServerColumn => _settings.ShowServerColumn;
     public bool ShowLastLaunchColumn => _settings.ShowLastLaunchColumn;
@@ -967,6 +1190,7 @@ public class MainViewModel : ViewModelBase
     public double NameColumnWidth => _settings.NameColumnWidth;
     public double VersionColumnWidth => _settings.VersionColumnWidth;
     public double ConfigurationColumnWidth => _settings.ConfigurationColumnWidth;
+    public double ConfigurationVersionColumnWidth => _settings.ConfigurationVersionColumnWidth;
     public double LaunchModeColumnWidth => _settings.LaunchModeColumnWidth;
     public double ServerColumnWidth => _settings.ServerColumnWidth;
     public double LastLaunchColumnWidth => _settings.LastLaunchColumnWidth;
@@ -985,6 +1209,7 @@ public class MainViewModel : ViewModelBase
             case "Name": _settings.NameColumnWidth = width; break;
             case "Version": _settings.VersionColumnWidth = width; break;
             case "Configuration": _settings.ConfigurationColumnWidth = width; break;
+            case "ConfigurationVersion": _settings.ConfigurationVersionColumnWidth = width; break;
             case "LaunchMode": _settings.LaunchModeColumnWidth = width; break;
             case "ServerBase": _settings.ServerColumnWidth = width; break;
             case "LastLaunch": _settings.LastLaunchColumnWidth = width; break;
@@ -1362,8 +1587,20 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     private void DistributeInfobases(List<GroupNodeViewModel> roots)
     {
-        var pinnedNode = new GroupNodeViewModel(null, marker: GroupNodeViewModel.PinnedMarker);
-        var noGroupNode = new GroupNodeViewModel(null, marker: GroupNodeViewModel.NoGroupMarker);
+        // Служебным узлам передаём их собственные цвета по умолчанию (issue #240),
+        // иначе заданное оформление не применяется к узлу на Linux/Avalonia.
+        var pinnedNode = new GroupNodeViewModel(
+            null,
+            marker: GroupNodeViewModel.PinnedMarker,
+            defaultColor: _settings.PinnedColor,
+            defaultIconColor: _settings.PinnedIconColor,
+            defaultIcon: _settings.PinnedIcon ?? string.Empty);
+        var noGroupNode = new GroupNodeViewModel(
+            null,
+            marker: GroupNodeViewModel.NoGroupMarker,
+            defaultColor: _settings.NoGroupColor,
+            defaultIconColor: _settings.NoGroupIconColor,
+            defaultIcon: _settings.NoGroupIcon ?? string.Empty);
 
         // Индексация по полному пути узла: база хранит путь группы строкой.
         var pathToNode = new Dictionary<string, GroupNodeViewModel>(StringComparer.OrdinalIgnoreCase);
@@ -1892,6 +2129,7 @@ public class MainViewModel : ViewModelBase
         ib.Architecture = dialog.Result.Architecture;
         ib.LaunchMode = dialog.Result.LaunchMode;
         ib.LaunchParameters = dialog.Result.LaunchParameters;
+        ib.DefaultLaunchMode = dialog.Result.DefaultLaunchMode;
         ib.ClientType = dialog.Result.ClientType;
         ib.IsFavorite = dialog.Result.IsFavorite;
         ib.IsPinned = dialog.Result.IsPinned;
@@ -2790,12 +3028,20 @@ public class MainViewModel : ViewModelBase
             var candidateInfobases = _allInfobases.ToList();
             var candidateGroups = _groups.ToList();
 
-            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups);
+            var result = StartManagerImporter.Import(dir, candidateInfobases, candidateGroups, ResolveIbasesFilePath());
 
             if (result.NoConfigFound)
             {
                 _dialog.ShowInfo(
                     string.Format(LocalizationManager.T("StartManager.NoConfig"), dir),
+                    LocalizationManager.T("StartManager.Title"));
+                return;
+            }
+
+            if (result.NoIbasesFound)
+            {
+                _dialog.ShowInfo(
+                    LocalizationManager.T("StartManager.NoIbases"),
                     LocalizationManager.T("StartManager.Title"));
                 return;
             }
@@ -2851,7 +3097,9 @@ public class MainViewModel : ViewModelBase
 
             var message = string.Format(
                 LocalizationManager.T("StartManager.Done"),
-                result.Added, result.Updated);
+                result.Added, result.Updated, result.GroupsCreated, result.Skipped);
+            if (result.Skipped > 0)
+                message += "\n\n" + LocalizationManager.T("StartManager.SkippedHint");
             if (platformAdded)
                 message += "\n" + LocalizationManager.T("StartManager.PlatformPathAdded");
             _dialog.ShowInfo(message, LocalizationManager.T("StartManager.Title"));
@@ -2896,6 +3144,17 @@ public class MainViewModel : ViewModelBase
     {
         try { _repository.Save(infobases); return true; }
         catch (Exception ex) { _logger.Error("Не удалось сохранить список баз", ex); return false; }
+    }
+
+    /// <summary>
+    /// Сохраняет список баз и перестраивает дерево после точечного изменения отдельных баз
+    /// (например, определения конфигураций всех баз, issue #236). Аналог
+    /// <see cref="MainViewModel.PersistInfobasesAfterInlineEdit"/> для Windows.
+    /// </summary>
+    public void PersistInfobasesAfterInlineEdit()
+    {
+        SaveSilently();
+        RebuildTree();
     }
 
     private bool SaveGroupList(List<Group> groups)
@@ -3270,6 +3529,71 @@ public class MainViewModel : ViewModelBase
         if (!string.IsNullOrEmpty(group.Id)
             && FindNode(n => string.Equals(n.Group?.Id, group.Id, StringComparison.OrdinalIgnoreCase)) is { } editedNode)
             SelectedGroupNode = editedNode;
+    }
+
+    /// <summary>
+    /// Редактирует оформление служебного узла «Без группы» (цвет и иконку) по аналогии
+    /// с обычной группой (issue #240). Изменения сохраняются в настройках приложения
+    /// и применяются к узлу при пересборке дерева.
+    /// </summary>
+    private void EditNoGroupNode()
+    {
+        Configuration_Management.GroupEditWindow dialog;
+        try
+        {
+            dialog = new Configuration_Management.GroupEditWindow(
+                _groups,
+                _settings.NoGroupColor,
+                _settings.NoGroupIconColor,
+                _settings.NoGroupIcon ?? string.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно оформления узла «Без группы»: {ex.Message}", ex);
+            return;
+        }
+
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        _settings.NoGroupColor = string.IsNullOrWhiteSpace(dialog.Result.Color) ? "#6B7280" : dialog.Result.Color;
+        _settings.NoGroupIconColor = string.IsNullOrWhiteSpace(dialog.Result.IconColor) ? "#FFFFFF" : dialog.Result.IconColor;
+        _settings.NoGroupIcon = dialog.Result.Icon ?? string.Empty;
+
+        RebuildTree();
+        SaveSettingsSilently();
+    }
+
+    /// <summary>
+    /// Редактирует оформление служебного узла «Закреплённые» (цвет и иконку) по аналогии
+    /// с узлом «Без группы». Изменения сохраняются в настройках приложения.
+    /// </summary>
+    private void EditPinnedNode()
+    {
+        Configuration_Management.GroupEditWindow dialog;
+        try
+        {
+            dialog = new Configuration_Management.GroupEditWindow(
+                _groups,
+                _settings.PinnedColor,
+                _settings.PinnedIconColor,
+                _settings.PinnedIcon ?? string.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно оформления узла «Закреплённые»: {ex.Message}", ex);
+            return;
+        }
+
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        _settings.PinnedColor = string.IsNullOrWhiteSpace(dialog.Result.Color) ? "#8B5CF6" : dialog.Result.Color;
+        _settings.PinnedIconColor = string.IsNullOrWhiteSpace(dialog.Result.IconColor) ? "#FFFFFF" : dialog.Result.IconColor;
+        _settings.PinnedIcon = dialog.Result.Icon ?? string.Empty;
+
+        RebuildTree();
+        SaveSettingsSilently();
     }
 
     /// <summary>
@@ -3852,7 +4176,10 @@ public class MainViewModel : ViewModelBase
     {
         try
         {
-            _favoriteHotkeyIds.RemoveAll(key => !_allInfobases.Any(ib => FavoriteKey(ib) == key));
+            // Слот должен соответствовать только текущим избранным базам, иначе
+            // вкладка, счётчик и список горячих клавиш разъезжаются (issue #194).
+            _favoriteHotkeyIds.RemoveAll(key =>
+                !_allInfobases.Any(ib => ib.IsFavorite && FavoriteKey(ib) == key));
 
             // Избранные без слота получают его в порядке имени, как в версии
             // для Windows. Слотов девять, лишние остаются без номера.
@@ -4687,6 +5014,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowPinnedButton));
         OnPropertyChanged(nameof(ShowVersionColumn));
         OnPropertyChanged(nameof(ShowConfigurationColumn));
+        OnPropertyChanged(nameof(ShowConfigurationVersionColumn));
         OnPropertyChanged(nameof(ShowLaunchModeColumn));
         OnPropertyChanged(nameof(ShowServerColumn));
         OnPropertyChanged(nameof(ShowLastLaunchColumn));
@@ -4695,6 +5023,7 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(NameColumnWidth));
         OnPropertyChanged(nameof(VersionColumnWidth));
         OnPropertyChanged(nameof(ConfigurationColumnWidth));
+        OnPropertyChanged(nameof(ConfigurationVersionColumnWidth));
         OnPropertyChanged(nameof(LaunchModeColumnWidth));
         OnPropertyChanged(nameof(ServerColumnWidth));
         OnPropertyChanged(nameof(LastLaunchColumnWidth));
@@ -4743,11 +5072,13 @@ public class MainViewModel : ViewModelBase
 
         try
         {
+            // Объём кэша базы до очистки — для отчёта (issue #178).
+            var size = OneCCacheCleaner.GetSize(ib, OneCCacheKind.All);
             var removed = OneCCacheCleaner.Clear(ib, OneCCacheKind.All);
             var kindLabel = CacheKindLabel(OneCCacheKind.All);
             var baseLabel = string.Format(LocalizationManager.T("Main.CacheBaseOne"), ib.Name);
             var message = removed > 0
-                ? string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removed)
+                ? string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removed, Infobase.FormatSize(size))
                 : string.Format(LocalizationManager.T("Main.CacheNotFound"), kindLabel, baseLabel);
             _dialog.ShowInfo(message, LocalizationManager.T("Main.ClearCacheDlgTitle"));
         }
@@ -4763,7 +5094,8 @@ public class MainViewModel : ViewModelBase
     /// Открывает окно выбора типа кеша и информационных баз, после подтверждения выполняет очистку.
     /// </summary>
     /// <param name="kind">Тип кеша, выбранный по умолчанию.</param>
-    private void OpenCacheClean(OneCCacheKind kind)
+    /// <param name="defaultInfobase">База, отмеченная по умолчанию (например, выделенная в главном окне).</param>
+    private void OpenCacheClean(OneCCacheKind kind, Infobase? defaultInfobase = null)
     {
         if (Infobases.Count == 0)
         {
@@ -4775,7 +5107,7 @@ public class MainViewModel : ViewModelBase
         // Список отдаётся копией и окно открывается модально: иначе пока оно
         // открыто, список баз можно очистить из главного окна, и очистка
         // остатков посчитает остатками уже весь кеш.
-        var dialog = new CacheCleanWindow(Infobases.ToList(), kind, SelectedInfobase);
+        var dialog = new CacheCleanWindow(Infobases.ToList(), kind, defaultInfobase ?? SelectedInfobase);
         if (!dialog.ShowSync(OwnerWindow()))
             return;
 
@@ -4803,6 +5135,10 @@ public class MainViewModel : ViewModelBase
 
         try
         {
+            // Объём «остатков» до очистки — для отчёта (issue #178).
+            var orphanSize = cleanOrphans ? OneCCacheCleaner.GetOrphanSize(selectedKind, Infobases) : 0L;
+            // Объём кэша баз до очистки — для отчёта (issue #178).
+            var basesSize = infobases.Count > 0 ? OneCCacheCleaner.GetSize(selectedKind, infobases) : 0L;
             var removedBases = OneCCacheCleaner.Clear(infobases, selectedKind);
             var removedOrphans = cleanOrphans ? OneCCacheCleaner.ClearOrphans(selectedKind, Infobases) : 0;
 
@@ -4814,7 +5150,7 @@ public class MainViewModel : ViewModelBase
                     : string.Format(LocalizationManager.T("Main.CacheBaseMany"), infobases.Count);
 
                 if (removedBases > 0)
-                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removedBases));
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheCleaned"), kindLabel, baseLabel, removedBases, Infobase.FormatSize(basesSize)));
                 else
                     resultParts.Add(string.Format(LocalizationManager.T("Main.CacheNotFound"), kindLabel, baseLabel));
             }
@@ -4822,7 +5158,7 @@ public class MainViewModel : ViewModelBase
             if (cleanOrphans)
             {
                 if (removedOrphans > 0)
-                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheOrphanRemoved"), removedOrphans));
+                    resultParts.Add(string.Format(LocalizationManager.T("Main.CacheOrphanRemoved"), removedOrphans, Infobase.FormatSize(orphanSize)));
                 else
                     resultParts.Add(LocalizationManager.T("Main.CacheOrphanNone"));
             }

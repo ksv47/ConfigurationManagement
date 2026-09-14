@@ -56,13 +56,21 @@ public partial class MainViewModel : ViewModelBase
     private bool _allowMultipleInstances;
     private bool _checkForUpdatesOnStartup = true;
     private bool _autoUpdateEnabled = true;
+    // Настраиваемый шаблон имени COM-коннектора 1С (issue #175). Пустая строка —
+    // стандартные ProgID V85/V83/V82/V81.COMConnector.
+    private string _comConnectorNameTemplate = "";
+    // Таймаут определения свойств конфигурации через COM (issue #174), мс. Первое
+    // COM-подключение часто превышает прежние 8000 мс; по умолчанию — 30000.
+    private int _comDetectTimeoutMs = 30000;
     private readonly ObservableCollection<string> _activeTagFilters = new();
     private ListViewMode _listViewMode = ListViewMode.All;
 
     private bool _showTags = true;
     private bool _showVersionColumn = true;
     private bool _showConfigurationColumn = true;
+    private bool _showConfigurationVersionColumn = true;
     private double _configurationColumnWidth;
+    private double _configurationVersionColumnWidth;
     private double _actionsColumnWidth;
     private bool _showRightPanelDetails = true;
     private bool _statusShowConnectionPath = true;
@@ -142,6 +150,8 @@ public partial class MainViewModel : ViewModelBase
     private string _hotkeyShowRecent = "";
     private string _hotkeyClearSearch = "Ctrl+Shift+C";
     private string _hotkeyClearTags = "Ctrl+Shift+T";
+    private string _hotkeyRightPanelDetails = "";
+    private string _hotkeySwitchUser = "";
     private string _sortField = "Name";
     private bool _sortAscending = true;
     /// <summary>Направление сортировки подгрупп по имени (true — А→Я, false — Я→А).</summary>
@@ -184,6 +194,14 @@ public partial class MainViewModel : ViewModelBase
         _launcher = launcher ?? new OneCLauncherService();
         _ibasesSync = ibasesSync ?? new IbasesSyncService();
         _logger.Info("MainViewModel инициализирован");
+
+        // При изменении реестра учётных записей (создание/переименование/удаление в окне
+        // настроек) обновляем видимость кнопки «Смена пользователя» (issue #200).
+        try
+        {
+            AppServices.GetRequiredService<IProfileService>().ProfilesChanged += OnProfilesChanged;
+        }
+        catch { /* сервис профилей может отсутствовать в изолированном контексте */ }
 
         // Отслеживание выгрузок .dt/.cf для анимированного индикатора в верхней панели.
         OneCLauncher.DesignerBatchStarted += OnDesignerBatchStarted;
@@ -239,9 +257,17 @@ public partial class MainViewModel : ViewModelBase
         _allowMultipleInstances = settings.AllowMultipleInstances;
         _checkForUpdatesOnStartup = settings.CheckForUpdatesOnStartup;
         _autoUpdateEnabled = settings.AutoUpdateEnabled;
+        _comConnectorNameTemplate = settings.ComConnectorNameTemplate ?? "";
+        // Кэш шаблона в коннекторе заполняем сразу, а не ленивым чтением файла (issue #175):
+        // иначе результат зависел бы от того, случилось ли COM-чтение до смены активного
+        // профиля, — после неё каталог настроек уже другой, а список баз в окне прежний.
+        OneCComConnector.ApplyTemplate(_comConnectorNameTemplate);
+        _comDetectTimeoutMs = Math.Max(1000, settings.ComDetectTimeoutMs);
         _showVersionColumn = settings.ShowVersionColumn;
         _showConfigurationColumn = settings.ShowConfigurationColumn;
+        _showConfigurationVersionColumn = settings.ShowConfigurationVersionColumn;
         _configurationColumnWidth = settings.ConfigurationColumnWidth;
+        _configurationVersionColumnWidth = settings.ConfigurationVersionColumnWidth;
         _actionsColumnWidth = settings.ActionsColumnWidth;
         _showRightPanelDetails = settings.ShowRightPanelDetails;
         _showSessionLaunchPanel = settings.ShowSessionLaunchPanel;
@@ -318,6 +344,8 @@ public partial class MainViewModel : ViewModelBase
         _hotkeyClearTags = string.IsNullOrWhiteSpace(settings.HotkeyClearTags)
             ? "Ctrl+Shift+T"
             : settings.HotkeyClearTags.Trim();
+        _hotkeyRightPanelDetails = settings.HotkeyRightPanelDetails?.Trim() ?? "";
+        _hotkeySwitchUser = settings.HotkeySwitchUser?.Trim() ?? "";
         _sortField = string.IsNullOrWhiteSpace(settings.SortField) ? "Name" : settings.SortField;
         _sortAscending = settings.SortAscending;
         _lastSelectedInfobaseId = settings.LastSelectedInfobaseId ?? string.Empty;
@@ -439,10 +467,12 @@ public partial class MainViewModel : ViewModelBase
         TogglePinForCommand = new RelayCommand(TogglePinFor);
         CopyConnectionStringCommand = new RelayCommand(CopyConnectionString, _ => SelectedInfobase != null);
         // Команда очистки кеша верхней панели действует на выбранную базу: если база не
-        // выделена — недоступна (CanExecute=false). В колонке «Действия» строка передаёт
-        // свою базу параметром, поэтому там кнопка включена независимо от глобального выбора.
+        // выделена (например, под курсором папка) — окно открывается без предзаполненных
+        // галок, и пользователь сам отмечает нужные базы (issue #196). В колонке
+        // «Действия» строка передаёт свою базу параметром, поэтому там кнопка включена
+        // независимо от глобального выбора.
         ClearCacheCommand = new RelayCommand(ClearCache,
-            p => p is Infobase ? true : SelectedInfobase != null);
+            p => p is Infobase ? true : Infobases.Count > 0);
         ClearProgramCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.Program));
         ClearUserCacheCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.User));
         ClearCacheBothCommand = new RelayCommand(_ => OpenCacheClean(OneCCacheKind.All));

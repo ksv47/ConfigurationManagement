@@ -16,6 +16,12 @@ namespace Configuration_Management
         public static AppBuilder BuildAvaloniaApp() =>
             AppBuilder.Configure<App>()
                 .UsePlatformDetect()
+                // Экспорт меню окна через DBus отключён: меню окна в приложении нет,
+                // а в средах без com.canonical.AppMenu.Registrar каждое окно заводит
+                // экспортёр, который при закрытии зовёт UnregisterWindowAsync без await,
+                // и отказ службы всплывает необработанной задачей в errors.log.
+                // Меню значка в области уведомлений идёт другим путём и не затрагивается.
+                .With(new X11PlatformOptions { UseDBusMenu = false })
                 .WithInterFont()
                 .LogToTrace();
     }

@@ -1,3 +1,4 @@
+using System;
 using Configuration_Management.Models;
 
 namespace Configuration_Management.Services;
@@ -55,4 +56,11 @@ public interface IProfileService
 
     /// <summary>Делает профиль активным и запоминает его как использованный последним.</summary>
     void SetCurrentProfile(string id);
+
+    /// <summary>
+    /// Событие об изменении реестра учётных записей: создание, переименование или удаление
+    /// профиля, смена пароля либо смена активной записи. Позволяет UI, зависящему от числа
+    /// профилей (например, видимости кнопки «Смена пользователя»), обновляться без перезапуска.
+    /// </summary>
+    event EventHandler? ProfilesChanged;
 }

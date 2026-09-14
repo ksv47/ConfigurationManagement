@@ -215,6 +215,13 @@ namespace Configuration_Management
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
+                // «Свернуть» — просто свернуть окно в панель задач, не уводя его в трей (issue #201).
+                if (action == Models.AfterLaunchAction.Minimize)
+                {
+                    WindowState = WindowState.Minimized;
+                    return;
+                }
+
                 // Спрятанное окно живёт только в трее, поэтому без пути возврата
                 // оно сворачивается: иначе пользователь остался бы с работающим
                 // процессом, который нечем показать.
@@ -241,10 +248,12 @@ namespace Configuration_Management
             // строкой окна (MainWindow.xaml:341-372): иначе при её показе вниз
             // уезжала и правая панель, чего в версии для Windows не происходит.
             var grid = new Grid();
-            // Строка заголовка окна, панель команд, содержимое, строка состояния.
-            // У автора строк окна три (MainWindow.xaml:173-175): панель команд лежит
-            // внутри левой колонки, а у нас она отдельной строкой ещё с прошлых кусков.
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            // Строка заголовка окна, содержимое, строка состояния. Верхняя панель
+            // поиска не выделяется отдельной полноширинной строкой: она живёт только
+            // над левой колонкой внутри основной области (см. BuildMainArea), как
+            // в WPF (MainWindow.xaml:264). Раньше она тянулась на всю ширину окна
+            // и опускала правую панель вниз лишним отступом сверху, которого нет
+            // в Windows-версии (issue #221).
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -254,15 +263,12 @@ namespace Configuration_Management
             // (issue #159). Соответственно, строка 0 остаётся пустой нулевой высоты.
             if (!_useSystemTitleBar)
                 grid.Children.Add(BuildTitleBar());
-            var topBar = BuildTopBar();
             var mainArea = BuildMainArea();
             var statusBar = BuildStatusBar();
 
-            Grid.SetRow(topBar, 1);
-            Grid.SetRow(mainArea, 2);
-            Grid.SetRow(statusBar, 3);
+            Grid.SetRow(mainArea, 1);
+            Grid.SetRow(statusBar, 2);
 
-            grid.Children.Add(topBar);
             grid.Children.Add(mainArea);
             grid.Children.Add(statusBar);
 
@@ -531,6 +537,13 @@ namespace Configuration_Management
                 ApplyCompactMode(next);
             };
             panel.Children.Add(_compactToggle);
+
+            // «Смена пользователя» (issue #200): видна только при нескольких учётных записях.
+            var switchUserBtn = TopBarIconButton("IconAccountMultiple", LocalizationManager.T("Main.SwitchUserTooltip"),
+                themeBrushKey: "TextSecondaryColorBrush");
+            switchUserBtn.Bind(Button.CommandProperty, new Binding("SwitchUserCommand"));
+            switchUserBtn.Bind(Control.IsVisibleProperty, new Binding("SwitchUserVisible"));
+            panel.Children.Add(switchUserBtn);
 
             var settingsBtn = TopBarIconButton("IconSettings", LocalizationManager.T("Main.SettingsTooltip"),
                 themeBrushKey: "TextSecondaryColorBrush");
@@ -846,9 +859,14 @@ namespace Configuration_Management
                 : HorizontalAlignment.Left;
             if (_rightPanelContent is not null)
             {
+                // Верхний отступ правой панели приведён к стандартному (12), как у левой
+                // колонки и как в Windows-версии (issue #167). Прежний большой зазор 56
+                // «отодвигал» блок запуска вниз и выглядел лишним отступом перед кнопками
+                // справа (issue #221). Правая панель и так лежит ниже строки заголовка,
+                // поэтому значение не зависит от режима системной рамки окна.
                 _rightPanelContent.Margin = details
-                    ? new Thickness(12, 56)
-                    : new Thickness(2, 56, 4, 6);
+                    ? new Thickness(12, 12)
+                    : new Thickness(2, 12, 4, 6);
                 _rightPanelContent.HorizontalAlignment = details
                     ? HorizontalAlignment.Stretch
                     : HorizontalAlignment.Left;
@@ -1120,7 +1138,7 @@ namespace Configuration_Management
             _tree.ItemTemplate = new FuncTreeDataTemplate(
                 typeof(object),
                 (item, _) => BuildTreeRow(item),
-                item => item is GroupNodeViewModel g ? g.Items : null);
+                item => item is GroupNodeViewModel g ? g.Items : Array.Empty<object>());
             _tree.SelectionChanged += OnTreeSelectionChanged;
 
             // Перетаскивание баз и групп. Нажатие ловится по туннелю: TreeView
@@ -1259,10 +1277,12 @@ namespace Configuration_Management
             listWithBar.Children.Add(_listVerticalBar);
 
             // Левая колонка: свой фон и правая граница, внутреннее поле 12,0,0,12.
-            // Верхнего отступа нет: над левой колонкой стоит полноширинная панель поиска
-            // (BuildTopBar), и лишний зазор между ней и панелью тегов выглядел «большим
-            // непонятным отступом» (issue #167). В WPF-версии панель поиска лежит внутри
-            // левой колонки, а панель тегов прижата к ней без промежутка — здесь так же.
+            // Верхнего отступа нет: панель поиска (BuildTopBar) лежит внутри левой
+            // колонки сразу над панелью тегов, и лишний зазор между ней и панелью тегов
+            // выглядел «большим непонятным отступом» (issue #167). В WPF-версии панель
+            // поиска тоже лежит внутри левой колонки (MainWindow.xaml:264), а панель
+            // тегов прижата к ней без промежутка — здесь так же. Панель поиска не тянется
+            // на правую панель, чтобы не опускать её вниз лишним отступом (issue #221).
             // В WPF (MainWindow.xaml:347-350) отступ справа 8 был нужен полосе дерева,
             // которая жила внутри области прокрутки. Здесь вертикальная полоса вынесена
             // отдельным столбцом (listWithBar), и правый отступ оставлял бы между ней и
@@ -1284,9 +1304,36 @@ namespace Configuration_Management
             leftContent.Children.Add(commandPanel);
             leftContent.Children.Add(listWithBar);
 
+            // Верхняя панель поиска живёт только над левой колонкой, как в WPF
+            // (MainWindow.xaml:264), и не тянется на правую панель. Раньше она была
+            // полноширинной строкой окна, и из-за неё правая панель начиналась ниже
+            // и у неё оставался лишний верхний отступ, которого нет в Windows-версии
+            // (issue #221). Левая колонка выглядит так же, как раньше: панель стоит
+            // ровно там, где была полноширинная строка, а правая панель теперь
+            // поднимается вверх и встаёт вровень с верхней панелью поиска.
+            //
+            // Верхний отступ 12 у левой колонки повторяет внутреннее поле сетки
+            // WPF-версии (MainWindow.xaml:248, Margin="12,12,8,12"): там и панель
+            // поиска, и правая панель (её ScrollViewer Padding="12,12") начинаются
+            // с одной высоты 12, поэтому край запуска справа стоит вровень со строкой
+            // поиска. Без этого отступа левая панель начиналась с y=0, а содержимое
+            // правой панели (Margin сверху 12) оказывалось на 12px ниже строки поиска
+            // и создавало «остаточный верхний отступ» в правой панели (issue #221).
+            var leftStack = new Grid
+            {
+                Margin = new Thickness(0, 12, 0, 0)
+            };
+            leftStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            leftStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Star });
+            var topBar = BuildTopBar();
+            Grid.SetRow(topBar, 0);
+            Grid.SetRow(leftContent, 1);
+            leftStack.Children.Add(topBar);
+            leftStack.Children.Add(leftContent);
+
             var leftPanel = new Border
             {
-                Child = leftContent,
+                Child = leftStack,
                 BorderThickness = new Thickness(0, 0, 1, 0)
             };
             ThemeBrushes.Bind(leftPanel, Border.BackgroundProperty, "CardBackgroundBrush");
@@ -1311,7 +1358,14 @@ namespace Configuration_Management
                 _vmPropertyChanged = (_, e) =>
                 {
                     if (e.PropertyName == nameof(MainViewModel.SearchText))
+                    {
+                        // Клик в поле поиска и очистка крестиком меняют фильтр и пересобирают
+                        // дерево: глубина первой видимой базы может измениться, а с ней и нужный
+                        // компенсатор заголовка. Ставим выравнивание в очередь, чтобы оно
+                        // выполнилось после материализации новых строк (issue #214).
                         UpdateEmptyState();
+                        QueueHeaderAlign();
+                    }
                     // Меню трея показывает выбранную базу и недавние: без этого
                     // оно осталось бы таким, каким было собрано при запуске.
                     if (e.PropertyName == nameof(MainViewModel.SelectedInfobase)
@@ -1356,7 +1410,13 @@ namespace Configuration_Management
                     // и меняет его на живом окне. Без пересчёта панель застывала
                     // в ширине, снятой при построении.
                     if (e.PropertyName == nameof(MainViewModel.ShowRightPanelDetails))
+                    {
+                        // Смена ширины правой панели меняет ширину области списка, а значит и
+                        // общую ширину сеток заголовка/строк, от равенства которой зависит
+                        // совпадение колонок — пересчитываем выравнивание (issue #214).
                         UpdateRightPanelWidth();
+                        QueueHeaderAlign();
+                    }
                     if (e.PropertyName == nameof(MainViewModel.ShowTagFilterPanel)
                         || e.PropertyName == nameof(MainViewModel.HasActiveTagFilter))
                     {
@@ -1619,17 +1679,24 @@ namespace Configuration_Management
             var actionsIndex = AddListColumns(row,
                 _vm?.ShowFavoritesButton ?? true, _vm?.ShowPinnedButton ?? true);
 
-            var actions = new ActionsPanel();
-            actions.Children.Add(GroupRowActionButton(group, "IconEdit", "EditGroupCommand",
-                LocalizationManager.T("Main.EditGroupTooltip"), "TextSecondaryBrush"));
-            // «Удалить» у служебных узлов скрыта: у них нет модели группы.
-            var deleteBtn = GroupRowActionButton(group, "IconDelete", "DeleteGroupCommand",
-                LocalizationManager.T("Main.DeleteGroupTooltip"), colorHex: "#DC2626");
-            deleteBtn.IsVisible = group.Marker != GroupNodeViewModel.PinnedMarker
-                                  && group.Marker != GroupNodeViewModel.NoGroupMarker;
-            actions.Children.Add(deleteBtn);
-            Grid.SetColumn(actions, actionsIndex);
-            row.Children.Add(actions);
+            // Колонка «Действия» всегда есть в сетке (нулевой ширины при выключенной
+            // настройке, AddListColumns), но панель кнопок, как и в строке базы
+            // и в заголовке, строится только когда колонка видима: иначе в нулевую
+            // колонку попадали бы невидимые кнопки с обработчиками (issue #191).
+            if (_vm?.ShowActionsColumn != false)
+            {
+                var actions = new ActionsPanel();
+                actions.Children.Add(GroupRowActionButton(group, "IconEdit", "EditGroupCommand",
+                    LocalizationManager.T("Main.EditGroupTooltip"), "TextSecondaryBrush"));
+                // «Удалить» у служебных узлов скрыта: у них нет модели группы.
+                var deleteBtn = GroupRowActionButton(group, "IconDelete", "DeleteGroupCommand",
+                    LocalizationManager.T("Main.DeleteGroupTooltip"), colorHex: "#DC2626");
+                deleteBtn.IsVisible = group.Marker != GroupNodeViewModel.PinnedMarker
+                                      && group.Marker != GroupNodeViewModel.NoGroupMarker;
+                actions.Children.Add(deleteBtn);
+                Grid.SetColumn(actions, actionsIndex);
+                row.Children.Add(actions);
+            }
 
             Grid.SetColumn(caption, 0);
             Grid.SetColumnSpan(caption, actionsIndex);
@@ -1928,12 +1995,13 @@ namespace Configuration_Management
             ActionsPanel? actions = null;
             if (_vm?.ShowActionsColumn != false)
             {
+                // Три действия, как в разметке WPF (MainWindow.xaml:1497-1517):
+                // запуск, конфигуратор, очистка кеша. Правка настроек и удаление
+                // в строке не показываются, они остаются в контекстном меню.
                 actions = new ActionsPanel { Spacing = 1 };
                 actions.Children.Add(RowActionButton(ib, "IconPlay", "LaunchEnterpriseCommand", LocalizationManager.T("Main.LaunchEnterpriseTooltip")));
                 actions.Children.Add(RowActionButton(ib, "IconWrench", "LaunchConfiguratorCommand", LocalizationManager.T("Main.LaunchConfiguratorSectionTooltip")));
-                actions.Children.Add(RowActionButton(ib, "IconEdit", "EditInfobaseCommand", LocalizationManager.T("Main.EditBaseTooltip")));
                 actions.Children.Add(RowActionButton(ib, "IconBroom", "ClearCacheCommand", LocalizationManager.T("Main.ClearCacheTooltip")));
-                actions.Children.Add(RowActionButton(ib, "IconDelete", "DeleteInfobaseCommand", LocalizationManager.T("Main.DeleteTooltip"), "#DC2626"));
                 // Кнопки живут внутри панели, обрезанной по своей колонке: в узкой
                 // колонке «Действия» лишние значки у автора пропадают, а у нас
                 // рисовались поверх колонки «Сервер/База».
@@ -1973,6 +2041,20 @@ namespace Configuration_Management
             }
 
             card.Child = grid;
+
+            // Двойной клик по строке базы запускает её в режиме по умолчанию
+            // (issue #201): «1С:Предприятие» или «Конфигуратор» согласно DefaultLaunchMode.
+            card.DoubleTapped += (_, _) =>
+            {
+                if (_vm is not { } vm)
+                    return;
+                vm.SelectedInfobase = ib;
+                if (string.Equals(ib.DefaultLaunchMode, "Configurator", StringComparison.Ordinal))
+                    vm.LaunchConfiguratorCommand.Execute(null);
+                else
+                    vm.LaunchEnterpriseCommand.Execute(null);
+            };
+
             return card;
         }
 
@@ -3996,6 +4078,15 @@ namespace Configuration_Management
         /// <summary>Минимальная ширина колонки при перетаскивании разделителя.</summary>
         private const double MinColumnWidth = 40;
 
+        /// <summary>
+        /// Минимальная ширина колонки «Действия» при перетаскивании разделителя: под общий
+        /// предел в 40 точек в неё не помещаются три кнопки-иконки (запуск, конфигуратор,
+        /// очистка кеша), и часть действий становится недоступна. В WPF тот же предел
+        /// держит обработчик перетаскивания, а не разметка: MinWidth у колонки не задан
+        /// намеренно, чтобы скрытая колонка схлопывалась в ноль.
+        /// </summary>
+        private const double ActionsColumnMinWidth = 120;
+
         /// <summary>Ширина зоны захвата разделителя колонок.</summary>
         private const double ResizeGripWidth = 8;
 
@@ -4039,6 +4130,9 @@ namespace Configuration_Management
                         break;
                     case "Configuration":
                         Add(_vm.ShowConfigurationColumn, "Configuration", "Column.Configuration", _vm.ConfigurationColumnWidth, 160);
+                        break;
+                    case "ConfigurationVersion":
+                        Add(_vm.ShowConfigurationVersionColumn, "ConfigurationVersion", "Column.ConfigurationVersion", _vm.ConfigurationVersionColumnWidth, 80);
                         break;
                     case "LaunchMode":
                         Add(_vm.ShowLaunchModeColumn, "LaunchMode", "Column.LaunchMode", _vm.LaunchModeColumnWidth, 120);
@@ -4107,7 +4201,8 @@ namespace Configuration_Management
             // (MainWindow.xaml:1249): свойство PlatformVersionDisplay автор
             // добавил в модель, а колонка брала голую версию.
             "Version" => ib.PlatformVersionDisplay ?? string.Empty,
-            "Configuration" => ib.ConfigurationDisplay ?? string.Empty,
+            "Configuration" => ib.ConfigurationName ?? string.Empty,
+            "ConfigurationVersion" => ib.ConfigurationVersion ?? string.Empty,
             // Режим запуска показывается разобранным, а серверная колонка всегда
             // берёт ServerDatabaseDisplay, в том числе у веб-баз: подстановка WebUrl
             // была расхождением с разметкой (MainWindow.xaml:1261 и 1265).
@@ -4237,6 +4332,7 @@ namespace Configuration_Management
                     ToolTip.SetTip(text, LocalizationManager.T(tooltipKey));
                 _columnHeaderRow.Children.Add(text);
                 Grid.SetColumn(text, dataColumn);
+                AttachColumnContextMenu(text, columns[i].Key);
 
                 var grip = BuildResizeGrip(columns[i].Key, dataColumn);
                 _columnHeaderRow.Children.Add(grip);
@@ -4256,12 +4352,40 @@ namespace Configuration_Management
                 ToolTip.SetTip(actionsHeader, LocalizationManager.T("Main.Actions"));
                 _columnHeaderRow.Children.Add(actionsHeader);
                 Grid.SetColumn(actionsHeader, actionsColumn);
+                AttachColumnContextMenu(actionsHeader, "Actions");
                 _columnHeaderRow.Children.Add(BuildResizeGrip("Actions", actionsColumn));
             }
 
             UpdateListMinWidth();
 
             QueueHeaderAlign();
+        }
+
+        /// <summary>
+        /// Прикрепляет к заголовку колонки контекстное меню (issue #173): пункт
+        /// «Скрыть колонку» скрывает колонку по её ключу, пункт «Открыть настройки
+        /// колонок» открывает окно настроек сразу на подвкладке «Колонки».
+        /// </summary>
+        private void AttachColumnContextMenu(Control header, string key)
+        {
+            var hide = new MenuItem { Header = LocalizationManager.T("Column.HideColumn") };
+            hide.Click += (_, _) => _vm?.SetColumnVisible(key, false);
+            var open = new MenuItem { Header = LocalizationManager.T("Settings.Columns.OpenSettings") };
+            open.Click += (_, _) => OpenSettingsOnColumnsTab();
+            var menu = new ContextMenu();
+            menu.Items.Add(hide);
+            menu.Items.Add(open);
+            header.ContextMenu = menu;
+        }
+
+        /// <summary>Открывает окно настроек сразу на подвкладке «Колонки» (issue #173).</summary>
+        private void OpenSettingsOnColumnsTab()
+        {
+            if (_vm is null)
+                return;
+            var settings = new Configuration_Management.SettingsWindow(_vm);
+            settings.SelectColumnsTab();
+            settings.ShowDialog(this);
         }
 
         /// <summary>
@@ -4415,7 +4539,7 @@ namespace Configuration_Management
 
         private async void OnTreeDragPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (_isDragging || _dragPayload is null)
+            if (_isDragging || _dragPayload is null || _vm is null)
                 return;
 
             var point = e.GetCurrentPoint(this);
@@ -4465,6 +4589,8 @@ namespace Configuration_Management
         private void OnTreeDrop(object? sender, DragEventArgs e)
         {
             e.Handled = true;
+            if (_vm is null)
+                return;
 
             // Отпускание поднимается из насоса сырых событий, а не со стека
             // DoDragDropAsync: исключение отсюда не дало бы завершиться самой
@@ -4482,6 +4608,8 @@ namespace Configuration_Management
 
         private void ApplyDrop(DragEventArgs e)
         {
+            if (_vm is null)
+                return;
             var payload = _dragPayload;
             ResolveDropTarget(e.Source as Visual, out var targetNode, out var insertBefore);
 
@@ -4524,6 +4652,8 @@ namespace Configuration_Management
         /// </summary>
         private bool IsDropAllowed(object? payload, GroupNodeViewModel targetNode)
         {
+            if (_vm is null)
+                return false;
             if (payload is Infobase)
             {
                 return targetNode.Group is not null
@@ -4628,7 +4758,8 @@ namespace Configuration_Management
             if (sender is not Border grip || !ReferenceEquals(e.Pointer.Captured, grip))
                 return;
 
-            var width = Math.Max(MinColumnWidth, _resizeStartWidth + e.GetPosition(this).X - _resizeStartX);
+            var minWidth = _resizeKey == "Actions" ? ActionsColumnMinWidth : MinColumnWidth;
+            var width = Math.Max(minWidth, _resizeStartWidth + e.GetPosition(this).X - _resizeStartX);
             ApplyColumnWidth(_resizeKey, width);
             _vm?.UpdateColumnWidth(_resizeKey, width, save: false);
         }
@@ -4775,9 +4906,13 @@ namespace Configuration_Management
 
             // Арифметика авторская (MainWindow.Columns.cs:265): компенсатор равен
             // разнице между началом первой колонки значений строки и началом той же
-            // колонки заголовка, посчитанным без самого компенсатора. Ведущие колонки
-            // у обеих сеток одинаковы, поэтому разницу даёт только сдвиг строки
-            // деревом, и после подгонки значения стоят ровно под заголовками.
+            // колонки заголовка, посчитанным без самого компенсатора. Звёздная колонка
+            // имени исключена из обеих сумм ведущих колонок (issue #191): иначе компенсатор
+            // зависит от собственного прошлого значения и ширина списка растёт до десятков
+            // тысяч точек, из-за чего колонки, кроме «Названия», уезжают за правый край.
+            // Ведущие колонки у заголовка и строки одинаковы, а общая ширина общая, поэтому
+            // после совмещения имя занимает одинаковое место в обеих сетках, и разницу даёт
+            // только сдвиг строки деревом, после чего значения стоят ровно под заголовками.
             Grid? rowGrid = null;
             double rowOrigin = 0;
             foreach (var card in _tree.GetVisualDescendants().OfType<InfobaseRowCard>())
@@ -4798,11 +4933,11 @@ namespace Configuration_Management
             if (rowGrid is not null && rowGrid.ColumnDefinitions.Count > NameRowColumn)
             {
                 double rowLead = 0;
-                for (var i = 0; i <= NameRowColumn; i++)
+                for (var i = 0; i < NameRowColumn; i++)
                     rowLead += rowGrid.ColumnDefinitions[i].ActualWidth;
 
                 double headerLead = 0;
-                for (var i = 0; i <= NameHeaderColumn; i++)
+                for (var i = 0; i < NameHeaderColumn; i++)
                 {
                     if (!ReferenceEquals(_columnHeaderRow.ColumnDefinitions[i], _headerOffsetColumn))
                         headerLead += _columnHeaderRow.ColumnDefinitions[i].ActualWidth;
@@ -5142,6 +5277,20 @@ namespace Configuration_Management
             // (импорт/восстановление конфига), и внутри отложенного колбэка их вложенный
             // цикл сообщений приводил к зависанию приложения.
             _vm?.Initialize();
+            // Декор главного окна строился в конструкторе по значению по умолчанию:
+            // на этом этапе _settings во вьюмодели ещё не загружены (Initialize читает
+            // их только сейчас), поэтому UseSystemTitleBar всегда возвращал false, и
+            // сохранённая «Системная рамка окна» после перезапуска не применялась
+            // (issue #222; у дополнительных окон настройки к моменту их создания уже
+            // были загружены, поэтому там всё работало). После загрузки настроек
+            // применяем сохранённое значение повторно: если оно отличается от того,
+            // что выбрано при построении, обновляем декор и пересобираем содержимое
+            // под нужный режим до привязки прокрутки/горячих клавиш. Прозрачность и
+            // непрозрачность окна согласуются внутри ApplySystemDecorations через
+            // _opaqueWindow, повторное применение их не ломает.
+            var savedSystemTitleBar = _vm?.UseSystemTitleBar ?? false;
+            if (savedSystemTitleBar != _useSystemTitleBar)
+                ApplySystemTitleBar(savedSystemTitleBar);
             // Настройки читаются здесь, уже после построения содержимого, поэтому
             // переключатели верхней панели строились по значениям по умолчанию
             // и не показывали сохранённое состояние до первого щелчка.
@@ -5207,6 +5356,11 @@ namespace Configuration_Management
         {
             UiMetrics.Compact = compact;
             Content = BuildRoot();
+            // После пересборки корня дерево, строки и заголовок — новые объекты, и их события
+            // (BoundsProperty/ContainerPrepared) могут не сработать при прежней ширине окна.
+            // Ставим выравнивание в очередь явно, чтобы компенсатор заголовка был пересчитан
+            // от фактической ширины уже раскладённых строк (issue #214).
+            QueueHeaderAlign();
         }
 
         /// <summary>
@@ -5216,6 +5370,8 @@ namespace Configuration_Management
         /// если окно работает в непрозрачном режиме (<see cref="_opaqueWindow"/>), чтобы не
         /// провоцировать непрерывную перерисовку фона на X11 с программным рендером.
         /// </summary>
+        private IDisposable? _backgroundBinding;
+
         private void ApplySystemDecorations()
         {
             SystemDecorations = _useSystemTitleBar ? SystemDecorations.Full : SystemDecorations.None;
@@ -5234,10 +5390,17 @@ namespace Configuration_Management
             if (opaque)
             {
                 // Убираем запрос уровня прозрачности — по умолчанию окно рисуется
-                // непрозрачным прямоугольным фоном. Сплошной фон задаём явно, чтобы
-                // нативное окно гарантированно было непрозрачным.
-                TransparencyLevelHint = null;
-                Background = new SolidColorBrush(Color.Parse("#FF161616"));
+                // непрозрачным прямоугольным фоном. Пустой список эквивалентен null
+                // по поведению Avalonia, но не провоцирует CS8625. Сплошной фон задаём
+                // явно, чтобы нативное окно гарантированно было непрозрачным.
+                TransparencyLevelHint = Array.Empty<WindowTransparencyLevel>();
+
+                // Фон берётся из темы, а не фиксированным тёмным цветом: он виден
+                // в углах за скруглением подложки и давал там тёмные клинья в светлой
+                // теме. Кисть та же, что у подложки.
+                _backgroundBinding?.Dispose();
+                _backgroundBinding = ThemeBrushes.Bind(this, TemplatedControl.BackgroundProperty,
+                    "ContentBackgroundColorBrush");
             }
             else
             {
@@ -5246,6 +5409,11 @@ namespace Configuration_Management
                 TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
                 // Без прозрачного фона самого окна прозрачность не активируется:
                 // содержимое рисуется поверх, а «стекло» даёт полупрозрачный фон корня.
+                // Привязку фона к теме снимаем: иначе следующая смена темы или схемы
+                // перезапишет прозрачный фон непрозрачной кистью, потому что простое
+                // присваивание живущую привязку не отменяет.
+                _backgroundBinding?.Dispose();
+                _backgroundBinding = null;
                 Background = Brushes.Transparent;
             }
         }
@@ -5603,6 +5771,11 @@ namespace Configuration_Management
             // сочетания имели приоритет.
             AddHotkey(_vm.HotkeyClearSearch, _vm.ClearSearchCommand);
             AddHotkey(_vm.HotkeyClearTags, _vm.ClearTagFiltersCommand);
+            // Переключение подробностей правой панели информации — настраиваемый хоткей (issue #172);
+            // значение по умолчанию Ctrl+D задаётся в настройках.
+            AddHotkey(_vm.HotkeyRightPanelDetails, _vm.ToggleRightPanelDetailsCommand);
+            // Смена пользователя — настраиваемый хоткей (issue #200).
+            AddHotkey(_vm.HotkeySwitchUser, _vm.SwitchUserCommand);
             // Ctrl+Shift+Plus / Ctrl+Shift+Minus — развернуть/свернуть все узлы дерева.
             // Регистрируются обе раскладки (основная клавиатура Oem* и цифровой блок Add/Subtract).
             KeyBindings.Add(new KeyBinding
@@ -5662,11 +5835,32 @@ namespace Configuration_Management
                 }
             }
 
+            // Esc при открытом диалоге закрывает сам диалог. Пока пользователь не
+            // кликнул внутри диалога, событие приходит именно сюда: сфокусированной
+            // остаётся кнопка главного окна, которой диалог и открыли, а клавиатурное
+            // событие Avalonia ведёт вверх по дереву от сфокусированного элемента и
+            // маршрута диалога не задевает вовсе (issue #226). После клика внутри
+            // маршрут идёт через диалог, и Esc обрабатывает его собственный OnKeyDown.
+            // Фокус в диалог не переносим: первым элементом обхода в безрамочном окне
+            // оказывается кнопка «Свернуть» собственной полосы заголовка, и рамка
+            // фокуса вставала бы на неё.
+            if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None
+                && TopmostModalDialog() is { } dialog)
+            {
+                dialog.CloseAsCancel();
+                e.Handled = true;
+                return;
+            }
+
             // Esc уводит окно в трей, если так задано настройкой. В поле ввода
             // клавиша остаётся своей: там ей отменяют правку.
             if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None
                 && _vm.EscapeToTray && _vm.ShowTrayIcon && CanRestoreHiddenWindow
-                && FocusManager?.GetFocusedElement() is not TextBox)
+                && FocusManager?.GetFocusedElement() is not TextBox
+                // При открытом модальном диалоге (свойства базы, настройки) Esc
+                // должен закрывать только сам диалог, а не уводить главное окно
+                // в трей (issue #226).
+                && !HasOpenModalDialog())
             {
                 SaveWindowLayout();
                 _vm.PersistSettings();
@@ -5690,6 +5884,60 @@ namespace Configuration_Management
             if (_vm.DeleteInfobaseCommand.CanExecute(null))
                 _vm.DeleteInfobaseCommand.Execute(null);
             e.Handled = true;
+        }
+
+        /// <summary>
+        /// Верхнее по Z-порядку открытое окно, если это диалог, унаследованный от
+        /// <see cref="ModalWindowBase"/>, иначе <c>null</c>. Порядок берём у платформы
+        /// (<see cref="Window.SortWindowsByZOrder"/>), а не порядок открытия: у окон
+        /// без отношения владения он последнему открытому не равен. Если сверху лежит
+        /// окно другого рода (сообщение, ход обновления), метод возвращает <c>null</c>:
+        /// закрывать вместо него диалог под ним нельзя.
+        /// </summary>
+        private ModalWindowBase? TopmostModalDialog()
+        {
+            if (Avalonia.Application.Current?.ApplicationLifetime
+                    is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                return null;
+
+            var visible = new List<Window>();
+            foreach (var window in desktop.Windows)
+            {
+                if (!ReferenceEquals(window, this) && window.IsVisible)
+                    visible.Add(window);
+            }
+
+            if (visible.Count == 0)
+                return null;
+
+            var ordered = visible.ToArray();
+            Window.SortWindowsByZOrder(ordered);
+            return ordered[ordered.Length - 1] as ModalWindowBase;
+        }
+
+        /// <summary>
+        /// Есть ли открытый модальный дочерний диалог (свойства базы, настройки и т.п.).
+        /// Все дополнительные окна в приложении показываются модально (ShowDialog/
+        /// ShowDialogSync). Проверяем флаг IsVisible, а не IsActive: на Linux/X11 окно
+        /// после открытия не всегда сразу получает активацию (issue #226), и по одному
+        /// лишь IsActive мы бы не распознали открытый диалог — тогда Esc уводил бы главное
+        /// окно в трей, не закрыв диалог. Если видимо любое окно, кроме главного, Esc
+        /// должен обработать сам диалог (см. ModalWindowBase.OnKeyDown), а не главное окно.
+        /// Закрытые окна в списке имеют IsVisible == false и на результат не влияют.
+        /// </summary>
+        private bool HasOpenModalDialog()
+        {
+            if (Avalonia.Application.Current?.ApplicationLifetime
+                    is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                return false;
+
+            foreach (var window in desktop.Windows)
+            {
+                if (!ReferenceEquals(window, this) && window.IsVisible)
+                    return true;
+            }
+
+            return false;
         }
 
         private void AddHotkey(string? gesture, System.Windows.Input.ICommand? command)
@@ -5899,6 +6147,10 @@ namespace Configuration_Management
                     ToolTipText = LocalizationManager.T("App.Title"),
                     Menu = menu
                 };
+                // Одиночный клик левой кнопкой по иконке трея показывает и
+                // фокусирует главное окно, как в WPF-версии (issue #224).
+                // Правый клик открывает меню (Menu выше), левый — нет.
+                tray.Clicked += (_, _) => ShowAndActivate();
                 _trayIcon = tray;
                 if (Application.Current is { } app)
                 {

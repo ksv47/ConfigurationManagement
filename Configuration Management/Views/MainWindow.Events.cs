@@ -146,11 +146,14 @@ namespace Configuration_Management
             else if (WindowState == WindowState.Normal)
             {
                 // Сохраняем только в обычном состоянии, чтобы не сохранить развёрнутое окно как размер по умолчанию.
-                _viewModel.SaveWindowLayout(Width, Height, Left, Top, WindowState.ToString());
+                // Берём фактический размер (ActualWidth/ActualHeight): Width/Height равны NaN,
+                // пока размер окна не задан явно (например, на первом запуске нового профиля),
+                // а NaN/бесконечность не сериализуются в JSON и роняли сохранение настроек.
+                SaveValidatedWindowLayout(ActualWidth, ActualHeight, Left, Top, WindowState.ToString());
             }
             else if (WindowState == WindowState.Maximized)
             {
-                _viewModel.SaveWindowLayout(RestoreBounds.Width, RestoreBounds.Height, RestoreBounds.Left, RestoreBounds.Top, WindowState.ToString());
+                SaveValidatedWindowLayout(RestoreBounds.Width, RestoreBounds.Height, RestoreBounds.Left, RestoreBounds.Top, WindowState.ToString());
             }
 
             if (!_forceClose && _viewModel.CloseToTray)
@@ -174,6 +177,25 @@ namespace Configuration_Management
             _viewModel.UnsubscribeLanguageChanged();
 
             base.OnClosing(e);
+        }
+
+        /// <summary>
+        /// Сохраняет геометрию окна, отбрасывая невалидные значения.
+        /// Width/Height (и RestoreBounds на первом запуске профиля) могут быть NaN,
+        /// нулём или бесконечностью — такие числа не сериализуются в JSON и роняли бы
+        /// сохранение настроек. В этом случае раскладку не перезаписываем, оставляя
+        /// прежние значения (прочие настройки сохраняются отдельно через SaveSettings).
+        /// </summary>
+        private void SaveValidatedWindowLayout(double width, double height, double left, double top, string state)
+        {
+            if (double.IsNaN(width) || double.IsInfinity(width) || width <= 0 ||
+                double.IsNaN(height) || double.IsInfinity(height) || height <= 0 ||
+                double.IsNaN(left) || double.IsInfinity(left) ||
+                double.IsNaN(top) || double.IsInfinity(top))
+            {
+                return;
+            }
+            _viewModel.SaveWindowLayout(width, height, left, top, state);
         }
 
         /// <summary>
@@ -211,7 +233,16 @@ namespace Configuration_Management
         {
             if (e.PropertyName == nameof(MainViewModel.CompactMode))
             {
-                Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+                QueueHeaderAlign();
+            }
+            else if (e.PropertyName == nameof(MainViewModel.SearchText))
+            {
+                // Изменение текста поиска/очистка через крестик приводит к пересборке дерева
+                // (плоский список <-> группы), при которой меняется глубина первой видимой
+                // базы. Чтобы компенсатор заголовка не оставался в значении от предыдущего
+                // состояния, ставим выравнивание в очередь; окончательную коррекцию выполняет
+                // пересчёт по мере материализации новых строк (issue #214).
+                QueueHeaderAlign();
             }
             else if (e.PropertyName == nameof(MainViewModel.ColumnOrderKeys))
             {
@@ -233,12 +264,17 @@ namespace Configuration_Management
             if (MainTree is not null)
             {
                 MainTree.Loaded += (_, __) => AttachTreeScrollHandler();
+                // Изменение области списка (например, появление/исчезновение полосы прокрутки
+                // или смещение после клика в поле поиска) сдвигает колонки строк относительно
+                // заголовка — пересчитываем выравнивание (issue #214).
+                MainTree.SizeChanged += (_, _) => QueueHeaderAlign();
             }
 
             AlignHeaderToData();
-            // Повторное выравнивание после завершения первичной компоновки,
-            // когда уже известны реальные размеры контейнеров дерева.
-            Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+            // Повторное выравнивание после завершения первичной компоновки: стабилизирующий
+            // цикл на ApplicationIdle добирает строки, которые виртуализация создаёт уже после
+            // этого события (см. QueueHeaderAlign).
+            QueueHeaderAlign();
 
             // Применяем сохранённый пользователем порядок колонок списка баз.
             Dispatcher.BeginInvoke(new Action(ApplyColumnOrder), System.Windows.Threading.DispatcherPriority.Loaded);
@@ -250,8 +286,14 @@ namespace Configuration_Management
             if (_viewModel.CompactMode)
             {
                 ThemeManager.ApplyCompact(true);
-                Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+                QueueHeaderAlign();
             }
+
+            // Финальная стабилизация после полной материализации строк дерева: ApplicationIdle
+            // (и повторные проходы стабилизирующего цикла) гарантируют, что строки уже
+            // реализованы и замер выравнивания корректен (тот же приём, что в
+            // RevealAndSelectAfterRebuild), а не зафиксирован в промежуточном значении (issue #214).
+            QueueHeaderAlign();
 
             // Запускаем автоматическую синхронизацию с файлом ibases.v8i.
             _viewModel.StartAutoSync();
@@ -263,7 +305,7 @@ namespace Configuration_Management
         /// </summary>
         private void OnGroupByToggle_Click(object sender, RoutedEventArgs e)
         {
-            Dispatcher.BeginInvoke(new Action(AlignHeaderToData), System.Windows.Threading.DispatcherPriority.Loaded);
+            QueueHeaderAlign();
         }
 
         /// <summary>
@@ -344,9 +386,20 @@ namespace Configuration_Management
                 return;
             }
 
-            if (_viewModel.LaunchEnterpriseCommand.CanExecute(null))
+            // Двойной клик по базе запускает её в режиме по умолчанию (issue #201):
+            // «1С:Предприятие» или «Конфигуратор» согласно DefaultLaunchMode базы.
+            var defaultKind = string.Equals(
+                _viewModel.SelectedInfobase?.DefaultLaunchMode,
+                "Configurator",
+                StringComparison.Ordinal)
+                ? Configuration_Management.Models.LaunchKind.Configurator
+                : Configuration_Management.Models.LaunchKind.Enterprise;
+            var launchCommand = defaultKind == Configuration_Management.Models.LaunchKind.Configurator
+                ? _viewModel.LaunchConfiguratorCommand
+                : _viewModel.LaunchEnterpriseCommand;
+            if (launchCommand.CanExecute(null))
             {
-                _viewModel.LaunchEnterpriseCommand.Execute(null);
+                launchCommand.Execute(null);
             }
         }
 
@@ -471,6 +524,20 @@ namespace Configuration_Management
                     break;
                 default:
                     _draggedData = null;
+                    // Служебные узлы («Закреплённые», «Без группы») не имеют модели Group,
+                    // поэтому в ветку выше (Group != null) не попадают. Если двойной клик
+                    // по ним оставить штатному TreeViewItem, он запишет локальное значение
+                    // IsExpanded в контейнер, и узел после этого не будет сворачиваться
+                    // (тот же дефект, что и для обычных групп в issue #180). Переключаем
+                    // развёрнутость на МОДЕЛИ и помечаем клик обработанным. Переключаем через
+                    // ToggleGroupExpandedCommand, чтобы состояние сохранялось через
+                    // SetGroupCollapsed по внутреннему маркеру узла (NodeKey), а не только
+                    // в контейнере TreeViewItem (issue #180).
+                    if (treeViewItem.DataContext is GroupNodeViewModel serviceNode && e.ClickCount >= 2)
+                    {
+                        _viewModel.ToggleGroupExpandedCommand.Execute(serviceNode);
+                        e.Handled = true;
+                    }
                     return;
             }
 

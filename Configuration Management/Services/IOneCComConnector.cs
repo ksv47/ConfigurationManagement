@@ -16,6 +16,19 @@ public interface IOneCComConnector
     string? LastError { get; }
 
     /// <summary>
+    /// ProgID COM-коннектора, фактически использованный при последнем чтении сведений
+    /// о конфигурации (первый предпочтительный кандидат с учётом шаблона имени, issue #175).
+    /// Пустая строка, если COM не использовался. Нужен для диагностики в UI (issue #174).
+    /// </summary>
+    string? LastUsedProgId { get; }
+
+    /// <summary>
+    /// Версия платформы базы, по которой разворачивался шаблон имени COM-коннектора
+    /// при последнем чтении сведений (issue #174). Пустая строка, если версия не задана.
+    /// </summary>
+    string? LastUsedPlatformVersion { get; }
+
+    /// <summary>
     /// Устанавливает COM-подключение к информационной базе.
     /// Выполняется в фоновом STA-потоке с ограничением по времени.
     /// Возвращает null, если подключение не удалось или превышен таймаут.
@@ -43,6 +56,9 @@ public interface IOneCComConnector
     /// <summary>
     /// Считывает наименование и версию конфигурации базы через COM-коннектор.
     /// Возвращает null, если чтение не удалось или превышен таймаут.
+    /// <paramref name="onStage"/> — обратный вызов смены этапа (например, для диалога
+    /// прогресса кнопки «Определить», issue #174). Вызывается из рабочего потока, поэтому
+    /// подписчик должен сам перейти в UI-поток.
     /// </summary>
-    OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000);
+    OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000, Action<string>? onStage = null);
 }

@@ -193,13 +193,16 @@
             </Grid.ColumnDefinitions>
 
             <!-- Остатки кеша от удалённых баз -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
                 <CheckBox x:Name="OrphanCacheCheck" Content="{loc:Loc CacheClean.OrphanCache}"
                           Style="{StaticResource ModernMaterialCheckBox}"
                           Checked="OnCacheKindChanged" Unchecked="OnCacheKindChanged"
                           ToolTip="{loc:Loc CacheClean.OrphanCacheTooltip}"/>
-                <TextBlock x:Name="OrphanCacheSizeText" VerticalAlignment="Center" FontSize="12"
-                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="4,0,0,0" Text="…"/>
+                <!-- Размер подписью под флажком, а не рядом: при ширине окна по умолчанию
+                     соседняя строка с размером обрезалась кнопкой очистки (issue #178). -->
+                <TextBlock x:Name="OrphanCacheSizeText" FontSize="12" Margin="24,2,0,0"
+                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Text="…"/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">

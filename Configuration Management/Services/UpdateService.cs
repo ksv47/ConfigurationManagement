@@ -33,9 +33,10 @@ public sealed class UpdateService
     private readonly HttpClient _http;
 
     /// <summary>
-    /// Флаг «автоматически обновлять приложение без подтверждения». Хранит настройку
-    /// пользователя, но больше НЕ вызывает молчаливую установку: как фоновая, так и
-    /// ручная проверка при обнаружении новой версии всегда показывают единый диалог
+    /// Флаг «автоматически обновлять приложение без подтверждения». Если включён —
+    /// при обнаружении новой версии файл скачивается и обновление применяется
+    /// молча (без диалога) через <see cref="DownloadAndInstallAutoAsync"/>. Если
+    /// выключен — показывается единый диалог <see cref="UpdateAvailableWindow"/>
     /// с вопросом «Перезапустить сейчас / Обновить после закрытия». Значение
     /// устанавливается из настроек при старте приложения в <c>App.OnStartup</c>.
     /// </summary>
@@ -68,12 +69,12 @@ public sealed class UpdateService
     }
 
     /// <summary>
-    /// Проверяет наличие новой версии приложения. Если версия новее — всегда
-    /// показывает единый диалог обновления (предложение → прогресс скачивания →
-    /// вопрос «Перезапустить сейчас / Обновить после закрытия»), независимо от
-    /// <see cref="AutoUpdateEnabled"/>. Вызывается из фона; переход в UI-поток
-    /// выполняется внутри через Dispatcher, поэтому сам метод не блокирует интерфейс.
-    /// Ошибки сети/парсинга и отображения диалога не всплывают наружу.
+    /// Проверяет наличие новой версии приложения. Если версия новее — при включённом
+    /// <see cref="AutoUpdateEnabled"/> применяет обновление молча (без диалога) через
+    /// <see cref="DownloadAndInstallAutoAsync"/>, иначе показывает единый диалог
+    /// обновления. Вызывается из фона; переход в UI-поток выполняется внутри через
+    /// Dispatcher, поэтому сам метод не блокирует интерфейс. Ошибки сети/парсинга и
+    /// отображения диалога не всплывают наружу.
     /// </summary>
     public async Task CheckForUpdatesAsync()
     {
@@ -87,14 +88,20 @@ public sealed class UpdateService
             if (!GitHubReleaseService.IsNewerThan(release, VersionInfo.Display()))
                 return;
 
+            if (AutoUpdateEnabled)
+            {
+                // Автообновление включено — применяем новую версию без вопросов.
+                await DownloadAndInstallAutoAsync(release).ConfigureAwait(false);
+                return;
+            }
+
             var app = Application.Current;
             if (app is null)
                 return;
 
-            // Всегда показываем единый диалог обновления, независимо от режима
-            // автообновления. Окно само скачивает файл с прогрессом и по завершении
-            // задаёт пользователю вопрос «Перезапустить сейчас / Обновить после
-            // закрытия». Молчаливое применение в фоне исключено.
+            // Автообновление выключено — показываем единый диалог, который сам
+            // скачивает файл и задаёт пользователю вопрос «Перезапустить сейчас /
+            // Обновить после закрытия».
             await app.Dispatcher.InvokeAsync(() => ShowUpdateDialog(release));
         }
         catch
@@ -126,6 +133,13 @@ public sealed class UpdateService
                 ShowOnUi(() => _dialogs.ShowInfo(
                     LocalizationManager.T("Update.UpToDate"),
                     LocalizationManager.T("Update.NewVersionAvailable")));
+                return;
+            }
+
+            if (AutoUpdateEnabled)
+            {
+                // Автообновление включено — применяем новую версию без вопросов.
+                await DownloadAndInstallAutoAsync(release).ConfigureAwait(false);
                 return;
             }
 
@@ -407,14 +421,14 @@ public sealed class UpdateService
     internal bool ApplyRestartNow(string targetExe, string newExe)
     {
         var script = CreateUpdaterScript(targetExe, newExe, Environment.ProcessId, restart: true);
-        return LaunchUpdater(script);
+        return LaunchUpdater(script, NeedsElevation(targetExe));
     }
 
     /// <summary>Применяет обновление режимом «Обновить после закрытия». Возвращает true при успехе.</summary>
     internal bool ApplyAfterClose(string targetExe, string newExe)
     {
         var script = CreateUpdaterScript(targetExe, newExe, Environment.ProcessId, restart: false);
-        return LaunchUpdater(script);
+        return LaunchUpdater(script, NeedsElevation(targetExe));
     }
 
     /// <summary>Показывает локализованную ошибку в UI-потоке.</summary>
@@ -555,17 +569,42 @@ Log 'Updater finished.'
     /// <summary>
     /// Запускает временный PowerShell-помощник скрытно, без ожидания его завершения.
     /// Используется 64-битная версия PowerShell (см. <see cref="ResolvePowerShellPath"/>) с
-    /// политикой выполнения Bypass. Возвращает true, если процесс удалось запустить, иначе
-    /// false (ошибку покажет вызывающий код в UI). Все действия помощника пишутся в лог-файл
+    /// политикой выполнения Bypass. Если целевой каталог установки не доступен на запись
+    /// текущему пользователю (<paramref name="elevate"/> и процесс запущен не от
+    /// администратора) — помощник запускается через UAC (<c>runas</c>) с правами
+    /// администратора, что позволяет заменить exe в защищённой папке (например
+    /// <c>C:\Program Files\...</c>). Возвращает true, если процесс удалось запустить
+    /// (или запрос UAC подтверждён), иначе false (ошибку покажет вызывающий код в UI;
+    /// отказ пользователя от UAC также даёт false). Все действия помощника пишутся в лог-файл
     /// рядом со скриптом, поэтому сбой на любом шаге (скрипт не стартовал / exe заблокирован /
     /// Move-Item упал / перезапуск не выполнен) доступен для диагностики.
     /// </summary>
-    private static bool LaunchUpdater(string scriptPath)
+    private static bool LaunchUpdater(string scriptPath, bool elevate)
     {
         try
         {
             if (!File.Exists(scriptPath))
                 return false;
+
+            // Когда каталог установки требует прав администратора, а текущий процесс не
+            // повышен — запускаем помощник через ShellExecute с глаголом runas (UAC).
+            // Отказ пользователя от запроса повышения выбрасывает Win32Exception → false.
+            if (elevate && !IsCurrentProcessElevated())
+            {
+                var psiRunAs = new ProcessStartInfo
+                {
+                    FileName = ResolvePowerShellPath(),
+                    UseShellExecute = true,
+                    Verb = "runas",
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    CreateNoWindow = true,
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -NonInteractive -WindowStyle Hidden -File \"{scriptPath}\""
+                };
+                Process.Start(psiRunAs);
+                // При ShellExecute/RunAs Process.Start может вернуть null даже при успехе
+                // (граница повышения прав), поэтому считаем успехом отсутствие исключения.
+                return true;
+            }
 
             var psi = new ProcessStartInfo
             {
@@ -587,6 +626,57 @@ Log 'Updater finished.'
 
             var process = Process.Start(psi);
             return process is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Определяет, требуется ли повышение прав для замены исполняемого файла: целевой
+    /// каталог установки не доступен текущему пользователю на запись. Иначе (обычная
+    /// установка в папку пользователя) возвращает false и UAC не запрашивается.
+    /// </summary>
+    private static bool NeedsElevation(string targetExe)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(targetExe);
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+                return false;
+            return !IsDirectoryWritable(dir);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Проверяет, можно ли создать и удалить временный файл в указанном каталоге.</summary>
+    private static bool IsDirectoryWritable(string directory)
+    {
+        try
+        {
+            var probe = Path.Combine(directory, $".cm_write_probe_{Guid.NewGuid():N}.tmp");
+            File.WriteAllText(probe, "ok");
+            File.Delete(probe);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Проверяет, запущен ли текущий процесс с правами администратора.</summary>
+    private static bool IsCurrentProcessElevated()
+    {
+        try
+        {
+            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            var principal = new System.Security.Principal.WindowsPrincipal(identity);
+            return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
         }
         catch
         {

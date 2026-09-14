@@ -18,6 +18,9 @@ internal sealed class MaterialMessageWindowAvalonia : Window
 {
     public bool Confirmed { get; private set; } = true;
 
+    /// <summary>Ответ дан кнопкой окна, а не закрытием через оконный менеджер.</summary>
+    private bool _answered;
+
     public MaterialMessageWindowAvalonia(string message, string title, MaterialMessageKind kind)
     {
         Title = title;
@@ -78,7 +81,7 @@ internal sealed class MaterialMessageWindowAvalonia : Window
             Background = new SolidColorBrush(Color.Parse("#16A34A")),
             Foreground = Brushes.White
         };
-        okButton.Click += (_, _) => { Confirmed = true; Close(); };
+        okButton.Click += (_, _) => { _answered = true; Confirmed = true; Close(); };
 
         // Порядок кнопок согласован с WPF-версией: «Да» (подтверждение) слева,
         // «Нет» (отмена) справа.
@@ -100,7 +103,15 @@ internal sealed class MaterialMessageWindowAvalonia : Window
             };
             ThemeBrushes.Bind(cancelButton, TemplatedControl.BackgroundProperty, "SecondaryButtonBackgroundColorBrush");
             ThemeBrushes.Bind(cancelButton, TemplatedControl.ForegroundProperty, "ButtonTextColorBrush");
-            cancelButton.Click += (_, _) => { Confirmed = false; Close(); };
+            cancelButton.Click += (_, _) => { _answered = true; Confirmed = false; Close(); };
+
+            // Закрытие вопроса крестиком оконного менеджера равнозначно ответу «Нет».
+            // Иначе окно возвращает согласие, которого пользователь не давал.
+            Closing += (_, _) =>
+            {
+                if (!_answered)
+                    Confirmed = false;
+            };
             buttonsPanel.Children.Add(cancelButton);
         }
 

@@ -181,17 +181,30 @@ internal static class ComReadHost
         }
     }
 
-    /// <summary>Текущее поколение сброса — снимок на время запроса.</summary>
-    private static int CurrentEpoch()
+    /// <summary>
+    /// Текущее поколение сброса — снимок на время запроса. Вызывающий может снять его
+    /// раньше и передать в <see cref="Read"/>: запрос, начавшийся до сброса, не должен
+    /// получать право защёлкивать недоступность по новому поколению (issue #175).
+    /// </summary>
+    internal static int CurrentEpoch()
     {
         lock (StateLock) return _resetEpoch;
     }
 
-    /// <summary>Успешное чтение обнуляет счётчик отказов.</summary>
-    private static void NoteSuccess()
+    /// <summary>
+    /// Успешное чтение обнуляет счётчики отказов — но только если с начала запроса
+    /// не было сброса. Запрос прежнего поколения (например начатый до смены имени
+    /// COM-коннектора) говорит об уже неактуальном наборе имён, и его успех не должен
+    /// ослаблять защиту от повторных крахов для нового (issue #175). Проверка
+    /// симметрична <see cref="RegisterFailure"/> и <see cref="LatchIfSameEpoch"/>.
+    /// </summary>
+    private static void NoteSuccess(int epoch)
     {
         lock (StateLock)
         {
+            if (_resetEpoch != epoch)
+                return;
+
             _hardFailures = 0;
             _transportFailures = 0;
         }
@@ -218,15 +231,33 @@ internal static class ComReadHost
     /// </summary>
     /// <param name="connectString">Строка подключения (может содержать пароль).</param>
     /// <param name="timeoutMs">Предельное время COM-вызова.</param>
-    public static ComReadResult Read(string connectString, int timeoutMs)
+    /// <param name="progIds">
+    /// Список ProgID для перебора (issue #175). Null — стандартный
+    /// <see cref="OneCComConnector.KnownProgIds"/>. Кастомный список передаётся агенту.
+    /// </param>
+    /// <param name="startEpoch">
+    /// Поколение сброса на момент начала операции у вызывающего (issue #175). Нужно,
+    /// когда между подготовкой запроса и этим вызовом пользователь мог сменить имя
+    /// COM-коннектора: сброс поколения снимает у уже начатого запроса право защёлкнуть
+    /// недоступность, иначе отказ по прежнему списку имён погасил бы COM для нового.
+    /// Null — снять поколение здесь.
+    /// </param>
+    public static ComReadResult Read(string connectString, int timeoutMs,
+        IReadOnlyList<string>? progIds = null, int? startEpoch = null)
     {
         if (string.IsNullOrWhiteSpace(connectString))
             return ComReadResult.Fail(ComFailureKind.Transport);
 
+        // Стандартный список не отправляем агенту явно: протокол по умолчанию остаётся
+        // прежним (три поля), и агент сам возьмёт KnownProgIds. Явно уезжает только
+        // кастомный перечень из шаблона имени COM-коннектора.
+        var effectiveProgIds = progIds ?? OneCComConnector.KnownProgIds;
+        var customProgIds = !ReferenceEquals(progIds, OneCComConnector.KnownProgIds);
+
         if (ComUnavailable)
             return ComReadResult.Fail(ComFailureKind.Disabled);
 
-        var epoch = CurrentEpoch();
+        var epoch = startEpoch ?? CurrentEpoch();
 
         lock (Sync)
         {
@@ -265,10 +296,13 @@ internal static class ComReadHost
 
             try
             {
-                input.WriteLine(string.Join("\t",
+                var request = string.Join("\t",
                     seq.ToString(CultureInfo.InvariantCulture),
                     timeoutMs.ToString(CultureInfo.InvariantCulture),
-                    Encode(connectString)));
+                    Encode(connectString));
+                if (customProgIds)
+                    request += "\t" + Encode(string.Join("\t", effectiveProgIds));
+                input.WriteLine(request);
 
                 // Диагноз, присланный агентом до гибели. Перебор ProgID идёт внутри агента,
                 // и коннектор, опрошенный раньше, успевает назвать настоящую причину — а
@@ -305,7 +339,7 @@ internal static class ComReadHost
                     if (line is null)
                         break;
 
-                    var frame = ParseResponse(line, seq, out var badFrame, out var isPartial);
+                    var frame = ParseResponse(line, seq, effectiveProgIds, out var badFrame, out var isPartial);
                     if (badFrame || !isPartial)
                     {
                         // Кадр окончательный (или испорченный) — разбираем его обычным путём ниже.
@@ -328,7 +362,7 @@ internal static class ComReadHost
                     return partial ?? gone;
                 }
 
-                var result = ParseResponse(line, seq, out var desynchronized, out _);
+                var result = ParseResponse(line, seq, effectiveProgIds, out var desynchronized, out _);
                 if (desynchronized)
                 {
                     // Придержанный диагноз здесь дороже сообщения о сбое обмена: агент мог
@@ -379,7 +413,7 @@ internal static class ComReadHost
                         // Счётчик сбрасывает только успех. Сбрасывать его на любой ответ
                         // означало бы, что на чередующемся списке двух отказов подряд
                         // не наберётся никогда.
-                        NoteSuccess();
+                        NoteSuccess(epoch);
                         break;
                 }
 
@@ -632,9 +666,14 @@ internal static class ComReadHost
     /// <paramref name="isPartial"/> — промежуточный диагноз: перебор ProgID ещё идёт, и агент
     /// присылает уже полученную причину заранее, на случай если следующий коннектор оборвёт
     /// процесс. Такой кадр не завершает запрос.
+    /// <paramref name="progIds"/> — фактический список ProgID, которым агент перебирал кандидатов
+    /// (в т.ч. кастомный из шаблона имени COM-коннектора, issue #175). Имя в подробности разрядов
+    /// <see cref="ComFailureKind.InstanceFailed"/>/<see cref="ComFailureKind.NoConnection"/>
+    /// проверяется по этому списку, а не по стандартному <see cref="OneCComConnector.KnownProgIds"/>.
     /// </summary>
     internal static ComReadResult ParseResponse(
-        string line, int expectedSeq, out bool desynchronized, out bool isPartial)
+        string line, int expectedSeq, IReadOnlyList<string> progIds,
+        out bool desynchronized, out bool isPartial)
     {
         desynchronized = false;
         isPartial = false;
@@ -654,9 +693,11 @@ internal static class ComReadHost
             return ComReadResult.Fail(ComFailureKind.Transport);
         }
 
-        // Ровно столько полей, сколько предусмотрено: лишние означают, что мы читаем
-        // не то, что думаем.
-        if (parts.Length == 4 && string.Equals(parts[1], "OK", StringComparison.Ordinal))
+        // Поле фактически использованного ProgID появилось в 0.3.7.7 (issue #175). Принимаем
+        // и старые кадры без него (4 поля), и новые (5 полей): обе стороны поставляются вместе,
+        // но строгий разбор не должен ломаться на уже записанном/присланном формате.
+        if ((parts.Length == 4 || parts.Length == 5)
+            && string.Equals(parts[1], "OK", StringComparison.Ordinal))
         {
             if (!TryDecode(parts[2], out var name) || !TryDecode(parts[3], out var version))
             {
@@ -667,14 +708,30 @@ internal static class ComReadHost
                 return ComReadResult.Fail(ComFailureKind.Transport);
             }
 
-            return ComReadResult.Ok(new OneCConfigInfo(name, version));
+            string? usedProgId = null;
+            if (parts.Length == 5)
+            {
+                if (!TryDecode(parts[4], out var decodedProgId))
+                {
+                    desynchronized = true;
+                    return ComReadResult.Fail(ComFailureKind.Transport);
+                }
+                usedProgId = decodedProgId;
+            }
+
+            return ComReadResult.Ok(new OneCConfigInfo(name, version), usedProgId);
         }
 
         // Промежуточный кадр отличается только меткой: поля те же, что у ошибки.
         var partialFrame = parts.Length == 5
             && string.Equals(parts[1], "PARTIAL", StringComparison.Ordinal);
+        var isErr = string.Equals(parts[1], "ERR", StringComparison.Ordinal);
 
-        if (parts.Length == 5 && (partialFrame || string.Equals(parts[1], "ERR", StringComparison.Ordinal)))
+        // Ошибка приходит кадром из 5 полей (старый формат) или из 6 — шестым полем уезжает
+        // последний перебранный ProgID (issue #175). PARTIAL остаётся в 5 полей: имя текущего
+        // ProgID уже есть в его подробности.
+        if (partialFrame && parts.Length == 5
+            || isErr && (parts.Length == 5 || parts.Length == 6))
         {
             isPartial = partialFrame;
 
@@ -684,6 +741,21 @@ internal static class ComReadHost
             {
                 desynchronized = true;
                 return ComReadResult.Fail(ComFailureKind.Transport);
+            }
+
+            // Шестое поле — последний перебранный ProgID. Принимаем только известный из
+            // фактического списка перебора: иначе подделанный кадр внёс бы произвольный
+            // текст в диагностику мимо решения о показе пароля (та же дисциплина, что
+            // у подробностей InstanceFailed/NoConnection).
+            string? lastProgId = null;
+            if (parts.Length == 6)
+            {
+                if (!TryDecode(parts[5], out var decodedProgId) || !IsKnownProgId(decodedProgId, progIds))
+                {
+                    desynchronized = true;
+                    return ComReadResult.Fail(ComFailureKind.Transport);
+                }
+                lastProgId = decodedProgId;
             }
 
             // Неопознанный разряд не отображаем в Transport с сохранением текста: подробность
@@ -707,15 +779,18 @@ internal static class ComReadHost
             // затем подставлялся в сообщение пользователю мимо решения о пароле. Утечки
             // не возникало лишь потому, что агент таких строк туда не клал, — то есть
             // защита держалась на дисциплине отправителя. Здесь она держится на разборе.
-            if (!DetailAllowed(kind, errCode, errText))
+            if (!DetailAllowed(kind, errCode, errText, progIds))
             {
                 desynchronized = true;
                 return ComReadResult.Fail(ComFailureKind.Transport);
             }
 
             // Код и текст приходят раздельно: текст может быть отброшен родителем,
-            // если у базы есть пароль, а код останется в любом случае.
-            return ComReadResult.Fail(kind, errText, errCode);
+            // если у базы есть пароль, а код останется в любом случае. Последний перебранный
+            // ProgID уезжает в UsedProgId, чтобы диагностика показала его и при неуспехе.
+            return lastProgId is null
+                ? ComReadResult.Fail(kind, errText, errCode)
+                : new ComReadResult(null, kind, errText, errCode, lastProgId);
         }
 
         // Кадр разобрать не удалось. Это тоже рассинхронизация: продолжать с таким агентом
@@ -834,14 +909,17 @@ internal static class ComReadHost
 
     private static string HandleRequest(string[] parts, string seq, StreamWriter output)
     {
-        // Формат запроса: seq \t timeoutMs \t base64(строка подключения). Ровно три поля.
+        // Формат запроса: seq \t timeoutMs \t base64(строка подключения)
+        // [\t base64(список ProgID через таб)]. Четвёртое поле опционально: его присылает
+        // только кастомный шаблон имени COM-коннектора (issue #175), и в нём перечень
+        // кандидатов для перебора уезжает агенту целиком. Без него агент берёт KnownProgIds.
         // Пароль агенту не передаётся: решение, показывать ли текст ошибки, принимает родитель.
         //
         // Повреждённый запрос — это сбой обмена, а не ошибка базы. Раньше он отвечал DBERR,
         // и у родителя получался ложный диагноз «ошибка 1С при подключении», а внутренний
         // английский текст доезжал до диалога пользователя. Отвечаем отдельным разрядом
         // и без текста: родителю здесь сказать нечего, кроме локализованной общей фразы.
-        if (parts.Length != 3)
+        if (parts.Length != 3 && parts.Length != 4)
             return Error(seq, "BADREQ", null, null);
 
         var timeoutMs = int.TryParse(parts[1], NumberStyles.Integer,
@@ -849,6 +927,20 @@ internal static class ComReadHost
 
         if (!TryDecode(parts[2], out var connectString) || connectString.Length == 0)
             return Error(seq, "BADREQ", null, null);
+
+        // Список ProgID для перебора. По умолчанию — стандартный KnownProgIds; кастомный
+        // перечень из шаблона имени COM-коннектора приезжает четвёртым полем (см. выше).
+        IReadOnlyList<string> progIds;
+        if (parts.Length == 4)
+        {
+            if (!TryDecode(parts[3], out var encodedProgIds) || encodedProgIds.Length == 0)
+                return Error(seq, "BADREQ", null, null);
+            progIds = encodedProgIds.Split('\t');
+        }
+        else
+        {
+            progIds = OneCComConnector.KnownProgIds;
+        }
 
         // Промежуточные диагнозы отправляем сразу: следующий ProgID может оборвать процесс,
         // и уже полученная причина иначе пропала бы вместе с ним.
@@ -877,10 +969,12 @@ internal static class ComReadHost
         ComFailureKind kind;
         string? detail;
         string? code;
+        string? usedProgId;
         try
         {
             info = ReadInProcess(
-                connectString, timeoutMs, SendPartial, out kind, out detail, out code);
+                connectString, timeoutMs, progIds, SendPartial, out kind, out detail, out code,
+                out usedProgId);
         }
         finally
         {
@@ -892,18 +986,23 @@ internal static class ComReadHost
 
         // Имя и версия конфигурации приходят из Metadata и строку подключения содержать
         // не могут — их отдаём как есть.
+        // В кадре успеха уезжает и фактически использованный ProgID (issue #175): родитель
+        // показывает и логирует именно тот коннектор, который реально подключился.
         return info is null
-            ? Error(seq, KindToToken(kind), code, detail)
+            ? Error(seq, KindToToken(kind), code, detail, usedProgId)
             : ResultPrefix + seq + "\tOK\t" + Encode(info.Value.Name)
-              + "\t" + Encode(info.Value.Version);
+              + "\t" + Encode(info.Value.Version) + "\t" + Encode(usedProgId);
     }
 
     /// <summary>
     /// Ответ об ошибке: код и текст идут раздельными полями. Родитель может отбросить текст,
     /// если найдёт в нём пароль, и всё равно сказать пользователю что-то определённое по коду.
+    /// <paramref name="lastProgId"/> — последний перебранный ProgID (issue #175): дописывается
+    /// шестым полем, только когда известен, иначе формат старого кадра в 5 полей сохраняется.
     /// </summary>
-    private static string Error(string seq, string token, string? code, string? text) =>
-        ResultPrefix + seq + "\tERR\t" + token + "\t" + Encode(code) + "\t" + Encode(text);
+    private static string Error(string seq, string token, string? code, string? text, string? lastProgId = null) =>
+        ResultPrefix + seq + "\tERR\t" + token + "\t" + Encode(code) + "\t" + Encode(text)
+        + (string.IsNullOrEmpty(lastProgId) ? string.Empty : "\t" + Encode(lastProgId));
 
     /// <summary>Самое глубокое вложенное исключение — настоящая причина, а не обёртка.</summary>
     private static Exception Deepest(Exception ex)
@@ -997,7 +1096,8 @@ internal static class ComReadHost
     /// означает, что мы читаем не то, что думаем.
     /// </para>
     /// </summary>
-    private static bool DetailAllowed(ComFailureKind kind, string code, string detail) => kind switch
+    private static bool DetailAllowed(
+        ComFailureKind kind, string code, string detail, IReadOnlyList<string> progIds) => kind switch
     {
         // Ошибка базы: свободный текст и код исключения. Дальше решает признак пароля.
         ComFailureKind.DatabaseError => true,
@@ -1006,19 +1106,20 @@ internal static class ComReadHost
         ComFailureKind.Timeout => code.Length == 0
             && int.TryParse(detail, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
 
-        // Имя ProgID из известного списка. Сообщение исключения сюда не кладём: оно
-        // приходит от сторонней библиотеки и опознавательной ценности не добавляет,
-        // а разряд отказа и код уже сказаны отдельно.
-        ComFailureKind.InstanceFailed => IsKnownProgId(detail),
-        ComFailureKind.NoConnection => code.Length == 0 && IsKnownProgId(detail),
+        // Имя ProgID из фактического списка перебора (включая кастомный из шаблона имени,
+        // issue #175). Сообщение исключения сюда не кладём: оно приходит от сторонней
+        // библиотеки и опознавательной ценности не добавляет, а разряд отказа и код уже
+        // сказаны отдельно.
+        ComFailureKind.InstanceFailed => IsKnownProgId(detail, progIds),
+        ComFailureKind.NoConnection => code.Length == 0 && IsKnownProgId(detail, progIds),
 
         // Разряды без подробности.
         _ => code.Length == 0 && detail.Length == 0
     };
 
-    private static bool IsKnownProgId(string value)
+    private static bool IsKnownProgId(string value, IReadOnlyList<string> progIds)
     {
-        foreach (var progId in OneCComConnector.KnownProgIds)
+        foreach (var progId in progIds)
         {
             if (string.Equals(progId, value, StringComparison.Ordinal))
                 return true;
@@ -1048,16 +1149,20 @@ internal static class ComReadHost
 
     /// <summary>
     /// Собственно COM-обращение. Живёт только в агенте: именно здесь возможен нативный обрыв,
-    /// который мы и изолируем. ProgID перебираются, как в OneCComConnector.KnownProgIds.
+    /// который мы и изолируем. ProgID перебираются по фактическому списку <paramref name="progIds"/>:
+    /// стандартному <see cref="OneCComConnector.KnownProgIds"/> или кастомному из шаблона имени
+    /// COM-коннектора (issue #175).
     /// </summary>
     private static OneCConfigInfo? ReadInProcess(
-        string connectString, int timeoutMs, Action<string, string, string>? onPartial,
-        out ComFailureKind kind, out string? detail, out string? code)
+        string connectString, int timeoutMs, IReadOnlyList<string> progIds,
+        Action<string, string, string>? onPartial,
+        out ComFailureKind kind, out string? detail, out string? code, out string? usedProgId)
     {
         OneCConfigInfo? result = null;
         var localKind = ComFailureKind.NotRegistered;
         string? localDetail = null;
         string? localCode = null;
+        string? localUsedProgId = null;
 
         // Диагноз держим самый осмысленный, а не первый попавшийся. Прежде было наоборот:
         // битая регистрация V83 закрепляла вердикт «не удалось создать экземпляр», и
@@ -1074,7 +1179,7 @@ internal static class ComReadHost
 
         var thread = new Thread(() =>
         {
-            foreach (var progId in OneCComConnector.KnownProgIds)
+            foreach (var progId in progIds)
             {
                 object? connector;
 
@@ -1115,6 +1220,13 @@ internal static class ComReadHost
                     }
                     continue;
                 }
+
+                // Фактически попробованный коннектор (issue #175): дошли до вызова Connect —
+                // значит этот ProgID реально использовался, и о нём надо сообщить родителю,
+                // даже если подключение завершится неудачей. Прогнутые мимо кандидаты
+                // (не зарегистрированы, экземпляр не создался) в диагностику не попадают,
+                // иначе последний из них вводил бы в заблуждение («V81» при пустом списке).
+                localUsedProgId = progId;
 
                 object? connection = null;
                 object? metadata = null;
@@ -1159,6 +1271,7 @@ internal static class ComReadHost
 
                     result = new OneCConfigInfo(name, version);
                     localKind = ComFailureKind.None;
+                    // localUsedProgId уже равен текущему progId (установлен перед вызовом Connect).
                     return;
                 }
                 catch (Exception ex)
@@ -1223,12 +1336,14 @@ internal static class ComReadHost
             kind = ComFailureKind.Timeout;
             detail = timeoutMs.ToString(CultureInfo.InvariantCulture);
             code = null;
+            usedProgId = null;
             return null;
         }
 
         kind = localKind;
         detail = localDetail;
         code = localCode;
+        usedProgId = localUsedProgId;
         return result;
     }
 

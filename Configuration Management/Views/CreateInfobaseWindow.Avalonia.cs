@@ -301,11 +301,16 @@ namespace Configuration_Management
                 });
                 tplPanel.Children.Add(_templateRootsHint);
 
+                // Индетерминантный индикатор держит рендер-цикл занятым и на программном
+                // рендере/в виртуализации даёт постоянную перерисовку (issue #153). Там
+                // рисуем статичную заполненную полосу, как в главном окне.
+                var disableAnimations = Services.LinuxRendering.DisableAnimations;
                 _templateLoadingPanel.Children.Add(new ProgressBar
                 {
                     Width = 140,
                     Height = 14,
-                    IsIndeterminate = true,
+                    IsIndeterminate = !disableAnimations,
+                    Value = disableAnimations ? 100 : 0,
                     VerticalAlignment = VerticalAlignment.Center
                 });
                 _templateLoadingPanel.Children.Add(new TextBlock

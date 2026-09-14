@@ -40,8 +40,9 @@ public partial class MainViewModel : ViewModelBase
         RebuildGroupTree();
         RefreshFileMetadata();
 
-        // Фоново читаем имя и версию конфигурации для баз, где они ещё не заполнены.
-        RefreshConfigurationInfoAsync();
+        // Фоновое дочитывание свойств конфигурации здесь НЕ запускается (issue #174):
+        // при импорте/обновлении списка оно было лишним, а на недоступном сервере
+        // занимало ~8 с на базу. Только явная команда «Обновить информацию» читает свойства.
     }
 
     /// <summary>
@@ -252,6 +253,7 @@ public partial class MainViewModel : ViewModelBase
             target.Architecture = dialog.Result.Architecture;
             target.LaunchMode = dialog.Result.LaunchMode;
             target.LaunchParameters = dialog.Result.LaunchParameters;
+            target.DefaultLaunchMode = dialog.Result.DefaultLaunchMode;
             target.ClientType = dialog.Result.ClientType;
             target.IsFavorite = dialog.Result.IsFavorite;
             target.IsPinned = dialog.Result.IsPinned;
@@ -264,6 +266,11 @@ public partial class MainViewModel : ViewModelBase
             target.Repository = dialog.Result.Repository;
             if (!string.IsNullOrWhiteSpace(dialog.Result.LaunchMode))
                 target.LaunchMode = dialog.Result.LaunchMode;
+
+            // Правка могла снять или поставить звезду — пересчитываем слоты
+            // Alt+1…9, чтобы вкладка, счётчик и список горячих клавиш не
+            // разъезжались (issue #194). Как в версии для Avalonia.
+            SyncFavoriteHotkeys();
 
             InfobasesView.Refresh();
             Save();
@@ -731,9 +738,11 @@ public partial class MainViewModel : ViewModelBase
             if (Infobases is null)
                 return;
 
-            // Удаляем ключи, которых больше нет в списке баз.
+            // Удаляем ключи, которых больше нет среди избранных: слот должен
+            // соответствовать только текущим избранным базам, иначе вкладка,
+            // счётчик и список горячих клавиш разъезжаются (issue #194).
             _favoriteHotkeyIds.RemoveAll(key =>
-                !Infobases.Any(ib => FavoriteKey(ib) == key));
+                !Infobases.Any(ib => ib.IsFavorite && FavoriteKey(ib) == key));
 
             // Добавляем избранные без слота (в порядке имени).
             foreach (var ib in Infobases.Where(i => i.IsFavorite).OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase))
@@ -819,6 +828,49 @@ public partial class MainViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _afterLaunchAction, value))
+                ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>
+    /// Настраиваемый шаблон имени COM-коннектора 1С (issue #175).
+    /// Пустая строка — стандартные ProgID V85/V83/V82/V81.COMConnector; иначе шаблон
+    /// разворачивается по версии платформы каждой базы (плейсхолдеры %V12%/%V3%/%V4%)
+    /// и пробуется первым в переборе. Действует сразу: новое значение передаётся коннектору
+    /// здесь же (issue #175) — иначе настройка применялась бы только после перезапуска.
+    /// </summary>
+    public string ComConnectorNameTemplate
+    {
+        get => _comConnectorNameTemplate;
+        set
+        {
+            var normalized = value?.Trim() ?? string.Empty;
+            if (!SetProperty(ref _comConnectorNameTemplate, normalized))
+                return;
+
+            // Коннектор кэширует шаблон; передаём новое значение сразу, чтобы оно
+            // действовало без перезапуска и не зависело от того, когда настройки лягут
+            // на диск — запись отложена, а фоновое COM-чтение может случиться раньше
+            // (issue #175).
+            OneCComConnector.ApplyTemplate(normalized);
+            ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>
+    /// Таймаут определения свойств конфигурации через COM-коннектор (issue #174), миллисекунды.
+    /// По умолчанию 30000 мс — первое COM-подключение к клиент-серверной базе (особенно
+    /// localhost с холодным стартом сервера и обращением к лицензиям) часто превышает прежние
+    /// 8000 мс. Чтение выполняется только по явной команде, поэтому длинный таймаут не мешает
+    /// старту. Минимум 1000 мс.
+    /// </summary>
+    public int ComDetectTimeoutMs
+    {
+        get => _comDetectTimeoutMs;
+        set
+        {
+            var v = Math.Max(1000, value);
+            if (SetProperty(ref _comDetectTimeoutMs, v))
                 ScheduleSaveSettings();
         }
     }
@@ -984,6 +1036,17 @@ public string HotkeyEnterprise
         }
     }
 
+    /// <summary>Горячая клавиша переключения подробностей правой панели информации. Пусто — не назначена (issue #172).</summary>
+    public string HotkeyRightPanelDetails
+    {
+        get => _hotkeyRightPanelDetails;
+        set
+        {
+            if (SetProperty(ref _hotkeyRightPanelDetails, NormalizeHotkey(value, "")))
+                ScheduleSaveSettings();
+        }
+    }
+ 
     private static string NormalizeHotkey(string? value, string fallback)
         => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
