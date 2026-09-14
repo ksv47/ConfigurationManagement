@@ -316,8 +316,18 @@ namespace Configuration_Management
                 Result.Name = LocalizationManager.T("GroupEdit.NoGroup");
             }
 
-            Result.Color = _color;
-            Result.IconColor = _iconColor;
+            // Цвет и цвет иконки берём из встроенных пикеров — источник того же значения,
+            // что показывается в предпросмотре (issue #241). Поля _color/_iconColor остаются
+            // запасным вариантом, пока соответствующая вкладка не открывалась: WPF создаёт
+            // содержимое вкладки лениво, и пикер ещё не проинициализирован текущим цветом.
+            // Раньше цвет сохранялся только через поле _color, обновляемое по событию пикера,
+            // и мог расходиться с тем, что пользователь видел при выборе.
+            Result.Color = _colorTabInitialized
+                ? (HeaderColorPicker.SelectedColor ?? "#2D6CDF")
+                : _color;
+            Result.IconColor = _iconTabInitialized
+                ? (IconColorPicker.SelectedColor ?? "#FFFFFF")
+                : _iconColor;
             Result.Icon = _icon;
             Result.ParentId = _parentId ?? string.Empty;
             DialogResult = true;

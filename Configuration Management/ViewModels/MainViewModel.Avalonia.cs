@@ -104,8 +104,8 @@ public class MainViewModel : ViewModelBase
     /// Настраиваемый шаблон имени COM-коннектора 1С (issue #175).
     /// Пустая строка — стандартные ProgID V85/V83/V82/V81.COMConnector; иначе шаблон
     /// разворачивается по версии платформы каждой базы (плейсхолдеры %V12%/%V3%/%V4%)
-    /// и пробуется первым в переборе. Применяется после перезапуска, как и чтение настройки.
-    /// На Linux COM отсутствует, но значение сохраняется в общий файл настроек,
+    /// и пробуется первым в переборе. Применяется сразу: новое значение передаётся коннектору
+    /// (issue #175). На Linux COM отсутствует, но значение сохраняется в общий файл настроек,
     /// чтобы не теряться при переходе между платформами.
     /// </summary>
     public string ComConnectorNameTemplate
@@ -117,6 +117,9 @@ public class MainViewModel : ViewModelBase
             if (string.Equals(_settings.ComConnectorNameTemplate, normalized, StringComparison.Ordinal))
                 return;
             _settings.ComConnectorNameTemplate = normalized;
+            // Симметрично Windows-сборке (issue #175). На Linux вызов — no-op: COM
+            // отсутствует, кэшировать нечего, но ветки держим одинаковыми.
+            OneCComConnector.ApplyTemplate(normalized);
             SaveSettingsSilently();
         }
     }
@@ -573,7 +576,21 @@ public class MainViewModel : ViewModelBase
         {
             var group = ResolveGroup(p);
             if (group is not null)
+            {
                 EditGroup(group);
+                return;
+            }
+
+            // Служебные узлы «Без группы» / «Закреплённые» (без модели Group)
+            // редактируются тем же окном, но только по оформлению (цвет и иконка),
+            // как в Windows-версии (issue #240).
+            if (p is GroupNodeViewModel node && node.Marker is { } marker)
+            {
+                if (string.Equals(marker, GroupNodeViewModel.NoGroupMarker, StringComparison.Ordinal))
+                    EditNoGroupNode();
+                else if (string.Equals(marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal))
+                    EditPinnedNode();
+            }
         });
         DeleteGroupCommand = new RelayCommand(p =>
         {
@@ -1570,8 +1587,20 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     private void DistributeInfobases(List<GroupNodeViewModel> roots)
     {
-        var pinnedNode = new GroupNodeViewModel(null, marker: GroupNodeViewModel.PinnedMarker);
-        var noGroupNode = new GroupNodeViewModel(null, marker: GroupNodeViewModel.NoGroupMarker);
+        // Служебным узлам передаём их собственные цвета по умолчанию (issue #240),
+        // иначе заданное оформление не применяется к узлу на Linux/Avalonia.
+        var pinnedNode = new GroupNodeViewModel(
+            null,
+            marker: GroupNodeViewModel.PinnedMarker,
+            defaultColor: _settings.PinnedColor,
+            defaultIconColor: _settings.PinnedIconColor,
+            defaultIcon: _settings.PinnedIcon ?? string.Empty);
+        var noGroupNode = new GroupNodeViewModel(
+            null,
+            marker: GroupNodeViewModel.NoGroupMarker,
+            defaultColor: _settings.NoGroupColor,
+            defaultIconColor: _settings.NoGroupIconColor,
+            defaultIcon: _settings.NoGroupIcon ?? string.Empty);
 
         // Индексация по полному пути узла: база хранит путь группы строкой.
         var pathToNode = new Dictionary<string, GroupNodeViewModel>(StringComparer.OrdinalIgnoreCase);
@@ -3500,6 +3529,71 @@ public class MainViewModel : ViewModelBase
         if (!string.IsNullOrEmpty(group.Id)
             && FindNode(n => string.Equals(n.Group?.Id, group.Id, StringComparison.OrdinalIgnoreCase)) is { } editedNode)
             SelectedGroupNode = editedNode;
+    }
+
+    /// <summary>
+    /// Редактирует оформление служебного узла «Без группы» (цвет и иконку) по аналогии
+    /// с обычной группой (issue #240). Изменения сохраняются в настройках приложения
+    /// и применяются к узлу при пересборке дерева.
+    /// </summary>
+    private void EditNoGroupNode()
+    {
+        Configuration_Management.GroupEditWindow dialog;
+        try
+        {
+            dialog = new Configuration_Management.GroupEditWindow(
+                _groups,
+                _settings.NoGroupColor,
+                _settings.NoGroupIconColor,
+                _settings.NoGroupIcon ?? string.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно оформления узла «Без группы»: {ex.Message}", ex);
+            return;
+        }
+
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        _settings.NoGroupColor = string.IsNullOrWhiteSpace(dialog.Result.Color) ? "#6B7280" : dialog.Result.Color;
+        _settings.NoGroupIconColor = string.IsNullOrWhiteSpace(dialog.Result.IconColor) ? "#FFFFFF" : dialog.Result.IconColor;
+        _settings.NoGroupIcon = dialog.Result.Icon ?? string.Empty;
+
+        RebuildTree();
+        SaveSettingsSilently();
+    }
+
+    /// <summary>
+    /// Редактирует оформление служебного узла «Закреплённые» (цвет и иконку) по аналогии
+    /// с узлом «Без группы». Изменения сохраняются в настройках приложения.
+    /// </summary>
+    private void EditPinnedNode()
+    {
+        Configuration_Management.GroupEditWindow dialog;
+        try
+        {
+            dialog = new Configuration_Management.GroupEditWindow(
+                _groups,
+                _settings.PinnedColor,
+                _settings.PinnedIconColor,
+                _settings.PinnedIcon ?? string.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Не удалось открыть окно оформления узла «Закреплённые»: {ex.Message}", ex);
+            return;
+        }
+
+        if (!dialog.ShowDialogSync(OwnerWindow()))
+            return;
+
+        _settings.PinnedColor = string.IsNullOrWhiteSpace(dialog.Result.Color) ? "#8B5CF6" : dialog.Result.Color;
+        _settings.PinnedIconColor = string.IsNullOrWhiteSpace(dialog.Result.IconColor) ? "#FFFFFF" : dialog.Result.IconColor;
+        _settings.PinnedIcon = dialog.Result.Icon ?? string.Empty;
+
+        RebuildTree();
+        SaveSettingsSilently();
     }
 
     /// <summary>
