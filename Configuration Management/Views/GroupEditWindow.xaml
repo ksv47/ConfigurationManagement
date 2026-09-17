@@ -224,7 +224,9 @@
             </TabItem>
 
             <!-- ============ Вкладка «Цвет» ============ -->
-            <TabItem Style="{StaticResource SettingsSubTabItem}">
+            <!-- Открывается активной по умолчанию (issue #249): при правке оформления
+                 группы/служебного узла цвет нужен чаще, чем имя или родитель. -->
+            <TabItem Style="{StaticResource SettingsSubTabItem}" IsSelected="True">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="Palette" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"

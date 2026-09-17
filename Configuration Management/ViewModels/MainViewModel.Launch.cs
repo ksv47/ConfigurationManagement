@@ -89,6 +89,10 @@ public partial class MainViewModel : ViewModelBase
                 SelectedInfobase.LastLaunchDate = DateTime.Now;
                 Save();
             }
+            else
+            {
+                ShowLaunchFailed();
+            }
         }
         finally
         {
@@ -117,6 +121,10 @@ public partial class MainViewModel : ViewModelBase
                 SelectedInfobase.LastLaunchDate = DateTime.Now;
                 Save();
             }
+            else
+            {
+                ShowLaunchFailed();
+            }
         }
         finally
         {
@@ -142,6 +150,10 @@ public partial class MainViewModel : ViewModelBase
                 SelectedInfobase.LastLaunchDate = DateTime.Now;
                 Save();
             }
+            else
+            {
+                ShowLaunchFailed();
+            }
         }
         finally
         {
@@ -153,7 +165,8 @@ public partial class MainViewModel : ViewModelBase
 
     private void LaunchNativeStarter()
     {
-        InfobaseMaintenanceService.OpenNativeStarter();
+        if (!InfobaseMaintenanceService.OpenNativeStarter())
+            _dialogs.ShowError(LocalizationManager.T("Main.ErrStartStarter"));
     }
 
     /// <summary>
@@ -204,7 +217,16 @@ public partial class MainViewModel : ViewModelBase
         else
         {
             _logger.Warn($"Не удалось запустить базу «{ib.Name}» ({kind})");
+            ShowLaunchFailed();
         }
+    }
+
+    /// <summary>Сообщение пользователю о неудачном запуске (детальная причина — в логе сервиса).</summary>
+    private void ShowLaunchFailed()
+    {
+        _dialogs.ShowError(
+            LocalizationManager.T("Main.OperationFailedDefault"),
+            LocalizationManager.T("Launcher.LaunchErrorTitle"));
     }
 
     /// <summary>
@@ -431,6 +453,7 @@ public partial class MainViewModel : ViewModelBase
             AutoUpdateEnabled = _autoUpdateEnabled,
             ComConnectorNameTemplate = _comConnectorNameTemplate,
             ComDetectTimeoutMs = _comDetectTimeoutMs,
+            MaxLaunchHistoryPerBase = _maxLaunchHistoryPerBase,
             ShowVersionColumn = _showVersionColumn,
             ShowConfigurationColumn = _showConfigurationColumn,
             ShowConfigurationVersionColumn = _showConfigurationVersionColumn,

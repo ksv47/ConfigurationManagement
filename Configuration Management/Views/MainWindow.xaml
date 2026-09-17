@@ -1517,7 +1517,7 @@
                                                     </MultiBinding>
                                                 </Path.Fill>
                                             </Path>
-                                            <TextBlock x:Name="NameText" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                            <TextBlock x:Name="NameText" Text="{Binding NameDisplay}" FontWeight="SemiBold" FontSize="13"
                                                        Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
@@ -1529,15 +1529,15 @@
                                                    Cursor="Hand"
                                                    ToolTip="{loc:Loc Main.PlatformVersionTooltip}"/>
 
-                                        <TextBlock Grid.Column="11" Text="{Binding ConfigurationName}" FontSize="12"
+                                        <TextBlock Grid.Column="11" Text="{Binding ConfigurationNameDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"
-                                                   ToolTip="{Binding ConfigurationName}"/>
+                                                   ToolTip="{Binding ConfigurationNameDisplay}"/>
 
-                                        <TextBlock Grid.Column="12" Text="{Binding ConfigurationVersion}" FontSize="12"
+                                        <TextBlock Grid.Column="12" Text="{Binding ConfigurationVersionDisplay}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
                                                    HorizontalAlignment="Left" Margin="6,0,6,0" TextTrimming="CharacterEllipsis"
-                                                   ToolTip="{Binding ConfigurationVersion}"/>
+                                                   ToolTip="{Binding ConfigurationVersionDisplay}"/>
 
                                         <TextBlock Grid.Column="6" Text="{Binding ParsedLaunchMode}" FontSize="12"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
@@ -1845,9 +1845,6 @@
                                 <MenuItem Header="{loc:Loc Main.LaunchConfigurator}" Command="{Binding LaunchConfiguratorCommand}" InputGestureText="{Binding HotkeyConfigurator}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Cog" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="{loc:Loc Main.EditSettings}" Command="{Binding EditInfobaseCommand}" InputGestureText="{Binding HotkeyEdit}" Style="{DynamicResource ModernMenuItem}">
-                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
-                                </MenuItem>
                                 <MenuItem Header="{loc:Loc Main.RefreshConfigInfo}" Command="{Binding RefreshConfigurationInfoCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="CloudDownload" Width="16" Height="16" Foreground="#14B8A6"/></MenuItem.Icon>
                                 </MenuItem>
@@ -1894,6 +1891,12 @@
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="Plus" Width="16" Height="16" Foreground="#22C55E"/></MenuItem.Icon>
                                 </MenuItem>
                                 <Separator/>
+                                <!-- «Удалить» отделён разделителями сверху и снизу и стоит выше
+                                     раздела выгрузки, как и договаривались в issue #242. -->
+                                <MenuItem Header="{loc:Loc Main.Delete}" Command="{Binding DeleteInfobaseCommand}" InputGestureText="{Binding HotkeyDelete}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444"/></MenuItem.Icon>
+                                </MenuItem>
+                                <Separator/>
                                 <MenuItem Header="{loc:Loc Main.DumpToDt}" Command="{Binding DumpInfobaseDtCommand}" Style="{DynamicResource ModernMenuItem}">
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="DatabaseExport" Width="16" Height="16" Foreground="#0EA5E9"/></MenuItem.Icon>
                                 </MenuItem>
@@ -1904,8 +1907,10 @@
                                     <MenuItem.Icon><materialDesign:PackIcon Kind="History" Width="16" Height="16" Foreground="#8B5CF6"/></MenuItem.Icon>
                                 </MenuItem>
                                 <Separator/>
-                                <MenuItem Header="{loc:Loc Main.Delete}" Command="{Binding DeleteInfobaseCommand}" InputGestureText="{Binding HotkeyDelete}" Style="{DynamicResource ModernMenuItem}">
-                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Delete" Width="16" Height="16" Foreground="#EF4444"/></MenuItem.Icon>
+                                <!-- «Изменить настройки» (аналог «Свойств» в ОС) размещён внизу меню,
+                                     после разделителя, как в issue #242. -->
+                                <MenuItem Header="{loc:Loc Main.EditSettings}" Command="{Binding EditInfobaseCommand}" InputGestureText="{Binding HotkeyEdit}" Style="{DynamicResource ModernMenuItem}">
+                                    <MenuItem.Icon><materialDesign:PackIcon Kind="Pencil" Width="16" Height="16" Foreground="#3B82F6"/></MenuItem.Icon>
                                 </MenuItem>
                             </ContextMenu>
                         </controls:LeveledTreeView.ContextMenu>

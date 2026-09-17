@@ -9,6 +9,383 @@
 > `0.3.x.y`) к сводным выпускам по основным версиям, чтобы отделить значимые
 > возможности от точечных исправлений и регрессий предыдущих сборок.
 
+## [0.3.8.10] — 2026-09-17
+
+### Оптимизация
+
+- **Уменьшен размер self-contained single-file сборок (Windows/WPF и Linux/Avalonia)** за счёт включения `InvariantGlobalization=true`: из состава исполняемых файлов исключены ICU-данные глобализации. Ожидаемая экономия порядка **~5–20 МБ** на каждую платформу.
+- Свойство задано в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj) и продублировано явными параметрами `-p:InvariantGlobalization=true` в скриптах сборки [`build-windows-single-file.ps1`](Configuration%20Management/build-windows-single-file.ps1), [`build-linux-single-file.ps1`](Configuration%20Management/build-linux-single-file.ps1) и [`build-linux-single-file.sh`](Configuration%20Management/build-linux-single-file.sh).
+- **Особенность**: переводы интерфейса (ru/en) не зависят от ICU — они загружаются из JSON, поэтому локализация сохраняется. Форматирование дат/чисел при этом переходит на инвариантную культуру (стиль en-US). Базовые оптимизации (компрессия bundle, `PublishReadyToRun=false`, `DebugType=embedded`) уже были включены ранее.
+
+### Версия
+
+- **Версия поднята до `0.3.8.10`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.8.9] — 2026-09-17
+
+### Улучшения
+
+- **Отображение текста «Что нового» окна обновления со стилями markdown** — на обеих платформах текст релиза теперь рендерится с поддержкой заголовков, жирного и курсивного начертания, кода, списков и ссылок.
+- Добавлен новый лёгкий рендерер [`Services/MarkdownRenderer.cs`](Configuration%20Management/Services/MarkdownRenderer.cs) с точками входа `ToFlowDocument` (WPF) и `ToStackPanel` (Avalonia).
+- **WPF**: в [`UpdateAvailableWindow.xaml`](Configuration%20Management/Views/UpdateAvailableWindow.xaml) `BodyText` заменён на `FlowDocumentScrollViewer BodyViewer`; `.xaml.cs` рендерит `release.Body` со стилями.
+- **Avalonia**: добавлен вывод «Что нового» с рендером markdown (`MaterialMessageWindowAvalonia`, `AvaloniaDialogService.ConfirmUpdate`, `UpdateService.Avalonia.cs`).
+- **Linux**: ранее описание релиза не выводилось — теперь оно отображается с рендером markdown.
+
+### Версия
+
+- **Версия поднята до `0.3.8.9`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.8.8] — 2026-09-17
+
+### Улучшения
+
+- **Единый стиль уведомлений на обеих платформах** — все оставшиеся прямые вызовы системного `MessageBox.Show` в WPF-коде заменены на material-окна через `IDialogService` (`ShowInfo`/`ShowWarning`/`ShowError`/`Confirm`).
+
+### Рефакторинг
+
+- **Замена всех системных `MessageBox` на material-окна через `IDialogService`.** Из WPF-кода убраны прямые вызовы `MessageBox.Show`; уведомления теперь показываются через единый `IDialogService` (паттерн `AppServices.GetRequiredService<IDialogService>()`), что обеспечивает одинаковый стиль сообщений на Windows/WPF и Linux/Avalonia.
+- Затронутые окна: `App`, `CreateInfobaseWindow`, `ConnectionSettingsWindow`, `ConnectionStringInputWindow`, `DetectConfigurationsWindow`, `DeleteInfobaseWindow`, `SettingsWindow.*`.
+- Вопросы Yes/No переведены на `Confirm(bool)`. В проекте 0 прямых вызовов `MessageBox.Show`.
+- Публичные сигнатуры сохранены, поведение приложения полностью сохранено — сборки остаются зелёными.
+
+### Версия
+
+- **Версия поднята до `0.3.8.8`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.8.7] — 2026-09-17
+
+### Рефакторинг
+
+- **Унификация обработки ошибок в сервисах — вынос показов `MessageBox` из сервисов в слой View.** Из `InfobaseMaintenanceService`, `OneCLauncher*` и `OneCLauncher.DesignerBatch` убраны прямые вызовы `MessageBox`:
+  - сервисы логируют ошибки через `IAppLogger` и возвращают признак ошибки;
+  - View показывает сообщения пользователю через `IDialogService`;
+  - сервисы больше не зависят от UI — обязанности по отображению вынесены в слой представления.
+- Публичные сигнатуры сохранены, поведение приложения полностью сохранено — сборки остаются зелёными.
+
+### Версия
+
+- **Версия поднята до `0.3.8.7`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.8.6] — 2026-09-17
+
+### Рефакторинг
+
+- **`InfobaseMaintenanceService` декомпозирован по ответственности** — сервис разбит на partial-файлы, чтобы разделить обязанности (SRP) и устранить дублирование между WPF и Avalonia:
+  - [`Services/InfobaseMaintenanceService.Shared.cs`](Configuration%20Management/Services/InfobaseMaintenanceService.Shared.cs) — общий платформенно-нейтральный код;
+  - WPF-partial: [`Services/InfobaseMaintenanceService.Shortcuts.cs`](Configuration%20Management/Services/InfobaseMaintenanceService.Shortcuts.cs), [`Services/InfobaseMaintenanceService.Processes.cs`](Configuration%20Management/Services/InfobaseMaintenanceService.Processes.cs), [`Services/InfobaseMaintenanceService.FileBase.cs`](Configuration%20Management/Services/InfobaseMaintenanceService.FileBase.cs);
+  - Linux-partial: [`Services/InfobaseMaintenanceService.Linux.Folders.cs`](Configuration%20Management/Services/InfobaseMaintenanceService.Linux.Folders.cs), [`Services/InfobaseMaintenanceService.Linux.Shortcuts.cs`](Configuration%20Management/Services/InfobaseMaintenanceService.Linux.Shortcuts.cs), [`Services/InfobaseMaintenanceService.Linux.FileBase.cs`](Configuration%20Management/Services/InfobaseMaintenanceService.Linux.FileBase.cs).
+- WPF-partial исключены из Linux-сборки через обновлённый `csproj`.
+- Публичный API не изменён, поведение приложения полностью сохранено — рефакторинг чисто структурный, сборки остаются зелёными.
+
+### Версия
+
+- **Версия поднята до `0.3.8.6`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.8.5] — 2026-09-17
+
+### Рефакторинг
+
+- **Платформенно-нейтральное построение аргументов запуска 1С вынесено в общий shared-файл [`Services/OneCLauncher.Arguments.Shared.cs`](Configuration%20Management/Services/OneCLauncher.Arguments.Shared.cs)** — общая логика используется и WPF, и Linux-версией `OneCLauncher`, чтобы устранить дублирование между платформами:
+  - единое построение аргументов командной строки в платформенно-нейтральном файле;
+  - из `OneCLauncher.cs` и `OneCLauncher.Arguments.cs` удалены дубликаты.
+- **`OneCLauncher.Linux.cs` разбит на partial-файлы по ответственности**, чтобы упростить навигацию и поддержку:
+  - [`Services/OneCLauncher.Linux.Process.cs`](Configuration%20Management/Services/OneCLauncher.Linux.Process.cs) — запуск процесса;
+  - [`Services/OneCLauncher.Linux.Arguments.cs`](Configuration%20Management/Services/OneCLauncher.Linux.Arguments.cs) — аргументы запуска;
+  - [`Services/OneCLauncher.Linux.DesignerBatch.cs`](Configuration%20Management/Services/OneCLauncher.Linux.DesignerBatch.cs) — пакетный режим конфигуратора;
+  - [`Services/OneCLauncher.Linux.Errors.cs`](Configuration%20Management/Services/OneCLauncher.Linux.Errors.cs) — обработка ошибок.
+- Контракт `IOneCLauncher` не изменён, поведение приложения полностью сохранено — рефакторинг чисто структурный, сборки остаются зелёными.
+
+### Версия
+
+- **Версия поднята до `0.3.8.5`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.8.4] — 2026-09-17
+
+### Рефакторинг
+
+- **Разбор командной строки запуска 1С и автодополнение параметров вынесены в новый сервис `OneCLaunchArgumentParser`** — логика из `ConnectionSettingsWindow.xaml.cs`, `ConnectionSettingsWindow.Avalonia.cs`, `LaunchParametersWindow.xaml.cs` и `LaunchParametersWindow.Avalonia.cs` выделена в отдельный платформенно-нейтральный парсер, чтобы разделить обязанности (SRP) и устранить дублирование между WPF и Avalonia:
+  - [`Services/OneCLaunchArgumentParser.cs`](Configuration%20Management/Services/OneCLaunchArgumentParser.cs) — платформенно-нейтральный парсер командной строки запуска 1С;
+  - [`Models/OneCLaunchArgument.cs`](Configuration%20Management/Models/OneCLaunchArgument.cs) — модель аргумента запуска;
+  - [`Models/OneCLaunchParameterReference.cs`](Configuration%20Management/Models/OneCLaunchParameterReference.cs) — модель ссылки на параметр (автодополнение);
+  - обновлены окна `ConnectionSettingsWindow` и `LaunchParametersWindow` (WPF и Avalonia), устранён дубль каталога ключей.
+- Поведение приложения не изменилось — рефакторинг чисто структурный, сборки остаются зелёными.
+
+### Версия
+
+- **Версия поднята до `0.3.8.4`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.8.3] — 2026-09-17
+
+### Рефакторинг
+
+- **Валидация и создание информационной базы вынесены в новый сервис `ICreateInfobaseService`** — логика из `CreateInfobaseWindow.xaml.cs` и `CreateInfobaseWindow.Avalonia.cs` выделена в отдельный сервис, чтобы разделить обязанности (SRP) и устранить дублирование между WPF и Avalonia:
+  - [`Models/CreateInfobaseRequest.cs`](Configuration%20Management/Models/CreateInfobaseRequest.cs) — модель запроса на создание ИБ;
+  - [`Services/ICreateInfobaseService.cs`](Configuration%20Management/Services/ICreateInfobaseService.cs) — интерфейс сервиса, а также результаты `CreateInfobaseResult` и `CreateInfobaseResultKind`;
+  - [`Services/CreateInfobaseService.cs`](Configuration%20Management/Services/CreateInfobaseService.cs) — реализация сервиса;
+  - сервис зарегистрирован в [`AppServices.cs`](Configuration%20Management/AppServices.cs).
+- Поведение приложения не изменилось — рефакторинг чисто структурный, сборки остаются зелёными.
+
+### Версия
+
+- **Версия поднята до `0.3.8.3`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.8.2] — 2026-09-17
+
+### Рефакторинг
+
+- **Монолитный `SettingsWindow.Avalonia.cs` разбит на partial-файлы по ответственности** — большой файл (~4000 строк) декомпозирован на несколько логических частей, чтобы упростить навигацию и поддержку кода:
+  - базовый файл [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs);
+  - разнесённые по темам partial-файлы: `.Accounts` (учётные записи), `.Display` (отображение), `.Fonts` (шрифты), `.Hotkeys` (горячие клавиши), `.Language` (язык), `.Platforms` (платформы), `.Profile` (профиль), `.Schemes` (цветовые схемы), `.Sync` (синхронизация) в каталоге [`Views/`](Configuration%20Management/Views/).
+- Обновлён `Configuration Management.csproj` (Linux-ItemGroup) для включения новых partial-файлов.
+- Поведение приложения не изменилось — рефакторинг чисто структурный, сборки остаются зелёными.
+
+### Версия
+
+- **Версия поднята до `0.3.8.2`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.8.1] — 2026-09-17
+
+### Рефакторинг
+
+- **Монолитный `MainWindow.Avalonia.cs` разбит на partial-файлы по ответственности** — большой файл (~6400 строк) декомпозирован на несколько логических частей, чтобы упростить навигацию и поддержку кода:
+  - базовый файл [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs);
+  - разнесённые по темам partial-файлы: `.Columns` (колонки), `.Controls` (элементы управления), `.DragDrop`, `.Events` (события), `.Hotkeys` (горячие клавиши), `.Language` (язык), `.Scroll`, `.Tags` (теги), `.Tray` (трей), `.Tree` (дерево) в каталоге [`Views/`](Configuration%20Management/Views/);
+  - вложенные UI-типы вынесены в отдельный файл [`Views/MainWindow.Avalonia.Controls.cs`](Configuration%20Management/Views/MainWindow.Avalonia.Controls.cs).
+- Поведение приложения не изменилось — рефакторинг чисто структурный, сборки остаются зелёными.
+
+### Версия
+
+- **Версия поднята до `0.3.8.1`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.8.0] — 2026-09-17
+
+### Рефакторинг
+
+- **Монолитный `MainViewModel.Avalonia.cs` разбит на partial-файлы по ответственности** — большой файл (~5257 строк) декомпозирован на несколько логических частей, чтобы упростить навигацию и поддержку кода:
+  - базовый файл [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs);
+  - разнесённые по темам partial-файлы: `.Commands` (команды), `.Display` (отображение), `.Launch` (запуск), `.SwitchUser` (смена пользователя), `.Sync` (синхронизация), `.Theme` (темы), `.Tools` (инструменты) в каталоге [`ViewModels/`](Configuration%20Management/ViewModels/);
+  - служебный класс фильтра по тегу вынесен в отдельный файл [`ViewModels/TagFilterItem.cs`](Configuration%20Management/ViewModels/TagFilterItem.cs).
+- Поведение приложения не изменилось — рефакторинг чисто структурный, сборки остаются зелёными.
+
+### Версия
+
+- **Версия поднята до `0.3.8.0`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.38] — 2026-09-16
+
+### Исправлено
+
+- **Корректное прекращение поиска потерянных баз** — при прерывании уже найденные базы остаются в таблице (инкрементальная отдача строк):
+  - [`Services/InfobaseDiskScanner.cs`](Configuration%20Management/Services/InfobaseDiskScanner.cs) получил обратный вызов `onFound`, который передаёт каждую найденную базу сразу по мере обнаружения, а не только после полного завершения сканирования;
+  - окна [`Views/FindLostBasesWindow.xaml(.cs)`](Configuration%20Management/Views/FindLostBasesWindow.xaml.cs) и [`Views/FindLostBasesWindow.Avalonia.cs`](Configuration%20Management/Views/FindLostBasesWindow.Avalonia.cs) поднимают результат на UI-поток и добавляют строки в таблицу инкрементально; при нажатии «Прекратить» (`CancellationToken`) поиск останавливается, а уже найденные базы остаются видимыми (если прерывание произошло до первого результата — таблица пуста с сообщением «Поиск прекращён»).
+- **Исправлен выбор баз в WPF-диалоге поиска** — переключаемые чекбоксы: снята блокировка `IsReadOnly="True"` у таблицы [`Views/FindLostBasesWindow.xaml`](Configuration%20Management/Views/FindLostBasesWindow.xaml), из-за которой флажки в колонке-шаблоне не переключались и кнопка «Добавить в список баз» не активировалась (`UpdateAddEnabled` зависит от `IsChecked`).
+
+### Добавлено
+
+- **«Отметить все / Снять все»** для найденных баз — кнопки управления выбором строк над таблицей в [`Views/FindLostBasesWindow.xaml(.cs)`](Configuration%20Management/Views/FindLostBasesWindow.xaml.cs) и [`Views/FindLostBasesWindow.Avalonia.cs`](Configuration%20Management/Views/FindLostBasesWindow.Avalonia.cs); отметка применяется только к строкам, отсутствующим в приложении.
+- **Поиск по конкретному каталогу** — в диалоге поиска появилась возможность указать произвольный каталог (поле пути + кнопка «Обзор» через диалог выбора папки + добавление корня поиска) в дополнение к автоматическим корням (`InfobaseDiskScanner.EnumerateSearchRoots()`); перед запуском проверяется существование каталога.
+- **Выбор назначения при добавлении** — в нижней панели диалога можно добавить отмеченные базы «в программу» и/или «в ibases.v8i» вместе или по отдельности (два флажка); запись в ibases.v8i дописывает/обновляет только выбранные базы, не трогая чужие записи; итоговое сообщение «Добавлено в приложение: X, в ibases.v8i: Y, уже в списке: Z».
+- **Разбиение вкладки «Базы» в настройках** на горизонтальные подвкладки по образцу вкладки «Отображение» — содержимое разнесено на подвкладки («Список баз», «Каталоги шаблонов», «Обслуживание», «Синхронизация с ibases.v8i»): WPF в [`Views/SettingsWindow.xaml`](Configuration%20Management/Views/SettingsWindow.xaml), Avalonia в [`Views/SettingsWindow.Avalonia.cs`](Configuration%20Management/Views/SettingsWindow.Avalonia.cs).
+- Локализация новых ключей `FindLostBases.*` и подвкладок `Settings.Bases.Subtab.*` в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.7.38`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.37] — 2026-09-16
+
+### Исправлено
+
+- **Окно редактирования группы/служебного узла теперь открывается на вкладке «Цвет»** (issue [#249](https://github.com/sivatorov/ConfigurationManagement/issues/249)):
+  - при правке оформления группы или служебного узла «Закреплённые»/«Без группы» активной вкладкой по умолчанию становится «Цвет» (а не «Основные»), так как пользователю чаще нужен именно цвет и иконка;
+  - исправлено для обеих платформ: разметка [`Views/GroupEditWindow.xaml`](Configuration%20Management/Views/GroupEditWindow.xaml) (`IsSelected="True"` на вкладке «Цвет») и построение вкладок в [`Views/GroupEditWindow.Avalonia.cs`](Configuration%20Management/Views/GroupEditWindow.Avalonia.cs) (`tabs.SelectedItem = colorTabItem`).
+
+### Версия
+
+- **Версия поднята до `0.3.7.37`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.36] — 2026-09-16
+
+### Исправлено
+
+- **Ручной размер базы теперь сохраняется при редактировании** (issue [#243](https://github.com/sivatorov/ConfigurationManagement/issues/243)):
+  - поле `ManualSizeBytes` переносится из результата окна подключения в целевую базу в обоих методах `EditInfobase` — для Windows ([`ViewModels/MainViewModel.Commands.cs`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs)) и Linux ([`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs)); ранее введённый вручную размер терялся при сохранении;
+  - сеттер `ManualSizeText` в [`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs) переведён на `SetProperty` с уведомлением о `ManualSizeText`, чтобы изменение размера помечало наличие изменений и активировало кнопку «Сохранить».
+- **Редактирование служебных узлов «Закреплённые» и «Без группы»** (issue [#249](https://github.com/sivatorov/ConfigurationManagement/issues/249)):
+  - команда `EditGroupCommand` в версии для Windows ([`ViewModels/MainViewModel.cs`](Configuration%20Management/ViewModels/MainViewModel.cs)) теперь распознаёт оба служебных маркера (`PinnedMarker` и `NoGroupMarker`), как в версии для Linux; ранее узел «Без группы» открывал обычное окно редактирования с вкладкой «Основные» (название и выбор родительской группы);
+  - для служебных узлов всегда открывается `GroupEditWindow` в режиме оформления (только цвет и иконка), а не окно с выбором названия и родителя.
+
+### Версия
+
+- **Версия поднята до `0.3.7.36`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.35] — 2026-09-16
+
+### Добавлено
+
+- **Поиск потерянных и забытых баз 1С 8 на дисках** (issue [#247](https://github.com/sivatorov/ConfigurationManagement/issues/247)):
+  - новый сервис сканирования [`Services/InfobaseDiskScanner.cs`](Configuration%20Management/Services/InfobaseDiskScanner.cs): перечисление корней поиска (Windows — готовые логические диски, Linux — реальные точки монтирования из `/proc/mounts` без виртуальных/сетевых ФС), рекурсивный поиск файлов `1Cv8.1CD` с обработкой отказов доступа, отменой через `CancellationToken`, прогрессом и дедупликацией путей;
+  - модель найденной базы [`Models/FoundFileBase.cs`](Configuration%20Management/Models/FoundFileBase.cs) (`DirectoryPath`, `DbFilePath`, `SizeBytes`, `LastWriteTime`) и строка диалога [`ViewModels/FoundBaseRowViewModel.cs`](Configuration%20Management/ViewModels/FoundBaseRowViewModel.cs) (`IsChecked`, `InApp`, `InIbasesV8i`, отображаемые имя/путь/размер/дата);
+  - диалог «Поиск потерянных и забытых баз 1С 8» ([`Views/FindLostBasesWindow.xaml(.cs)`](Configuration%20Management/Views/FindLostBasesWindow.xaml.cs) / [`Views/FindLostBasesWindow.Avalonia.cs`](Configuration%20Management/Views/FindLostBasesWindow.Avalonia.cs)): выбор дисков/корней (флажки + «Отметить все / Снять все»), фоновая кнопка «Найти базы» с кнопкой «Прекратить», таблица найденных баз с колонками «Название / Путь / Размер / Дата изменения / В приложении / В ibases.v8i»;
+  - признаки «В приложении» (путь уже среди файловых баз приложения через `InfobaseMaintenanceService.GetFileBaseDirectory`) и «В ibases.v8i» (записи реестра через `IbasesV8iImporter.FindDefaultPath()` + чтение) по нормализованному пути;
+  - кнопка «Добавить в список баз» добавляет отмеченные отсутствующие в приложении базы в список баз приложения (новая база появляется в дереве; в ibases.v8i экспортируется только при включённом режиме экспорта — существующая логика `MainViewModel`);
+  - точка входа — кнопка «Поиск потерянных и забытых баз 1С на дисках» рядом с «Определить\обновить конфигурации всех баз» в Настройки → Базы → Список информационных баз (обе платформы); после закрытия при изменении данных список персистится (`PersistInfobasesAfterInlineEdit` для Windows, публичный метод добавления + персист для Avalonia);
+  - локализация новых ключей `Settings.Bases.FindLostBases.*` и `FindLostBases.*` в `ru.json` / `en.json`.
+
+### Версия
+
+- **Версия поднята до `0.3.7.35`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.34] — 2026-09-16
+
+### Добавлено
+
+- **Настройка глубины истории запусков** (issue [#246](https://github.com/sivatorov/ConfigurationManagement/issues/246)):
+  - глобальная настройка **«Глубина истории запусков»** ([`Models/AppSettings.cs`](Configuration%20Management/Models/AppSettings.cs), свойство `MaxLaunchHistoryPerBase`, по умолчанию 30) задаёт максимальное количество записей истории запусков, которое запоминается для одной информационной базы;
+  - жёсткий предел «до 30 записей» в [`Models/Infobase.cs`](Configuration%20Management/Models/Infobase.cs) (`AddLaunchHistory`) заменён значением из настроек: при превышении лимита самая старая запись удаляется; значение считывается из настроек так же, как таймаут COM (существующие вызовы `AddLaunchHistory(...)` продолжают работать без изменений);
+  - поле настройки добавлено в окно настроек (Настройки → Базы → Список информационных баз) на обеих платформах — Windows/WPF и Linux/Avalonia, с локализацией в `ru.json` / `en.json`.
+- **Очистка истории запусков диалогом** (issue [#246](https://github.com/sivatorov/ConfigurationManagement/issues/246)):
+  - новый диалог «Очистка истории запусков» ([`Views/ClearHistoryWindow.xaml(.cs)`](Configuration%20Management/Views/ClearHistoryWindow.xaml.cs) / [`Views/ClearHistoryWindow.Avalonia.cs`](Configuration%20Management/Views/ClearHistoryWindow.Avalonia.cs)) с таблицей «галочка / имя базы / количество записей», счётчиком отмеченных в заголовке и кнопками «Отметить все / Снять все / Инвертировать»;
+  - кнопка «Очистить историю» обнуляет `LaunchHistory` отмеченных баз; правки вносятся прямо в объекты баз и сохраняются через персист-метод окна настроек;
+  - точка входа — кнопка «Очистить историю запусков» рядом с «Определить\обновить конфигурации всех баз» в Настройки → Базы → Список информационных баз (обе платформы).
+
+### Версия
+
+- **Версия поднята до `0.3.7.34`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.33] — 2026-09-16
+
+### Исправлено
+
+- **Определение конфигураций всех баз: учёт раздельной авторизации Конфигуратора/Предприятия** (issue [#236](https://github.com/sivatorov/ConfigurationManagement/issues/236)):
+  - при определении сведений о конфигурации через COM-коннектор (диалог «Определить/обновить конфигурации всех баз» и контекстное меню «Обновить информацию о конфигурации») для баз, у которых заданы раздельные учётные данные `EnterpriseAuth` / `ConfiguratorAuth`, ранее в строку подключения не подставлялись логин/пароль (`Pwd=***` либо строка вовсе без `Usr`/`Pwd`) — чтение завершалось ошибкой подключения;
+  - введён единый резолвинг учётных данных по режиму ([`Services/InfobaseAuthResolver.cs`](Configuration%20Management/Services/InfobaseAuthResolver.cs)): «Конфигуратор» берёт `ConfiguratorAuth`, «1С:Предприятие» — `EnterpriseAuth`, иначе авторизацию информационной базы; учитывается `AuthenticationMode` (Credentials / Windows / Prompt);
+  - резолвинг используется и при построении строки COM-подключения ([`Services/OneCComConnector.cs`](Configuration%20Management/Services/OneCComConnector.cs)), и при запуске 1С ([`Services/OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs), [`Services/OneCLauncher.Linux.cs`](Configuration%20Management/Services/OneCLauncher.Linux.cs)); режим чтения сведений — «Конфигуратор» — передаётся от вызывающего кода (контекстное меню «Обновить информацию о конфигурации» и диалог «Определить конфигурации», обе платформы);
+  - маскирование секретов при логировании сохранено: пароль не выводится в журнал, но в саму строку подключения попадает фактический пароль.
+
+### Версия
+
+- **Версия поднята до `0.3.7.33`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.32] — 2026-09-16
+
+### Добавлено
+
+- **Определение конфигураций всех баз — доработки диалога** (issue [#236](https://github.com/sivatorov/ConfigurationManagement/issues/236)):
+  - окно прогресса показывает, какую базу обновляет сейчас, и результат обработки предыдущей, чтобы было время прочитать текст ошибки;
+  - добавлена опция **«Действие при ошибке»**: «Остановить обработку» (по умолчанию) или «Продолжить дальше»; об ошибках пользователь информируется в любом случае (результат с текстом ошибки остаётся видимым в строке состояния);
+  - исправлено снятие/установка галочки с первого клика без предварительного фокуса;
+  - добавлена колонка **«Платформа»**; строки без заданной платформы не отмечаются автоматически;
+  - добавлен **индикатор заполненности логина/пароля** (зелёная/красная точка) и **кнопка вызова свойств базы** под курсором, не закрывающая список; строки без заполненных логина/пароля не отмечаются автоматически;
+  - добавлена кнопка **«Прекратить»** для остановки фоновой последовательной обработки (через `CancellationToken`).
+  - реализовано на обеих платформах: Windows/WPF ([`Views/DetectConfigurationsWindow.xaml`](Configuration%20Management/Views/DetectConfigurationsWindow.xaml) + [`Views/DetectConfigurationsWindow.xaml.cs`](Configuration%20Management/Views/DetectConfigurationsWindow.xaml.cs)) и Linux/Avalonia ([`Views/DetectConfigurationsWindow.Avalonia.cs`](Configuration%20Management/Views/DetectConfigurationsWindow.Avalonia.cs)); состояние строк — в модели ([`ViewModels/DetectConfigRowViewModel.cs`](Configuration%20Management/ViewModels/DetectConfigRowViewModel.cs));
+  - подписи локализованы в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.7.32`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.31] — 2026-09-16
+
+### Добавлено
+
+- **Ручное изменение размера базы** (issue [#243](https://github.com/sivatorov/ConfigurationManagement/issues/243)):
+  - в настройках базы добавлена опция **«Размер вручную»**: флаг «размер задан вручную» и поле для ввода размера в байтах (например, полученного запросом в СУБД для клиент-серверной базы);
+  - если ручной размер задан — он отображается в колонке **«Размер»** вместо автоматического расчёта; для файловых баз автоматическое значение продолжает работать, пока ручное не задано;
+  - ручное значение хранится в модели ([`Models/Infobase.cs`](Configuration%20Management/Models/Infobase.cs)), читается/сохраняется в диалоге свойств базы ([`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs)) и отображается на обеих платформах: Windows/WPF (вкладка «База» в [`Views/ConnectionSettingsWindow.xaml`](Configuration%20Management/Views/ConnectionSettingsWindow.xaml)) и Linux/Avalonia ([`Views/ConnectionSettingsWindow.Avalonia.cs`](Configuration%20Management/Views/ConnectionSettingsWindow.Avalonia.cs));
+  - подписи локализованы в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.7.31`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.30] — 2026-09-16
+
+### Добавлено
+
+- **Индикация процесса получения информации о конфигурации** (issue [#244](https://github.com/sivatorov/ConfigurationManagement/issues/244)):
+  - при обновлении информации о конфигурации базы из контекстного меню («Обновить информацию о конфигурации») в строке базы временно показывается надпись «(обновление информации)»;
+  - надпись выводится в колонке **«Конфигурация»**, если она видима; если скрыта — в колонке **«№ релиза»**; если скрыта и она — в колонке **«Название»**;
+  - по окончании обновления (успех или ошибка) временная надпись очищается;
+  - реализовано на обеих платформах: Windows/WPF (привязки в [`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml)) и Linux/Avalonia (построение ячеек в [`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)); состояние индикации хранится в модели ([`Models/Infobase.cs`](Configuration%20Management/Models/Infobase.cs)) и включается/снимается в фоновом обновлении ([`ViewModels/MainViewModel.Tools.cs`](Configuration%20Management/ViewModels/MainViewModel.Tools.cs), [`ViewModels/MainViewModel.Avalonia.cs`](Configuration%20Management/ViewModels/MainViewModel.Avalonia.cs));
+  - строка локализована в [`Localization/Languages/ru.json`](Configuration%20Management/Localization/Languages/ru.json) и [`Localization/Languages/en.json`](Configuration%20Management/Localization/Languages/en.json).
+
+### Версия
+
+- **Версия поднята до `0.3.7.30`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.29] — 2026-09-16
+
+### Исправлено
+
+- **Приведено в порядок контекстное меню базы: согласованы значки и упорядочены пункты** (issue [#242](https://github.com/sivatorov/ConfigurationManagement/issues/242)):
+  - «Удалить» отделён разделителями сверху и снизу и поднят выше раздела выгрузки («Выгрузить в DT»/«Выгрузить конфигурацию в CF») — раньше он висел в самом низу без разделителя перед ним;
+  - «Изменить настройки» (аналог «Свойств» файлов в ОС) перенесён в самый низ меню и размещён после разделителя, как и просил пользователь;
+  - пункты сгруппированы и их значки приведены к единому стилю на обеих платформах;
+  - порядок пунктов и набор иконок согласованы между Windows/WPF и Linux/Avalonia: разметка ([`Views/MainWindow.xaml`](Configuration%20Management/Views/MainWindow.xaml)) и построение кодом ([`Views/MainWindow.Avalonia.cs`](Configuration%20Management/Views/MainWindow.Avalonia.cs)) теперь совпадают.
+
+### Версия
+
+- **Версия поднята до `0.3.7.29`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.28] — 2026-09-16
+
+### Исправлено
+
+- **Цвет группы «(Без групп)» теперь можно изменить, а вкладка «Основные» для служебных узлов скрыта** (issue [#240](https://github.com/sivatorov/ConfigurationManagement/issues/240)):
+  - при редактировании служебных узлов «Без группы» и «Закреплённые» (через [`EditNoGroupNode`/`EditPinnedNode`](Configuration%20Management/ViewModels/MainViewModel.Commands.cs)) вкладка «Основные» больше не показывается: её поля «Наименование», «Родительская группа» и «Описание» при сохранении всё равно не применяются, поэтому доступ к ним только вводил в заблуждение. Остаются вкладки «Цвет» и «Иконка» — оформление;
+  - исправление реализовано на обеих платформах: Windows/WPF ([`Views/GroupEditWindow.xaml.cs`](Configuration%20Management/Views/GroupEditWindow.xaml.cs)) скрывает вкладку через `Visibility.Collapsed`, Linux/Avalonia ([`Views/GroupEditWindow.Avalonia.cs`](Configuration%20Management/Views/GroupEditWindow.Avalonia.cs)) — не добавляет её в набор вкладок для служебного режима.
+
+### Версия
+
+- **Версия поднята до `0.3.7.28`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.27] — 2026-09-16
+
+### Исправлено
+
+- **Название COM-коннектора 1С по шаблону теперь учитывает версию базы и без разрядности** (issue [#175](https://github.com/sivatorov/ConfigurationManagement/issues/175)):
+  - при развороте шаблона имени COM-коннектора версия платформы нормализуется: суффикс разрядности (« (64)»/« (32)») отбрасывается, поэтому версия «8.5.4.1683 (64)» разворачивается в `V85.COMConnector_1683`, а не в ошибочный `V85.COMConnector_168364`. Нормализация сделана в единой точке [`Services/ComConnectorTemplate.cs`](Configuration%20Management/Services/ComConnectorTemplate.cs), чтобы предпросмотр в настройках и реальное подключение давали одинаковый результат;
+  - вызов «Определить» из диалога правки свойств базы ([`ViewModels/ConnectionSettingsViewModel.cs`](Configuration%20Management/ViewModels/ConnectionSettingsViewModel.cs)) теперь передаёт указанную для базы версию платформы (`PlatformVersion`) при чтении свойств конфигурации, как это делает контекстное меню. Раньше версия базы игнорировалась, и шаблон разворачивался по максимальной установленной версии.
+
+### Версия
+
+- **Версия поднята до `0.3.7.27`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
+## [0.3.7.26] — 2026-09-16
+
+### Исправлено
+
+- **При автоматическом выборе клиента больше не стартует толстый клиент** (issue [#245](https://github.com/sivatorov/ConfigurationManagement/issues/245)): при режиме запуска базы «Автоматический» без явного указания типа клиента приоритет теперь отдаётся тонкому клиенту `1cv8c.exe`, если он установлен; толстый `1cv8.exe` используется только как запасной. Раньше в этом случае выбирался толстый клиент по умолчанию, что приводило к странным ошибкам в конфигурациях и долгому запуску. Исправление реализовано на обеих платформах — Windows/WPF ([`Services/OneCLauncher.cs`](Configuration%20Management/Services/OneCLauncher.cs)) и Linux/Avalonia ([`Services/OneCLauncher.Linux.cs`](Configuration%20Management/Services/OneCLauncher.Linux.cs)).
+
+### Версия
+
+- **Версия поднята до `0.3.7.26`** во всех четырёх полях `<Version>`, `<AssemblyVersion>`, `<FileVersion>`, `<InformationalVersion>` в [`Configuration Management.csproj`](Configuration%20Management/Configuration%20Management.csproj).
+- Обе сборки — **Windows/WPF** и **Linux/Avalonia** (`-p:ForceLinux=true`) — проходят без ошибок.
+
 ## [0.3.7.25] — 2026-09-14
 
 ### Добавлено

@@ -15,37 +15,6 @@ namespace Configuration_Management.Services;
 /// </summary>
 public static partial class OneCLauncher
 {
-    /// <summary>
-    /// Проверяет, можно ли безопасно подставить значение внутрь кавычек ключа командной строки
-    /// 1С вида /Key"value".
-    /// ВАЖНО: грамматика таких ключей — НЕ грамматика строки подключения. Внутри значения кавычку
-    /// экранировать удвоением («""») НЕЛЬЗЯ: для ключа командной строки это неверно, и 1С получит
-    /// искажённое значение. Поэтому «"» внутри значения — единственный реальный вектор инъекции
-    /// дополнительного /ключа 1cv8 (можно «вырваться» из кавычек). Пробелы внутри значения
-    /// безопасны (остаются внутри кавычек и не создают новых аргументов). Также отклоняются
-    /// управляющие символы (CR/LF/…), способные нарушить разбор командной строки.
-    /// Если метод вернул false, корректно представить значение в этой грамматике невозможно —
-    /// такой аргумент нужно отбросить/отказаться, а НЕ «экранировать».
-    /// </summary>
-    private static bool IsSafeCliValue(string? value)
-        => !string.IsNullOrEmpty(value) &&
-           value!.IndexOf('"') < 0 &&
-           !value.Any(c => char.IsControl(c));
-
-    /// <summary>
-    /// Собирает /N"user" /P"password". Небезопасное значение (содержит «"» или управляющий символ)
-    /// опускается, чтобы не допустить инъекции аргумента — см. <see cref="IsSafeCliValue"/>.
-    /// </summary>
-    private static string BuildCredentialsArg(string user, string password)
-    {
-        if (!IsSafeCliValue(user))
-            return "";
-        var auth = $" /N\"{user}\"";
-        if (!string.IsNullOrEmpty(password) && IsSafeCliValue(password))
-            auth += $" /P\"{password}\"";
-        return auth;
-    }
-
     /// <summary>Аргумент подключения в стиле 1С: /F"path", /S"srv\db", /WS"url".</summary>
     public static string BuildConnectionArgument(Infobase infobase)
     {
@@ -66,25 +35,6 @@ public static partial class OneCLauncher
                 ? $"/S\"{conn.GetServerWithPort()}\\{conn.DatabaseName}\""
                 : ""
         };
-    }
-
-    /// <summary>Аргументы /N /P при режиме Credentials.</summary>
-    public static string BuildAuthArgument(Infobase infobase)
-    {
-        // Для пакетных операций конфигуратора (выгрузка .dt/.cf) в приоритете
-        // отдельная авторизация конфигуратора, если она задана.
-        if (infobase.ConfiguratorAuth is { } cfgAuth &&
-            cfgAuth.AuthenticationMode == AuthenticationMode.Credentials &&
-            !string.IsNullOrWhiteSpace(cfgAuth.User))
-        {
-            return BuildCredentialsArg(cfgAuth.User, cfgAuth.Password);
-        }
-
-        var conn = infobase.Connection;
-        if (conn.AuthenticationMode != AuthenticationMode.Credentials ||
-            string.IsNullOrWhiteSpace(conn.User))
-            return "";
-        return BuildCredentialsArg(conn.User, conn.Password);
     }
 
     /// <summary>
@@ -109,18 +59,6 @@ public static partial class OneCLauncher
     }
 
     /// <summary>
-    /// Аргументы командной строки для ярлыка «как у стандартного стартера 1С»:
-    /// ENTERPRISE /F"..." или /S"..."
-    /// </summary>
-    public static string BuildEnterpriseShortcutArguments(Infobase infobase)
-    {
-        var args = $"ENTERPRISE {BuildConnectionArgument(infobase)}{BuildAuthArgument(infobase)}";
-        if (!string.IsNullOrWhiteSpace(infobase.LaunchParameters))
-            args += " " + infobase.LaunchParameters.Trim();
-        return args;
-    }
-
-    /// <summary>
     /// Запускает 1С по ссылке на информационную базу (аналог «Перейти по ссылке»
     /// в стандартном загрузчике 1С). Поддерживаются форматы:
     /// <list type="bullet">
@@ -134,14 +72,12 @@ public static partial class OneCLauncher
     /// <returns>true, если запуск успешно инициирован.</returns>
     public static bool LaunchByLink(string link)
     {
+        // Сервис не знает об UI: ошибки логируются через IAppLogger, а сообщение
+        // пользователю показывает вызывающая ViewModel через IDialogService.
         var parsed = ParseLink(link);
         if (parsed is null)
         {
-            System.Windows.MessageBox.Show(
-                LocalizationManager.T("Launcher.LinkParseFailed"),
-                LocalizationManager.T("Launcher.BaseLinkTitle"),
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
+            GetLogger()?.Warn(LocalizationManager.T("Launcher.LinkParseFailed"));
             return false;
         }
 
@@ -159,11 +95,8 @@ public static partial class OneCLauncher
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show(
-                    string.Format(LocalizationManager.T("Launcher.WebClientOpenFailedFormat"), ex.Message),
-                    LocalizationManager.T("Launcher.LaunchErrorTitle"),
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
+                GetLogger()?.Error(
+                    string.Format(LocalizationManager.T("Launcher.WebClientOpenFailedFormat"), ex.Message), ex);
                 return false;
             }
         }
@@ -178,11 +111,7 @@ public static partial class OneCLauncher
         if (string.IsNullOrEmpty(exePath) ||
             exePath.EndsWith("1CEStart.exe", StringComparison.OrdinalIgnoreCase))
         {
-            System.Windows.MessageBox.Show(
-                LocalizationManager.T("Launcher.PlatformExeNotFound"),
-                LocalizationManager.T("Launcher.PlatformNotFoundTitle"),
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
+            GetLogger()?.Warn(LocalizationManager.T("Launcher.PlatformExeNotFound"));
             return false;
         }
 
@@ -199,11 +128,8 @@ public static partial class OneCLauncher
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(
-                string.Format(LocalizationManager.T("Launcher.LaunchFailedFormat"), ex.Message),
-                LocalizationManager.T("Launcher.LaunchErrorTitle"),
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+            GetLogger()?.Error(
+                string.Format(LocalizationManager.T("Launcher.LaunchFailedFormat"), ex.Message), ex);
             return false;
         }
     }
@@ -459,43 +385,4 @@ public static partial class OneCLauncher
         }
     }
 
-    /// <summary>
-    /// Экранирует значение для строки подключения 1С: кавычка внутри значения удваивается.
-    /// <para>
-    /// Правило то же, что уже применяется в <c>OneCComConnector.AppendParameter</c>. Без него
-    /// значение закрывает само себя и дописывает в строку произвольный параметр: имя базы вида
-    /// <c>base";Usr="admin</c> уходит в CREATEINFOBASE как два параметра вместо одного.
-    /// Платформа разбирает командную строку сама, а не через argv, поэтому кавычки доходят
-    /// до неё в исходном виде.
-    /// </para>
-    /// </summary>
-    private static string EscapeConnectValue(string value) => value.Replace("\"", "\"\"");
-
-    /// <summary>
-    /// Разворачивает экранирование строки подключения 1С: удвоенная кавычка «""» снова
-    /// становится одной. Обратная операция к <see cref="EscapeConnectValue"/>.
-    /// </summary>
-    private static string UnescapeConnectValue(string value) => value.Replace("\"\"", "\"");
-
-    /// <summary>
-    /// Удаляет только что созданный пустой каталог файловой базы, если CREATEINFOBASE не удался.
-    /// Затрагивает лишь каталог, созданный в этой попытке, и только если он остался пустым.
-    /// </summary>
-    private static void CleanupCreatedDir(string? dirPath)
-    {
-        if (string.IsNullOrEmpty(dirPath))
-            return;
-        try
-        {
-            if (Directory.Exists(dirPath) &&
-                !Directory.EnumerateFileSystemEntries(dirPath).Any())
-            {
-                Directory.Delete(dirPath);
-            }
-        }
-        catch
-        {
-            /* Не критично: каталог мог быть занят или уже удалён. */
-        }
-    }
 }

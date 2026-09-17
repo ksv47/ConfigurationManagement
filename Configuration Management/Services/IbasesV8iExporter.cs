@@ -50,38 +50,11 @@ public static class IbasesV8iExporter
 
         // Существующие базы по имени (для обновления на месте).
         var existingByName = new Dictionary<string, IbaseEntry>(StringComparer.OrdinalIgnoreCase);
-        // Существующие секции-группы по имени.
-        var groupSectionByName = new Dictionary<string, IbaseEntry>(StringComparer.OrdinalIgnoreCase);
-
         foreach (var entry in entries)
         {
-            if (entry.IsGroup)
-            {
-                if (!string.IsNullOrWhiteSpace(entry.Name))
-                    groupSectionByName[entry.Name] = entry;
-            }
-            else if (!string.IsNullOrWhiteSpace(entry.Name))
+            if (!entry.IsGroup && !string.IsNullOrWhiteSpace(entry.Name))
             {
                 existingByName[entry.Name] = entry;
-            }
-        }
-
-        // Обновляем секции-группы, уже существующие в файле. Новые секции-группы при
-        // выгрузке не создаются: папки в 1С отображаются по Folder-ссылкам баз, поэтому
-        // добавление явных секций приводило бы к появлению лишних групп, которых не было
-        // в исходном файле (например, групп, возникших из Folder-ссылок при импорте).
-        foreach (var group in groupList)
-        {
-            if (string.IsNullOrWhiteSpace(group.Name))
-                continue;
-
-            var entry = ToGroupEntry(group, groupList);
-
-            if (groupSectionByName.TryGetValue(group.Name, out var existingGroup))
-            {
-                // Обновляем существующую секцию-группу (имя и иерархия).
-                existingGroup.Id = entry.Id;
-                existingGroup.Group = entry.Group;
             }
         }
 
@@ -150,10 +123,10 @@ public static class IbasesV8iExporter
         // (Name=«Учёт\Бухгалтерия»). Сопоставление по одному имени (см. Deduplicate)
         // такие пары НЕ склеивает, поэтому обе секции попадали в файл, и стартер под
         // Windows показывал их как две отдельные папки. Здесь каждая секция приводится
-        // к единому каноническому виду (Name — имя листа, Folder — путь родителя
-        // с нативным разделителем), а совпавшие по полному пути — устраняются.
+        // к нативному виду стартера (Name — полный путь, Folder=/), а совпавшие по
+        // полному пути устраняются.
         var groupSectionsBefore = entries.Count(e => e.IsGroup);
-        entries = NormalizeAndDedupeGroupSections(entries);
+        entries = NormalizeAndDedupeGroupSections(entries, groupList);
         var groupDupesRemoved = groupSectionsBefore - entries.Count(e => e.IsGroup);
 
         // Лог экспорта (issue #165): количество записей, баз, групп и устранённых
@@ -190,6 +163,83 @@ public static class IbasesV8iExporter
 
         File.WriteAllText(filePath, sb.ToString(), Encoding.Default);
         return result;
+    }
+
+    /// <summary>
+    /// Дописывает переданные базы в файл ibases.v8i, добавляя отсутствующие записи и
+    /// обновляя уже существующие (по совпадению имени, без учёта регистра). В отличие от
+    /// полного <see cref="Export"/>, чужие записи (которых нет в переданном списке) из
+    /// файла НЕ удаляются — только дописываются/обновляются выбранные базы.
+    /// </summary>
+    /// <param name="filePath">Путь к файлу ibases.v8i.</param>
+    /// <param name="infobases">Список баз, которые нужно записать в файл.</param>
+    /// <param name="groups">Список групп приложения (для разрешения пути группы базы).</param>
+    /// <returns>Количество записанных в файл баз (добавленных или обновлённых).</returns>
+    public static int AddInfobasesToFile(string filePath, IEnumerable<Infobase> infobases, IEnumerable<Group> groups)
+    {
+        var infobaseList = infobases.ToList();
+        var groupList = groups.ToList();
+
+        // Существующие записи файла. Если файла нет — начинаем с пустого списка,
+        // чтобы добавить только выбранные базы и не затирать потенциально чужие данные.
+        var entries = File.Exists(filePath) ? Parse(filePath) : new List<IbaseEntry>();
+
+        // Существующие базы по имени (для обновления на месте).
+        var existingByName = new Dictionary<string, IbaseEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in entries)
+        {
+            if (!entry.IsGroup && !string.IsNullOrWhiteSpace(entry.Name))
+                existingByName[entry.Name] = entry;
+        }
+
+        var written = 0;
+        foreach (var infobase in infobaseList)
+        {
+            if (string.IsNullOrWhiteSpace(infobase.Name))
+                continue;
+
+            var entry = ToEntry(infobase, groupList);
+
+            if (existingByName.TryGetValue(infobase.Name, out var existing))
+            {
+                // Обновляем существующую запись файла, сохраняя её позицию.
+                existing.Connect = entry.Connect;
+                existing.Group = entry.Group;
+                existing.Id = entry.Id;
+                existing.Version = entry.Version;
+                existing.AdditionalParameters = entry.AdditionalParameters;
+                existing.App = entry.App;
+                existing.DefaultApp = entry.DefaultApp;
+                existing.Enabled = true;
+            }
+            else
+            {
+                existingByName[infobase.Name] = entry;
+                entries.Add(entry);
+            }
+
+            written++;
+        }
+
+        // Устраняем дубликаты секций с одинаковым именем и приводим секции групп к
+        // нативному формату стартера (как в полном Export).
+        entries = Deduplicate(entries);
+        entries = NormalizeAndDedupeGroupSections(entries, groupList);
+
+        var sb = new StringBuilder();
+        foreach (var entry in entries)
+        {
+            WriteEntry(sb, entry);
+        }
+
+        var dir = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        File.WriteAllText(filePath, sb.ToString(), Encoding.Default);
+        return written;
     }
 
     /// <summary>
@@ -236,20 +286,29 @@ public static class IbasesV8iExporter
     }
 
     /// <summary>
-    /// Приводит секции-группы файла ibases.v8i к единому каноническому виду и устраняет
-    /// дубликаты по ПОЛНОМУ пути папки. Файл, переписанный штатным стартером 1С, может
-    /// содержать одну и ту же вложенную папку в двух представлениях: с именем-листом
-    /// (Name=«Бухгалтерия», Folder=«Учёт») и с полным путём в заголовке секции
-    /// (Name=«Учёт\Бухгалтерия»). Сопоставление по одному имени (см. <see cref="Deduplicate"/>)
-    /// такие пары не склеивает, из-за чего стартер под Windows показывал их как две
-    /// отдельные папки (issue #165). Здесь каждая секция приводится к каноническому виду
-    /// (Name — имя листа, Folder — путь родителя с нативным разделителем), а совпавшие
-    /// по полному пути — устраняются (сохраняется первая встреченная).
+    /// Приводит секции-группы к формату штатного стартера: Name содержит имя самой
+    /// группы, а Folder — абсолютный путь родителя с ведущим «/» и прямыми слешами
+    /// на всех ОС. Для корневой группы используется «/». Обратный слеш в Folder
+    /// стартер под Windows воспринимает как буквальную часть имени (issue #165).
+    /// Уже накопившиеся секции с полным путём сопоставляются с моделью по ID/пути и
+    /// переписываются обратно в корректную пару Name + Folder.
     /// </summary>
-    private static List<IbaseEntry> NormalizeAndDedupeGroupSections(List<IbaseEntry> entries)
+    private static List<IbaseEntry> NormalizeAndDedupeGroupSections(
+        List<IbaseEntry> entries,
+        List<Group> groups)
     {
         var byPath = new Dictionary<string, IbaseEntry>(StringComparer.OrdinalIgnoreCase);
         var result = new List<IbaseEntry>(entries.Count);
+        var appGroupsByPath = groups
+            .Where(g => !string.IsNullOrWhiteSpace(g.Name))
+            .GroupBy(
+                g => NormalizeGroupPath(GroupHierarchyHelper.GetFullPath(g, groups)),
+                StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var appGroupsById = groups
+            .Where(g => !string.IsNullOrWhiteSpace(g.Id))
+            .GroupBy(g => g.Id, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         foreach (var entry in entries)
         {
@@ -259,7 +318,17 @@ public static class IbasesV8iExporter
                 continue;
             }
 
-            var canonicalPath = BuildGroupPath(entry);
+            Group? appGroup = null;
+            if (!string.IsNullOrWhiteSpace(entry.Id))
+                appGroupsById.TryGetValue(entry.Id, out appGroup);
+
+            var parsedPath = BuildGroupPath(entry);
+            if (appGroup is null && !string.IsNullOrWhiteSpace(parsedPath))
+                appGroupsByPath.TryGetValue(parsedPath, out appGroup);
+
+            var canonicalPath = appGroup is null
+                ? parsedPath
+                : NormalizeGroupPath(GroupHierarchyHelper.GetFullPath(appGroup, groups));
             if (string.IsNullOrWhiteSpace(canonicalPath))
             {
                 // Секция-группа без пути — сохраняем как есть.
@@ -270,10 +339,25 @@ public static class IbasesV8iExporter
             if (byPath.ContainsKey(canonicalPath))
                 continue; // Дубликат папки — пропускаем.
 
-            var (leaf, parentPath) = SplitLeafAndParent(canonicalPath);
-            // Приводим к каноническому виду: имя — лист, Folder — путь родителя.
-            entry.Name = leaf;
-            entry.Group = string.IsNullOrWhiteSpace(parentPath) ? string.Empty : ToFolderPath(parentPath);
+            if (appGroup is not null)
+            {
+                entry.Name = appGroup.Name;
+                var parent = groups.FirstOrDefault(g =>
+                    string.Equals(g.Id, appGroup.ParentId, StringComparison.OrdinalIgnoreCase));
+                entry.Group = parent is null
+                    ? "/"
+                    : ToStarterFolderPath(GroupHierarchyHelper.GetFullPath(parent, groups));
+                if (!string.IsNullOrWhiteSpace(appGroup.Id))
+                    entry.Id = appGroup.Id;
+            }
+            else
+            {
+                var (leaf, parentPath) = SplitLeafAndParent(canonicalPath);
+                entry.Name = leaf;
+                entry.Group = string.IsNullOrWhiteSpace(parentPath)
+                    ? "/"
+                    : ToStarterFolderPath(parentPath);
+            }
             byPath[canonicalPath] = entry;
             result.Add(entry);
         }
@@ -281,9 +365,6 @@ public static class IbasesV8iExporter
         return result;
     }
 
-    /// <summary>
-    /// Разделяет канонический путь группы на имя листа и путь родителя.
-    /// </summary>
     private static (string Leaf, string ParentPath) SplitLeafAndParent(string canonicalPath)
     {
         var idx = canonicalPath.LastIndexOf(GroupHierarchyHelper.PathSeparator, StringComparison.OrdinalIgnoreCase);
@@ -353,20 +434,12 @@ public static class IbasesV8iExporter
                 string.Equals(GroupHierarchyHelper.GetFullPath(g, groups), groupPath, StringComparison.OrdinalIgnoreCase));
             if (group is not null)
             {
-                // Используем полный путь группы для Folder.
                 groupPath = GroupHierarchyHelper.GetFullPath(group, groups);
             }
 
-            // Важно (issue #165): ключ Folder в файле ibases.v8i использует НАТИВНЫЙ
-            // разделитель платформы («\» на Windows, «/» на Linux), а не внутренний
-            // « / » приложения. Если оставить внутренний разделитель, то для вложенных
-            // папок (путь из нескольких сегментов) 1С-стартер увидит
-            // Folder=«Учёт / Бухгалтерия» как имя ОДНОЙ литеральной папки и создаст
-            // её дубликат рядом с правильно вложенной «Бухгалтерия». Для плоских папок
-            // (один сегмент, без разделителя) бага не видна — потому проблема проявлялась
-            // только у вложенных папок. Всегда приводим Folder к нативному виду (для
-            // Linux это именно «/»: захардкоженный «\» давал дубль с обратным слешем).
-            groupPath = ToFolderPath(groupPath);
+            // Формат стартера — абсолютный путь с ведущим «/» и прямыми слешами
+            // независимо от ОС: «/НАН/Весь кобошоп».
+            groupPath = ToStarterFolderPath(groupPath);
         }
 
         // Версия записывается без суффикса разрядности «(32)/(64)»: разрядность хранится
@@ -400,53 +473,10 @@ public static class IbasesV8iExporter
         return string.IsNullOrWhiteSpace(cleanVersion) ? version : cleanVersion;
     }
 
-    /// <summary>
-    /// Преобразует группу приложения в запись ibases.v8i (секцию-группу без строки подключения).
-    /// Имя секции — одиночное наименование группы, вложенность задаётся ключом Folder
-    /// (полный путь с разделителем «\»), как в типовом файле 1С.
-    /// </summary>
-    private static IbaseEntry ToGroupEntry(Group group, List<Group> groups)
+    private static string ToStarterFolderPath(string fullPath)
     {
-        var entry = new IbaseEntry
-        {
-            Name = group.Name,
-            Id = group.Id,
-            Enabled = true
-        };
-
-        if (!string.IsNullOrWhiteSpace(group.ParentId))
-        {
-            var parent = groups.FirstOrDefault(g =>
-                string.Equals(g.Id, group.ParentId, StringComparison.OrdinalIgnoreCase));
-            if (parent is not null)
-            {
-                entry.Group = ToFolderPath(GroupHierarchyHelper.GetFullPath(parent, groups));
-            }
-        }
-
-        return entry;
-    }
-
-    /// <summary>
-    /// Преобразует полный путь группы из внутреннего представления приложения
-    /// (разделитель « / ») в формат ключа Folder файла ibases.v8i с НАТИВНЫМ
-    /// разделителем платформы: «\» на Windows и «/» на Linux (порождён через
-    /// <see cref="Path.DirectorySeparatorChar"/>). Штатный стартер 1С строит иерархию
-    /// вложенных папок из ключа Folder, используя разделитель той ОС, на которой
-    /// работает платформа. Жёстко зашитый «\» на Linux заставлял стартер видеть
-    /// Folder=«Учёт\Бухгалтерия» как имя одной литеральной папки и создавать её
-    /// дубликат рядом с правильно вложенной «Бухгалтерией» (issue #165).
-    /// </summary>
-    private static string ToFolderPath(string fullPath)
-    {
-        if (string.IsNullOrWhiteSpace(fullPath))
-            return string.Empty;
-
-        var separator = Path.DirectorySeparatorChar.ToString();
-        var segments = fullPath.Split(
-            new[] { GroupHierarchyHelper.PathSeparator, "/", "\\" },
-            StringSplitOptions.RemoveEmptyEntries);
-        return string.Join(separator, segments.Select(s => s.Trim()));
+        var segments = SplitGroupPath(fullPath);
+        return segments.Count == 0 ? "/" : "/" + string.Join("/", segments);
     }
 
     /// <summary>Пишет информационное сообщение экспорта в файловый лог (issue #165).</summary>

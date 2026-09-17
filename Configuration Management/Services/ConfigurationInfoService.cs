@@ -34,9 +34,12 @@ public static class ConfigurationInfoService
     /// Сначала используется COM-коннектор (только на Windows; на Linux его заменяет
     /// реализация <c>OneCComConnector.Linux</c>, которая COM не использует — эвристика
     /// по файловой базе и пакетный режим конфигуратора), затем эвристика по файлу 1Cv8.1CD.
+    /// <paramref name="mode"/> — режим, по которому выбираются учётные данные (issue #236);
+    /// по умолчанию «Конфигуратор», т.к. сведения о конфигурации обычно читает конфигуратор.
     /// <paramref name="onStage"/> — обратный вызов смены этапа для диалога прогресса (issue #174).
     /// </summary>
-    public static OneCConfigInfo? TryRead(Infobase ib, int? timeoutMs = null, Action<string>? onStage = null)
+    public static OneCConfigInfo? TryRead(Infobase ib, int? timeoutMs = null, Action<string>? onStage = null,
+        OneCLaunchMode mode = OneCLaunchMode.Configurator)
     {
         if (ib is null) return null;
         var effectiveTimeout = ResolveTimeoutMs(timeoutMs);
@@ -47,7 +50,7 @@ public static class ConfigurationInfoService
         try
         {
             var connector = AppServices.GetRequiredService<IOneCComConnector>();
-            var viaCom = connector.ReadConfigurationInfo(ib, effectiveTimeout, onStage);
+            var viaCom = connector.ReadConfigurationInfo(ib, mode, effectiveTimeout, onStage);
 
             // Фиксируем, какой COM-коннектор/версия платформы фактически использовались
             // при попытке чтения (issue #174): это помогает понять, почему «Определить»
@@ -85,8 +88,10 @@ public static class ConfigurationInfoService
     /// не перезаписываются — заполняются только пустые. При true (явная команда пользователя
     /// «Обновить информацию») допускается перезапись. На Linux COM-чтение недоступно, поэтому
     /// значения остаются ручными, если эвристика/конфигуратор их не вернули.
+    /// <paramref name="mode"/> — режим выбора учётных данных при чтении (issue #236).
     /// </summary>
-    public static bool TryApply(Infobase ib, bool overwriteExisting = false)
+    public static bool TryApply(Infobase ib, bool overwriteExisting = false,
+        OneCLaunchMode mode = OneCLaunchMode.Configurator)
     {
         if (ib is null) return false;
         if (!overwriteExisting
@@ -94,7 +99,7 @@ public static class ConfigurationInfoService
             && !string.IsNullOrWhiteSpace(ib.ConfigurationVersion))
             return false;
 
-        var info = TryRead(ib);
+        var info = TryRead(ib, mode: mode);
         if (info is null) return false;
 
         var changed = false;
@@ -150,15 +155,16 @@ public static class ConfigurationInfoService
     /// Читает наименование и версию конфигурации и сразу применяет их к базе
     /// (по умолчанию перезаписывая уже заполненные значения). Возвращает прочитанные
     /// данные, либо null, если чтение не удалось. <paramref name="onStage"/> — обратный
-    /// вызов смены этапа для диалога прогресса (issue #174).
+    /// вызов смены этапа для диалога прогресса (issue #174). <paramref name="mode"/> —
+    /// режим выбора учётных данных при чтении (issue #236); по умолчанию «Конфигуратор».
     /// </summary>
     public static OneCConfigInfo? ReadAndApply(Infobase ib, bool overwriteExisting = true, int? timeoutMs = null,
-        Action<string>? onStage = null)
+        Action<string>? onStage = null, OneCLaunchMode mode = OneCLaunchMode.Configurator)
     {
         if (ib is null) return null;
-        var info = TryRead(ib, timeoutMs, onStage);
+        var info = TryRead(ib, timeoutMs, onStage, mode);
         if (info is null) return null;
-        TryApply(ib, overwriteExisting);
+        TryApply(ib, overwriteExisting, mode);
         return info;
     }
 

@@ -47,6 +47,10 @@ public static class IbasesV8iImporter
 
         var entries = Parse(filePath);
 
+        // В штатном ibases.v8i Folder — абсолютный путь с ведущим «/» и прямыми
+        // слешами. Старые ошибочные варианты и ссылки по имени тоже нормализуем.
+        ResolveFolderReferences(entries);
+
         // Создаём недостающие группы из импортируемых баз.
         var groupsBefore = groups.Count;
         EnsureGroups(entries, groups, result);
@@ -156,6 +160,90 @@ public static class IbasesV8iImporter
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Разворачивает Folder из формата штатного стартера в полные внутренние пути.
+    /// Например, [Весь кобошоп] Folder=/НАН и база с
+    /// Folder=/НАН/Весь кобошоп преобразуются в «НАН / Весь кобошоп».
+    /// Также понимает ошибочный старый вид [НАН\Весь кобошоп] Folder=/, чтобы один
+    /// экспорт новой версией мог восстановить файл пользователя.
+    /// </summary>
+    private static void ResolveFolderReferences(List<IbaseEntry> entries)
+    {
+        var groupEntries = entries
+            .Where(e => e.IsGroup && e.Enabled && !string.IsNullOrWhiteSpace(e.Name))
+            .ToList();
+        var groupsBySectionName = groupEntries
+            .GroupBy(e => e.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var pathByEntry = new Dictionary<IbaseEntry, string>();
+        var resolving = new HashSet<IbaseEntry>();
+
+        string ResolvePath(IbaseEntry entry)
+        {
+            if (pathByEntry.TryGetValue(entry, out var cached))
+                return cached;
+
+            var namePath = NormalizeGroupPath(entry.Name);
+            if (!resolving.Add(entry))
+                return namePath;
+
+            var folderReference = entry.Group.Trim();
+            string fullPath;
+            if (string.IsNullOrWhiteSpace(NormalizeGroupPath(folderReference)))
+            {
+                fullPath = namePath;
+            }
+            else if (groupsBySectionName.TryGetValue(folderReference, out var parent)
+                     && !ReferenceEquals(parent, entry))
+            {
+                var parentPath = ResolvePath(parent);
+                var leaf = NormalizeGroupName(entry.Name);
+                fullPath = string.IsNullOrWhiteSpace(parentPath)
+                    ? leaf
+                    : parentPath + GroupHierarchyHelper.PathSeparator + leaf;
+            }
+            else
+            {
+                // Совместимость со старыми файлами, где Folder ошибочно содержал путь.
+                var parentPath = NormalizeGroupPath(folderReference);
+                var leaf = NormalizeGroupName(entry.Name);
+                fullPath = string.IsNullOrWhiteSpace(parentPath)
+                    ? namePath
+                    : parentPath + GroupHierarchyHelper.PathSeparator + leaf;
+            }
+
+            resolving.Remove(entry);
+            pathByEntry[entry] = fullPath;
+            return fullPath;
+        }
+
+        foreach (var groupEntry in groupEntries)
+            ResolvePath(groupEntry);
+
+        // Сначала переводим ссылки баз, пока имена секций ещё не канонизированы.
+        foreach (var entry in entries.Where(e => !e.IsGroup))
+        {
+            var folderReference = entry.Group.Trim();
+            if (groupsBySectionName.TryGetValue(folderReference, out var groupEntry)
+                && pathByEntry.TryGetValue(groupEntry, out var groupPath))
+            {
+                entry.Group = groupPath;
+            }
+            else
+            {
+                entry.Group = NormalizeGroupPath(folderReference);
+            }
+        }
+
+        // Дальнейшая логика импортёра работает с каноническими Name + полным путём родителя.
+        foreach (var groupEntry in groupEntries)
+        {
+            var (leaf, parentPath) = SplitLeafAndParent(pathByEntry[groupEntry]);
+            groupEntry.Name = leaf;
+            groupEntry.Group = parentPath;
+        }
     }
 
     /// <summary>

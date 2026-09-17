@@ -237,10 +237,10 @@ namespace Configuration_Management.Services
                 LocalizationManager.T("Update.CurrentVersion"), VersionInfo.Display());
             var offered = string.Format(
                 LocalizationManager.T("Update.NewVersion"), NormalizeTag(release.TagName));
-            var accepted = _dialogs.Confirm(
-                current + Environment.NewLine + offered + Environment.NewLine + Environment.NewLine
-                    + LocalizationManager.T("Update.DownloadPrompt"),
-                LocalizationManager.T("Update.NewVersionAvailable"));
+            var summary = current + Environment.NewLine + offered
+                + Environment.NewLine + Environment.NewLine
+                + LocalizationManager.T("Update.DownloadPrompt");
+            var accepted = ConfirmUpdate(summary, release.Body);
             if (!accepted)
                 return;
 
@@ -315,8 +315,7 @@ namespace Configuration_Management.Services
                 : LocalizationManager.T("Update.AdminPromptGeneric");
 
             // Повышение прав запускаем только после явного согласия пользователя.
-            var accepted = _dialogs.Confirm(
-                prompt, LocalizationManager.T("Update.NewVersionAvailable"));
+            var accepted = ConfirmUpdate(prompt, release.Body);
             if (!accepted)
             {
                 // Отказ — запасной вариант: ссылка на страницу выпуска для ручного обновления.
@@ -1157,6 +1156,18 @@ rmdir ""$WORK_DIR"" 2>/dev/null || true
 
         /// <summary>Экранирует строку для одинарных кавычек bash: ' → '\''.</summary>
         private static string Bq(string value) => value.Replace("'", "'\\''");
+
+        /// <summary>
+        /// Запрашивает подтверждение скачивания/применения обновления. На Avalonia
+        /// показывает также описание релиза «Что нового» в формате markdown.
+        /// </summary>
+        private bool ConfirmUpdate(string summary, string? body)
+        {
+            var title = LocalizationManager.T("Update.NewVersionAvailable");
+            return _dialogs is AvaloniaDialogService avalonia
+                ? avalonia.ConfirmUpdate(summary, body, title)
+                : _dialogs.Confirm(summary, title);
+        }
 
         /// <summary>
         /// Показывает диалог «самообновление недоступно» с кликабельной ссылкой на

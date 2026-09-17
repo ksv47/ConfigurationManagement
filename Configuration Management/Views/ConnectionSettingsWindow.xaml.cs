@@ -17,6 +17,8 @@ namespace Configuration_Management
     public partial class ConnectionSettingsWindow : Window
     {
         private readonly ConnectionSettingsViewModel _viewModel;
+        private readonly IDialogService _dialogs =
+            AppServices.GetRequiredService<IDialogService>();
         /// <summary>Пользовательские параметры запуска для справочника (issue #141).</summary>
         private readonly IReadOnlyList<string> _customLaunchParameters;
         /// <summary>Обратный вызов сохранения пользовательских параметров запуска (issue #141).</summary>
@@ -210,9 +212,8 @@ namespace Configuration_Management
             // чтобы оно совпадало с применённым значением.
             _viewModel.ConnectionString = dialog.Result ?? string.Empty;
 
-            MessageBox.Show(LocalizationManager.T("Connection.PasteSuccess"),
-                LocalizationManager.T("Connection.PasteSuccessTitle"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            _dialogs.ShowInfo(LocalizationManager.T("Connection.PasteSuccess"),
+                LocalizationManager.T("Connection.PasteSuccessTitle"));
         }
 
         /// <summary>
@@ -241,9 +242,8 @@ namespace Configuration_Management
             var validationError = _viewModel.ValidateCliArgs();
             if (validationError is not null)
             {
-                MessageBox.Show(validationError,
-                    LocalizationManager.T("Connection.InvalidCliCharTitle"),
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.ShowWarning(validationError,
+                    LocalizationManager.T("Connection.InvalidCliCharTitle"));
                 return;
             }
 
@@ -309,13 +309,9 @@ namespace Configuration_Management
         /// </summary>
         private void OnPlatformSettings_Click(object sender, RoutedEventArgs e)
         {
-            var current = _viewModel.PlatformVersion ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(_viewModel.Architecture)
-                && _viewModel.Architecture is "32" or "64"
-                && !current.Contains('('))
-            {
-                current = $"{current} ({_viewModel.Architecture})".Trim();
-            }
+            // Композицию варианта «версия (разрядность)» строит общий парсер (ПЗ-5).
+            var current = OneCLaunchArgumentParser.ComposePlatformVersionDisplay(
+                _viewModel.PlatformVersion, _viewModel.Architecture);
 
             var dialog = new PlatformVersionPickerWindow(_viewModel.InstalledPlatformVersions, current)
             {
@@ -431,10 +427,9 @@ namespace Configuration_Management
                     "COM-коннектора в настройках приложения.");
             }
 
-            MessageBox.Show(
+            _dialogs.ShowInfo(
                 sb.ToString().TrimEnd(),
-                LocalizationManager.T("Connection.DetectConfigTitle"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
+                LocalizationManager.T("Connection.DetectConfigTitle"));
         }
 
         /// <summary>Синхронизация PasswordBox → ViewModel (пароль не биндится напрямую).</summary>

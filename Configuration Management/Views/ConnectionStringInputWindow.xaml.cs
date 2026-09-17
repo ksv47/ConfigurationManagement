@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Configuration_Management.Localization;
+using Configuration_Management.Services;
 
 namespace Configuration_Management
 {
@@ -13,6 +14,9 @@ namespace Configuration_Management
     /// </summary>
     public partial class ConnectionStringInputWindow : Window
     {
+        private readonly IDialogService _dialogs =
+            AppServices.GetRequiredService<IDialogService>();
+
         /// <summary>
         /// Создаёт диалог ввода строки подключения.
         /// </summary>
@@ -107,15 +111,15 @@ namespace Configuration_Management
             }
             catch
             {
-                MessageBox.Show(LocalizationManager.T("ConnectionStringInput.ClipboardReadError"),
-                    LocalizationManager.T("ConnectionStringInput.PasteTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.ShowWarning(LocalizationManager.T("ConnectionStringInput.ClipboardReadError"),
+                    LocalizationManager.T("ConnectionStringInput.PasteTitle"));
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(text))
             {
-                MessageBox.Show(LocalizationManager.T("ConnectionStringInput.ClipboardEmpty"),
-                    LocalizationManager.T("ConnectionStringInput.PasteTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+                _dialogs.ShowInfo(LocalizationManager.T("ConnectionStringInput.ClipboardEmpty"),
+                    LocalizationManager.T("ConnectionStringInput.PasteTitle"));
                 return;
             }
 

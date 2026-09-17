@@ -2,6 +2,8 @@
 using System.Windows;
 using System.Windows.Input;
 using Configuration_Management.Localization;
+using Configuration_Management.Models;
+using Configuration_Management.Services;
 
 namespace Configuration_Management
 {
@@ -57,94 +59,12 @@ namespace Configuration_Management
 
         /// <summary>
         /// Строит каталог всех ключей командной строки 1С с описаниями
-        /// для справочника в нижней части окна.
+        /// для справочника в нижней части окна. Логику построения делегирует
+        /// общему сервису <see cref="OneCLaunchArgumentParser"/> (ПЗ-5).
         /// </summary>
-        private List<ParamRef> BuildReferenceCatalog()
+        private List<OneCLaunchParameterReference> BuildReferenceCatalog()
         {
-            var list = new List<ParamRef>();
-
-            // Ключ перевода описания параметра по его ключу командной строки.
-            void Add(string key)
-            {
-                var locKey = "LaunchParams.Ref." + key.Trim('/').Replace("-", "");
-                list.Add(new ParamRef(key, LocalizationManager.T(locKey)));
-            }
-
-            // Параметры-флаги.
-            Add("/DisableStartupMessages");
-            Add("/DisableStartupDialogs");
-            Add("/DisableSplash");
-            Add("/WA-");
-            Add("/Debug");
-            Add("/AllowExecuteScheduledJobs");
-            Add("/RunModeManagedApplication");
-            Add("/RunModeOrdinaryApplication");
-            Add("/UpdateCfg");
-            Add("/TestServer");
-            Add("/RestoreIB");
-            Add("/DumpIB");
-            Add("/DumpCfg");
-            Add("/LoadCfg");
-            Add("/CheckConfig");
-            Add("/UpdateConfigDumpCfg");
-            Add("/CreateInfobase");
-            Add("/Command");
-            Add("/ManagedClient");
-            Add("/ThickClient");
-            Add("/UpdateConfiguration");
-
-            // Параметры с аргументами.
-            Add("/UC");
-            Add("/L");
-            Add("/Out");
-            Add("/C");
-            Add("/Execute");
-            Add("/DumpResult");
-            Add("/N");
-            Add("/P");
-            Add("/S");
-            Add("/F");
-            Add("/Ref");
-            Add("/Server");
-            Add("/Srvr");
-            Add("/IBName");
-            Add("/DBMS");
-            Add("/DBSrvr");
-            Add("/DBUID");
-            Add("/DBPwd");
-            Add("/App");
-            Add("/ConfigurationRepository");
-            Add("/ConfigurationRepositoryUser");
-            Add("/ConfigurationRepositoryPwd");
-            Add("/DisplayAllFunctions");
-            Add("/WSNamespace");
-            Add("/IBSecurity");
-            Add("/CPUSecurity");
-            Add("/SaveAgent");
-            Add("/ConfigurationName");
-            Add("/RegisterExternalDataSource");
-            Add("/UnregisterExternalDataSource");
-            Add("/SqlDump");
-
-            // Пользовательские параметры (issue #141): добавляются в конец списка,
-            // помечаются, чтобы их можно было отличить от встроенных и удалить.
-            // Формат элемента: «ключ» либо «ключ<TAB>комментарий» (комментарий из поля
-            // TxtNewComment) — ключ и описание разделяются табуляцией, поэтому ключ
-            // командной строки подставляется в поле «Параметры» без комментария.
-            foreach (var custom in _customParams)
-            {
-                var parts = (custom ?? string.Empty).Split('\t');
-                var key = parts[0].Trim();
-                if (string.IsNullOrWhiteSpace(key))
-                    continue;
-                var comment = parts.Length > 1 ? parts[1].Trim() : string.Empty;
-                var description = string.IsNullOrWhiteSpace(comment)
-                    ? LocalizationManager.T("LaunchParams.CustomMarker")
-                    : comment;
-                list.Add(new ParamRef(key, description, isCustom: true));
-            }
-
-            return list;
+            return OneCLaunchArgumentParser.BuildReferenceCatalog(_customParams).ToList();
         }
 
         /// <summary>
@@ -152,7 +72,7 @@ namespace Configuration_Management
         /// </summary>
         private void OnReferenceDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            if (LstReference.SelectedItem is ParamRef item)
+            if (LstReference.SelectedItem is OneCLaunchParameterReference item)
                 InsertCustomText(item.Key);
         }
 
@@ -161,15 +81,11 @@ namespace Configuration_Management
         /// </summary>
         private void InsertCustomText(string text)
         {
-            var insert = (text ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(insert))
+            var updated = OneCLaunchArgumentParser.AppendParameter(TxtCustom.Text, text);
+            if (updated == TxtCustom.Text)
                 return;
 
-            if (string.IsNullOrWhiteSpace(TxtCustom.Text))
-                TxtCustom.Text = insert;
-            else
-                TxtCustom.Text = TxtCustom.Text.TrimEnd() + " " + insert;
-
+            TxtCustom.Text = updated;
             TxtCustom.CaretIndex = TxtCustom.Text.Length;
             TxtCustom.Focus();
         }
@@ -206,7 +122,7 @@ namespace Configuration_Management
         /// <summary>Удаляет выбранный пользовательский параметр из справочника.</summary>
         private void RemoveSelectedCustomParameter()
         {
-            if (LstReference.SelectedItem is not ParamRef { IsCustom: true } item)
+            if (LstReference.SelectedItem is not OneCLaunchParameterReference { IsCustom: true } item)
                 return;
             _customParams.RemoveAll(p =>
                 string.Equals((p ?? string.Empty).Split('\t')[0].Trim(), item.Key, StringComparison.OrdinalIgnoreCase));
@@ -242,22 +158,6 @@ namespace Configuration_Management
             }
         }
 
-        /// <summary>
-        /// Запись справочника параметров командной строки 1С.
-        /// </summary>
-        private sealed class ParamRef
-        {
-            public ParamRef(string key, string description, bool isCustom = false)
-            {
-                Key = key;
-                Description = description;
-                IsCustom = isCustom;
-            }
-
-            public string Key { get; }
-            public string Description { get; }
-            public bool IsCustom { get; }
-        }
     }
 }
 #endif

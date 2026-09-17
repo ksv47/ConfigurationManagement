@@ -9,6 +9,8 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Configuration_Management.Localization;
+using Configuration_Management.Models;
+using Configuration_Management.Services;
 using Configuration_Management.Themes;
 
 namespace Configuration_Management
@@ -95,7 +97,7 @@ namespace Configuration_Management
             // и без того держит внешний ScrollViewer.
             ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Disabled);
             list.ItemsSource = BuildReferenceCatalog();
-            list.ItemTemplate = new FuncDataTemplate<ParamRef>((item, _) =>
+            list.ItemTemplate = new FuncDataTemplate<OneCLaunchParameterReference>((item, _) =>
             {
                 // Переработка контейнеров виртуализацией строит шаблон с null:
                 // без этой проверки список из 52 строк роняет приложение
@@ -133,7 +135,7 @@ namespace Configuration_Management
             });
             list.DoubleTapped += (_, e) =>
             {
-                if (list.SelectedItem is ParamRef item)
+                if (list.SelectedItem is OneCLaunchParameterReference item)
                 {
                     InsertCustomText(item.Key);
                     e.Handled = true;
@@ -210,15 +212,11 @@ namespace Configuration_Management
         /// <summary>Добавляет текст в поле «Параметры», разделяя пробелом.</summary>
         private void InsertCustomText(string text)
         {
-            var insert = (text ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(insert))
+            var updated = OneCLaunchArgumentParser.AppendParameter(_txtCustom.Text, text);
+            if (updated == _txtCustom.Text)
                 return;
 
-            if (string.IsNullOrWhiteSpace(_txtCustom.Text))
-                _txtCustom.Text = insert;
-            else
-                _txtCustom.Text = _txtCustom.Text.TrimEnd() + " " + insert;
-
+            _txtCustom.Text = updated;
             _txtCustom.CaretIndex = _txtCustom.Text.Length;
             _txtCustom.Focus();
         }
@@ -228,83 +226,16 @@ namespace Configuration_Management
             Result = (_txtCustom.Text ?? string.Empty).Trim();
         }
 
-        /// <summary>Строит каталог ключей командной строки 1С для справочника.</summary>
-        private static List<ParamRef> BuildReferenceCatalog()
+        /// <summary>
+        /// Строит каталог ключей командной строки 1С для справочника. Логику построения
+        /// делегирует общему сервису <see cref="OneCLaunchArgumentParser"/> (ПЗ-5);
+        /// пользовательских параметров на Linux в справочнике нет.
+        /// </summary>
+        private static IReadOnlyList<OneCLaunchParameterReference> BuildReferenceCatalog()
         {
-            var list = new List<ParamRef>();
-            void Add(string key, string description) => list.Add(new ParamRef(key, description));
-
-            // Параметры-флаги.
-            Add("/DisableStartupMessages", LocalizationManager.T("LaunchParams.Ref.DisableStartupMessages"));
-            Add("/DisableStartupDialogs", LocalizationManager.T("LaunchParams.Ref.DisableStartupDialogs"));
-            Add("/DisableSplash", LocalizationManager.T("LaunchParams.Ref.DisableSplash"));
-            Add("/WA-", LocalizationManager.T("LaunchParams.Ref.WA"));
-            Add("/Debug", LocalizationManager.T("LaunchParams.Ref.Debug"));
-            Add("/AllowExecuteScheduledJobs", LocalizationManager.T("LaunchParams.Ref.AllowExecuteScheduledJobs"));
-            Add("/RunModeManagedApplication", LocalizationManager.T("LaunchParams.Ref.RunModeManagedApplication"));
-            Add("/RunModeOrdinaryApplication", LocalizationManager.T("LaunchParams.Ref.RunModeOrdinaryApplication"));
-            Add("/UpdateCfg", LocalizationManager.T("LaunchParams.Ref.UpdateCfg"));
-            Add("/TestServer", LocalizationManager.T("LaunchParams.Ref.TestServer"));
-            Add("/RestoreIB", LocalizationManager.T("LaunchParams.Ref.RestoreIB"));
-            Add("/DumpIB", LocalizationManager.T("LaunchParams.Ref.DumpIB"));
-            Add("/DumpCfg", LocalizationManager.T("LaunchParams.Ref.DumpCfg"));
-            Add("/LoadCfg", LocalizationManager.T("LaunchParams.Ref.LoadCfg"));
-            Add("/CheckConfig", LocalizationManager.T("LaunchParams.Ref.CheckConfig"));
-            Add("/UpdateConfigDumpCfg", LocalizationManager.T("LaunchParams.Ref.UpdateConfigDumpCfg"));
-            Add("/CreateInfobase", LocalizationManager.T("LaunchParams.Ref.CreateInfobase"));
-            Add("/Command", LocalizationManager.T("LaunchParams.Ref.Command"));
-            Add("/ManagedClient", LocalizationManager.T("LaunchParams.Ref.ManagedClient"));
-            Add("/ThickClient", LocalizationManager.T("LaunchParams.Ref.ThickClient"));
-            Add("/UpdateConfiguration", LocalizationManager.T("LaunchParams.Ref.UpdateConfiguration"));
-
-            // Параметры с аргументами.
-            Add("/UC", LocalizationManager.T("LaunchParams.Ref.UC"));
-            Add("/L", LocalizationManager.T("LaunchParams.Ref.L"));
-            Add("/Out", LocalizationManager.T("LaunchParams.Ref.Out"));
-            Add("/C", LocalizationManager.T("LaunchParams.Ref.C"));
-            Add("/Execute", LocalizationManager.T("LaunchParams.Ref.Execute"));
-            Add("/DumpResult", LocalizationManager.T("LaunchParams.Ref.DumpResult"));
-            Add("/N", LocalizationManager.T("LaunchParams.Ref.N"));
-            Add("/P", LocalizationManager.T("LaunchParams.Ref.P"));
-            Add("/S", LocalizationManager.T("LaunchParams.Ref.S"));
-            Add("/F", LocalizationManager.T("LaunchParams.Ref.F"));
-            Add("/Ref", LocalizationManager.T("LaunchParams.Ref.Ref"));
-            Add("/Server", LocalizationManager.T("LaunchParams.Ref.Server"));
-            Add("/Srvr", LocalizationManager.T("LaunchParams.Ref.Srvr"));
-            Add("/IBName", LocalizationManager.T("LaunchParams.Ref.IBName"));
-            Add("/DBMS", LocalizationManager.T("LaunchParams.Ref.DBMS"));
-            Add("/DBSrvr", LocalizationManager.T("LaunchParams.Ref.DBSrvr"));
-            Add("/DBUID", LocalizationManager.T("LaunchParams.Ref.DBUID"));
-            Add("/DBPwd", LocalizationManager.T("LaunchParams.Ref.DBPwd"));
-            Add("/App", LocalizationManager.T("LaunchParams.Ref.App"));
-            Add("/ConfigurationRepository", LocalizationManager.T("LaunchParams.Ref.ConfigurationRepository"));
-            Add("/ConfigurationRepositoryUser", LocalizationManager.T("LaunchParams.Ref.ConfigurationRepositoryUser"));
-            Add("/ConfigurationRepositoryPwd", LocalizationManager.T("LaunchParams.Ref.ConfigurationRepositoryPwd"));
-            Add("/DisplayAllFunctions", LocalizationManager.T("LaunchParams.Ref.DisplayAllFunctions"));
-            Add("/WSNamespace", LocalizationManager.T("LaunchParams.Ref.WSNamespace"));
-            Add("/IBSecurity", LocalizationManager.T("LaunchParams.Ref.IBSecurity"));
-            Add("/CPUSecurity", LocalizationManager.T("LaunchParams.Ref.CPUSecurity"));
-            Add("/SaveAgent", LocalizationManager.T("LaunchParams.Ref.SaveAgent"));
-            Add("/ConfigurationName", LocalizationManager.T("LaunchParams.Ref.ConfigurationName"));
-            Add("/RegisterExternalDataSource", LocalizationManager.T("LaunchParams.Ref.RegisterExternalDataSource"));
-            Add("/UnregisterExternalDataSource", LocalizationManager.T("LaunchParams.Ref.UnregisterExternalDataSource"));
-            Add("/SqlDump", LocalizationManager.T("LaunchParams.Ref.SqlDump"));
-
-            return list;
+            return OneCLaunchArgumentParser.BuildReferenceCatalog();
         }
 
-        /// <summary>Запись справочника параметров командной строки 1С.</summary>
-        private sealed class ParamRef
-        {
-            public ParamRef(string key, string description)
-            {
-                Key = key;
-                Description = description;
-            }
-
-            public string Key { get; }
-            public string Description { get; }
-        }
     }
 }
 #endif

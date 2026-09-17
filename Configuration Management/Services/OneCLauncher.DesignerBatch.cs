@@ -99,11 +99,7 @@ public static partial class OneCLauncher
         if (string.IsNullOrEmpty(exePath) ||
             exePath.EndsWith("1CEStart.exe", StringComparison.OrdinalIgnoreCase))
         {
-            System.Windows.MessageBox.Show(
-                LocalizationManager.T("Launcher.ConfiguratorExeNotFound"),
-                LocalizationManager.T("Launcher.PlatformTitle"),
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
+            GetLogger()?.Warn(LocalizationManager.T("Launcher.ConfiguratorExeNotFound"));
             return false;
         }
 
@@ -111,11 +107,8 @@ public static partial class OneCLauncher
         // (в т.ч. открытый вручную вне приложения) или идёт другая выгрузка/операция DESIGNER.
         if (IsDesignerBlocked(infobase, out var blockReason))
         {
-            System.Windows.MessageBox.Show(
-                string.Format(LocalizationManager.T("Launcher.ConfiguratorBlockedFormat"), blockReason),
-                LocalizationManager.T("Launcher.ConfiguratorAlreadyRunningTitle"),
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
+            GetLogger()?.Warn(
+                string.Format(LocalizationManager.T("Launcher.ConfiguratorBlockedFormat"), blockReason));
             return false;
         }
 
@@ -130,11 +123,8 @@ public static partial class OneCLauncher
                 try { Directory.CreateDirectory(dir); }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show(
-                        string.Format(LocalizationManager.T("Launcher.CreateDirFailedFormat"), dir, ex.Message),
-                        LocalizationManager.T("Launcher.DumpTitle"),
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Error);
+                    GetLogger()?.Error(
+                        string.Format(LocalizationManager.T("Launcher.CreateDirFailedFormat"), dir, ex.Message), ex);
                     return false;
                 }
             }
@@ -178,11 +168,8 @@ public static partial class OneCLauncher
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(
-                string.Format(LocalizationManager.T("Launcher.OperationStartFailedFormat"), ex.Message, exePath, arguments),
-                LocalizationManager.T("Launcher.OperationErrorTitle"),
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
+            GetLogger()?.Error(
+                string.Format(LocalizationManager.T("Launcher.OperationStartFailedFormat"), ex.Message, exePath, arguments), ex);
             return false;
         }
     }

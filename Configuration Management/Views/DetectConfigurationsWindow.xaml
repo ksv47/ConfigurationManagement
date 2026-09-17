@@ -76,6 +76,8 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <Button x:Name="CheckAllButton" Style="{StaticResource SelectAllButtonStyle}"
                                 ToolTip="{loc:Loc DetectConfigs.Button.CheckAllTooltip}"
@@ -106,6 +108,14 @@
                                 <TextBlock Text="{loc:Loc DetectConfigs.Button.Invert}" Margin="6,0,0,0" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
+
+                        <!-- Действие при ошибке (issue #236, п.2) -->
+                        <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{loc:Loc DetectConfigs.ErrorMode}" Margin="0,0,6,0" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <ComboBox x:Name="ErrorModeCombo" MinWidth="180" Height="28" VerticalAlignment="Center"
+                                      SelectionChanged="OnErrorModeSelectionChanged"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -115,19 +125,69 @@
                           BorderThickness="0" Background="Transparent" GridLinesVisibility="None"
                           RowHeight="32" AlternatingRowBackground="{DynamicResource CardBackgroundBrush}">
                     <DataGrid.Columns>
-                        <DataGridCheckBoxColumn Width="110" Binding="{Binding IsChecked}">
-                            <DataGridCheckBoxColumn.Header>
+                        <!-- Флажок через шаблонную колонку с CheckBox: срабатывает с первого клика,
+                             без предварительного фокуса (issue #236, п.3). -->
+                        <DataGridTemplateColumn Width="44">
+                            <DataGridTemplateColumn.Header>
                                 <TextBlock x:Name="CheckedHeaderText" FontSize="12" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            Text="{loc:Loc DetectConfigs.Column.CheckedHeaderFormat}"/>
-                            </DataGridCheckBoxColumn.Header>
-                        </DataGridCheckBoxColumn>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="Hand"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Колонка платформы (issue #236, п.4) -->
+                        <DataGridTextColumn Width="Auto" Header="{loc:Loc DetectConfigs.Column.Platform}"
+                                            Binding="{Binding PlatformVersion}" IsReadOnly="True"/>
+
                         <DataGridTextColumn Width="*" Header="{loc:Loc DetectConfigs.Column.Name}"
                                             Binding="{Binding Name}" IsReadOnly="True"/>
                         <DataGridTextColumn Width="*" Header="{loc:Loc DetectConfigs.Column.CurrentConfig}"
                                             Binding="{Binding ConfigurationName}" IsReadOnly="True"/>
                         <DataGridTextColumn Width="*" Header="{loc:Loc DetectConfigs.Column.Version}"
                                             Binding="{Binding ConfigurationVersion}" IsReadOnly="True"/>
+
+                        <!-- Индикатор заполненности логина/пароля (issue #236, п.5) -->
+                        <DataGridTemplateColumn Width="40" Header="{loc:Loc DetectConfigs.Column.Credentials}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="●" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               ToolTip="{loc:Loc DetectConfigs.CredentialsMissingTooltip}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#EF4444"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasCredentials}" Value="True">
+                                                        <Setter Property="Foreground" Value="#16A34A"/>
+                                                        <Setter Property="ToolTip"
+                                                                Value="{loc:Loc DetectConfigs.CredentialsFilledTooltip}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Кнопка свойств базы под курсором (issue #236, п.5) -->
+                        <DataGridTemplateColumn Width="40" Header="{loc:Loc DetectConfigs.Column.Properties}">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Click="OnPropertiesClick" Cursor="Hand" Background="Transparent"
+                                            BorderThickness="0" Style="{StaticResource SelectAllButtonStyle}"
+                                            ToolTip="{loc:Loc DetectConfigs.Button.PropertiesTooltip}">
+                                        <materialDesign:PackIcon Kind="CogOutline" Width="16" Height="16"
+                                                                 Foreground="#8B5CF6"/>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>
@@ -140,11 +200,44 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock x:Name="SummaryText" Grid.Column="0" VerticalAlignment="Center" FontSize="12"
-                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"
-                       TextTrimming="CharacterEllipsis"/>
+            <!-- Текущая база (п.1) и результат обработки предыдущей (п.1/п.2) -->
+            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                <TextBlock x:Name="ProgressText" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="SummaryText" FontSize="12" Margin="0,2,0,0"
+                           Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="StopButton" Width="120" Height="36" Margin="0,0,10,0" IsEnabled="False"
+                        Click="OnStop_Click" Cursor="Hand" Background="#EF4444" BorderThickness="0"
+                        ToolTip="{loc:Loc DetectConfigs.Button.StopTooltip}" Foreground="White">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="12,8">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="bd" Property="Background" Value="#DC2626"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="bd" Property="Background" Value="#B91C1C"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="StopCircleOutline" Width="16" Height="16" Foreground="White"
+                                                 Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc DetectConfigs.Button.Stop}" VerticalAlignment="Center"
+                                   Foreground="White" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Button>
                 <Button x:Name="DetectButton" Width="180" Height="36" Margin="0,0,10,0" IsDefault="True"
                         Click="OnDetect_Click"
                         Background="#16A34A" BorderThickness="0" Cursor="Hand" Foreground="White">

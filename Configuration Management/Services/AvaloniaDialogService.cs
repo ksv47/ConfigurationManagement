@@ -39,6 +39,21 @@ namespace Configuration_Management.Services
         }
 
         /// <summary>
+        /// Запрашивает подтверждение с показом описания релиза «Что нового» в формате
+        /// markdown (заголовки, жирный, списки). Используется автообновлением на Linux.
+        /// </summary>
+        /// <param name="summary">Краткий текст вопроса (версии и приглашение скачать).</param>
+        /// <param name="markdownBody">Описание релиза в markdown; <c>null</c> скрывает секцию.</param>
+        /// <param name="title">Заголовок окна.</param>
+        /// <returns>True, если пользователь подтвердил действие.</returns>
+        public bool ConfirmUpdate(string summary, string? markdownBody, string title = "")
+        {
+            var win = new MaterialMessageWindowAvalonia(
+                summary, DefaultTitle(title, "Common.Confirm"), MaterialMessageKind.Question, markdownBody);
+            return ShowModalSync(win);
+        }
+
+        /// <summary>
         /// Показывает модальное окно с пояснением и кликабельной ссылкой на страницу
         /// выпуска. Используется автообновлением, когда самообновление недоступно
         /// (запуск из пакета AppImage или установка в системный каталог) — вместо

@@ -1533,184 +1533,261 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              Margin="4,12,4,0" Padding="0,0,4,0">
-                    <StackPanel>
-                        <TextBlock Text="{loc:Loc Settings.Bases.Description}"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12"
-                                   TextWrapping="Wrap"/>
+                <Grid Margin="4,12,4,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="{loc:Loc Settings.Bases.Description}"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
+                               TextWrapping="Wrap"/>
+                    <TabControl x:Name="BasesSubTabs" Grid.Row="1" Margin="0,0,0,0"
+                                Style="{StaticResource SettingsSubTabControl}">
 
-                        <!-- Каталоги шаблонов — выше, т.к. часто нужны при создании ИБ -->
-                        <GroupBox Header="{loc:Loc Settings.TemplateDirs}" Padding="8" Margin="0,0,0,12">
-                            <StackPanel>
-                                <TextBlock Text="{loc:Loc Settings.Bases.TemplateDirsHint}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6" TextWrapping="Wrap"/>
-                                <ListBox x:Name="TemplatePathsList" MinHeight="100" MaxHeight="180" Margin="0,0,0,8"
-                                         BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
-                                         Background="{DynamicResource CardBackgroundBrush}"
-                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
-                                <WrapPanel Orientation="Horizontal">
-                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
-                                            Click="OnAddTemplatePath_Click"
-                                            ToolTip="{loc:Loc Settings.Bases.AddTemplateTooltip}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="FolderPlus" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Settings.Bases.AddTemplate}" VerticalAlignment="Center"/>
+                        <!-- Список баз -->
+                        <TabItem Style="{StaticResource SettingsSubTabItem}">
+                            <TabItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Database" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                    <TextBlock Text="{loc:Loc Settings.Bases.Subtab.List}" VerticalAlignment="Center" ToolTip="{loc:Loc Settings.Bases.Subtab.ListTooltip}"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                </StackPanel>
+                            </TabItem.Header>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,4,4,4">
+                                <StackPanel>
+                                    <!-- Экспорт / загрузка списка баз -->
+                                    <GroupBox Header="{loc:Loc Settings.IbaseList}" Padding="8" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <Button Style="{DynamicResource ModernButton}" Margin="0,0,0,8" Padding="10,8"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnExportInfobases_Click"
+                                                    ToolTip="{loc:Loc Settings.Bases.ExportListTooltip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Export" Width="16" Height="16" Foreground="White" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Settings.Bases.ExportList}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnImportInfobases_Click"
+                                                    ToolTip="{loc:Loc Settings.Bases.ImportListTooltip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Import" Width="16" Height="16" Foreground="#F97316" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Settings.Bases.ImportList}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnImportIbasesV8i_Click"
+                                                    ToolTip="{loc:Loc Settings.Bases.ImportV8iTooltip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="FileDownload" Width="16" Height="16" Foreground="#14B8A6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Settings.Bases.ImportV8i}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <!-- Определение/обновление конфигураций всех баз (issue #236). -->
+                                            <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnDetectAllConfigurations_Click"
+                                                    ToolTip="{loc:Loc Settings.Bases.DetectAllConfigsTooltip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="MagnifyScan" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Settings.Bases.DetectAllConfigs}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <!-- Поиск потерянных и забытых баз 1С на дисках (issue #247). -->
+                                            <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnFindLostBases_Click"
+                                                    ToolTip="{loc:Loc Settings.Bases.FindLostBasesTooltip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="FolderSearch" Width="16" Height="16" Foreground="#14B8A6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Settings.Bases.FindLostBases}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <!-- Очистка истории запусков выбранных баз (issue #246). -->
+                                            <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnClearLaunchHistory_Click"
+                                                    ToolTip="{loc:Loc Settings.Bases.ClearHistoryTooltip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="History" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Settings.Bases.ClearHistory}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <!-- Глубина истории запусков одной базы (issue #246). -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,10">
+                                                <TextBlock Text="{loc:Loc Settings.Bases.HistoryDepth}"
+                                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox x:Name="MaxLaunchHistoryDepthBox" Height="30" Width="90"
+                                                         VerticalContentAlignment="Center"
+                                                         ToolTip="{loc:Loc Settings.Bases.HistoryDepthTooltip}"/>
+                                            </StackPanel>
+                                            <!-- Импорт баз и настроек платформы из программы StartManager (issue #163). -->
+                                            <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnImportStartManager_Click"
+                                                    ToolTip="{loc:Loc Settings.Bases.ImportStartManagerTooltip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="FolderOpen" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Settings.Bases.ImportStartManager}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <CheckBox x:Name="AddTimestampToExportFileNameCheck"
+                                                      Content="{loc:Loc Settings.AddTimestamp}"
+                                                      Margin="0,6,0,0"
+                                                      ToolTip="{loc:Loc Settings.AddTimestampTooltip}"/>
+                                            <TextBlock Text="{loc:Loc Settings.Bases.TimestampFormat}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                                       Margin="0,12,0,4"/>
+                                            <!-- Вертикальная обрезка текста шаблона: фиксированная
+                                                 Height=34 конфликтовала с MinHeight=36 стиля и не давала
+                                                 строке формата поместиться по вертикали. Поднимаем MinHeight
+                                                 до 38, чуть уменьшаем вертикальный padding и явно центрируем
+                                                 содержимое редактируемого поля — соседние элементы (подпись
+                                                 выше, предпросмотр ниже) сдвигаются только на эти пару пикселей. -->
+                                            <ComboBox x:Name="ExportTimestampFormatComboBox"
+                                                      MinHeight="38" FontSize="13" MinWidth="280"
+                                                      Padding="10,5" VerticalContentAlignment="Center"
+                                                      Style="{StaticResource ModernComboBox}"
+                                                      IsEditable="True"
+                                                      IsTextSearchEnabled="True"
+                                                      StaysOpenOnEdit="True"
+                                                      SelectionChanged="OnExportTimestampFormat_SelectionChanged"
+                                                      ToolTip="{loc:Loc Settings.Bases.TimestampFormatTooltip}"/>
+                                            <TextBlock x:Name="ExportTimestampPreview"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                                                       Margin="0,6,0,0" TextWrapping="Wrap"/>
                                         </StackPanel>
-                                    </Button>
-                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
-                                            Click="OnEditTemplatePath_Click"
-                                            ToolTip="{loc:Loc Settings.Bases.EditTemplateTooltip}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="FolderEdit" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Settings.Bases.EditTemplate}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
-                                            Click="OnRemoveTemplatePath_Click"
-                                            ToolTip="{loc:Loc Settings.Bases.RemoveTemplateTooltip}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="FolderRemove" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,0,4"
-                                            Click="OnLoadDefaultTemplatePaths_Click"
-                                            ToolTip="{loc:Loc Settings.Bases.LoadDefaultTooltip}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="Download" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{loc:Loc Settings.Bases.LoadDefault}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                </WrapPanel>
-                            </StackPanel>
-                        </GroupBox>
+                                    </GroupBox>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
 
-                        <!-- Экспорт / загрузка списка баз -->
-                        <GroupBox Header="{loc:Loc Settings.IbaseList}" Padding="8" Margin="0,0,0,12">
-                            <StackPanel>
-                                <Button Style="{DynamicResource ModernButton}" Margin="0,0,0,8" Padding="10,8"
-                                        HorizontalAlignment="Stretch"
-                                        Click="OnExportInfobases_Click"
-                                        ToolTip="{loc:Loc Settings.Bases.ExportListTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Export" Width="16" Height="16" Foreground="White" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Bases.ExportList}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
-                                        HorizontalAlignment="Stretch"
-                                        Click="OnImportInfobases_Click"
-                                        ToolTip="{loc:Loc Settings.Bases.ImportListTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Import" Width="16" Height="16" Foreground="#F97316" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Bases.ImportList}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
-                                        HorizontalAlignment="Stretch"
-                                        Click="OnImportIbasesV8i_Click"
-                                        ToolTip="{loc:Loc Settings.Bases.ImportV8iTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="FileDownload" Width="16" Height="16" Foreground="#14B8A6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Bases.ImportV8i}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                                <!-- Определение/обновление конфигураций всех баз (issue #236). -->
-                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
-                                        HorizontalAlignment="Stretch"
-                                        Click="OnDetectAllConfigurations_Click"
-                                        ToolTip="{loc:Loc Settings.Bases.DetectAllConfigsTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="MagnifyScan" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Bases.DetectAllConfigs}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                                <!-- Импорт баз и настроек платформы из программы StartManager (issue #163). -->
-                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
-                                        HorizontalAlignment="Stretch"
-                                        Click="OnImportStartManager_Click"
-                                        ToolTip="{loc:Loc Settings.Bases.ImportStartManagerTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="FolderOpen" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Bases.ImportStartManager}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                                <CheckBox x:Name="AddTimestampToExportFileNameCheck"
-                                          Content="{loc:Loc Settings.AddTimestamp}"
-                                          Margin="0,6,0,0"
-                                          ToolTip="{loc:Loc Settings.AddTimestampTooltip}"/>
-                                <TextBlock Text="{loc:Loc Settings.Bases.TimestampFormat}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
-                                           Margin="0,12,0,4"/>
-                                <!-- Вертикальная обрезка текста шаблона: фиксированная
-                                     Height=34 конфликтовала с MinHeight=36 стиля и не давала
-                                     строке формата поместиться по вертикали. Поднимаем MinHeight
-                                     до 38, чуть уменьшаем вертикальный padding и явно центрируем
-                                     содержимое редактируемого поля — соседние элементы (подпись
-                                     выше, предпросмотр ниже) сдвигаются только на эти пару пикселей. -->
-                                <ComboBox x:Name="ExportTimestampFormatComboBox"
-                                          MinHeight="38" FontSize="13" MinWidth="280"
-                                          Padding="10,5" VerticalContentAlignment="Center"
-                                          Style="{StaticResource ModernComboBox}"
-                                          IsEditable="True"
-                                          IsTextSearchEnabled="True"
-                                          StaysOpenOnEdit="True"
-                                          SelectionChanged="OnExportTimestampFormat_SelectionChanged"
-                                          ToolTip="{loc:Loc Settings.Bases.TimestampFormatTooltip}"/>
-                                <TextBlock x:Name="ExportTimestampPreview"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
-                                           Margin="0,6,0,0" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </GroupBox>
+                        <!-- Каталоги шаблонов -->
+                        <TabItem Style="{StaticResource SettingsSubTabItem}">
+                            <TabItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FolderOutline" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                    <TextBlock Text="{loc:Loc Settings.Bases.Subtab.Templates}" VerticalAlignment="Center" ToolTip="{loc:Loc Settings.Bases.Subtab.TemplatesTooltip}"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                </StackPanel>
+                            </TabItem.Header>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,4,4,4">
+                                <StackPanel>
+                                    <GroupBox Header="{loc:Loc Settings.TemplateDirs}" Padding="8" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Loc Settings.Bases.TemplateDirsHint}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6" TextWrapping="Wrap"/>
+                                            <ListBox x:Name="TemplatePathsList" MinHeight="100" MaxHeight="180" Margin="0,0,0,8"
+                                                     BorderBrush="{DynamicResource BorderBrushColor}" BorderThickness="1"
+                                                     Background="{DynamicResource CardBackgroundBrush}"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                                            <WrapPanel Orientation="Horizontal">
+                                                <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                                        Click="OnAddTemplatePath_Click"
+                                                        ToolTip="{loc:Loc Settings.Bases.AddTemplateTooltip}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="FolderPlus" Width="16" Height="16" Foreground="#22C55E" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{loc:Loc Settings.Bases.AddTemplate}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                                        Click="OnEditTemplatePath_Click"
+                                                        ToolTip="{loc:Loc Settings.Bases.EditTemplateTooltip}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="FolderEdit" Width="16" Height="16" Foreground="#0EA5E9" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{loc:Loc Settings.Bases.EditTemplate}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,8,4"
+                                                        Click="OnRemoveTemplatePath_Click"
+                                                        ToolTip="{loc:Loc Settings.Bases.RemoveTemplateTooltip}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="FolderRemove" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{loc:Loc Common.Delete}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button Style="{DynamicResource SecondaryButton}" Padding="10,6" Margin="0,0,0,4"
+                                                        Click="OnLoadDefaultTemplatePaths_Click"
+                                                        ToolTip="{loc:Loc Settings.Bases.LoadDefaultTooltip}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="Download" Width="16" Height="16" Foreground="#8B5CF6" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{loc:Loc Settings.Bases.LoadDefault}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
 
-                        <!-- Сервис (по аналогии со StartManager) -->
-                        <GroupBox Header="{loc:Loc Settings.Maintenance}" Padding="8" Margin="0,0,0,12">
-                            <StackPanel>
-                                <TextBlock Text="{loc:Loc Settings.Bases.MaintenanceHint}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
-                                           TextWrapping="Wrap"/>
-                                <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
-                                        HorizontalAlignment="Stretch"
-                                        Click="OnRemoveMissingFileBases_Click"
-                                        ToolTip="{loc:Loc Settings.Bases.RemoveMissingTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="FolderRemove" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Bases.RemoveMissing}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                                <Button Style="{DynamicResource SecondaryButton}" Padding="10,8"
-                                        HorizontalAlignment="Stretch"
-                                        Click="OnKillOneCProcesses_Click"
-                                        ToolTip="{loc:Loc Settings.Bases.KillProcessesTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="CloseNetwork" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Bases.KillProcesses}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                        </GroupBox>
+                        <!-- Обслуживание -->
+                        <TabItem Style="{StaticResource SettingsSubTabItem}">
+                            <TabItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Wrench" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                    <TextBlock Text="{loc:Loc Settings.Bases.Subtab.Maintenance}" VerticalAlignment="Center" ToolTip="{loc:Loc Settings.Bases.Subtab.MaintenanceTooltip}"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"/>
+                                </StackPanel>
+                            </TabItem.Header>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,4,4,4">
+                                <StackPanel>
+                                    <!-- Сервис (по аналогии со StartManager) -->
+                                    <GroupBox Header="{loc:Loc Settings.Maintenance}" Padding="8" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Loc Settings.Bases.MaintenanceHint}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
+                                                       TextWrapping="Wrap"/>
+                                            <Button Style="{DynamicResource SecondaryButton}" Margin="0,0,0,8" Padding="10,8"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnRemoveMissingFileBases_Click"
+                                                    ToolTip="{loc:Loc Settings.Bases.RemoveMissingTooltip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="FolderRemove" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Settings.Bases.RemoveMissing}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{DynamicResource SecondaryButton}" Padding="10,8"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnKillOneCProcesses_Click"
+                                                    ToolTip="{loc:Loc Settings.Bases.KillProcessesTooltip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="CloseNetwork" Width="16" Height="16" Foreground="#F59E0B" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Settings.Bases.KillProcesses}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </GroupBox>
 
-                        <!-- Опасные операции -->
-                        <GroupBox Header="{loc:Loc Settings.DangerousOps}" Padding="8" Margin="0,0,0,8">
-                            <StackPanel>
-                                <TextBlock Text="{loc:Loc Settings.Bases.DangerousHint}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
-                                           TextWrapping="Wrap"/>
-                                <Button Style="{DynamicResource SecondaryButton}" Padding="10,8"
-                                        HorizontalAlignment="Stretch"
-                                        Click="OnClearAllInfobases_Click"
-                                        ToolTip="{loc:Loc Settings.Bases.ClearAllTooltip}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{loc:Loc Settings.Bases.ClearAll}" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                        </GroupBox>
-                    </StackPanel>
-                </ScrollViewer>
+                                    <!-- Опасные операции -->
+                                    <GroupBox Header="{loc:Loc Settings.DangerousOps}" Padding="8" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Loc Settings.Bases.DangerousHint}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
+                                                       TextWrapping="Wrap"/>
+                                            <Button Style="{DynamicResource SecondaryButton}" Padding="10,8"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnClearAllInfobases_Click"
+                                                    ToolTip="{loc:Loc Settings.Bases.ClearAllTooltip}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16" Foreground="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{loc:Loc Settings.Bases.ClearAll}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                    </TabControl>
+                </Grid>
             </TabItem>
 
             <!-- ============ Вкладка «О программе» ============ -->

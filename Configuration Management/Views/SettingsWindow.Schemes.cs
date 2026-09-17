@@ -345,14 +345,14 @@ namespace Configuration_Management
             name = name.Trim();
             if (SettingsViewModel.IsReservedName(name))
             {
-                MessageBox.Show(LocalizationManager.T("Settings.ReservedName"),
-                    LocalizationManager.T("Settings.CreateTheme"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.ShowWarning(LocalizationManager.T("Settings.ReservedName"),
+                    LocalizationManager.T("Settings.CreateTheme"));
                 return;
             }
 
             if (ThemeManager.FindCustomScheme(name) is not null
-                && MessageBox.Show(string.Format(LocalizationManager.T("Settings.CreateSchemeReplace"), name),
-                    LocalizationManager.T("Settings.CreateTheme"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                && !_dialogs.Confirm(string.Format(LocalizationManager.T("Settings.CreateSchemeReplace"), name),
+                    LocalizationManager.T("Settings.CreateTheme")))
                 return;
 
             _settings.CreateCustomScheme(name);
@@ -366,8 +366,8 @@ namespace Configuration_Management
         {
             if (SchemeComboBox.SelectedItem is not SchemeComboItem item || item.IsBuiltIn)
             {
-                MessageBox.Show(LocalizationManager.T("Settings.CannotRenameBuiltIn"),
-                    LocalizationManager.T("Settings.RenameThemeTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+                _dialogs.ShowInfo(LocalizationManager.T("Settings.CannotRenameBuiltIn"),
+                    LocalizationManager.T("Settings.RenameThemeTitle"));
                 return;
             }
 
@@ -377,8 +377,8 @@ namespace Configuration_Management
             name = name.Trim();
             if (SettingsViewModel.IsReservedName(name))
             {
-                MessageBox.Show(LocalizationManager.T("Settings.ReservedName"),
-                    LocalizationManager.T("Settings.RenameThemeTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.ShowWarning(LocalizationManager.T("Settings.ReservedName"),
+                    LocalizationManager.T("Settings.RenameThemeTitle"));
                 return;
             }
 
@@ -393,14 +393,13 @@ namespace Configuration_Management
         {
             if (SchemeComboBox.SelectedItem is not SchemeComboItem item || item.IsBuiltIn)
             {
-                MessageBox.Show(LocalizationManager.T("Settings.CannotDeleteBuiltIn"),
-                    LocalizationManager.T("Settings.DeleteThemeTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+                _dialogs.ShowInfo(LocalizationManager.T("Settings.CannotDeleteBuiltIn"),
+                    LocalizationManager.T("Settings.DeleteThemeTitle"));
                 return;
             }
 
-            var result = MessageBox.Show(string.Format(LocalizationManager.T("Settings.DeleteThemeConfirm"), item.Name),
-                LocalizationManager.T("Settings.DeleteThemeTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (result != MessageBoxResult.Yes)
+            if (!_dialogs.Confirm(string.Format(LocalizationManager.T("Settings.DeleteThemeConfirm"), item.Name),
+                    LocalizationManager.T("Settings.DeleteThemeTitle")))
                 return;
 
             _settings.DeleteCustomScheme(item.Name);
@@ -434,13 +433,13 @@ namespace Configuration_Management
             try
             {
                 _viewModel.ExportColorScheme(_settings.CurrentColorScheme, dialog.FileName);
-                MessageBox.Show(string.Format(LocalizationManager.T("Settings.ExportedOk"), dialog.FileName),
-                    LocalizationManager.T("Settings.ExportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+                _dialogs.ShowInfo(string.Format(LocalizationManager.T("Settings.ExportedOk"), dialog.FileName),
+                    LocalizationManager.T("Settings.ExportDoneTitle"));
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(LocalizationManager.T("Settings.ExportFailed"), ex.Message),
-                    LocalizationManager.T("Settings.ExportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.ShowError(string.Format(LocalizationManager.T("Settings.ExportFailed"), ex.Message),
+                    LocalizationManager.T("Settings.ExportDoneTitle"));
             }
         }
 
@@ -460,22 +459,22 @@ namespace Configuration_Management
             var scheme = _viewModel.ImportColorScheme(dialog.FileName);
             if (scheme is null || (scheme.LightColors.Count == 0 && scheme.DarkColors.Count == 0))
             {
-                MessageBox.Show(LocalizationManager.T("Settings.ImportFailed"),
-                    LocalizationManager.T("Settings.ImportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.ShowError(LocalizationManager.T("Settings.ImportFailed"),
+                    LocalizationManager.T("Settings.ImportDoneTitle"));
                 return;
             }
 
             if (ThemeManager.FindCustomScheme(scheme.Name) is not null
-                && MessageBox.Show(string.Format(LocalizationManager.T("Settings.ImportReplaceLinux"), scheme.Name),
-                    LocalizationManager.T("Settings.ImportDoneTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                && !_dialogs.Confirm(string.Format(LocalizationManager.T("Settings.ImportReplaceLinux"), scheme.Name),
+                    LocalizationManager.T("Settings.ImportDoneTitle")))
                 return;
 
             _settings.AdoptImportedScheme(scheme);
             RefreshSchemeComboBox();
             RefreshColorItems();
             RefreshSchemePreview();
-            MessageBox.Show(string.Format(LocalizationManager.T("Settings.ImportedOk"), scheme.Name),
-                LocalizationManager.T("Settings.ImportDoneTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+            _dialogs.ShowInfo(string.Format(LocalizationManager.T("Settings.ImportedOk"), scheme.Name),
+                LocalizationManager.T("Settings.ImportDoneTitle"));
         }
 
         /// <summary>

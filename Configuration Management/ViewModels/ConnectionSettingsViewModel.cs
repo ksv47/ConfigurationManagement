@@ -500,6 +500,69 @@ public class ConnectionSettingsViewModel : ViewModelBase
         set => SetProperty(ref _webUrl, value);
     }
 
+    private long? _manualSizeBytes;
+
+    /// <summary>
+    /// Размер базы, заданный пользователем вручную в байтах (issue #243).
+    /// null — не задан (для файловых баз показывается автоматический расчёт).
+    /// </summary>
+    public long? ManualSizeBytes
+    {
+        get => _manualSizeBytes;
+        set
+        {
+            if (SetProperty(ref _manualSizeBytes, value))
+            {
+                OnPropertyChanged(nameof(IsManualSizeSet));
+                OnPropertyChanged(nameof(ManualSizeText));
+            }
+        }
+    }
+
+    /// <summary>Признак «размер задан вручную» (управляет видимостью/доступностью поля).</summary>
+    public bool IsManualSizeSet
+    {
+        get => _manualSizeBytes.HasValue;
+        set
+        {
+            if (value == _manualSizeBytes.HasValue)
+                return;
+            if (value)
+            {
+                if (!_manualSizeBytes.HasValue)
+                    ManualSizeBytes = 0;
+            }
+            else
+            {
+                ManualSizeBytes = null;
+            }
+        }
+    }
+
+    /// <summary>Текстовое представление ручного размера в байтах для ввода (пусто — не задан).</summary>
+    public string ManualSizeText
+    {
+        get => _manualSizeBytes?.ToString() ?? string.Empty;
+        set
+        {
+            var text = (value ?? string.Empty).Trim();
+            if (long.TryParse(text, out var parsed) && parsed >= 0)
+            {
+                // Используем SetProperty: он и меняет поле, и оповещает подписчиков,
+                // и помечает наличие изменений (иначе кнопка «Сохранить» не активировалась
+                // и введённый вручную размер не сохранялся, issue #243).
+                if (SetProperty(ref _manualSizeBytes, (long?)parsed))
+                    OnPropertyChanged(nameof(IsManualSizeSet));
+            }
+            else if (string.IsNullOrEmpty(text) && _manualSizeBytes.HasValue)
+            {
+                SetProperty(ref _manualSizeBytes, (long?)null);
+                OnPropertyChanged(nameof(IsManualSizeSet));
+            }
+            OnPropertyChanged(nameof(ManualSizeText));
+        }
+    }
+
     /// <summary>Пользователь.</summary>
     public string User
     {
@@ -791,6 +854,13 @@ public class ConnectionSettingsViewModel : ViewModelBase
             : !string.IsNullOrWhiteSpace(DatabaseName) ? DatabaseName
             : SuggestNameFromPath(FilePath);
 
+        // Версия платформы базы (issue #175): она нужна для разворота шаблона имени
+        // COM-коннектора при чтении свойств конфигурации. Без неё бралась бы максимальная
+        // установленная версия (часто с суффиксом разрядности), а указанная для базы версия
+        // (например «8.3.27») игнорировалась бы — как и происходило при вызове «Определить»
+        // из диалога свойств базы.
+        ib.PlatformVersion = PlatformVersion;
+
         return ib;
     }
 
@@ -877,6 +947,9 @@ public class ConnectionSettingsViewModel : ViewModelBase
             LaunchMode = infobase.LaunchMode;
             LaunchParameters = infobase.LaunchParameters;
             DefaultLaunchMode = infobase.DefaultLaunchMode ?? string.Empty;
+
+            // Ручной размер базы (issue #243).
+            ManualSizeBytes = infobase.ManualSizeBytes;
 
             var conn = infobase.Connection;
             ConnectionType = conn.Type;
@@ -1036,6 +1109,9 @@ public class ConnectionSettingsViewModel : ViewModelBase
         infobase.LaunchMode = string.IsNullOrWhiteSpace(LaunchMode) ? "Автоматический" : LaunchMode;
         infobase.LaunchParameters = LaunchParameters ?? string.Empty;
         infobase.DefaultLaunchMode = (DefaultLaunchMode ?? string.Empty).Trim();
+
+        // Ручной размер базы (issue #243).
+        infobase.ManualSizeBytes = ManualSizeBytes;
 
         if (infobase.Connection is null)
             infobase.Connection = new ConnectionSettings();

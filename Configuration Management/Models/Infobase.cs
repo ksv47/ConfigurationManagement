@@ -196,6 +196,61 @@ public class Infobase : INotifyPropertyChanged
         }
     }
 
+    /// <summary>Включена ли временная индикация «(обновление информации)» (issue #244).</summary>
+    private bool _configInfoRefreshing;
+    /// <summary>Колонка, в которой показывается временная надпись (issue #244).</summary>
+    private string _configInfoIndicatorColumn = string.Empty;
+
+    /// <summary>Показывать ли временную надпись «(обновление информации)» в строке базы (issue #244).</summary>
+    public bool IsConfigInfoRefreshing
+    {
+        get => _configInfoRefreshing;
+        private set => SetProperty(ref _configInfoRefreshing, value);
+    }
+
+    /// <summary>Колонка, в которой отображается временная надпись (issue #244).</summary>
+    public string ConfigInfoIndicatorColumn
+    {
+        get => _configInfoIndicatorColumn;
+        private set => SetProperty(ref _configInfoIndicatorColumn, value ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Включает/выключает временную индикацию обновления информации о конфигурации
+    /// (issue #244): при включении конкретная колонка показывает «(обновление информации)».
+    /// </summary>
+    public void SetConfigInfoIndicator(bool refreshing, string column)
+    {
+        var target = column ?? string.Empty;
+        if (_configInfoRefreshing == refreshing && _configInfoIndicatorColumn == target)
+            return;
+        _configInfoRefreshing = refreshing;
+        _configInfoIndicatorColumn = target;
+        OnPropertyChanged(nameof(IsConfigInfoRefreshing));
+        OnPropertyChanged(nameof(ConfigInfoIndicatorColumn));
+        OnPropertyChanged(nameof(NameDisplay));
+        OnPropertyChanged(nameof(ConfigurationNameDisplay));
+        OnPropertyChanged(nameof(ConfigurationVersionDisplay));
+    }
+
+    /// <summary>Отображение колонки «Название» с учётом временной индикации обновления (issue #244).</summary>
+    public string NameDisplay =>
+        IsConfigInfoRefreshing && _configInfoIndicatorColumn == "Name"
+            ? LocalizationManager.T("Main.ConfigInfoUpdating")
+            : Name;
+
+    /// <summary>Отображение колонки «Конфигурация» с учётом временной индикации обновления (issue #244).</summary>
+    public string ConfigurationNameDisplay =>
+        IsConfigInfoRefreshing && _configInfoIndicatorColumn == "Configuration"
+            ? LocalizationManager.T("Main.ConfigInfoUpdating")
+            : ConfigurationName;
+
+    /// <summary>Отображение колонки «№ релиза» с учётом временной индикации обновления (issue #244).</summary>
+    public string ConfigurationVersionDisplay =>
+        IsConfigInfoRefreshing && _configInfoIndicatorColumn == "ConfigurationVersion"
+            ? LocalizationManager.T("Main.ConfigInfoUpdating")
+            : ConfigurationVersion;
+
     /// <summary>Отображение: «Название (версия)» или одно из полей.</summary>
     public string ConfigurationDisplay
     {
@@ -530,7 +585,7 @@ public class Infobase : INotifyPropertyChanged
             ? LastLaunchDate.Value.ToString("dd.MM.yyyy HH:mm")
             : LocalizationManager.T("Infobase.LastLaunch.Never");
 
-    /// <summary>История запусков (до 30 последних записей).</summary>
+    /// <summary>История запусков (глубина — настройка <c>MaxLaunchHistoryPerBase</c>, по умолчанию 30).</summary>
     private List<LaunchHistoryEntry> _launchHistory = new();
 
     public List<LaunchHistoryEntry> LaunchHistory
@@ -553,8 +608,14 @@ public class Infobase : INotifyPropertyChanged
                 _launchHistory.Count,
                 _launchHistory[0].Timestamp.ToString("dd.MM HH:mm"));
 
-    /// <summary>Добавить запись в историю (новые сверху, максимум 30).</summary>
-    public void AddLaunchHistory(string mode, string details = "")
+    /// <summary>
+    /// Добавить запись в историю (новые сверху). Глубина истории (issue #246) берётся
+    /// из глобальной настройки <see cref="AppSettings.MaxLaunchHistoryPerBase"/>; при
+    /// превышении лимита самые старые записи удаляются. Явно переданный
+    /// <paramref name="maxHistory"/> имеет приоритет над настройкой (используется редко,
+    /// например из тестов), но существующие вызовы без него продолжают работать как раньше.
+    /// </summary>
+    public void AddLaunchHistory(string mode, string details = "", int? maxHistory = null)
     {
         _launchHistory.Insert(0, new LaunchHistoryEntry
         {
@@ -562,12 +623,37 @@ public class Infobase : INotifyPropertyChanged
             Mode = mode,
             Details = details ?? ""
         });
-        while (_launchHistory.Count > 30)
+        var max = maxHistory > 0 ? maxHistory.Value : ResolveMaxLaunchHistory();
+        while (_launchHistory.Count > max)
             _launchHistory.RemoveAt(_launchHistory.Count - 1);
         LastLaunchDate = DateTime.Now;
         OnPropertyChanged(nameof(LaunchHistory));
         OnPropertyChanged(nameof(LaunchHistoryDisplay));
         OnPropertyChanged(nameof(LastLaunchDisplay));
+    }
+
+    /// <summary>
+    /// Возвращает глубину истории из глобальной настройки (issue #246). Считывается из
+    /// <c>settings.json</c> так же, как это делает <see cref="Services.ConfigurationInfoService"/>
+    /// для таймаута COM: значения небольшие, чтение файла происходит редко (только при
+    /// фактическом добавлении записи истории). Если настройка недоступна или некорректна —
+    /// используется значение по умолчанию 30.
+    /// </summary>
+    private static int ResolveMaxLaunchHistory()
+    {
+        try
+        {
+            var settings = Configuration_Management.AppServices
+                .GetRequiredService<Configuration_Management.Services.IInfobaseRepository>()
+                .LoadSettings();
+            return settings != null && settings.MaxLaunchHistoryPerBase > 0
+                ? settings.MaxLaunchHistoryPerBase
+                : 30;
+        }
+        catch
+        {
+            return 30;
+        }
     }
 
     private long? _fileSizeBytes;
@@ -587,11 +673,33 @@ public class Infobase : INotifyPropertyChanged
         }
     }
 
+    private long? _manualSizeBytes;
+
+    /// <summary>
+    /// Размер базы, заданный пользователем вручную в байтах (issue #243).
+    /// Позволяет хранить размеры клиент-серверных баз (например, полученные
+    /// запросом в СУБД), не держа их в комментариях. Если задан — используется
+    /// при отображении вместо автоматического значения; для файловых баз
+    /// автоматический расчёт продолжает работать, пока ручное не задано.
+    /// null — ручной размер не задан.
+    /// </summary>
+    public long? ManualSizeBytes
+    {
+        get => _manualSizeBytes;
+        set
+        {
+            if (SetProperty(ref _manualSizeBytes, value))
+                OnPropertyChanged(nameof(FileSizeDisplay));
+        }
+    }
+
     /// <summary>Размер для колонки списка.</summary>
     public string FileSizeDisplay
     {
         get
         {
+            if (_manualSizeBytes.HasValue)
+                return FormatSize(_manualSizeBytes.Value);
             if (Connection.Type != ConnectionType.File)
                 return "—";
             if (!_fileSizeResolved || !_fileSizeBytes.HasValue)

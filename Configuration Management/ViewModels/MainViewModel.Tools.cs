@@ -198,7 +198,10 @@ public partial class MainViewModel : ViewModelBase
 
         var link = dialog.Result;
         _logger.Info($"Запуск 1С по ссылке: {link}");
-        OneCLauncher.LaunchByLink(link);
+        if (!OneCLauncher.LaunchByLink(link))
+        {
+            _dialogs.ShowError(string.Format(LocalizationManager.T("Main.ErrOpenLink"), link));
+        }
     }
 
     /// <summary>
@@ -870,18 +873,31 @@ public partial class MainViewModel : ViewModelBase
         // а иначе до перезапуска приложения команда молча отвечала бы отказом.
         OneCComConnector.ResetComVerdicts();
 
+        // Временная индикация процесса (issue #244): надпись «(обновление информации)»
+        // в колонке «Конфигурация», если она видима; иначе в «№ релиза»; иначе в «Название».
+        var indicatorColumn = _showConfigurationColumn ? "Configuration"
+            : _showConfigurationVersionColumn ? "ConfigurationVersion"
+            : "Name";
+        ib.SetConfigInfoIndicator(true, indicatorColumn);
+
         var baseName = ib.Name;
         _ = Task.Run(() =>
         {
             OneCConfigInfo? info = null;
             try
             {
-                info = ConfigurationInfoService.ReadAndApply(ib, overwriteExisting: true);
+                // Режим чтения сведений — «Конфигуратор» (issue #236): учётные данные берутся
+                // из ConfiguratorAuth при её наличии, иначе из авторизации базы.
+                info = ConfigurationInfoService.ReadAndApply(ib, overwriteExisting: true,
+                    mode: OneCLaunchMode.Configurator);
             }
             catch { }
 
             Application.Current?.Dispatcher.Invoke(() =>
             {
+                // Надпись очищается независимо от результата (успех или ошибка).
+                ib.SetConfigInfoIndicator(false, indicatorColumn);
+
                 if (info is null)
                 {
                     var comError = ConfigurationInfoService.LastComError;
@@ -1237,11 +1253,9 @@ public partial class MainViewModel : ViewModelBase
             if (!e.Success)
             {
                 _logger.Error($"Ошибка пакетной операции: {e.ErrorMessage}");
-                System.Windows.MessageBox.Show(
+                _dialogs.ShowError(
                     e.ErrorMessage ?? LocalizationManager.T("Main.OperationFailedDefault"),
-                    LocalizationManager.T("Main.OperationErrorTitle"),
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
+                    LocalizationManager.T("Main.OperationErrorTitle"));
             }
         });
     }
@@ -1267,6 +1281,12 @@ public partial class MainViewModel : ViewModelBase
                 LocalizationManager.T("Main.DumpDtStarted"),
                 LocalizationManager.T("Main.DumpDtTitle"));
         }
+        else
+        {
+            _dialogs.ShowError(
+                LocalizationManager.T("Main.OperationFailedDefault"),
+                LocalizationManager.T("Main.OperationErrorTitle"));
+        }
     }
 
     private void DumpConfigurationCf(object? parameter)
@@ -1290,6 +1310,12 @@ public partial class MainViewModel : ViewModelBase
                 LocalizationManager.T("Main.DumpCfStarted"),
                 LocalizationManager.T("Main.DumpCfTitle"));
         }
+        else
+        {
+            _dialogs.ShowError(
+                LocalizationManager.T("Main.OperationFailedDefault"),
+                LocalizationManager.T("Main.OperationErrorTitle"));
+        }
     }
 
     private void TestInfobase(object? parameter)
@@ -1309,6 +1335,12 @@ public partial class MainViewModel : ViewModelBase
             _dialogs.ShowInfo(
                 LocalizationManager.T("Main.TestInfobaseStarted"),
                 LocalizationManager.T("Main.TestInfobaseTitle"));
+        }
+        else
+        {
+            _dialogs.ShowError(
+                LocalizationManager.T("Main.OperationFailedDefault"),
+                LocalizationManager.T("Main.OperationErrorTitle"));
         }
     }
 

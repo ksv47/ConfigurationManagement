@@ -21,7 +21,13 @@ internal sealed class MaterialMessageWindowAvalonia : Window
     /// <summary>Ответ дан кнопкой окна, а не закрытием через оконный менеджер.</summary>
     private bool _answered;
 
-    public MaterialMessageWindowAvalonia(string message, string title, MaterialMessageKind kind)
+    /// <param name="markdownBody">
+    /// Необязательный текст «Что нового» в формате markdown. Показывается под
+    /// основным сообщением с рендером стилей (заголовки, жирный, списки). При
+    /// пустом значении выводится заглушка о недоступном описании.
+    /// </param>
+    public MaterialMessageWindowAvalonia(
+        string message, string title, MaterialMessageKind kind, string? markdownBody = null)
     {
         Title = title;
         Width = 440;
@@ -118,9 +124,37 @@ internal sealed class MaterialMessageWindowAvalonia : Window
         var content = new StackPanel
         {
             Spacing = 16,
-            Margin = new Thickness(16),
-            Children = { body, buttonsPanel }
+            Margin = new Thickness(16)
         };
+        content.Children.Add(body);
+
+        // «Что нового»: рендерим markdown описания релиза со стилями (заголовки,
+        // жирный, списки и т.п.) под основным сообщением, если описание задано.
+        if (markdownBody is not null)
+        {
+            var effective = string.IsNullOrWhiteSpace(markdownBody)
+                ? LocalizationManager.T("Update.NoDescription")
+                : markdownBody;
+
+            var whatsNewHeading = new TextBlock
+            {
+                Text = LocalizationManager.T("Update.WhatsNew"),
+                FontWeight = FontWeight.SemiBold,
+                FontSize = 12
+            };
+            ThemeBrushes.Bind(whatsNewHeading, TextBlock.ForegroundProperty, "TextPrimaryColorBrush");
+            content.Children.Add(whatsNewHeading);
+
+            content.Children.Add(new ScrollViewer
+            {
+                MaxHeight = 180,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = MarkdownRenderer.ToStackPanel(effective)
+            });
+        }
+
+        content.Children.Add(buttonsPanel);
 
         Content = content;
     }

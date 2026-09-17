@@ -208,6 +208,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Connection.NameLabel}" VerticalAlignment="Center" Margin="0,3"/>
                         <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"/>
@@ -227,6 +228,15 @@
                         </Grid>
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Connection.DescriptionLabel}" VerticalAlignment="Center" Margin="0,3"/>
                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" Padding="6,4"/>
+                        <!-- Ручной размер базы (issue #243): позволяет хранить размер клиент-серверных
+                             баз, полученный запросом в СУБД, не держа его в комментариях. -->
+                        <CheckBox Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Margin="0,3"
+                                  Content="{loc:Loc Connection.ManualSizeLabel}"
+                                  IsChecked="{Binding IsManualSizeSet}"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" Margin="0,3" Padding="6,4"
+                                 Text="{Binding ManualSizeText, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsManualSizeSet}"
+                                 ToolTip="{loc:Loc Connection.ManualSizeTooltip}"/>
                     </Grid>
                 </GroupBox>
                 </ScrollViewer>

@@ -13,6 +13,8 @@ namespace Configuration_Management
     public partial class DeleteInfobaseWindow : Window
     {
         private readonly Infobase _infobase;
+        private readonly IDialogService _dialogs =
+            AppServices.GetRequiredService<IDialogService>();
 
         /// <summary>Пользователь подтвердил удаление.</summary>
         public bool Confirmed { get; private set; }
@@ -75,14 +77,9 @@ namespace Configuration_Management
             if (DeletePhysically)
             {
                 var dir = InfobaseMaintenanceService.GetFileBaseDirectory(_infobase) ?? "";
-                var confirm = MessageBox.Show(
-                    this,
-                    string.Format(LocalizationManager.T("DeleteInfobase.PhysicalConfirm"), dir),
-                    LocalizationManager.T("DeleteInfobase.PhysicalDeleteTitle"),
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning,
-                    MessageBoxResult.No);
-                if (confirm != MessageBoxResult.Yes)
+                if (!_dialogs.Confirm(
+                        string.Format(LocalizationManager.T("DeleteInfobase.PhysicalConfirm"), dir),
+                        LocalizationManager.T("DeleteInfobase.PhysicalDeleteTitle")))
                     return;
             }
 

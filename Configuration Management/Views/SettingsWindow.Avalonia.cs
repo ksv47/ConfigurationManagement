@@ -32,7 +32,7 @@ namespace Configuration_Management
     /// копирование», «Клавиши», «О программе». Блок ibases.v8i вложен во вкладку
     /// «Базы», тогда как в версии для Windows это отдельная вкладка.
     /// </summary>
-    public class SettingsWindow : ModalWindowBase
+    public partial class SettingsWindow : ModalWindowBase
     {
         private readonly MainViewModel _viewModel;
 
@@ -1713,6 +1713,13 @@ namespace Configuration_Management
             // ===== Базы =====
             var bases = new StackPanel { Spacing = 6 };
 
+            // Подвкладки раздела «Базы»: список баз, каталоги шаблонов и обслуживание.
+            // Каждая секция собирается в свой StackPanel, затем кладётся во вложенный
+            // TabControl с горизонтальной полосой подвкладок (как в разметке WPF).
+            var basesListPanel = new StackPanel { Spacing = 6 };
+            var basesTemplatesPanel = new StackPanel { Spacing = 6 };
+            var basesMaintenancePanel = new StackPanel { Spacing = 6 };
+
             // Вводное описание вкладки, как в разметке WPF (SettingsWindow.xaml:1326).
             bases.Children.Add(Hint(LocalizationManager.T("Settings.Bases.Description")));
 
@@ -1726,9 +1733,9 @@ namespace Configuration_Management
                 SelectionMode = SelectionMode.Single
             };
 
-            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.TemplateDirs")));
-            bases.Children.Add(Hint(LocalizationManager.T("Settings.Bases.TemplateDirsHintLinux")));
-            bases.Children.Add(templateList);
+            basesTemplatesPanel.Children.Add(GroupTitle(LocalizationManager.T("Settings.TemplateDirs")));
+            basesTemplatesPanel.Children.Add(Hint(LocalizationManager.T("Settings.Bases.TemplateDirsHintLinux")));
+            basesTemplatesPanel.Children.Add(templateList);
 
             var templateButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 8) };
 
@@ -1778,11 +1785,11 @@ namespace Configuration_Management
             templateButtons.Children.Add(editTemplate);
             templateButtons.Children.Add(removeTemplate);
             templateButtons.Children.Add(loadTemplates);
-            bases.Children.Add(templateButtons);
+            basesTemplatesPanel.Children.Add(templateButtons);
 
             // Операции со списком баз целиком: выгрузка и загрузка JSON,
             // разовый импорт из ibases.v8i.
-            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.IbaseList")));
+            basesListPanel.Children.Add(GroupTitle(LocalizationManager.T("Settings.IbaseList")));
 
             var timestampCheck = new CheckBox
             {
@@ -1879,7 +1886,35 @@ namespace Configuration_Management
             ToolTip.SetTip(detectAll, LocalizationManager.T("Settings.Bases.DetectAllConfigsTooltip"));
             detectAll.Click += (_, _) =>
             {
-                var dialog = new DetectConfigurationsWindow(_viewModel.Infobases.ToList());
+                var dialog = new DetectConfigurationsWindow(
+                    _viewModel.Infobases.ToList(),
+                    editBase: ib => _viewModel.EditInfobaseCommand.Execute(ib));
+                dialog.ShowDialogSync(this);
+                if (dialog.DataChanged)
+                    _viewModel.PersistInfobasesAfterInlineEdit();
+            };
+
+            // Поиск потерянных и забытых баз 1С на дисках (issue #247). Новые базы
+            // добавляются в коллекцию приложения, поэтому после закрытия сохраняем список.
+            var findLostBases = new Button { Content = LocalizationManager.T("Settings.Bases.FindLostBases") };
+            ToolTip.SetTip(findLostBases, LocalizationManager.T("Settings.Bases.FindLostBasesTooltip"));
+            findLostBases.Click += (_, _) =>
+            {
+                var dialog = new FindLostBasesWindow(
+                    _viewModel.Infobases,
+                    ib => _viewModel.AddFoundInfobase(ib));
+                dialog.ShowDialogSync(this);
+                if (dialog.DataChanged)
+                    _viewModel.PersistInfobasesAfterInlineEdit();
+            };
+
+            // Очистка истории запусков выбранных баз (issue #246). Правки вносятся прямо
+            // в объекты Infobase (очищается LaunchHistory), поэтому после закрытия сохраняем.
+            var clearHistory = new Button { Content = LocalizationManager.T("Settings.Bases.ClearHistory") };
+            ToolTip.SetTip(clearHistory, LocalizationManager.T("Settings.Bases.ClearHistoryTooltip"));
+            clearHistory.Click += (_, _) =>
+            {
+                var dialog = new ClearHistoryWindow(_viewModel.Infobases.ToList());
                 dialog.ShowDialogSync(this);
                 if (dialog.DataChanged)
                     _viewModel.PersistInfobasesAfterInlineEdit();
@@ -1890,8 +1925,33 @@ namespace Configuration_Management
             listButtons.Children.Add(importV8i);
             listButtons.Children.Add(importStartManager);
             listButtons.Children.Add(detectAll);
-            bases.Children.Add(listButtons);
-            bases.Children.Add(timestampCheck);
+            listButtons.Children.Add(findLostBases);
+            listButtons.Children.Add(clearHistory);
+            basesListPanel.Children.Add(listButtons);
+
+            // Глубина истории запусков одной базы (issue #246).
+            var historyDepthRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            historyDepthRow.Children.Add(new TextBlock
+            {
+                Text = LocalizationManager.T("Settings.Bases.HistoryDepth"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var historyDepthBox = new TextBox
+            {
+                Text = _viewModel.MaxLaunchHistoryPerBase.ToString(),
+                Width = 120,
+                VerticalContentAlignment = VerticalAlignment.Center
+            }.Styled(ControlThemes.ModernTextBox);
+            ToolTip.SetTip(historyDepthBox, LocalizationManager.T("Settings.Bases.HistoryDepthTooltip"));
+            historyDepthRow.Children.Add(historyDepthBox);
+            basesListPanel.Children.Add(historyDepthRow);
+
+            basesListPanel.Children.Add(timestampCheck);
 
             // Как в Windows-разметке (SettingsWindow.xaml:1419): подпись сверху, поле —
             // на всю ширину, предпросмотр снизу. В горизонтальной панели рядом с подписью
@@ -1905,15 +1965,15 @@ namespace Configuration_Management
             });
             timestampRow.Children.Add(timestampBox);
             timestampRow.Children.Add(timestampPreview);
-            bases.Children.Add(timestampRow);
+            basesListPanel.Children.Add(timestampRow);
 
             timestampCheck.IsCheckedChanged += (_, _) => UpdateTimestampPreview();
             timestampBox.GetObservable(AutoCompleteBox.TextProperty)
                 .Subscribe(new SettingsObserver<string?>(_ => UpdateTimestampPreview()));
             UpdateTimestampPreview();
 
-            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.Maintenance")));
-            bases.Children.Add(Hint(LocalizationManager.T("Settings.Bases.MaintenanceHint")));
+            basesMaintenancePanel.Children.Add(GroupTitle(LocalizationManager.T("Settings.Maintenance")));
+            basesMaintenancePanel.Children.Add(Hint(LocalizationManager.T("Settings.Bases.MaintenanceHint")));
 
             var maintenanceButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
 
@@ -1927,10 +1987,10 @@ namespace Configuration_Management
 
             maintenanceButtons.Children.Add(removeMissing);
             maintenanceButtons.Children.Add(killProcesses);
-            bases.Children.Add(maintenanceButtons);
+            basesMaintenancePanel.Children.Add(maintenanceButtons);
 
-            bases.Children.Add(GroupTitle(LocalizationManager.T("Settings.DangerousOps")));
-            bases.Children.Add(Hint(LocalizationManager.T("Settings.Bases.DangerousHint")));
+            basesMaintenancePanel.Children.Add(GroupTitle(LocalizationManager.T("Settings.DangerousOps")));
+            basesMaintenancePanel.Children.Add(Hint(LocalizationManager.T("Settings.Bases.DangerousHint")));
 
             var clearAll = new Button
             {
@@ -1940,7 +2000,17 @@ namespace Configuration_Management
             };
             ToolTip.SetTip(clearAll, LocalizationManager.T("Settings.Bases.ClearAllTooltip"));
             clearAll.Click += (_, _) => _viewModel.ClearAllInfobases();
-            bases.Children.Add(clearAll);
+            basesMaintenancePanel.Children.Add(clearAll);
+
+            // Вложенные горизонтальные подвкладки раздела «Базы», как в разметке
+            // WPF (SettingsWindow.xaml): «Список баз», «Каталоги шаблонов» и
+            // «Обслуживание». Секция ibases.v8i остаётся блоком ниже вкладок.
+            var basesTabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
+            basesTabs.Styled(ControlThemes.SettingsSubTabControl);
+            basesTabs.Items.Add(SubTab("Settings.Bases.Subtab.List", "Settings.Bases.Subtab.ListTooltip", "IconDatabase", basesListPanel));
+            basesTabs.Items.Add(SubTab("Settings.Bases.Subtab.Templates", "Settings.Bases.Subtab.TemplatesTooltip", "IconFolder", basesTemplatesPanel));
+            basesTabs.Items.Add(SubTab("Settings.Bases.Subtab.Maintenance", "Settings.Bases.Subtab.MaintenanceTooltip", "IconWrench", basesMaintenancePanel));
+            bases.Children.Add(basesTabs);
 
             // Справка ставится к заголовку блока, а не отдельной строкой:
             // в разметке WPF «ibases.v8i» это имя вкладки, а «Настройки
@@ -2562,6 +2632,10 @@ namespace Configuration_Management
                 if (int.TryParse(detectTimeoutBox.Text, out var detectTimeout))
                     _viewModel.ComDetectTimeoutMs = detectTimeout;
 
+                // Глубина истории запусков одной базы (issue #246).
+                if (int.TryParse(historyDepthBox.Text, out var historyDepth))
+                    _viewModel.MaxLaunchHistoryPerBase = historyDepth;
+
                 _viewModel.ApplyIbasesSyncSettings(
                     syncModeBox.SelectedIndex >= 0 ? syncModes[syncModeBox.SelectedIndex].Mode : IbasesSyncMode.None,
                     fileBox.Text?.Trim() ?? string.Empty,
@@ -2700,254 +2774,13 @@ namespace Configuration_Management
             return grid;
         }
 
-        /// <summary>
-        /// Строка цвета схемы: подпись и образец. Щелчок открывает выбор цвета
-        /// и сразу применяет результат, чтобы правку было видно на приложении.
-        /// </summary>
-        private Control ColorRow(ColorScheme scheme, bool dark, string key, string label, string value)
-        {
-            // Числа из разметки (SettingsWindow.xaml:912): образец 28 на 20
-            // в колонке шириной 36.
-            var swatch = new Border
-            {
-                Width = 28,
-                Height = 20,
-                CornerRadius = new CornerRadius(4),
-                BorderThickness = new Thickness(1),
-                BorderBrush = Brushes.Gray,
-                Background = ParseBrush(value)
-            };
-
-            // Подпись значения объявляется ниже, а обновлять её надо отсюда,
-            // поэтому обновление передаётся отложенно.
-            Action<string>? hexText = null;
-
-            void PickColor()
-            {
-                var picker = new ColorPickerWindow(value);
-                if (!picker.ShowDialogSync(this))
-                    return;
-
-                value = picker.Result;
-                scheme.Palette(dark)[key] = value;
-                swatch.Background = ParseBrush(value);
-                hexText?.Invoke(value);
-                RepaintThemePreview(scheme, dark);
-            }
-
-            // Порядок колонок по варианту 2 (#155): образец, затем hex, и уже потом
-            // подчёркнутая кликабельная подпись. Значение показывается потому, что
-            // цвет часто переносят копированием, а не глазом.
-            var hex = new TextBlock
-            {
-                Text = value,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(4, 0, 0, 0)
-            };
-            ThemeBrushes.Bind(hex, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-
-            hexText = updated => hex.Text = updated;
-
-            // Название цвета — кликабельная подчёркнутая ссылка, открывает выбор цвета.
-            // Это убирает отдельную кнопку «Выбрать» и заметно сужает список.
-            var link = new TextBlock
-            {
-                Text = label,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(12, 0, 0, 0),
-                TextDecorations = TextDecorations.Underline,
-                Cursor = new Cursor(StandardCursorType.Hand),
-                HorizontalAlignment = HorizontalAlignment.Left
-            };
-            ThemeBrushes.Bind(link, TextBlock.ForegroundProperty, "AccentBrush");
-            link.PointerReleased += (_, e) =>
-            {
-                if (e.InitialPressMouseButton != MouseButton.Left)
-                    return;
-                // Отпускание вне текста щелчком не считается (как в LinkBlock).
-                var point = e.GetPosition(link);
-                if (point.X < 0 || point.Y < 0
-                    || point.X > link.Bounds.Width || point.Y > link.Bounds.Height)
-                    return;
-                PickColor();
-            };
-            ToolTip.SetTip(link, LocalizationManager.T("Settings.ChooseColorTooltip"));
-
-            // Ширины колонок: образец 36, hex по содержимому, тянется ссылка-подпись.
-            var grid = new Grid { Margin = new Thickness(0, 3) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(36)));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            grid.Children.Add(swatch);
-            grid.Children.Add(hex);
-            Grid.SetColumn(hex, 1);
-            grid.Children.Add(link);
-            Grid.SetColumn(link, 2);
-            return grid;
-        }
-
         private static IBrush ParseBrush(string value)
         {
             try { return new SolidColorBrush(Color.Parse(value)); }
             catch (Exception) { return Brushes.Transparent; }
         }
 
-        /// <summary>
-        /// Миниатюрный предпросмотр темы (аналог WPF PreviewShell в
-        /// SettingsWindow.xaml). Хранит ссылки на все части, чтобы перекрашивать
-        /// их при изменении цветов схемы.
-        /// </summary>
-        private sealed class ThemePreview
-        {
-            public Border Shell = null!;
-            public Border TitleBar = null!;
-            public TextBlock TitleText = null!;
-            public Border Sidebar = null!;
-            public Border NavSelected = null!;
-            public TextBlock NavSelectedText = null!;
-            public Border NavItem1 = null!;
-            public TextBlock NavItem1Text = null!;
-            public Border NavItem2 = null!;
-            public TextBlock NavItem2Text = null!;
-            public Border Main = null!;
-            public TextBlock ContentTitle = null!;
-            public TextBlock ContentSubtitle = null!;
-            public Border Card = null!;
-            public TextBlock CardTitle = null!;
-            public TextBlock CardText = null!;
-            public TextBox TextField = null!;
-            public Border PrimaryButton = null!;
-            public TextBlock PrimaryButtonText = null!;
-            public Border SecondaryButton = null!;
-            public TextBlock SecondaryButtonText = null!;
-            public Border ListBox = null!;
-            public Border ListSelected = null!;
-            public TextBlock ListSelectedText = null!;
-            public Border ListItem1 = null!;
-            public TextBlock ListItem1Text = null!;
-            public Border ListItem2 = null!;
-            public TextBlock ListItem2Text = null!;
-        }
 
-        /// <summary>Единый живой предпросмотр текущей редактируемой палитры.</summary>
-        private ThemePreview _preview = null!;
-
-        /// <summary>
-        /// Строит миниатюрное окно приложения для предпросмотра схемы. Разметка
-        /// повторяет WPF PreviewShell (SettingsWindow.xaml): акцентная шапка,
-        /// боковое меню, карточка, поле ввода, кнопки, список.
-        /// </summary>
-        private static ThemePreview BuildThemePreview()
-        {
-            var p = new ThemePreview();
-
-            // Шапка (акцент): заголовок и зелёный индикатор.
-            p.TitleText = new TextBlock
-            {
-                Text = "Управление конфигурациями",
-                FontWeight = FontWeight.SemiBold,
-                FontSize = 12,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            var statusDot = new Border
-            {
-                Width = 12,
-                Height = 12,
-                CornerRadius = new CornerRadius(6),
-                Background = new SolidColorBrush(Color.Parse("#22C55E")),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            var titleGrid = new Grid();
-            titleGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            titleGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            Grid.SetColumn(statusDot, 1);
-            titleGrid.Children.Add(p.TitleText);
-            titleGrid.Children.Add(statusDot);
-            p.TitleBar = new Border { Height = 34, Padding = new Thickness(10, 0), Child = titleGrid };
-
-            // Боковое меню.
-            p.NavSelectedText = new TextBlock { Text = "Базы", FontSize = 11 };
-            p.NavItem1Text = new TextBlock { Text = "Избранное", FontSize = 11 };
-            p.NavItem2Text = new TextBlock { Text = "История", FontSize = 11 };
-            p.NavSelected = NewNavItem(p.NavSelectedText);
-            p.NavItem1 = NewNavItem(p.NavItem1Text);
-            p.NavItem2 = NewNavItem(p.NavItem2Text);
-            p.Sidebar = new Border
-            {
-                Padding = new Thickness(6),
-                Child = new StackPanel { Children = { p.NavSelected, p.NavItem1, p.NavItem2 } }
-            };
-
-            // Контент.
-            p.ContentTitle = new TextBlock { Text = "Документы", FontWeight = FontWeight.SemiBold, FontSize = 13 };
-            p.ContentSubtitle = new TextBlock { Text = "Последние изменения", FontSize = 11, Margin = new Thickness(0, 2, 0, 8) };
-            p.CardTitle = new TextBlock { Text = "Карточка базы", FontWeight = FontWeight.SemiBold, FontSize = 11 };
-            p.CardText = new TextBlock { Text = "Краткое описание объекта", FontSize = 10, Margin = new Thickness(0, 2, 0, 0) };
-            p.Card = new Border
-            {
-                CornerRadius = new CornerRadius(6),
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(8),
-                Margin = new Thickness(0, 0, 0, 8),
-                Child = new StackPanel { Children = { p.CardTitle, p.CardText } }
-            };
-            p.TextField = new TextBox { Height = 26, FontSize = 11, Padding = new Thickness(6, 2), BorderThickness = new Thickness(1) };
-            p.PrimaryButtonText = new TextBlock { Text = "Готово", FontSize = 11, FontWeight = FontWeight.SemiBold };
-            p.SecondaryButtonText = new TextBlock { Text = "Отмена", FontSize = 11 };
-            p.PrimaryButton = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(12, 5), Margin = new Thickness(0, 0, 6, 0), Child = p.PrimaryButtonText };
-            p.SecondaryButton = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(12, 5), Child = p.SecondaryButtonText };
-            var buttons = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 8, 0, 0),
-                Children = { p.PrimaryButton, p.SecondaryButton }
-            };
-            p.ListSelectedText = new TextBlock { Text = "Бухгалтерия предприятия", FontSize = 11 };
-            p.ListItem1Text = new TextBlock { Text = "Зарплата и кадры", FontSize = 11 };
-            p.ListItem2Text = new TextBlock { Text = "Управление торговлей", FontSize = 11 };
-            p.ListSelected = new Border { Padding = new Thickness(8, 5), Child = p.ListSelectedText };
-            p.ListItem1 = new Border { Padding = new Thickness(8, 5), BorderThickness = new Thickness(0, 1, 0, 0), Child = p.ListItem1Text };
-            p.ListItem2 = new Border { Padding = new Thickness(8, 5), BorderThickness = new Thickness(0, 1, 0, 0), Child = p.ListItem2Text };
-            p.ListBox = new Border
-            {
-                CornerRadius = new CornerRadius(6),
-                BorderThickness = new Thickness(1),
-                Margin = new Thickness(0, 10, 0, 0),
-                Child = new StackPanel { Children = { p.ListSelected, p.ListItem1, p.ListItem2 } }
-            };
-            p.Main = new Border
-            {
-                Padding = new Thickness(10),
-                Child = new StackPanel { Children = { p.ContentTitle, p.ContentSubtitle, p.Card, p.TextField, buttons, p.ListBox } }
-            };
-
-            // Каркас: боковое меню слева, контент справа.
-            var content = new Grid();
-            content.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(64)));
-            content.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            Grid.SetColumn(p.Main, 1);
-            content.Children.Add(p.Sidebar);
-            content.Children.Add(p.Main);
-
-            var body = new Grid();
-            body.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            body.RowDefinitions.Add(new RowDefinition(new GridLength(1, GridUnitType.Star)));
-            Grid.SetRow(content, 1);
-            body.Children.Add(p.TitleBar);
-            body.Children.Add(content);
-
-            p.Shell = new Border
-            {
-                Width = 210,
-                CornerRadius = new CornerRadius(8),
-                BorderThickness = new Thickness(1),
-                ClipToBounds = true,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Top,
-                Child = body
-            };
-            return p;
-        }
 
         private static Border NewNavItem(TextBlock text) => new()
         {
@@ -2957,63 +2790,7 @@ namespace Configuration_Management
             Child = text
         };
 
-        /// <summary>Перекрашивает единый предпросмотр текущей редактируемой палитрой схемы.</summary>
-        private void RepaintThemePreview(ColorScheme scheme, bool dark)
-        {
-            if (_preview is null)
-                return;
-            PaintThemePreview(_preview, scheme, dark);
-        }
 
-        /// <summary>Рисует один миниатюрный предпросмотр темы для заданной палитры.</summary>
-        private static void PaintThemePreview(ThemePreview p, ColorScheme scheme, bool dark)
-        {
-            string V(string key) => scheme.PaletteValue(dark, key);
-
-            // Окно: подложка-карточка с рамкой и акцентная шапка.
-            PaintBorder(p.Shell, V("CardBackgroundColor"), V("BorderColor"));
-            PaintSolid(p.TitleBar, V("AccentColor"));
-            PaintText(p.TitleText, V("TextOnAccentColor"));
-
-            // Боковая панель: фон, контрастный текст, подсветка пунктов.
-            var sidebar = Color.Parse(V("SidebarColor"));
-            var sidebarText = new SolidColorBrush(ContrastColor(sidebar));
-            PaintSolid(p.Sidebar, V("SidebarColor"));
-            PaintSolid(p.NavSelected, V("SidebarSelectedColor"));
-            PaintSolid(p.NavItem1, V("SidebarHoverColor"));
-            PaintSolid(p.NavItem2, V("SidebarHoverColor"));
-            PaintTextBrush(p.NavSelectedText, sidebarText);
-            PaintTextBrush(p.NavItem1Text, sidebarText);
-            PaintTextBrush(p.NavItem2Text, sidebarText);
-
-            // Контент.
-            PaintSolid(p.Main, V("ContentBackgroundColor"));
-            PaintText(p.ContentTitle, V("TextPrimaryColor"));
-            PaintText(p.ContentSubtitle, V("TextSecondaryColor"));
-
-            // Карточка.
-            PaintBorder(p.Card, V("CardBackgroundColor"), V("BorderColor"));
-            PaintText(p.CardTitle, V("TextPrimaryColor"));
-            PaintText(p.CardText, V("TextSecondaryColor"));
-
-            // Поле ввода.
-            PaintTextBox(p.TextField, V("CardBackgroundColor"), V("BorderColor"), V("TextPrimaryColor"));
-
-            // Кнопки: акцентная и вторичная.
-            PaintSolid(p.PrimaryButton, V("AccentColor"));
-            PaintText(p.PrimaryButtonText, V("ButtonTextColor"));
-            PaintSolid(p.SecondaryButton, V("SecondaryButtonBackgroundColor"));
-            PaintText(p.SecondaryButtonText, V("ButtonTextColor"));
-
-            // Список.
-            PaintBorder(p.ListBox, V("CardBackgroundColor"), V("BorderColor"));
-            PaintSolid(p.ListSelected, V("ItemSelectedColor"));
-            PaintSolid(p.ListItem1, V("ItemHoverColor"));
-            PaintSolid(p.ListItem2, V("ItemHoverColor"));
-            PaintText(p.ListSelectedText, V("TextPrimaryColor"));
-            PaintText(p.ListItem1Text, V("TextPrimaryColor"));
-            PaintText(p.ListItem2Text, V("TextPrimaryColor"));
-        }
 
         /// <summary>Чёрный или белый — цвет с максимальным контрастом к заданному.</summary>
         private static Color ContrastColor(Color c)
@@ -3070,62 +2847,6 @@ namespace Configuration_Management
             }
         }
 
-        /// <summary>Наблюдатель, который просто зовёт действие на каждое значение.</summary>
-        /// <summary>
-        /// Установленные в системе семейства, кроме уже перечисленных.
-        /// Коллекция заполняется синхронно при первом обращении и после
-        /// настройки платформы читается законно; до неё обращение незаконно,
-        /// поэтому отказ гасится и список остаётся авторским.
-        /// </summary>
-        private static IEnumerable<string> InstalledFontFamilies(IReadOnlyCollection<string> already)
-        {
-            try
-            {
-                return Avalonia.Media.FontManager.Current.SystemFonts
-                    .Select(f => f.Name)
-                    .Where(n => !string.IsNullOrWhiteSpace(n)
-                                && !already.Contains(n, StringComparer.OrdinalIgnoreCase))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase)
-                    .ToArray();
-            }
-            catch
-            {
-                return Array.Empty<string>();
-            }
-        }
-
-        /// <summary>Область интерфейса в списке подвкладки «Шрифт».</summary>
-        private sealed class FontScopeItem
-        {
-            public FontScopeItem(string key) => Key = key;
-            public string Key { get; }
-            public override string ToString() => ThemeManager.FontScopeDisplayName(Key);
-        }
-
-        /// <summary>Начертание шрифта: пара «насыщенность и наклон» с локализованным именем.</summary>
-        private sealed class FontFaceItem
-        {
-            public FontFaceItem(string key, string weight, string style)
-            {
-                Key = key;
-                Weight = weight;
-                Style = style;
-            }
-
-            public string Key { get; }
-            public string Weight { get; }
-            public string Style { get; }
-            public override string ToString() => LocalizationManager.T(Key);
-        }
-
-        private static readonly FontFaceItem[] FontFaces =
-        {
-            new("Settings.Font.StyleNormal", "Normal", "Normal"),
-            new("Settings.Font.StyleBold", "Bold", "Normal"),
-            new("Settings.Font.StyleItalic", "Normal", "Italic"),
-            new("Settings.Font.StyleBoldItalic", "Bold", "Italic")
-        };
 
         /// <summary>
         /// Вложенная вкладка раздела настроек: значок и подпись в заголовке,
@@ -3240,74 +2961,6 @@ namespace Configuration_Management
             };
         }
 
-        /// <summary>
-        /// Строка дерева платформ по шаблону разметки (SettingsWindow.xaml:330):
-        /// подложка со скруглением 4, цветной значок 14 по типу узла, имя кеглем
-        /// 12 и путь кеглем 11 под ним.
-        /// </summary>
-        private static Control BuildPlatformRow(object? item)
-        {
-            if (item is not PlatformVersionGroup node)
-                return new TextBlock { Text = item?.ToString() ?? string.Empty };
-
-            // Значок и цвет кодируют тип узла: линия это жёлтая папка, группа
-            // сборок открытая синяя папка, сборка x64 контурный зелёный куб,
-            // x32 сплошной фиолетовый, без метки синее окно.
-            var (iconKey, iconColor) = node.Kind switch
-            {
-                PlatformNodeKind.Line => ("IconFolder", "#F59E0B"),
-                PlatformNodeKind.BuildGroup => ("IconFolderOpen", "#3B82F6"),
-                PlatformNodeKind.LeafX64 => ("IconCubeOutline", "#22C55E"),
-                PlatformNodeKind.LeafX32 => ("IconCube", "#8B5CF6"),
-                _ => ("IconApplication", "#0EA5E9")
-            };
-            var icon = IconHelper.MakeIcon(iconKey, 14, new SolidColorBrush(Color.Parse(iconColor)));
-            icon.Margin = new Thickness(0, 2, 8, 0);
-            icon.VerticalAlignment = VerticalAlignment.Top;
-
-            var name = new TextBlock
-            {
-                Text = node.Name,
-                FontSize = 12,
-                FontWeight = FontWeight.SemiBold,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            ThemeBrushes.Bind(name, TextBlock.ForegroundProperty, "TextPrimaryBrush");
-
-            // Строка пути есть у всех узлов, а не только у сборок: в разметке
-            // шаблон один на все виды узлов, и у групп пустой TextBlock занимает
-            // высоту строки. Замер снимка Windows: группа 38 пикселей, лист 39.
-            var path = new TextBlock
-            {
-                Text = node.Path ?? string.Empty,
-                FontSize = 11,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            ThemeBrushes.Bind(path, TextBlock.ForegroundProperty, "TextSecondaryBrush");
-            if (!string.IsNullOrEmpty(node.Path))
-                ToolTip.SetTip(path, node.Path);
-
-            var texts = new StackPanel { Children = { name, path } };
-
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            Grid.SetColumn(texts, 1);
-            grid.Children.Add(icon);
-            grid.Children.Add(texts);
-
-            var row = new Border
-            {
-                Child = grid,
-                Margin = new Thickness(0, 2),
-                Padding = new Thickness(6, 4),
-                CornerRadius = new CornerRadius(4)
-            };
-            ThemeBrushes.Bind(row, Border.BackgroundProperty, "ItemHoverBrush");
-            if (!string.IsNullOrEmpty(node.Path))
-                ToolTip.SetTip(row, node.Path);
-            return row;
-        }
 
         /// <summary>Заголовок группы настроек на вкладке.</summary>
         private static TextBlock GroupTitle(string text) => new()
@@ -3317,42 +2970,6 @@ namespace Configuration_Management
             Margin = new Thickness(0, 12, 0, 2)
         };
 
-        /// <summary>
-        /// Строит строку состояния блока синхронизации по тем значениям, что
-        /// сейчас в полях окна, а не по сохранённым. Набор ключей и порядок
-        /// частей те же, что у BuildStatusText в ViewModels/SettingsViewModel.cs:
-        /// сам метод лежит в файле, который в Linux-сборку не входит.
-        /// </summary>
-        private static string BuildSyncStatus(IbasesSyncMode mode, string? filePath,
-            IbasesSyncTrigger trigger, string? interval, string? scheduleTime)
-        {
-            if (mode == IbasesSyncMode.None)
-                return LocalizationManager.T("Settings.Ibases.StatusDisabled");
-
-            var path = string.IsNullOrWhiteSpace(filePath)
-                ? Services.IbasesV8iImporter.FindDefaultPath()
-                : filePath.Trim();
-            if (string.IsNullOrWhiteSpace(path))
-                return LocalizationManager.T("Settings.Ibases.StatusFileNotFound");
-
-            var modeText = mode switch
-            {
-                IbasesSyncMode.Import => LocalizationManager.T("Settings.Ibases.ModeImportShort"),
-                IbasesSyncMode.Export => LocalizationManager.T("Settings.Ibases.ModeExportShort"),
-                _ => LocalizationManager.T("Settings.Ibases.ModeBothShort")
-            };
-            var triggerText = trigger switch
-            {
-                IbasesSyncTrigger.Interval => string.Format(
-                    LocalizationManager.T("Settings.Ibases.TriggerIntervalShort"),
-                    int.TryParse(interval, out var minutes) && minutes > 0 ? minutes : 30),
-                IbasesSyncTrigger.Schedule => string.Format(
-                    LocalizationManager.T("Settings.Ibases.TriggerScheduleShort"), scheduleTime),
-                _ => LocalizationManager.T("Settings.Ibases.TriggerStartupShort")
-            };
-            return string.Format(LocalizationManager.T("Settings.Ibases.StatusFormat"),
-                path, modeText, triggerText);
-        }
 
         /// <summary>
         /// Подпись и ссылка под ней. Ссылка открывается системным обработчиком:
@@ -3527,92 +3144,6 @@ namespace Configuration_Management
             return r;
         }
 
-        /// <summary>
-        /// Проверяет назначения перед сохранением: понятное ли сочетание,
-        /// не отбирает ли оно обычный ввод и не назначено ли двум действиям.
-        /// При отказе окно остаётся открытым, чтобы было что исправлять.
-        /// </summary>
-        private bool ValidateHotkeys((string Action, Controls.HotkeyBox Box)[] assignments)
-        {
-            var used = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var (action, box) in assignments)
-            {
-                var value = box.Value?.Trim() ?? string.Empty;
-                if (value.Length == 0)
-                    continue;
-
-                if (!Controls.HotkeyBox.TryParse(value, out var gesture) || gesture is null)
-                {
-                    _viewModel.ShowWarning(string.Format(LocalizationManager.T("Settings.Hotkeys.Unsupported"), value));
-                    return false;
-                }
-
-                if (Controls.HotkeyBox.IsUnsafeForTextInput(gesture))
-                {
-                    _viewModel.ShowWarning(string.Format(LocalizationManager.T("Settings.Hotkeys.Unsafe"), value));
-                    return false;
-                }
-
-                if (used.TryGetValue(value, out var other))
-                {
-                    _viewModel.ShowWarning(string.Format(
-                        LocalizationManager.T("Settings.Hotkeys.DuplicateMsg"),
-                        string.Format(LocalizationManager.T("Settings.Hotkeys.AssignedTo"), value, other + ", " + action)));
-                    return false;
-                }
-
-                used[value] = action;
-            }
-
-            return true;
-        }
-
-        /// <summary>Строка переназначения: подпись действия и поле ввода сочетания.</summary>
-        private static Controls.HotkeyBox HotkeyRow(Panel host, string action, string value)
-        {
-            // Раскладка строки из разметки WPF: подпись в колонке 170, поле тянется
-            // по остатку ширины, шаг между строками 6.
-            var grid = new Grid { Margin = new Thickness(0, 0, 0, 6) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(170)));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-
-            var label = new TextBlock { Text = action, VerticalAlignment = VerticalAlignment.Center };
-            grid.Children.Add(label);
-
-            // Поле сочетания в разметке идёт тем же стилем, что и обычное поле
-            // ввода (SettingsWindow.xaml:977 и далее).
-            var box = new Controls.HotkeyBox { Value = value ?? string.Empty, HorizontalAlignment = HorizontalAlignment.Stretch, Height = 34 };
-            box.Styled(ControlThemes.ModernTextBox);
-            Grid.SetColumn(box, 1);
-            grid.Children.Add(box);
-
-            host.Children.Add(grid);
-            return box;
-        }
-
-        private static Grid BuildHotkeyRow(string action, string key)
-        {
-            var grid = new Grid { Margin = new Thickness(0, 2) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(140)));
-
-            var actionBlock = new TextBlock { Text = action, VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(actionBlock, 0);
-            grid.Children.Add(actionBlock);
-
-            var keyBorder = new Border
-            {
-                Child = new TextBlock { Text = key, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
-                Padding = new Thickness(10, 4),
-                CornerRadius = new CornerRadius(6),
-                BorderThickness = new Thickness(1),
-                HorizontalAlignment = HorizontalAlignment.Right
-            };
-            Grid.SetColumn(keyBorder, 1);
-            grid.Children.Add(keyBorder);
-            return grid;
-        }
 
         private Control BuildAboutTab()
         {
@@ -3883,62 +3414,7 @@ namespace Configuration_Management
             _ = win.ShowDialog(this);
         }
 
-        /// <summary>Строка списка слотов избранного: ключ базы, её имя и номер слота.</summary>
-        private sealed class FavoriteSlotItem : INotifyPropertyChanged
-        {
-            private int _number;
 
-            public FavoriteSlotItem(string key, string name)
-            {
-                Key = key;
-                Name = name;
-            }
-
-            public string Key { get; }
-
-            public string Name { get; }
-
-            public int Number
-            {
-                get => _number;
-                set
-                {
-                    if (_number == value)
-                        return;
-                    _number = value;
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Number)));
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Caption)));
-                }
-            }
-
-            /// <summary>Подпись слота в списке: «Alt+1» и так далее.</summary>
-            public string Caption => $"Alt+{_number}";
-
-            public event PropertyChangedEventHandler? PropertyChanged;
-        }
-
-        /// <summary>
-        /// Строка списка колонок: ключ колонки, локализованное имя и флаг видимости.
-        /// Один элемент объединяет порядок и видимость колонки — оба редактируются
-        /// в одном списке на вкладке «Отображение».
-        /// </summary>
-        private sealed class ColumnOrderItem
-        {
-            public string Key { get; }
-            public string Display { get; }
-            public bool Visible { get; set; }
-            public string IconKey { get; }
-
-            public ColumnOrderItem(string key, string display, bool visible, string iconKey)
-            {
-                Key = key;
-                Display = display;
-                Visible = visible;
-                IconKey = iconKey;
-            }
-
-            public override string ToString() => Display;
-        }
     }
 }
 #endif

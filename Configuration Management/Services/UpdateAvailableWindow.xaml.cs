@@ -39,9 +39,12 @@ public partial class UpdateAvailableWindow : Window
         NewVersionText.Text = string.Format(
             LocalizationManager.T("Update.NewVersion"), NormalizeTag(release.TagName));
         WhatsNewLabel.Text = LocalizationManager.T("Update.WhatsNew");
-        BodyText.Text = string.IsNullOrWhiteSpace(release.Body)
+        // Текст «Что нового» рендерим как markdown со стилями (заголовки, жирный,
+        // списки и т.п.). При отсутствии описания показываем обычный текст-заглушку.
+        var body = string.IsNullOrWhiteSpace(release.Body)
             ? LocalizationManager.T("Update.NoDescription")
             : release.Body;
+        BodyViewer.Document = MarkdownRenderer.ToFlowDocument(body);
 
         // На старте главного окна ещё нет, и первым MainWindow становится само это
         // окно: присваивание Owner самому себе бросает ArgumentException. Без

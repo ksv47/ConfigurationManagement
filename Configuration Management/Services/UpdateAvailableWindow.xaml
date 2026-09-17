@@ -47,11 +47,12 @@
                     <TextBlock x:Name="CurrentVersionText" Margin="0,10,0,0" TextWrapping="Wrap"/>
                     <TextBlock x:Name="NewVersionText" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     <TextBlock x:Name="WhatsNewLabel" Margin="0,14,0,4" FontWeight="SemiBold"/>
-                    <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
-                        <TextBlock x:Name="BodyText" TextWrapping="Wrap" FontSize="12"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    </ScrollViewer>
+                    <FlowDocumentScrollViewer x:Name="BodyViewer" MaxHeight="180"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              IsToolBarVisible="False"
+                                              FontSize="12"
+                                              Foreground="{DynamicResource TextSecondaryBrush}"/>
 
                     <!-- Кнопки: «Скачать» слева, «Отмена» справа -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">

@@ -91,9 +91,15 @@ namespace Configuration_Management.Services
             return null;
         }
 
-        /// <inheritdoc />
-        public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000,
-            Action<string>? onStage = null)
+        /// <summary>
+        /// Считывает сведения о конфигурации (issue #236). На Linux COM отсутствует, поэтому
+        /// параметр <paramref name="mode"/> не используется для построения строки подключения —
+        /// чтение идёт через конфигуратор (DESIGNER), а его авторизация уже выбирается единым
+        /// резолвингом <see cref="InfobaseAuthResolver"/>. Параметр сохранён для соответствия
+        /// интерфейсу <see cref="IOneCComConnector"/>.
+        /// </summary>
+        public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, OneCLaunchMode mode = OneCLaunchMode.Configurator,
+            int timeoutMs = 8000, Action<string>? onStage = null)
         {
             if (infobase is null)
                 return null;

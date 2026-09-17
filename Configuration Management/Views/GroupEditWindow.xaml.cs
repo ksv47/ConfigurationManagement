@@ -89,15 +89,11 @@ namespace Configuration_Management
 
             if (noGroupMode)
             {
-                // Служебный узел «Без группы»: наименование и родительскую группу
-                // менять нельзя — показываем те же вкладки, что у обычной группы,
-                // но поля имени/родителя/описания заблокированы.
-                NameBox.Text = LocalizationManager.T("GroupEdit.NoGroup");
-                NameBox.IsEnabled = false;
-                DescriptionBox.IsEnabled = false;
-                ParentPathBox.Text = LocalizationManager.T("GroupEdit.RootGroup");
-                ParentPathBox.IsEnabled = false;
-                SelectParentButton.IsEnabled = false;
+                // Служебный узел «Без группы»/«Закреплённые»: наименование, родительскую
+                // группу и описание менять нельзя (при сохранении они не применяются).
+                // Вкладку «Основные» скрываем полностью — остаются только «Цвет» и «Иконка»
+                // (замечание к issue #240).
+                MainTabItem.Visibility = Visibility.Collapsed;
 
                 _color = !string.IsNullOrWhiteSpace(noGroupColor) ? noGroupColor : "#2D6CDF";
                 _iconColor = !string.IsNullOrWhiteSpace(noGroupIconColor) ? noGroupIconColor : "#FFFFFF";

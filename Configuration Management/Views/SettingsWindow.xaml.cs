@@ -21,6 +21,8 @@ namespace Configuration_Management
     {
         private readonly MainViewModel _viewModel;
         private readonly SettingsViewModel _settings;
+        private readonly IDialogService _dialogs =
+            AppServices.GetRequiredService<IDialogService>();
         private List<string> _installedPlatformVersions;
         private readonly ObservableCollection<string> _additionalPlatformPaths = new();
         private bool _showFavoritesButton = true;
@@ -75,6 +77,9 @@ namespace Configuration_Management
             // Таймаут определения свойств конфигурации через COM (issue #174).
             if (ComDetectTimeoutMsBox != null)
                 ComDetectTimeoutMsBox.Text = viewModel.ComDetectTimeoutMs.ToString();
+            // Глубина истории запусков одной базы (issue #246).
+            if (MaxLaunchHistoryDepthBox != null)
+                MaxLaunchHistoryDepthBox.Text = viewModel.MaxLaunchHistoryPerBase.ToString();
             _settings = new SettingsViewModel(viewModel);
             _installedPlatformVersions = new List<string>(viewModel.InstalledPlatformVersions);
             foreach (var path in viewModel.AdditionalPlatformSearchPaths)
@@ -172,9 +177,8 @@ namespace Configuration_Management
                 var schedule = SyncScheduleTimePicker.Text?.Trim() ?? string.Empty;
                 if (!IsValidScheduleTime(schedule))
                 {
-                    MessageBox.Show(LocalizationManager.T("Settings.Ibases.ScheduleTimeInvalid"),
-                        LocalizationManager.T("Settings.Ibases.ScheduleTime"),
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    _dialogs.ShowWarning(LocalizationManager.T("Settings.Ibases.ScheduleTimeInvalid"),
+                        LocalizationManager.T("Settings.Ibases.ScheduleTime"));
                     return;
                 }
             }
@@ -184,9 +188,8 @@ namespace Configuration_Management
             if (AddTimestampToExportFileNameCheck.IsChecked == true &&
                 !IsValidTimestampFormat(ExportTimestampFormatComboBox?.Text))
             {
-                MessageBox.Show(LocalizationManager.T("Settings.TimestampInvalid"),
-                    LocalizationManager.T("Settings.Bases.TimestampFormat"),
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.ShowWarning(LocalizationManager.T("Settings.TimestampInvalid"),
+                    LocalizationManager.T("Settings.Bases.TimestampFormat"));
                 return;
             }
 
@@ -289,11 +292,9 @@ namespace Configuration_Management
                 var msg = string.Join("\n", duplicates.Select(g =>
                     string.Format(LocalizationManager.T("Settings.Hotkeys.AssignedTo"), g.Key,
                         string.Join(", ", g.Select(x => x.Name)))));
-                MessageBox.Show(
+                _dialogs.ShowWarning(
                     string.Format(LocalizationManager.T("Settings.Hotkeys.DuplicateMsg"), msg),
-                    LocalizationManager.T("Settings.Hotkeys.DuplicateTitle"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                    LocalizationManager.T("Settings.Hotkeys.DuplicateTitle"));
                 return;
             }
 
@@ -303,6 +304,10 @@ namespace Configuration_Management
             if (ComDetectTimeoutMsBox != null
                 && int.TryParse(ComDetectTimeoutMsBox.Text, out var detectTimeout))
                 _viewModel.ComDetectTimeoutMs = detectTimeout;
+            // Глубина истории запусков одной базы (issue #246).
+            if (MaxLaunchHistoryDepthBox != null
+                && int.TryParse(MaxLaunchHistoryDepthBox.Text, out var historyDepth))
+                _viewModel.MaxLaunchHistoryPerBase = historyDepth;
 
             _viewModel.ApplyAppBehaviorSettings(
                 AllowMultipleInstancesCheck.IsChecked ?? false,

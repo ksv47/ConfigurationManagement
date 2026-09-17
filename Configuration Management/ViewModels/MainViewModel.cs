@@ -62,6 +62,8 @@ public partial class MainViewModel : ViewModelBase
     // Таймаут определения свойств конфигурации через COM (issue #174), мс. Первое
     // COM-подключение часто превышает прежние 8000 мс; по умолчанию — 30000.
     private int _comDetectTimeoutMs = 30000;
+    // Глубина истории запусков одной базы (issue #246), по умолчанию 30.
+    private int _maxLaunchHistoryPerBase = 30;
     private readonly ObservableCollection<string> _activeTagFilters = new();
     private ListViewMode _listViewMode = ListViewMode.All;
 
@@ -263,6 +265,10 @@ public partial class MainViewModel : ViewModelBase
         // профиля, — после неё каталог настроек уже другой, а список баз в окне прежний.
         OneCComConnector.ApplyTemplate(_comConnectorNameTemplate);
         _comDetectTimeoutMs = Math.Max(1000, settings.ComDetectTimeoutMs);
+        // Глубина истории запусков одной базы (issue #246).
+        _maxLaunchHistoryPerBase = settings.MaxLaunchHistoryPerBase > 0
+            ? settings.MaxLaunchHistoryPerBase
+            : 30;
         _showVersionColumn = settings.ShowVersionColumn;
         _showConfigurationColumn = settings.ShowConfigurationColumn;
         _showConfigurationVersionColumn = settings.ShowConfigurationVersionColumn;
@@ -413,17 +419,24 @@ public partial class MainViewModel : ViewModelBase
             p => (ResolveActionTarget(p) != null || SelectedGroupNode?.Group != null || IsNoGroupNodeSelected() || IsPinnedNodeSelected()));
         DeleteInfobaseCommand = new RelayCommand(DeleteSelected,
             p => ResolveActionTarget(p) != null || SelectedGroupNode?.Group != null);
-        // Команды группы: параметр — узел группы или сама группа из строки дерева.
-        // Для служебного узла «Закреплённые» (без модели Group) открываем редактор
-        // оформления узла (цвет и иконка), как для «Без группы».
+        // Команда группы: параметр — узел группы или сама группа из строки дерева.
+        // Служебные узлы «Закреплённые» и «Без группы» (без модели Group) открывают
+        // редактор оформления узла только с цветом и иконкой (noGroupMode), а не обычное
+        // окно с вкладкой «Основные» (название и выбор родительской группы, issue #249).
         EditGroupCommand = new RelayCommand(p =>
         {
-            if (p is GroupNodeViewModel node &&
-                node.Group is null &&
-                string.Equals(node.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal))
+            if (p is GroupNodeViewModel node && node.Group is null)
             {
-                EditPinnedNode();
-                return;
+                if (string.Equals(node.Marker, GroupNodeViewModel.PinnedMarker, StringComparison.Ordinal))
+                {
+                    EditPinnedNode();
+                    return;
+                }
+                if (string.Equals(node.Marker, GroupNodeViewModel.NoGroupMarker, StringComparison.Ordinal))
+                {
+                    EditNoGroupNode();
+                    return;
+                }
             }
             var group = ResolveGroup(p);
             if (group is not null)

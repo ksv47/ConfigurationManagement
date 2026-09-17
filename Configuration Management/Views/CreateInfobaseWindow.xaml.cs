@@ -25,6 +25,10 @@ namespace Configuration_Management
         private string _selectedGroupPath;
         private readonly IInfobaseRepository _repository =
             AppServices.GetRequiredService<IInfobaseRepository>();
+        private readonly ICreateInfobaseService _createService =
+            AppServices.GetRequiredService<ICreateInfobaseService>();
+        private readonly IDialogService _dialogs =
+            AppServices.GetRequiredService<IDialogService>();
 
         public Infobase? Result { get; private set; }
 
@@ -163,82 +167,6 @@ namespace Configuration_Management
                 : settings.LastClientServerCreatePlatformVersion ?? "";
         }
 
-        /// <summary>
-        /// Запоминает последнюю успешно использованную версию платформы отдельно для
-        /// файловых и клиент-серверных баз. Ошибки сохранения не должны ломать создание ИБ.
-        /// </summary>
-        private void SaveLastPlatformVersion(bool isFile, string platform)
-        {
-            try
-            {
-                var settings = _repository.LoadSettings();
-                PlatformVersionService.ParseVariant(platform, out var cleanPlatform, out _);
-                var clean = string.IsNullOrWhiteSpace(cleanPlatform) ? platform : cleanPlatform;
-                if (isFile)
-                    settings.LastFileCreatePlatformVersion = clean;
-                else
-                    settings.LastClientServerCreatePlatformVersion = clean;
-                _repository.SaveSettings(settings);
-            }
-            catch
-            {
-                // Несохранение последней версии не должно прерывать создание ИБ.
-            }
-        }
-
-        /// <summary>
-        /// Разбирает строку версии на числовые компоненты (major, minor).
-        /// Суффиксы вроде « (64)» снимаются через <see cref="PlatformVersionService.ParseVariant"/>.
-        /// </summary>
-        private static (int Major, int Minor) GetMajorMinor(string version)
-        {
-            PlatformVersionService.ParseVariant(version, out var clean, out _);
-            var v = string.IsNullOrWhiteSpace(clean) ? version : clean;
-            var parts = (v ?? "").Split('.');
-            int.TryParse(parts.Length >= 1 ? parts[0] : "", out var major);
-            int.TryParse(parts.Length >= 2 ? parts[1] : "", out var minor);
-            return (major, minor);
-        }
-
-        /// <summary>
-        /// Эвристика Варианта 2 (#91): ищет среди уже существующих клиент-серверных баз на том же
-        /// сервере базу, версия платформы которой отличается от выбранной по первым двум числам
-        /// (major.minor). Возвращает версию такой базы или null, если расхождений нет.
-        /// Ошибки чтения списка баз не блокируют создание — возвращаем null.
-        /// </summary>
-        private string? GetIncompatibleExistingVersion(string platform, string server)
-        {
-            var (selectedMajor, selectedMinor) = GetMajorMinor(platform);
-
-            List<Infobase> infobases;
-            try
-            {
-                infobases = _repository.Load();
-            }
-            catch
-            {
-                return null;
-            }
-
-            var targetServer = (server ?? "").Trim();
-            foreach (var ib in infobases)
-            {
-                var conn = ib.Connection;
-                if (conn == null || conn.Type != ConnectionType.ClientServer)
-                    continue;
-                if (!string.Equals((conn.Server ?? "").Trim(), targetServer, StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (string.IsNullOrWhiteSpace(ib.PlatformVersion))
-                    continue;
-
-                var (major, minor) = GetMajorMinor(ib.PlatformVersion);
-                if (major != selectedMajor || minor != selectedMinor)
-                    return ib.PlatformVersion;
-            }
-
-            return null;
-        }
-
         private void OnTypeChanged(object sender, SelectionChangedEventArgs e)
         {
             var isFile = TypeBox.SelectedIndex != 1;
@@ -284,11 +212,9 @@ namespace Configuration_Management
             }
             else
             {
-                MessageBox.Show(
+                _dialogs.ShowInfo(
                     LocalizationManager.T("CreateInfobase.NoPlatformsPathsMsg"),
-                    LocalizationManager.T("CreateInfobase.PlatformPathsTitle"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                    LocalizationManager.T("CreateInfobase.PlatformPathsTitle"));
             }
         }
 
@@ -582,165 +508,77 @@ namespace Configuration_Management
 
         private void OnCreate_Click(object sender, RoutedEventArgs e)
         {
-            var name = NameBox.Text?.Trim() ?? "";
-            if (string.IsNullOrWhiteSpace(name))
+            var request = new CreateInfobaseRequest
             {
-                MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterName"), LocalizationManager.T("CreateInfobase.CreateTitle"),
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            var isFile = TypeBox.SelectedIndex != 1;
-
-            string? templatePath = null;
-            if (_fromTemplate)
-            {
-                templatePath = TemplateBox.Text?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(templatePath) || !File.Exists(templatePath))
-                {
-                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterTemplateFile"), LocalizationManager.T("CreateInfobase.CreateTitle"),
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-            }
-
-            var platform = PlatformBox.Text?.Trim() ?? "";
-            // Убираем суффикс « (64)» для хранения в Infobase.PlatformVersion при необходимости.
-            if (string.IsNullOrWhiteSpace(platform))
-            {
-                MessageBox.Show(
-                    LocalizationManager.T("CreateInfobase.NoPlatform"),
-                    LocalizationManager.T("CreateInfobase.CreateTitle"),
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            bool ok;
-            string? error;
-            ConnectionSettings connection;
-            if (isFile)
-            {
-                var filePath = FilePathBox.Text?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(filePath))
-                {
-                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterFilePath"), LocalizationManager.T("CreateInfobase.CreateTitle"),
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                (ok, error) = OneCLauncher.CreateInfoBase(
-                    platformVersion: platform,
-                    isFile: true,
-                    filePath: filePath,
-                    server: null,
-                    databaseName: null,
-                    templatePath: templatePath);
-
-                if (!ok)
-                {
-                    MessageBox.Show(
-                        string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""),
-                        LocalizationManager.T("CreateInfobase.CreateTitle"),
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-
-                connection = new ConnectionSettings
-                {
-                    Type = ConnectionType.File,
-                    FilePath = filePath ?? ""
-                };
-            }
-            else
-            {
-                var server = ServerBox.Text?.Trim() ?? "";
-                var refName = RefBox.Text?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(refName))
-                {
-                    MessageBox.Show(LocalizationManager.T("CreateInfobase.EnterServerAndDb"), LocalizationManager.T("CreateInfobase.CreateTitle"),
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                var dbms = DbmsBox.Text?.Trim() ?? "";
-                var dbServer = DbServerBox.Text?.Trim() ?? "";
-                var dbName = DbNameBox.Text?.Trim() ?? "";
-                var dbUser = DbUserBox.Text?.Trim() ?? "";
-                var dbPwd = DbPwdBox.Password ?? "";
-                var createSqlDatabase = CreateDbCheck.IsChecked == true;
-
-                // Вариант 2 (#91): заранее предупреждаем, если выбранная версия платформы
-                // отличается (по major.minor) от версий, которыми уже работают
-                // клиент-серверные базы на этом же сервере. «Нет» — прерывает создание.
-                var existingVersion = GetIncompatibleExistingVersion(platform, server);
-                if (existingVersion != null)
-                {
-                    var result = MessageBox.Show(
-                        string.Format(
-                            LocalizationManager.T("CreateInfobase.VersionMismatchMsg"),
-                            platform, existingVersion, server),
-                        LocalizationManager.T("CreateInfobase.VersionMismatchTitle"),
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Warning);
-                    if (result != MessageBoxResult.Yes)
-                        return;
-                }
-
-                (ok, error) = OneCLauncher.CreateInfoBase(
-                    platformVersion: platform,
-                    isFile: false,
-                    filePath: null,
-                    server: server,
-                    databaseName: refName,
-                    templatePath: templatePath,
-                    dbms: dbms,
-                    dbServer: dbServer,
-                    dbName: dbName,
-                    dbUser: dbUser,
-                    dbPassword: dbPwd,
-                    createSqlDatabase: createSqlDatabase,
-                    blockScheduledJobs: BlockJobsCheck.IsChecked == true);
-
-                if (!ok)
-                {
-                    MessageBox.Show(
-                        string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), error ?? ""),
-                        LocalizationManager.T("CreateInfobase.CreateTitle"),
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-
-                connection = new ConnectionSettings
-                {
-                    Type = ConnectionType.ClientServer,
-                    Server = server,
-                    DatabaseName = refName,
-                    BlockScheduledJobs = BlockJobsCheck.IsChecked == true
-                };
-            }
-
-            // Разрядность, выбранная суффиксом версии «(32)/(64)», сохраняется
-            // в отдельное поле Architecture, а PlatformVersion — чистая версия
-            // (без встроенной разрядности, чтобы она не попадала в ibases.v8i).
-            PlatformVersionService.ParseVariant(platform, out var cleanPlatform, out var platformArch);
-            var storedPlatform = string.IsNullOrWhiteSpace(cleanPlatform) ? platform : cleanPlatform;
-            var storedArchitecture = platformArch == "32" || platformArch == "64"
-                ? platformArch
-                : "32-priority";
-
-            Result = new Infobase
-            {
-                Id = Guid.NewGuid().ToString(),
-                Name = name,
-                Group = string.IsNullOrWhiteSpace(_selectedGroupPath) ? string.Empty : _selectedGroupPath,
-                PlatformVersion = storedPlatform,
-                Architecture = storedArchitecture,
-                Connection = connection
+                Name = NameBox.Text?.Trim() ?? "",
+                FromTemplate = _fromTemplate,
+                TemplatePath = TemplateBox.Text?.Trim(),
+                PlatformVersion = PlatformBox.Text?.Trim() ?? "",
+                IsFile = TypeBox.SelectedIndex != 1,
+                FilePath = FilePathBox.Text?.Trim(),
+                Server = ServerBox.Text?.Trim(),
+                DatabaseName = RefBox.Text?.Trim(),
+                Dbms = DbmsBox.Text?.Trim(),
+                DbServer = DbServerBox.Text?.Trim(),
+                DbName = DbNameBox.Text?.Trim(),
+                DbUser = DbUserBox.Text?.Trim(),
+                DbPassword = DbPwdBox.Password ?? "",
+                CreateSqlDatabase = CreateDbCheck.IsChecked == true,
+                BlockScheduledJobs = BlockJobsCheck.IsChecked == true,
+                GroupPath = _selectedGroupPath
             };
 
-            // Создание прошло успешно — запоминаем версию для подстановки по умолчанию.
-            SaveLastPlatformVersion(isFile, platform);
+            var result = _createService.TryCreate(request, confirmVersionMismatch: false);
+            switch (result.Kind)
+            {
+                case CreateInfobaseResultKind.EnterName:
+                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterName"), LocalizationManager.T("CreateInfobase.CreateTitle"));
+                    return;
+                case CreateInfobaseResultKind.EnterTemplateFile:
+                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterTemplateFile"), LocalizationManager.T("CreateInfobase.CreateTitle"));
+                    return;
+                case CreateInfobaseResultKind.NoPlatform:
+                    _dialogs.ShowWarning(
+                        LocalizationManager.T("CreateInfobase.NoPlatform"),
+                        LocalizationManager.T("CreateInfobase.CreateTitle"));
+                    return;
+                case CreateInfobaseResultKind.EnterFilePath:
+                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterFilePath"), LocalizationManager.T("CreateInfobase.CreateTitle"));
+                    return;
+                case CreateInfobaseResultKind.EnterServerAndDb:
+                    _dialogs.ShowWarning(LocalizationManager.T("CreateInfobase.EnterServerAndDb"), LocalizationManager.T("CreateInfobase.CreateTitle"));
+                    return;
+                case CreateInfobaseResultKind.VersionMismatch:
+                {
+                    // Вариант 2 (#91): заранее предупреждаем, если выбранная версия платформы
+                    // отличается (по major.minor) от версий, которыми уже работают
+                    // клиент-серверные базы на этом же сервере. «Нет» — прерывает создание.
+                    if (!_dialogs.Confirm(
+                            string.Format(
+                                LocalizationManager.T("CreateInfobase.VersionMismatchMsg"),
+                                request.PlatformVersion, result.IncompatibleExistingVersion, request.Server),
+                            LocalizationManager.T("CreateInfobase.VersionMismatchTitle")))
+                        return;
+                    result = _createService.TryCreate(request, confirmVersionMismatch: true);
+                    if (result.Kind == CreateInfobaseResultKind.CreateFailed)
+                    {
+                        _dialogs.ShowError(
+                            string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), result.ErrorMessage ?? ""),
+                            LocalizationManager.T("CreateInfobase.CreateTitle"));
+                        return;
+                    }
+                    break;
+                }
+                case CreateInfobaseResultKind.CreateFailed:
+                    _dialogs.ShowError(
+                        string.Format(LocalizationManager.T("CreateInfobase.CreateFailed"), result.ErrorMessage ?? ""),
+                        LocalizationManager.T("CreateInfobase.CreateTitle"));
+                    return;
+                case CreateInfobaseResultKind.Success:
+                    break;
+            }
 
+            Result = result.CreatedInfobase;
             DialogResult = true;
         }
 

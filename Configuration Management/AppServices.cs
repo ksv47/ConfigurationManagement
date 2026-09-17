@@ -24,6 +24,7 @@ public static class AppServices
         services.AddSingleton<IOneCComConnector, OneCComConnector>();
         services.AddSingleton<IPlatformVersionService, PlatformVersionServiceAdapter>();
         services.AddSingleton<IIbasesSyncService, IbasesSyncService>();
+        services.AddSingleton<ICreateInfobaseService, CreateInfobaseService>();
         services.AddTransient<MainViewModel>();
         services.AddTransient<MainWindow>();
 

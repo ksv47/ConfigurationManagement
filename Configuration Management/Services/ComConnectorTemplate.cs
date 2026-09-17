@@ -31,7 +31,15 @@ public static class ComConnectorTemplate
         if (string.IsNullOrWhiteSpace(platformVersion))
             return null;
 
-        var seg = platformVersion.Split('.');
+        // Разрядность («(64)»/«(32)») в имени COM-коннектора не участвует: версия вида
+        // «8.5.4.1683 (64)» должна разворачиваться как «8.5.4.1683», иначе в ProgID попадает
+        // «168364» вместо «1683». Нормализуем версию здесь — единая точка для предпросмотра
+        // в настройках и реального подключения, чтобы они совпадали (issue #175).
+        var normalized = NormalizePlatformVersion(platformVersion);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        var seg = normalized.Split('.');
         if (seg.Length == 0)
             return null;
 
@@ -312,6 +320,19 @@ public static class ComConnectorTemplate
         '_' or '-' or '.' or ' ' => true,
         _ => false
     };
+
+    /// <summary>
+    /// Убирает суффикс разрядности (« (64)»/« (32)») из строки версии платформы,
+    /// оставляя только сегменты версии: «8.5.4.1683 (64)» → «8.5.4.1683». Разрядность
+    /// в имя COM-коннектора не входит (issue #175). Строка без суффикса не меняется.
+    /// </summary>
+    private static string NormalizePlatformVersion(string version)
+    {
+        var idx = version.IndexOf(" (", StringComparison.Ordinal);
+        if (idx >= 0)
+            version = version.Substring(0, idx);
+        return version.Trim();
+    }
 
     /// <summary>Оставляет в строке только десятичные цифры.</summary>
     private static string Digits(string s)

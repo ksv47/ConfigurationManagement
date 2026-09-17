@@ -260,6 +260,9 @@ public partial class MainViewModel : ViewModelBase
             target.LastLaunchDate = dialog.Result.LastLaunchDate;
             target.Tags = dialog.Result.Tags;
             target.MetadataRoot = dialog.Result.MetadataRoot;
+            // Ручной размер базы переносим явно, иначе введённый вручную размер терялся
+            // при сохранении (поле редактируется в окне подключения, issue #243).
+            target.ManualSizeBytes = dialog.Result.ManualSizeBytes;
             target.Connection = dialog.Result.Connection;
             target.EnterpriseAuth = dialog.Result.EnterpriseAuth;
             target.ConfiguratorAuth = dialog.Result.ConfiguratorAuth;
@@ -617,6 +620,7 @@ public partial class MainViewModel : ViewModelBase
         else
         {
             _logger.Warn($"[tray] Не удалось запустить «{ib.Name}»");
+            ShowLaunchFailed();
         }
     }
 
@@ -642,6 +646,7 @@ public partial class MainViewModel : ViewModelBase
         else
         {
             _logger.Warn($"Не удалось запустить избранную базу «{ib.Name}» по Alt+{number}");
+            ShowLaunchFailed();
         }
     }
 
@@ -871,6 +876,21 @@ public partial class MainViewModel : ViewModelBase
         {
             var v = Math.Max(1000, value);
             if (SetProperty(ref _comDetectTimeoutMs, v))
+                ScheduleSaveSettings();
+        }
+    }
+
+    /// <summary>
+    /// Глубина истории запусков одной базы (issue #246): максимальное количество записей
+    /// истории запусков, которое запоминается для информационной базы. Минимум 1.
+    /// </summary>
+    public int MaxLaunchHistoryPerBase
+    {
+        get => _maxLaunchHistoryPerBase;
+        set
+        {
+            var v = Math.Max(1, value);
+            if (SetProperty(ref _maxLaunchHistoryPerBase, v))
                 ScheduleSaveSettings();
         }
     }

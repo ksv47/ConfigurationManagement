@@ -151,11 +151,9 @@ namespace Configuration_Management
             var filePath = _settings.Sync.ResolveDisplayPath();
             if (filePath is null || !System.IO.File.Exists(filePath))
             {
-                MessageBox.Show(
+                _dialogs.ShowInfo(
                     LocalizationManager.T("Settings.Ibases.ImportFileNotFound"),
-                    LocalizationManager.T("Settings.Ibases.ImportTitle"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                    LocalizationManager.T("Settings.Ibases.ImportTitle"));
                 return;
             }
 
@@ -164,13 +162,13 @@ namespace Configuration_Management
             var ok = _viewModel.ImportFromIbases();
             if (ok)
             {
-                MessageBox.Show(LocalizationManager.T("Settings.Ibases.ImportOk"),
-                    LocalizationManager.T("Settings.Ibases.ImportTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+                _dialogs.ShowInfo(LocalizationManager.T("Settings.Ibases.ImportOk"),
+                    LocalizationManager.T("Settings.Ibases.ImportTitle"));
             }
             else
             {
-                MessageBox.Show(LocalizationManager.T("Settings.Ibases.ImportFailed"),
-                    LocalizationManager.T("Settings.Ibases.ImportErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.ShowError(LocalizationManager.T("Settings.Ibases.ImportFailed"),
+                    LocalizationManager.T("Settings.Ibases.ImportErrorTitle"));
             }
 
             RefreshGroupsAfterDataChange();
@@ -181,24 +179,22 @@ namespace Configuration_Management
             var filePath = _settings.Sync.ResolveDisplayPath();
             if (filePath is null)
             {
-                MessageBox.Show(
+                _dialogs.ShowInfo(
                     LocalizationManager.T("Settings.Ibases.ExportNoPath"),
-                    LocalizationManager.T("Settings.Ibases.ExportTitle"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                    LocalizationManager.T("Settings.Ibases.ExportTitle"));
                 return;
             }
 
             try
             {
                 IbasesV8iExporter.Export(filePath, _viewModel.Infobases, _viewModel.Groups);
-                MessageBox.Show(LocalizationManager.T("Settings.Ibases.ExportOk"),
-                    LocalizationManager.T("Settings.Ibases.ExportTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+                _dialogs.ShowInfo(LocalizationManager.T("Settings.Ibases.ExportOk"),
+                    LocalizationManager.T("Settings.Ibases.ExportTitle"));
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(LocalizationManager.T("Settings.Ibases.ExportFailed"), ex.Message),
-                    LocalizationManager.T("Settings.Ibases.ExportErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.ShowError(string.Format(LocalizationManager.T("Settings.Ibases.ExportFailed"), ex.Message),
+                    LocalizationManager.T("Settings.Ibases.ExportErrorTitle"));
             }
         }
     }

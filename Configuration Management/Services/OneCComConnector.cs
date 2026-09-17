@@ -397,7 +397,8 @@ public sealed class OneCComConnector : IOneCComConnector
         return LocalizationManager.T("Connection.DetectStageConnectNoVersion");
     }
 
-    public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, int timeoutMs = 8000, Action<string>? onStage = null)
+    public OneCConfigInfo? ReadConfigurationInfo(Infobase infobase, OneCLaunchMode mode = OneCLaunchMode.Configurator,
+        int timeoutMs = 8000, Action<string>? onStage = null)
     {
         if (infobase is null) return null;
         // Параметр объявлен ненулевым, а защита выше уже вернула бы раньше. Локальная
@@ -458,7 +459,7 @@ public sealed class OneCComConnector : IOneCComConnector
         // Признак пароля берём у того, кто строку собирает: он единственный знает наверняка,
         // положил ли туда Pwd. Разбирать уже собранную строку обратно — лишний источник
         // расхождений: список секретных параметров пришлось бы держать синхронным в двух местах.
-        var connectString = BuildComConnectString(ib, out var hasSecret);
+        var connectString = BuildComConnectString(ib, mode, out var hasSecret);
         if (string.IsNullOrWhiteSpace(connectString))
         {
             LastError = LocalizationManager.T("Com.ConnStringBuildFailed");
@@ -989,8 +990,19 @@ public sealed class OneCComConnector : IOneCComConnector
     /// То же, но дополнительно сообщает, попал ли в строку пароль. Признак отдаёт именно
     /// сборщик: он единственный знает это точно, тогда как обратный разбор готовой строки
     /// зависит от списка имён секретных параметров и от экранирования, которого здесь нет.
+    /// Учётные данные выбираются по режиму «Конфигуратор» (по умолчанию для чтения сведений).
     /// </summary>
     internal static string BuildComConnectString(Infobase infobase, out bool hasSecret)
+        => BuildComConnectString(infobase, OneCLaunchMode.Configurator, out hasSecret);
+
+    /// <summary>
+    /// Строит строку подключения COM с учётом режима, по которому выбираются учётные данные
+    /// (issue #236). Раздельная авторизация Конфигуратора/Предприятия (<see cref="InfobaseAuthResolver"/>)
+    /// учитывается так же, как при запуске 1С, поэтому для баз с пустой авторизацией Connection,
+    /// но заданными EnterpriseAuth/ConfiguratorAuth, в строку попадают реальные Usr/Pwd.
+    /// Дополнительно сообщает, попал ли в строку пароль (см. перегрузку выше).
+    /// </summary>
+    internal static string BuildComConnectString(Infobase infobase, OneCLaunchMode mode, out bool hasSecret)
     {
         hasSecret = false;
 
@@ -1017,13 +1029,14 @@ public sealed class OneCComConnector : IOneCComConnector
                 return string.Empty;
         }
 
-        if (c.AuthenticationMode == AuthenticationMode.Credentials
-            && !string.IsNullOrWhiteSpace(c.User))
+        InfobaseAuthResolver.Resolve(infobase, mode, out var authMode, out var authUser, out var authPassword);
+        if (authMode == AuthenticationMode.Credentials
+            && !string.IsNullOrWhiteSpace(authUser))
         {
-            AppendParameter(sb, "Usr", c.User);
-            if (!string.IsNullOrWhiteSpace(c.Password))
+            AppendParameter(sb, "Usr", authUser);
+            if (!string.IsNullOrWhiteSpace(authPassword))
             {
-                AppendParameter(sb, "Pwd", c.Password);
+                AppendParameter(sb, "Pwd", authPassword);
                 hasSecret = true;
             }
         }

@@ -342,8 +342,8 @@ namespace Configuration_Management
                     stack = stack[..1200] + "…";
                 sb.AppendLine(stack);
 
-                MessageBox.Show(sb.ToString(), TOr("App.Fatal.Title", "Управление конфигурациями 1С — ошибка"),
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                AppServices.GetRequiredService<IDialogService>()
+                    .ShowError(sb.ToString(), TOr("App.Fatal.Title", "Управление конфигурациями 1С — ошибка"));
             }
             catch
             {

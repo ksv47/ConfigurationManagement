@@ -133,6 +133,14 @@ public class AppSettings
     /// </summary>
     public int ComDetectTimeoutMs { get; set; } = 30000;
 
+    /// <summary>
+    /// Глобальная настройка глубины истории запусков (issue #246): максимальное количество
+    /// записей истории запусков, которое запоминается для одной информационной базы. При
+    /// превышении этого количества из конца списка удаляются самые старые записи.
+    /// По умолчанию — 30 (как было зашито жёстко до версии 0.3.7.34).
+    /// </summary>
+    public int MaxLaunchHistoryPerBase { get; set; } = 30;
+
     /// <summary>Режим синхронизации с файлом ibases.v8i.</summary>
     public IbasesSyncMode IbasesSyncMode { get; set; } = IbasesSyncMode.None;
 

@@ -217,13 +217,6 @@ namespace Configuration_Management
                 VerticalAlignment = VerticalAlignment.Center
             };
             selectParent.Styled(ControlThemes.SecondaryButton);
-            // Для служебных узлов «Без группы» и «Закреплённые» разметка гасит
-            // четыре элемента сразу: наименование, описание, поле родителя
-            // и кнопку выбора (подтверждено Windows-стороной, задание 14).
-            selectParent.IsEnabled = !_noGroupMode;
-            _nameBox.IsEnabled = !_noGroupMode;
-            _descriptionBox.IsEnabled = !_noGroupMode;
-            _parentPathBox.IsEnabled = !_noGroupMode;
             selectParent.Click += (_, _) => OnSelectParent_Click();
             ToolTip.SetTip(selectParent, LocalizationManager.T("GroupEdit.SelectParentTooltip"));
             Grid.SetColumn(selectParent, 1);
@@ -244,7 +237,11 @@ namespace Configuration_Management
             var generalBox = Controls.GroupBoxPanel.Build("GroupEdit.BasicParams", general,
                 margin: new Thickness(0, 0, 0, 12), padding: new Thickness(10));
 
-            tabs.Items.Add(SubTab("IconFileDocument", "GroupEdit.TabMain", generalBox));
+            // Для служебных узлов «Без группы»/«Закреплённые» вкладку «Основные»
+            // не показываем: наименование, родитель и описание при сохранении
+            // не применяются (замечание к issue #240). Остаются «Цвет» и «Иконка».
+            if (!_noGroupMode)
+                tabs.Items.Add(SubTab("IconFileDocument", "GroupEdit.TabMain", generalBox));
 
             // ===== Вкладка «Цвет» =====
             var colorTab = new StackPanel();
@@ -252,7 +249,8 @@ namespace Configuration_Management
             colorTab.Children.Add(_colorControl);
             var colorBox = Controls.GroupBoxPanel.Build("GroupEdit.TitleColor", colorTab,
                 margin: new Thickness(0, 0, 0, 12), padding: new Thickness(10));
-            tabs.Items.Add(SubTab("IconPalette", "GroupEdit.TabColor", colorBox));
+            var colorTabItem = SubTab("IconPalette", "GroupEdit.TabColor", colorBox);
+            tabs.Items.Add(colorTabItem);
 
             // ===== Вкладка «Иконка» =====
             // Значок вкладки: в разметке это Kind="Shape" из пакета MaterialDesign,
@@ -274,6 +272,11 @@ namespace Configuration_Management
             var iconBox = Controls.GroupBoxPanel.Build("GroupEdit.IconAndColor", iconTab,
                 margin: new Thickness(0, 0, 0, 12), padding: new Thickness(10));
             tabs.Items.Add(SubTab("IconApplication", "GroupEdit.TabIcon", iconBox));
+
+            // Открываем активной вкладку «Цвет» (issue #249): при правке оформления
+            // группы/служебного узла цвет нужен чаще, чем имя или родитель. Для
+            // служебных узлов «Основные» скрыта, поэтому здесь всегда указываем «Цвет».
+            tabs.SelectedItem = colorTabItem;
 
             Grid.SetRow(tabs, 0);
             grid.Children.Add(tabs);

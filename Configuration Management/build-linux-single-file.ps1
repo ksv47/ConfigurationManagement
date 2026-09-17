@@ -69,6 +69,7 @@ dotnet publish $Project `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:EnableCompressionInSingleFile=true `
     -p:PublishReadyToRun=false `
+    -p:InvariantGlobalization=true `
     -o $Dist
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
