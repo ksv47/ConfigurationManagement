@@ -206,6 +206,10 @@ public partial class MainViewModel : ViewModelBase
         _settings.RememberWindowLayout = rememberWindowLayout;
         _settings.CheckForUpdatesOnStartup = checkForUpdatesOnStartup;
         _settings.AutoUpdateEnabled = autoUpdateEnabled;
+        // Служба обновления живёт до перезапуска, а кнопка «Проверить обновления» стоит
+        // в том же окне настроек: без этого снятая галка вступала бы в силу только
+        // со следующего запуска.
+        AppServices.GetRequiredService<UpdateService>().ApplyAutoUpdatePolicy(autoUpdateEnabled);
         if (!SaveSettingsSafe())
             _dialog.ShowError(LocalizationManager.T("Main.SaveFailedHint"),
                 LocalizationManager.T("Settings.Title"));

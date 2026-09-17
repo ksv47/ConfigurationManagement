@@ -299,15 +299,8 @@ namespace Configuration_Management
                     // «О программе». Пока присваивание стояло внутри условия, у выключивших
                     // проверку при запуске оставалось значение по умолчанию (true), и ручная
                     // проверка молча скачивала и ставила новую версию с перезапуском, минуя
-                    // вопрос о согласии и окно хода загрузки.
-                    // На виртуализации и при программном рендере молчаливый авто-рестарт
-                    // в фоне выглядит как «окно закрывается само через несколько секунд»
-                    // после успешного запуска (issue #153): скачивание и замена бинарника
-                    // с перезапуском здесь переносятся на явный выбор пользователя
-                    // (показывается стандартный диалог), чтобы окно не пропадало само.
-                    // На реальном железе с рабочим GPU поведение не меняется.
-                    updateService.AutoUpdateEnabled = settings.AutoUpdateEnabled
-                        && !(Services.LinuxRendering.Virtualized || Services.LinuxRendering.SoftwareRender);
+                    // вопрос о согласии и вопрос о моменте перезапуска.
+                    updateService.ApplyAutoUpdatePolicy(settings.AutoUpdateEnabled);
 
                     if (settings.CheckForUpdatesOnStartup)
                         CheckForUpdatesInBackground(updateService);
