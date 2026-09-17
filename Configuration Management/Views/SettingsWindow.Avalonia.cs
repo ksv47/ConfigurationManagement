@@ -1857,7 +1857,10 @@ namespace Configuration_Management
                 }
             }
 
-            var listButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            // Кнопки идут столбцом во всю ширину, как в разметке WPF: семь кнопок
+            // в строку не помещаются даже в широком окне, и последние две
+            // (поиск потерянных баз, очистка истории) уходили за край окна.
+            var listButtons = new StackPanel { Orientation = Orientation.Vertical, Spacing = 8 };
 
             var exportList = new Button { Content = LocalizationManager.T("Settings.Bases.ExportList") };
             ToolTip.SetTip(exportList, LocalizationManager.T("Settings.Bases.ExportListTooltip"));
@@ -1927,6 +1930,8 @@ namespace Configuration_Management
             listButtons.Children.Add(detectAll);
             listButtons.Children.Add(findLostBases);
             listButtons.Children.Add(clearHistory);
+            foreach (var listButton in listButtons.Children.OfType<Button>())
+                listButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             basesListPanel.Children.Add(listButtons);
 
             // Глубина истории запусков одной базы (issue #246).
