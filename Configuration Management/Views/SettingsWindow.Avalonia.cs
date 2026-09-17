@@ -1737,7 +1737,10 @@ namespace Configuration_Management
             basesTemplatesPanel.Children.Add(Hint(LocalizationManager.T("Settings.Bases.TemplateDirsHintLinux")));
             basesTemplatesPanel.Children.Add(templateList);
 
-            var templateButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 8) };
+            // Перенос на следующую строку, как WrapPanel в разметке WPF: горизонтальной
+            // прокрутки у подвкладки нет, и на увеличенном шрифте кнопок строка из
+            // четырёх кнопок уходила за край окна без возможности их нажать.
+            var templateButtons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 8) };
 
             var addTemplate = new Button { Content = LocalizationManager.T("Settings.Bases.AddTemplate") };
             ToolTip.SetTip(addTemplate, LocalizationManager.T("Settings.Bases.AddTemplateTooltip"));
@@ -1785,6 +1788,11 @@ namespace Configuration_Management
             templateButtons.Children.Add(editTemplate);
             templateButtons.Children.Add(removeTemplate);
             templateButtons.Children.Add(loadTemplates);
+            foreach (var templateButton in templateButtons.Children.OfType<Button>())
+                templateButton.Margin = new Thickness(0, 0, 8, 4);
+            // У последней кнопки правого отступа нет, как в разметке WPF: в WrapPanel он
+            // входит в измеряемую ширину и сдвигал бы перенос на восемь точек раньше.
+            loadTemplates.Margin = new Thickness(0, 0, 0, 4);
             basesTemplatesPanel.Children.Add(templateButtons);
 
             // Операции со списком баз целиком: выгрузка и загрузка JSON,
@@ -1980,7 +1988,7 @@ namespace Configuration_Management
             basesMaintenancePanel.Children.Add(GroupTitle(LocalizationManager.T("Settings.Maintenance")));
             basesMaintenancePanel.Children.Add(Hint(LocalizationManager.T("Settings.Bases.MaintenanceHint")));
 
-            var maintenanceButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
+            var maintenanceButtons = new StackPanel { Orientation = Orientation.Vertical, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
 
             var removeMissing = new Button { Content = LocalizationManager.T("Settings.Bases.RemoveMissing") };
             ToolTip.SetTip(removeMissing, LocalizationManager.T("Settings.Bases.RemoveMissingTooltip"));
@@ -1992,6 +2000,8 @@ namespace Configuration_Management
 
             maintenanceButtons.Children.Add(removeMissing);
             maintenanceButtons.Children.Add(killProcesses);
+            foreach (var maintenanceButton in maintenanceButtons.Children.OfType<Button>())
+                maintenanceButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             basesMaintenancePanel.Children.Add(maintenanceButtons);
 
             basesMaintenancePanel.Children.Add(GroupTitle(LocalizationManager.T("Settings.DangerousOps")));
@@ -2000,7 +2010,7 @@ namespace Configuration_Management
             var clearAll = new Button
             {
                 Content = LocalizationManager.T("Settings.Bases.ClearAll"),
-                HorizontalAlignment = HorizontalAlignment.Left,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
                 Margin = new Thickness(0, 0, 0, 8)
             };
             ToolTip.SetTip(clearAll, LocalizationManager.T("Settings.Bases.ClearAllTooltip"));
