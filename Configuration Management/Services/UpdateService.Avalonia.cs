@@ -68,6 +68,19 @@ namespace Configuration_Management.Services
         /// </summary>
         public bool AutoUpdateEnabled { get; set; } = true;
 
+        /// <summary>
+        /// Ставит флаг автообновления по настройке пользователя. Вызывается при старте и
+        /// при сохранении настроек: службу обслуживает и кнопка «Проверить обновления»,
+        /// поэтому значение не должно отставать от настроек до перезапуска.
+        /// На виртуализации и при программном рендере молчаливый авто-рестарт выглядит
+        /// как «окно закрывается само через несколько секунд» после успешного запуска
+        /// (issue #153), поэтому там обновление всегда идёт через вопрос пользователю.
+        /// На реальном железе с рабочим GPU поведение не меняется.
+        /// </summary>
+        public void ApplyAutoUpdatePolicy(bool autoUpdateEnabled)
+            => AutoUpdateEnabled = autoUpdateEnabled
+                && !(LinuxRendering.Virtualized || LinuxRendering.SoftwareRender);
+
         public UpdateService(GitHubReleaseService gitHub, IDialogService dialogs)
         {
             _gitHub = gitHub;
